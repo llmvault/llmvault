@@ -88,6 +88,17 @@ export function agentRequiredPlugins(
   return agent?.required_plugins ?? []
 }
 
+export function agentRequiredPluginSlugs(
+  agent: CatalogAgent | undefined
+): Set<string> {
+  const slugs = new Set<string>()
+  for (const plugin of agentRequiredPlugins(agent)) {
+    const slug = pluginRequirementSlug(plugin)
+    if (slug) slugs.add(slug)
+  }
+  return slugs
+}
+
 export function agentAvailableModels(
   agent: CatalogAgent | undefined
 ): string[] {
@@ -160,6 +171,15 @@ export function pluginForRequirement(
 ): ApiPlugin | undefined {
   const slug = pluginRequirementSlug(requirement)
   return slug ? lookup.get(slug) : undefined
+}
+
+export function pluginEnabledForAgent(
+  plugin: ApiPlugin,
+  agentID: string | undefined
+): boolean {
+  const id = agentID?.trim()
+  if (!id) return false
+  return (plugin.enabled_agent_ids ?? []).includes(id)
 }
 
 export function agentInitials(name: string): string {

@@ -40,10 +40,11 @@ pub async fn describe_image_file(
     path: &Path,
     mime_type: &str,
     bytes: &[u8],
+    session_id: Option<&str>,
 ) -> Result<Value> {
     let client = reqwest::Client::new();
     let upload = upload_image(&client, runtime_env, path, mime_type, bytes).await?;
-    let described = describe_uploaded_image(&client, runtime_env, &upload.id).await?;
+    let described = describe_uploaded_image(&client, runtime_env, &upload.id, session_id).await?;
     Ok(json!({
         "path": path.display().to_string(),
         "mime_type": mime_type,
@@ -97,6 +98,7 @@ async fn describe_uploaded_image(
     client: &reqwest::Client,
     runtime_env: &HashMap<String, String>,
     asset_id: &str,
+    session_id: Option<&str>,
 ) -> Result<DescribeResponse> {
     let control_plane = required_env(runtime_env, ENV_CONTROL_PLANE_URL)?;
     let agent_id = required_env(runtime_env, ENV_AGENT_ID)?;
@@ -106,13 +108,17 @@ async fn describe_uploaded_image(
         control_plane.trim_end_matches('/'),
         agent_id
     );
+    let mut body = json!({
+        "drive_asset_id": asset_id,
+        "detail_level": "high",
+    });
+    if let Some(session_id) = session_id.map(str::trim).filter(|value| !value.is_empty()) {
+        body["session_id"] = json!(session_id);
+    }
     let response = client
         .post(url)
         .bearer_auth(secret)
-        .json(&json!({
-            "drive_asset_id": asset_id,
-            "detail_level": "high",
-        }))
+        .json(&body)
         .send()
         .await
         .context("describe uploaded image")?;

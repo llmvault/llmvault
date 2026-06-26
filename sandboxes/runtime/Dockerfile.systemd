@@ -156,6 +156,8 @@ WORKDIR /app
 COPY hivy-sandboxes-runtime /usr/local/bin/hivy-sandboxes-runtime
 COPY penpot /usr/local/bin/penpot
 COPY docker/runtime/entrypoint /usr/local/bin/hivy-runtime-entrypoint
+COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
+COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
 COPY docker/runtime/git-credential-hivy /usr/local/bin/git-credential-hivy
 COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
@@ -165,11 +167,13 @@ RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
   && ln -sf /usr/local/bin/penpot /usr/local/bin/canvas \
   && mkdir -p /app /workspace/.hivy/runtime /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
+  && chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
   && chmod +x /usr/local/bin/git-credential-hivy \
   && chmod +x /usr/local/bin/gh-wrapper \
   && chmod +x /usr/local/bin/hivy-guardian \
   && git config --system credential.helper /usr/local/bin/git-credential-hivy \
-  && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh
+  && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh \
+  && systemctl enable hivy-runtime.service
 
 ENV HIVY_SANDBOX_DATA_ROOT=/workspace/.hivy
 ENV HIVY_DB_PATH=/workspace/.hivy/runtime/hivy-sandboxes-runtime.db

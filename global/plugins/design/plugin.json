@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "design",
   "name": "Design",
-  "description": "Create, edit, inspect, and export Canvas design files from Hivy sandboxes.",
+  "description": "Create, edit, inspect, and export Canvas design files, including tasteful web app, website, logo, visual identity, landing page copy, and business slide deck explorations, from Hivy sandboxes.",
   "category": "Design",
   "icon": "lucide:palette",
   "icon_color": "#14B8A6",
@@ -10,14 +10,18 @@
   "official": true,
   "capabilities": ["Read", "Write", "Browser"],
   "examples": [
-    "Create a new Canvas file for this app redesign",
+    "Polish this web app screen so it feels less generic",
+    "Explore tasteful logo directions for this brand in Canvas",
+    "Write and place landing page hero copy in a Canvas mockup",
+    "Design a persuasive business slide deck in Canvas",
+    "Turn this investor pitch outline into a polished Canvas deck",
     "Open the current Canvas file and add a landing page mockup",
     "Export the current Canvas board as a PNG"
   ],
   "links": {
     "website": "https://www.usehivy.com/"
   },
-  "long_description": "Use the Design plugin to work with Hivy-managed Canvas files. Agents use the built-in canvas CLI to open an authenticated browser session, switch between files and pages, call Canvas MCP tools, modify live design files, and export design artifacts while users watch collaboration in real time.",
+  "long_description": "Use the Design plugin to work with Hivy-managed Canvas files and design-direction workflows. Agents use the built-in canvas CLI to open an authenticated browser session, switch between files and pages, call Canvas MCP tools, modify live design files, improve web app and website taste, create logo and visual identity explorations, write conversion-focused landing page copy in context, design persuasive business slide decks, and export design artifacts while users watch collaboration in real time.",
   "plugin_version": "1",
   "enabled": true
 }

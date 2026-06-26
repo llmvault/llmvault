@@ -1,0 +1,22 @@
+{
+  "name": "landing-page-copy",
+  "description": "Use this skill when the user asks a design agent to write, revise, critique, or place landing page copy, hero copy, value proposition copy, CTA copy, sales page copy, signup/demo page copy, pricing page copy, or conversion-focused website sections. It teaches conversion copy judgment and directs the agent to fit the copy into the actual Hivy Canvas landing page design when a visual artifact is being created or edited.",
+  "human_description": "Teach agents conversion-focused landing page copy for Canvas designs.",
+  "category": "Design",
+  "root": "./SKILL.md",
+  "tags": [
+    "landing-page",
+    "copy",
+    "hero",
+    "conversion",
+    "canvas"
+  ],
+  "files": [
+    {
+      "path": "references/hero-formulas.md"
+    },
+    {
+      "path": "references/objection-library.md"
+    }
+  ]
+}

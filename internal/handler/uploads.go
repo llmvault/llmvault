@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/storage"
 )
@@ -19,6 +20,7 @@ type UploadsHandler struct {
 	imageKMS            *crypto.KeyWrapper
 	imageRegistry       *registry.Registry
 	imageHTTPClient     *http.Client
+	usageEnqueuer       enqueue.TaskEnqueuer
 	agentRuntimeImage   string
 	assetPreviewBaseURL string
 }
@@ -52,6 +54,11 @@ func (h *UploadsHandler) WithStreamer(s storage.Streamer, encKey *crypto.Symmetr
 
 func (h *UploadsHandler) WithRuntimeImages(agentImage string) *UploadsHandler {
 	h.agentRuntimeImage = agentImage
+	return h
+}
+
+func (h *UploadsHandler) WithUsageEnqueuer(enq enqueue.TaskEnqueuer) *UploadsHandler {
+	h.usageEnqueuer = enq
 	return h
 }
 

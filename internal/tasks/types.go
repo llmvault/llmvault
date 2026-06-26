@@ -6,6 +6,7 @@ const (
 	TypeWebhookForward            = "webhook:forward"
 	TypeAuditWrite                = "audit:write"
 	TypeGenerationWrite           = "generation:write"
+	TypeModelUsageWrite           = "model_usage:write"
 	TypeAPIKeyUpdate              = "apikey:update_last_used" // #nosec G101 -- task type identifier, not a credential
 	TypeEmailSend                 = "email:send"
 	TypeEmailSendTemplate         = "email:send_template"

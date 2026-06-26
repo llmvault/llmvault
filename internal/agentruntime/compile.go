@@ -254,7 +254,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if err != nil {
 		return nil, err
 	}
-	subAgents, err := buildSubAgents(ctx, deps, agent, modelID)
+	subAgents, err := buildSubAgents(ctx, deps, agent, modelID, skills)
 	if err != nil {
 		return nil, err
 	}

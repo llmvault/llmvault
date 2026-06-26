@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/system"
@@ -17,6 +18,7 @@ type ImageDescribeHandler struct {
 	runtimeSecrets      *crypto.SymmetricKey
 	registry            *registry.Registry
 	gateway             system.Gateway
+	enqueuer            enqueue.TaskEnqueuer
 	assetReader         storage.Reader
 	assetPreviewBaseURL string
 }
@@ -44,9 +46,16 @@ func (h *ImageDescribeHandler) WithRuntimeSecretKey(key *crypto.SymmetricKey) *I
 	return h
 }
 
+func (h *ImageDescribeHandler) WithUsageEnqueuer(enq enqueue.TaskEnqueuer) *ImageDescribeHandler {
+	h.enqueuer = enq
+	return h
+}
+
 type imageDescribeRequest struct {
-	DriveAssetID string `json:"drive_asset_id"`
-	DetailLevel  string `json:"detail_level,omitempty"`
+	DriveAssetID  string `json:"drive_asset_id"`
+	DetailLevel   string `json:"detail_level,omitempty"`
+	SessionID     string `json:"session_id,omitempty"`
+	HivySessionID string `json:"_hivy_session_id,omitempty"`
 }
 
 type imageDescribeResponse struct {

@@ -81,15 +81,11 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if !ok {
 		t.Fatalf("init = %T, want object", createReq["init"])
 	}
-	if init["cmd"] != "/usr/local/bin/hivy-runtime-entrypoint" {
+	if init["cmd"] != "auto" {
 		t.Fatalf("init cmd = %v", init["cmd"])
 	}
-	args, ok := init["args"].([]any)
-	if !ok {
-		t.Fatalf("init args = %T, want array", init["args"])
-	}
-	if len(args) != 1 || args[0] != "/usr/local/bin/hivy-sandboxes-runtime" {
-		t.Fatalf("init args = %v", args)
+	if _, ok := init["args"]; ok {
+		t.Fatalf("init args must not be sent for auto init: %#v", init)
 	}
 
 	endpoint, err := driver.GetEndpoint(context.Background(), "sbx_test", 0)

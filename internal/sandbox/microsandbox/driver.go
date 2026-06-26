@@ -29,8 +29,7 @@ type Driver struct {
 }
 
 var agentRuntimeInit = map[string]any{
-	"cmd":  "/usr/local/bin/hivy-runtime-entrypoint",
-	"args": []string{"/usr/local/bin/hivy-sandboxes-runtime"},
+	"cmd": "auto",
 }
 
 func NewDriver(cfg Config) (*Driver, error) {

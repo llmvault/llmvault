@@ -26,8 +26,9 @@ type Request struct {
 }
 
 type Result struct {
-	Text         string
-	LanguageCode string
+	Text            string
+	LanguageCode    string
+	DurationSeconds float64
 }
 
 type Transcriber interface {
@@ -96,14 +97,32 @@ func (t *ElevenLabsTranscriber) Transcribe(ctx context.Context, req Request) (Re
 		return Result{}, fmt.Errorf("elevenlabs transcribe: decode response: %w", err)
 	}
 	return Result{
-		Text:         decoded.Text,
-		LanguageCode: decoded.LanguageCode,
+		Text:            decoded.Text,
+		LanguageCode:    decoded.LanguageCode,
+		DurationSeconds: decoded.durationSeconds(),
 	}, nil
 }
 
 type elevenLabsTranscriptionResponse struct {
 	Text         string `json:"text"`
 	LanguageCode string `json:"language_code"`
+	Words        []struct {
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+	} `json:"words,omitempty"`
+}
+
+func (r elevenLabsTranscriptionResponse) durationSeconds() float64 {
+	var maxEnd float64
+	for _, word := range r.Words {
+		if word.End > maxEnd {
+			maxEnd = word.End
+		}
+	}
+	if maxEnd < 0 {
+		return 0
+	}
+	return maxEnd
 }
 
 func elevenLabsSpeechToTextURL(baseURL string) (string, error) {

@@ -226,6 +226,13 @@ var curatedProviders = []Provider{
 			},
 		},
 	},
+	{ // reve — Reve
+		ID:     "reve",
+		Name:   "Reve",
+		API:    "https://api.reve.com",
+		Doc:    "https://api.reve.com/console/docs",
+		Models: map[string]Model{},
+	},
 	{ // fireworks-ai — Fireworks AI
 		ID:   "fireworks-ai",
 		Name: "Fireworks AI",

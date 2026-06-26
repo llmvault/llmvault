@@ -67,6 +67,7 @@ export async function uploadDriveImageAsset(options: {
 
 export async function describeDriveImage(
   driveAssetId: string,
+  sessionId?: string,
   detailLevel = "high"
 ): Promise<ImageDescriptionResult> {
   const response = await fetch("/api/proxy/v1/images/describe", {
@@ -75,6 +76,7 @@ export async function describeDriveImage(
     body: JSON.stringify({
       drive_asset_id: driveAssetId,
       detail_level: detailLevel,
+      session_id: sessionId,
     }),
   })
   if (!response.ok) {

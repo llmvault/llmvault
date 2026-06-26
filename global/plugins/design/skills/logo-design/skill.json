@@ -1,0 +1,34 @@
+{
+  "name": "logo-design",
+  "description": "Use this skill when the user asks a design agent to design, redesign, refine, critique, or explore a logo, wordmark, monogram, brand mark, lockup, favicon mark, or logo variants. It teaches logo design judgment, mark architecture, typographic register, small-size discipline, and presentation standards, then directs the agent to create and verify the actual logo exploration inside Hivy Canvas with the canvas skill.",
+  "human_description": "Teach agents tasteful logo direction and Canvas-based logo exploration.",
+  "category": "Design",
+  "root": "./SKILL.md",
+  "tags": [
+    "logo",
+    "brand",
+    "canvas",
+    "visual-identity",
+    "design-direction"
+  ],
+  "files": [
+    {
+      "path": "references/architectures-explained.md"
+    },
+    {
+      "path": "references/typographic-registers.md"
+    },
+    {
+      "path": "references/symbol-approaches.md"
+    },
+    {
+      "path": "references/application-contexts.md"
+    },
+    {
+      "path": "references/category-conventions.md"
+    },
+    {
+      "path": "references/example-variant-spec.md"
+    }
+  ]
+}

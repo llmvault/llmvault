@@ -11,6 +11,17 @@ import (
 	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
+// @Summary List agent plugins
+// @Description Returns plugins installed in the current organization and their enablement state for one installed agent.
+// @Tags plugins
+// @Produce json
+// @Param id path string true "Agent ID"
+// @Success 200 {array} pluginResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/agents/{id}/plugins [get]
 func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request) {
 	org, agent, ok := h.loadAgentFromRoute(w, r)
 	if !ok {
@@ -47,6 +58,19 @@ func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// @Summary Enable plugin for agent
+// @Description Enables an organization-installed plugin for one installed agent.
+// @Tags plugins
+// @Produce json
+// @Param id path string true "Agent ID"
+// @Param slug path string true "Plugin slug"
+// @Success 200 {object} pluginResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/agents/{id}/plugins/{slug} [post]
 func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	org, agent, ok := h.loadAgentFromRoute(w, r)
@@ -82,6 +106,19 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// @Summary Disable plugin for agent
+// @Description Disables a plugin for one installed agent unless the plugin is required for that agent.
+// @Tags plugins
+// @Produce json
+// @Param id path string true "Agent ID"
+// @Param slug path string true "Plugin slug"
+// @Success 200 {object} statusResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/agents/{id}/plugins/{slug} [delete]
 func (h *PluginHandler) DisableForAgent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	org, agent, ok := h.loadAgentFromRoute(w, r)
@@ -92,8 +129,16 @@ func (h *PluginHandler) DisableForAgent(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	if pluginstore.PluginAutoInstall(plugin) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is installed for all agents and cannot be disabled"})
+		return
+	}
 	if pluginstore.PluginLocked(plugin) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required and cannot be disabled"})
+		return
+	}
+	if agent.AgentCatalog != nil && containsString(agent.AgentCatalog.RequiredPlugins, plugin.Slug) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required for this agent and cannot be disabled"})
 		return
 	}
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

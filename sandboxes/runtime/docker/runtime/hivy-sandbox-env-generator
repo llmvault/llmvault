@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+target_dir="${1:-/run/systemd/generator}"
+env_source="${HIVY_SYSTEMD_ENV_SOURCE:-/proc/1/environ}"
+dropin_dir="$target_dir/service.d"
+dropin_file="$dropin_dir/00-hivy-sandbox-env.conf"
+
+mkdir -p "$dropin_dir"
+
+{
+  printf '%s\n' '[Service]'
+  if [ -r "$env_source" ]; then
+    tr '\0' '\n' <"$env_source" | awk -F= '
+      /^[A-Za-z_][A-Za-z0-9_]*=/ && !seen[$1]++ {
+        printf "PassEnvironment=%s\n", $1
+      }
+    '
+  fi
+} >"$dropin_file"

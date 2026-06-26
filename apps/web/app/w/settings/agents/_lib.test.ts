@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   agentCanInstall,
+  agentRequiredPluginSlugs,
   agentAvatarURL,
   agentAvailableModels,
   agentCategories,
@@ -10,6 +11,7 @@ import {
   groupAgents,
   normalizeAgentSandboxImage,
   normalizeAgentSandboxSize,
+  pluginEnabledForAgent,
   pluginForRequirement,
   pluginsBySlug,
   type CatalogAgent,
@@ -144,5 +146,22 @@ describe("agent catalog helpers", () => {
 
     expect(matched).toBe(plugin)
     expect(pluginLogoProvider(matched!)).toBe("github-app")
+  })
+
+  it("tracks required plugin slugs and agent plugin enablement", () => {
+    const item = agent({
+      required_plugins: [
+        { slug: "design", name: "Design", installed: true },
+        { slug: " ", name: "Blank", installed: true },
+      ],
+    })
+    const plugin: ApiPlugin = {
+      slug: "design",
+      enabled_agent_ids: ["agent-1"],
+    }
+
+    expect(Array.from(agentRequiredPluginSlugs(item))).toEqual(["design"])
+    expect(pluginEnabledForAgent(plugin, "agent-1")).toBe(true)
+    expect(pluginEnabledForAgent(plugin, "agent-2")).toBe(false)
   })
 })

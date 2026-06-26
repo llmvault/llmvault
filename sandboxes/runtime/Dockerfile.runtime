@@ -1,6 +1,7 @@
 FROM debian:13.4
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV container=microsandbox
 ENV MISE_INSTALL_DIR=/usr/local/bin
 ENV MISE_DATA_DIR=/usr/local/share/mise
 ENV MISE_CONFIG_DIR=/usr/local/etc/mise
@@ -8,6 +9,7 @@ ENV MISE_CACHE_DIR=/usr/local/cache/mise
 ENV PATH=/usr/local/share/mise/shims:${PATH}
 ARG VERSION=dev
 ARG COMMIT=unknown
+ARG TARGETARCH
 
 LABEL org.opencontainers.image.source="https://github.com/usehivy/hivy"
 LABEL org.opencontainers.image.version="${VERSION}"
@@ -19,6 +21,7 @@ RUN apt-get update \
     ca-certificates \
     coreutils \
     curl \
+    dbus \
     fd-find \
     file \
     findutils \
@@ -37,6 +40,8 @@ RUN apt-get update \
     shellcheck \
     shfmt \
     sqlite3 \
+    systemd \
+    systemd-sysv \
     tar \
     tini \
     unzip \
@@ -48,6 +53,17 @@ RUN apt-get update \
     zstd \
   && ln -s /usr/bin/fdfind /usr/local/bin/fd \
   && git lfs install --system \
+  && systemctl mask \
+    dev-hugepages.mount \
+    sys-fs-fuse-connections.mount \
+    systemd-hwdb-update.service \
+    systemd-journal-flush.service \
+    systemd-modules-load.service \
+    systemd-remount-fs.service \
+    systemd-sysctl.service \
+    systemd-tmpfiles-setup-dev.service \
+    systemd-udev-trigger.service \
+    systemd-udevd.service \
   && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update \
@@ -120,9 +136,17 @@ RUN npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000 \
   && npm install -g --prefix=/usr/local agent-browser \
-  && ln -sf /usr/local/bin/agent-browser /usr/local/bin/browser \
   && mkdir -p /workspace \
-  && HOME=/workspace agent-browser install \
+  && if [ "$TARGETARCH" = "arm64" ]; then \
+    apt-get update \
+    && apt-get install -y --no-install-recommends chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && printf '%s\n' '#!/bin/sh' 'exec /usr/local/bin/agent-browser --executable-path /usr/bin/chromium "$@"' >/usr/local/bin/browser \
+    && chmod +x /usr/local/bin/browser; \
+  else \
+    ln -sf /usr/local/bin/agent-browser /usr/local/bin/browser \
+    && HOME=/workspace agent-browser install; \
+  fi \
   && npm cache clean --force
 
 ENV HOME=/workspace
@@ -132,6 +156,8 @@ WORKDIR /app
 COPY hivy-sandboxes-runtime /usr/local/bin/hivy-sandboxes-runtime
 COPY penpot /usr/local/bin/penpot
 COPY docker/runtime/entrypoint /usr/local/bin/hivy-runtime-entrypoint
+COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
+COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
 COPY docker/runtime/git-credential-hivy /usr/local/bin/git-credential-hivy
 COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
@@ -139,13 +165,15 @@ COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
   && chmod +x /usr/local/bin/penpot \
   && ln -sf /usr/local/bin/penpot /usr/local/bin/canvas \
-  && mkdir -p /workspace/.hivy/runtime /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/run \
+  && mkdir -p /app /workspace/.hivy/runtime /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
+  && chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
   && chmod +x /usr/local/bin/git-credential-hivy \
   && chmod +x /usr/local/bin/gh-wrapper \
   && chmod +x /usr/local/bin/hivy-guardian \
   && git config --system credential.helper /usr/local/bin/git-credential-hivy \
-  && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh
+  && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh \
+  && systemctl enable hivy-runtime.service
 
 ENV HIVY_SANDBOX_DATA_ROOT=/workspace/.hivy
 ENV HIVY_DB_PATH=/workspace/.hivy/runtime/hivy-sandboxes-runtime.db
@@ -156,4 +184,5 @@ ENV HIVY_SANDBOXES_RUNTIME_COMMIT=${COMMIT}
 
 EXPOSE 7080
 
+STOPSIGNAL SIGRTMIN+4
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/hivy-runtime-entrypoint", "/usr/local/bin/hivy-sandboxes-runtime"]

@@ -84,6 +84,10 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusUnprocessableEntity, imageDescribeError{Error: "asset is not an image", ErrorCode: "unsupported_content_type"})
 		return
 	}
+	usageSession, ok := h.imageDescribeUsageSession(w, r, req, asset, org.ID)
+	if !ok {
+		return
+	}
 	baseLogAttrs := func() []any {
 		return imageDescribeLogAttrs(startedAt, org.ID, userID, asset, detailLevel)
 	}
@@ -254,7 +258,7 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 		)
 	}
 
-	h.writeImageDescribeGeneration(r.Context(), cred, org.ID, userID, res)
+	h.trackImageDescribeUsage(r.Context(), cred, org.ID, userID, usageSession, asset, detailLevel, res)
 
 	writeJSON(w, http.StatusOK, resp)
 }

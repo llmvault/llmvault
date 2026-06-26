@@ -136,11 +136,8 @@ func (m *MicrosandboxBackend) createSandboxWithBindings(ctx context.Context, san
 		}),
 		microsandbox.WithImage(imageRef),
 	}
-	if req.Init != nil && req.Init.Cmd != "" {
-		opts = append(opts, microsandbox.WithInit(microsandbox.Init.Cmd(req.Init.Cmd, microsandbox.InitOptions{
-			Args: req.Init.Args,
-			Env:  req.Init.Env,
-		})))
+	if initOpt, ok := sandboxInitOption(req.Init); ok {
+		opts = append(opts, initOpt)
 	}
 	sb, err := microsandbox.CreateSandbox(ctx, sandboxID, opts...)
 	if err != nil {

@@ -50,6 +50,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	mux.HandleFunc(TypeAPIKeyUpdate, NewAPIKeyHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeAuditWrite, NewAuditHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeGenerationWrite, NewGenerationHandler(deps.DB).Handle)
+	mux.HandleFunc(TypeModelUsageWrite, NewModelUsageHandler(deps.DB).Handle)
 
 	mux.HandleFunc(TypeWebhookForward, NewWebhookForwardHandler(deps.EncKey).Handle)
 

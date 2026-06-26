@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func buildSubAgents(ctx context.Context, deps CompileDeps, agent *model.Agent, parentModelID string) (map[string]*AgentDefinition, error) {
+func buildSubAgents(ctx context.Context, deps CompileDeps, agent *model.Agent, parentModelID string, parentSkills []SkillSpec) (map[string]*AgentDefinition, error) {
 	specs, err := loadCatalogSubAgents(ctx, deps.DB, agent)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func buildSubAgents(ctx context.Context, deps CompileDeps, agent *model.Agent, p
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		def, err := compileSubAgent(ctx, deps, agent, key, specs[key], parentModelID)
+		def, err := compileSubAgent(ctx, deps, agent, key, specs[key], parentModelID, parentSkills)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +68,7 @@ func agentCatalogSubAgentsRaw(agent *model.Agent) model.RawJSON {
 	return agent.AgentCatalog.SubAgents
 }
 
-func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent, key string, spec model.AgentCatalogSubAgent, parentModelID string) (*AgentDefinition, error) {
+func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent, key string, spec model.AgentCatalogSubAgent, parentModelID string, parentSkills []SkillSpec) (*AgentDefinition, error) {
 	name := strings.TrimSpace(spec.Name)
 	if name == "" {
 		name = key
@@ -89,10 +89,10 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Description:  &description,
 		Instructions: &instructions,
 		Model:        modelID,
-		Tools:        spec.Tools,
+		Tools:        subAgentToolSelection(spec.Tools),
 		McpServers:   model.RawJSON("[]"),
 	}
-	tools, err := buildRuntimeToolsFromSelection(spec.Tools)
+	tools, err := buildRuntimeToolsFromSelection(subAgent.Tools)
 	if err != nil {
 		return nil, fmt.Errorf("compile subagent %q tools: %w", key, err)
 	}
@@ -107,8 +107,27 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       []any{},
-		Skills:           []SkillSpec{},
+		Skills:           inheritSubAgentSkills(parentSkills),
 		OutboundChannels: []any{},
 		SubAgents:        map[string]*AgentDefinition{},
 	}, nil
+}
+
+func subAgentToolSelection(selection model.JSON) model.JSON {
+	out := make(model.JSON, len(selection)+2)
+	for key, value := range selection {
+		out[key] = value
+	}
+	out["skills_list"] = true
+	out["skill_view"] = true
+	return out
+}
+
+func inheritSubAgentSkills(parentSkills []SkillSpec) []SkillSpec {
+	if len(parentSkills) == 0 {
+		return []SkillSpec{}
+	}
+	out := make([]SkillSpec, len(parentSkills))
+	copy(out, parentSkills)
+	return out
 }

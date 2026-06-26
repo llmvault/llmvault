@@ -217,7 +217,7 @@ func (h *PluginHandler) loadAgentFromRoute(w http.ResponseWriter, r *http.Reques
 	}
 	agentID := chi.URLParam(r, "id")
 	var agent model.Agent
-	if err := h.db.Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived").First(&agent).Error; err != nil {
+	if err := h.db.Preload("AgentCatalog").Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived").First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
 			return *org, model.Agent{}, false

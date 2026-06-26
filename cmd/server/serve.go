@@ -162,6 +162,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		oauthHandler.SetAgentSyncer(agentHandler)
 	}
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
+	if uploadsHandler != nil {
+		uploadsHandler.WithUsageEnqueuer(enqueuer)
+	}
 	if uploadsHandler != nil && deps.KMS != nil {
 		uploadsHandler.WithImageGeneration(deps.KMS, reg, &http.Client{
 			Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
@@ -172,6 +175,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		mcpHandler.SetImageGenerationTools(uploadsHandler.RegisterImageGenerationMCPTools)
 	}
 	imageDescribeHandler := buildImageDescribeHandler(database, cfg, deps)
+	if imageDescribeHandler != nil {
+		imageDescribeHandler.WithUsageEnqueuer(enqueuer)
+	}
 	if imageDescribeHandler != nil && uploadsHandler != nil {
 		imageDescribeHandler.WithAssetReader(uploadsHandler.AssetReader())
 	}

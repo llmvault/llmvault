@@ -1,0 +1,36 @@
+{
+  "name": "presentation-creator",
+  "description": "Use this skill when the user asks a design agent to create, design, outline, critique, rewrite, or improve slides, slide decks, presentations, pitch decks, investor decks, sales decks, proposal decks, executive briefings, webinar decks, or business/conversion presentations. It teaches narrative structure, persuasive slide language, one-message-per-slide discipline, business proof, conversion asks, speaker notes, and slide QA, then directs the agent to create and verify the actual deck inside Hivy Canvas with the canvas skill.",
+  "human_description": "Teach agents business slide strategy and Canvas-based deck design.",
+  "category": "Design",
+  "root": "./SKILL.md",
+  "tags": [
+    "slides",
+    "presentation",
+    "pitch-deck",
+    "sales-deck",
+    "business",
+    "conversion",
+    "canvas"
+  ],
+  "files": [
+    {
+      "path": "references/outline-structure.md"
+    },
+    {
+      "path": "references/writing-slides.md"
+    },
+    {
+      "path": "references/business-conversion-decks.md"
+    },
+    {
+      "path": "references/visual-design.md"
+    },
+    {
+      "path": "references/speaker-notes.md"
+    },
+    {
+      "path": "references/pitch-decks.md"
+    }
+  ]
+}

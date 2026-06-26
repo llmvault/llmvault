@@ -48,6 +48,7 @@ pub struct ReadTool {
     files_read: Option<FileReadRegistry>,
     search: Option<SearchService>,
     lsp: Option<LspService>,
+    session_id: Option<String>,
 }
 
 impl ReadTool {
@@ -64,6 +65,7 @@ impl ReadTool {
             files_read: None,
             search: None,
             lsp: None,
+            session_id: None,
         }
     }
 
@@ -84,6 +86,11 @@ impl ReadTool {
 
     pub fn with_lsp_service(mut self, lsp: LspService) -> Self {
         self.lsp = Some(lsp);
+        self
+    }
+
+    pub fn with_session_id(mut self, session_id: impl Into<String>) -> Self {
+        self.session_id = Some(session_id.into());
         self
     }
 
@@ -122,7 +129,14 @@ impl ReadTool {
             ));
         }
         if let Some(mime) = self.operations.detect_image_mime(&resolved).await {
-            return describe_image_file(&self.runtime_env, &resolved, &mime, &bytes).await;
+            return describe_image_file(
+                &self.runtime_env,
+                &resolved,
+                &mime,
+                &bytes,
+                self.session_id.as_deref(),
+            )
+            .await;
         }
         let text = match String::from_utf8(bytes) {
             Ok(text) => text,
