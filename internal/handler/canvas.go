@@ -22,6 +22,7 @@ import (
 
 type CanvasService interface {
 	SessionURLForUser(ctx context.Context, orgID, userID, canvasFileID uuid.UUID, pageID *uuid.UUID) (*canvaspkg.SessionURLResult, error)
+	ListProjectCatalogForOrg(ctx context.Context, orgID uuid.UUID) (*canvaspkg.ProjectCatalogResult, error)
 	CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, name string) (*canvaspkg.ProjectCreateResult, error)
 	ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*canvaspkg.ProjectListResult, error)
 	CreateFileForAgent(ctx context.Context, agentID, projectID uuid.UUID, name string) (*canvaspkg.FileCreateResult, error)

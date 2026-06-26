@@ -28,9 +28,8 @@ import {
   isSubagentSessionEvent,
   mergeSubagentRuns,
   sessionSubagentRunsFromEvents,
-  type SessionSubagentRun,
 } from "@/app/w/(chat)/_lib/session-subagent-runs"
-import { hydrateCompletedSubagentRun } from "@/app/w/(chat)/_lib/session-subagent-events"
+import { subagentOpenTarget } from "@/app/w/(chat)/_lib/session-subagent-open"
 import {
   eventTurnIDs,
   replayModeForLoadedSession,
@@ -389,26 +388,13 @@ export function SessionThreadView({
   )
   const handleOpenSubagentRun = useCallback(
     (block: SubagentConversationBlock) => {
-      const run = subagentRunForBlock(block, subagentRuns)
-      const resolvedRun = run ?? subagentRunFromBlock(block)
-      const activeJobId =
-        resolvedRun?.jobId || block.jobId || block.childSessionId || block.key
+      if (block.status !== "running") return
+      const { activeJobId } = subagentOpenTarget(block, subagentRuns)
       if (!activeJobId) return
 
       openSubagentRun(workspaceSessionId, activeJobId)
-      if (!sessionId || !resolvedRun || resolvedRun.status !== "completed") {
-        return
-      }
-      void hydrateCompletedSubagentRun({
-        parentSessionId: sessionId,
-        run: resolvedRun,
-      }).catch((error) => {
-        toast.danger(
-          extractErrorMessage(error, "Could not load subagent events")
-        )
-      })
     },
-    [openSubagentRun, sessionId, subagentRuns, workspaceSessionId]
+    [openSubagentRun, subagentRuns, workspaceSessionId]
   )
   const handleInputRequestSubmitted = useCallback(
     (_questionRequestId: string) => {
@@ -491,44 +477,6 @@ export function SessionThreadView({
       </div>
     </div>
   )
-}
-
-function subagentRunForBlock(
-  block: SubagentConversationBlock,
-  runs: SessionSubagentRun[]
-) {
-  if (block.jobId) {
-    const match = runs.find((run) => run.jobId === block.jobId)
-    if (match) return match
-  }
-  if (block.childSessionId) {
-    const match = runs.find(
-      (run) => run.childSessionId === block.childSessionId
-    )
-    if (match) return match
-  }
-  const agentName = block.agentName.trim()
-  if (!agentName) return undefined
-  const matches = runs.filter((run) => run.agentName === agentName)
-  return matches.length === 1 ? matches[0] : undefined
-}
-
-function subagentRunFromBlock(
-  block: SubagentConversationBlock
-): SessionSubagentRun | undefined {
-  const jobId = block.jobId || block.childSessionId || block.key
-  if (!jobId) return undefined
-  return {
-    jobId,
-    agentName: block.agentName,
-    childSessionId: block.childSessionId,
-    status: block.status,
-    frames: [],
-    events: [],
-    latestText: block.preview,
-    error: block.error,
-    updatedAt: Date.now(),
-  }
 }
 
 function normalizedTurnID(value: unknown) {

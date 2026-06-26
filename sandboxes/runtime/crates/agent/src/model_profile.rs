@@ -115,7 +115,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
                 max_tool_calls_per_turn: 80,
-                max_consecutive_tool_errors: 3,
+                max_consecutive_tool_errors: 10,
             },
             ModelProfileId::Glm => Self {
                 id,
@@ -125,7 +125,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
                 max_tool_calls_per_turn: 60,
-                max_consecutive_tool_errors: 3,
+                max_consecutive_tool_errors: 10,
             },
             ModelProfileId::Kimi => Self {
                 id,
@@ -135,7 +135,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
                 max_tool_calls_per_turn: 80,
-                max_consecutive_tool_errors: 3,
+                max_consecutive_tool_errors: 10,
             },
             ModelProfileId::MiniMax => Self {
                 id,
@@ -145,7 +145,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(16_384),
                 max_tool_calls_per_turn: 60,
-                max_consecutive_tool_errors: 3,
+                max_consecutive_tool_errors: 10,
             },
             ModelProfileId::MiMo => Self {
                 id,
@@ -155,7 +155,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
                 max_tool_calls_per_turn: 50,
-                max_consecutive_tool_errors: 2,
+                max_consecutive_tool_errors: 10,
             },
             ModelProfileId::Qwen => Self {
                 id,
@@ -165,7 +165,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
                 max_tool_calls_per_turn: 80,
-                max_consecutive_tool_errors: 3,
+                max_consecutive_tool_errors: 10,
             },
             ModelProfileId::OpenRouterCompatible => Self {
                 id,
@@ -175,7 +175,7 @@ impl ModelProfile {
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
                 max_tool_calls_per_turn: 100,
-                max_consecutive_tool_errors: 3,
+                max_consecutive_tool_errors: 10,
             },
         };
 

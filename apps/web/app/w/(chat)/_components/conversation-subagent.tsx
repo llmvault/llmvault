@@ -42,14 +42,16 @@ export function SubagentBlock({
           {block.error || block.preview || block.goal || block.childSessionId}
         </div>
       </div>
-      <Button
-        size="sm"
-        variant="secondary"
-        className="shrink-0"
-        onPress={() => onOpenRun?.(block)}
-      >
-        Open
-      </Button>
+      {block.status === "running" ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="shrink-0"
+          onPress={() => onOpenRun?.(block)}
+        >
+          Open
+        </Button>
+      ) : null}
     </div>
   )
 }

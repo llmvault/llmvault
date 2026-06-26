@@ -2,9 +2,12 @@ package agentruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/usehivy/hivy/internal/model"
+	"gorm.io/gorm"
 )
 
 func PushAgentRuntimeConfigForSandbox(ctx context.Context, deps CompileDeps, sb *model.Sandbox) error {
@@ -12,6 +15,10 @@ func PushAgentRuntimeConfigForSandbox(ctx context.Context, deps CompileDeps, sb 
 }
 
 func PushAgentRuntimeConfigForSandboxWithProxyToken(ctx context.Context, deps CompileDeps, sb *model.Sandbox, proxyToken *ProxyTokenResult) error {
+	return PushAgentRuntimeConfigForSandboxWithProxyTokenOptions(ctx, deps, sb, proxyToken, RuntimeConfigOptions{})
+}
+
+func PushAgentRuntimeConfigForSandboxWithProxyTokenOptions(ctx context.Context, deps CompileDeps, sb *model.Sandbox, proxyToken *ProxyTokenResult, opts RuntimeConfigOptions) error {
 	if deps.DB == nil {
 		return fmt.Errorf("agent runtime config push: db is required")
 	}
@@ -27,7 +34,11 @@ func PushAgentRuntimeConfigForSandboxWithProxyToken(ctx context.Context, deps Co
 		First(&agent).Error; err != nil {
 		return fmt.Errorf("load agent for runtime config push: %w", err)
 	}
-	return PushAgentRuntimeConfigWithProxyToken(ctx, deps, &agent, sb, proxyToken)
+	resolvedOpts, err := resolveSandboxRuntimeConfigOptions(ctx, deps, sb, &agent, opts)
+	if err != nil {
+		return err
+	}
+	return PushAgentRuntimeConfigWithProxyTokenOptions(ctx, deps, &agent, sb, proxyToken, resolvedOpts)
 }
 
 func PushAgentRuntimeConfig(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox) error {
@@ -35,6 +46,10 @@ func PushAgentRuntimeConfig(ctx context.Context, deps CompileDeps, agent *model.
 }
 
 func PushAgentRuntimeConfigWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, proxyToken *ProxyTokenResult) error {
+	return PushAgentRuntimeConfigWithProxyTokenOptions(ctx, deps, agent, sb, proxyToken, RuntimeConfigOptions{})
+}
+
+func PushAgentRuntimeConfigWithProxyTokenOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, proxyToken *ProxyTokenResult, opts RuntimeConfigOptions) error {
 	if deps.EncKey == nil {
 		return fmt.Errorf("agent runtime config push: encryption key is required")
 	}
@@ -54,13 +69,13 @@ func PushAgentRuntimeConfigWithProxyToken(ctx context.Context, deps CompileDeps,
 			return err
 		}
 		var buildErr error
-		configUpdate, buildErr = BuildAgentRuntimeConfigUpdateWithProxyToken(ctx, deps, agent, sb, runtimeSecret, proxyToken)
+		configUpdate, buildErr = BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx, deps, agent, sb, runtimeSecret, proxyToken, opts)
 		if buildErr != nil {
 			return fmt.Errorf("build agent runtime config: %w", buildErr)
 		}
 	} else {
 		var buildErr error
-		configUpdate, _, buildErr = BuildAgentRuntimeConfigUpdate(ctx, deps, agent, sb, runtimeSecret)
+		configUpdate, _, buildErr = BuildAgentRuntimeConfigUpdateWithOptions(ctx, deps, agent, sb, runtimeSecret, opts)
 		if buildErr != nil {
 			return fmt.Errorf("build agent runtime config: %w", buildErr)
 		}
@@ -76,4 +91,27 @@ func PushAgentRuntimeConfigWithProxyToken(ctx context.Context, deps CompileDeps,
 		return fmt.Errorf("agent runtime readyz: %w", err)
 	}
 	return nil
+}
+
+func resolveSandboxRuntimeConfigOptions(ctx context.Context, deps CompileDeps, sb *model.Sandbox, agent *model.Agent, opts RuntimeConfigOptions) (RuntimeConfigOptions, error) {
+	if strings.TrimSpace(opts.ModelID) != "" || strings.TrimSpace(opts.ReasoningEffort) != "" {
+		return opts, nil
+	}
+	if deps.DB == nil || sb == nil || agent == nil || agent.SandboxStrategy != "per_session" {
+		return opts, nil
+	}
+	var session model.Session
+	err := deps.DB.WithContext(ctx).
+		Where("sandbox_id = ? AND org_id = ? AND agent_id = ? AND status <> ?", sb.ID, *sb.OrgID, agent.ID, "archived").
+		Order("created_at DESC").
+		First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return opts, nil
+	}
+	if err != nil {
+		return opts, fmt.Errorf("load session for runtime config push: %w", err)
+	}
+	opts.ModelID = session.Model
+	opts.ReasoningEffort = session.ReasoningEffort
+	return opts, nil
 }

@@ -26,7 +26,7 @@ type Orchestrator struct {
 	cfg               *config.Config
 	warmPool          *WarmPool
 	reconcileWarmPool func(context.Context, string, WarmPoolProfile) error
-	pushRuntimeConfig func(context.Context, *model.Sandbox, *agentruntime.ProxyTokenResult) error
+	pushRuntimeConfig func(context.Context, *model.Sandbox, AgentRuntimeConfigPush) error
 
 	// lastActiveTouch debounces the last_active_at write done on every runtime-client
 	// fetch so the hot path does not issue a DB UPDATE per request.
@@ -54,15 +54,21 @@ func (o *Orchestrator) SetWarmPoolReconciler(fn func(context.Context, string, Wa
 	o.reconcileWarmPool = fn
 }
 
-func (o *Orchestrator) SetAgentRuntimeConfigPusher(fn func(context.Context, *model.Sandbox, *agentruntime.ProxyTokenResult) error) {
+type AgentRuntimeConfigPush struct {
+	Agent          *model.Agent
+	ProxyToken     *agentruntime.ProxyTokenResult
+	RuntimeOptions agentruntime.RuntimeConfigOptions
+}
+
+func (o *Orchestrator) SetAgentRuntimeConfigPusher(fn func(context.Context, *model.Sandbox, AgentRuntimeConfigPush) error) {
 	o.pushRuntimeConfig = fn
 }
 
-func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string, proxyToken *agentruntime.ProxyTokenResult) error {
+func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string, push AgentRuntimeConfigPush) error {
 	if o.pushRuntimeConfig == nil {
 		return nil
 	}
-	if err := o.pushRuntimeConfig(ctx, sb, proxyToken); err != nil {
+	if err := o.pushRuntimeConfig(ctx, sb, push); err != nil {
 		return fmt.Errorf("push agent runtime config after %s: %w", reason, err)
 	}
 	return nil

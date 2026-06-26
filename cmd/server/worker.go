@@ -125,8 +125,11 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		RagScheduler:      ragSched,
 	}
 	if deps.Orchestrator != nil && workerDeps.AgentCompile.EncKey != nil {
-		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {
-			return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyToken(ctx, workerDeps.AgentCompile, sb, proxyToken)
+		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandbox.AgentRuntimeConfigPush) error {
+			if push.Agent != nil {
+				return agentruntime.PushAgentRuntimeConfigWithProxyTokenOptions(ctx, workerDeps.AgentCompile, push.Agent, sb, push.ProxyToken, push.RuntimeOptions)
+			}
+			return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyTokenOptions(ctx, workerDeps.AgentCompile, sb, push.ProxyToken, push.RuntimeOptions)
 		})
 	}
 	if tasks.AgentSandboxAutoUpgradeEnabled && deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.AgentCompile.EncKey != nil && workerDeps.AgentCompile.KMS != nil && cfg.AgentSandboxAutoUpgrade {

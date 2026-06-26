@@ -18,6 +18,10 @@ const (
 )
 
 func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets) (*model.Sandbox, error) {
+	return o.CreateAgentSandboxWithRuntimeOptions(ctx, agent, secrets, agentruntime.RuntimeConfigOptions{})
+}
+
+func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets, runtimeOptions agentruntime.RuntimeConfigOptions) (*model.Sandbox, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("CreateAgentSandbox: agent must have org_id")
 	}
@@ -103,8 +107,9 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		"sandbox_image": sandboxImage,
 	}
 
+	configPush := AgentRuntimeConfigPush{Agent: agent, RuntimeOptions: runtimeOptions}
 	if o.shouldTryAgentWarmPool(templateRef, exposedPorts) {
-		claimed, err := o.tryClaimWarmRuntime(ctx, &sb, warmProfile)
+		claimed, err := o.tryClaimWarmRuntime(ctx, &sb, warmProfile, configPush)
 		if err != nil {
 			if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
 				logging.FromContext(ctx).ErrorContext(ctx, "delete orphaned agent sandbox row after warm claim failure",
@@ -168,7 +173,8 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime not live")
 		return nil, fmt.Errorf("waiting for agent runtime: %w", err)
 	}
-	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create", startupProxyToken); err != nil {
+	configPush.ProxyToken = startupProxyToken
+	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create", configPush); err != nil {
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime config push failed")
 		return nil, err
 	}

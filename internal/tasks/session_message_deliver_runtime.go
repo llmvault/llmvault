@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -79,15 +80,16 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		if !h.allowProvisioning {
 			return nil, nil, ErrSessionRuntimeNotReady
 		}
-		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, agent)
+		runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, session)
+		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
 		if prepErr != nil {
 			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
 		}
-		sb, err = h.orchestrator.CreateAgentSandbox(ctx, agent, secrets)
+		sb, err = h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, runtimeAgent, secrets, runtimeOptions)
 		if err != nil {
 			return nil, nil, fmt.Errorf("create agent sandbox: %w", err)
 		}
-		if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, agent, sb.ID, secrets.ProxyTokenJTI); err != nil {
+		if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
 			return nil, nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
 		}
 	} else if err != nil {
@@ -98,6 +100,20 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		return nil, nil, fmt.Errorf("get runtime client: %w", err)
 	}
 	return sb, client, nil
+}
+
+func sessionRuntimeAgent(agent *model.Agent, session model.Session) (*model.Agent, agentruntime.RuntimeConfigOptions) {
+	opts := agentruntime.RuntimeConfigOptions{}
+	if agent == nil || agent.SandboxStrategy != agentSandboxStrategyPerSession {
+		return agent, opts
+	}
+	runtimeAgent := *agent
+	if modelID := strings.TrimSpace(session.Model); modelID != "" {
+		runtimeAgent.Model = modelID
+		opts.ModelID = modelID
+	}
+	opts.ReasoningEffort = strings.TrimSpace(session.ReasoningEffort)
+	return &runtimeAgent, opts
 }
 
 func sessionRuntimeDraining(ctx context.Context, db *gorm.DB, session model.Session) (bool, error) {

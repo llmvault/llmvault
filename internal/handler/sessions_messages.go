@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -124,51 +123,6 @@ func (h *SessionHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	var events []model.SessionEvent
 	if err := query.Find(&events).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list session events"})
-		return
-	}
-	hasMore := len(events) > limit
-	if hasMore {
-		events = events[:limit]
-	}
-	out := make([]sessionEventResponse, len(events))
-	for i, event := range events {
-		out[i] = eventToResponse(event)
-	}
-	resp := paginatedResponse[sessionEventResponse]{Data: out, HasMore: hasMore}
-	if hasMore {
-		last := events[len(events)-1]
-		next := encodeCursor(last.CreatedAt, last.ID)
-		resp.NextCursor = &next
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-
-func (h *SessionHandler) ListSubagentEvents(w http.ResponseWriter, r *http.Request) {
-	session, _, ok := h.authorizeSession(w, r, false)
-	if !ok {
-		return
-	}
-	childSessionID := strings.TrimSpace(chi.URLParam(r, "childSessionID"))
-	if childSessionID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "child session id is required"})
-		return
-	}
-	limit, cursor, err := parsePagination(r)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
-	query := h.db.WithContext(r.Context()).
-		Where("session_id = ?", session.ID).
-		Where(
-			"(payload->>'child_session_id' = ? OR payload->'subagent'->>'child_session_id' = ?)",
-			childSessionID,
-			childSessionID,
-		)
-	query = applyPagination(query, cursor, limit)
-	var events []model.SessionEvent
-	if err := query.Find(&events).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list subagent events"})
 		return
 	}
 	hasMore := len(events) > limit

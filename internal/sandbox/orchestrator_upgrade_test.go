@@ -95,12 +95,12 @@ func TestUpgradeAgentSandboxInPlacePushesRuntimeConfig(t *testing.T) {
 	}
 	var pushedJTI string
 	var pushedSandboxID uuid.UUID
-	orch.SetAgentRuntimeConfigPusher(func(_ context.Context, sb *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {
+	orch.SetAgentRuntimeConfigPusher(func(_ context.Context, sb *model.Sandbox, push AgentRuntimeConfigPush) error {
 		pushedSandboxID = sb.ID
-		if proxyToken == nil {
+		if push.ProxyToken == nil {
 			t.Fatal("proxy token was nil")
 		}
-		pushedJTI = proxyToken.JTI
+		pushedJTI = push.ProxyToken.JTI
 		return nil
 	})
 

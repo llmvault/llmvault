@@ -64,7 +64,7 @@ func (o *Orchestrator) StartAgentSandbox(ctx context.Context, sb *model.Sandbox)
 	sb.LastActiveAt = &now
 	sb.StoppedAt = nil
 	sb.ErrorMessage = nil
-	if err := o.pushAgentRuntimeConfig(ctx, sb, "start", nil); err != nil {
+	if err := o.pushAgentRuntimeConfig(ctx, sb, "start", AgentRuntimeConfigPush{}); err != nil {
 		return err
 	}
 	return nil
@@ -100,7 +100,7 @@ func (o *Orchestrator) RestartAgentSandbox(ctx context.Context, sb *model.Sandbo
 		sb.LastActiveAt = &now
 		sb.StoppedAt = nil
 		sb.ErrorMessage = nil
-		if err := o.pushAgentRuntimeConfig(ctx, sb, "restart", nil); err != nil {
+		if err := o.pushAgentRuntimeConfig(ctx, sb, "restart", AgentRuntimeConfigPush{}); err != nil {
 			return err
 		}
 		return nil

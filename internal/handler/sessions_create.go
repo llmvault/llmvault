@@ -69,7 +69,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
 	var perSessionSandbox *model.Sandbox
 	if agent.SandboxStrategy == agentStrategyPerSession {
-		sb, err := h.provisionPerSessionSandbox(r.Context(), &agent)
+		sb, err := h.provisionPerSessionSandbox(r.Context(), &agent, session.Model, session.ReasoningEffort)
 		if err != nil {
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "provision per-session sandbox for session create failed", "agent_id", agent.ID, "error", err)
 			logging.Capture(r.Context(), err)

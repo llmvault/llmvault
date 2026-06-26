@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lib/pq"
+
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -71,6 +73,37 @@ func TestIntegration_SessionsCreate_PerSessionCreatesSandboxAndSendsFirstMessage
 	if access.Code != http.StatusOK {
 		t.Fatalf("sandbox access status=%d body=%s", access.Code, access.Body.String())
 	}
+}
+
+func TestIntegration_SessionsCreate_PerSessionConfigUsesSelectedModel(t *testing.T) {
+	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	h, _ := newSessionRuntimeHarness(t, runtime, nil)
+	fx := h.seed(t)
+	markSessionAgentPerSession(t, h, &fx)
+	if err := h.db.Model(&model.Agent{}).
+		Where("id = ?", fx.agent.ID).
+		Update("available_models", pq.StringArray{"deepseek-v4-flash", "minimax-m3"}).Error; err != nil {
+		t.Fatalf("update available models: %v", err)
+	}
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
+		"channel_id": fx.channel.ID.String(),
+		"text":       "Use the selected runtime model",
+		"model_definition": map[string]any{
+			"model_id":         "minimax-m3",
+			"reasoning_effort": "medium",
+		},
+	})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create session status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if runtime.lastConfigModelID != "minimax-m3" {
+		t.Fatalf("runtime config model_id=%q, want minimax-m3", runtime.lastConfigModelID)
+	}
+	if runtime.lastConfigReasoningEffort != "medium" {
+		t.Fatalf("runtime config reasoning_effort=%q, want medium", runtime.lastConfigReasoningEffort)
+	}
+	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text")
 }
 
 func TestIntegration_SessionsCreate_PerSessionSandboxFailureLeavesNoSessionRows(t *testing.T) {

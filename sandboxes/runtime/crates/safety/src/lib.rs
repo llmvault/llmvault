@@ -1,10 +1,12 @@
 pub mod error_tracker;
 pub mod json_repair;
+pub mod progress_reminder;
 pub mod repeat_detector;
 pub mod thinking_guard;
 pub mod xml_tool_repair;
 
 use json_repair::JsonRepair;
+use progress_reminder::ProgressReminderDetector;
 use repeat_detector::RepeatToolCallDetector;
 use thinking_guard::{OverthinkingDetector, OverthinkingStatus, ThinkingGuard};
 use xml_tool_repair::XmlToolCallRepair;
@@ -56,6 +58,7 @@ impl SafetyHarness {
 
 pub struct TurnSafety {
     pub overthinking: OverthinkingDetector,
+    pub progress_reminder: ProgressReminderDetector,
     pub repeat_detector: RepeatToolCallDetector,
 }
 
@@ -63,6 +66,7 @@ impl TurnSafety {
     pub fn new(harness: &SafetyHarness) -> Self {
         Self {
             overthinking: harness.create_overthinking_detector(),
+            progress_reminder: ProgressReminderDetector::default(),
             repeat_detector: harness.create_repeat_detector(),
         }
     }

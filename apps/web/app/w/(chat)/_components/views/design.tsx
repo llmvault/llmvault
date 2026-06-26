@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
@@ -13,15 +13,26 @@ import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
+import {
+  canvasCatalogFileTarget,
+  fetchCanvasProjectCatalog,
+  type CanvasProject,
+  type CanvasProjectCatalog,
+  type CanvasProjectFile,
+} from "@/app/w/(chat)/_lib/canvas-projects"
 import { extractErrorMessage as errorMessage } from "@/lib/api/error"
 
 export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   const canvas = useSessionWorkspaceStore(
     (state) => selectSessionWorkspace(state, sessionId).canvas
   )
+  const openCanvasTarget = useSessionWorkspaceStore(
+    (state) => state.openCanvasTarget
+  )
   const setCanvasSessionURL = useSessionWorkspaceStore(
     (state) => state.setCanvasSessionURL
   )
+  const [showCatalog, setShowCatalog] = useState(false)
   const [failedRequest, setFailedRequest] = useState<{
     key: string
     message: string
@@ -40,6 +51,10 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   const failedCurrentRequest = failedRequest?.key === requestKey
 
   useEffect(() => {
+    if (target) setShowCatalog(false)
+  }, [target])
+
+  useEffect(() => {
     if (!target || freshCached) return
     const controller = new AbortController()
     void fetchCanvasSessionURL(target, controller.signal)
@@ -56,12 +71,23 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
     return () => controller.abort()
   }, [freshCached, requestKey, sessionId, setCanvasSessionURL, target])
 
-  if (!target) {
+  const selectCatalogFile = useCallback(
+    (project: CanvasProject, file: CanvasProjectFile) => {
+      openCanvasTarget(sessionId, canvasCatalogFileTarget(file, project))
+      setFailedRequest(null)
+      setRetryNonce((n) => n + 1)
+      setShowCatalog(false)
+    },
+    [openCanvasTarget, sessionId]
+  )
+
+  if (!target || showCatalog) {
     return (
-      <DesignState
-        icon="lucide:pen-tool"
-        title="No Canvas file selected"
-        message="Open a Canvas card from the conversation to load a design file here."
+      <CanvasProjectPicker
+        activeTargetKey={target?.key ?? null}
+        canClose={Boolean(target)}
+        onClose={() => setShowCatalog(false)}
+        onSelectFile={selectCatalogFile}
       />
     )
   }
@@ -98,14 +124,216 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   }
 
   return (
-    <div className="h-full min-h-0 bg-white">
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-surface px-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon icon="lucide:file-pen-line" className="h-4 w-4 text-muted" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">
+              {target.fileName || "Canvas file"}
+            </div>
+            {target.projectName ? (
+              <div className="truncate text-xs text-muted">
+                {target.projectName}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <Button size="sm" variant="ghost" onPress={() => setShowCatalog(true)}>
+          <Icon icon="lucide:list-tree" className="h-4 w-4" />
+          Files
+        </Button>
+      </div>
       <iframe
         key={target.key}
         src={freshCached.url}
-        title={`Canvas file ${target.fileId}`}
+        title={target.fileName || `Canvas file ${target.fileId}`}
         allow="clipboard-read; clipboard-write"
-        className="h-full w-full border-0"
+        className="min-h-0 flex-1 border-0"
       />
+    </div>
+  )
+}
+
+function CanvasProjectPicker({
+  activeTargetKey,
+  canClose,
+  onClose,
+  onSelectFile,
+}: {
+  activeTargetKey: string | null
+  canClose: boolean
+  onClose: () => void
+  onSelectFile: (project: CanvasProject, file: CanvasProjectFile) => void
+}) {
+  const [catalog, setCatalog] = useState<CanvasProjectCatalog | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshNonce, setRefreshNonce] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setError(null)
+    void fetchCanvasProjectCatalog(controller.signal)
+      .then((nextCatalog) => {
+        setCatalog(nextCatalog)
+      })
+      .catch((fetchError) => {
+        if (controller.signal.aborted) return
+        setError(errorMessage(fetchError, "Could not load Canvas files."))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => controller.abort()
+  }, [refreshNonce])
+
+  if (loading) return <CanvasCatalogSkeleton />
+
+  if (error) {
+    return (
+      <DesignState
+        icon="lucide:circle-alert"
+        title="Canvas files are not available"
+        message={error}
+        action={
+          <Button
+            size="sm"
+            variant="secondary"
+            onPress={() => setRefreshNonce((n) => n + 1)}
+          >
+            Retry
+          </Button>
+        }
+      />
+    )
+  }
+
+  const projects = catalog?.projects ?? []
+  const fileCount = projects.reduce(
+    (sum, project) => sum + project.files.length,
+    0
+  )
+  if (fileCount === 0) {
+    return (
+      <DesignState
+        icon="lucide:file-x"
+        title="No Canvas files"
+        action={
+          <Button
+            size="sm"
+            variant="secondary"
+            onPress={() => setRefreshNonce((n) => n + 1)}
+          >
+            Refresh
+          </Button>
+        }
+      />
+    )
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon icon="lucide:pen-tool" className="h-4 w-4 text-muted" />
+          <div className="truncate text-sm font-medium">Canvas files</div>
+          <div className="rounded-full bg-default px-2 py-0.5 text-xs text-muted">
+            {fileCount}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            isIconOnly
+            aria-label="Refresh Canvas files"
+            onPress={() => setRefreshNonce((n) => n + 1)}
+          >
+            <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+          </Button>
+          {canClose ? (
+            <Button size="sm" variant="ghost" onPress={onClose}>
+              Back
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="flex flex-col gap-4">
+          {projects.map((project) => (
+            <div key={project.projectId} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between px-1">
+                <div className="truncate text-xs font-medium tracking-normal text-muted uppercase">
+                  {project.name}
+                </div>
+                <div className="text-xs text-muted">{project.files.length}</div>
+              </div>
+              <div className="flex flex-col gap-1">
+                {project.files.map((file) => {
+                  const target = canvasCatalogFileTarget(file, project)
+                  const active = target.key === activeTargetKey
+                  return (
+                    <button
+                      key={target.key}
+                      type="button"
+                      className={`group flex min-h-12 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
+                        active
+                          ? "border-foreground/20 bg-default text-foreground"
+                          : "border-border bg-surface hover:bg-default"
+                      }`}
+                      onClick={() => onSelectFile(project, file)}
+                    >
+                      <Icon
+                        icon="lucide:file-pen-line"
+                        className="h-4 w-4 shrink-0 text-muted"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {file.name}
+                        </span>
+                        {file.pageId ? (
+                          <span className="block truncate text-xs text-muted">
+                            {file.pageId}
+                          </span>
+                        ) : null}
+                      </span>
+                      <Icon
+                        icon="lucide:chevron-right"
+                        className="h-4 w-4 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CanvasCatalogSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex h-12 shrink-0 items-center border-b border-border px-4">
+        <div className="h-4 w-28 animate-pulse rounded bg-default" />
+      </div>
+      <div className="flex flex-col gap-4 px-3 py-3">
+        {[0, 1, 2].map((group) => (
+          <div key={group} className="flex flex-col gap-2">
+            <div className="h-3 w-32 animate-pulse rounded bg-default" />
+            {[0, 1].map((row) => (
+              <div
+                key={row}
+                className="h-12 animate-pulse rounded-lg border border-border bg-surface"
+              />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -118,7 +346,7 @@ function DesignState({
 }: {
   icon: string
   title: string
-  message: string
+  message?: string
   action?: ReactNode
 }) {
   return (
@@ -128,7 +356,9 @@ function DesignState({
           <Icon icon={icon} className="h-5 w-5 text-muted" />
         </div>
         <div className="text-sm font-medium">{title}</div>
-        <p className="text-sm leading-6 text-muted">{message}</p>
+        {message ? (
+          <p className="text-sm leading-6 text-muted">{message}</p>
+        ) : null}
         {action}
       </div>
     </div>

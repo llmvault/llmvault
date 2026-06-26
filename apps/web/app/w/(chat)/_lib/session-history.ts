@@ -484,7 +484,7 @@ function thinkingBlock(
     type: "thinking",
     key: eventBlockKey(event, "thinking"),
     label: label || (active ? "Thinking" : "Thought"),
-    text: eventText(event).trim() || undefined,
+    text: eventText(event).trim() ? eventText(event) : undefined,
     active,
   }
 }
