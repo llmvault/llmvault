@@ -24,8 +24,9 @@ var (
 )
 
 const (
-	browserSession  = "canvas"
-	defaultStateDir = "/workspace/.hivy/canvas"
+	browserSession   = "canvas"
+	defaultStateDir  = "/workspace/.hivy/canvas"
+	defaultCanvasDir = "/workspace/canvas"
 
 	envCanvasURL        = "PENPOT_CANVAS_URL"
 	envCanvasTeamID     = "PENPOT_CANVAS_TEAM_ID"
@@ -35,6 +36,7 @@ const (
 	envControlPlaneURL  = "HIVY_CONTROL_PLANE_URL"
 	envAgentID          = "HIVY_AGENT_ID"
 	envRuntimeSecret    = "HIVY_RUNTIME_SECRET" // #nosec G101 -- environment variable name.
+	envCanvasWorkspace  = "CANVAS_WORKSPACE_DIR"
 )
 
 type cliState struct {
@@ -75,6 +77,8 @@ func run(args []string) error {
 		return initCanvas()
 	case "project":
 		return projectCommand(args[1:])
+	case "artifact":
+		return artifactCommand(args[1:])
 	case "file":
 		return fileCommand(args[1:])
 	case "brands", "brand":
@@ -95,6 +99,11 @@ Usage:
   %[1]s init
   %[1]s project list
   %[1]s project create --name "Project"
+  %[1]s artifact create --project <slug-or-id> --type web_page|presentation --name "Artifact"
+  %[1]s artifact list --project <slug-or-id>
+  %[1]s artifact validate <artifact-path>
+  %[1]s artifact verify <artifact-path>
+  %[1]s artifact sync <artifact-path>
   %[1]s file list
   %[1]s file create --name "File" --project-id <canvas-project-id>
   %[1]s file switch <canvas-file-id> [--page-id <page-id>]
@@ -117,11 +126,6 @@ func cliName() string {
 
 func doctor() error {
 	required := []string{
-		envCanvasURL,
-		envCanvasTeamID,
-		envCanvasProfileID,
-		envCanvasSessionJWT,
-		envCanvasMCPURL,
 		envControlPlaneURL,
 		envAgentID,
 		envRuntimeSecret,
@@ -135,9 +139,6 @@ func doctor() error {
 	}
 	if missingConfig {
 		missing = append(missing, "canvas runtime configuration")
-	}
-	if _, err := exec.LookPath("browser"); err != nil {
-		missing = append(missing, "browser")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("canvas runtime not ready: missing %s", strings.Join(missing, ", "))

@@ -14,6 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/canvas"
+	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -63,7 +64,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	auditWriter := middleware.NewAuditWriter(ctx, database, 10000)
 	canvasService := canvas.NewService(database, canvas.NewClient(cfg))
-	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey, canvasService)
+	canvasArtifactStore := buildCanvasArtifactStore(cfg)
+	canvasArtifactService := canvasartifact.NewService(database, canvasArtifactStore)
+	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey, canvasService).WithArtifactService(canvasArtifactService)
 
 	generationWriter := middleware.NewGenerationWriter(ctx, database, reg, 10000)
 	if enqueuer != nil {

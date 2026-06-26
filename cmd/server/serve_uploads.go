@@ -5,6 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/handler"
@@ -38,4 +39,23 @@ func buildUploadsHandler(cfg *config.Config, database *gorm.DB, sandboxEncKey *c
 	}
 	slog.Info("s3-backed uploads ready", "bucket", cfg.S3Bucket)
 	return uploadsHandler
+}
+
+func buildCanvasArtifactStore(cfg *config.Config) canvasartifact.FileStore {
+	if cfg.S3Bucket == "" {
+		return nil
+	}
+	presigner, err := storage.NewS3Presigner(storage.PublicAssetsConfig{
+		Bucket:          cfg.S3Bucket,
+		Region:          cfg.S3Region,
+		Endpoint:        cfg.S3Endpoint,
+		PresignEndpoint: cfg.S3PresignEndpoint,
+		AccessKey:       cfg.S3AccessKey,
+		SecretKey:       cfg.S3SecretKey,
+	})
+	if err != nil {
+		slog.Error("s3 canvas artifact store init failed; canvas artifacts disabled", "error", err)
+		return nil
+	}
+	return presigner
 }

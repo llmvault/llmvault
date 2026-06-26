@@ -37,6 +37,13 @@ func TestRuntimeMessageFromEventRendersStructuredAttachmentsAndComments(t *testi
 						"body":         "Use the HeroUI token here.",
 					},
 				},
+				"artifact_comments": []any{
+					map[string]any{
+						"artifact_name": "Homepage",
+						"selector":      "hero",
+						"body":          "Make the heading more concrete.",
+					},
+				},
 			},
 		},
 	)
@@ -58,7 +65,12 @@ A UI screenshot.
 Code comments to address:
 
 1. apps/web/lib/diffs-theme.ts:R148
-   Use the HeroUI token here.`
+   Use the HeroUI token here.
+
+Artifact comments to address:
+
+1. Homepage @ hero
+   Make the heading more concrete.`
 	if msg.Text != want {
 		t.Fatalf("runtime text mismatch\nwant:\n%s\n\ngot:\n%s", want, msg.Text)
 	}

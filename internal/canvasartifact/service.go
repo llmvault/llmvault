@@ -1,0 +1,201 @@
+package canvasartifact
+
+import (
+	"context"
+	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/model"
+)
+
+type Service struct {
+	db    *gorm.DB
+	store FileStore
+}
+
+func NewService(db *gorm.DB, store FileStore) *Service {
+	return &Service{db: db, store: store}
+}
+
+func (s *Service) CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, req ProjectCreateRequest) (*ProjectResponse, error) {
+	agent, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = "Untitled project"
+	}
+	baseSlug := normalizeSlug(req.Slug)
+	if baseSlug == "" {
+		baseSlug = normalizeSlug(name)
+	}
+	slug, err := s.availableProjectSlug(ctx, org.ID, baseSlug)
+	if err != nil {
+		return nil, err
+	}
+	project := model.CanvasProject{
+		OrgID:            org.ID,
+		PenpotProjectID:  uuid.New(),
+		Slug:             slug,
+		Name:             name,
+		CreatedByAgentID: &agent.ID,
+	}
+	if err := s.db.WithContext(ctx).Create(&project).Error; err != nil {
+		return nil, fmt.Errorf("create canvas project: %w", err)
+	}
+	return s.projectResponse(ctx, project)
+}
+
+func (s *Service) ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*ProjectListResponse, error) {
+	_, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	return s.ListProjectsForOrg(ctx, org.ID, nil)
+}
+
+func (s *Service) ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessionID *uuid.UUID) (*ProjectListResponse, error) {
+	var projects []model.CanvasProject
+	q := s.db.WithContext(ctx).Where("org_id = ? AND archived_at IS NULL AND slug <> ''", orgID)
+	if err := q.Order("updated_at DESC").Find(&projects).Error; err != nil {
+		return nil, fmt.Errorf("list canvas projects: %w", err)
+	}
+	out := &ProjectListResponse{Projects: make([]ProjectResponse, 0, len(projects))}
+	for _, project := range projects {
+		resp, err := s.projectResponse(ctx, project)
+		if err != nil {
+			return nil, err
+		}
+		out.Projects = append(out.Projects, *resp)
+	}
+	return out, nil
+}
+
+func (s *Service) ListArtifactsForAgent(ctx context.Context, agentID uuid.UUID, filter ArtifactFilter) (*ArtifactListResponse, error) {
+	_, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	return s.ListArtifactsForOrg(ctx, org.ID, filter)
+}
+
+func (s *Service) ListArtifactsForOrg(ctx context.Context, orgID uuid.UUID, filter ArtifactFilter) (*ArtifactListResponse, error) {
+	var artifacts []model.CanvasArtifact
+	q := s.db.WithContext(ctx).
+		Preload("CanvasProject").
+		Where("canvas_artifacts.org_id = ? AND canvas_artifacts.archived_at IS NULL", orgID)
+	if filter.ProjectID != nil {
+		q = q.Where("canvas_project_id = ?", *filter.ProjectID)
+	}
+	if filter.ProjectSlug != "" {
+		q = q.Joins("JOIN canvas_projects cp ON cp.id = canvas_artifacts.canvas_project_id").
+			Where("cp.slug = ? AND cp.archived_at IS NULL", filter.ProjectSlug)
+	}
+	if filter.SessionID != nil {
+		q = q.Where("source_session_id = ?", *filter.SessionID)
+	}
+	if err := q.Order("canvas_artifacts.updated_at DESC").Find(&artifacts).Error; err != nil {
+		return nil, fmt.Errorf("list canvas artifacts: %w", err)
+	}
+	out := &ArtifactListResponse{Artifacts: make([]ArtifactResponse, 0, len(artifacts))}
+	for _, artifact := range artifacts {
+		resp, err := s.artifactResponse(ctx, artifact, false)
+		if err != nil {
+			return nil, err
+		}
+		out.Artifacts = append(out.Artifacts, *resp)
+	}
+	return out, nil
+}
+
+func (s *Service) GetArtifactForOrg(ctx context.Context, orgID, artifactID uuid.UUID) (*ArtifactResponse, error) {
+	var artifact model.CanvasArtifact
+	if err := s.db.WithContext(ctx).
+		Where("org_id = ? AND id = ? AND archived_at IS NULL", orgID, artifactID).
+		First(&artifact).Error; err != nil {
+		return nil, err
+	}
+	return s.artifactResponse(ctx, artifact, true)
+}
+
+func (s *Service) SnapshotForAgent(ctx context.Context, agentID uuid.UUID) (*SnapshotResponse, error) {
+	_, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	return s.snapshot(ctx, org.ID)
+}
+
+func (s *Service) loadAgentOrg(ctx context.Context, agentID uuid.UUID) (model.Agent, model.Org, error) {
+	var agent model.Agent
+	if err := s.db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error; err != nil {
+		return model.Agent{}, model.Org{}, err
+	}
+	if agent.OrgID == nil {
+		return model.Agent{}, model.Org{}, gorm.ErrRecordNotFound
+	}
+	var org model.Org
+	if err := s.db.WithContext(ctx).Where("id = ?", *agent.OrgID).First(&org).Error; err != nil {
+		return model.Agent{}, model.Org{}, err
+	}
+	return agent, org, nil
+}
+
+func (s *Service) projectResponse(ctx context.Context, project model.CanvasProject) (*ProjectResponse, error) {
+	var count int64
+	if err := s.db.WithContext(ctx).Model(&model.CanvasArtifact{}).
+		Where("canvas_project_id = ? AND archived_at IS NULL", project.ID).
+		Count(&count).Error; err != nil {
+		return nil, fmt.Errorf("count canvas artifacts: %w", err)
+	}
+	return &ProjectResponse{
+		ID:            project.ID,
+		ProjectID:     project.ID,
+		Slug:          project.Slug,
+		Name:          project.Name,
+		Description:   project.Description,
+		ArtifactCount: count,
+	}, nil
+}
+
+var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
+func normalizeSlug(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = slugPattern.ReplaceAllString(value, "-")
+	return strings.Trim(value, "-")
+}
+
+func (s *Service) availableProjectSlug(ctx context.Context, orgID uuid.UUID, base string) (string, error) {
+	if base == "" {
+		base = "project"
+	}
+	for i := 0; i < 1000; i++ {
+		slug := base
+		if i > 0 {
+			slug = fmt.Sprintf("%s-%d", base, i)
+		}
+		var count int64
+		err := s.db.WithContext(ctx).Model(&model.CanvasProject{}).
+			Where("org_id = ? AND slug = ? AND archived_at IS NULL", orgID, slug).
+			Count(&count).Error
+		if err != nil {
+			return "", fmt.Errorf("check project slug: %w", err)
+		}
+		if count == 0 {
+			return slug, nil
+		}
+	}
+	return "", fmt.Errorf("could not allocate canvas project slug")
+}
+
+func nowPtr() *time.Time {
+	now := time.Now().UTC()
+	return &now
+}

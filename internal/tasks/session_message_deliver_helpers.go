@@ -62,6 +62,11 @@ func runtimeTextFromPayload(text string, payload map[string]any) string {
 			parts = append(parts, block)
 		}
 	}
+	if !strings.Contains(text, "Artifact comments to address:") {
+		if block := runtimeArtifactCommentsBlock(payload["artifact_comments"]); block != "" {
+			parts = append(parts, block)
+		}
+	}
 	return strings.Join(parts, "\n\n")
 }
 
@@ -96,29 +101,7 @@ func runtimeAttachmentBlock(value any) string {
 }
 
 func runtimeCodeLineCommentsBlock(value any) string {
-	items := anySlice(value)
-	if len(items) == 0 {
-		return ""
-	}
-	entries := make([]string, 0, len(items))
-	for _, item := range items {
-		record, ok := mapRecord(item)
-		if !ok {
-			continue
-		}
-		body := strings.TrimSpace(firstRuntimeString(record, "body"))
-		path := firstRuntimeString(record, "display_path", "path")
-		lineNumber := runtimeInt(record["line_number"])
-		if body == "" || path == "" || lineNumber <= 0 {
-			continue
-		}
-		location := fmt.Sprintf("%s:%s", path, runtimeLineLabel(lineNumber, firstRuntimeString(record, "side")))
-		entries = append(entries, fmt.Sprintf("%d. %s\n%s", len(entries)+1, location, indentRuntimeMessageBody(body)))
-	}
-	if len(entries) == 0 {
-		return ""
-	}
-	return "Code comments to address:\n\n" + strings.Join(entries, "\n\n")
+	return runtimeStructuredCommentsBlock(value, "code")
 }
 
 func stringSlice(value any) []string {
