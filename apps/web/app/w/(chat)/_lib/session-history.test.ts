@@ -129,6 +129,31 @@ describe("sessionEventsToConversationBlocks", () => {
     expect(blocks).toEqual([])
   })
 
+  it("does not render request-user-input lifecycle events in the transcript", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("question_requested", {
+        question_request_id: "question-request-1",
+        questions: [
+          {
+            id: "deployment_path",
+            header: "Deploy",
+            question: "Which deployment path should Codex use?",
+            options: [
+              { label: "Ship It", description: "Deploy immediately." },
+              { label: "Hold", description: "Wait for review." },
+            ],
+          },
+        ],
+      }),
+      event("question_answered", {
+        question_request_id: "question-request-1",
+        answers: { deployment_path: { answers: ["Ship It"] } },
+      }),
+    ])
+
+    expect(blocks).toEqual([])
+  })
+
   it("renders user attachments and removes attachment XML from text", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("user.message", {

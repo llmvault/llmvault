@@ -6,14 +6,17 @@ import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
+import { previewBrowserTargetFromURL } from "@/app/w/(chat)/_lib/preview-browser-links"
 
-export function BrowserView({ sessionId = "new-chat" }: { sessionId?: string }) {
+export function BrowserView({
+  sessionId = "new-chat",
+}: {
+  sessionId?: string
+}) {
   const browser = useSessionWorkspaceStore(
     (state) => selectSessionWorkspace(state, sessionId).browser
   )
-  const setBrowserURL = useSessionWorkspaceStore(
-    (state) => state.setBrowserURL
-  )
+  const setBrowserURL = useSessionWorkspaceStore((state) => state.setBrowserURL)
   const navigateBrowser = useSessionWorkspaceStore(
     (state) => state.navigateBrowser
   )
@@ -22,9 +25,16 @@ export function BrowserView({ sessionId = "new-chat" }: { sessionId?: string }) 
   const navigate = () => {
     const input = browser.url.trim()
     if (!input) return
-    // Same-origin paths load directly; anything else goes through the
-    // local marketing site since external sites may block embedding.
-    navigateBrowser(sessionId, input.startsWith("/") ? input : "/")
+    if (input.startsWith("/")) {
+      navigateBrowser(sessionId, input)
+      return
+    }
+    const previewTarget = previewBrowserTargetFromURL(input)
+    if (previewTarget) {
+      navigateBrowser(sessionId, previewTarget.url)
+      return
+    }
+    navigateBrowser(sessionId, "/")
   }
 
   return (
@@ -67,7 +77,10 @@ export function BrowserView({ sessionId = "new-chat" }: { sessionId?: string }) 
           <Icon icon="lucide:circle-plus" className="h-4 w-4 text-muted" />
         </Button>
         <Button variant="ghost" size="sm" isIconOnly aria-label="More">
-          <Icon icon="lucide:ellipsis-vertical" className="h-4 w-4 text-muted" />
+          <Icon
+            icon="lucide:ellipsis-vertical"
+            className="h-4 w-4 text-muted"
+          />
         </Button>
       </div>
 

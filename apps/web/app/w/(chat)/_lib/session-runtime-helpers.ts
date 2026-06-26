@@ -226,7 +226,9 @@ function pendingInputFromFrame(
 ): PendingInputRequest | undefined {
   if (frame.event !== "question_requested") return undefined
   const data = payloadRecord(frame.data)
+  const firstQuestion = requestInputQuestions(data)[0]
   const requestId =
+    stringValue(data, "question_request_id") ||
     stringValue(data, "request_id") ||
     stringValue(data, "question_id") ||
     stringValue(data, "id") ||
@@ -234,12 +236,13 @@ function pendingInputFromFrame(
   return {
     requestId,
     prompt:
+      firstQuestion?.question ||
       stringValue(data, "prompt") ||
       stringValue(data, "question") ||
       stringValue(data, "message") ||
       stringValue(data, "text") ||
       undefined,
-    options: data.options,
+    options: firstQuestion?.options ?? data.options,
     turnId: stringValue(data, "turn_id") || undefined,
     eventId: stringValue(data, "event_id") || frame.id || undefined,
     requestedAt:
@@ -247,6 +250,24 @@ function pendingInputFromFrame(
       stringValue(data, "requested_at") ||
       new Date().toISOString(),
   }
+}
+
+function requestInputQuestions(data: Record<string, unknown>) {
+  const questions = data.questions
+  if (!Array.isArray(questions)) return []
+  return questions
+    .map((question) =>
+      question && typeof question === "object" && !Array.isArray(question)
+        ? (question as Record<string, unknown>)
+        : undefined
+    )
+    .filter((question): question is Record<string, unknown> =>
+      Boolean(question)
+    )
+    .map((question) => ({
+      question: stringValue(question, "question"),
+      options: Array.isArray(question.options) ? question.options : undefined,
+    }))
 }
 
 function serverSnapshotIsOlder(incoming: string, current?: string) {

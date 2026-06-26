@@ -3,11 +3,16 @@
 import { Icon } from "@iconify/react"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import { CanvasDesignCards } from "@/app/w/(chat)/_components/conversation-canvas-card"
+import { PreviewBrowserCards } from "@/app/w/(chat)/_components/conversation-preview-card"
 import { assetPreviewAttachments } from "@/app/w/(chat)/_lib/asset-preview-links"
 import {
   canvasDesignTargets,
   type CanvasDesignTarget,
 } from "@/app/w/(chat)/_lib/canvas-design-links"
+import {
+  previewBrowserTargets,
+  type PreviewBrowserTarget,
+} from "@/app/w/(chat)/_lib/preview-browser-links"
 import type {
   ConversationBlock,
   MediaAttachment,
@@ -17,16 +22,25 @@ export function AssistantBlock({
   block,
   onOpenAttachment,
   onOpenCanvasTarget,
+  onOpenPreviewTarget,
 }: {
   block: Extract<ConversationBlock, { type: "assistant" }>
   onOpenAttachment: (attachment: MediaAttachment) => void
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
+  onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
 }) {
-  const previews = assistantPreviewAttachments(block)
+  const assetPreviews = assistantPreviewAttachments(block)
   const canvasTargets = block.streaming ? [] : canvasDesignTargets(block.text)
+  const previewTargets = block.streaming
+    ? []
+    : previewBrowserTargets(block.text)
   const showFooter = !block.streaming && Boolean(block.completedAt)
 
-  if (!previews.length && !canvasTargets.length) {
+  if (
+    !assetPreviews.length &&
+    !canvasTargets.length &&
+    !previewTargets.length
+  ) {
     return (
       <div className="group/final-message flex min-w-0 flex-col items-start gap-1">
         <MarkdownProse text={block.text} streaming={block.streaming} />
@@ -39,9 +53,13 @@ export function AssistantBlock({
     <div className="group/final-message flex min-w-0 flex-col items-start gap-3">
       <MarkdownProse text={block.text} streaming={block.streaming} />
       <CanvasDesignCards targets={canvasTargets} onOpen={onOpenCanvasTarget} />
-      {previews.length ? (
+      <PreviewBrowserCards
+        targets={previewTargets}
+        onOpen={onOpenPreviewTarget}
+      />
+      {assetPreviews.length ? (
         <AssistantAssetPreviews
-          items={previews}
+          items={assetPreviews}
           onOpenAttachment={onOpenAttachment}
         />
       ) : null}

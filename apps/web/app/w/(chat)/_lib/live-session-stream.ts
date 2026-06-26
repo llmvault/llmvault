@@ -9,6 +9,8 @@ const displayableEvents = new Set([
   "plan_updated",
   "model_request_started",
   "model_request_completed",
+  "question_requested",
+  "question_answered",
   "final",
   "error",
 ])

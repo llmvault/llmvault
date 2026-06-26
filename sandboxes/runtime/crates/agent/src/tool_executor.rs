@@ -65,19 +65,25 @@ impl ToolExecutor {
         {
             return Err(ToolExecutionError::MissingRequired(message));
         }
-        let timeout = if call.name == "subagent_task" {
-            SUBAGENT_TASK_TIMEOUT.max(self.timeout)
-        } else {
-            self.timeout
+        let execution = tool.call(call.arguments.clone());
+        let Some(timeout) = tool_timeout(&call.name, self.timeout) else {
+            return execution.await.map_err(ToolExecutionError::Tool);
         };
-        match tokio::time::timeout(timeout, tool.call(call.arguments.clone())).await {
-            Ok(Ok(value)) => Ok(value),
-            Ok(Err(error)) => Err(ToolExecutionError::Tool(error)),
+        match tokio::time::timeout(timeout, execution).await {
+            Ok(result) => result.map_err(ToolExecutionError::Tool),
             Err(_) => Err(ToolExecutionError::TimedOut {
                 tool: call.name.clone(),
                 seconds: timeout.as_secs(),
             }),
         }
+    }
+}
+
+fn tool_timeout(tool_name: &str, default_timeout: Duration) -> Option<Duration> {
+    match tool_name {
+        "request_user_input" => None,
+        "subagent_task" => Some(SUBAGENT_TASK_TIMEOUT.max(default_timeout)),
+        _ => Some(default_timeout),
     }
 }
 
@@ -124,4 +130,80 @@ pub(crate) fn missing_required_argument_message(
 
 pub(crate) fn is_safe_tool_argument_error(error: &str) -> bool {
     error.starts_with("invalid ") && error.contains(" arguments")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde_json::{json, Value};
+
+    struct SleepTool {
+        name: &'static str,
+        delay: Duration,
+    }
+
+    #[async_trait::async_trait]
+    impl JsonTool for SleepTool {
+        fn definition(&self) -> ToolDefinition {
+            ToolDefinition {
+                name: self.name.to_string(),
+                description: "Sleeps before returning.".to_string(),
+                parameters: json!({"type": "object"}),
+            }
+        }
+
+        async fn call(&self, _args: Value) -> anyhow::Result<Value> {
+            tokio::time::sleep(self.delay).await;
+            Ok(json!({"ok": true}))
+        }
+    }
+
+    fn executor_with(tool: SleepTool) -> ToolExecutor {
+        ToolExecutor::new(vec![Arc::new(tool)], 1)
+    }
+
+    fn tool_call(name: &str) -> ToolCall {
+        ToolCall {
+            id: "call-1".to_string(),
+            name: name.to_string(),
+            arguments: json!({}),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_user_input_is_not_limited_by_default_tool_timeout() {
+        let executor = executor_with(SleepTool {
+            name: "request_user_input",
+            delay: Duration::from_millis(1100),
+        });
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(3),
+            executor.execute(&tool_call("request_user_input")),
+        )
+        .await
+        .expect("request_user_input should keep waiting past the tool timeout")
+        .expect("request_user_input should complete");
+
+        assert_eq!(result, json!({"ok": true}));
+    }
+
+    #[tokio::test]
+    async fn other_tools_still_use_default_timeout() {
+        let executor = executor_with(SleepTool {
+            name: "slow_tool",
+            delay: Duration::from_millis(1100),
+        });
+
+        let err = executor
+            .execute(&tool_call("slow_tool"))
+            .await
+            .expect_err("slow_tool should time out");
+
+        assert!(matches!(
+            err,
+            ToolExecutionError::TimedOut { tool, seconds: 1 } if tool == "slow_tool"
+        ));
+    }
 }

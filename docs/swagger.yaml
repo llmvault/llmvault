@@ -3007,9 +3007,24 @@ definitions:
       turn_id:
         type: string
     type: object
+  sessionInputResponseAnswer:
+    properties:
+      answers:
+        items:
+          type: string
+        type: array
+      other:
+        type: string
+    type: object
   sessionInputResponseRequest:
     properties:
+      answers:
+        additionalProperties:
+          $ref: '#/definitions/sessionInputResponseAnswer'
+        type: object
       option_id:
+        type: string
+      question_request_id:
         type: string
       request_id:
         type: string
@@ -3145,6 +3160,13 @@ definitions:
         type: string
       status:
         type: string
+    type: object
+  sessionUsageResponse:
+    properties:
+      cost_usd:
+        type: number
+      credits:
+        type: integer
     type: object
   signUploadRequest:
     properties:
@@ -9762,6 +9784,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Transcribe a session audio asset
+      tags:
+      - sessions
+  /v1/sessions/{id}/usage:
+    get:
+      description: Returns model usage cost and estimated credits for one visible
+        session.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sessionUsageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get session usage
       tags:
       - sessions
   /v1/skills:

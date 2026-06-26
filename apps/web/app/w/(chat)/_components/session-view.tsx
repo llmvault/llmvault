@@ -11,6 +11,7 @@ import { Conversation } from "@/app/w/(chat)/_components/conversation"
 import { SessionHistorySkeleton } from "@/app/w/(chat)/_components/session-history-skeleton"
 import { SessionHistoryTopLoader } from "@/app/w/(chat)/_components/session-history-top-loader"
 import { SessionPlanCard } from "@/app/w/(chat)/_components/session-plan-card"
+import { RequestUserInputBlock } from "@/app/w/(chat)/_components/request-user-input-block"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import {
   CHAT_QUERY_STALE_TIME_MS,
@@ -35,8 +36,13 @@ import {
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
+import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
+import {
+  eventMatchesInputRequest,
+  latestInputRequestBlock,
+} from "@/app/w/(chat)/_lib/session-input-requests"
 import { fetchSessionUsage } from "@/app/w/(chat)/_lib/session-usage"
 import {
   ensureSessionStream,
@@ -45,7 +51,7 @@ import {
 } from "@/app/w/(chat)/_stores/session-stream-manager"
 import {
   useSessionLiveEvents,
-  useSessionRuntimeStatus,
+  useSessionRuntimeSummary,
   useSessionRuntimeStore,
   type SessionRuntimeStatus,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
@@ -65,11 +71,15 @@ export function SessionThreadView({
   const openCanvasTarget = useSessionWorkspaceStore(
     (state) => state.openCanvasTarget
   )
+  const openBrowserURL = useSessionWorkspaceStore(
+    (state) => state.openBrowserURL
+  )
   const renderedLiveEvents = useMemo(
     () => (ENABLE_DIRECT_SESSION_STREAM ? liveEvents : []),
     [liveEvents]
   )
-  const runtimeStatus = useSessionRuntimeStatus(sessionId)
+  const runtimeSummary = useSessionRuntimeSummary(sessionId)
+  const runtimeStatus = runtimeSummary.status
   const turnActive = isTurnActive(runtimeStatus)
   const temporarySession = sessionId?.startsWith("tmp_") ?? false
   const sendSessionMessage = $api.useMutation(
@@ -133,16 +143,36 @@ export function SessionThreadView({
       ]),
     [renderedHistoryEvents, renderedLiveEvents]
   )
+  const activeInputRequest = useMemo(
+    () =>
+      runtimeStatus === "waiting_for_user"
+        ? latestInputRequestBlock(combinedEvents)
+        : undefined,
+    [combinedEvents, runtimeStatus]
+  )
+  const visibleConversationEvents = useMemo(
+    () =>
+      activeInputRequest
+        ? combinedEvents.filter(
+            (event) =>
+              !eventMatchesInputRequest(
+                event,
+                activeInputRequest.questionRequestId
+              )
+          )
+        : combinedEvents,
+    [activeInputRequest, combinedEvents]
+  )
   const activeTurnID = turnActive
     ? activeBackendTurnID || latestTurnID(renderedLiveEvents)
     : undefined
   const visibleBlocks = useMemo(
     () =>
-      sessionEventsToConversationBlocks(combinedEvents, {
+      sessionEventsToConversationBlocks(visibleConversationEvents, {
         activeTurnID,
         activeTurnStartedAt: session.agentTurnStartedAt,
       }),
-    [activeTurnID, combinedEvents, session.agentTurnStartedAt]
+    [activeTurnID, session.agentTurnStartedAt, visibleConversationEvents]
   )
   const latestPlan = useMemo(
     () => latestSessionPlan(combinedEvents),
@@ -296,12 +326,26 @@ export function SessionThreadView({
     },
     [openCanvasTarget, sessionId]
   )
-
+  const handleOpenPreviewTarget = useCallback(
+    (target: PreviewBrowserTarget) => {
+      openBrowserURL(sessionId ?? "new-chat", target.url)
+    },
+    [openBrowserURL, sessionId]
+  )
+  const handleInputRequestSubmitted = useCallback(
+    (_questionRequestId: string) => {
+      if (!sessionId) return
+      useSessionRuntimeStore.getState().setStatus(sessionId, "streaming", {
+        pendingInput: undefined,
+      })
+    },
+    [sessionId]
+  )
   const isBusy = turnActive || sendSessionMessage.isPending
   const showHistorySkeleton =
     !temporarySession && sessionHistoryQuery.isPending && !historyPages?.length
   const followButtonClassName = `!absolute ${
-    latestPlan ? "!bottom-20" : "!bottom-6"
+    activeInputRequest || latestPlan ? "!bottom-20" : "!bottom-6"
   } !left-1/2 !right-auto !flex !h-9 !w-9 !-translate-x-1/2 !items-center !justify-center !rounded-full !border !border-border !bg-surface !p-0 !text-muted !shadow-sm !transition-colors after:content-['↓'] hover:!bg-default hover:!text-foreground`
 
   return (
@@ -326,13 +370,21 @@ export function SessionThreadView({
             <Conversation
               blocks={visibleBlocks}
               onOpenCanvasTarget={handleOpenCanvasTarget}
+              onOpenPreviewTarget={handleOpenPreviewTarget}
             />
           </>
         )}
       </ScrollToBottom>
 
       <div className="relative z-20 shrink-0">
-        {latestPlan ? (
+        {activeInputRequest ? (
+          <RequestUserInputBlock
+            block={activeInputRequest}
+            sessionId={sessionId}
+            agentName={session.agentName}
+            onSubmitted={handleInputRequestSubmitted}
+          />
+        ) : latestPlan ? (
           <SessionPlanCard plan={latestPlan} turnActive={turnActive} />
         ) : null}
         <Composer

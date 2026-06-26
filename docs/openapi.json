@@ -11291,6 +11291,93 @@
         }
       }
     },
+    "/v1/sessions/{id}/usage": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns model usage cost and estimated credits for one visible session.",
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Get session usage",
+        "parameters": [
+          {
+            "description": "Session ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sessionUsageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/skills": {
       "get": {
         "security": [
@@ -16956,10 +17043,33 @@
           }
         }
       },
+      "sessionInputResponseAnswer": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "other": {
+            "type": "string"
+          }
+        }
+      },
       "sessionInputResponseRequest": {
         "type": "object",
         "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/sessionInputResponseAnswer"
+            }
+          },
           "option_id": {
+            "type": "string"
+          },
+          "question_request_id": {
             "type": "string"
           },
           "request_id": {
@@ -17166,6 +17276,17 @@
           },
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "sessionUsageResponse": {
+        "type": "object",
+        "properties": {
+          "cost_usd": {
+            "type": "number"
+          },
+          "credits": {
+            "type": "integer"
           }
         }
       },

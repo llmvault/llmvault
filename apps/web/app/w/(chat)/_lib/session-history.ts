@@ -54,7 +54,7 @@ type TurnInfo = {
 }
 
 const hiddenEventTypes = new Set(
-  "turn_started turn_completed turn_failed turn_interrupted done model_usage model_request_started model_request_completed plan_updated question_answered session_waiting".split(
+  "turn_started turn_completed turn_failed turn_interrupted done model_usage model_request_started model_request_completed plan_updated question_requested question_answered session_waiting".split(
     " "
   )
 )

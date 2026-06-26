@@ -3,11 +3,13 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -44,8 +46,16 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	requestID := strings.TrimSpace(req.RequestID)
+	questionRequestID := strings.TrimSpace(req.QuestionRequestID)
+	if questionRequestID == "" {
+		questionRequestID = requestID
+	}
 	text := strings.TrimSpace(req.Text)
 	optionID := strings.TrimSpace(req.OptionID)
+	if len(req.Answers) > 0 {
+		h.respondToStructuredInput(w, r, session, userID, questionRequestID, req.Answers)
+		return
+	}
 	if requestID == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request_id is required"})
 		return
@@ -102,4 +112,103 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 		Event:   sessionMutationEventResponse(intent.Event),
 		Queued:  queued,
 	})
+}
+
+func (h *SessionHandler) respondToStructuredInput(
+	w http.ResponseWriter,
+	r *http.Request,
+	session model.Session,
+	userID *uuid.UUID,
+	questionRequestID string,
+	answers map[string]sessionInputResponseAnswer,
+) {
+	if strings.TrimSpace(questionRequestID) == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "question_request_id is required"})
+		return
+	}
+	payload, err := h.questionAnswerPayload(r, userID, answers)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	sb, err := h.sessionSandboxForAccess(r.Context(), &session)
+	if err != nil {
+		h.writeSessionSandboxUnavailableError(w, err)
+		return
+	}
+	client, err := h.runtimeClientForSessionSandbox(r.Context(), sb)
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime question answer is not available"})
+		return
+	}
+	if _, err := client.PostQuestionAnswer(r.Context(), session.ID.String(), questionRequestID, payload); err != nil {
+		status, message := questionAnswerProxyError(err)
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
+	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
+		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
+		Queued:  false,
+	})
+}
+
+func (h *SessionHandler) questionAnswerPayload(r *http.Request, userID *uuid.UUID, answers map[string]sessionInputResponseAnswer) (agentruntime.QuestionAnswerPayload, error) {
+	if len(answers) == 0 {
+		return agentruntime.QuestionAnswerPayload{}, fmt.Errorf("answers are required")
+	}
+	out := make(map[string]agentruntime.QuestionAnswerValue, len(answers))
+	for questionID, answer := range answers {
+		id := strings.TrimSpace(questionID)
+		if id == "" {
+			return agentruntime.QuestionAnswerPayload{}, fmt.Errorf("answer question id is required")
+		}
+		if len(answer.Answers) != 1 {
+			return agentruntime.QuestionAnswerPayload{}, fmt.Errorf("answer for %s must include one choice", id)
+		}
+		choice := strings.TrimSpace(answer.Answers[0])
+		if choice == "" {
+			return agentruntime.QuestionAnswerPayload{}, fmt.Errorf("answer for %s is required", id)
+		}
+		value := agentruntime.QuestionAnswerValue{Answers: []string{choice}}
+		if answer.Other != nil {
+			other := strings.TrimSpace(*answer.Other)
+			if other != "" {
+				value.Other = &other
+			}
+		}
+		out[id] = value
+	}
+	payload := agentruntime.QuestionAnswerPayload{Answers: out}
+	if userID != nil {
+		user := userID.String()
+		payload.User = &user
+		if displayName := h.userDisplayName(r, *userID); displayName != "" {
+			payload.UserDisplayName = &displayName
+		}
+	}
+	return payload, nil
+}
+
+func (h *SessionHandler) userDisplayName(r *http.Request, userID uuid.UUID) string {
+	var user model.User
+	if err := h.db.WithContext(r.Context()).Select("name").First(&user, "id = ?", userID).Error; err != nil {
+		return ""
+	}
+	return strings.TrimSpace(user.Name)
+}
+
+func questionAnswerProxyError(err error) (int, string) {
+	var statusErr *agentruntime.HTTPStatusError
+	if errors.As(err, &statusErr) {
+		switch statusErr.StatusCode {
+		case http.StatusBadRequest:
+			return http.StatusBadRequest, "invalid question answer"
+		case http.StatusNotFound:
+			return http.StatusNotFound, "question request not found"
+		case http.StatusConflict:
+			return http.StatusConflict, "question request cannot be answered"
+		}
+	}
+	return http.StatusBadGateway, "failed to answer question"
 }
