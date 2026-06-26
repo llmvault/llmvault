@@ -136,16 +136,17 @@ function AgentPluginCard({
 }) {
   const slug = pluginSlug(plugin)
   const globalInstall = plugin.auto_install === true
-  const enabled = required || globalInstall || pluginEnabledForAgent(plugin, agentID)
+  const enabled =
+    required || globalInstall || pluginEnabledForAgent(plugin, agentID)
   const disabled = required || globalInstall || isBusy || !slug
   const details = (
-    <div className="flex min-w-0 flex-1 items-center gap-3">
+    <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
       <PluginLogoMark plugin={plugin} />
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-foreground">
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <p className="block truncate text-sm font-medium text-foreground">
           {pluginName(plugin)}
         </p>
-        <p className="text-muted-foreground truncate text-xs">
+        <p className="text-muted-foreground block truncate text-xs">
           {pluginDescription(plugin)}
         </p>
       </div>
@@ -153,11 +154,11 @@ function AgentPluginCard({
   )
 
   return (
-    <div className="bg-card flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+    <div className="bg-card flex min-w-0 items-center justify-between gap-4 rounded-lg border border-border p-3">
       {slug ? (
         <NextLink
           href={`/w/plugins/${slug}`}
-          className="min-w-0 flex-1 rounded-md transition-colors hover:text-foreground"
+          className="min-w-0 flex-1 overflow-hidden rounded-md transition-colors hover:text-foreground"
         >
           {details}
         </NextLink>
@@ -232,10 +233,10 @@ function RequiredPluginRow({
   const installed = plugin.installed === true
   const row = (
     <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
         <PluginLogoMark plugin={catalogPlugin} />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <p className="block truncate text-sm font-medium text-foreground">
             {pluginRequirementName(plugin)}
           </p>
           <p className="text-muted-foreground text-xs">

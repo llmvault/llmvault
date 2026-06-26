@@ -42,4 +42,17 @@ func TestGlobalKaraManifestRequiresDesignPlugin(t *testing.T) {
 	}
 	assertManifestToolEnabled(t, kara.Tools, "bash")
 	assertManifestToolEnabled(t, kara.Tools, "skill_view")
+	if got := sortedSubAgentKeys(kara.SubAgents); !reflect.DeepEqual(got, []string{"codebase-brand-extractor", "design-worker"}) {
+		t.Fatalf("kara subagents = %#v", got)
+	}
+	extractor := kara.SubAgents["codebase-brand-extractor"]
+	if strings.TrimSpace(extractor.instructions) == "" {
+		t.Fatal("codebase brand extractor instructions should be loaded")
+	}
+	if !strings.Contains(extractor.instructions, "\"raw_import\"") {
+		t.Fatalf("codebase brand extractor instructions should include the brand payload template")
+	}
+	assertManifestToolEnabled(t, extractor.Tools, "read_file")
+	assertManifestToolEnabled(t, extractor.Tools, "grep")
+	assertManifestToolDisabled(t, extractor.Tools, "write_file")
 }
