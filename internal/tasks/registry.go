@@ -16,7 +16,6 @@ import (
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/skills"
-	"github.com/usehivy/hivy/internal/storage"
 )
 
 // WorkerDeps holds the dependencies needed by task handlers.
@@ -35,8 +34,7 @@ type WorkerDeps struct {
 	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
 	PreContextBuilder precontext.Builder      // nil disables runtime pre-context injection
 	AgentCompile      agentruntime.CompileDeps
-	OrgAgentSyncer    OrgHivyAgentSyncer
-	S3Client          *storage.S3Client
+	OrgAgentEnsurer   OrgHivyAgentEnsurer
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -65,7 +63,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	if deps.Orchestrator != nil {
 		mux.HandleFunc(TypeSandboxResourceCheck, NewSandboxResourceCheckHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxReap, NewSandboxReapHandler(deps.Orchestrator).Handle)
-		mux.HandleFunc(TypeAgentSandboxRetire, NewAgentSandboxRetireHandler(deps.DB, deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 	}
@@ -105,23 +102,14 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeMemoryEmbed, NewMemoryEmbedHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
 	}
 
-	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil && deps.Enqueuer != nil {
-		mux.HandleFunc(TypeAgentSandboxUpgrade,
-			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
-		if AgentSandboxAutoUpgradeEnabled {
-			mux.HandleFunc(TypeAgentSandboxAutoUpgrade,
-				NewAgentSandboxAutoUpgradeHandler(deps.DB, deps.AgentCompile, deps.Enqueuer).Handle)
-		}
-	}
-
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {
 		mux.HandleFunc(TypeAgentProxyTokenRefresh,
 			NewAgentProxyTokenRefreshHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 	}
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
-		if deps.OrgAgentSyncer != nil {
+		if deps.OrgAgentEnsurer != nil {
 			mux.HandleFunc(TypeOrgHivyAgentProvision,
-				NewOrgHivyAgentProvisionHandler(deps.OrgAgentSyncer).Handle)
+				NewOrgHivyAgentProvisionHandler(deps.OrgAgentEnsurer).Handle)
 		}
 		mux.HandleFunc(TypeSessionMessageDeliver,
 			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)

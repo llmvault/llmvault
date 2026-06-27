@@ -180,7 +180,6 @@ func autoInstallTestAgent(orgID uuid.UUID, suffix string) model.Agent {
 		ID:              uuid.New(),
 		OrgID:           &orgID,
 		Name:            fmt.Sprintf("runtime-autoinstall-%s-%s", suffix, uuid.NewString()[:8]),
-		SandboxStrategy: "per_session",
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           agentruntime.DefaultAgentModel,
 		AvailableModels: []string{agentruntime.DefaultAgentModel},

@@ -173,5 +173,5 @@ func (h *ConnectionHandler) UpdateResources(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *ConnectionHandler) enqueueConnectionDefaultResourceReconcile(ctx context.Context, orgID uuid.UUID, conn model.Connection) bool {
-	return enqueueGitHubRepositoryCloneForAlwaysOnAgents(ctx, h.db, h.enq, orgID, conn)
+	return false
 }

@@ -45,19 +45,19 @@ func TestAgentSessionsSleepWakeCronLifecycleE2E(t *testing.T) {
 	channels := agentSessionsListChannels(t, ctx, apiBase, ownerToken, orgID)
 	general := findDefaultGeneralChannel(t, channels, defaultAgent.ID)
 
-	runAgentSessionsAlwaysOnCronSleepWakeE2E(t, ctx, apiBase, ownerToken, orgID, defaultAgent.ID, general.ID, runID)
-	runAgentSessionsPerSessionCronSleepWakeE2E(t, ctx, apiBase, ownerToken, orgID, ownerAuth.User.ID, runID)
+	runAgentSessionsDefaultAgentCronSleepWakeE2E(t, ctx, apiBase, ownerToken, orgID, defaultAgent.ID, general.ID, runID)
+	runAgentSessionsCatalogAgentCronSleepWakeE2E(t, ctx, apiBase, ownerToken, orgID, ownerAuth.User.ID, runID)
 }
 
-func runAgentSessionsAlwaysOnCronSleepWakeE2E(t *testing.T, ctx context.Context, apiBase, token, orgID, agentID, channelID, runID string) {
+func runAgentSessionsDefaultAgentCronSleepWakeE2E(t *testing.T, ctx context.Context, apiBase, token, orgID, agentID, channelID, runID string) {
 	t.Helper()
-	initialMarker := "LIFECYCLE_ALWAYS_INITIAL_" + runID
-	scheduledMarker := "LIFECYCLE_ALWAYS_SCHEDULED_" + runID
+	initialMarker := "LIFECYCLE_DEFAULT_INITIAL_" + runID
+	scheduledMarker := "LIFECYCLE_DEFAULT_SCHEDULED_" + runID
 	session := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, token, orgID, map[string]any{
 		"channel_id":       channelID,
 		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": strings.Join([]string{
-			"This is the always-on sleep/wake lifecycle E2E.",
+			"This is the default-agent sleep/wake lifecycle E2E.",
 			"Reply exactly " + initialMarker + " and no other text.",
 		}, "\n"),
 	})
@@ -67,50 +67,52 @@ func runAgentSessionsAlwaysOnCronSleepWakeE2E(t *testing.T, ctx context.Context,
 	t.Cleanup(func() {
 		agentSessionsDeleteSandbox(t, ctx, apiBase, token, orgID, sb.ID.String())
 	})
-	assertAgentSessionsDockerContainer(t, ctx, "always-on initial", sb)
-	assertAgentSessionsDockerContainerImage(t, ctx, "always-on Hivy", sb.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
+	assertAgentSessionsDockerContainer(t, ctx, "default-agent initial", sb)
+	assertAgentSessionsDockerContainerImage(t, ctx, "default-agent Hivy", sb.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
 
-	schedule := agentSessionsCreateCronViaMCP(t, ctx, orgID, agentID, session.Session.ID, 50, "always-on "+runID, "Reply exactly "+scheduledMarker+" and no other text.")
-	t.Logf("always-on lifecycle schedule id=%s job=%s next_run_at=%v sandbox=%s container=%s", schedule.ID, schedule.RuntimeJobID, schedule.NextRunAt, sb.ID, sb.ExternalID)
+	schedule := agentSessionsCreateCronViaMCP(t, ctx, orgID, agentID, session.Session.ID, 50, "default-agent "+runID, "Reply exactly "+scheduledMarker+" and no other text.")
+	t.Logf("default-agent lifecycle schedule id=%s job=%s next_run_at=%v sandbox=%s container=%s", schedule.ID, schedule.RuntimeJobID, schedule.NextRunAt, sb.ID, sb.ExternalID)
 
 	agentSessionsWaitForSandboxDBStatus(t, ctx, sb.ID, "stopped")
 	agentSessionsWaitForDockerRunning(t, ctx, sb.ExternalID, false)
 
 	run := agentSessionsWaitForScheduleRunSession(t, ctx, schedule.ID)
 	if run.SessionID == nil {
-		t.Fatal("always-on schedule run missing session")
+		t.Fatal("default-agent schedule run missing session")
 	}
+	scheduledSandbox := agentSessionsWaitForSessionSandbox(t, ctx, orgID, run.SessionID.String())
+	t.Cleanup(func() {
+		agentSessionsDeleteSandbox(t, ctx, apiBase, token, orgID, scheduledSandbox.ID.String())
+	})
+	if scheduledSandbox.ID == sb.ID || scheduledSandbox.ExternalID == sb.ExternalID {
+		t.Fatalf("default-agent schedule reused old sandbox/container: old=%s/%s new=%s/%s", sb.ID, sb.ExternalID, scheduledSandbox.ID, scheduledSandbox.ExternalID)
+	}
+	assertAgentSessionsDockerContainer(t, ctx, "default-agent scheduled", scheduledSandbox)
+	assertAgentSessionsDockerContainerImage(t, ctx, "default-agent Hivy scheduled", scheduledSandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
 	waitForAgentSessionsResponse(t, ctx, apiBase, token, orgID, run.SessionID.String(), scheduledMarker)
-
-	woken := agentSessionsWaitForSandboxDBStatus(t, ctx, sb.ID, "running")
-	if woken.ExternalID != sb.ExternalID {
-		t.Fatalf("always-on schedule woke container %s, want original %s", woken.ExternalID, sb.ExternalID)
-	}
-	agentSessionsWaitForDockerRunning(t, ctx, sb.ExternalID, true)
 
 	agentSessionsWaitForSandboxDBStatus(t, ctx, sb.ID, "stopped")
 	agentSessionsWaitForDockerRunning(t, ctx, sb.ExternalID, false)
+	agentSessionsWaitForSandboxDBStatus(t, ctx, scheduledSandbox.ID, "stopped")
+	agentSessionsWaitForDockerRunning(t, ctx, scheduledSandbox.ExternalID, false)
 }
 
-func runAgentSessionsPerSessionCronSleepWakeE2E(t *testing.T, ctx context.Context, apiBase, token, orgID, ownerUserID, runID string) {
+func runAgentSessionsCatalogAgentCronSleepWakeE2E(t *testing.T, ctx context.Context, apiBase, token, orgID, ownerUserID, runID string) {
 	t.Helper()
 	githubPluginID := agentSessionsSeedInstalledPluginFixture(t, orgID, ownerUserID, "github")
-	t.Logf("seeded GitHub plugin install for per-session lifecycle agent plugin_id=%s", githubPluginID)
+	t.Logf("seeded GitHub plugin install for session sandbox lifecycle agent plugin_id=%s", githubPluginID)
 
 	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "hakaree")
-	if agent.SandboxStrategy != "per_session" {
-		t.Fatalf("installed Hakaree sandbox_strategy=%q want per_session", agent.SandboxStrategy)
-	}
 	assertAgentSessionsAgentSandboxImage(t, "lifecycle Hakaree", agent, model.SandboxImageDeveloper)
 	channel := agentSessionsCreateChannel(t, ctx, apiBase, token, orgID, "lifecycle-hakaree-"+runID, agent.ID)
 
-	initialMarker := "LIFECYCLE_PER_SESSION_INITIAL_" + runID
-	scheduledMarker := "LIFECYCLE_PER_SESSION_SCHEDULED_" + runID
+	initialMarker := "LIFECYCLE_SESSION_INITIAL_" + runID
+	scheduledMarker := "LIFECYCLE_SESSION_SCHEDULED_" + runID
 	session := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, token, orgID, map[string]any{
 		"channel_id":       channel.ID,
 		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": strings.Join([]string{
-			"This is the per-session sleep/wake lifecycle E2E.",
+			"This is the session sandbox sleep/wake lifecycle E2E.",
 			"Reply exactly " + initialMarker + " and no other text.",
 		}, "\n"),
 	})
@@ -120,29 +122,29 @@ func runAgentSessionsPerSessionCronSleepWakeE2E(t *testing.T, ctx context.Contex
 	t.Cleanup(func() {
 		agentSessionsDeleteSandbox(t, ctx, apiBase, token, orgID, oldSandbox.ID.String())
 	})
-	assertAgentSessionsDockerContainer(t, ctx, "per-session initial", oldSandbox)
+	assertAgentSessionsDockerContainer(t, ctx, "session sandbox initial", oldSandbox)
 	expectedDeveloperImage := developerAgentSessionsSandboxRuntimeImage()
-	assertAgentSessionsDockerContainerImage(t, ctx, "per-session Hakaree initial", oldSandbox.ExternalID, expectedDeveloperImage)
+	assertAgentSessionsDockerContainerImage(t, ctx, "session sandbox Hakaree initial", oldSandbox.ExternalID, expectedDeveloperImage)
 
-	schedule := agentSessionsCreateCronViaMCP(t, ctx, orgID, agent.ID, session.Session.ID, 50, "per-session "+runID, "Reply exactly "+scheduledMarker+" and no other text.")
-	t.Logf("per-session lifecycle schedule id=%s job=%s next_run_at=%v old_sandbox=%s old_container=%s", schedule.ID, schedule.RuntimeJobID, schedule.NextRunAt, oldSandbox.ID, oldSandbox.ExternalID)
+	schedule := agentSessionsCreateCronViaMCP(t, ctx, orgID, agent.ID, session.Session.ID, 50, "session sandbox "+runID, "Reply exactly "+scheduledMarker+" and no other text.")
+	t.Logf("session sandbox lifecycle schedule id=%s job=%s next_run_at=%v old_sandbox=%s old_container=%s", schedule.ID, schedule.RuntimeJobID, schedule.NextRunAt, oldSandbox.ID, oldSandbox.ExternalID)
 
 	agentSessionsWaitForSandboxDBStatus(t, ctx, oldSandbox.ID, "stopped")
 	agentSessionsWaitForDockerRunning(t, ctx, oldSandbox.ExternalID, false)
 
 	run := agentSessionsWaitForScheduleRunSession(t, ctx, schedule.ID)
 	if run.SessionID == nil {
-		t.Fatal("per-session schedule run missing session")
+		t.Fatal("session sandbox schedule run missing session")
 	}
 	scheduledSandbox := agentSessionsWaitForSessionSandbox(t, ctx, orgID, run.SessionID.String())
 	t.Cleanup(func() {
 		agentSessionsDeleteSandbox(t, ctx, apiBase, token, orgID, scheduledSandbox.ID.String())
 	})
 	if scheduledSandbox.ID == oldSandbox.ID || scheduledSandbox.ExternalID == oldSandbox.ExternalID {
-		t.Fatalf("per-session schedule reused old sandbox/container: old=%s/%s new=%s/%s", oldSandbox.ID, oldSandbox.ExternalID, scheduledSandbox.ID, scheduledSandbox.ExternalID)
+		t.Fatalf("session sandbox schedule reused old sandbox/container: old=%s/%s new=%s/%s", oldSandbox.ID, oldSandbox.ExternalID, scheduledSandbox.ID, scheduledSandbox.ExternalID)
 	}
-	assertAgentSessionsDockerContainer(t, ctx, "per-session scheduled", scheduledSandbox)
-	assertAgentSessionsDockerContainerImage(t, ctx, "per-session Hakaree scheduled", scheduledSandbox.ExternalID, expectedDeveloperImage)
+	assertAgentSessionsDockerContainer(t, ctx, "session sandbox scheduled", scheduledSandbox)
+	assertAgentSessionsDockerContainerImage(t, ctx, "session sandbox Hakaree scheduled", scheduledSandbox.ExternalID, expectedDeveloperImage)
 	waitForAgentSessionsResponse(t, ctx, apiBase, token, orgID, run.SessionID.String(), scheduledMarker)
 
 	agentSessionsWaitForSandboxDBStatus(t, ctx, oldSandbox.ID, "stopped")

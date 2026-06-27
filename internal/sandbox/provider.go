@@ -31,10 +31,6 @@ const (
 	// It is deliberately non-selectable for new runtime traffic; the control
 	// plane polls the runtime until accepted turns and outbound webhooks finish.
 	StatusDraining SandboxStatus = "draining"
-	// StatusUpgrading marks a sandbox mid-upgrade. It is deliberately NOT in
-	// activeSandboxStatuses, so runtime traffic waits until the sandbox is synced
-	// and flipped back to running.
-	StatusUpgrading SandboxStatus = "upgrading"
 )
 
 // CreateSandboxOpts configures a new sandbox.
@@ -53,18 +49,6 @@ type CreateSandboxOpts struct {
 type SandboxInfo struct {
 	ExternalID string // provider's sandbox identifier
 	Status     SandboxStatus
-}
-
-// UpgradeSandboxOpts configures an in-place runtime upgrade for an existing sandbox.
-type UpgradeSandboxOpts struct {
-	Name         string
-	TemplateRef  string
-	EnvVars      map[string]string
-	Labels       map[string]string
-	CPU          int
-	Memory       int
-	Disk         int
-	ExposedPorts []int
 }
 
 // TemplateBuildRequest configures a provider template/image build.
@@ -172,10 +156,6 @@ type Provider interface {
 // through a warm pool rather than direct CreateSandbox calls.
 type WarmPoolCapable interface {
 	UsesWarmPool() bool
-}
-
-type UpgradeableProvider interface {
-	UpgradeSandbox(ctx context.Context, externalID string, opts UpgradeSandboxOpts) (*SandboxInfo, error)
 }
 
 // ErrUnsupported means a lifecycle operation has no provider-side implementation

@@ -46,7 +46,6 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 	logPhase("start",
 		"agent_id", agent.ID,
 		"org_id", orgID,
-		"sandbox_strategy", agent.SandboxStrategy,
 		"requested_model", strings.TrimSpace(runtimeOptions.ModelID),
 		"has_reasoning_effort", strings.TrimSpace(runtimeOptions.ReasoningEffort) != "",
 	)

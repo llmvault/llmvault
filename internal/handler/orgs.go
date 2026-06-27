@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,22 +18,13 @@ import (
 )
 
 type OrgHandler struct {
-	db          *gorm.DB
-	enq         enqueue.TaskEnqueuer
-	agentSyncer OrgAgentSyncer
-	envEncKey   *crypto.SymmetricKey
+	db        *gorm.DB
+	enq       enqueue.TaskEnqueuer
+	envEncKey *crypto.SymmetricKey
 }
 
 func NewOrgHandler(db *gorm.DB, enq enqueue.TaskEnqueuer) *OrgHandler {
 	return &OrgHandler{db: db, enq: enq}
-}
-
-type OrgAgentSyncer interface {
-	SyncOrgHivyAgent(ctx context.Context, orgID uuid.UUID) error
-}
-
-func (h *OrgHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
-	h.agentSyncer = syncer
 }
 
 func (h *OrgHandler) SetEnvironmentEncryptionKey(key *crypto.SymmetricKey) {
@@ -83,7 +73,6 @@ type updateOrgRequest struct {
 	Website             *string `json:"website,omitempty"`
 	PromptCompany       *string `json:"prompt_company,omitempty"`
 	SandboxExposedPorts *[]int  `json:"sandbox_exposed_ports,omitempty"`
-	Sync                bool    `json:"sync,omitempty"`
 }
 
 type orgResponse struct {
@@ -252,20 +241,6 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to update org", "org_id", ctxOrg.ID, "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update organization"})
 		return
-	}
-
-	if req.Sync {
-		if h.agentSyncer == nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "agent sandbox sync not configured", "org_id", ctxOrg.ID)
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to start Hivy agent sandbox; please retry"})
-			return
-		}
-		if err := h.agentSyncer.SyncOrgHivyAgent(r.Context(), ctxOrg.ID); err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to sync Hivy agent sandbox during org update", "org_id", ctxOrg.ID, "error", err)
-			logging.Capture(r.Context(), fmt.Errorf("sync Hivy agent sandbox during org update: %w", err))
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to start Hivy agent sandbox; please retry"})
-			return
-		}
 	}
 
 	var org model.Org

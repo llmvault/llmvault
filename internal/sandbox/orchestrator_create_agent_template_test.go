@@ -41,7 +41,6 @@ func TestCreateAgentSandboxUsesReadySandboxTemplateExternalID(t *testing.T) {
 		ID:                uuid.New(),
 		OrgID:             &orgID,
 		Name:              "Template Agent",
-		SandboxStrategy:   "per_session",
 		SandboxTemplateID: &tmpl.ID,
 		SandboxSize:       "small",
 		Model:             "gpt-5.4",

@@ -25,6 +25,7 @@ type streamHarness struct {
 	orgID         uuid.UUID
 	agentID       uuid.UUID
 	sandboxID     uuid.UUID
+	sessionID     uuid.UUID
 	runtimeSecret string
 	publicBase    string
 	publicAsset   *handler.UploadsHandler
@@ -42,9 +43,9 @@ func newStreamHarness(t *testing.T) *streamHarness {
 
 	r := chi.NewRouter()
 	r.Get("/v1/assets/preview", h.PreviewAsset)
-	r.Put("/internal/agents/{agentID}/drive/*", h.StreamAgentAsset)
-	r.Post("/internal/agents/{agentID}/drive/move", h.MoveAgentAsset)
-	r.Delete("/internal/agents/{agentID}/drive/*", h.DeleteAgentAsset)
+	r.Put("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", h.StreamAgentAsset)
+	r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/move", h.MoveAgentAsset)
+	r.Delete("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", h.DeleteAgentAsset)
 
 	orgID := uuid.New()
 	if err := db.Create(&model.Org{
@@ -66,6 +67,18 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	}).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+	channelID := uuid.New()
+	if err := db.Create(&model.Channel{
+		ID:             channelID,
+		OrgID:          orgID,
+		Name:           "stream-channel",
+		Kind:           "standard",
+		Visibility:     "public",
+		DefaultAgentID: agentID,
+		Origin:         "native",
+	}).Error; err != nil {
+		t.Fatalf("create channel: %v", err)
+	}
 
 	runtimeSecret := fmt.Sprintf("test-runtime-key-%s", uuid.New().String()[:8])
 	encrypted, err := encKey.EncryptString(runtimeSecret)
@@ -85,6 +98,20 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	}).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
 	}
+	sessionID := uuid.New()
+	if err := db.Create(&model.Session{
+		ID:              sessionID,
+		OrgID:           orgID,
+		ChannelID:       channelID,
+		AgentID:         agentID,
+		SandboxID:       &sandboxID,
+		Model:           "gpt-4o-mini",
+		ReasoningEffort: "low",
+		Source:          "web",
+		Status:          "active",
+	}).Error; err != nil {
+		t.Fatalf("create session: %v", err)
+	}
 
 	return &streamHarness{
 		db:            db,
@@ -92,10 +119,15 @@ func newStreamHarness(t *testing.T) *streamHarness {
 		orgID:         orgID,
 		agentID:       agentID,
 		sandboxID:     sandboxID,
+		sessionID:     sessionID,
 		runtimeSecret: runtimeSecret,
 		publicBase:    testMinioEndpoint + "/" + testMinioBucket,
 		publicAsset:   h,
 	}
+}
+
+func (s *streamHarness) drivePath(suffix string) string {
+	return fmt.Sprintf("/internal/agents/%s/sandboxes/%s/drive/%s", s.agentID, s.sandboxID, strings.TrimLeft(suffix, "/"))
 }
 
 func (s *streamHarness) put(t *testing.T, urlPath string, body io.Reader, contentType, bearer string) *httptest.ResponseRecorder {
@@ -137,12 +169,11 @@ func (s *streamHarness) delete(t *testing.T, urlPath, bearer string) *httptest.R
 
 func (s *streamHarness) seedAgentAsset(t *testing.T, folder, filename, body string) string {
 	t.Helper()
-	urlPath := "/internal/agents/" + s.agentID.String() + "/drive/"
-	if folder != "" {
-		urlPath += folder + "/"
+	suffix := filename
+	if strings.TrimSpace(folder) != "" {
+		suffix = strings.Trim(strings.TrimSpace(folder), "/") + "/" + filename
 	}
-	urlPath += filename
-	rr := s.put(t, urlPath, bytes.NewReader([]byte(body)), "text/plain", s.runtimeSecret)
+	rr := s.put(t, s.drivePath(suffix), bytes.NewReader([]byte(body)), "text/plain", s.runtimeSecret)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("seed asset: got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -165,7 +196,7 @@ func TestStreamAgentDrive_LargeMultipartStream(t *testing.T) {
 	}
 
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/videos/big.bin", h.agentID),
+		h.drivePath("videos/big.bin"),
 		bytes.NewReader(body),
 		"application/octet-stream",
 		h.runtimeSecret,
@@ -185,7 +216,7 @@ func TestStreamAgentDrive_LargeMultipartStream(t *testing.T) {
 
 func TestStreamAgentDrive_OverwriteByPath(t *testing.T) {
 	h := newStreamHarness(t)
-	urlPath := fmt.Sprintf("/internal/agents/%s/drive/exports/data.csv", h.agentID)
+	urlPath := h.drivePath("exports/data.csv")
 
 	first := h.put(t, urlPath, bytes.NewReader([]byte("v1,a")), "text/csv", h.runtimeSecret)
 	if first.Code != http.StatusCreated {

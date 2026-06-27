@@ -6,7 +6,7 @@ The sandbox timing issue has three separate cases:
 
 1. `3fokz7r7` - first large Hakaree developer sandbox was cold and took about 42 seconds to register ports, and about 62 seconds before first model usage.
 2. `0fa6dq5f` - later large Hakaree developer sandbox using the same image was hot and registered ports in about 4 seconds.
-3. `0l3rn8sg` - Hivy always-on sandbox was already running; the later delay was config rejection from an old runtime, not provisioning.
+3. `0l3rn8sg` - a reused Hivy sandbox was already running; the later delay was config rejection from an old runtime, not provisioning.
 
 Runner-level evidence shows runner-1 was healthy and Docker daemon bootstrap inside the developer sandboxes took only about 3 seconds. The remaining cold-start time is therefore mostly Microsandbox VM/image/runtime startup before port registration, plus Hivy runtime health/config/repo work after ports exist.
 
@@ -18,7 +18,7 @@ Runner-level evidence shows runner-1 was healthy and Docker daemon bootstrap ins
 - [Runner 1 `3fokz7r7` window](/tmp/hivy-prod-session-forensics-20260620/runner1_3fokz7r7_window.txt)
 - [Runner 1 `0fa6dq5f` window](/tmp/hivy-prod-session-forensics-20260620/runner1_0fa6dq5f_window.txt)
 - [Runner 1 wake window](/tmp/hivy-prod-session-forensics-20260620/runner1_wake_window.txt)
-- [Runner 1 always-on sandbox exec evidence](/tmp/hivy-prod-session-forensics-20260620/runner1_0l3_exec.json)
+- [Runner 1 reused sandbox exec evidence](/tmp/hivy-prod-session-forensics-20260620/runner1_0l3_exec.json)
 
 Relevant code paths:
 
@@ -120,7 +120,7 @@ Interpretation:
 
 The same runner and same developer runtime image were much faster later. That strongly suggests the earlier long latency was cold cache/image/VM startup, not a structural 1-minute minimum.
 
-## Case 3: Always-On Sandbox `0l3rn8sg`
+## Case 3: Reused Hivy Sandbox `0l3rn8sg`
 
 Sandbox details:
 
@@ -136,7 +136,7 @@ Timeline:
 
 | Time | Event |
 | --- | --- |
-| 2026-06-19 06:33:53 | Always-on sandbox created. |
+| 2026-06-19 06:33:53 | Sandbox created. |
 | 2026-06-20 11:27:14 | Runner logged `duration_ms=7 status=no-dockerd`; the sandbox did not need Docker bootstrap. |
 | 2026-06-20 11:27:15 | Preview route synced for `0l3rn8sg`. |
 | 2026-06-20 11:30:13 | Session `6887...` created. |
@@ -153,7 +153,7 @@ Live read-only exec inside `0l3rn8sg` showed:
 
 Interpretation:
 
-The always-on problem was not startup latency. It was a config/runtime schema mismatch. See [Old Always-On Runtime Rejected New Config](./01-runtime-config-version-skew.md).
+The reused sandbox problem was not startup latency. It was a config/runtime schema mismatch. See [Old Runtime Rejected New Config](./01-runtime-config-version-skew.md).
 
 ## Warm Pool Finding
 
@@ -233,7 +233,7 @@ Current telemetry does not split that interval into:
    - Store and expose per-phase status in DB/UI.
    - Users should see whether they are waiting on VM/image, runtime health, config, or repo clone.
 
-5. Avoid confusing always-on failures with provisioning:
+5. Avoid confusing reused sandbox failures with provisioning:
    - Schema/config failures should surface as runtime compatibility errors, not as generic startup slowness.
 
 ## Acceptance Criteria For A Fix
@@ -241,10 +241,9 @@ Current telemetry does not split that interval into:
 - For every sandbox create, logs and DB metadata can answer where each second was spent.
 - Cold and hot startup paths are separately measured.
 - The first large developer sandbox startup is consistently under a target SLO, or a warm slot is used.
-- Always-on wake/config failures are classified separately from provisioning latency.
+- Wake/config failures on existing sandboxes are classified separately from provisioning latency.
 - Runner dashboards show image cache and active warm capacity.
 
 ## Suggested Owner Brief
 
 Own production sandbox startup latency and observability. Start with `internal/sandbox/orchestrator_create_agent.go`, `internal/sandbox/microsandbox/driver.go`, `internal/microsandbox/runner/microsandbox_backend.go`, and `internal/microsandbox/runner/docker_daemon.go`. The first deliverable should be phase-level instrumentation that proves exactly where cold starts spend time.
-

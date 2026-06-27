@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
-	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
@@ -135,7 +134,6 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		if err != nil || channelID == uuid.Nil {
 			return fmt.Errorf("scheduled channel_id is invalid")
 		}
-		sandboxID := scheduledSessionSandboxID(ctx, tx, agent, run.Schedule)
 		now := time.Now().UTC()
 		sessionID = uuid.New()
 		session := model.Session{
@@ -143,7 +141,6 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 			OrgID:             run.OrgID,
 			ChannelID:         channelID,
 			AgentID:           run.AgentID,
-			SandboxID:         sandboxID,
 			Model:             agent.Model,
 			ReasoningEffort:   "high",
 			Source:            "schedule",
@@ -171,7 +168,7 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		}
 		updates := map[string]any{
 			"session_id":   sessionID,
-			"sandbox_id":   sandboxID,
+			"sandbox_id":   nil,
 			"status":       agentschedule.RunStatusProcessing,
 			"started_at":   now,
 			"lease_owner":  "",
@@ -184,21 +181,6 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		return nil
 	})
 	return sessionID, err
-}
-
-func scheduledSessionSandboxID(ctx context.Context, db *gorm.DB, agent model.Agent, schedule model.AgentSchedule) *uuid.UUID {
-	if agent.OrgID == nil || agent.SandboxStrategy != agentSandboxStrategyAlwaysOn {
-		return nil
-	}
-	if schedule.SandboxID != nil {
-		return cloneUUIDPtr(schedule.SandboxID)
-	}
-	sb, err := agentsandbox.Selector{DB: db}.MainRuntime(ctx, *agent.OrgID, agent.ID)
-	if err != nil || sb == nil {
-		return nil
-	}
-	id := sb.ID
-	return &id
 }
 
 func scheduledSessionName(schedule model.AgentSchedule) string {
@@ -231,14 +213,6 @@ func scheduledMessagePayload(run model.AgentScheduleRun, startedAt time.Time) mo
 		"schedule_started_at":   startedAt.UTC().Format(time.RFC3339),
 		"schedule_is_one_shot":  false,
 	}
-}
-
-func cloneUUIDPtr(value *uuid.UUID) *uuid.UUID {
-	if value == nil {
-		return nil
-	}
-	out := *value
-	return &out
 }
 
 func ptrTime(value time.Time) *time.Time {

@@ -70,7 +70,7 @@ func (h *OrgHandler) CreateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 	}
 	envVars[envKey] = req.Value
 
-	if !h.saveAndSyncOrgEnvironmentVars(w, r, agent, envVars) {
+	if !h.saveOrgEnvironmentVars(w, r, agent, envVars) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, orgEnvResponse(name))
@@ -146,7 +146,7 @@ func (h *OrgHandler) UpdateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 	}
 	envVars[newKey] = currentValue
 
-	if !h.saveAndSyncOrgEnvironmentVars(w, r, agent, envVars) {
+	if !h.saveOrgEnvironmentVars(w, r, agent, envVars) {
 		return
 	}
 	writeJSON(w, http.StatusOK, orgEnvResponse(newName))
@@ -183,7 +183,7 @@ func (h *OrgHandler) DeleteEnvironmentVariable(w http.ResponseWriter, r *http.Re
 	}
 	delete(envVars, envKey)
 
-	if !h.saveAndSyncOrgEnvironmentVars(w, r, agent, envVars) {
+	if !h.saveOrgEnvironmentVars(w, r, agent, envVars) {
 		return
 	}
 	writeJSON(w, http.StatusOK, statusResponse{Status: "deleted"})
@@ -224,7 +224,7 @@ func (h *OrgHandler) loadOrgEnvironmentVars(w http.ResponseWriter, r *http.Reque
 	return agent, envVars, true
 }
 
-func (h *OrgHandler) saveAndSyncOrgEnvironmentVars(w http.ResponseWriter, r *http.Request, agent *model.Agent, envVars map[string]string) bool {
+func (h *OrgHandler) saveOrgEnvironmentVars(w http.ResponseWriter, r *http.Request, agent *model.Agent, envVars map[string]string) bool {
 	encoded, err := json.Marshal(envVars)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to encode environment variables"})
@@ -245,13 +245,5 @@ func (h *OrgHandler) saveAndSyncOrgEnvironmentVars(w http.ResponseWriter, r *htt
 		return false
 	}
 
-	if h.agentSyncer == nil {
-		return true
-	}
-	if err := h.agentSyncer.SyncOrgHivyAgent(r.Context(), *agent.OrgID); err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to sync Hivy agent environment variables", "error", err, "agent_id", agent.ID, "org_id", agent.OrgID)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "environment variable saved, but failed to sync agent sandbox"})
-		return false
-	}
 	return true
 }

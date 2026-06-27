@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { use, useCallback, useMemo } from "react"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Spinner, toast } from "@heroui/react"
@@ -43,10 +43,6 @@ import {
   SandboxImageSection,
   SandboxSizeSection,
 } from "./_agent-settings-section"
-import {
-  SandboxRuntimeSection,
-  type AgentSandboxUpgrade,
-} from "./_sandbox-runtime-section"
 
 export default function AgentDetailPage({
   params,
@@ -55,8 +51,6 @@ export default function AgentDetailPage({
 }) {
   const { slug } = use(params)
   const queryClient = useQueryClient()
-  const [sandboxUpgradeID, setSandboxUpgradeID] = useState<string | null>(null)
-  const notifiedUpgradeIDRef = useRef<string | null>(null)
   const agentQuery = $api.useQuery("get", "/v1/agents/catalog/{slug}", {
     params: { path: { slug } },
   })
@@ -74,10 +68,6 @@ export default function AgentDetailPage({
   const disableAgentPlugin = $api.useMutation(
     "delete",
     "/v1/agents/{id}/plugins/{slug}"
-  )
-  const startSandboxUpgrade = $api.useMutation(
-    "post",
-    "/v1/agents/{id}/sandbox/upgrade"
   )
   const agent = agentQuery.data as CatalogAgent | undefined
   const installedAgentID = agent?.installed_agent_id ?? ""
@@ -97,32 +87,7 @@ export default function AgentDetailPage({
     },
     { enabled: installedAgentID.length > 0 }
   )
-  const sandboxUpgradeQuery = $api.useQuery(
-    "get",
-    "/v1/agents/{id}/sandbox/upgrades/{upgradeID}",
-    {
-      params: {
-        path: {
-          id: installedAgentID,
-          upgradeID: sandboxUpgradeID ?? "",
-        },
-      },
-    },
-    {
-      enabled: installedAgentID.length > 0 && Boolean(sandboxUpgradeID),
-      refetchInterval: (query) => {
-        const upgrade = query.state.data as AgentSandboxUpgrade | undefined
-        if (upgrade?.status === "succeeded" || upgrade?.status === "failed") {
-          return false
-        }
-        return 2500
-      },
-    }
-  )
   const installedAgent = installedAgentQuery.data as InstalledAgent | undefined
-  const sandboxUpgrade = sandboxUpgradeQuery.data as
-    | AgentSandboxUpgrade
-    | undefined
   const plugins = useMemo(
     () => (pluginsQuery.data ?? []) as ApiPlugin[],
     [pluginsQuery.data]
@@ -155,11 +120,6 @@ export default function AgentDetailPage({
     installedAgentQuery.isLoading || updateAgent.isPending
   const agentPluginBusy =
     enableAgentPlugin.isPending || disableAgentPlugin.isPending
-  const alwaysOnAgent = installedAgent?.sandbox_strategy === "always_on"
-  const sandboxUpgradeBusy =
-    startSandboxUpgrade.isPending ||
-    sandboxUpgrade?.status === "queued" ||
-    sandboxUpgrade?.status === "running"
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: AGENT_CATALOG_QUERY_KEY })
@@ -175,30 +135,6 @@ export default function AgentDetailPage({
       })
     }
   }, [installedAgentID, queryClient])
-
-  useEffect(() => {
-    if (!sandboxUpgradeID || !sandboxUpgrade?.status) return
-    if (
-      sandboxUpgrade.status !== "succeeded" &&
-      sandboxUpgrade.status !== "failed"
-    ) {
-      return
-    }
-    if (notifiedUpgradeIDRef.current === sandboxUpgradeID) return
-    notifiedUpgradeIDRef.current = sandboxUpgradeID
-    if (sandboxUpgrade.status === "succeeded") {
-      toast.success("Sandbox upgraded")
-      refresh()
-      return
-    }
-    toast.danger(sandboxUpgrade.error_message || "Sandbox upgrade failed")
-    refresh()
-  }, [
-    refresh,
-    sandboxUpgrade?.error_message,
-    sandboxUpgrade?.status,
-    sandboxUpgradeID,
-  ])
 
   function handleInstall() {
     if (!agent || !canInstall) return
@@ -267,34 +203,6 @@ export default function AgentDetailPage({
         onError: (error) =>
           toast.danger(
             extractErrorMessage(error, "Could not update image template")
-          ),
-      }
-    )
-  }
-
-  function handleSandboxUpgrade() {
-    if (!installedAgentID) return
-    startSandboxUpgrade.mutate(
-      { params: { path: { id: installedAgentID } } },
-      {
-        onSuccess: (upgrade) => {
-          const id = upgrade.upgrade_id?.trim()
-          if (!id) {
-            toast.danger("Could not track sandbox upgrade")
-            refresh()
-            return
-          }
-          setSandboxUpgradeID(id)
-          notifiedUpgradeIDRef.current = null
-          toast.success(
-            upgrade.status === "queued" || upgrade.status === "running"
-              ? "Sandbox upgrade in progress"
-              : "Sandbox upgrade started"
-          )
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not start sandbox upgrade")
           ),
       }
     )
@@ -405,14 +313,6 @@ export default function AgentDetailPage({
             isBusy={sandboxConfigBusy}
             onSandboxSizeChange={handleSandboxSizeChange}
           />
-          {alwaysOnAgent ? (
-            <SandboxRuntimeSection
-              agent={installedAgent}
-              upgrade={sandboxUpgrade}
-              isBusy={sandboxUpgradeBusy}
-              onUpgrade={handleSandboxUpgrade}
-            />
-          ) : null}
         </div>
       ) : null}
 

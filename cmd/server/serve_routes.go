@@ -115,12 +115,12 @@ func setupPublicRoutes(
 	r.Post("/incoming/webhooks/{provider}/{connectionID}", incomingWebhookHandler.Handle)
 
 	if uploadsHandler != nil {
-		r.Put("/internal/agents/{agentID}/drive/*", uploadsHandler.StreamAgentAsset)
-		r.Post("/internal/agents/{agentID}/drive/move", uploadsHandler.MoveAgentAsset)
-		r.Delete("/internal/agents/{agentID}/drive/*", uploadsHandler.DeleteAgentAsset)
+		r.Put("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", uploadsHandler.StreamAgentAsset)
+		r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/move", uploadsHandler.MoveAgentAsset)
+		r.Delete("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", uploadsHandler.DeleteAgentAsset)
 	}
 	if imageDescribeHandler != nil {
-		r.Post("/internal/agents/{agentID}/images/describe", imageDescribeHandler.DescribeForRuntime)
+		r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/images/describe", imageDescribeHandler.DescribeForRuntime)
 	}
 
 	if canvasHandler != nil {

@@ -45,6 +45,26 @@ func TestAgentHandlerUpdateStoresSandboxSize(t *testing.T) {
 	}
 }
 
+func TestAgentHandlerUpdateStoresNanoSandboxSize(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	agent := createSandboxSizeTestAgent(t, db, org.ID, "small")
+	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
+
+	rr := patchAgentSandboxSize(t, h, &org, agent.ID, "nano")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+
+	var stored model.Agent
+	if err := db.First(&stored, "id = ?", agent.ID).Error; err != nil {
+		t.Fatalf("load stored agent: %v", err)
+	}
+	if stored.SandboxSize != "nano" {
+		t.Fatalf("stored sandbox_size = %q, want nano", stored.SandboxSize)
+	}
+}
+
 func TestAgentHandlerUpdateRejectsInvalidSandboxSize(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
@@ -124,7 +144,6 @@ func createSandboxConfigTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, im
 		ID:              uuid.New(),
 		OrgID:           &orgID,
 		Name:            "sandbox-config-" + randSuffix(),
-		SandboxStrategy: "always_on",
 		SandboxImage:    image,
 		SandboxSize:     size,
 		Model:           agentruntime.DefaultAgentModel,

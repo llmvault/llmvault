@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,50 +14,18 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-const (
-	agentSandboxStrategyAlwaysOn   = "always_on"
-	agentSandboxStrategyPerSession = "per_session"
-)
-
 func (h *SessionMessageDeliverHandler) loadRuntimeSandbox(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("session message delivery: agent must have org_id")
 	}
-	selector := agentRuntimeSelector(h.db, h.compileDeps)
-	if agent.SandboxStrategy == agentSandboxStrategyAlwaysOn {
-		return selector.MainRuntime(ctx, *agent.OrgID, agent.ID)
-	}
 	if session.SandboxID == nil {
 		return nil, gorm.ErrRecordNotFound
 	}
-	return selector.MainRuntimeByID(ctx, *agent.OrgID, agent.ID, *session.SandboxID)
+	return loadAgentSandboxByID(ctx, h.db, *agent.OrgID, agent.ID, *session.SandboxID)
 }
 
 func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
-	if agent != nil && agent.SandboxStrategy == agentSandboxStrategyAlwaysOn {
-		return h.ensureAlwaysOnRuntimeClient(ctx, session, agent)
-	}
 	return h.ensureRuntimeClientUnlocked(ctx, session, agent)
-}
-
-func (h *SessionMessageDeliverHandler) ensureAlwaysOnRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
-	var sb *model.Sandbox
-	var client *agentruntime.Client
-	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", sessionAgentSandboxLockKey(agent.ID)).Error; err != nil {
-			return fmt.Errorf("acquire agent sandbox lock: %w", err)
-		}
-		var ensureErr error
-		sb, client, ensureErr = h.ensureRuntimeClientUnlocked(ctx, session, agent)
-		return ensureErr
-	})
-	return sb, client, err
-}
-
-// sessionAgentSandboxLockKey mirrors handler.agentSandboxLockKey so session
-// delivery serializes with agent sync during always-on sandbox provisioning.
-func sessionAgentSandboxLockKey(agentID uuid.UUID) int64 {
-	return int64(binary.BigEndian.Uint64(agentID[:8])) // #nosec G115 -- hash truncation; sign bit is part of the hash distribution
 }
 
 func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
@@ -92,6 +59,11 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
 			return nil, nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
 		}
+		if err := h.db.WithContext(ctx).Model(&model.Session{}).
+			Where("id = ? AND org_id = ?", session.ID, session.OrgID).
+			Update("sandbox_id", sb.ID).Error; err != nil {
+			return nil, nil, fmt.Errorf("attach session sandbox: %w", err)
+		}
 	} else if err != nil {
 		return nil, nil, fmt.Errorf("load agent sandbox: %w", err)
 	}
@@ -104,7 +76,7 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 
 func sessionRuntimeAgent(agent *model.Agent, session model.Session) (*model.Agent, agentruntime.RuntimeConfigOptions) {
 	opts := agentruntime.RuntimeConfigOptions{}
-	if agent == nil || agent.SandboxStrategy != agentSandboxStrategyPerSession {
+	if agent == nil {
 		return agent, opts
 	}
 	runtimeAgent := *agent
@@ -129,22 +101,5 @@ func sessionRuntimeDraining(ctx context.Context, db *gorm.DB, session model.Sess
 		}
 		return count > 0, nil
 	}
-
-	var running int64
-	if err := db.WithContext(ctx).Model(&model.Sandbox{}).
-		Where("org_id = ? AND agent_id = ? AND status = ?", session.OrgID, session.AgentID, string(sandbox.StatusRunning)).
-		Count(&running).Error; err != nil {
-		return false, err
-	}
-	if running > 0 {
-		return false, nil
-	}
-
-	var count int64
-	if err := db.WithContext(ctx).Model(&model.Sandbox{}).
-		Where("org_id = ? AND agent_id = ? AND status = ?", session.OrgID, session.AgentID, string(sandbox.StatusDraining)).
-		Count(&count).Error; err != nil {
-		return false, err
-	}
-	return count > 0, nil
+	return false, nil
 }

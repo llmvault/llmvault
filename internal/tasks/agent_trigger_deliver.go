@@ -25,26 +25,20 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 		return fmt.Errorf("agent missing org")
 	}
 
-	sb, err := h.loadAgentSandbox(ctx, agent.ID, *agent.OrgID)
+	compiled := h.compileMessage(payload, trigger, webhookPayload)
+	session, err := h.findOrCreateTriggerSession(ctx, &agent, trigger, compiled.ResourceKey)
 	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "load_agent_sandbox", payload, trigger, "", "", err)
+		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)
 		return err
 	}
-	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
+	_, client, err := h.ensureTriggerSessionRuntime(ctx, &agent, session)
 	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "agent_runtime_client", payload, trigger, "", "", err)
+		captureTriggerDispatchBoundary(ctx, "load_session_sandbox", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
 		return err
 	}
 	if err := client.Readyz(ctx); err != nil {
 		err = fmt.Errorf("agent runtime readyz: %w", err)
-		captureTriggerDispatchBoundary(ctx, "agent_runtime_readyz", payload, trigger, "", "", err)
-		return err
-	}
-
-	compiled := h.compileMessage(payload, trigger, webhookPayload)
-	session, err := h.findOrCreateTriggerSession(ctx, &agent, sb, trigger, compiled.ResourceKey)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)
+		captureTriggerDispatchBoundary(ctx, "agent_runtime_readyz", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
 		return err
 	}
 
@@ -151,10 +145,46 @@ func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload A
 	})
 }
 
-func (h *AgentTriggerDispatchHandler) loadAgentSandbox(ctx context.Context, agentID, orgID uuid.UUID) (*model.Sandbox, error) {
-	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, orgID, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("load agent sandbox: %w", err)
+func (h *AgentTriggerDispatchHandler) ensureTriggerSessionRuntime(ctx context.Context, agent *model.Agent, session *model.Session) (*model.Sandbox, *agentruntime.Client, error) {
+	if h == nil || h.orchestrator == nil {
+		return nil, nil, fmt.Errorf("trigger runtime delivery not configured")
 	}
-	return sb, nil
+	if h.compileDeps.EncKey == nil {
+		return nil, nil, fmt.Errorf("trigger runtime encryption key is required")
+	}
+	if agent == nil || agent.OrgID == nil || session == nil {
+		return nil, nil, fmt.Errorf("trigger runtime context is required")
+	}
+	var sb *model.Sandbox
+	var err error
+	if session.SandboxID != nil {
+		sb, err = loadAgentSandboxByID(ctx, h.db, *agent.OrgID, agent.ID, *session.SandboxID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load session sandbox: %w", err)
+		}
+	} else {
+		runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, *session)
+		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
+		if prepErr != nil {
+			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
+		}
+		sb, err = h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, runtimeAgent, secrets, runtimeOptions)
+		if err != nil {
+			return nil, nil, fmt.Errorf("create agent sandbox: %w", err)
+		}
+		if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
+			return nil, nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
+		}
+		if err := h.db.WithContext(ctx).Model(&model.Session{}).
+			Where("id = ? AND org_id = ?", session.ID, session.OrgID).
+			Update("sandbox_id", sb.ID).Error; err != nil {
+			return nil, nil, fmt.Errorf("attach trigger session sandbox: %w", err)
+		}
+		session.SandboxID = &sb.ID
+	}
+	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
+	if err != nil {
+		return nil, nil, fmt.Errorf("agent runtime client: %w", err)
+	}
+	return sb, client, nil
 }

@@ -83,15 +83,9 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 		jobID = "cron-" + uuid.NewString()
 	}
 	now := time.Now().UTC()
-	var sandboxID *uuid.UUID
-	if agent.SandboxStrategy == "always_on" && session.SandboxID != nil {
-		id := *session.SandboxID
-		sandboxID = &id
-	}
 	schedule := model.AgentSchedule{
 		OrgID:            *agent.OrgID,
 		AgentID:          agent.ID,
-		SandboxID:        sandboxID,
 		RuntimeJobID:     jobID,
 		Status:           StatusActive,
 		SourceSlug:       strings.TrimSpace(input.SourceSlug),

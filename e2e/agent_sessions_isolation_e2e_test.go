@@ -14,46 +14,40 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context, apiBase, ownerToken, orgID, ownerUserID, runID string) {
+func runAgentSessionsCatalogAgentIsolationE2E(t *testing.T, ctx context.Context, apiBase, ownerToken, orgID, ownerUserID, runID string) {
 	t.Helper()
 
 	githubPluginID := agentSessionsSeedInstalledPluginFixture(t, orgID, ownerUserID, "github")
 	t.Logf("seeded required GitHub plugin install fixture plugin_id=%s", githubPluginID)
 
 	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, ownerToken, orgID, "hakaree")
-	if agent.SandboxStrategy != "per_session" {
-		t.Fatalf("installed Hakaree sandbox_strategy=%q want per_session", agent.SandboxStrategy)
-	}
 	if agent.Model != "deepseek-v4-flash" {
 		t.Fatalf("installed Hakaree model=%q want deepseek-v4-flash", agent.Model)
 	}
 	assertAgentSessionsAgentSandboxImage(t, "Hakaree", agent, model.SandboxImageDeveloper)
-	if agent.Sandbox != nil {
-		t.Fatalf("per-session catalog agent should not return an always-on sandbox at install time: %+v", agent.Sandbox)
-	}
-	t.Logf("installed per-session catalog agent id=%s name=%s", agent.ID, agent.Name)
+	t.Logf("installed session sandbox catalog agent id=%s name=%s", agent.ID, agent.Name)
 
 	channel := agentSessionsCreateChannel(t, ctx, apiBase, ownerToken, orgID, "hakaree-e2e-"+runID, agent.ID)
 	if channel.DefaultAgentID != agent.ID {
-		t.Fatalf("per-session channel default_agent_id=%s want %s", channel.DefaultAgentID, agent.ID)
+		t.Fatalf("session sandbox channel default_agent_id=%s want %s", channel.DefaultAgentID, agent.ID)
 	}
-	t.Logf("created per-session channel id=%s agent=%s", channel.ID, channel.DefaultAgentID)
+	t.Logf("created session sandbox channel id=%s agent=%s", channel.ID, channel.DefaultAgentID)
 
-	pathA := "/tmp/hivy_per_session_" + runID + "_a.txt"
-	pathB := "/tmp/hivy_per_session_" + runID + "_b.txt"
-	firstMarkerA := "PER_SESSION_E2E_FIRST_A_" + runID
-	firstMarkerB := "PER_SESSION_E2E_FIRST_B_" + runID
-	secondMarkerA := "PER_SESSION_E2E_SECOND_A_" + runID
-	secondMarkerB := "PER_SESSION_E2E_SECOND_B_" + runID
-	stateMarkerA := "PER_SESSION_E2E_STATE_A_" + runID
-	stateMarkerB := "PER_SESSION_E2E_STATE_B_" + runID
-	missingMarkerA := "PER_SESSION_E2E_MISSING_A_" + runID
-	missingMarkerB := "PER_SESSION_E2E_MISSING_B_" + runID
+	pathA := "/tmp/hivy_session_isolation_" + runID + "_a.txt"
+	pathB := "/tmp/hivy_session_isolation_" + runID + "_b.txt"
+	firstMarkerA := "SESSION_ISOLATION_E2E_FIRST_A_" + runID
+	firstMarkerB := "SESSION_ISOLATION_E2E_FIRST_B_" + runID
+	secondMarkerA := "SESSION_ISOLATION_E2E_SECOND_A_" + runID
+	secondMarkerB := "SESSION_ISOLATION_E2E_SECOND_B_" + runID
+	stateMarkerA := "SESSION_ISOLATION_E2E_STATE_A_" + runID
+	stateMarkerB := "SESSION_ISOLATION_E2E_STATE_B_" + runID
+	missingMarkerA := "SESSION_ISOLATION_E2E_MISSING_A_" + runID
+	missingMarkerB := "SESSION_ISOLATION_E2E_MISSING_B_" + runID
 
 	sessionA := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       channel.ID,
 		"model_definition": map[string]any{"reasoning_effort": "low"},
-		"text": agentSessionsPerSessionFirstPrompt(
+		"text": agentSessionsIsolationFirstPrompt(
 			"session A", pathA, firstMarkerA,
 			"python3 -c 'import pathlib,time; time.sleep(10); pathlib.Path(\""+pathA+"\").write_text(\"session-a\"); print(\""+stateMarkerA+"\")'",
 		),
@@ -61,28 +55,28 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	sessionB := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       channel.ID,
 		"model_definition": map[string]any{"reasoning_effort": "low"},
-		"text": agentSessionsPerSessionFirstPrompt(
+		"text": agentSessionsIsolationFirstPrompt(
 			"session B", pathB, firstMarkerB,
 			"python3 -c 'import pathlib,time; time.sleep(10); pathlib.Path(\""+pathB+"\").write_text(\"session-b\"); print(\""+stateMarkerB+"\")'",
 		),
 	})
 	if sessionA.Session.AgentID != agent.ID || sessionB.Session.AgentID != agent.ID {
-		t.Fatalf("per-session sessions used wrong agent: a=%s b=%s want=%s", sessionA.Session.AgentID, sessionB.Session.AgentID, agent.ID)
+		t.Fatalf("session sandbox sessions used wrong agent: a=%s b=%s want=%s", sessionA.Session.AgentID, sessionB.Session.AgentID, agent.ID)
 	}
 	if sessionA.Queued || sessionB.Queued {
-		t.Fatalf("per-session first turns should be accepted synchronously: a=%t b=%t", sessionA.Queued, sessionB.Queued)
+		t.Fatalf("session sandbox first turns should be accepted synchronously: a=%t b=%t", sessionA.Queued, sessionB.Queued)
 	}
 	if sessionA.Session.SandboxID == nil || sessionB.Session.SandboxID == nil {
-		t.Fatalf("per-session sessions should return sandbox ids immediately: a=%v b=%v", sessionA.Session.SandboxID, sessionB.Session.SandboxID)
+		t.Fatalf("session sandbox sessions should return sandbox ids immediately: a=%v b=%v", sessionA.Session.SandboxID, sessionB.Session.SandboxID)
 	}
-	t.Logf("created per-session sessions a=%s b=%s", sessionA.Session.ID, sessionB.Session.ID)
+	t.Logf("created session sandbox sessions a=%s b=%s", sessionA.Session.ID, sessionB.Session.ID)
 
 	accessA := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID)
 	accessB := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID)
 	requireAgentSessionsSandboxStreamAccess(t, accessA, sessionA.Session.ID)
 	requireAgentSessionsSandboxStreamAccess(t, accessB, sessionB.Session.ID)
 	if accessA.SandboxBaseURL == accessB.SandboxBaseURL {
-		t.Fatalf("per-session sandbox base URLs are identical: %s", accessA.SandboxBaseURL)
+		t.Fatalf("session sandbox base URLs are identical: %s", accessA.SandboxBaseURL)
 	}
 
 	streamA := agentSessionsStartSandboxStreamWithAccess(t, ctx, sessionA.Session.ID, accessA)
@@ -114,12 +108,12 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	firstB := streamB.waitForEvent(t, ctx, 4*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, firstMarkerB)
 	})
-	t.Logf("per-session first finals observed a=%s b=%s", firstA.RawData, firstB.RawData)
+	t.Logf("session sandbox first finals observed a=%s b=%s", firstA.RawData, firstB.RawData)
 	waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID, firstMarkerA)
 	waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID, firstMarkerB)
 
-	msgA := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID, agentSessionsPerSessionSecondPrompt(pathA, stateMarkerA, missingMarkerA, secondMarkerA))
-	msgB := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID, agentSessionsPerSessionSecondPrompt(pathB, stateMarkerB, missingMarkerB, secondMarkerB))
+	msgA := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID, agentSessionsIsolationSecondPrompt(pathA, stateMarkerA, missingMarkerA, secondMarkerA))
+	msgB := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID, agentSessionsIsolationSecondPrompt(pathB, stateMarkerB, missingMarkerB, secondMarkerB))
 	assertAgentSessionsBackendOwnedMutationEvent(t, msgA.Event)
 	assertAgentSessionsBackendOwnedMutationEvent(t, msgB.Event)
 
@@ -129,7 +123,7 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	stateB := streamB.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(agentSessionsToolResultOutput(event), stateMarkerB)
 	})
-	t.Logf("per-session persisted state observed a=%s b=%s", stateA.RawData, stateB.RawData)
+	t.Logf("session sandbox persisted state observed a=%s b=%s", stateA.RawData, stateB.RawData)
 
 	secondA := streamA.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, secondMarkerA)
@@ -137,21 +131,21 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	secondB := streamB.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, secondMarkerB)
 	})
-	t.Logf("per-session second finals observed a=%s b=%s", secondA.RawData, secondB.RawData)
+	t.Logf("session sandbox second finals observed a=%s b=%s", secondA.RawData, secondB.RawData)
 	waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID, secondMarkerA)
 	waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID, secondMarkerB)
 }
 
-func agentSessionsPerSessionFirstPrompt(label, path, finalMarker, command string) string {
+func agentSessionsIsolationFirstPrompt(label, path, finalMarker, command string) string {
 	return strings.Join([]string{
-		"This is the agent sessions per-session sandbox E2E for " + label + ".",
+		"This is the agent sessions sandbox isolation E2E for " + label + ".",
 		"Before replying, call bash exactly once with this command: " + command + ".",
 		"After the bash result, visible final reply exactly " + finalMarker + " and no other text.",
 		"Use this file path only for this session: " + path + ".",
 	}, "\n")
 }
 
-func agentSessionsPerSessionSecondPrompt(path, presentMarker, missingMarker, finalMarker string) string {
+func agentSessionsIsolationSecondPrompt(path, presentMarker, missingMarker, finalMarker string) string {
 	return strings.Join([]string{
 		"Before replying, call bash exactly once with this command: if test -f " + path + "; then echo " + presentMarker + "; else echo " + missingMarker + "; fi.",
 		"After the bash result, visible final reply exactly " + finalMarker + " and no other text.",
@@ -229,10 +223,10 @@ func agentSessionsWaitForSessionSandbox(t *testing.T, ctx context.Context, orgID
 func assertAgentSessionsDistinctDockerSandboxes(t *testing.T, ctx context.Context, a, b model.Sandbox) {
 	t.Helper()
 	if a.ID == b.ID {
-		t.Fatalf("per-session sandboxes have the same db id: %s", a.ID)
+		t.Fatalf("session sandbox sandboxes have the same db id: %s", a.ID)
 	}
 	if a.ExternalID == b.ExternalID {
-		t.Fatalf("per-session sandboxes have the same docker external id: %s", a.ExternalID)
+		t.Fatalf("session sandbox sandboxes have the same docker external id: %s", a.ExternalID)
 	}
 	assertAgentSessionsDockerContainer(t, ctx, "session A", a)
 	assertAgentSessionsDockerContainer(t, ctx, "session B", b)

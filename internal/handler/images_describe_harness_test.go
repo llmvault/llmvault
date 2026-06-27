@@ -180,7 +180,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 		})
 	})
 	r.Post("/v1/images/describe", h.Describe)
-	r.Post("/internal/agents/{agentID}/images/describe", h.DescribeForRuntime)
+	r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/images/describe", h.DescribeForRuntime)
 
 	out := &imageDescribeHarness{
 		db:            db,
@@ -254,7 +254,7 @@ func (h *imageDescribeHarness) describe(t *testing.T, assetID uuid.UUID) *httpte
 func (h *imageDescribeHarness) runtimeDescribe(t *testing.T, assetID uuid.UUID, bearer string) *httptest.ResponseRecorder {
 	t.Helper()
 	body := `{"drive_asset_id":"` + assetID.String() + `","detail_level":"high"}`
-	req := httptest.NewRequest(http.MethodPost, "/internal/agents/"+h.agent.ID.String()+"/images/describe", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/internal/agents/"+h.agent.ID.String()+"/sandboxes/"+h.sandbox.ID.String()+"/images/describe", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+bearer)

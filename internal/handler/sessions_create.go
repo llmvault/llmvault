@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -80,7 +78,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	logPhase("resolve agent", "org_id", org.ID, "channel_id", channel.ID, "agent_id", agent.ID, "sandbox_strategy", agent.SandboxStrategy)
+	logPhase("resolve agent", "org_id", org.ID, "channel_id", channel.ID, "agent_id", agent.ID)
 	if ok := h.validateSessionModel(w, r, org.ID, &agent, createSessionModelID(req)); !ok {
 		return
 	}
@@ -90,28 +88,22 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	logPhase("validate runtime options", "org_id", org.ID, "agent_id", agent.ID)
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
-	logPhase("build session record", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "sandbox_strategy", agent.SandboxStrategy)
-	var perSessionSandbox *model.Sandbox
-	if agent.SandboxStrategy == agentStrategyPerSession {
-		sb, err := h.provisionPerSessionSandbox(ctx, &agent, session.Model, session.ReasoningEffort)
-		if err != nil {
-			logging.FromContext(ctx).ErrorContext(ctx, "provision per-session sandbox for session create failed", "agent_id", agent.ID, "error", err)
-			logging.Capture(ctx, err)
-			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to provision session sandbox"})
-			return
-		}
-		perSessionSandbox = sb
-		session.SandboxID = &sb.ID
-		logPhase("provision per-session sandbox", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
+	logPhase("build session record", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
+	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, session.Model, session.ReasoningEffort)
+	if err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
+		logging.Capture(ctx, err)
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to provision session sandbox"})
+		return
 	}
+	session.SandboxID = &sessionSandbox.ID
+	logPhase("provision session sandbox", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "sandbox_id", sessionSandbox.ID, "external_id", sessionSandbox.ExternalID)
 	queued := false
 	var event *model.SessionEvent
 	if hasInitialMessage {
 		intent, err := h.createInitialSessionMessageIntentWithOptions(ctx, &session, userID, text, payload, sessionMessageDeliveryOptions{})
 		if err != nil {
-			if perSessionSandbox != nil {
-				h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
-			}
+			h.cleanupFailedSessionCreate(ctx, session.ID, sessionSandbox)
 			if errors.Is(err, errSessionSandboxDraining) {
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
 				return
@@ -124,21 +116,13 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		queued, err = h.dispatchSessionMessageIntent(ctx, intent)
 		if err != nil {
 			if errors.Is(err, errSessionSandboxDraining) {
-				if perSessionSandbox != nil {
-					h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
-				}
+				h.cleanupFailedSessionCreate(ctx, session.ID, sessionSandbox)
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
-				return
-			}
-			if agent.SandboxStrategy == agentStrategyPerSession {
-				h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
-				logging.FromContext(ctx).ErrorContext(ctx, "send initial per-session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
-				logging.Capture(ctx, err)
-				writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
 				return
 			}
 			logging.FromContext(ctx).ErrorContext(ctx, "send initial session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
 			logging.Capture(ctx, err)
+			h.cleanupFailedSessionCreate(ctx, session.ID, sessionSandbox)
 			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
 			return
 		}
@@ -150,9 +134,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			logPhase("reload session", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 		}
 	} else if err := h.createSessionOnly(ctx, &session, userID); err != nil {
-		if perSessionSandbox != nil {
-			h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
-		}
+		h.cleanupFailedSessionCreate(ctx, session.ID, sessionSandbox)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 		return
 	} else {
@@ -258,7 +240,6 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 		OrgID:             orgID,
 		ChannelID:         channelID,
 		AgentID:           agent.ID,
-		SandboxID:         h.bestEffortSandboxID(r, orgID, agent),
 		CreatedBy:         userID,
 		Model:             modelID,
 		ReasoningEffort:   reasoningEffort,
@@ -270,21 +251,6 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 		IntegrationScopes: model.JSON{},
 	}
 	return session
-}
-
-func (h *SessionHandler) bestEffortSandboxID(r *http.Request, orgID uuid.UUID, agent model.Agent) *uuid.UUID {
-	return h.bestEffortSandboxIDForContext(r.Context(), orgID, agent)
-}
-
-func (h *SessionHandler) bestEffortSandboxIDForContext(ctx context.Context, orgID uuid.UUID, agent model.Agent) *uuid.UUID {
-	if agent.SandboxStrategy != agentStrategyAlwaysOn {
-		return nil
-	}
-	sandbox, err := agentsandbox.Selector{DB: h.db}.MainRuntime(ctx, orgID, agent.ID)
-	if err != nil || sandbox == nil {
-		return nil
-	}
-	return &sandbox.ID
 }
 
 func ptrSessionEventResponse(value sessionEventResponse) *sessionEventResponse {

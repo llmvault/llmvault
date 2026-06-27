@@ -62,7 +62,7 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 	}
 
 	want := map[string]string{
-		AgentEnvDriveUploadURL:         "https://api.example.test/internal/agents/" + agentID.String() + "/drive",
+		AgentEnvDriveUploadURL:         "https://api.example.test/internal/agents/" + agentID.String() + "/sandboxes/" + sandbox.ID.String() + "/drive",
 		AgentEnvGitUsername:            "hivy",
 		AgentEnvGitEmail:               "hivy@users.noreply.github.com",
 		AgentEnvGitCredentialsURL:      "https://api.example.test/internal/git-credentials/" + agentID.String(),

@@ -223,11 +223,7 @@ func setupV1Routes(
 						r.Patch("/agents/{id}", agentHandler.Update)
 						r.Delete("/agents/{id}", agentHandler.Archive)
 						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
-						r.Post("/agents/{id}/sync", agentHandler.Sync)
 						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
-						r.Post("/agents/{id}/sandbox/reboot", agentHandler.RebootSandbox)
-						r.Post("/agents/{id}/sandbox/upgrade", agentHandler.StartSandboxUpgrade)
-						r.Get("/agents/{id}/sandbox/upgrades/{upgradeID}", agentHandler.GetSandboxUpgrade)
 					})
 				}
 				if systemTaskHandler != nil {

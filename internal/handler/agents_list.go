@@ -11,30 +11,15 @@ import (
 
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
-
-type agentSandboxSummary struct {
-	ID             string  `json:"id"`
-	Status         string  `json:"status"`
-	ExternalID     string  `json:"external_id"`
-	RuntimeVersion string  `json:"runtime_version,omitempty"`
-	ErrorMessage   *string `json:"error_message,omitempty"`
-	LastActiveAt   *string `json:"last_active_at,omitempty"`
-	CreatedAt      string  `json:"created_at"`
-	snapshotID     *string
-}
 
 type agentListItem struct {
 	agentResponse
-	UpgradeAvailable     bool                 `json:"upgrade_available"`
-	LatestRuntimeVersion string               `json:"latest_runtime_version,omitempty"`
-	Sandbox              *agentSandboxSummary `json:"sandbox,omitempty"`
 }
 
 // @Summary List AI agents
 // @Description Returns all agents in the org with skills (metadata only — no bundle content),
-// @Description triggers, and the latest sandbox row.
+// @Description and triggers.
 // @Tags agents
 // @Produce json
 // @Param status query string false "Filter by status (draft, active, archived)"
@@ -86,7 +71,6 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	triggers := h.loadAgentTriggers(agentIDs...)
 	skills := h.loadAgentSkills(agentIDs...)
-	sandboxes := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, agentIDs)
 	channelIDs := h.loadAgentChannelIDs(r.Context(), org.ID, agentIDs)
 
 	items := make([]agentListItem, len(agents))
@@ -95,13 +79,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		base.ChannelIDs = channelIDs[a.ID]
 		base.Triggers = triggers[a.ID]
 		base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &a, skills[a.ID])
-		currentSnapshotID := h.currentAgentSandboxSnapshotIDForAgent(a)
-		items[i] = agentListItem{
-			agentResponse:        base,
-			UpgradeAvailable:     agentSandboxUpgradeAvailable(sandboxes[a.ID], currentSnapshotID),
-			LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
-			Sandbox:              sandboxes[a.ID],
-		}
+		items[i] = agentListItem{agentResponse: base}
 	}
 
 	result := paginatedResponse[agentListItem]{Data: items, HasMore: hasMore}
@@ -116,7 +94,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 // Get handles GET /v1/agents/{id}.
 // @Summary Get an AI agent
 // @Description Returns one agent in the org with skills (metadata only — no bundle content),
-// @Description triggers, and the latest sandbox row.
+// @Description and triggers.
 // @Tags agents
 // @Produce json
 // @Param id path string true "Agent agent ID"
@@ -157,33 +135,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	base.ChannelIDs = h.loadAgentChannelIDs(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
-	sandbox := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
-	currentSnapshotID := h.currentAgentSandboxSnapshotIDForAgent(agent)
-
-	writeJSON(w, http.StatusOK, agentListItem{
-		agentResponse:        base,
-		UpgradeAvailable:     agentSandboxUpgradeAvailable(sandbox, currentSnapshotID),
-		LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
-		Sandbox:              sandbox,
-	})
-}
-
-func (h *AgentHandler) currentAgentSandboxSnapshotID() string {
-	return h.currentAgentSandboxSnapshotIDForSize(model.DefaultAgentSandboxSize)
-}
-
-func (h *AgentHandler) currentAgentSandboxSnapshotIDForSize(size string) string {
-	if h == nil || h.compileDeps.Cfg == nil {
-		return ""
-	}
-	return sandboxpkg.AgentRuntimeTemplateRefForSize(h.compileDeps.Cfg, size)
-}
-
-func (h *AgentHandler) currentAgentSandboxSnapshotIDForAgent(agent model.Agent) string {
-	if h == nil || h.compileDeps.Cfg == nil {
-		return ""
-	}
-	return sandboxpkg.AgentRuntimeTemplateRefForSandboxImageAndSize(h.compileDeps.Cfg, agent.SandboxImage, agent.SandboxSize)
+	writeJSON(w, http.StatusOK, agentListItem{agentResponse: base})
 }
 
 func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {
@@ -191,14 +143,7 @@ func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent
 	base.ChannelIDs = h.loadAgentChannelIDs(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
-	sandbox := h.loadMainAgentRuntimeSandboxSummaries(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
-	currentSnapshotID := h.currentAgentSandboxSnapshotIDForAgent(agent)
-	return agentListItem{
-		agentResponse:        base,
-		UpgradeAvailable:     agentSandboxUpgradeAvailable(sandbox, currentSnapshotID),
-		LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
-		Sandbox:              sandbox,
-	}
+	return agentListItem{agentResponse: base}
 }
 
 func (h *AgentHandler) markAgentSkillLocks(ctx context.Context, orgID uuid.UUID, agent *model.Agent, skills []agentSkillSummary) []agentSkillSummary {
@@ -217,28 +162,4 @@ func (h *AgentHandler) markAgentSkillLocks(ctx context.Context, orgID uuid.UUID,
 		}
 	}
 	return skills
-}
-
-func agentSandboxUpgradeAvailable(summary *agentSandboxSummary, currentSnapshotID string) bool {
-	if summary == nil {
-		return false
-	}
-	if summary.snapshotID == nil || *summary.snapshotID == "" {
-		return currentSnapshotID != ""
-	}
-	return *summary.snapshotID != currentSnapshotID
-}
-
-func (h *AgentHandler) loadMainAgentRuntimeSandboxSummaries(ctx context.Context, orgID uuid.UUID, agentIDs []uuid.UUID) map[uuid.UUID]*agentSandboxSummary {
-	agentImage := ""
-	if h != nil && h.compileDeps.Cfg != nil {
-		agentImage = sandboxpkg.AgentRuntimeImageRef(h.compileDeps.Cfg, model.SandboxImageDefault)
-	}
-	return loadMainAgentRuntimeSandboxPerAgent(
-		ctx,
-		h.db,
-		orgID,
-		agentIDs,
-		agentImage,
-	)
 }

@@ -25,18 +25,6 @@ ALTER TABLE ONLY agent_assets
 ALTER TABLE ONLY agent_assets
     ADD CONSTRAINT fk_agent_assets_sandbox FOREIGN KEY (sandbox_id) REFERENCES sandboxes(id) ON DELETE CASCADE;
 
-ALTER TABLE ONLY agent_sandbox_upgrades
-    ADD CONSTRAINT fk_agent_sandbox_upgrades_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_sandbox_upgrades
-    ADD CONSTRAINT fk_agent_sandbox_upgrades_new_sandbox FOREIGN KEY (new_sandbox_id) REFERENCES sandboxes(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY agent_sandbox_upgrades
-    ADD CONSTRAINT fk_agent_sandbox_upgrades_old_sandbox FOREIGN KEY (old_sandbox_id) REFERENCES sandboxes(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY agent_sandbox_upgrades
-    ADD CONSTRAINT fk_agent_sandbox_upgrades_org FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE;
-
 ALTER TABLE ONLY agent_schedule_runs
     ADD CONSTRAINT fk_agent_schedule_runs_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
 

@@ -38,8 +38,6 @@ func mapStatus(status string) sandbox.SandboxStatus {
 		return sandbox.StatusStopped
 	case "creating":
 		return sandbox.StatusCreating
-	case "upgrading":
-		return sandbox.StatusUpgrading
 	case "error":
 		return sandbox.StatusError
 	default:
