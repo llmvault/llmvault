@@ -186,16 +186,16 @@ func (v *htmlValidator) validateMainStructure() {
 
 func (v *htmlValidator) validateHeadingStructure() {
 	if len(v.headings) == 0 {
-		v.addIssue("missing_heading", "error", "body", "", "HTML must include at least one heading.", "Add an h1 title and use h2/h3 headings for major sections.")
+		v.addIssue("missing_heading", "warning", "body", "", "HTML should include at least one heading.", "Add an h1 title and use h2/h3 headings for major sections.")
 		return
 	}
 	if v.artifactType == artifactTypeWebPage && v.headings[0].level != 1 {
-		v.addIssue("missing_primary_h1", "error", "h1", v.headings[0].path, "web_page artifacts should start their heading outline with h1.", "Add one h1 near the top of the main content.")
+		v.addIssue("missing_primary_h1", "warning", "h1", v.headings[0].path, "web_page artifacts should start their heading outline with h1.", "Add one h1 near the top of the main content.")
 	}
 	previous := v.headings[0].level
 	for _, heading := range v.headings[1:] {
 		if heading.level > previous+1 {
-			v.addIssue("heading_level_jump", "error", fmt.Sprintf("h%d", heading.level), heading.path, fmt.Sprintf("Heading jumps from h%d to h%d.", previous, heading.level), "Do not skip heading levels; use the next level in the document outline.")
+			v.addIssue("heading_level_jump", "warning", fmt.Sprintf("h%d", heading.level), heading.path, fmt.Sprintf("Heading jumps from h%d to h%d.", previous, heading.level), "Do not skip heading levels; use the next level in the document outline.")
 		}
 		previous = heading.level
 	}
