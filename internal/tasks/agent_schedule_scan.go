@@ -72,6 +72,14 @@ func claimScheduleRun(tx *gorm.DB, schedule model.AgentSchedule, scheduledAt, no
 	return run, true, nil
 }
 
+func cloneUUIDPtr(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	out := *value
+	return &out
+}
+
 func advanceClaimedSchedule(tx *gorm.DB, schedule model.AgentSchedule, now time.Time) error {
 	completed := schedule.RepeatCompleted + 1
 	updates := map[string]any{

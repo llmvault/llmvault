@@ -110,12 +110,12 @@ Interpretation:
 - `PushAgentRuntimeConfigForSessionModel` calls `/healthz`, `PUT /config`, and `/readyz` every delivered message.
 - Runtime `/config` persists the definition, syncs skills, reloads MCP specs, reloads outbound channels, replaces config, and marks config loaded. This is heavy and should not be on every message when config has not changed.
 
-Latest always-on Hivy session `6887bdb9-b683-4f12-85c5-145abaf1f2a2` never delivered:
+Latest reused Hivy sandbox session `6887bdb9-b683-4f12-85c5-145abaf1f2a2` never delivered:
 
 - Queue row `ec6d4379-031a-4608-8ff2-57fb44a49614`.
 - Attempt count: 7.
 - Last error: runtime config rejected `builtin.file_search` because the running runtime image expected an older tool enum.
-- This is a separate correctness issue from latency, but it also proves why inline dispatch falls back/retries when an always-on sandbox is alive but not config-compatible.
+- This is a separate correctness issue from latency, but it also proves why inline dispatch falls back/retries when an existing sandbox is alive but not config-compatible.
 
 ## Network Measurements
 
@@ -154,7 +154,7 @@ Conclusion: the runner and preview proxy are fast locally. The control plane is 
 
 Observed API log latencies:
 
-- `0l3rn8sg` always-on sandbox access: 2728ms.
+- `0l3rn8sg` reused sandbox access: 2728ms.
 - `3fokz7r7` sandbox access: 5454ms, 3685ms, 5586ms, with later repeated calls around 178-192ms.
 - `0fa6dq5f` sandbox access after hot create: 177ms.
 

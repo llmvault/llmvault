@@ -47,7 +47,6 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 		IsDefault:          c.IsDefault,
 		Model:              c.Model,
 		AvailableModels:    append([]string{}, c.AvailableModels...),
-		SandboxStrategy:    c.SandboxStrategy,
 		SandboxImage:       model.NormalizeSandboxImage(c.SandboxImage),
 		RequiredPlugins:    required,
 		RecommendedPlugins: recommended,
@@ -178,7 +177,6 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		Description:     &desc,
 		AvatarURL:       optionalStringPtr(avatarURL),
 		IsDefault:       false,
-		SandboxStrategy: catalog.SandboxStrategy,
 		SandboxImage:    model.NormalizeSandboxImage(catalog.SandboxImage),
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
@@ -190,9 +188,6 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		Resources:       model.JSON{},
 		SandboxTools:    pq.StringArray(sandboxTools),
 		Status:          "active",
-	}
-	if agent.SandboxStrategy == "" || !isValidAgentSandboxStrategy(agent.SandboxStrategy) {
-		agent.SandboxStrategy = agentStrategyPerSession
 	}
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return model.Agent{}, fmt.Errorf("create catalog agent: %w", err)

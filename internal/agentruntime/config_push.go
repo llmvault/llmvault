@@ -155,7 +155,7 @@ func resolveSandboxRuntimeConfigOptions(ctx context.Context, deps CompileDeps, s
 	if strings.TrimSpace(opts.ModelID) != "" || strings.TrimSpace(opts.ReasoningEffort) != "" {
 		return opts, nil
 	}
-	if deps.DB == nil || sb == nil || agent == nil || agent.SandboxStrategy != "per_session" {
+	if deps.DB == nil || sb == nil || agent == nil {
 		return opts, nil
 	}
 	var session model.Session

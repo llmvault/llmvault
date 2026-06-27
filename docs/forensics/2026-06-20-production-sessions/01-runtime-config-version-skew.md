@@ -1,8 +1,8 @@
-# Old Always-On Runtime Rejected New Config
+# Old Runtime Rejected New Config
 
 ## Summary
 
-Session `6887bdb9-b683-4f12-85c5-145abaf1f2a2` failed before the runtime could start a turn. The API/worker attempted to push a runtime config containing `builtin.file_search` into an existing always-on Hivy sandbox created from `ghcr.io/usehivy/hivy-sandboxes-runtime:v3.6.0-amd64`. That old runtime did not know the `builtin.file_search` tool type and rejected the config with HTTP 422.
+Session `6887bdb9-b683-4f12-85c5-145abaf1f2a2` failed before the runtime could start a turn. The API/worker attempted to push a runtime config containing `builtin.file_search` into an existing Hivy sandbox created from `ghcr.io/usehivy/hivy-sandboxes-runtime:v3.6.0-amd64`. That old runtime did not know the `builtin.file_search` tool type and rejected the config with HTTP 422.
 
 This was not an LLM failure and not a sandbox provisioning timeout. The sandbox was reachable and `/healthz` was live. The runtime schema was older than the API-generated config.
 
@@ -20,7 +20,7 @@ This was not an LLM failure and not a sandbox provisioning timeout. The sandbox 
 - [Latest web sessions snapshot](/tmp/hivy-prod-session-forensics-20260620/web_and_linked_sessions_snapshot.json)
 - [Worker logs](/tmp/hivy-prod-session-forensics-20260620/asynq_logs_4h.jsonl)
 - [Microsandbox DB snapshot](/tmp/hivy-prod-session-forensics-20260620/msb_db_snapshot.json)
-- [Runner 1 always-on sandbox exec evidence](/tmp/hivy-prod-session-forensics-20260620/runner1_0l3_exec.json)
+- [Runner 1 sandbox exec evidence](/tmp/hivy-prod-session-forensics-20260620/runner1_0l3_exec.json)
 
 Relevant code paths:
 
@@ -35,7 +35,7 @@ All times are UTC.
 
 | Time | Event |
 | --- | --- |
-| 2026-06-19 06:33:53 | Microsandbox sandbox `0l3rn8sg` was created for Hivy always-on agent from `ghcr.io/usehivy/hivy-sandboxes-runtime:v3.6.0-amd64`. |
+| 2026-06-19 06:33:53 | Microsandbox sandbox `0l3rn8sg` was created for Hivy from `ghcr.io/usehivy/hivy-sandboxes-runtime:v3.6.0-amd64`. |
 | 2026-06-20 10:54:10 | Production API latest successful deployment was created. |
 | 2026-06-20 10:54:15 | Production worker/latest `asynq` deployment was created. |
 | 2026-06-20 11:27:14 | Runner logged `sandbox docker daemon bootstrap completed sandbox_id=0l3rn8sg duration_ms=7 status=no-dockerd`; this sandbox was alive and did not need Docker bootstrap. |
@@ -76,7 +76,7 @@ Session:
 - `name`: `summary-of-pr-191`
 - `source`: `web`
 - `agent`: Hivy, `4c092c84-a200-4823-84df-21720ede9986`
-- `sandbox_strategy`: `always_on`
+- `sandbox_id`: `7c0cfafd-e6e9-48a3-b512-322f13937d3b`
 - `model`: `deepseek-v4-flash`
 - `sandbox_id`: `7c0cfafd-e6e9-48a3-b512-322f13937d3b`
 - `external_id`: `0l3rn8sg`
@@ -117,10 +117,10 @@ Live read-only sandbox exec confirmed:
 
 ## Root Cause
 
-The API/worker generated config for the current code and agent catalog. The always-on sandbox was already running an older runtime binary. There is no compatibility gate between:
+The API/worker generated config for the current code and agent catalog. The reused sandbox was already running an older runtime binary. There is no compatibility gate between:
 
 - the API-generated runtime config schema, and
-- the schema accepted by a reused always-on runtime process.
+- the schema accepted by a reused runtime process.
 
 The delivery path treats a non-ready runtime by pushing config:
 
@@ -136,13 +136,13 @@ That is correct for a compatible runtime, but fatal when the runtime is too old 
 
 ## Why It Repeated For 12 Minutes
 
-`session:message_deliver` is retried by the worker. Each retry loaded the same running always-on sandbox and attempted the same config push. Since the runtime binary did not change, every retry failed identically.
+`session:message_deliver` is retried by the worker. Each retry loaded the same running sandbox and attempted the same config push. Since the runtime binary did not change, every retry failed identically.
 
 The logs show retry counts `0` through `5` on the same Asynq task and then `final_attempt=true`.
 
 ## Contributing Factors
 
-- Always-on sandboxes can outlive API/runtime protocol changes.
+- Reused sandboxes can outlive API/runtime protocol changes.
 - Runtime config push does not first query supported tool types or protocol version.
 - Agent config enabled a newly supported tool, `file_search`.
 - The session queue stayed pending after final retry, so the system did not convert the failed delivery into a terminal user-visible failure event.
@@ -155,7 +155,7 @@ The logs show retry counts `0` through `5` on the same Asynq task and then `fina
 
 2. Automatic stale runtime replacement:
    - If the runtime is too old, mark the sandbox stale and recreate/restart it with the current image.
-   - This should be especially strict for always-on sandboxes.
+   - This should be especially strict for reused sandboxes.
 
 3. Config downgrade fallback:
    - If safe, omit unsupported non-critical tools for older runtimes.
@@ -165,15 +165,15 @@ The logs show retry counts `0` through `5` on the same Asynq task and then `fina
    - After final retry, write a clear terminal session event and mark the queue/session as failed instead of leaving a pending queue row with only `last_error`.
 
 5. Deployment guard:
-   - When deploying runtime schema changes, either pre-drain/recreate always-on sandboxes or make the first message recreate them automatically.
+   - When deploying runtime schema changes, either pre-drain/recreate affected sandboxes or make the first message recreate them automatically.
 
 ## Acceptance Criteria For A Fix
 
-- A `v3.6.0` always-on sandbox cannot repeatedly receive an unsupported `builtin.file_search` config.
+- A `v3.6.0` sandbox cannot repeatedly receive an unsupported `builtin.file_search` config.
 - A reused sandbox with unsupported capabilities is recreated or clearly failed in one attempt.
 - The user sees a terminal error event, not an indefinitely pending message.
 - New runtime tool additions include compatibility tests against previous runtime schemas or a forced runtime version bump.
 
 ## Suggested Owner Brief
 
-Own the runtime/API compatibility boundary for always-on sandboxes. Start with `internal/tasks/session_message_deliver_runtime.go`, `internal/agentruntime/compile_tools.go`, and `sandboxes/runtime/crates/domain/src/tool_specs.rs`. The target fix is not just to handle `file_search`; it is to make runtime config schema changes safe for all reused sandboxes.
+Own the runtime/API compatibility boundary for reused sandboxes. Start with `internal/tasks/session_message_deliver_runtime.go`, `internal/agentruntime/compile_tools.go`, and `sandboxes/runtime/crates/domain/src/tool_specs.rs`. The target fix is not just to handle `file_search`; it is to make runtime config schema changes safe for all reused sandboxes.

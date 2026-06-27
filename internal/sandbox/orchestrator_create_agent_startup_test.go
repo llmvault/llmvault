@@ -22,18 +22,17 @@ func TestCreateAgentSandboxPushesStartupProxyToken(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		Name:            "Startup Token Agent",
-		SandboxStrategy: "per_session",
-		Model:           "gpt-5.4",
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          "Startup Token Agent",
+		Model:         "gpt-5.4",
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

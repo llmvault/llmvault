@@ -9,7 +9,6 @@ type Backend interface {
 	Reconcile(ctx context.Context) (*ReconcileReport, error)
 	Status(ctx context.Context) (map[string]any, error)
 	CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error)
-	UpgradeSandbox(ctx context.Context, sandboxID string, req UpgradeSandboxRequest) (*UpgradeSandboxResponse, error)
 	StartSandbox(ctx context.Context, sandboxID string) error
 	StopSandbox(ctx context.Context, sandboxID string) error
 	EnsureReady(ctx context.Context, sandboxID string, req EnsureReadyRequest) (*EnsureReadyResponse, error)
@@ -50,27 +49,6 @@ type SandboxInitConfig struct {
 type CreateSandboxResponse struct {
 	ID    string        `json:"id"`
 	Ports []PortBinding `json:"ports"`
-}
-
-type UpgradeSandboxRequest struct {
-	Name             string             `json:"name"`
-	ImageRef         string             `json:"image_ref"`
-	PreviousImageRef string             `json:"previous_image_ref"`
-	CPU              int                `json:"cpu"`
-	MemoryMB         int                `json:"memory_mb"`
-	DiskGB           int                `json:"disk_gb"`
-	Env              map[string]string  `json:"env"`
-	Labels           map[string]string  `json:"labels"`
-	PreviewPorts     []int              `json:"preview_ports"`
-	PortBindings     []PortBinding      `json:"port_bindings"`
-	Init             *SandboxInitConfig `json:"init"`
-}
-
-type UpgradeSandboxResponse struct {
-	ID     string        `json:"id"`
-	Status string        `json:"status"`
-	Error  string        `json:"error,omitempty"`
-	Ports  []PortBinding `json:"ports"`
 }
 
 type EnsureReadyRequest struct {

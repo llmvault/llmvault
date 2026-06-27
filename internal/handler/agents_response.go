@@ -74,7 +74,6 @@ type agentResponse struct {
 	AvatarURL         *string                `json:"avatar_url,omitempty"`
 	Icon              string                 `json:"icon"`
 	IsDefault         bool                   `json:"is_default"`
-	SandboxStrategy   string                 `json:"sandbox_strategy"`
 	SandboxImage      string                 `json:"sandbox_image"`
 	SandboxSize       string                 `json:"sandbox_size"`
 	SandboxTemplateID *string                `json:"sandbox_template_id,omitempty"`
@@ -110,10 +109,6 @@ func toAgentResponse(a model.Agent) agentResponse {
 	if a.Instructions != nil {
 		instructions = *a.Instructions
 	}
-	strategy := a.SandboxStrategy
-	if strategy == "" {
-		strategy = agentStrategyAlwaysOn
-	}
 	sandboxSize := model.NormalizeTemplateSize(a.SandboxSize)
 	mcpServers := json.RawMessage(a.McpServers)
 	if len(mcpServers) == 0 {
@@ -127,7 +122,6 @@ func toAgentResponse(a model.Agent) agentResponse {
 		AvatarURL:        &avatarURL,
 		Icon:             a.Icon,
 		IsDefault:        a.IsDefault,
-		SandboxStrategy:  strategy,
 		SandboxImage:     model.NormalizeSandboxImage(a.SandboxImage),
 		SandboxSize:      sandboxSize,
 		Model:            a.Model,

@@ -9,8 +9,6 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/handler"
-	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/storage"
 )
 
@@ -33,7 +31,6 @@ func buildUploadsHandler(cfg *config.Config, database *gorm.DB, sandboxEncKey *c
 	}
 	uploadsHandler := handler.NewUploadsHandler(database, presigner)
 	uploadsHandler.WithAssetPreviewBaseURL(cfg.APIWebhookBaseURL)
-	uploadsHandler.WithRuntimeImages(sandbox.AgentRuntimeImageRef(cfg, model.SandboxImageDefault))
 	if sandboxEncKey != nil {
 		uploadsHandler.WithStreamer(presigner, sandboxEncKey)
 	}

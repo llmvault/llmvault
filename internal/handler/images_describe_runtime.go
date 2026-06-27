@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -28,6 +27,11 @@ func (h *ImageDescribeHandler) DescribeForRuntime(w http.ResponseWriter, r *http
 	agentID, err := uuid.Parse(chi.URLParam(r, "agentID"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, imageDescribeError{Error: "invalid agent_id", ErrorCode: "invalid_agent_id"})
+		return
+	}
+	sandboxID, err := uuid.Parse(chi.URLParam(r, "sandboxID"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, imageDescribeError{Error: "invalid sandbox_id", ErrorCode: "invalid_sandbox_id"})
 		return
 	}
 	bearer := bearerFromHeader(r.Header.Get("Authorization"))
@@ -51,7 +55,7 @@ func (h *ImageDescribeHandler) DescribeForRuntime(w http.ResponseWriter, r *http
 		return
 	}
 
-	agent, sandbox, ok := h.runtimeDescribeAgent(w, r, agentID, bearer)
+	agent, sandbox, ok := h.runtimeDescribeAgent(w, r, agentID, sandboxID, bearer)
 	if !ok {
 		return
 	}
@@ -74,7 +78,7 @@ func (h *ImageDescribeHandler) DescribeForRuntime(w http.ResponseWriter, r *http
 	h.Describe(w, delegated)
 }
 
-func (h *ImageDescribeHandler) runtimeDescribeAgent(w http.ResponseWriter, r *http.Request, agentID uuid.UUID, bearer string) (*model.Agent, *model.Sandbox, bool) {
+func (h *ImageDescribeHandler) runtimeDescribeAgent(w http.ResponseWriter, r *http.Request, agentID, sandboxID uuid.UUID, bearer string) (*model.Agent, *model.Sandbox, bool) {
 	var agent model.Agent
 	if err := h.db.WithContext(r.Context()).Where("id = ? AND status <> ?", agentID, "archived").First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -88,10 +92,12 @@ func (h *ImageDescribeHandler) runtimeDescribeAgent(w http.ResponseWriter, r *ht
 		writeJSON(w, http.StatusBadRequest, imageDescribeError{Error: "agent has no org", ErrorCode: "agent_missing_org"})
 		return nil, nil, false
 	}
-	sandbox, err := (agentsandbox.Selector{DB: h.db}).MainRuntime(r.Context(), *agent.OrgID, agent.ID)
-	if err != nil {
+	var sandbox model.Sandbox
+	if err := h.db.WithContext(r.Context()).
+		Where("id = ? AND org_id = ? AND agent_id = ?", sandboxID, *agent.OrgID, agent.ID).
+		First(&sandbox).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusNotFound, imageDescribeError{Error: "sandbox not found for agent", ErrorCode: "sandbox_not_found"})
+			writeJSON(w, http.StatusNotFound, imageDescribeError{Error: "sandbox not found", ErrorCode: "sandbox_not_found"})
 			return nil, nil, false
 		}
 		writeJSON(w, http.StatusInternalServerError, imageDescribeError{Error: "failed to load sandbox", ErrorCode: "internal_error"})
@@ -106,7 +112,7 @@ func (h *ImageDescribeHandler) runtimeDescribeAgent(w http.ResponseWriter, r *ht
 		writeJSON(w, http.StatusUnauthorized, imageDescribeError{Error: "invalid runtime secret", ErrorCode: "unauthorized"})
 		return nil, nil, false
 	}
-	return &agent, sandbox, true
+	return &agent, &sandbox, true
 }
 
 func (h *ImageDescribeHandler) runtimeDescribeOrg(w http.ResponseWriter, r *http.Request, orgID uuid.UUID) (*model.Org, bool) {

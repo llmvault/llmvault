@@ -12,6 +12,7 @@ const ENV_CONTROL_PLANE_URL: &str = "HIVY_CONTROL_PLANE_URL";
 const ENV_DRIVE_UPLOAD_BEARER: &str = "HIVY_DRIVE_UPLOAD_BEARER";
 const ENV_DRIVE_UPLOAD_URL: &str = "HIVY_DRIVE_UPLOAD_URL";
 const ENV_AGENT_ID: &str = "HIVY_AGENT_ID";
+const ENV_SANDBOX_ID: &str = "HIVY_SANDBOX_ID";
 const ENV_RUNTIME_SECRET: &str = "HIVY_RUNTIME_SECRET";
 
 #[derive(Debug, Deserialize)]
@@ -102,11 +103,13 @@ async fn describe_uploaded_image(
 ) -> Result<DescribeResponse> {
     let control_plane = required_env(runtime_env, ENV_CONTROL_PLANE_URL)?;
     let agent_id = required_env(runtime_env, ENV_AGENT_ID)?;
+    let sandbox_id = required_env(runtime_env, ENV_SANDBOX_ID)?;
     let secret = required_env(runtime_env, ENV_RUNTIME_SECRET)?;
     let url = format!(
-        "{}/internal/agents/{}/images/describe",
+        "{}/internal/agents/{}/sandboxes/{}/images/describe",
         control_plane.trim_end_matches('/'),
-        agent_id
+        agent_id,
+        sandbox_id
     );
     let mut body = json!({
         "drive_asset_id": asset_id,

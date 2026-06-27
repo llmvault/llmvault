@@ -31,15 +31,10 @@ type AuthHandler struct {
 	frontendURL      string
 	autoConfirmEmail bool
 	credits          *billing.CreditsService
-	agentSyncer      OrgAgentSyncer
 	enqueuer         enqueue.TaskEnqueuer
 
 	loginMu       sync.Mutex
 	loginAttempts map[string]*loginAttempt // keyed by email
-}
-
-func (h *AuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
-	h.agentSyncer = syncer
 }
 
 func (h *AuthHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {

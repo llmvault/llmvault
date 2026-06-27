@@ -10,7 +10,7 @@ import (
 
 // SessionModelDefinition builds the per-message model override sent with a
 // session message. It must stay side-effect free: hot message delivery should
-// not push runtime config or mint session-scoped runtime env.
+// not push runtime config or mint runtime env.
 func SessionModelDefinition(
 	ctx context.Context,
 	deps CompileDeps,

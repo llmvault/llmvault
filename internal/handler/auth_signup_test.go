@@ -102,6 +102,9 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	if resp.SandboxImage != model.SandboxImageDefault {
 		t.Fatalf("agent sandbox_image = %q, want %q", resp.SandboxImage, model.SandboxImageDefault)
 	}
+	if resp.SandboxSize != model.DefaultHivyAgentSandboxSize {
+		t.Fatalf("agent sandbox_size = %q, want %q", resp.SandboxSize, model.DefaultHivyAgentSandboxSize)
+	}
 }
 
 func TestCreateUserDefaultOrg_AutoInstallsGlobalRuntimePluginOnHivy(t *testing.T) {

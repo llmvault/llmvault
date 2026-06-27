@@ -66,7 +66,7 @@ export function useOrgDriveFileUploads({
       try {
         const asset = requireUploadedDriveAsset(
           await uploadDriveAsset({
-            body: driveAssetUploadFormData({ agentId, file, path }),
+            body: driveAssetUploadFormData({ agentId, sessionId, file, path }),
           })
         )
         setComposerUploads(sessionId, (current) =>

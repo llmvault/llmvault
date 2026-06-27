@@ -44,7 +44,7 @@ export function useSessionAudioTranscription({
       const file = recordedAudioFile(blob, { filename, mimeType })
       const asset = requireUploadedDriveAsset(
         await uploadDriveAsset({
-          body: driveAssetUploadFormData({ agentId, file, path }),
+          body: driveAssetUploadFormData({ agentId, sessionId, file, path }),
         })
       )
       const transcription = await transcribeAudio({

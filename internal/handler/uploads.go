@@ -21,7 +21,6 @@ type UploadsHandler struct {
 	imageRegistry       *registry.Registry
 	imageHTTPClient     *http.Client
 	usageEnqueuer       enqueue.TaskEnqueuer
-	agentRuntimeImage   string
 	assetPreviewBaseURL string
 }
 
@@ -49,11 +48,6 @@ func (h *UploadsHandler) AssetReader() storage.Reader {
 func (h *UploadsHandler) WithStreamer(s storage.Streamer, encKey *crypto.SymmetricKey) *UploadsHandler {
 	h.streamer = s
 	h.encKey = encKey
-	return h
-}
-
-func (h *UploadsHandler) WithRuntimeImages(agentImage string) *UploadsHandler {
-	h.agentRuntimeImage = agentImage
 	return h
 }
 

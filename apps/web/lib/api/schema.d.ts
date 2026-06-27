@@ -1810,7 +1810,7 @@ export interface paths {
         /**
          * List AI agents
          * @description Returns all agents in the org with skills (metadata only — no bundle content),
-         *     triggers, and the latest sandbox row.
+         *     and triggers.
          */
         get: {
             parameters: {
@@ -2262,7 +2262,7 @@ export interface paths {
         /**
          * Get an AI agent
          * @description Returns one agent in the org with skills (metadata only — no bundle content),
-         *     triggers, and the latest sandbox row.
+         *     and triggers.
          */
         get: {
             parameters: {
@@ -2410,7 +2410,7 @@ export interface paths {
         head?: never;
         /**
          * Update an agent
-         * @description Updates a user-managed agent definition. The default Hivy agent cannot be renamed or moved away from always_on.
+         * @description Updates a user-managed agent definition. The default Hivy agent cannot be renamed.
          */
         patch: {
             parameters: {
@@ -2605,7 +2605,7 @@ export interface paths {
         head?: never;
         /**
          * Update an agent model
-         * @description Persists Hivy's agent model and pushes the full runtime config to the live sandbox.
+         * @description Persists the agent's default model. New runtime messages use the saved model through the session delivery path.
          */
         patch: {
             parameters: {
@@ -2908,396 +2908,6 @@ export interface paths {
                 };
             };
         };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/agents/{id}/sandbox/reboot": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reboot an agent sandbox
-         * @description Restarts the agent sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["rebootAgentSandboxResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Bad Gateway */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/agents/{id}/sandbox/upgrade": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start an agent sandbox upgrade
-         * @description Queues a control-plane upgrade that creates a replacement sandbox, syncs config,
-         *     drains the old runtime until active turns and webhooks finish, activates the replacement,
-         *     and schedules cleanup for the old sandbox.
-         *     If an upgrade is already queued or running for the agent, the active operation is returned.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent agent ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["agentSandboxUpgradeResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/agents/{id}/sandbox/upgrades/{upgradeID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get an agent sandbox upgrade
-         * @description Returns the current status and phase for a sandbox upgrade operation.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent agent ID */
-                    id: string;
-                    /** @description Upgrade operation ID */
-                    upgradeID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["agentSandboxUpgradeResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/agents/{id}/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Push compiled config to an agent sandbox
-         * @description Compiles the agent config, provisions an agent sandbox if
-         *     needed, pushes it to the runtime, and verifies readiness.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent UUID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["syncAgentResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Bad Gateway */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3676,6 +3286,8 @@ export interface paths {
                     "multipart/form-data": {
                         /** @description Destination agent ID */
                         agent_id: string;
+                        /** @description Destination session ID */
+                        session_id: string;
                         /** @description Drive folder */
                         path?: string;
                         /**
@@ -12951,6 +12563,25 @@ export interface components {
             name?: string;
             value?: string;
         };
+        ArtifactFileResponse: {
+            content_type?: string;
+            download_url?: string;
+            object_key?: string;
+            path?: string;
+            role?: string;
+            sha256?: string;
+            size_bytes?: number;
+        };
+        ArtifactResponse: {
+            files?: components["schemas"]["ArtifactFileResponse"][];
+            id?: string;
+            manifest?: number[];
+            name?: string;
+            project_id?: string;
+            slug?: string;
+            type?: string;
+            updated_at?: string;
+        };
         AvailableResource: {
             id?: string;
             name?: string;
@@ -13095,6 +12726,7 @@ export interface components {
         };
         ProjectResponse: {
             artifact_count?: number;
+            artifacts?: components["schemas"]["ArtifactResponse"][];
             description?: string;
             id?: string;
             name?: string;
@@ -13198,7 +12830,6 @@ export interface components {
             recommended_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
             required_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
             sandbox_image?: string;
-            sandbox_strategy?: string;
             slug?: string;
         };
         agentCatalogSummary: {
@@ -13234,16 +12865,13 @@ export interface components {
             image_model?: string;
             instructions?: string;
             is_default?: boolean;
-            latest_runtime_version?: string;
             mcp_servers?: number[];
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
             resources?: components["schemas"]["JSON"];
-            sandbox?: components["schemas"]["agentSandboxSummary"];
             sandbox_image?: string;
             sandbox_size?: string;
-            sandbox_strategy?: string;
             sandbox_template_id?: string;
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
@@ -13251,7 +12879,6 @@ export interface components {
             tools?: components["schemas"]["JSON"];
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
-            upgrade_available?: boolean;
             vector_image_model?: string;
         };
         agentMutationRequest: {
@@ -13269,7 +12896,6 @@ export interface components {
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
-            sandbox_strategy?: string;
             sandbox_template_id?: string;
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
@@ -13299,7 +12925,6 @@ export interface components {
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
-            sandbox_strategy?: string;
             sandbox_template_id?: string;
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
@@ -13308,27 +12933,6 @@ export interface components {
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
             vector_image_model?: string;
-        };
-        agentSandboxSummary: {
-            created_at?: string;
-            error_message?: string;
-            external_id?: string;
-            id?: string;
-            last_active_at?: string;
-            runtime_version?: string;
-            status?: string;
-        };
-        agentSandboxUpgradeResponse: {
-            completed_at?: string;
-            created_at?: string;
-            error_message?: string;
-            new_sandbox_id?: string;
-            old_sandbox_id?: string;
-            phase?: string;
-            status?: string;
-            updated_at?: string;
-            upgrade_id?: string;
-            upgrade_mode?: string;
         };
         agentSkillSummary: {
             description?: string;
@@ -14329,11 +13933,6 @@ export interface components {
             total_docs_indexed?: number;
             updated_at?: string;
         };
-        rebootAgentSandboxResponse: {
-            agent?: components["schemas"]["agentResponse"];
-            sandbox_id?: string;
-            sync?: components["schemas"]["syncAgentResponse"];
-        };
         refreshRequest: {
             /** @description optional: switch org */
             org_id?: string;
@@ -14661,12 +14260,6 @@ export interface components {
             provider?: string;
             status?: string;
         };
-        syncAgentResponse: {
-            applied?: number;
-            deleted?: number;
-            errors?: string[];
-            restart_triggered?: boolean;
-        };
         syncTriggerRequest: {
             from_beginning?: boolean;
         };
@@ -14799,7 +14392,6 @@ export interface components {
         };
         updateAgentModelResponse: {
             agent?: components["schemas"]["agentResponse"];
-            sync?: components["schemas"]["syncAgentResponse"];
         };
         updateConnectionResourcesRequest: {
             resources?: {
@@ -14823,7 +14415,6 @@ export interface components {
             name?: string;
             prompt_company?: string;
             sandbox_exposed_ports?: number[];
-            sync?: boolean;
             website?: string;
         };
         updateProfileRequest: {

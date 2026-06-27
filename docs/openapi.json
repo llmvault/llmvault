@@ -1694,7 +1694,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns all agents in the org with skills (metadata only \u2014 no bundle content),\ntriggers, and the latest sandbox row.",
+        "description": "Returns all agents in the org with skills (metadata only \u2014 no bundle content),\nand triggers.",
         "tags": [
           "agents"
         ],
@@ -2138,7 +2138,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns one agent in the org with skills (metadata only \u2014 no bundle content),\ntriggers, and the latest sandbox row.",
+        "description": "Returns one agent in the org with skills (metadata only \u2014 no bundle content),\nand triggers.",
         "tags": [
           "agents"
         ],
@@ -2308,7 +2308,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Updates a user-managed agent definition. The default Hivy agent cannot be renamed or moved away from always_on.",
+        "description": "Updates a user-managed agent definition. The default Hivy agent cannot be renamed.",
         "tags": [
           "agents"
         ],
@@ -2523,7 +2523,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Persists Hivy's agent model and pushes the full runtime config to the live sandbox.",
+        "description": "Persists the agent's default model. New runtime messages use the saved model through the session delivery path.",
         "tags": [
           "agents"
         ],
@@ -2863,403 +2863,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/agents/{id}/sandbox/reboot": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Restarts the agent sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.",
-        "tags": [
-          "agents"
-        ],
-        "summary": "Reboot an agent sandbox",
-        "parameters": [
-          {
-            "description": "Agent ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/rebootAgentSandboxResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Bad Gateway",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/agents/{id}/sandbox/upgrade": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Queues a control-plane upgrade that creates a replacement sandbox, syncs config,\ndrains the old runtime until active turns and webhooks finish, activates the replacement,\nand schedules cleanup for the old sandbox.\nIf an upgrade is already queued or running for the agent, the active operation is returned.",
-        "tags": [
-          "agents"
-        ],
-        "summary": "Start an agent sandbox upgrade",
-        "parameters": [
-          {
-            "description": "Agent agent ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/agentSandboxUpgradeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/agents/{id}/sandbox/upgrades/{upgradeID}": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Returns the current status and phase for a sandbox upgrade operation.",
-        "tags": [
-          "agents"
-        ],
-        "summary": "Get an agent sandbox upgrade",
-        "parameters": [
-          {
-            "description": "Agent agent ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Upgrade operation ID",
-            "name": "upgradeID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/agentSandboxUpgradeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/agents/{id}/sync": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Compiles the agent config, provisions an agent sandbox if\nneeded, pushes it to the runtime, and verifies readiness.",
-        "tags": [
-          "agents"
-        ],
-        "summary": "Push compiled config to an agent sandbox",
-        "parameters": [
-          {
-            "description": "Agent UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/syncAgentResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Bad Gateway",
             "content": {
               "application/json": {
                 "schema": {
@@ -3709,6 +3312,10 @@
                     "description": "Destination agent ID",
                     "type": "string"
                   },
+                  "session_id": {
+                    "description": "Destination session ID",
+                    "type": "string"
+                  },
                   "path": {
                     "description": "Drive folder",
                     "type": "string"
@@ -3721,6 +3328,7 @@
                 },
                 "required": [
                   "agent_id",
+                  "session_id",
                   "file"
                 ]
               }
@@ -13510,6 +13118,67 @@
           }
         }
       },
+      "ArtifactFileResponse": {
+        "type": "object",
+        "properties": {
+          "content_type": {
+            "type": "string"
+          },
+          "download_url": {
+            "type": "string"
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer"
+          }
+        }
+      },
+      "ArtifactResponse": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactFileResponse"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "manifest": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "AvailableResource": {
         "type": "object",
         "properties": {
@@ -13933,6 +13602,12 @@
           "artifact_count": {
             "type": "integer"
           },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactResponse"
+            }
+          },
           "description": {
             "type": "string"
           },
@@ -14230,9 +13905,6 @@
           "sandbox_image": {
             "type": "string"
           },
-          "sandbox_strategy": {
-            "type": "string"
-          },
           "slug": {
             "type": "string"
           }
@@ -14350,9 +14022,6 @@
           "is_default": {
             "type": "boolean"
           },
-          "latest_runtime_version": {
-            "type": "string"
-          },
           "mcp_servers": {
             "type": "array",
             "items": {
@@ -14371,16 +14040,10 @@
           "resources": {
             "$ref": "#/components/schemas/JSON"
           },
-          "sandbox": {
-            "$ref": "#/components/schemas/agentSandboxSummary"
-          },
           "sandbox_image": {
             "type": "string"
           },
           "sandbox_size": {
-            "type": "string"
-          },
-          "sandbox_strategy": {
             "type": "string"
           },
           "sandbox_template_id": {
@@ -14409,9 +14072,6 @@
           },
           "updated_at": {
             "type": "string"
-          },
-          "upgrade_available": {
-            "type": "boolean"
           },
           "vector_image_model": {
             "type": "string"
@@ -14470,9 +14130,6 @@
             "type": "string"
           },
           "sandbox_size": {
-            "type": "string"
-          },
-          "sandbox_strategy": {
             "type": "string"
           },
           "sandbox_template_id": {
@@ -14575,9 +14232,6 @@
           "sandbox_size": {
             "type": "string"
           },
-          "sandbox_strategy": {
-            "type": "string"
-          },
           "sandbox_template_id": {
             "type": "string"
           },
@@ -14606,67 +14260,6 @@
             "type": "string"
           },
           "vector_image_model": {
-            "type": "string"
-          }
-        }
-      },
-      "agentSandboxSummary": {
-        "type": "object",
-        "properties": {
-          "created_at": {
-            "type": "string"
-          },
-          "error_message": {
-            "type": "string"
-          },
-          "external_id": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "last_active_at": {
-            "type": "string"
-          },
-          "runtime_version": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        }
-      },
-      "agentSandboxUpgradeResponse": {
-        "type": "object",
-        "properties": {
-          "completed_at": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "error_message": {
-            "type": "string"
-          },
-          "new_sandbox_id": {
-            "type": "string"
-          },
-          "old_sandbox_id": {
-            "type": "string"
-          },
-          "phase": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          },
-          "upgrade_id": {
-            "type": "string"
-          },
-          "upgrade_mode": {
             "type": "string"
           }
         }
@@ -17723,20 +17316,6 @@
           }
         }
       },
-      "rebootAgentSandboxResponse": {
-        "type": "object",
-        "properties": {
-          "agent": {
-            "$ref": "#/components/schemas/agentResponse"
-          },
-          "sandbox_id": {
-            "type": "string"
-          },
-          "sync": {
-            "$ref": "#/components/schemas/syncAgentResponse"
-          }
-        }
-      },
       "refreshRequest": {
         "type": "object",
         "properties": {
@@ -18699,26 +18278,6 @@
           }
         }
       },
-      "syncAgentResponse": {
-        "type": "object",
-        "properties": {
-          "applied": {
-            "type": "integer"
-          },
-          "deleted": {
-            "type": "integer"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "restart_triggered": {
-            "type": "boolean"
-          }
-        }
-      },
       "syncTriggerRequest": {
         "type": "object",
         "properties": {
@@ -19089,9 +18648,6 @@
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/agentResponse"
-          },
-          "sync": {
-            "$ref": "#/components/schemas/syncAgentResponse"
           }
         }
       },
@@ -19159,9 +18715,6 @@
             "items": {
               "type": "integer"
             }
-          },
-          "sync": {
-            "type": "boolean"
           },
           "website": {
             "type": "string"

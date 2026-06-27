@@ -208,7 +208,7 @@ func (h *AgentProxyTokenRefreshHandler) loadAgentAndSandbox(ctx context.Context,
 	if agent.OrgID == nil {
 		return nil, nil, false, nil
 	}
-	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntimeByID(ctx, *agent.OrgID, agent.ID, payload.SandboxID)
+	sb, err := loadAgentSandboxByID(ctx, h.db, *agent.OrgID, agent.ID, payload.SandboxID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil, false, nil

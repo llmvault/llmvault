@@ -194,7 +194,7 @@ func normalizeAgentSandboxSizeForRequest(w http.ResponseWriter, value *string) (
 		return model.DefaultAgentSandboxSize, true
 	}
 	if !model.ValidTemplateSize(size) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_size must be small, medium, large, or xlarge"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_size must be nano, small, medium, large, or xlarge"})
 		return "", false
 	}
 	return model.NormalizeTemplateSize(size), true
@@ -210,8 +210,4 @@ func normalizeAgentSandboxImageForRequest(w http.ResponseWriter, value *string) 
 		return "", false
 	}
 	return model.NormalizeSandboxImage(image), true
-}
-
-func isValidAgentSandboxStrategy(strategy string) bool {
-	return strategy == agentStrategyAlwaysOn || strategy == agentStrategyPerSession
 }

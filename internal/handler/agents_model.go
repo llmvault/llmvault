@@ -25,8 +25,7 @@ type updateAgentModelRequest struct {
 }
 
 type updateAgentModelResponse struct {
-	Agent agentResponse     `json:"agent"`
-	Sync  syncAgentResponse `json:"sync"`
+	Agent agentResponse `json:"agent"`
 }
 
 // ListModels handles GET /v1/agents/models.
@@ -54,7 +53,7 @@ func (h *AgentHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 // UpdateModel handles PATCH /v1/agents/{id}/model.
 // @Summary Update an agent model
-// @Description Persists Hivy's agent model and pushes the full runtime config to the live sandbox.
+// @Description Persists the agent's default model. New runtime messages use the saved model through the session delivery path.
 // @Tags agents
 // @Accept json
 // @Produce json
@@ -111,17 +110,6 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if agent.SandboxStrategy != agentStrategyPerSession {
-		if upgrade, ok, err := activeAgentSandboxUpgrade(ctx, h.db, org.ID, agentID); err != nil {
-			log.ErrorContext(ctx, "load active agent sandbox upgrade for model update", "error", err, "agent_id", agentID)
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load active upgrade"})
-			return
-		} else if ok {
-			writeAgentUpgradeConflict(w, upgrade)
-			return
-		}
-	}
-
 	if agent.Model != modelID {
 		if err := h.db.WithContext(ctx).
 			Model(&model.Agent{}).
@@ -134,38 +122,12 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		agent.Model = modelID
 	}
 
-	if agent.SandboxStrategy == agentStrategyPerSession {
-		log.InfoContext(ctx, "per-session agent model updated",
-			"agent_id", agent.ID,
-			"model", modelID,
-		)
-		writeJSON(w, http.StatusOK, updateAgentModelResponse{
-			Agent: toAgentResponse(agent),
-			Sync:  toSyncResponseDTO(nil),
-		})
-		return
-	}
-
-	sb, syncResp, err := h.SyncAgent(ctx, &agent)
-	if err != nil {
-		log.ErrorContext(ctx, "sync agent after model update", "error", err,
-			"agent_id", agent.ID,
-			"sandbox_id", sandboxLogID(sb),
-			"model", modelID,
-		)
-		logging.Capture(ctx, fmt.Errorf("sync agent after model update: %w", err))
-		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "agent model saved, but sandbox rejected sync"})
-		return
-	}
-
-	log.InfoContext(ctx, "agent model updated and synced",
+	log.InfoContext(ctx, "agent model updated",
 		"agent_id", agent.ID,
-		"sandbox_id", sandboxLogID(sb),
 		"model", modelID,
 	)
 	writeJSON(w, http.StatusOK, updateAgentModelResponse{
 		Agent: toAgentResponse(agent),
-		Sync:  toSyncResponseDTO(syncResp),
 	})
 }
 

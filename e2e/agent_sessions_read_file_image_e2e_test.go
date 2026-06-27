@@ -49,7 +49,7 @@ func TestAgentSessionsReadFileImageDescribeE2E(t *testing.T) {
 	channel := agentSessionsCreateChannel(t, ctx, apiBase, token, orgID, "read-image-"+runID, agent.ID)
 	session := agentSessionsCreateSession(t, ctx, apiBase, token, orgID, channel.ID, "")
 	if session.Session.ID == "" || session.Session.SandboxID == nil {
-		t.Fatalf("session did not create a per-session sandbox: %+v", session)
+		t.Fatalf("session did not create a sandbox: %+v", session)
 	}
 	if os.Getenv("HIVY_KEEP_AGENT_SESSIONS_E2E_SANDBOX") != "1" {
 		t.Cleanup(func() {
@@ -101,7 +101,6 @@ func agentSessionsCreateReadFileImageAgent(t *testing.T, ctx context.Context, ba
 		"instructions":     "Use the requested tools exactly. Do not describe images from memory; use read_file.",
 		"model":            agentruntime.DefaultAgentModel,
 		"available_models": []string{agentruntime.DefaultAgentModel},
-		"sandbox_strategy": "per_session",
 		"tools":            map[string]any{"read_file": true},
 	}
 	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/agents", token, orgID, payload, http.StatusCreated, &out)

@@ -60,7 +60,6 @@ func newEmailConfirmationHarness(t *testing.T) *emailConfirmationHarness {
 		false,
 		billing.NewCreditsService(db),
 	)
-	authHandler.SetAgentSyncer(&stubOrgAgentSyncer{})
 	authHandler.SetEnqueuer(enq)
 
 	r := chi.NewRouter()

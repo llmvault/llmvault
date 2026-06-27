@@ -45,6 +45,9 @@ func ApplyServiceProxyEnv(env map[string]string, controlPlaneBaseURL string, age
 	}
 }
 
-func AgentDriveUploadURL(controlPlaneBaseURL string, agentID uuid.UUID) string {
-	return fmt.Sprintf("%s/internal/agents/%s/drive", strings.TrimRight(controlPlaneBaseURL, "/"), agentID)
+func AgentDriveUploadURL(controlPlaneBaseURL string, agentID, sandboxID uuid.UUID) string {
+	if sandboxID == uuid.Nil {
+		return ""
+	}
+	return fmt.Sprintf("%s/internal/agents/%s/sandboxes/%s/drive", strings.TrimRight(controlPlaneBaseURL, "/"), agentID, sandboxID)
 }

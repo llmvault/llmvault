@@ -32,18 +32,17 @@ func TestAgentHandler_UpdateConnectionResourcesStoresOnAgentAndQueuesGitHubClone
 	integration := createTestIntegration(t, db, "github-app")
 	_ = createTestIntegrationManagedSkill(t, db, "git-github-test-"+uuid.New().String()[:8], []string{"github-app"})
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &org.ID,
-		IsManaged:       true,
-		SandboxStrategy: "always_on",
-		Model:           agentruntime.DefaultAgentModel,
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &org.ID,
+		IsManaged:     true,
+		Model:         agentruntime.DefaultAgentModel,
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

@@ -43,15 +43,10 @@ type OAuthHandler struct {
 	frontendURL  string
 	secure       bool // true when cookies should be Secure (HTTPS)
 	credits      *billing.CreditsService
-	agentSyncer  OrgAgentSyncer
 	enqueuer     enqueue.TaskEnqueuer
 	githubConfig *oauth2.Config
 	googleConfig *oauth2.Config
 	xConfig      *oauth2.Config
-}
-
-func (h *OAuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
-	h.agentSyncer = syncer
 }
 
 func (h *OAuthHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {

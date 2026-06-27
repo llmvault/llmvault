@@ -8,17 +8,11 @@ import (
 )
 
 type agentSessionsAgentListItem struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	IsDefault       bool   `json:"is_default"`
-	SandboxStrategy string `json:"sandbox_strategy"`
-	SandboxImage    string `json:"sandbox_image"`
-	Model           string `json:"model"`
-	Sandbox         *struct {
-		ID         string `json:"id"`
-		Status     string `json:"status"`
-		ExternalID string `json:"external_id"`
-	} `json:"sandbox"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	IsDefault    bool   `json:"is_default"`
+	SandboxImage string `json:"sandbox_image"`
+	Model        string `json:"model"`
 }
 
 type agentSessionsChannel struct {

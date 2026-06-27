@@ -7,7 +7,7 @@ export type AgentPluginRequirement =
   components["schemas"]["agentCatalogPluginSummary"]
 export type AgentCategory = "All" | "Featured" | string
 export type AgentSandboxImage = "default" | "developer"
-export type AgentSandboxSize = "small" | "medium" | "large" | "xlarge"
+export type AgentSandboxSize = "nano" | "small" | "medium" | "large" | "xlarge"
 
 export const AGENT_SANDBOX_IMAGE_OPTIONS: Array<{
   key: AgentSandboxImage
@@ -31,6 +31,7 @@ export const AGENT_SANDBOX_SIZE_OPTIONS: Array<{
   label: string
   specs: string
 }> = [
+  { key: "nano", label: "Nano", specs: "1 CPU / 1 GB RAM / 5 GB disk" },
   { key: "small", label: "Small", specs: "1 CPU / 2 GB RAM / 10 GB disk" },
   { key: "medium", label: "Medium", specs: "2 CPU / 4 GB RAM / 20 GB disk" },
   { key: "large", label: "Large", specs: "4 CPU / 8 GB RAM / 40 GB disk" },

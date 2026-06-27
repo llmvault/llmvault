@@ -18,7 +18,7 @@ import (
 
 // Update handles PATCH /v1/agents/{id}.
 // @Summary Update an agent
-// @Description Updates a user-managed agent definition. The default Hivy agent cannot be renamed or moved away from always_on.
+// @Description Updates a user-managed agent definition. The default Hivy agent cannot be renamed.
 // @Tags agents
 // @Accept json
 // @Produce json
@@ -137,19 +137,6 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		value := cleanStringPtr(req.Icon)
 		updates["icon"] = value
 		agent.Icon = value
-	}
-	if req.SandboxStrategy != nil {
-		strategy := cleanStringPtr(req.SandboxStrategy)
-		if !isValidAgentSandboxStrategy(strategy) {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_strategy must be always_on or per_session"})
-			return false
-		}
-		if agent.IsDefault && strategy != agentStrategyAlwaysOn {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default agent must use always_on sandbox_strategy"})
-			return false
-		}
-		updates["sandbox_strategy"] = strategy
-		agent.SandboxStrategy = strategy
 	}
 	if req.SandboxImage != nil {
 		image, ok := normalizeAgentSandboxImageForRequest(w, req.SandboxImage)

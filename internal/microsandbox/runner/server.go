@@ -54,7 +54,6 @@ func (s *Server) Routes() http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireControl)
 		r.Post("/v1/sandboxes", s.createSandbox)
-		r.Post("/v1/sandboxes/{sandboxID}/upgrade", s.upgradeSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/start", s.startSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/stop", s.stopSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/ensure-ready", s.ensureSandboxReady)

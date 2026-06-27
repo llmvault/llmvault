@@ -4,13 +4,13 @@
 
 Build a first-party Canvas artifact system for UseHivey agents. The product flow is centered on Canvas projects, Canvas artifacts, sandbox-backed iframe previews, and comments anchored with `data-canvas-id`.
 
-The prototype should let per-session sandbox agents create, validate, verify, sync, and list Canvas projects and artifacts. The user-facing app should preview real interactive HTML artifacts and let users attach artifact comments to messages sent to the agent.
+The prototype should let agents create, validate, verify, sync, and list Canvas projects and artifacts from the session sandbox. The user-facing app should preview real interactive HTML artifacts and let users attach artifact comments to messages sent to the agent.
 
 ## Settled Decisions
 
 ### Scope
 
-- Canvas is available only for per-session agents.
+- Canvas is available for sessions with an attached sandbox.
 - Persisted Canvas projects and artifacts live globally in the org, not inside a session.
 - A session can be passed as optional context when the UI wants to filter to artifacts touched by a session or request a live preview from that session's sandbox.
 - The artifact workspace in the sandbox is `/workspace/canvas`.
@@ -368,7 +368,7 @@ Add a flagship E2E test based on the existing agent-session Docker provider flow
 The test should prove:
 
 - The stack runs through Docker Compose.
-- A per-session sandbox is provisioned using the Docker provider.
+- A session sandbox is provisioned using the Docker provider.
 - The runtime has Canvas CLI access.
 - `canvas project create` writes to the backend DB through the Go API using runtime-secret auth.
 - `canvas project list` reads the created project from the backend.
