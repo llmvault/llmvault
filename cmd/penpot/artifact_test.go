@@ -138,6 +138,34 @@ func TestArtifactValidateReturnsStructuredCorrectionFeedback(t *testing.T) {
 	}
 }
 
+func TestArtifactValidateTreatsHeadingIssuesAsWarnings(t *testing.T) {
+	artifactDir := createTestArtifact(t)
+	htmlPath := filepath.Join(artifactDir, "index.html")
+	html := `<!doctype html>
+<html><body>
+  <main data-canvas-id="page">
+    <section data-canvas-id="hero"><p>No heading here.</p></section>
+  </main>
+</body></html>`
+	if err := os.WriteFile(htmlPath, []byte(html), 0o644); err != nil {
+		t.Fatalf("write html: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return run([]string{"artifact", "validate", artifactDir})
+	})
+	var result artifactValidationResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("decode validation output: %v\n%s", err, out)
+	}
+	if !result.Valid {
+		t.Fatalf("expected heading warning to allow valid artifact: %+v", result)
+	}
+	if !validationIssuesContain(result.Issues, "missing_heading") {
+		t.Fatalf("expected missing_heading warning: %+v", result.Issues)
+	}
+}
+
 func createTestArtifact(t *testing.T) string {
 	t.Helper()
 	workspace := t.TempDir()
