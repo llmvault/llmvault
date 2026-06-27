@@ -41,7 +41,7 @@ func TestImageGenerationModels_ReturnsCatalogForAvailableSystemProviders(t *test
 	if resp.DefaultRasterModel != "reve-image" {
 		t.Fatalf("default raster = %q", resp.DefaultRasterModel)
 	}
-	if resp.DefaultVectorModel != "recraft-v4.1-pro-vector" {
+	if resp.DefaultVectorModel != "recraft-v4.1-vector" {
 		t.Fatalf("default vector = %q", resp.DefaultVectorModel)
 	}
 
@@ -60,7 +60,7 @@ func TestImageGenerationModels_ReturnsCatalogForAvailableSystemProviders(t *test
 			if !model.OpenWeights {
 				t.Fatal("flux.2-klein-4b should be marked open_weights")
 			}
-		case "recraft-v4.1-pro-vector":
+		case "recraft-v4.1-vector":
 			foundVector = true
 		}
 		if model.ID != "reve-image" && (len(model.ProviderIDs) != 1 || model.ProviderIDs[0] != "openrouter") {

@@ -144,7 +144,7 @@ func TestImageGenerationMCPToolUsesDefaultReveRasterModel(t *testing.T) {
 	assertImageGenerationMCPAsset(t, h, result, "raster", "reve", registry.DefaultRasterImageGenerationModelID, "reve-image")
 }
 
-func TestImageGenerationMCPToolUsesDefaultRecraftProVectorModel(t *testing.T) {
+func TestImageGenerationMCPToolUsesDefaultRecraftVectorModel(t *testing.T) {
 	ctx := context.Background()
 	h := newStreamHarness(t)
 	kms := newTestKMS(t)
@@ -166,7 +166,7 @@ func TestImageGenerationMCPToolUsesDefaultRecraftProVectorModel(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Fatalf("decode openrouter payload: %v", err)
 		}
-		if payload.Model != "recraft/recraft-v4.1-pro-vector" || !strings.Contains(payload.Prompt, "green circle") || payload.AspectRatio != "1:1" || payload.N != 1 {
+		if payload.Model != "recraft/recraft-v4.1-vector" || !strings.Contains(payload.Prompt, "green circle") || payload.AspectRatio != "1:1" || payload.N != 1 {
 			t.Fatalf("payload = %+v", payload)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -182,7 +182,7 @@ func TestImageGenerationMCPToolUsesDefaultRecraftProVectorModel(t *testing.T) {
 		"aspect_ratio": "1:1",
 		"count":        1,
 	})
-	assertImageGenerationMCPAsset(t, h, result, "vector", "openrouter", registry.DefaultVectorImageGenerationModelID, "recraft/recraft-v4.1-pro-vector")
+	assertImageGenerationMCPAsset(t, h, result, "vector", "openrouter", registry.DefaultVectorImageGenerationModelID, "recraft/recraft-v4.1-vector")
 }
 
 func imageGenerationMCPToken(orgID, agentID, sandboxID uuid.UUID) *model.Token {

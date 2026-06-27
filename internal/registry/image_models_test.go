@@ -20,7 +20,7 @@ func TestImageGenerationModelCatalog(t *testing.T) {
 	if !ok {
 		t.Fatal("default vector image model route not found")
 	}
-	if vector.UpstreamID != "recraft/recraft-v4.1-pro-vector" {
+	if vector.UpstreamID != "recraft/recraft-v4.1-vector" {
 		t.Fatalf("vector upstream = %q", vector.UpstreamID)
 	}
 	if !ModelSupportsImageOutput(vector.Model) || ModelSupportsTextOutput(vector.Model) {

@@ -35,13 +35,13 @@ var latestHivyModels = []HivyModel{
 		},
 	},
 	{
-		ID: "recraft-v4.1-vector",
+		ID: DefaultVectorImageGenerationModelID,
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-vector"},
 		},
 	},
 	{
-		ID: DefaultVectorImageGenerationModelID,
+		ID: "recraft-v4.1-pro-vector",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-pro-vector"},
 		},
