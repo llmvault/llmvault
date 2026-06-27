@@ -15,11 +15,18 @@ import (
 )
 
 type ChannelHandler struct {
-	db *gorm.DB
+	db                  *gorm.DB
+	externalProvisioner ChannelExternalProvisioner
 }
 
-func NewChannelHandler(db *gorm.DB) *ChannelHandler {
-	return &ChannelHandler{db: db}
+func NewChannelHandler(db *gorm.DB, opts ...ChannelHandlerOption) *ChannelHandler {
+	h := &ChannelHandler{db: db}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(h)
+		}
+	}
+	return h
 }
 
 type channelMutationRequest struct {

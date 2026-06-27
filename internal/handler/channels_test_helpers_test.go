@@ -26,6 +26,22 @@ func createChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, us
 	return out.Channel.ID
 }
 
+func seedChannelConnection(t *testing.T, h *channelHarness, fx channelFixture, provider, nangoID string) model.Connection {
+	t.Helper()
+	integ := createTestIntegration(t, h.db, provider)
+	conn := model.Connection{
+		OrgID:             fx.org.ID,
+		UserID:            fx.owner.ID,
+		IntegrationID:     integ.ID,
+		NangoConnectionID: nangoID,
+		Meta:              model.JSON{},
+	}
+	if err := h.db.Create(&conn).Error; err != nil {
+		t.Fatalf("create %s connection: %v", provider, err)
+	}
+	return conn
+}
+
 func assertChannelNames(t *testing.T, rr *httptest.ResponseRecorder, want []string) {
 	t.Helper()
 	if rr.Code != http.StatusOK {

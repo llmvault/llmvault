@@ -21,6 +21,7 @@ import {
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AccountMenu } from "./sidebar-account-menu"
 import { ChannelDetailsModal } from "./channel-details-modal"
+import { ChannelCreateModal } from "./channel-create-modal"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow, SectionLabel } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
@@ -47,6 +48,7 @@ export const Sidebar = memo(function Sidebar({
   const queryClient = useQueryClient()
   const [detailsTarget, setDetailsTarget] =
     useState<ChannelDetailsTarget | null>(null)
+  const [createChannelOpen, setCreateChannelOpen] = useState(false)
   const channelsQuery = $api.useInfiniteQuery(
     "get",
     "/v1/channels",
@@ -127,6 +129,10 @@ export const Sidebar = memo(function Sidebar({
     setDetailsTarget({ channel })
   }
 
+  function openCreatedChannel(channel: SidebarChannelResponse) {
+    router.push(`/w/channels/${channelRouteSlug(channel)}`)
+  }
+
   const pluginsActive =
     pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
   const automationsActive =
@@ -175,7 +181,18 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <SectionLabel>CHANNELS</SectionLabel>
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel>CHANNELS</SectionLabel>
+            <Button
+              variant="ghost"
+              size="sm"
+              isIconOnly
+              aria-label="Create channel"
+              onPress={() => setCreateChannelOpen(true)}
+            >
+              <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
+            </Button>
+          </div>
           {channelsQuery.isLoading ? (
             <ChannelSkeletonList />
           ) : channelsQuery.isError ? (
@@ -233,6 +250,11 @@ export const Sidebar = memo(function Sidebar({
         onOpenChange={(next) => {
           if (!next) setDetailsTarget(null)
         }}
+      />
+      <ChannelCreateModal
+        open={createChannelOpen}
+        onOpenChange={setCreateChannelOpen}
+        onCreated={openCreatedChannel}
       />
     </div>
   )

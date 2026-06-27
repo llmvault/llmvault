@@ -189,7 +189,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
-	channelHandler := handler.NewChannelHandler(database)
+	channelHandler := handler.NewChannelHandler(database, handler.WithChannelExternalProvisioner(slackChannelHandler))
 	teamHandler := handler.NewTeamHandler(database)
 	runtimeStreamStore := runtimestream.NewStore(redisClient, cfg.RuntimeRedisStreamShardCount)
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).

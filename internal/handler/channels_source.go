@@ -104,6 +104,10 @@ func applyChannelSourceRequest(w http.ResponseWriter, source *channelSourceField
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "external_provider is required for external channels"})
 		return false, false
 	}
+	if source.Origin == "external" && source.ExternalResourceKey == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "external_resource_key is required for external channels"})
+		return false, false
+	}
 	if source.Origin == "native" {
 		clearExternalSource(source)
 	}
