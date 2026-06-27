@@ -61,6 +61,12 @@ struct SyncGroup {
     deleted: Vec<String>,
 }
 
+struct SyncPayloadContext {
+    org_id: Option<String>,
+    sandbox_id: Option<String>,
+    session_id: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct SnapshotResponse {
     #[serde(default)]
@@ -373,11 +379,14 @@ impl CanvasRuntimeService {
         group: &SyncGroup,
     ) -> Result<()> {
         let (base_url, agent_id, runtime_secret) = self.control_plane_context()?;
+        let payload_context = SyncPayloadContext {
+            org_id: self.org_id.clone(),
+            sandbox_id: self.sandbox_id.clone(),
+            session_id: self.source_session.read().await.clone(),
+        };
         let payload = build_sync_payload(
             &self.canvas_root,
-            self.org_id.clone(),
-            self.sandbox_id.clone(),
-            self.source_session.read().await.clone(),
+            payload_context,
             project_slug,
             artifact_slug,
             current_entries,
@@ -609,9 +618,7 @@ async fn sync_file_payloads(entries: &[CanvasFileEntry]) -> Result<Vec<SyncFileP
 
 async fn build_sync_payload(
     canvas_root: &Path,
-    org_id: Option<String>,
-    sandbox_id: Option<String>,
-    session_id: Option<String>,
+    context: SyncPayloadContext,
     project_slug: &str,
     artifact_slug: &str,
     current_entries: &[CanvasFileEntry],
@@ -633,9 +640,9 @@ async fn build_sync_payload(
     let files = sync_file_payloads(current_entries).await?;
     Ok(json!({
         "source": "runtime_watcher",
-        "org_id": org_id,
-        "sandbox_id": sandbox_id,
-        "session_id": session_id,
+        "org_id": context.org_id,
+        "sandbox_id": context.sandbox_id,
+        "session_id": context.session_id,
         "project": {
             "slug": project_slug,
             "name": project_manifest
@@ -900,9 +907,11 @@ mod tests {
 
         let payload = build_sync_payload(
             &canvas,
-            Some("org-1".to_string()),
-            Some("sandbox-1".to_string()),
-            Some(session_id.clone()),
+            SyncPayloadContext {
+                org_id: Some("org-1".to_string()),
+                sandbox_id: Some("sandbox-1".to_string()),
+                session_id: Some(session_id.clone()),
+            },
             "homepage",
             "variant-a",
             &entries,
