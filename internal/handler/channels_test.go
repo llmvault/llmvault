@@ -27,11 +27,13 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 	if nativeOut.Channel.Name != "engineering" || nativeOut.Channel.Origin != "native" {
 		t.Fatalf("native channel source/name mismatch: %+v", nativeOut.Channel)
 	}
+	slackConn := seedChannelConnection(t, h, fx, "slack", "slack-workspace-1")
 
 	slack := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#engineering",
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "slack",
+		"external_connection_id": slackConn.ID.String(),
 		"external_workspace_key": "T123",
 		"external_resource_type": "channel",
 		"external_resource_key":  "CENG",
@@ -46,22 +48,32 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 	if slackOut.Channel.Origin != "external" || slackOut.Channel.ExternalProvider != "slack" {
 		t.Fatalf("slack channel source mismatch: %+v", slackOut.Channel)
 	}
+	if slackOut.Channel.Name != "slack-engineering" || slackOut.Channel.ExternalResourceKey != "CENG" {
+		t.Fatalf("slack channel name/resource mismatch: %+v", slackOut.Channel)
+	}
+	discordConn := seedChannelConnection(t, h, fx, "discord", "discord-workspace-1")
 
 	discord := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#engineering",
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "discord",
+		"external_connection_id": discordConn.ID.String(),
 		"external_workspace_key": "GUILD-1",
 		"external_resource_key":  "987",
 	})
 	if discord.Code != http.StatusCreated {
 		t.Fatalf("discord status=%d body=%s", discord.Code, discord.Body.String())
 	}
+	discordOut := decodeChannelCreate(t, discord)
+	if discordOut.Channel.Name != "discord-engineering" {
+		t.Fatalf("discord channel name=%q, want provider prefix", discordOut.Channel.Name)
+	}
 
 	duplicateSlackName := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#engineering",
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "slack",
+		"external_connection_id": slackConn.ID.String(),
 		"external_workspace_key": "T123",
 		"external_resource_key":  "COTHER",
 	})
@@ -73,6 +85,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 		"name":                   "#platform",
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "slack",
+		"external_connection_id": slackConn.ID.String(),
 		"external_workspace_key": "T123",
 		"external_resource_key":  "CENG",
 	})
@@ -86,8 +99,8 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 		Count(&count).Error; err != nil {
 		t.Fatalf("count channels: %v", err)
 	}
-	if count != 3 {
-		t.Fatalf("engineering channel count=%d, want 3", count)
+	if count != 1 {
+		t.Fatalf("engineering channel count=%d, want 1 native channel", count)
 	}
 }
 

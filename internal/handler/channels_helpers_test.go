@@ -63,10 +63,10 @@ type channelOut struct {
 	RecentSessionsNextCursor *string      `json:"recent_sessions_next_cursor"`
 }
 
-func newChannelHarness(t *testing.T) *channelHarness {
+func newChannelHarness(t *testing.T, opts ...handler.ChannelHandlerOption) *channelHarness {
 	t.Helper()
 	db := connectTestDB(t)
-	h := handler.NewChannelHandler(db)
+	h := handler.NewChannelHandler(db, opts...)
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(db))
@@ -109,6 +109,7 @@ func (h *channelHarness) seed(t *testing.T) channelFixture {
 		t.Fatalf("create agent: %v", err)
 	}
 	t.Cleanup(func() {
+		h.db.Where("org_id = ?", org.ID).Delete(&model.Connection{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
