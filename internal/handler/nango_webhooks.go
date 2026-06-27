@@ -1,8 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
+	"github.com/usehivy/hivy/internal/slackapp"
 )
 
 // NangoWebhookHandler receives webhook events forwarded by Nango.
@@ -25,6 +27,10 @@ type NangoWebhookHandler struct {
 	httpClient  *http.Client
 	enqueuer    enqueue.TaskEnqueuer
 	nangoClient *nango.Client
+
+	slackLoadBotToken func(context.Context, model.Connection) (string, error)
+	slackSetStatus    func(context.Context, string, string, string) error
+	slackClearStatus  func(context.Context, string, string, string) error
 }
 
 func NewNangoWebhookHandler(db *gorm.DB, nangoSecret string, encKey *crypto.SymmetricKey, nangoClient *nango.Client, enqueuer ...enqueue.TaskEnqueuer) *NangoWebhookHandler {
@@ -34,6 +40,18 @@ func NewNangoWebhookHandler(db *gorm.DB, nangoSecret string, encKey *crypto.Symm
 		encKey:      encKey,
 		httpClient:  &http.Client{Timeout: 25 * time.Second},
 		nangoClient: nangoClient,
+	}
+	h.slackLoadBotToken = func(ctx context.Context, conn model.Connection) (string, error) {
+		if h.nangoClient == nil {
+			return "", errors.New("nango client is required")
+		}
+		return slackapp.LoadBotToken(ctx, h.nangoClient, conn)
+	}
+	h.slackSetStatus = func(ctx context.Context, token, channelID, threadTS string) error {
+		return slackapp.SetAssistantStatus(ctx, slackapp.NewClient(token), channelID, threadTS)
+	}
+	h.slackClearStatus = func(ctx context.Context, token, channelID, threadTS string) error {
+		return slackapp.ClearAssistantStatus(ctx, slackapp.NewClient(token), channelID, threadTS)
 	}
 	if len(enqueuer) > 0 {
 		h.enqueuer = enqueuer[0]
@@ -105,27 +123,7 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isSlackProvider(wctx.connection) && wh.Type == "forward" {
-		slackFields := slackWebhookSentryFields("start", &wh, wctx.connection, wh.Payload)
-		agent, err := ensureHivyAgent(r.Context(), h.db, wctx.connection.OrgID)
-		if err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "slack_webhook_failed_to_ensure_agent",
-				"org_id", wctx.connection.OrgID.String(),
-				"error", err,
-			)
-			slackFields["stage"] = "ensure_agent"
-			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: ensure agent: %w", err), slackFields)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load agent"})
-			return
-		}
-		slackFields["stage"] = "channel_session_rebuild_pending"
-		logging.FromContext(r.Context()).InfoContext(r.Context(), "slack_webhook_channel_session_rebuild_pending",
-			"connection_id", wctx.connection.ID.String(),
-			"org_id", wctx.connection.OrgID.String(),
-			"agent_id", agent.ID.String(),
-			"provider", wctx.connection.Integration.Provider,
-		)
-
-		writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
+		h.handleSlackForward(w, r, &wh, wctx)
 		return
 	}
 
