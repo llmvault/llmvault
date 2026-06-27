@@ -28,8 +28,15 @@ import (
 // @Security BearerAuth
 // @Router /v1/sessions/{id}/messages [post]
 func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
-	session, userID, ok := h.authorizeSession(w, r, true)
+	session, userID, ok := h.authorizeSession(w, r, false)
 	if !ok {
+		return
+	}
+	if h.rejectExternalSessionMessage(w, r, session) {
+		return
+	}
+	if !h.canAccessSession(r.Context(), session, userID, true) {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "session access denied"})
 		return
 	}
 	if session.Status != "active" {
@@ -89,6 +96,63 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		Event:   sessionMutationEventResponse(intent.Event),
 		Queued:  queued,
 	})
+}
+
+func (h *SessionHandler) rejectExternalSessionMessage(w http.ResponseWriter, r *http.Request, session model.Session) bool {
+	external, provider := h.externalSessionMessageTarget(r, session)
+	if !external {
+		return false
+	}
+	target := "an external provider"
+	if provider != "" {
+		target = "external provider " + provider
+	}
+	writeJSON(w, http.StatusConflict, errorResponse{
+		Error: "This session was initiated from " + target + ". Please continue the conversation there.",
+	})
+	return true
+}
+
+func (h *SessionHandler) externalSessionMessageTarget(r *http.Request, session model.Session) (bool, string) {
+	external := session.Source == model.SessionSourceExternal
+	provider := ""
+	channel, found, err := h.loadSessionChannel(r.Context(), session)
+	if err == nil && found {
+		external = external || channel.Origin == "external"
+		provider = externalProviderLabel(channel.ExternalProvider)
+	}
+	if !external {
+		return false, ""
+	}
+	if provider == "" {
+		provider = externalProviderLabel(externalProviderFromResourceKey(session.SourceResourceKey))
+	}
+	return true, provider
+}
+
+func externalProviderFromResourceKey(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	parts := strings.Split(value, ":")
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0]
+}
+
+func externalProviderLabel(provider string) string {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "":
+		return ""
+	case "slack":
+		return "Slack"
+	case "microsoft-teams", "msteams", "teams":
+		return "Microsoft Teams"
+	default:
+		return strings.TrimSpace(provider)
+	}
 }
 
 // ListEvents handles GET /v1/sessions/{id}/events.

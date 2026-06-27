@@ -50,6 +50,7 @@ export function Composer({
   onSend,
   placeholder = "Ask for follow-up changes",
   isStreaming = false,
+  isDisabled = false,
   onStop,
 }: {
   sessionId: string
@@ -62,6 +63,7 @@ export function Composer({
   ) => boolean | void | Promise<boolean | void>
   placeholder?: string
   isStreaming?: boolean
+  isDisabled?: boolean
   onStop?: () => void
 }) {
   const workspace = useSessionWorkspaceStore((state) =>
@@ -148,6 +150,7 @@ export function Composer({
       Boolean(attachment)
     )
   const canSend =
+    !isDisabled &&
     !hasPendingAttachment &&
     !hasFailedAttachment &&
     (value.trim().length > 0 ||
@@ -258,14 +261,16 @@ export function Composer({
 
   const onDropAccepted = useCallback(
     (files: File[]) => {
+      if (isDisabled) return
       addFiles(files)
     },
-    [addFiles]
+    [addFiles, isDisabled]
   )
 
   const { getRootProps, getInputProps, open, isDragActive, isDragReject } =
     useDropzone({
       accept: { "image/*": [] },
+      disabled: isDisabled,
       multiple: true,
       noClick: true,
       noKeyboard: true,
@@ -284,6 +289,9 @@ export function Composer({
         sendingAttachments.length === 0 &&
         sendingLineComments.length === 0
       ) {
+        return false
+      }
+      if (isDisabled) {
         return false
       }
       const sendingLineCommentIds = sendingLineComments.map(
@@ -341,6 +349,7 @@ export function Composer({
     [
       attachmentDescriptions,
       clearComposerAfterSend,
+      isDisabled,
       lineCommentActions,
       lineComments,
       onSend,
@@ -390,12 +399,13 @@ export function Composer({
     toggleRecording,
   } = useComposerAudioRecording({
     agentId,
-    isStreaming,
+    isStreaming: isStreaming || isDisabled,
     onTranscript: handleRecordingTranscript,
     sessionId,
   })
 
   const submit = async () => {
+    if (isDisabled) return
     if (isRecordingInProgress) {
       sendRecordingAfterTranscription()
       return
@@ -449,6 +459,7 @@ export function Composer({
             rows={1}
             value={value}
             placeholder={placeholder}
+            disabled={isDisabled}
             onChange={(event) => {
               setValue(sessionId, event.target.value)
               event.target.style.height = "auto"
@@ -460,7 +471,7 @@ export function Composer({
                 void submit()
               }
             }}
-            className="max-h-16 min-h-16 w-full resize-none overflow-y-auto bg-transparent px-2 text-[15px] outline-none placeholder:text-muted"
+            className="max-h-16 min-h-16 w-full resize-none overflow-y-auto bg-transparent px-2 text-[15px] outline-none placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-60"
           />
 
           <div className="flex items-center gap-1">
@@ -469,6 +480,7 @@ export function Composer({
               size="sm"
               isIconOnly
               aria-label="Attach image"
+              isDisabled={isDisabled}
               onPress={open}
             >
               <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
@@ -521,7 +533,9 @@ export function Composer({
                 aria-label={
                   isRecordingInProgress ? "Stop recording" : "Record audio"
                 }
-                isDisabled={isProcessingStartRecording || isStreaming}
+                isDisabled={
+                  isDisabled || isProcessingStartRecording || isStreaming
+                }
                 onPress={() => void toggleRecording()}
               >
                 <Icon
@@ -536,6 +550,7 @@ export function Composer({
                 size="sm"
                 isIconOnly
                 aria-label="Stop"
+                isDisabled={isDisabled}
                 onPress={onStop}
                 className="rounded-full"
               >
@@ -548,6 +563,7 @@ export function Composer({
                 isIconOnly
                 aria-label="Send"
                 isDisabled={
+                  isDisabled ||
                   isProcessingStartRecording ||
                   isTranscribingRecording ||
                   (!isRecordingInProgress && !canSend)

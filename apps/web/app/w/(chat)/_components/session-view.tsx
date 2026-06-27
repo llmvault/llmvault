@@ -8,6 +8,7 @@ import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { Conversation } from "@/app/w/(chat)/_components/conversation"
+import { ExternalSessionNotice } from "@/app/w/(chat)/_components/external-session-notice"
 import { SessionHistorySkeleton } from "@/app/w/(chat)/_components/session-history-skeleton"
 import { SessionHistoryTopLoader } from "@/app/w/(chat)/_components/session-history-top-loader"
 import { SessionPlanCard } from "@/app/w/(chat)/_components/session-plan-card"
@@ -45,6 +46,7 @@ import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-l
 import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import type { SubagentConversationBlock } from "@/app/w/(chat)/_lib/static-data"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
+import { externalSessionContinuation } from "@/app/w/(chat)/_lib/external-session"
 import {
   eventMatchesInputRequest,
   latestInputRequestBlock,
@@ -211,6 +213,10 @@ export function SessionThreadView({
   const activeTurnID = turnActive
     ? activeBackendTurnID || latestTurnID(renderedLiveEvents)
     : undefined
+  const externalContinuation = useMemo(
+    () => externalSessionContinuation(session),
+    [session.source, session.sourceResourceKey]
+  )
   const visibleBlocks = useMemo(
     () =>
       sessionEventsToConversationBlocks(visibleConversationEvents, {
@@ -309,6 +315,12 @@ export function SessionThreadView({
     const attachments = options.attachments ?? []
     const codeLineComments = options.codeLineComments ?? []
     if (turnActive) return false
+    if (externalContinuation) {
+      toast.danger(
+        `Continue this conversation in ${externalContinuation.providerLabel}.`
+      )
+      return false
+    }
     if (temporarySession) {
       toast.danger("This chat was not created. Start a new chat to try again.")
       return false
@@ -406,7 +418,9 @@ export function SessionThreadView({
   const isBusy = turnActive || sendSessionMessage.isPending
   const showHistorySkeleton =
     !temporarySession && sessionHistoryQuery.isPending && !historyPages?.length
-  const showBottomDock = Boolean(activeInputRequest || latestPlan)
+  const showBottomDock = Boolean(
+    externalContinuation || activeInputRequest || latestPlan
+  )
   const followButtonClassName = `!absolute ${
     showBottomDock ? "!bottom-20" : "!bottom-6"
   } !left-1/2 !right-auto !flex !h-9 !w-9 !-translate-x-1/2 !items-center !justify-center !rounded-full !border !border-border !bg-surface !p-0 !text-muted !shadow-sm !transition-colors after:content-['↓'] hover:!bg-default hover:!text-foreground`
@@ -443,7 +457,9 @@ export function SessionThreadView({
         {showBottomDock ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-full z-30 pb-2">
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4">
-              {activeInputRequest ? (
+              {externalContinuation ? (
+                <ExternalSessionNotice continuation={externalContinuation} />
+              ) : activeInputRequest ? (
                 <RequestUserInputBlock
                   block={activeInputRequest}
                   sessionId={sessionId}
@@ -469,6 +485,12 @@ export function SessionThreadView({
             send(text, { attachments, codeLineComments })
           }
           isStreaming={isBusy}
+          isDisabled={Boolean(externalContinuation)}
+          placeholder={
+            externalContinuation
+              ? `Continue in ${externalContinuation.providerLabel}`
+              : undefined
+          }
           onStop={stop}
         />
       </div>
