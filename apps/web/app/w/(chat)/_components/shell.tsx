@@ -95,6 +95,8 @@ export interface ChatSession {
   agentTurnID?: string
   agentTurnStartedAt?: string
   lastTurnOutcome?: string
+  source?: string
+  sourceResourceKey?: string
   loaded?: boolean
 }
 
@@ -949,6 +951,8 @@ function chatSessionFromResponse(
     agentTurnID: session.agent_turn_id,
     agentTurnStartedAt: session.agent_turn_started_at,
     lastTurnOutcome: session.last_turn_outcome,
+    source: session.source,
+    sourceResourceKey: session.source_resource_key,
     loaded: true,
   }
 }

@@ -665,10 +665,9 @@ type CompactionConfig struct {
 
 // ConfigResponse defines model for ConfigResponse.
 type ConfigResponse struct {
-	AppliedAt     time.Time       `json:"applied_at"`
-	Definition    AgentDefinition `json:"definition"`
-	EnvKeyCount   int             `json:"env_key_count"`
-	SecretRotated bool            `json:"secret_rotated"`
+	AppliedAt     time.Time `json:"applied_at"`
+	EnvKeyCount   int       `json:"env_key_count"`
+	SecretRotated bool      `json:"secret_rotated"`
 }
 
 // ConfigUpdateRequest defines model for ConfigUpdateRequest.

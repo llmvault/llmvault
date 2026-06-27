@@ -1,8 +1,9 @@
 use axum::{
+    body::{to_bytes, Body},
     extract::{Path, Query, State},
     http::{
-        header::{CACHE_CONTROL, CONNECTION},
-        HeaderName, HeaderValue, StatusCode,
+        header::{CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_LENGTH},
+        HeaderName, HeaderValue, Request, StatusCode,
     },
     response::{IntoResponse, Response},
     Json,
@@ -28,7 +29,6 @@ use crate::state::ApiState;
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ConfigResponse {
     applied_at: DateTime<Utc>,
-    definition: AgentDefinition,
     env_key_count: usize,
     secret_rotated: bool,
 }
@@ -59,6 +59,7 @@ const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
 const MAX_RUNTIME_ENV_PAYLOAD_BYTES: usize = 64 * 1024;
+const MAX_CONFIG_REQUEST_BODY_BYTES: usize = 2 * 1024 * 1024;
 const MAX_CONTROL_COMMANDS: usize = 20;
 const MAX_CONTROL_COMMAND_LENGTH: usize = 8 * 1024;
 const MAX_CONTROL_COMMAND_PAYLOAD_BYTES: usize = 128 * 1024;
@@ -274,8 +275,57 @@ fn redacted_env_keys(entries: &HashMap<String, String>) -> Vec<&str> {
 ))]
 pub async fn put_config(
     State(state): State<ApiState>,
-    Json(request): Json<ConfigUpdateRequest>,
+    request: Request<Body>,
 ) -> Result<Json<ConfigResponse>, (StatusCode, String)> {
+    let total_started = Instant::now();
+    let mut phase_started = total_started;
+    let content_length = request
+        .headers()
+        .get(CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<usize>().ok());
+    let content_encoding = request
+        .headers()
+        .get(CONTENT_ENCODING)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let body = to_bytes(request.into_body(), MAX_CONFIG_REQUEST_BODY_BYTES)
+        .await
+        .map_err(|error| {
+            warn!(error = %error, "config request body read failed");
+            (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "config request body too large".to_string(),
+            )
+        })?;
+    phase_started = log_config_request_phase(
+        "read body",
+        phase_started,
+        total_started,
+        body.len(),
+        content_length,
+        &content_encoding,
+    );
+    let request: ConfigUpdateRequest = serde_json::from_slice(&body).map_err(|error| {
+        warn!(
+            error = %error,
+            body_bytes = body.len(),
+            "config request JSON decode failed"
+        );
+        (
+            StatusCode::BAD_REQUEST,
+            "invalid config request JSON".to_string(),
+        )
+    })?;
+    phase_started = log_config_request_phase(
+        "decode json",
+        phase_started,
+        total_started,
+        body.len(),
+        content_length,
+        &content_encoding,
+    );
     if let Err(error) = request.validate() {
         warn!(
             error = %error,
@@ -291,6 +341,14 @@ pub async fn put_config(
         };
         return Err((status, error));
     }
+    phase_started = log_config_request_phase(
+        "validate request",
+        phase_started,
+        total_started,
+        body.len(),
+        content_length,
+        &content_encoding,
+    );
     let env_key_count = request.runtime_env.len();
     let secret_rotated = request
         .runtime_secret
@@ -306,18 +364,52 @@ pub async fn put_config(
             next_runtime_secret = Some(secret);
         }
     }
-    let definition = request.definition;
-    apply_config_snapshot(&state, definition.clone(), runtime_env, request.workspace).await?;
+    apply_config_snapshot(&state, request.definition, runtime_env, request.workspace).await?;
+    phase_started = log_config_request_phase(
+        "apply snapshot",
+        phase_started,
+        total_started,
+        body.len(),
+        content_length,
+        &content_encoding,
+    );
     if let Some(secret) = next_runtime_secret {
         let mut token = state.bearer_token.write().await;
         *token = secret;
     }
+    let _ = log_config_request_phase(
+        "complete",
+        phase_started,
+        total_started,
+        body.len(),
+        content_length,
+        &content_encoding,
+    );
     Ok(Json(ConfigResponse {
         applied_at: Utc::now(),
-        definition,
         env_key_count,
         secret_rotated,
     }))
+}
+
+fn log_config_request_phase(
+    phase: &'static str,
+    phase_started: Instant,
+    total_started: Instant,
+    body_bytes: usize,
+    content_length: Option<usize>,
+    content_encoding: &str,
+) -> Instant {
+    info!(
+        phase,
+        duration_ms = phase_started.elapsed().as_millis(),
+        total_ms = total_started.elapsed().as_millis(),
+        body_bytes,
+        content_length,
+        content_encoding,
+        "runtime config request phase"
+    );
+    Instant::now()
 }
 
 async fn apply_config_snapshot(
@@ -1260,6 +1352,24 @@ mod tests {
         assert_eq!(body, INTERNAL_RETRY_MESSAGE);
         assert!(!body.contains("readonly"));
         assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn config_response_does_not_echo_definition() {
+        let body = serde_json::to_value(ConfigResponse {
+            applied_at: Utc::now(),
+            env_key_count: 2,
+            secret_rotated: true,
+        })
+        .expect("config response serializes");
+
+        assert_eq!(body["env_key_count"], 2);
+        assert_eq!(body["secret_rotated"], true);
+        assert!(body.get("applied_at").is_some());
+        assert!(
+            body.get("definition").is_none(),
+            "PUT /config should not echo the full agent definition"
+        );
     }
 
     #[test]

@@ -215,7 +215,7 @@ export function ChannelGroup({
                   type="button"
                   disabled={sessionsQuery.isFetchingNextPage}
                   onClick={() => void sessionsQuery.fetchNextPage()}
-                  className="hover:bg-default rounded-lg px-3 py-1 pl-9 text-left text-sm text-muted transition-colors"
+                  className="rounded-lg px-3 py-1 pl-9 text-left text-sm text-muted transition-colors hover:bg-default"
                 >
                   {sessionsQuery.isFetchingNextPage
                     ? "Loading..."
@@ -271,6 +271,8 @@ function chatSessionFromResponse(
     agentTurnID: session.agent_turn_id,
     agentTurnStartedAt: session.agent_turn_started_at,
     lastTurnOutcome: session.last_turn_outcome,
+    source: session.source,
+    sourceResourceKey: session.source_resource_key,
     loaded: true,
   }
 }

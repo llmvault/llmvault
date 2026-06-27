@@ -46,7 +46,7 @@ func TestIntegration_ChannelSessionsIncludeSlackSourceWithoutParticipant(t *test
 	send := h.doJSON(t, http.MethodPost, "/v1/sessions/"+slackSession.ID.String()+"/messages", fx, fx.viewer, map[string]any{
 		"text": "web reply",
 	})
-	if send.Code != http.StatusForbidden {
+	if send.Code != http.StatusConflict {
 		t.Fatalf("slack session send status=%d body=%s", send.Code, send.Body.String())
 	}
 }
