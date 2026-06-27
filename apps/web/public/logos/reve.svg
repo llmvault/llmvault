@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Reve">
+  <rect width="128" height="128" rx="28" fill="#0A0A0A"/>
+  <path fill="#FFFFFF" d="M33 90V38h28c12 0 20 7 20 18 0 8-4 14-11 16l15 18H68L55 74h-8v16H33Zm14-28h13c5 0 8-2 8-6s-3-6-8-6H47v12Z"/>
+  <path fill="#FFFFFF" d="M88 38h13L85 90H72l16-52Z" opacity=".72"/>
+</svg>

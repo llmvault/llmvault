@@ -7,7 +7,7 @@ import (
 
 const (
 	DefaultRasterImageGenerationModelID = "reve-image"
-	DefaultVectorImageGenerationModelID = "recraft-v4.1-pro-vector"
+	DefaultVectorImageGenerationModelID = "recraft-v4.1-vector"
 )
 
 func ModelSupportsTextOutput(m Model) bool {

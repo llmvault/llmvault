@@ -6,14 +6,27 @@ import { PROVIDER_LOGOS, providerLogoURL } from "@/lib/provider-logos"
 
 function backendCanonicalModelIDs(): string[] {
   const registryDir = join(process.cwd(), "..", "..", "internal", "registry")
+  const registrySources = readdirSync(registryDir)
+    .filter((name) => name.endsWith(".go"))
+    .map((name) => {
+      return readFileSync(join(registryDir, name), "utf8")
+    })
+  const stringConstants = new Map(
+    registrySources.flatMap((source) =>
+      Array.from(
+        source.matchAll(/\b([A-Za-z]\w*)\s*=\s*"([^"]+)"/g),
+        (match) => [match[1], match[2]] as const
+      )
+    )
+  )
+
   return readdirSync(registryDir)
     .filter((name) => /^hivy_models.*\.go$/.test(name))
     .flatMap((name) => {
       const source = readFileSync(join(registryDir, name), "utf8")
-      return Array.from(
-        source.matchAll(/\bID:\s*"([^"]+)"/g),
-        (match) => match[1]
-      )
+      return Array.from(source.matchAll(/\bID:\s*(?:"([^"]+)"|([A-Za-z]\w*))/g))
+        .map((match) => match[1] ?? stringConstants.get(match[2]))
+        .filter((modelID): modelID is string => Boolean(modelID))
     })
 }
 

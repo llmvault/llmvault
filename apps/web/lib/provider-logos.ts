@@ -48,6 +48,7 @@ export const PROVIDER_LOGOS = {
   "prime-intellect": "/logos/prime-intellect.png",
   qwen: "/logos/qwen.png",
   recraft: "/logos/recraft.svg",
+  reve: "/logos/reve.svg",
   reflection: "/logos/reflection.png",
   relace: "/logos/relace.png",
   seed: "/logos/seed.png",

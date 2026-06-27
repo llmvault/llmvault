@@ -36,6 +36,16 @@ func TestSupportedHivyModelRoutesResolve(t *testing.T) {
 	}
 }
 
+func TestSupportedHivyModelIDsAreUnique(t *testing.T) {
+	seen := map[string]bool{}
+	for _, hivyModel := range supportedHivyModels {
+		if seen[hivyModel.ID] {
+			t.Fatalf("duplicate canonical model ID %q", hivyModel.ID)
+		}
+		seen[hivyModel.ID] = true
+	}
+}
+
 func TestResolveModel_ExplicitSameProviderRoute(t *testing.T) {
 	route, ok := Global().ResolveModel("openai", "gpt-5.4")
 	if !ok {
