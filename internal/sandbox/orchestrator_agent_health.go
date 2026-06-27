@@ -12,9 +12,9 @@ import (
 )
 
 func (o *Orchestrator) waitForAgentRuntimeLive(ctx context.Context, sb *model.Sandbox) error {
-	healthURL := strings.TrimRight(sb.RuntimeURL, "/") + "/healthz"
+	healthURL := strings.TrimRight(o.runtimeControlURL(sb.RuntimeURL), "/") + "/healthz"
 	deadline := time.Now().Add(agentHealthTimeout)
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: agentHealthProbeTimeout}
 	attempt := 0
 	started := time.Now()
 

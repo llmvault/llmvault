@@ -84,7 +84,7 @@ func (o *Orchestrator) ExecuteCommandWithTimeout(ctx context.Context, sb *model.
 			return "", fmt.Errorf("decrypt runtime secret: %w", err)
 		}
 		return executor.ExecuteCommandViaRuntime(ctx, RuntimeCommandContext{
-			RuntimeURL:    sb.RuntimeURL,
+			RuntimeURL:    o.runtimeControlURL(sb.RuntimeURL),
 			RuntimeSecret: secret,
 		}, command, timeout)
 	}

@@ -84,6 +84,7 @@ type Config struct {
 	SandboxProviderID                 string `env:"HIVY_SANDBOX_PROVIDER_ID"`    // empty disables sandbox orchestration
 	SandboxDockerHost                 string `env:"HIVY_SANDBOX_DOCKER_HOST"`
 	SandboxDockerRuntimeOrigin        string `env:"HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN"`
+	SandboxDockerControlOrigin        string `env:"HIVY_SANDBOX_DOCKER_CONTROL_ORIGIN"`
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
 	MicrosandboxControlURL            string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
 	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`

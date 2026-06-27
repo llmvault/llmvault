@@ -1,7 +1,9 @@
 package handler_test
 
 import (
+	"context"
 	"encoding/base64"
+	"net/http"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -9,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
@@ -23,6 +26,7 @@ type sessionHarness struct {
 	enqueuer     *enqueue.MockClient
 	orchestrator *sandboxpkg.Orchestrator
 	compileDeps  agentruntime.CompileDeps
+	runtime      *sessionRuntimeStub
 }
 
 type sessionFixture struct {
@@ -72,7 +76,32 @@ func newSessionHarnessWith(t *testing.T, configure func(*handler.SessionHandler)
 	t.Helper()
 	db := connectTestDB(t)
 	enq := &enqueue.MockClient{}
-	h := handler.NewSessionHandler(db, enq).WithRuntimeStreamKey(sessionTestEncKey(t))
+	encKey := sessionTestEncKey(t)
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
+	cfg := &config.Config{
+		SandboxProviderID:        sandboxpkg.ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "session-test-amd64",
+		APIWebhookBaseURL:        "https://api.example.test",
+		ProxyHost:                "https://proxy.example.test",
+		MCPBaseURL:               "https://mcp.example.test",
+	}
+	provider := &sessionSandboxProviderStub{endpoint: runtime.server.URL}
+	orchestrator := sandboxpkg.NewOrchestrator(db, provider, encKey, cfg)
+	compileDeps := agentruntime.CompileDeps{
+		DB:         db,
+		EncKey:     encKey,
+		SigningKey: []byte("session-harness-signing-key"),
+		Cfg:        cfg,
+	}
+	orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandboxpkg.AgentRuntimeConfigPush) error {
+		if push.Agent != nil {
+			return agentruntime.PushAgentRuntimeConfigWithProxyTokenOptions(ctx, compileDeps, push.Agent, sb, push.ProxyToken, push.RuntimeOptions)
+		}
+		return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyTokenOptions(ctx, compileDeps, sb, push.ProxyToken, push.RuntimeOptions)
+	})
+	h := handler.NewSessionHandler(db, enq).
+		WithRuntimeStreamKey(encKey).
+		WithRuntimeDelivery(orchestrator, compileDeps)
 	if configure != nil {
 		configure(h)
 	}
@@ -98,7 +127,7 @@ func newSessionHarnessWith(t *testing.T, configure func(*handler.SessionHandler)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
 	})
-	return &sessionHarness{db: db, router: r, enqueuer: enq}
+	return &sessionHarness{db: db, router: r, enqueuer: enq, orchestrator: orchestrator, compileDeps: compileDeps, runtime: runtime}
 }
 
 func (h *sessionHarness) seed(t *testing.T) sessionFixture {

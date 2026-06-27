@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/model"
+	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
 func TestIntegration_SessionsRespondToInput_ProxiesStructuredAnswerToRuntime(t *testing.T) {
@@ -70,8 +71,8 @@ func TestIntegration_SessionsRespondToInput_ProxiesStructuredAnswerToRuntime(t *
 		Count(&queueCount).Error; err != nil {
 		t.Fatalf("count queue rows: %v", err)
 	}
-	if queueCount != 1 {
-		t.Fatalf("queue rows=%d, want only initial queued message", queueCount)
+	if queueCount != 0 {
+		t.Fatalf("queue rows=%d, want none", queueCount)
 	}
 }
 
@@ -106,7 +107,7 @@ func attachSessionSandbox(t *testing.T, h *sessionHarness, fx sessionFixture, se
 	sb := model.Sandbox{
 		OrgID:                  &fx.org.ID,
 		AgentID:                &fx.agent.ID,
-		ProviderID:             "docker",
+		ProviderID:             sandboxpkg.ProviderMicrosandbox,
 		ExternalID:             "question-runtime-" + uuid.NewString(),
 		RuntimeURL:             runtimeURL,
 		EncryptedRuntimeSecret: encSecret,

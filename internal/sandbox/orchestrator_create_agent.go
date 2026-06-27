@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	AgentSandboxPort    = 7080
-	agentHealthTimeout  = 4 * time.Minute
-	agentHealthInterval = 200 * time.Millisecond
+	AgentSandboxPort        = 7080
+	agentHealthTimeout      = 20 * time.Second
+	agentHealthInterval     = 200 * time.Millisecond
+	agentHealthProbeTimeout = 750 * time.Millisecond
 )
 
 func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets) (*model.Sandbox, error) {

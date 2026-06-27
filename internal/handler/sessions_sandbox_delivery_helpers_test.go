@@ -68,7 +68,7 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionRuntimeStub, createE
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
 	})
-	return &sessionHarness{db: db, router: r, enqueuer: enq}, provider
+	return &sessionHarness{db: db, router: r, enqueuer: enq, orchestrator: orchestrator, compileDeps: compileDeps, runtime: runtime}, provider
 }
 
 type sessionSandboxProviderStub struct {
