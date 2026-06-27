@@ -28,6 +28,7 @@ pub struct CanvasRuntimeService {
     http: reqwest::Client,
     broker: Arc<api::SessionStreamBroker>,
     sessions: Arc<RwLock<BTreeSet<String>>>,
+    source_session: Arc<RwLock<Option<String>>>,
     state: Arc<RwLock<CanvasState>>,
 }
 
@@ -58,6 +59,12 @@ struct CanvasFileSnapshot {
 struct SyncGroup {
     changed: Vec<CanvasFileEntry>,
     deleted: Vec<String>,
+}
+
+struct SyncPayloadContext {
+    org_id: Option<String>,
+    sandbox_id: Option<String>,
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -139,6 +146,7 @@ impl CanvasRuntimeService {
         runtime_env: &HashMap<String, String>,
         broker: Arc<api::SessionStreamBroker>,
         sessions: Arc<RwLock<BTreeSet<String>>>,
+        source_session: Arc<RwLock<Option<String>>>,
     ) -> Self {
         let control_plane_url = non_empty_env(runtime_env, "HIVY_CONTROL_PLANE_URL")
             .map(|value| value.trim_end_matches('/').to_string());
@@ -155,6 +163,7 @@ impl CanvasRuntimeService {
                 .unwrap_or_else(|_| reqwest::Client::new()),
             broker,
             sessions,
+            source_session,
             state: Arc::new(RwLock::new(CanvasState::default())),
         }
     }
@@ -370,52 +379,20 @@ impl CanvasRuntimeService {
         group: &SyncGroup,
     ) -> Result<()> {
         let (base_url, agent_id, runtime_secret) = self.control_plane_context()?;
-        let artifact_root = self
-            .canvas_root
-            .join(PROJECTS_DIR)
-            .join(project_slug)
-            .join(ARTIFACTS_DIR)
-            .join(artifact_slug);
-        let project_manifest = read_json_file(
-            &self
-                .canvas_root
-                .join(PROJECTS_DIR)
-                .join(project_slug)
-                .join("project.json"),
+        let payload_context = SyncPayloadContext {
+            org_id: self.org_id.clone(),
+            sandbox_id: self.sandbox_id.clone(),
+            session_id: self.source_session.read().await.clone(),
+        };
+        let payload = build_sync_payload(
+            &self.canvas_root,
+            payload_context,
+            project_slug,
+            artifact_slug,
+            current_entries,
+            group,
         )
-        .await;
-        let artifact_manifest = read_json_file(&artifact_root.join("artifact.json")).await;
-        let files = sync_file_payloads(current_entries).await?;
-        let payload = json!({
-            "source": "runtime_watcher",
-            "org_id": self.org_id,
-            "sandbox_id": self.sandbox_id,
-            "project": {
-                "slug": project_slug,
-                "name": project_manifest
-                    .as_ref()
-                    .and_then(|value| value.get("name"))
-                    .and_then(Value::as_str)
-                    .unwrap_or(project_slug),
-                "manifest": project_manifest.unwrap_or_else(|| json!({ "slug": project_slug }))
-            },
-            "artifact": {
-                "slug": artifact_slug,
-                "name": artifact_manifest
-                    .as_ref()
-                    .and_then(|value| value.get("name"))
-                    .and_then(Value::as_str)
-                    .unwrap_or(artifact_slug),
-                "type": artifact_manifest
-                    .as_ref()
-                    .and_then(|value| value.get("type"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("web_page"),
-                "manifest": artifact_manifest.unwrap_or_else(|| json!({ "slug": artifact_slug }))
-            },
-            "files": files,
-            "deleted_paths": group.deleted
-        });
+        .await?;
         let url = format!("{base_url}/internal/agents/{agent_id}/canvas/artifacts/sync");
         self.http
             .post(url)
@@ -639,6 +616,61 @@ async fn sync_file_payloads(entries: &[CanvasFileEntry]) -> Result<Vec<SyncFileP
     Ok(files)
 }
 
+async fn build_sync_payload(
+    canvas_root: &Path,
+    context: SyncPayloadContext,
+    project_slug: &str,
+    artifact_slug: &str,
+    current_entries: &[CanvasFileEntry],
+    group: &SyncGroup,
+) -> Result<Value> {
+    let artifact_root = canvas_root
+        .join(PROJECTS_DIR)
+        .join(project_slug)
+        .join(ARTIFACTS_DIR)
+        .join(artifact_slug);
+    let project_manifest = read_json_file(
+        &canvas_root
+            .join(PROJECTS_DIR)
+            .join(project_slug)
+            .join("project.json"),
+    )
+    .await;
+    let artifact_manifest = read_json_file(&artifact_root.join("artifact.json")).await;
+    let files = sync_file_payloads(current_entries).await?;
+    Ok(json!({
+        "source": "runtime_watcher",
+        "org_id": context.org_id,
+        "sandbox_id": context.sandbox_id,
+        "session_id": context.session_id,
+        "project": {
+            "slug": project_slug,
+            "name": project_manifest
+                .as_ref()
+                .and_then(|value| value.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or(project_slug),
+            "manifest": project_manifest.unwrap_or_else(|| json!({ "slug": project_slug }))
+        },
+        "artifact": {
+            "slug": artifact_slug,
+            "name": artifact_manifest
+                .as_ref()
+                .and_then(|value| value.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or(artifact_slug),
+            "type": artifact_manifest
+                .as_ref()
+                .and_then(|value| value.get("type"))
+                .and_then(Value::as_str)
+                .unwrap_or("web_page"),
+            "manifest": artifact_manifest.unwrap_or_else(|| json!({ "slug": artifact_slug }))
+        },
+        "files": files,
+        "deleted_paths": group.deleted
+    }))
+}
+
 async fn read_json_file(path: &Path) -> Option<Value> {
     let bytes = tokio::fs::read(path).await.ok()?;
     serde_json::from_slice(&bytes).ok()
@@ -833,6 +865,65 @@ mod tests {
         assert_eq!(entry.project_slug, "homepage");
         assert_eq!(entry.artifact_slug, "variant-a");
         assert_eq!(entry.artifact_path, "index.html");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn sync_payload_includes_source_session_id() {
+        let root = unique_temp_dir();
+        let canvas = root.join(CANVAS_DIR);
+        let artifact = canvas
+            .join(PROJECTS_DIR)
+            .join("homepage")
+            .join(ARTIFACTS_DIR)
+            .join("variant-a");
+        tokio::fs::create_dir_all(&artifact).await.unwrap();
+        tokio::fs::write(
+            canvas
+                .join(PROJECTS_DIR)
+                .join("homepage")
+                .join("project.json"),
+            r#"{"name":"Homepage"}"#,
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            artifact.join("artifact.json"),
+            r#"{"name":"Variant A","type":"web_page"}"#,
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(artifact.join("index.html"), "<main>Hello</main>")
+            .await
+            .unwrap();
+        let files = scan_canvas_files(&canvas).await.unwrap();
+        let entries = files.values().cloned().collect::<Vec<_>>();
+        let group = SyncGroup {
+            changed: entries.clone(),
+            deleted: Vec::new(),
+        };
+        let session_id = "434c10a9-a96a-428c-832b-bf38062217cb".to_string();
+
+        let payload = build_sync_payload(
+            &canvas,
+            SyncPayloadContext {
+                org_id: Some("org-1".to_string()),
+                sandbox_id: Some("sandbox-1".to_string()),
+                session_id: Some(session_id.clone()),
+            },
+            "homepage",
+            "variant-a",
+            &entries,
+            &group,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(payload["session_id"], json!(session_id));
+        assert_eq!(payload["project"]["name"], json!("Homepage"));
+        assert_eq!(payload["artifact"]["name"], json!("Variant A"));
+        assert_eq!(payload["files"][0]["path"], json!("index.html"));
 
         let _ = std::fs::remove_dir_all(root);
     }

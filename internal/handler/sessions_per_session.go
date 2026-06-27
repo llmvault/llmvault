@@ -20,11 +20,27 @@ func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *
 	if h.compileDeps.EncKey == nil {
 		return nil, fmt.Errorf("session runtime encryption key is not configured")
 	}
+	totalStarted := time.Now()
+	phaseStarted := totalStarted
+	logPhase := func(phase string, attrs ...any) {
+		attrs = append(attrs,
+			"total_ms", time.Since(totalStarted).Milliseconds(),
+		)
+		logging.LogPhase(ctx, "per-session sandbox provision phase", phase, phaseStarted, attrs...)
+		phaseStarted = time.Now()
+	}
 	runtimeAgent := perSessionRuntimeAgent(agent, modelID)
+	logPhase("start",
+		"agent_id", runtimeAgent.ID,
+		"org_id", runtimeAgent.OrgID,
+		"model", strings.TrimSpace(runtimeAgent.Model),
+		"has_reasoning_effort", strings.TrimSpace(reasoningEffort) != "",
+	)
 	secrets, err := agentruntime.PrepareStartup(ctx, h.compileDeps, &runtimeAgent)
 	if err != nil {
 		return nil, fmt.Errorf("prepare agent runtime startup: %w", err)
 	}
+	logPhase("prepare startup", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "proxy_expires_at", secrets.ProxyExpires)
 	sb, err := h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, &runtimeAgent, secrets, agentruntime.RuntimeConfigOptions{
 		ModelID:         runtimeAgent.Model,
 		ReasoningEffort: reasoningEffort,
@@ -33,11 +49,14 @@ func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *
 		h.revokePerSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("create agent sandbox: %w", err)
 	}
+	logPhase("create agent sandbox", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
 	if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, &runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
 		h.cleanupPerSessionSandbox(ctx, sb)
 		h.revokePerSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
 	}
+	logPhase("attach startup token", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
+	logPhase("complete", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
 	return sb, nil
 }
 

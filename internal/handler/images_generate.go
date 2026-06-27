@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
+	"github.com/usehivy/hivy/internal/reve"
 )
 
 const (
@@ -109,7 +111,7 @@ func (h *UploadsHandler) runImageGeneration(ctx context.Context, agent *model.Ag
 	images, usage, err := h.callImageGenerationProvider(callCtx, cred, string(apiKey), route, prompt, req.aspectRatio(), req.count(), references)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "image generation upstream failed", "agent_id", agent.ID, "provider_id", route.ProviderID, "model", modelID, "upstream_model", route.UpstreamID, "credential_id", cred.ID, "error", err)
-		return nil, http.StatusBadGateway, &imageGenerationError{Error: "image generation failed", ErrorCode: "upstream_failed"}
+		return nil, http.StatusBadGateway, imageGenerationUpstreamError(route.ProviderID, err)
 	}
 	results, err := h.storeGeneratedImages(ctx, agent, sandbox, vector, route.ProviderID, modelID, route.UpstreamID, prompt, req.ReferenceAssetIDs, images)
 	if err != nil {
@@ -118,6 +120,70 @@ func (h *UploadsHandler) runImageGeneration(ctx context.Context, agent *model.Ag
 	}
 	h.trackImageGenerationUsage(ctx, agent, sandbox, req, h.imageGenerationUsageSession(ctx, agent, req.sessionUUID()), cred, route.ProviderID, modelID, route.UpstreamID, usage, results)
 	return results, http.StatusOK, nil
+}
+
+func imageGenerationUpstreamError(providerID string, err error) *imageGenerationError {
+	if providerID == imageGenerationReveProviderID {
+		var statusErr *reve.StatusError
+		if errors.As(err, &statusErr) {
+			return &imageGenerationError{
+				Error:     reveStatusToolMessage(statusErr),
+				ErrorCode: upstreamErrorCode(statusErr.ErrorCode),
+			}
+		}
+	}
+	msg := strings.TrimSpace(err.Error())
+	if msg == "" {
+		msg = "image generation provider failed"
+	}
+	return &imageGenerationError{
+		Error:     imageGenerationProviderName(providerID) + " image generation failed: " + msg,
+		ErrorCode: "upstream_failed",
+	}
+}
+
+func reveStatusToolMessage(err *reve.StatusError) string {
+	parts := []string{fmt.Sprintf("Reve rejected the image generation request with status %d", err.StatusCode)}
+	if strings.TrimSpace(err.ErrorCode) != "" {
+		parts = append(parts, "code "+strings.TrimSpace(err.ErrorCode))
+	}
+	if strings.TrimSpace(err.Message) != "" {
+		parts = append(parts, strings.TrimSpace(err.Message))
+	} else if strings.TrimSpace(err.Body) != "" {
+		parts = append(parts, strings.TrimSpace(err.Body))
+	}
+	if len(err.Params) > 0 {
+		if data, marshalErr := json.Marshal(err.Params); marshalErr == nil {
+			parts = append(parts, "details "+string(data))
+		}
+	}
+	if err.StatusCode == http.StatusBadRequest {
+		parts = append(parts, "retry with corrected tool arguments; aspect_ratio must be one of 16:9, 9:16, 3:2, 2:3, 4:3, 3:4, or 1:1, or omitted")
+	}
+	if strings.TrimSpace(err.RequestID) != "" {
+		parts = append(parts, "request_id "+strings.TrimSpace(err.RequestID))
+	}
+	return strings.Join(parts, ": ")
+}
+
+func imageGenerationProviderName(providerID string) string {
+	switch providerID {
+	case imageGenerationReveProviderID:
+		return "Reve"
+	case imageGenerationOpenRouterProviderID:
+		return "OpenRouter"
+	default:
+		return strings.TrimSpace(providerID)
+	}
+}
+
+func upstreamErrorCode(code string) string {
+	code = strings.ToLower(strings.TrimSpace(code))
+	if code == "" {
+		return "upstream_failed"
+	}
+	code = strings.NewReplacer("-", "_", " ", "_", ".", "_").Replace(code)
+	return "upstream_" + code
 }
 
 func imageGenerationProviderIDs() []string {

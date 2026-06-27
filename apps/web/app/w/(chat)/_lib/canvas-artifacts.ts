@@ -7,6 +7,7 @@ export interface CanvasArtifactProject {
   name: string
   description?: string
   artifactCount?: number
+  artifacts: CanvasArtifact[]
   updatedAt?: string
 }
 
@@ -42,9 +43,15 @@ export interface CanvasArtifactCommentPayload {
 }
 
 export async function fetchCanvasProjects(
+  input: { sessionId?: string | null } = {},
   signal?: AbortSignal
 ): Promise<CanvasArtifactProject[]> {
-  const data = await requestJSON<unknown>("/v1/canvas/projects", { signal })
+  const params: Record<string, string> = {}
+  if (input.sessionId) params.session_id = input.sessionId
+  const data = await requestJSON<unknown>("/v1/canvas/projects", {
+    params,
+    signal,
+  })
   return normalizeCanvasProjectList(data)
 }
 
@@ -162,6 +169,12 @@ export function normalizeCanvasProject(
 
   const id = stringValue(record.id, record.project_id, record.projectId)
   if (!id) return null
+  const artifacts = arrayValue(record.artifacts)
+    .map(normalizeCanvasArtifact)
+    .filter(isPresent)
+    .map((artifact) =>
+      artifact.projectId ? artifact : { ...artifact, projectId: id }
+    )
 
   return {
     id,
@@ -172,8 +185,9 @@ export function normalizeCanvasProject(
       record.artifact_count,
       record.artifacts_count,
       record.artifactCount,
-      arrayValue(record.artifacts)?.length
+      artifacts.length
     ),
+    artifacts,
     updatedAt: stringValue(record.updated_at, record.updatedAt),
   }
 }

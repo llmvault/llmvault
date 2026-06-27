@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   canvasArtifactCommentPayload,
   fetchCanvasArtifacts,
+  fetchCanvasProjects,
   normalizeCanvasArtifactList,
   normalizeCanvasProjectList,
   sendCanvasArtifactComment,
@@ -21,6 +22,13 @@ describe("canvas artifacts", () => {
             slug: "launch",
             name: "Launch",
             artifact_count: 2,
+            artifacts: [
+              {
+                id: "artifact-1",
+                artifact_type: "web_page",
+                name: "Homepage",
+              },
+            ],
           },
         ],
       })
@@ -31,6 +39,17 @@ describe("canvas artifacts", () => {
         name: "Launch",
         description: undefined,
         artifactCount: 2,
+        artifacts: [
+          {
+            id: "artifact-1",
+            projectId: "project-1",
+            slug: undefined,
+            name: "Homepage",
+            type: "web_page",
+            entryFile: undefined,
+            updatedAt: undefined,
+          },
+        ],
         updatedAt: undefined,
       },
     ])
@@ -86,6 +105,43 @@ describe("canvas artifacts", () => {
     )
   })
 
+  it("loads projects with embedded artifacts through the authenticated API proxy", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          projects: [
+            {
+              id: "project-1",
+              name: "Launch",
+              artifacts: [{ id: "artifact-1", project_id: "project-1" }],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      fetchCanvasProjects({ sessionId: "session-1" })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: "project-1",
+        artifacts: [
+          expect.objectContaining({
+            id: "artifact-1",
+            projectId: "project-1",
+          }),
+        ],
+      }),
+    ])
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/proxy/v1/canvas/projects?session_id=session-1",
+      expect.objectContaining({ method: "GET" })
+    )
+  })
+
   it("sends artifact comments as structured session message payloads", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -101,7 +157,7 @@ describe("canvas artifacts", () => {
         name: "Homepage",
         type: "web_page",
       },
-      project: { id: "project-1", name: "Launch" },
+      project: { id: "project-1", name: "Launch", artifacts: [] },
       viewport: "desktop",
       body: "Tighten the top nav spacing.",
       selector: '[data-canvas-id="top-nav"]',

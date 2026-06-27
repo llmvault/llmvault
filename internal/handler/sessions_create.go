@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -32,6 +33,16 @@ import (
 // @Security BearerAuth
 // @Router /v1/sessions [post]
 func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	totalStarted := time.Now()
+	phaseStarted := totalStarted
+	logPhase := func(phase string, attrs ...any) {
+		attrs = append(attrs,
+			"total_ms", time.Since(totalStarted).Milliseconds(),
+		)
+		logging.LogPhase(ctx, "session create phase", phase, phaseStarted, attrs...)
+		phaseStarted = time.Now()
+	}
 	org, ok := sessionOrg(w, r)
 	if !ok {
 		return
@@ -46,19 +57,30 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	text := strings.TrimSpace(req.Text)
 	payload := model.JSON{}
 	hasInitialMessage := text != ""
+	logPhase("decode request",
+		"org_id", org.ID,
+		"channel_id", strings.TrimSpace(req.ChannelID),
+		"requested_agent_id", strings.TrimSpace(req.AgentID),
+		"has_initial_message", hasInitialMessage,
+		"requested_model", createSessionModelID(req),
+		"has_reasoning_effort", createSessionReasoningEffort(req) != "",
+	)
 	channel, ok := h.loadUsableChannel(w, r, org.ID, req.ChannelID)
 	if !ok {
 		return
 	}
+	logPhase("load channel", "org_id", org.ID, "channel_id", channel.ID)
 	userID, _ := currentSessionUserID(r)
-	if !h.canUseChannel(r.Context(), channel, userID) {
+	if !h.canUseChannel(ctx, channel, userID) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "join the channel before creating sessions"})
 		return
 	}
+	logPhase("authorize channel", "org_id", org.ID, "channel_id", channel.ID, "user_id", userID)
 	agent, ok := h.resolveSessionAgent(w, r, org.ID, channel, req.AgentID)
 	if !ok {
 		return
 	}
+	logPhase("resolve agent", "org_id", org.ID, "channel_id", channel.ID, "agent_id", agent.ID, "sandbox_strategy", agent.SandboxStrategy)
 	if ok := h.validateSessionModel(w, r, org.ID, &agent, createSessionModelID(req)); !ok {
 		return
 	}
@@ -66,26 +88,29 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
+	logPhase("validate runtime options", "org_id", org.ID, "agent_id", agent.ID)
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
+	logPhase("build session record", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "sandbox_strategy", agent.SandboxStrategy)
 	var perSessionSandbox *model.Sandbox
 	if agent.SandboxStrategy == agentStrategyPerSession {
-		sb, err := h.provisionPerSessionSandbox(r.Context(), &agent, session.Model, session.ReasoningEffort)
+		sb, err := h.provisionPerSessionSandbox(ctx, &agent, session.Model, session.ReasoningEffort)
 		if err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "provision per-session sandbox for session create failed", "agent_id", agent.ID, "error", err)
-			logging.Capture(r.Context(), err)
+			logging.FromContext(ctx).ErrorContext(ctx, "provision per-session sandbox for session create failed", "agent_id", agent.ID, "error", err)
+			logging.Capture(ctx, err)
 			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to provision session sandbox"})
 			return
 		}
 		perSessionSandbox = sb
 		session.SandboxID = &sb.ID
+		logPhase("provision per-session sandbox", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
 	}
 	queued := false
 	var event *model.SessionEvent
 	if hasInitialMessage {
-		intent, err := h.createInitialSessionMessageIntentWithOptions(r.Context(), &session, userID, text, payload, sessionMessageDeliveryOptions{})
+		intent, err := h.createInitialSessionMessageIntentWithOptions(ctx, &session, userID, text, payload, sessionMessageDeliveryOptions{})
 		if err != nil {
 			if perSessionSandbox != nil {
-				h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
+				h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
 			}
 			if errors.Is(err, errSessionSandboxDraining) {
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
@@ -95,50 +120,58 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		event = intent.Event
-		queued, err = h.dispatchSessionMessageIntent(r.Context(), intent)
+		logPhase("create initial message intent", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "event_created", intent.EventCreated, "queued", intent.Queued)
+		queued, err = h.dispatchSessionMessageIntent(ctx, intent)
 		if err != nil {
 			if errors.Is(err, errSessionSandboxDraining) {
 				if perSessionSandbox != nil {
-					h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
+					h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
 				}
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
 				return
 			}
 			if agent.SandboxStrategy == agentStrategyPerSession {
-				h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
-				logging.FromContext(r.Context()).ErrorContext(r.Context(), "send initial per-session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
-				logging.Capture(r.Context(), err)
+				h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
+				logging.FromContext(ctx).ErrorContext(ctx, "send initial per-session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
+				logging.Capture(ctx, err)
 				writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
 				return
 			}
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "send initial session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
-			logging.Capture(r.Context(), err)
+			logging.FromContext(ctx).ErrorContext(ctx, "send initial session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
+			logging.Capture(ctx, err)
 			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
 			return
 		}
+		logPhase("dispatch initial message", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "queued", queued)
 		if !queued {
-			if err := h.db.WithContext(r.Context()).First(&session, "id = ?", session.ID).Error; err != nil {
-				logging.FromContext(r.Context()).WarnContext(r.Context(), "reload session after initial delivery failed", "session_id", session.ID, "error", err)
+			if err := h.db.WithContext(ctx).First(&session, "id = ?", session.ID).Error; err != nil {
+				logging.FromContext(ctx).WarnContext(ctx, "reload session after initial delivery failed", "session_id", session.ID, "error", err)
 			}
+			logPhase("reload session", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 		}
-	} else if err := h.createSessionOnly(r.Context(), &session, userID); err != nil {
+	} else if err := h.createSessionOnly(ctx, &session, userID); err != nil {
 		if perSessionSandbox != nil {
-			h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
+			h.cleanupFailedPerSessionCreate(ctx, session.ID, perSessionSandbox)
 		}
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 		return
+	} else {
+		logPhase("create session row", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
 	if hasInitialMessage {
-		if err := h.enqueueSessionName(r.Context(), session.ID); err != nil {
-			logging.FromContext(r.Context()).WarnContext(r.Context(), "enqueue session name task failed", "session_id", session.ID, "error", err)
+		if err := h.enqueueSessionName(ctx, session.ID); err != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "enqueue session name task failed", "session_id", session.ID, "error", err)
 		}
+		logPhase("enqueue session name", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
-	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
+	stats := h.statsForSessions(ctx, []uuid.UUID{session.ID})[session.ID]
+	logPhase("load response stats", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "queued", queued)
 	writeJSON(w, http.StatusCreated, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
 		Event:   sessionMutationEventResponse(event),
 		Queued:  queued,
 	})
+	logPhase("complete", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "queued", queued)
 }
 
 func (h *SessionHandler) validateSessionModel(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, agent *model.Agent, requested string) bool {
