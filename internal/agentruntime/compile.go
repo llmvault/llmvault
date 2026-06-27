@@ -12,6 +12,7 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/token"
@@ -226,10 +227,23 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent runtime compile: agent must have org_id")
 	}
+	totalStarted := time.Now()
+	phaseStarted := totalStarted
+	logPhase := func(phase string, attrs ...any) {
+		attrs = append(attrs,
+			"total_ms", time.Since(totalStarted).Milliseconds(),
+			"agent_id", agent.ID,
+			"org_id", *agent.OrgID,
+		)
+		logging.LogPhase(ctx, "agent runtime compile phase", phase, phaseStarted, attrs...)
+		phaseStarted = time.Now()
+	}
+	logPhase("start", "has_proxy_token", proxyToken != nil, "model", strings.TrimSpace(agent.Model))
 	skills, err := buildSkills(ctx, deps.DB, agent.ID)
 	if err != nil {
 		return nil, err
 	}
+	logPhase("build skills", "skill_count", len(skills), "skill_file_count", skillFileCount(skills))
 	mcpServers := jsonArray(agent.McpServers)
 	ourMCP := buildHivyMCPServer(ctx, deps, agent)
 	if proxyToken != nil {
@@ -238,21 +252,32 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if ourMCP != nil {
 		mcpServers = upsertHivyMCPServer(mcpServers, ourMCP)
 	}
+	logPhase("build mcp servers", "mcp_server_count", len(mcpServers), "has_hivy_mcp", ourMCP != nil)
 	description := managedAgentDescription
 	modelID := strings.TrimSpace(agent.Model)
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
 	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID)
+	logPhase("build prompt sections", "model", modelID)
 	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, modelID)
+	logPhase("resolve model route", "provider_id", modelRoute.ProviderID, "canonical_model_id", modelRoute.CanonicalModelID, "upstream_model_id", modelRoute.UpstreamModelID)
 	tools, err := buildRuntimeTools(ctx, deps.DB, agent)
 	if err != nil {
 		return nil, err
 	}
+	logPhase("build tools", "tool_count", len(tools))
 	subAgents, err := buildSubAgents(ctx, deps, agent, modelID, skills)
 	if err != nil {
 		return nil, err
 	}
+	logPhase("build subagents", "subagent_count", len(subAgents))
+	logPhase("complete",
+		"tool_count", len(tools),
+		"mcp_server_count", len(mcpServers),
+		"skill_count", len(skills),
+		"subagent_count", len(subAgents),
+	)
 	return &AgentDefinition{
 		Agent: AgentMeta{
 			Name:        managedAgentName,
@@ -267,6 +292,14 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		OutboundChannels: []any{},
 		SubAgents:        subAgents,
 	}, nil
+}
+
+func skillFileCount(skills []SkillSpec) int {
+	count := 0
+	for _, skill := range skills {
+		count += len(skill.Files)
+	}
+	return count
 }
 
 func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any {

@@ -12,7 +12,7 @@ type createPayload struct {
 	Version        string                 `json:"version"`
 	References     []referencePayload     `json:"references,omitempty"`
 	Layout         any                    `json:"layout,omitempty"`
-	AspectRatio    string                 `json:"aspect_ratio"`
+	AspectRatio    string                 `json:"aspect_ratio,omitempty"`
 	Postprocessing []PostprocessOperation `json:"postprocessing,omitempty"`
 }
 
@@ -46,9 +46,6 @@ func buildCreatePayload(req GenerateRequest) (createPayload, ImageFormat, error)
 		return createPayload{}, "", fmt.Errorf("unsupported reve image format %q", format)
 	}
 	aspectRatio := strings.TrimSpace(string(req.AspectRatio))
-	if aspectRatio == "" {
-		aspectRatio = string(AspectAuto)
-	}
 	references, err := buildReferences(req.References)
 	if err != nil {
 		return createPayload{}, "", err

@@ -56,6 +56,10 @@ func TestIntegration_CanvasProjectsListUsesArtifacts(t *testing.T) {
 			Slug          string `json:"slug"`
 			Name          string `json:"name"`
 			ArtifactCount int64  `json:"artifact_count"`
+			Artifacts     []struct {
+				ID   string `json:"id"`
+				Slug string `json:"slug"`
+			} `json:"artifacts"`
 		} `json:"projects"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
@@ -69,25 +73,67 @@ func TestIntegration_CanvasProjectsListUsesArtifacts(t *testing.T) {
 		Name          string
 		ProjectID     string
 		ArtifactCount int64
+		Artifacts     []string
 	}{}
 	for _, item := range resp.Projects {
 		projects[item.ID] = struct {
 			Name          string
 			ProjectID     string
 			ArtifactCount int64
-		}{Name: item.Name, ProjectID: item.ProjectID, ArtifactCount: item.ArtifactCount}
+			Artifacts     []string
+		}{Name: item.Name, ProjectID: item.ProjectID, ArtifactCount: item.ArtifactCount, Artifacts: canvasProjectArtifactSlugs(item.Artifacts)}
 	}
 	if projects[project.ID.String()].Name != "Launch redesign" ||
 		projects[project.ID.String()].ProjectID != project.ID.String() ||
-		projects[project.ID.String()].ArtifactCount != 1 {
+		projects[project.ID.String()].ArtifactCount != 1 ||
+		len(projects[project.ID.String()].Artifacts) != 1 ||
+		projects[project.ID.String()].Artifacts[0] != "landing-page" {
 		t.Fatalf("project missing artifact count: %+v", projects)
 	}
 	if projects[emptyProject.ID.String()].Name != "Empty project" ||
-		projects[emptyProject.ID.String()].ArtifactCount != 0 {
+		projects[emptyProject.ID.String()].ArtifactCount != 0 ||
+		len(projects[emptyProject.ID.String()].Artifacts) != 0 {
 		t.Fatalf("empty project not listed correctly: %+v", projects)
 	}
 	if _, ok := projects[otherProject.ID.String()]; ok {
 		t.Fatalf("listed project from another org: %+v", projects)
+	}
+}
+
+func TestIntegration_CanvasProjectsListFiltersEmbeddedArtifactsBySession(t *testing.T) {
+	h := newCanvasProjectHarness(t)
+	org := createTestOrg(t, h.db)
+	sessionID := seedCanvasProjectSession(t, h.db, org.ID)
+	otherSessionID := seedCanvasProjectSession(t, h.db, org.ID)
+	now := time.Now().UTC()
+
+	project := seedCanvasArtifactProject(t, h.db, org.ID, "launch-redesign", "Launch redesign", now)
+	seedCanvasArtifact(t, h.db, org.ID, project.ID, "current-session-page", now.Add(time.Minute), &sessionID)
+	seedCanvasArtifact(t, h.db, org.ID, project.ID, "other-session-page", now.Add(2*time.Minute), &otherSessionID)
+
+	rr := h.doCanvasProjects(t, org, "session_id="+sessionID.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("list canvas projects status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Projects []struct {
+			ID            string `json:"id"`
+			ArtifactCount int64  `json:"artifact_count"`
+			Artifacts     []struct {
+				Slug string `json:"slug"`
+			} `json:"artifacts"`
+		} `json:"projects"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode canvas projects: %v\n%s", err, rr.Body.String())
+	}
+	if len(resp.Projects) != 1 || resp.Projects[0].ID != project.ID.String() {
+		t.Fatalf("project list mismatch: %+v", resp.Projects)
+	}
+	if resp.Projects[0].ArtifactCount != 1 || len(resp.Projects[0].Artifacts) != 1 ||
+		resp.Projects[0].Artifacts[0].Slug != "current-session-page" {
+		t.Fatalf("session-filtered artifacts mismatch: %+v", resp.Projects[0])
 	}
 }
 
@@ -120,7 +166,33 @@ func seedCanvasArtifactProject(t *testing.T, db *gorm.DB, orgID uuid.UUID, slug,
 	return project
 }
 
-func seedCanvasArtifact(t *testing.T, db *gorm.DB, orgID, projectID uuid.UUID, slug string, updatedAt time.Time) model.CanvasArtifact {
+func seedCanvasProjectSession(t *testing.T, db *gorm.DB, orgID uuid.UUID) uuid.UUID {
+	t.Helper()
+	agent := seedSessionAgent(t, db, orgID)
+	channel := model.Channel{
+		ID:             uuid.New(),
+		OrgID:          orgID,
+		Name:           "Canvas project test " + uuid.NewString()[:8],
+		Kind:           "standard",
+		DefaultAgentID: agent.ID,
+	}
+	if err := db.Create(&channel).Error; err != nil {
+		t.Fatalf("seed canvas project channel: %v", err)
+	}
+	session := model.Session{
+		ID:        uuid.New(),
+		OrgID:     orgID,
+		ChannelID: channel.ID,
+		AgentID:   agent.ID,
+		Status:    "active",
+	}
+	if err := db.Create(&session).Error; err != nil {
+		t.Fatalf("seed canvas project session: %v", err)
+	}
+	return session.ID
+}
+
+func seedCanvasArtifact(t *testing.T, db *gorm.DB, orgID, projectID uuid.UUID, slug string, updatedAt time.Time, sourceSessionID ...*uuid.UUID) model.CanvasArtifact {
 	t.Helper()
 	artifact := model.CanvasArtifact{
 		ID:              uuid.New(),
@@ -133,8 +205,22 @@ func seedCanvasArtifact(t *testing.T, db *gorm.DB, orgID, projectID uuid.UUID, s
 		CreatedAt:       updatedAt.Add(-time.Minute),
 		UpdatedAt:       updatedAt,
 	}
+	if len(sourceSessionID) > 0 {
+		artifact.SourceSessionID = sourceSessionID[0]
+	}
 	if err := db.Create(&artifact).Error; err != nil {
 		t.Fatalf("seed canvas artifact: %v", err)
 	}
 	return artifact
+}
+
+func canvasProjectArtifactSlugs(artifacts []struct {
+	ID   string `json:"id"`
+	Slug string `json:"slug"`
+}) []string {
+	out := make([]string, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		out = append(out, artifact.Slug)
+	}
+	return out
 }

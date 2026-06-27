@@ -23,7 +23,7 @@ func (h *UploadsHandler) callReveImages(ctx context.Context, cred *model.Credent
 			APIKey:      apiKey,
 			BaseURL:     cred.BaseURL,
 			Instruction: prompt,
-			AspectRatio: reve.AspectRatio(defaultString(strings.TrimSpace(aspectRatio), string(reve.AspectAuto))),
+			AspectRatio: reve.AspectRatio(strings.TrimSpace(aspectRatio)),
 			Format:      reve.FormatPNG,
 			References:  refs,
 		})
