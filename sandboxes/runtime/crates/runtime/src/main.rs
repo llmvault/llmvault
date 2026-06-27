@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use activity::RuntimeActivityReporter;
 use agent::{AgentRunner, RigAgentRunner};
@@ -41,6 +42,7 @@ use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let startup_started = Instant::now();
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     let _ = dotenvy::dotenv();
 
@@ -63,6 +65,8 @@ async fn main() -> Result<()> {
     } else {
         info!("sentry reporting disabled; set SENTRY_DSN or SENTRY_SPOTLIGHT=true to enable");
     }
+    let mut phase_started =
+        log_runtime_startup_phase("initialize process", startup_started, startup_started);
 
     let runtime_env: HashMap<String, String> = std::env::vars().collect();
     let activity_reporter = RuntimeActivityReporter::from_env(&runtime_env);
@@ -78,6 +82,7 @@ async fn main() -> Result<()> {
     let bind_addr: SocketAddr = bind_addr_text
         .parse()
         .context("HIVY_RUNTIME_BIND_ADDR must be a socket address")?;
+    phase_started = log_runtime_startup_phase("read runtime env", phase_started, startup_started);
     let database_path = runtime_env
         .get("HIVY_DB_PATH")
         .cloned()
@@ -91,6 +96,7 @@ async fn main() -> Result<()> {
         warn!(workspace = %workspace_root.display(), %error, "failed to create workspace root");
     }
     info!(workspace = %workspace_root.display(), "workspace ready");
+    phase_started = log_runtime_startup_phase("prepare workspace", phase_started, startup_started);
     info!(database = %database_path, "initializing storage");
     let database_path = PathBuf::from(&database_path);
     let sqlite_store = init_sqlite_store(database_path.clone()).await?;
@@ -105,6 +111,7 @@ async fn main() -> Result<()> {
         Arc::new(SqliteSubagentTaskRepo::new(&sqlite_store));
     let question_request_repo: Arc<dyn storage::QuestionRequestRepo> =
         Arc::new(SqliteQuestionRequestRepo::new(&sqlite_store));
+    phase_started = log_runtime_startup_phase("initialize storage", phase_started, startup_started);
 
     let (initial_definition, initial_runtime_env, initial_workspace, config_loaded_from_database) =
         match config_repo.load().await? {
@@ -129,12 +136,16 @@ async fn main() -> Result<()> {
                 )
             }
         };
+    phase_started =
+        log_runtime_startup_phase("load persisted config", phase_started, startup_started);
 
     let config = ConfigStore::with_runtime_env(initial_definition.clone(), initial_runtime_env);
     let initial_runtime_env = config.runtime_env();
     let mcp_registry = Arc::new(
         McpRegistry::from_specs(&initial_definition.mcp_servers, &initial_runtime_env).await,
     );
+    phase_started =
+        log_runtime_startup_phase("initialize mcp registry", phase_started, startup_started);
     let registry =
         build_registry_with_env(&initial_definition.outbound_channels, &initial_runtime_env)
             .map_err(|e| anyhow::anyhow!("build outbound registry: {e}"))?;
@@ -151,6 +162,11 @@ async fn main() -> Result<()> {
         stream_batcher: stream_batcher.clone(),
         database_event_queue: database_event_queue.clone(),
     });
+    phase_started = log_runtime_startup_phase(
+        "initialize outbound registry",
+        phase_started,
+        startup_started,
+    );
 
     let skill_writer = Arc::new(SkillWriter::new(workspace_root.clone()));
     if config_loaded_from_database {
@@ -159,6 +175,8 @@ async fn main() -> Result<()> {
             skill_writer.sync(&sub_agent.skills);
         }
     }
+    phase_started =
+        log_runtime_startup_phase("sync persisted skills", phase_started, startup_started);
 
     if config_loaded_from_database {
         info!(
@@ -183,6 +201,7 @@ async fn main() -> Result<()> {
     if config_loaded_from_database {
         repo_service.apply_workspace_config(initial_workspace).await;
     }
+    phase_started = log_runtime_startup_phase("start repo service", phase_started, startup_started);
     let plan_manager = Arc::new(
         api::PlanManager::new(session_stream_broker.clone()).with_outbound_emitter(emitter.clone()),
     );
@@ -224,21 +243,28 @@ async fn main() -> Result<()> {
         sentry_enabled,
         sentry_dsn_set,
     );
+    phase_started = log_runtime_startup_phase("build api state", phase_started, startup_started);
     let (api_handle, api_cancel) = api::serve(bind_addr, api_state.clone()).await;
     api_state.mark_session_api_ready();
     if config_loaded_from_database {
         api_state.mark_config_loaded();
     }
+    phase_started =
+        log_runtime_startup_phase("bind control-plane http", phase_started, startup_started);
     let canvas_runtime_env = config.runtime_env();
     let canvas_service = Arc::new(canvas::CanvasRuntimeService::new(
         workspace_root.clone(),
         canvas_runtime_env.as_ref(),
         session_stream_broker.clone(),
         api_state.canvas_sessions.clone(),
+        api_state.canvas_source_session.clone(),
     ));
     canvas_service.start();
+    phase_started =
+        log_runtime_startup_phase("start canvas service", phase_started, startup_started);
 
     api_state.wait_for_config_loaded().await;
+    phase_started = log_runtime_startup_phase("wait first config", phase_started, startup_started);
     let active_definition = config.snapshot();
     info!(
         agent = %active_definition.agent.name,
@@ -249,6 +275,8 @@ async fn main() -> Result<()> {
 
     let dispatcher = OutboundDispatcher::new(outbox_repo.clone(), registry.clone());
     let (dispatcher_handle, dispatcher_cancel) = dispatcher.spawn();
+    phase_started =
+        log_runtime_startup_phase("start outbound dispatcher", phase_started, startup_started);
     info!(
         database_channel = "queued",
         db_flush_max_events = DATABASE_BATCH_MAX_EVENTS,
@@ -257,6 +285,8 @@ async fn main() -> Result<()> {
         "database event queue enabled"
     );
     let _database_event_queue_handle = database_event_queue.clone().spawn();
+    phase_started =
+        log_runtime_startup_phase("start database queue", phase_started, startup_started);
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
         .with_subagent_task_repo(subagent_task_repo.clone())
@@ -274,6 +304,7 @@ async fn main() -> Result<()> {
         emitter.clone(),
     );
     let _subagent_worker_handle = tokio::spawn(subagent_worker.run());
+    let _ = log_runtime_startup_phase("start subagent worker", phase_started, startup_started);
 
     let event_loop = async {
         info!("listening for inbound events");
@@ -288,6 +319,7 @@ async fn main() -> Result<()> {
             let subagent_task_repo = subagent_task_repo.clone();
             let inbound_sink = inbound_sink.clone();
             let activity_reporter = activity_reporter.clone();
+            let canvas_source_session = api_state.canvas_source_session.clone();
             // Capture the session id before moving `inbound` into the task so a
             // panicking turn can be cleaned up from the coordinator.
             let session_id = inbound.session_id.clone();
@@ -306,6 +338,7 @@ async fn main() -> Result<()> {
                     inbound_sink,
                     inbound,
                     activity_reporter,
+                    canvas_source_session,
                 ))
                 .catch_unwind()
                 .await;
@@ -422,6 +455,20 @@ fn required_runtime_env(env: &HashMap<String, String>, key: &str, hint: &str) ->
         Some(value) if !value.is_empty() => Ok(value.clone()),
         _ => anyhow::bail!("env var `{key}` must be set ({hint})"),
     }
+}
+
+fn log_runtime_startup_phase(
+    phase: &'static str,
+    phase_started: Instant,
+    total_started: Instant,
+) -> Instant {
+    info!(
+        phase,
+        duration_ms = phase_started.elapsed().as_millis(),
+        total_ms = total_started.elapsed().as_millis(),
+        "runtime startup phase"
+    );
+    Instant::now()
 }
 
 fn merge_persisted_runtime_env(

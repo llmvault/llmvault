@@ -20,7 +20,7 @@ use futures::StreamExt;
 use outbound::OutboundEmitter;
 use serde_json::{json, Value};
 use storage::{SessionRepo, SubagentTaskRepo};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 use tracing::{info, warn};
 
 use composition::compose_annotated_text;
@@ -485,6 +485,7 @@ pub async fn handle_inbound(
     inbound_sink: mpsc::Sender<InboundEvent>,
     inbound: InboundEvent,
     activity_reporter: Option<Arc<RuntimeActivityReporter>>,
+    canvas_source_session: Arc<RwLock<Option<String>>>,
 ) -> Result<()> {
     let submission = coordinator.submit_or_queue(inbound.clone());
     if matches!(submission, Submission::Queued) {
@@ -526,6 +527,7 @@ pub async fn handle_inbound(
             subagent_task_repo.clone(),
             coordinator.clone(),
             inbound_sink.clone(),
+            canvas_source_session.clone(),
             cancellation,
         )
         .await;
@@ -667,6 +669,13 @@ pub async fn handle_inbound(
 /// never lands keeps the job Active and spins the parent loop forever.
 const MAX_SUBAGENT_TASK_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
+async fn remember_canvas_source_session(
+    canvas_source_session: &Arc<RwLock<Option<String>>>,
+    session_id: &SessionId,
+) {
+    *canvas_source_session.write().await = Some(session_id.as_str().to_string());
+}
+
 async fn session_has_active_subagent_tasks(
     repo: &dyn SubagentTaskRepo,
     session_id: &SessionId,
@@ -705,6 +714,7 @@ async fn process_single_turn(
     subagent_task_repo: Arc<dyn SubagentTaskRepo>,
     _coordinator: Arc<SessionCoordinator>,
     _inbound_sink: mpsc::Sender<InboundEvent>,
+    canvas_source_session: Arc<RwLock<Option<String>>>,
     mut cancellation: TurnCancellation,
 ) -> Result<TurnProcessResult> {
     if let ScheduledRunStatus::Malformed(malformed) = ScheduledRunStatus::from_inbound(inbound) {
@@ -724,6 +734,7 @@ async fn process_single_turn(
     );
 
     let session_id = inbound.session_id.clone();
+    remember_canvas_source_session(&canvas_source_session, &session_id).await;
 
     let was_new_session = ensure_session_persisted(session_repo.as_ref(), inbound, &emitter).await;
     if !was_new_session {

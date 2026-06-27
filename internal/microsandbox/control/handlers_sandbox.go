@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -43,6 +44,14 @@ type sandboxResponse struct {
 }
 
 func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	totalStarted := time.Now()
+	phaseStarted := totalStarted
+	logPhase := func(phase string, attrs ...any) {
+		attrs = append(attrs, "total_ms", time.Since(totalStarted).Milliseconds())
+		logging.LogPhase(ctx, "microsandbox control create phase", phase, phaseStarted, attrs...)
+		phaseStarted = time.Now()
+	}
 	var req createSandboxRequest
 	if err := httpx.Decode(r, &req); err != nil {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid request body"})
@@ -61,6 +70,17 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		req.Name = id
 	}
+	logPhase("decode request",
+		"sandbox_id", id,
+		"org_id", req.OrgID,
+		"size", req.Size,
+		"preview_port_count", len(req.PreviewPorts),
+		"health_check_count", len(req.HealthChecks),
+		"env_key_count", len(req.Env),
+		"metadata_count", len(req.Metadata),
+		"has_image_ref", strings.TrimSpace(req.ImageRef) != "",
+		"has_template_id", strings.TrimSpace(req.TemplateID) != "",
+	)
 	if len(req.PreviewPorts) == 0 {
 		req.PreviewPorts = api.DefaultPreviewPorts()
 	}
@@ -69,6 +89,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: err.Error()})
 		return
 	}
+	logPhase("validate request", "sandbox_id", id, "org_id", req.OrgID, "preview_port_count", len(req.PreviewPorts), "health_check_count", len(healthChecks))
 	if req.TemplateID != "" {
 		template, err := s.loadTemplateByID(r.Context(), req.TemplateID)
 		if err != nil {
@@ -85,6 +106,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		}
 		req.ImageRef = template.ImageRef
 	}
+	logPhase("resolve template", "sandbox_id", id, "org_id", req.OrgID, "has_template_id", strings.TrimSpace(req.TemplateID) != "")
 	metadata, _ := json.Marshal(req.Metadata)
 
 	password, err := s.ensureOrgPassword(r.Context(), req.OrgID, req.PreviewPassword)
@@ -108,6 +130,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	if req.AutoSleepAfterSeconds <= 0 {
 		req.AutoSleepAfterSeconds = defaultAutoSleepAfter
 	}
+	logPhase("prepare env", "sandbox_id", id, "org_id", req.OrgID, "env_key_count", len(req.Env), "auto_sleep_after_seconds", req.AutoSleepAfterSeconds)
 
 	var sb model.Sandbox
 	var runner model.Runner
@@ -132,6 +155,15 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: err.Error()})
 		return
 	}
+	logPhase("reserve runner",
+		"sandbox_id", sb.ID,
+		"org_id", req.OrgID,
+		"runner_id", runner.ID,
+		"runner_api_url", runner.APIURL,
+		"cpu", size.CPU,
+		"memory_mb", size.MemoryMB,
+		"disk_gb", size.DiskGB,
+	)
 
 	var createResp runnerCreateSandboxResponse
 	err = s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes", runnerCreateSandboxRequest{
@@ -149,6 +181,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: "runner create failed: " + err.Error()})
 		return
 	}
+	logPhase("runner create", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(createResp.Ports))
 	ports := make([]model.SandboxPort, 0, len(createResp.Ports))
 	for _, p := range createResp.Ports {
 		port := model.SandboxPort{
@@ -176,10 +209,13 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	sb.Status = model.SandboxStatusRunning
 	sb.SleepAfterAt = sleepAfterAt
 	sb.LastWakeAt = &now
+	logPhase("persist ports", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(ports), "sleep_after_at", sleepAfterAt)
 	s.syncPreviewRoute(r.Context(), sb, runner, ports)
+	logPhase("sync preview route", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(ports))
 	resp := sandboxResponse{Sandbox: sb, Ports: ports, PreviewURLs: s.previewURLs(sb.ID, ports)}
 	resp.PreviewPassword = password
 	httpx.JSON(w, http.StatusCreated, resp)
+	logPhase("complete", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(ports))
 }
 
 func (s *Server) listSandboxes(w http.ResponseWriter, r *http.Request) {
