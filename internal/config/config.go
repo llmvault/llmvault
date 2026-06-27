@@ -105,9 +105,7 @@ type Config struct {
 
 	RuntimeRedisStreamShardCount int `env:"HIVY_RUNTIME_REDIS_STREAM_SHARD_COUNT" envDefault:"64"`
 
-	SandboxesRuntimeImageTag     string `env:"HIVY_SANDBOXES_RUNTIME_IMAGE_TAG"`
-	AgentSandboxAutoUpgrade      bool   `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
-	AgentSandboxAutoUpgradeLimit int    `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
+	SandboxesRuntimeImageTag string `env:"HIVY_SANDBOXES_RUNTIME_IMAGE_TAG"`
 
 	// Browser setup/admin panel. When disabled, admin routes are not mounted.
 	AdminEnabled bool   `env:"HIVY_ADMIN_ENABLED" envDefault:"false"`

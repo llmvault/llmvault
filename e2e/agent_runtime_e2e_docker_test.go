@@ -51,7 +51,7 @@ func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ET
 		"-e", "HIVY_WORKSPACE_ROOT=/workspace",
 		"-e", "HIVY_PROXY_API_KEY=" + proxyToken,
 		"-e", "HIVY_CONTROL_PLANE_URL=" + controlPlaneURL,
-		"-e", "HIVY_DRIVE_UPLOAD_URL=" + controlPlaneURL + "/internal/agents/" + agentID + "/drive",
+		"-e", "HIVY_DRIVE_UPLOAD_URL=" + controlPlaneURL + "/internal/agents/" + agentID + "/sandboxes/" + sandboxID + "/drive",
 		"-e", "HIVY_DRIVE_UPLOAD_BEARER=" + runtimeSecret,
 		"-e", "HIVY_AGENT_ID=" + agentID,
 		"-e", "HIVY_ORG_ID=" + uuid.NewString(),

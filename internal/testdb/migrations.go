@@ -196,7 +196,6 @@ var migratedTables = []string{
 	"agent_assets",
 	"agent_memories",
 	"agent_plugin_installs",
-	"agent_sandbox_upgrades",
 	"agent_schedule_runs",
 	"agent_schedules",
 	"agent_trigger_deliveries",
@@ -246,4 +245,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 46
+const latestMigrationVersion = 47

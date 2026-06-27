@@ -7,6 +7,7 @@ type Size struct {
 }
 
 var Sizes = map[string]Size{
+	"nano":   {CPU: 1, MemoryMB: 1024, DiskGB: 5},
 	"small":  {CPU: 1, MemoryMB: 2048, DiskGB: 10},
 	"medium": {CPU: 2, MemoryMB: 4096, DiskGB: 20},
 	"large":  {CPU: 4, MemoryMB: 8192, DiskGB: 40},

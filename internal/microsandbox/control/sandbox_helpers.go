@@ -38,7 +38,12 @@ func (s *Server) loadSandboxRunner(w http.ResponseWriter, r *http.Request) (mode
 
 func resolveSize(req createSandboxRequest) api.Size {
 	if req.CPU > 0 || req.MemoryMB > 0 || req.DiskGB > 0 {
-		return api.Size{CPU: max(req.CPU, 1), MemoryMB: max(req.MemoryMB, 2048), DiskGB: max(req.DiskGB, 40)}
+		minSize := api.Sizes["nano"]
+		return api.Size{
+			CPU:      max(req.CPU, minSize.CPU),
+			MemoryMB: max(req.MemoryMB, minSize.MemoryMB),
+			DiskGB:   max(req.DiskGB, minSize.DiskGB),
+		}
 	}
 	if req.Size == "" {
 		req.Size = api.DefaultSize
@@ -115,7 +120,7 @@ func runtimeReservationSize(sb model.Sandbox) api.Size {
 
 func runtimeReservationHeld(status string) bool {
 	switch status {
-	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusUpgrading:
+	case model.SandboxStatusCreating, model.SandboxStatusRunning:
 		return true
 	default:
 		return false
@@ -124,7 +129,7 @@ func runtimeReservationHeld(status string) bool {
 
 func diskReservationHeld(status string) bool {
 	switch status {
-	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusStopped, model.SandboxStatusUpgrading:
+	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusStopped:
 		return true
 	default:
 		return false

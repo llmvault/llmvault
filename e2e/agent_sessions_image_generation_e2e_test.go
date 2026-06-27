@@ -83,7 +83,6 @@ func agentSessionsCreateImageGenerationAgent(t *testing.T, ctx context.Context, 
 		"instructions":       "Use the image generation tools exactly as requested. Do not use prose instead of tool calls.",
 		"model":              agentruntime.DefaultAgentModel,
 		"available_models":   []string{agentruntime.DefaultAgentModel},
-		"sandbox_strategy":   "per_session",
 		"image_model":        registry.DefaultRasterImageGenerationModelID,
 		"vector_image_model": registry.DefaultVectorImageGenerationModelID,
 	}

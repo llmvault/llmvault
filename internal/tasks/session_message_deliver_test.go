@@ -79,9 +79,9 @@ Artifact comments to address:
 	}
 }
 
-func TestLoadRuntimeSandboxDoesNotReuseAgentRuntimeForPerSessionWithoutAttachedSandbox(t *testing.T) {
+func TestLoadRuntimeSandboxDoesNotReuseAgentRuntimeForSessionWithoutAttachedSandbox(t *testing.T) {
 	db := connectTestDB(t)
-	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "per_session")
+	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "session")
 	existing := seedSessionRuntimeSelectionSandbox(t, db, org.ID, agent.ID)
 	session := seedSessionRuntimeSelectionSession(t, db, org.ID, channel.ID, agent.ID, nil)
 
@@ -98,32 +98,16 @@ func TestLoadRuntimeSandboxDoesNotReuseAgentRuntimeForPerSessionWithoutAttachedS
 	attached := seedSessionRuntimeSelectionSession(t, db, org.ID, channel.ID, agent.ID, &existing.ID)
 	loaded, err = handler.loadRuntimeSandbox(t.Context(), attached, &agent)
 	if err != nil {
-		t.Fatalf("load attached per-session sandbox: %v", err)
+		t.Fatalf("load attached session sandbox: %v", err)
 	}
 	if loaded.ID != existing.ID {
 		t.Fatalf("loaded sandbox = %s, want attached sandbox %s", loaded.ID, existing.ID)
 	}
 }
 
-func TestLoadRuntimeSandboxReusesAgentRuntimeForAlwaysOn(t *testing.T) {
-	db := connectTestDB(t)
-	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "always_on")
-	existing := seedSessionRuntimeSelectionSandbox(t, db, org.ID, agent.ID)
-	session := seedSessionRuntimeSelectionSession(t, db, org.ID, channel.ID, agent.ID, nil)
-
-	handler := &SessionMessageDeliverHandler{db: db}
-	loaded, err := handler.loadRuntimeSandbox(t.Context(), session, &agent)
-	if err != nil {
-		t.Fatalf("load always-on sandbox: %v", err)
-	}
-	if loaded.ID != existing.ID {
-		t.Fatalf("loaded sandbox = %s, want always-on sandbox %s", loaded.ID, existing.ID)
-	}
-}
-
 func TestClaimNextSkipsDrainingSessionSandbox(t *testing.T) {
 	db := connectTestDB(t)
-	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "always_on")
+	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "session")
 	existing := seedSessionRuntimeSelectionSandbox(t, db, org.ID, agent.ID)
 	if err := db.Model(&existing).Update("status", string(sandbox.StatusDraining)).Error; err != nil {
 		t.Fatalf("mark sandbox draining: %v", err)
@@ -172,17 +156,16 @@ func seedSessionRuntimeSelectionFixture(t *testing.T, db *gorm.DB, strategy stri
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		OrgID:           &org.ID,
-		Name:            "runtime-agent-" + uuid.NewString()[:8],
-		SandboxStrategy: strategy,
-		Model:           "test-model",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
-		Status:          "active",
+		OrgID:         &org.ID,
+		Name:          "runtime-agent-" + uuid.NewString()[:8],
+		Model:         "test-model",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+		Status:        "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

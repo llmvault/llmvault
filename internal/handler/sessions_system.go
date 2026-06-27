@@ -65,12 +65,16 @@ func (h *SessionHandler) createSystemSession(ctx context.Context, req systemSess
 		name = webSessionName(text)
 	}
 	reasoningEffort, _ := normalizeSessionReasoningEffort("")
+	sessionSandbox, err := h.provisionSessionSandbox(ctx, &req.Agent, req.Agent.Model, reasoningEffort)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("provision system session sandbox: %w", err)
+	}
 	session := model.Session{
 		ID:                sessionID,
 		OrgID:             req.OrgID,
 		ChannelID:         req.ChannelID,
 		AgentID:           req.Agent.ID,
-		SandboxID:         h.bestEffortSandboxIDForContext(ctx, req.OrgID, req.Agent),
+		SandboxID:         &sessionSandbox.ID,
 		Model:             defaultString(strings.TrimSpace(req.Agent.Model), ""),
 		ReasoningEffort:   reasoningEffort,
 		Source:            source,
@@ -84,10 +88,12 @@ func (h *SessionHandler) createSystemSession(ctx context.Context, req systemSess
 	raw := req.Raw
 	intent, err := h.createInitialSessionMessageIntent(ctx, &session, nil, text, normalizeJSONPtr(&raw))
 	if err != nil {
+		h.cleanupFailedSessionCreate(ctx, session.ID, sessionSandbox)
 		return nil, nil, false, fmt.Errorf("create system session: %w", err)
 	}
 	queued, err := h.dispatchSessionMessageIntent(ctx, intent)
 	if err != nil {
+		h.cleanupFailedSessionCreate(ctx, session.ID, sessionSandbox)
 		return nil, nil, queued, fmt.Errorf("send system session delivery: %w", err)
 	}
 	if autoName {

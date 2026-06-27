@@ -13,7 +13,7 @@ import (
 
 const triggerSystemChannelName = "system"
 
-func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Context, agent *model.Agent, sb *model.Sandbox, trigger model.AgentTrigger, resourceKey string) (*model.Session, error) {
+func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Context, agent *model.Agent, trigger model.AgentTrigger, resourceKey string) (*model.Session, error) {
 	channelID, err := h.resolveTriggerChannel(ctx, agent, trigger.ChannelID)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 		OrgID:             *agent.OrgID,
 		ChannelID:         channelID,
 		AgentID:           agent.ID,
-		SandboxID:         &sb.ID,
+		Model:             agent.Model,
 		Source:            triggerConversationSource,
 		SourceID:          &trigger.ID,
 		SourceResourceKey: resourceKey,

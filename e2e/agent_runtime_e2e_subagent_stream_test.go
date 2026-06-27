@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace, label string, events []runtimeSSEEvent) {
+func assertRuntimeParentSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace, label string, events []runtimeSSEEvent) {
 	t.Helper()
 	started := map[string]int{}
 	startOrder := map[string]int{}
@@ -43,7 +43,7 @@ func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace
 		if scope == "subagent" {
 			assertSubagentMarker(t, label, event, agent)
 			if event.Name == "done" {
-				t.Fatalf("%s subagent emitted terminal done on shared stream: %s", label, event.RawData)
+				t.Fatalf("%s subagent emitted terminal done on parent stream: %s", label, event.RawData)
 			}
 			scopedEvents[agent]++
 			if event.Name == "final" {
@@ -53,7 +53,7 @@ func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace
 	}
 
 	if doneCount != 1 {
-		t.Fatalf("%s shared stream done count=%d want=1 events=%s", label, doneCount, summarizeEvents(events))
+		t.Fatalf("%s parent stream done count=%d want=1 events=%s", label, doneCount, summarizeEvents(events))
 	}
 	for _, agent := range agentRuntimeE2EHakareeSubagents {
 		if started[agent] == 0 {
@@ -70,7 +70,7 @@ func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace
 		}
 	}
 	assertSubagentsStartedBeforeFirstCompletion(t, label, startOrder, firstCompletedIndex, events)
-	trace.Logf("assert", "%s shared subagent stream passed started=%v completed=%v scoped=%v finals=%v", label, started, completed, scopedEvents, scopedFinals)
+	trace.Logf("assert", "%s parent subagent stream passed started=%v completed=%v scoped=%v finals=%v", label, started, completed, scopedEvents, scopedFinals)
 }
 
 func assertSubagentsStartedBeforeFirstCompletion(t *testing.T, label string, startOrder map[string]int, firstCompletedIndex int, events []runtimeSSEEvent) {

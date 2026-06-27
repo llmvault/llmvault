@@ -146,18 +146,17 @@ func seedSessionUser(t *testing.T, db *gorm.DB, orgID uuid.UUID, role string) mo
 func seedSessionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
-		OrgID:           &orgID,
-		Name:            "Agent-" + uuid.NewString()[:8],
-		Description:     ptrString("session test agent"),
-		SandboxStrategy: "always_on",
-		Model:           "deepseek-v4-flash",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
-		Status:          "active",
+		OrgID:         &orgID,
+		Name:          "Agent-" + uuid.NewString()[:8],
+		Description:   ptrString("session test agent"),
+		Model:         "deepseek-v4-flash",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+		Status:        "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

@@ -43,6 +43,7 @@ var driveAssetTypes = map[string]bool{
 // The request is multipart/form-data with:
 //   - file: image or audio file
 //   - agent_id: destination agent
+//   - session_id: destination session
 //   - path: optional drive folder, default "uploads"
 //
 // @Summary Upload agent drive asset
@@ -51,6 +52,7 @@ var driveAssetTypes = map[string]bool{
 // @Accept mpfd
 // @Produce json
 // @Param agent_id formData string true "Destination agent ID"
+// @Param session_id formData string true "Destination session ID"
 // @Param path formData string false "Drive folder"
 // @Param file formData file true "Asset file"
 // @Success 201 {object} streamAssetResponse
@@ -82,6 +84,11 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 	agentID, err := uuid.Parse(strings.TrimSpace(r.FormValue("agent_id")))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
+		return
+	}
+	sessionID, err := uuid.Parse(strings.TrimSpace(r.FormValue("session_id")))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid session_id"})
 		return
 	}
 	var agent model.Agent
@@ -129,13 +136,13 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	sandbox, err := h.agentRuntimeSelector().MainRuntime(r.Context(), org.ID, agentID)
+	sandbox, err := h.loadUploadSessionSandbox(r, org.ID, agentID, sessionID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "agent runtime sandbox not found"})
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "session sandbox not found"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve agent runtime"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve session sandbox"})
 		return
 	}
 
@@ -196,6 +203,25 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 		ContentType: asset.ContentType,
 		Bytes:       asset.Bytes,
 	})
+}
+
+func (h *UploadsHandler) loadUploadSessionSandbox(r *http.Request, orgID, agentID, sessionID uuid.UUID) (*model.Sandbox, error) {
+	var session model.Session
+	if err := h.db.WithContext(r.Context()).
+		Where("id = ? AND org_id = ? AND agent_id = ? AND status <> ?", sessionID, orgID, agentID, "archived").
+		First(&session).Error; err != nil {
+		return nil, err
+	}
+	if session.SandboxID == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var sandbox model.Sandbox
+	if err := h.db.WithContext(r.Context()).
+		Where("id = ? AND org_id = ? AND agent_id = ?", *session.SandboxID, orgID, agentID).
+		First(&sandbox).Error; err != nil {
+		return nil, err
+	}
+	return &sandbox, nil
 }
 
 func cleanUploadFilename(raw string) string {

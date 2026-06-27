@@ -11,7 +11,6 @@
   "enabled": true,
   "default": true,
   "runtime": {
-    "sandbox_strategy": "per_session",
     "sandbox_image": "default",
     "model": "mimo-v2.5-pro",
     "available_models": [

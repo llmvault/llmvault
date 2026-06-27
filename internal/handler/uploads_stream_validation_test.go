@@ -14,7 +14,7 @@ import (
 func TestStreamAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/x.png", h.agentID),
+		h.drivePath("x.png"),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		"not-the-real-key",
@@ -27,7 +27,7 @@ func TestStreamAsset_BadBearer(t *testing.T) {
 func TestStreamAsset_MissingBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/x.png", h.agentID),
+		h.drivePath("x.png"),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		"",
@@ -40,7 +40,7 @@ func TestStreamAsset_MissingBearer(t *testing.T) {
 func TestStreamAsset_AgentNotFound(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/x.png", uuid.New()),
+		fmt.Sprintf("/internal/agents/%s/sandboxes/%s/drive/x.png", uuid.New(), h.sandboxID),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		h.runtimeSecret,
@@ -53,7 +53,7 @@ func TestStreamAsset_AgentNotFound(t *testing.T) {
 func TestStreamAsset_PathTraversalRejected(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/../../etc/passwd", h.agentID),
+		h.drivePath("../../etc/passwd"),
 		bytes.NewReader([]byte("hi")),
 		"text/plain",
 		h.runtimeSecret,
@@ -66,7 +66,7 @@ func TestStreamAsset_PathTraversalRejected(t *testing.T) {
 func TestStreamAsset_FilenameRequired(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/", h.agentID),
+		h.drivePath(""),
 		bytes.NewReader([]byte("x")),
 		"text/plain",
 		h.runtimeSecret,
@@ -79,7 +79,7 @@ func TestStreamAsset_FilenameRequired(t *testing.T) {
 func TestStreamAsset_RejectsEmptyFile(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/agents/%s/drive/images/empty.jpg", h.agentID),
+		h.drivePath("images/empty.jpg"),
 		bytes.NewReader(nil),
 		"image/jpeg",
 		h.runtimeSecret,

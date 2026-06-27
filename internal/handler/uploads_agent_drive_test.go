@@ -13,8 +13,7 @@ import (
 
 func TestStreamAgentDrive_HappyPath(t *testing.T) {
 	h := newStreamHarness(t)
-	urlPath := fmt.Sprintf("/internal/agents/%s/drive/reports/2026/summary.txt", h.agentID)
-	rr := h.put(t, urlPath, bytes.NewReader([]byte("hello drive")), "text/plain", h.runtimeSecret)
+	rr := h.put(t, h.drivePath("reports/2026/summary.txt"), bytes.NewReader([]byte("hello drive")), "text/plain", h.runtimeSecret)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}

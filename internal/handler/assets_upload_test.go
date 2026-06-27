@@ -31,7 +31,7 @@ func TestUploadAgentAsset_ImageCreatesDriveAsset(t *testing.T) {
 	})
 	r.Post("/v1/assets/upload", h.publicAsset.UploadAgentAsset)
 
-	body, contentType := multipartImageUploadBody(t, h.agentID, "screenshot.png", tinyPNG(t))
+	body, contentType := multipartImageUploadBody(t, h.agentID, h.sessionID, "screenshot.png", tinyPNG(t))
 	req := httptest.NewRequest(http.MethodPost, "/v1/assets/upload", body)
 	req.Header.Set("Content-Type", contentType)
 	rr := httptest.NewRecorder()
@@ -80,7 +80,7 @@ func TestUploadAgentAsset_AudioCreatesDriveAsset(t *testing.T) {
 	})
 	r.Post("/v1/assets/upload", h.publicAsset.UploadAgentAsset)
 
-	body, contentType := multipartAssetUploadBody(t, h.agentID, "voice.webm", "audio/webm", []byte("fake webm voice note"))
+	body, contentType := multipartAssetUploadBody(t, h.agentID, h.sessionID, "voice.webm", "audio/webm", []byte("fake webm voice note"))
 	req := httptest.NewRequest(http.MethodPost, "/v1/assets/upload", body)
 	req.Header.Set("Content-Type", contentType)
 	rr := httptest.NewRecorder()
@@ -103,17 +103,20 @@ func TestUploadAgentAsset_AudioCreatesDriveAsset(t *testing.T) {
 	}
 }
 
-func multipartImageUploadBody(t *testing.T, agentID uuid.UUID, filename string, fileBytes []byte) (*bytes.Buffer, string) {
+func multipartImageUploadBody(t *testing.T, agentID, sessionID uuid.UUID, filename string, fileBytes []byte) (*bytes.Buffer, string) {
 	t.Helper()
-	return multipartAssetUploadBody(t, agentID, filename, "", fileBytes)
+	return multipartAssetUploadBody(t, agentID, sessionID, filename, "", fileBytes)
 }
 
-func multipartAssetUploadBody(t *testing.T, agentID uuid.UUID, filename, contentType string, fileBytes []byte) (*bytes.Buffer, string) {
+func multipartAssetUploadBody(t *testing.T, agentID, sessionID uuid.UUID, filename, contentType string, fileBytes []byte) (*bytes.Buffer, string) {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if err := writer.WriteField("agent_id", agentID.String()); err != nil {
 		t.Fatalf("write agent_id: %v", err)
+	}
+	if err := writer.WriteField("session_id", sessionID.String()); err != nil {
+		t.Fatalf("write session_id: %v", err)
 	}
 	if err := writer.WriteField("path", "uploads"); err != nil {
 		t.Fatalf("write path: %v", err)

@@ -14,12 +14,11 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// authAgent resolves the agent agent + its sandbox from the URL param
+// authAgent resolves the agent and session sandbox from the URL params
 // and verifies the bearer matches the sandbox's runtime secret. On failure
 // it writes the JSON error response and returns false — callers must return.
 func (h *UploadsHandler) authAgent(w http.ResponseWriter, r *http.Request) (*model.Agent, *model.Sandbox, bool) {
@@ -31,6 +30,11 @@ func (h *UploadsHandler) authAgent(w http.ResponseWriter, r *http.Request) (*mod
 	agentID, err := uuid.Parse(chi.URLParam(r, "agentID"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
+		return nil, nil, false
+	}
+	sandboxID, err := uuid.Parse(chi.URLParam(r, "sandboxID"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid sandbox_id"})
 		return nil, nil, false
 	}
 
@@ -54,10 +58,12 @@ func (h *UploadsHandler) authAgent(w http.ResponseWriter, r *http.Request) (*mod
 		return nil, nil, false
 	}
 
-	sandbox, err := h.agentRuntimeSelector().MainRuntime(r.Context(), *agent.OrgID, agentID)
-	if err != nil {
+	var sandbox model.Sandbox
+	if err := h.db.WithContext(r.Context()).
+		Where("id = ? AND org_id = ? AND agent_id = ?", sandboxID, *agent.OrgID, agentID).
+		First(&sandbox).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found for agent"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found"})
 			return nil, nil, false
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load sandbox"})
@@ -75,14 +81,7 @@ func (h *UploadsHandler) authAgent(w http.ResponseWriter, r *http.Request) (*mod
 		return nil, nil, false
 	}
 
-	return &agent, sandbox, true
-}
-
-func (h *UploadsHandler) agentRuntimeSelector() agentsandbox.Selector {
-	return agentsandbox.Selector{
-		DB:                h.db,
-		AgentRuntimeImage: h.agentRuntimeImage,
-	}
+	return &agent, &sandbox, true
 }
 
 func buildAgentAssetKey(agentID uuid.UUID, folder, filename string) string {
@@ -96,7 +95,7 @@ func buildAgentAssetKey(agentID uuid.UUID, folder, filename string) string {
 // agent drive. Auth: bearer must equal the agent sandbox's runtime API
 // key.
 //
-//	PUT /internal/agents/{agentID}/drive/*
+//	PUT /internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*
 func (h *UploadsHandler) StreamAgentAsset(w http.ResponseWriter, r *http.Request) {
 	if h.streamer == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "streaming uploads not configured"})
@@ -181,7 +180,7 @@ func (h *UploadsHandler) StreamAgentAsset(w http.ResponseWriter, r *http.Request
 
 // DeleteAgentAsset removes both the S3 object and the DB row.
 //
-//	DELETE /internal/agents/{agentID}/drive/*
+//	DELETE /internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*
 func (h *UploadsHandler) DeleteAgentAsset(w http.ResponseWriter, r *http.Request) {
 	if h.streamer == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "drive endpoints not configured"})
@@ -194,7 +193,7 @@ func (h *UploadsHandler) DeleteAgentAsset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	agent, _, ok := h.authAgent(w, r)
+	agent, sandbox, ok := h.authAgent(w, r)
 	if !ok {
 		return
 	}
@@ -202,7 +201,7 @@ func (h *UploadsHandler) DeleteAgentAsset(w http.ResponseWriter, r *http.Request
 	key := buildAgentAssetKey(agent.ID, folder, filename)
 
 	var asset model.AgentAsset
-	if err := h.db.Where("agent_id = ? AND key = ?", agent.ID, key).First(&asset).Error; err != nil {
+	if err := h.db.Where("agent_id = ? AND sandbox_id = ? AND key = ?", agent.ID, sandbox.ID, key).First(&asset).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "asset not found"})
 			return

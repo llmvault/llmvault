@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
-	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
@@ -80,59 +79,7 @@ func (h *PluginInstallSyncHandler) Handle(ctx context.Context, task *asynq.Task)
 	if err != nil {
 		return fmt.Errorf("ensure Hivy agent: %w", err)
 	}
-	if err := h.syncAlwaysOnAgents(ctx, payload.OrgID); err != nil {
-		return err
-	}
-	h.enqueuePluginResourceReconcile(ctx, payload.OrgID, plugin.ID)
 	return h.dispatchPluginServiceDiscovery(ctx, payload, plugin, discoveryAgent)
-}
-
-func (h *PluginInstallSyncHandler) enqueuePluginResourceReconcile(ctx context.Context, orgID, pluginID uuid.UUID) {
-	if h == nil || h.db == nil || h.enq == nil {
-		return
-	}
-	var conns []model.Connection
-	if err := h.db.WithContext(ctx).
-		Preload("Integration").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Joins("JOIN plugin_integrations ON plugin_integrations.provider = integrations.provider AND plugin_integrations.kind = ? AND plugin_integrations.plugin_id = ?", model.PluginIntegrationKindIntegration, pluginID).
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL", orgID).
-		Order("connections.created_at ASC").
-		Find(&conns).Error; err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("list plugin resource connections: %w", err), map[string]any{
-			"org_id":    orgID.String(),
-			"plugin_id": pluginID.String(),
-		})
-		return
-	}
-	for _, conn := range conns {
-		enqueueGitHubRepositoryCloneForAlwaysOnAgents(ctx, h.db, h.enq, orgID, conn)
-	}
-}
-
-func (h *PluginInstallSyncHandler) syncAlwaysOnAgents(ctx context.Context, orgID uuid.UUID) error {
-	var agents []model.Agent
-	if err := h.db.WithContext(ctx).
-		Where("org_id = ? AND sandbox_strategy = ? AND status <> ?", orgID, agentStrategyAlwaysOn, "archived").
-		Order("created_at ASC").
-		Find(&agents).Error; err != nil {
-		return fmt.Errorf("load always-on agents: %w", err)
-	}
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(8)
-	for i := range agents {
-		agent := agents[i]
-		g.Go(func() error {
-			if _, _, err := h.agentHandler.SyncAgent(ctx, &agent); err != nil {
-				return fmt.Errorf("sync agent %s: %w", agent.ID, err)
-			}
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return fmt.Errorf("sync always-on agents: %w", err)
-	}
-	return nil
 }
 
 func (h *PluginInstallSyncHandler) dispatchPluginServiceDiscovery(

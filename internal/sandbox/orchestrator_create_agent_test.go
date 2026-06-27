@@ -21,19 +21,18 @@ func TestCreateAgentSandboxUsesConfiguredSandboxSize(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		Name:            "Runtime Agent",
-		SandboxStrategy: "always_on",
-		SandboxSize:     "xlarge",
-		Model:           "gpt-5.4",
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          "Runtime Agent",
+		SandboxSize:   "xlarge",
+		Model:         "gpt-5.4",
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -100,18 +99,17 @@ func TestCreateAgentSandboxUsesOrgSandboxExposedPorts(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		Name:            "Preview Agent",
-		SandboxStrategy: "always_on",
-		Model:           "gpt-5.4",
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          "Preview Agent",
+		Model:         "gpt-5.4",
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -163,20 +161,19 @@ func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		Name:            "Developer Agent",
-		SandboxStrategy: "per_session",
-		SandboxImage:    model.SandboxImageDeveloper,
-		SandboxSize:     "large",
-		Model:           "gpt-5.4",
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          "Developer Agent",
+		SandboxImage:  model.SandboxImageDeveloper,
+		SandboxSize:   "large",
+		Model:         "gpt-5.4",
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

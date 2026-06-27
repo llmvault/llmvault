@@ -18,17 +18,16 @@ func TestWriteModelUsageCreatesGenerationAndSessionEventIdempotently(t *testing.
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		OrgID:           &org.ID,
-		Name:            "metering-agent-" + uuid.NewString()[:8],
-		SandboxStrategy: "per_session",
-		Model:           "deepseek-v4-flash",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
-		Status:          "active",
+		OrgID:         &org.ID,
+		Name:          "metering-agent-" + uuid.NewString()[:8],
+		Model:         "deepseek-v4-flash",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+		Status:        "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

@@ -70,11 +70,8 @@ async fn main() -> Result<()> {
 
     let runtime_env: HashMap<String, String> = std::env::vars().collect();
     let activity_reporter = RuntimeActivityReporter::from_env(&runtime_env);
-    let runtime_secret = required_runtime_env(
-        &runtime_env,
-        "HIVY_RUNTIME_SECRET",
-        "shared runtime bearer token",
-    )?;
+    let runtime_secret =
+        required_runtime_env(&runtime_env, "HIVY_RUNTIME_SECRET", "runtime bearer token")?;
     let bind_addr_text = runtime_env
         .get("HIVY_RUNTIME_BIND_ADDR")
         .cloned()

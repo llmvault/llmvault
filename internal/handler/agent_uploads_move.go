@@ -18,7 +18,7 @@ import (
 // MoveAgentAsset relabels a drive file's folder. Only the database `path`
 // column is touched — the S3 key (and therefore the asset URL) stays put.
 //
-//	POST /internal/agents/{agentID}/drive/move
+//	POST /internal/agents/{agentID}/sandboxes/{sandboxID}/drive/move
 //	body: {"asset":"<asset_url|folder/filename>","new_path":"archive"}
 func (h *UploadsHandler) MoveAgentAsset(w http.ResponseWriter, r *http.Request) {
 	if h.encKey == nil {
@@ -26,7 +26,7 @@ func (h *UploadsHandler) MoveAgentAsset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	agent, _, ok := h.authAgent(w, r)
+	agent, sandbox, ok := h.authAgent(w, r)
 	if !ok {
 		return
 	}
@@ -50,7 +50,7 @@ func (h *UploadsHandler) MoveAgentAsset(w http.ResponseWriter, r *http.Request) 
 
 	key := buildAgentAssetKey(agent.ID, folder, filename)
 	var asset model.AgentAsset
-	if err := h.db.Where("agent_id = ? AND key = ?", agent.ID, key).First(&asset).Error; err != nil {
+	if err := h.db.Where("agent_id = ? AND sandbox_id = ? AND key = ?", agent.ID, sandbox.ID, key).First(&asset).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "asset not found"})
 			return

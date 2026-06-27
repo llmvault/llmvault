@@ -59,11 +59,6 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 	case string(StatusError):
 		return nil, fmt.Errorf("sandbox %s is in error state", sb.ID)
 
-	case string(StatusUpgrading):
-		// Mid-upgrade and intentionally non-selectable; surface a clear error
-		// rather than probing or flipping it.
-		return nil, fmt.Errorf("sandbox %s is mid-upgrade", sb.ID)
-
 	case string(StatusDraining):
 		return nil, fmt.Errorf("%w: %s", ErrSandboxDraining, sb.ID)
 

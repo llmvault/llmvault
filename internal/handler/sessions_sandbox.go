@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *model.Agent, modelID string, reasoningEffort string) (*model.Sandbox, error) {
+func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *model.Agent, modelID string, reasoningEffort string) (*model.Sandbox, error) {
 	if h == nil || h.orchestrator == nil {
 		return nil, fmt.Errorf("session sandbox provisioning is not configured")
 	}
@@ -26,10 +26,10 @@ func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *
 		attrs = append(attrs,
 			"total_ms", time.Since(totalStarted).Milliseconds(),
 		)
-		logging.LogPhase(ctx, "per-session sandbox provision phase", phase, phaseStarted, attrs...)
+		logging.LogPhase(ctx, "session sandbox provision phase", phase, phaseStarted, attrs...)
 		phaseStarted = time.Now()
 	}
-	runtimeAgent := perSessionRuntimeAgent(agent, modelID)
+	runtimeAgent := sessionSandboxRuntimeAgent(agent, modelID)
 	logPhase("start",
 		"agent_id", runtimeAgent.ID,
 		"org_id", runtimeAgent.OrgID,
@@ -46,13 +46,13 @@ func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *
 		ReasoningEffort: reasoningEffort,
 	})
 	if err != nil {
-		h.revokePerSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
+		h.revokeSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("create agent sandbox: %w", err)
 	}
 	logPhase("create agent sandbox", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
 	if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, &runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
-		h.cleanupPerSessionSandbox(ctx, sb)
-		h.revokePerSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
+		h.cleanupSessionSandbox(ctx, sb)
+		h.revokeSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
 	}
 	logPhase("attach startup token", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
@@ -60,7 +60,7 @@ func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *
 	return sb, nil
 }
 
-func perSessionRuntimeAgent(agent *model.Agent, modelID string) model.Agent {
+func sessionSandboxRuntimeAgent(agent *model.Agent, modelID string) model.Agent {
 	if agent == nil {
 		return model.Agent{}
 	}
@@ -71,25 +71,25 @@ func perSessionRuntimeAgent(agent *model.Agent, modelID string) model.Agent {
 	return runtimeAgent
 }
 
-func (h *SessionHandler) cleanupFailedPerSessionCreate(ctx context.Context, sessionID uuid.UUID, sb *model.Sandbox) {
+func (h *SessionHandler) cleanupFailedSessionCreate(ctx context.Context, sessionID uuid.UUID, sb *model.Sandbox) {
 	cleanupCtx := context.WithoutCancel(ctx)
 	if h != nil && h.db != nil && sessionID != uuid.Nil {
 		if err := h.db.WithContext(cleanupCtx).Where("id = ?", sessionID).Delete(&model.Session{}).Error; err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("cleanup failed per-session create: delete session: %w", err), map[string]any{
+			logging.CaptureWithFields(ctx, fmt.Errorf("cleanup failed session create: delete session: %w", err), map[string]any{
 				"session_id": sessionID.String(),
 			})
 		}
 	}
-	h.cleanupPerSessionSandbox(ctx, sb)
+	h.cleanupSessionSandbox(ctx, sb)
 }
 
-func (h *SessionHandler) cleanupPerSessionSandbox(ctx context.Context, sb *model.Sandbox) {
+func (h *SessionHandler) cleanupSessionSandbox(ctx context.Context, sb *model.Sandbox) {
 	if h == nil || h.orchestrator == nil || sb == nil {
 		return
 	}
 	cleanupCtx := context.WithoutCancel(ctx)
 	if err := h.orchestrator.DeleteSandbox(cleanupCtx, sb); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("cleanup per-session sandbox: %w", err), map[string]any{
+		logging.CaptureWithFields(ctx, fmt.Errorf("cleanup session sandbox: %w", err), map[string]any{
 			"sandbox_id": sb.ID.String(),
 		})
 	}
@@ -97,13 +97,13 @@ func (h *SessionHandler) cleanupPerSessionSandbox(ctx context.Context, sb *model
 	if err := h.db.WithContext(cleanupCtx).Model(&model.Token{}).
 		Where("meta ->> ? = ? AND revoked_at IS NULL", model.TokenMetaSandboxID, sb.ID.String()).
 		Update("revoked_at", &now).Error; err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("cleanup per-session sandbox proxy tokens: %w", err), map[string]any{
+		logging.CaptureWithFields(ctx, fmt.Errorf("cleanup session sandbox proxy tokens: %w", err), map[string]any{
 			"sandbox_id": sb.ID.String(),
 		})
 	}
 }
 
-func (h *SessionHandler) revokePerSessionStartupToken(ctx context.Context, agent *model.Agent, jti string) {
+func (h *SessionHandler) revokeSessionStartupToken(ctx context.Context, agent *model.Agent, jti string) {
 	if h == nil || h.db == nil || agent == nil || agent.OrgID == nil || strings.TrimSpace(jti) == "" {
 		return
 	}
@@ -112,7 +112,7 @@ func (h *SessionHandler) revokePerSessionStartupToken(ctx context.Context, agent
 	if err := h.db.WithContext(cleanupCtx).Model(&model.Token{}).
 		Where("jti = ? AND org_id = ? AND revoked_at IS NULL", jti, *agent.OrgID).
 		Update("revoked_at", &now).Error; err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("cleanup per-session startup proxy token: %w", err), map[string]any{
+		logging.CaptureWithFields(ctx, fmt.Errorf("cleanup session startup proxy token: %w", err), map[string]any{
 			"agent_id": agent.ID.String(),
 			"jti":      jti,
 		})

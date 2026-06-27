@@ -143,7 +143,6 @@ func agentStreamingCreateAgent(t *testing.T, ctx context.Context, baseURL, token
 		"instructions":        "Use tools exactly when requested. Keep responses deterministic and include requested markers exactly.",
 		"model":               streamingE2EModel,
 		"available_models":    []string{streamingE2EModel},
-		"sandbox_strategy":    "per_session",
 		"sandbox_tools":       []string{"bash"},
 		"permissions":         map[string]any{"bash": true},
 		"resources":           map[string]any{},

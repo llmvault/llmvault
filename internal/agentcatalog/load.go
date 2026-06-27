@@ -1,6 +1,7 @@
 package agentcatalog
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -43,7 +44,9 @@ func loadManifest(path string) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("read manifest %q: %w", path, err)
 	}
 	var manifest Manifest
-	if err := json.Unmarshal(raw, &manifest); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&manifest); err != nil {
 		return Manifest{}, fmt.Errorf("parse manifest %q: %w", path, err)
 	}
 	manifest.raw = append([]byte(nil), raw...)
