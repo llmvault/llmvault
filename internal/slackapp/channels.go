@@ -11,7 +11,7 @@ func ListPublicChannels(ctx context.Context, botToken string) ([]Channel, error)
 	const pageSize = 200
 	const maxChannels = 1000
 
-	client := slacksdk.New(botToken)
+	client := slacksdk.New(botToken, slacksdk.OptionHTTPClient(webAPIHTTPClient))
 
 	out := make([]Channel, 0, pageSize)
 	cursor := ""
@@ -44,7 +44,7 @@ func ListBotChannels(ctx context.Context, botToken string) ([]Channel, error) {
 	const pageSize = 200
 	const maxChannels = 1000
 
-	client := slacksdk.New(botToken)
+	client := slacksdk.New(botToken, slacksdk.OptionHTTPClient(webAPIHTTPClient))
 
 	out := make([]Channel, 0, pageSize)
 	cursor := ""
@@ -81,7 +81,7 @@ func ListBotChannels(ctx context.Context, botToken string) ([]Channel, error) {
 // Private channels can't be joined via this method; the bot must be invited
 // by an existing member.
 func JoinChannel(ctx context.Context, botToken, channelID string) (Channel, error) {
-	client := slacksdk.New(botToken)
+	client := slacksdk.New(botToken, slacksdk.OptionHTTPClient(webAPIHTTPClient))
 	ch, _, _, err := client.JoinConversationContext(ctx, channelID)
 	if err != nil {
 		return Channel{}, fmt.Errorf("join slack channel: %w", err)

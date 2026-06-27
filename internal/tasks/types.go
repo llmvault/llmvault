@@ -17,6 +17,7 @@ const (
 	TypeAgentTriggerDispatch      = "agent_trigger:dispatch"
 	TypeAgentTriggerStoreDelivery = "agent_trigger:store_delivery"
 	TypeSessionMessageDeliver     = "session:message_deliver"
+	TypeSlackAppMention           = "slack:app_mention"
 	TypeSessionName               = "session:name"
 	TypeAgentProxyTokenRefresh    = "agent:proxy_token_refresh"
 	TypeAgentGitHubResourcesClone = "agent:github_resources_clone"

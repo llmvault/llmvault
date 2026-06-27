@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -37,16 +36,5 @@ func (h *SlackChannelHandler) loadSlackBotTokenForConnection(ctx context.Context
 }
 
 func (h *SlackChannelHandler) botTokenFromConnection(ctx context.Context, conn model.Connection) (string, error) {
-	providerConfigKey := nangoProviderConfigKey(conn.Integration.UniqueKey)
-	nangoConn, err := h.nango.GetConnection(ctx, conn.NangoConnectionID, providerConfigKey)
-	if err != nil {
-		return "", fmt.Errorf("load Slack connection credentials: %w", err)
-	}
-	creds, _ := nangoConn["credentials"].(map[string]any)
-	for _, key := range []string{"bot_token", "access_token"} {
-		if token, _ := creds[key].(string); strings.TrimSpace(token) != "" {
-			return strings.TrimSpace(token), nil
-		}
-	}
-	return "", fmt.Errorf("Slack connection credentials do not include a bot token")
+	return slackapp.LoadBotToken(ctx, h.nango, conn)
 }
