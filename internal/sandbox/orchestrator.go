@@ -68,7 +68,7 @@ func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.San
 	if o.pushRuntimeConfig == nil {
 		return nil
 	}
-	if err := o.pushRuntimeConfig(ctx, sb, push); err != nil {
+	if err := o.pushRuntimeConfig(ctx, o.sandboxForRuntimeControl(sb), push); err != nil {
 		return fmt.Errorf("push agent runtime config after %s: %w", reason, err)
 	}
 	return nil
@@ -108,7 +108,7 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 				return nil, fmt.Errorf("refreshing runtime URL: %w", err)
 			}
 		}
-		return agentruntime.NewClient(sb.RuntimeURL, apiKey), nil
+		return agentruntime.NewClient(o.runtimeControlURL(sb.RuntimeURL), apiKey), nil
 	}
 	if _, err := o.EnsureSandboxActive(ctx, sb); err != nil {
 		return nil, fmt.Errorf("ensuring sandbox active: %w", err)
@@ -119,7 +119,7 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 		}
 	}
 	o.touchLastActive(ctx, sb)
-	return agentruntime.NewClient(sb.RuntimeURL, apiKey), nil
+	return agentruntime.NewClient(o.runtimeControlURL(sb.RuntimeURL), apiKey), nil
 }
 
 func (o *Orchestrator) AgentDriveUploadURL(agentID, sandboxID uuid.UUID) string {

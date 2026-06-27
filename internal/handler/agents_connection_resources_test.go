@@ -16,10 +16,9 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func TestAgentHandler_UpdateConnectionResourcesStoresOnAgentAndQueuesGitHubClone(t *testing.T) {
+func TestAgentHandler_UpdateConnectionResourcesStoresOnAgent(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -84,6 +83,15 @@ func TestAgentHandler_UpdateConnectionResourcesStoresOnAgentAndQueuesGitHubClone
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
+	var response struct {
+		CloneQueued bool `json:"clone_queued"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.CloneQueued {
+		t.Fatalf("clone queued = true, want false")
+	}
 	var reloaded model.Agent
 	if err := db.First(&reloaded, "id = ?", agent.ID).Error; err != nil {
 		t.Fatalf("reload agent: %v", err)
@@ -94,5 +102,7 @@ func TestAgentHandler_UpdateConnectionResourcesStoresOnAgentAndQueuesGitHubClone
 	if repo["full_name"] != "usehivy/hivy" {
 		t.Fatalf("stored full_name = %v, want usehivy/hivy", repo["full_name"])
 	}
-	enq.AssertEnqueued(t, tasks.TypeAgentGitHubResourcesClone)
+	if tasks := enq.Tasks(); len(tasks) != 0 {
+		t.Fatalf("enqueued tasks=%+v, want none", tasks)
+	}
 }

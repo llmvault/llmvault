@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/usehivy/hivy/internal/model"
+	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
 func TestIntegration_SessionsInterrupt_ProxiesToRuntimeAndReleasesTurn(t *testing.T) {
@@ -39,7 +40,7 @@ func TestIntegration_SessionsInterrupt_ProxiesToRuntimeAndReleasesTurn(t *testin
 	sb := model.Sandbox{
 		OrgID:                  &fx.org.ID,
 		AgentID:                &fx.agent.ID,
-		ProviderID:             "docker",
+		ProviderID:             sandboxpkg.ProviderMicrosandbox,
 		ExternalID:             "interrupt-runtime",
 		RuntimeURL:             runtime.URL,
 		EncryptedRuntimeSecret: encSecret,
