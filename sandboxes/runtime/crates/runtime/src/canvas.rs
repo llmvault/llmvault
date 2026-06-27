@@ -75,6 +75,8 @@ struct SnapshotProject {
     #[serde(default)]
     slug: Option<String>,
     #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
     artifacts: Vec<SnapshotArtifact>,
 }
 
@@ -87,12 +89,22 @@ struct SnapshotArtifact {
     #[serde(default)]
     project_slug: Option<String>,
     #[serde(default)]
+    name: Option<String>,
+    #[serde(default, rename = "type")]
+    artifact_type: Option<String>,
+    #[serde(default)]
+    manifest: Option<Value>,
+    #[serde(default)]
     files: Vec<SnapshotFile>,
 }
 
 #[derive(Debug, Deserialize)]
 struct SnapshotFile {
     path: String,
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
+    content_type: Option<String>,
     #[serde(default)]
     download_url: Option<String>,
     #[serde(default)]
@@ -191,6 +203,7 @@ impl CanvasRuntimeService {
             .json::<SnapshotResponse>()
             .await
             .context("canvas snapshot response was invalid")?;
+        self.write_snapshot_metadata(&response).await?;
         let downloads = response.downloads();
         if downloads.is_empty() {
             return Ok(());
@@ -206,6 +219,65 @@ impl CanvasRuntimeService {
             })
             .await;
         Ok(())
+    }
+
+    async fn write_snapshot_metadata(&self, response: &SnapshotResponse) -> Result<()> {
+        for project in &response.projects {
+            let Some(project_slug) = non_empty_option(project.slug.clone()) else {
+                continue;
+            };
+            self.write_project_manifest(project, &project_slug).await?;
+            for artifact in &project.artifacts {
+                let Some(artifact_slug) = non_empty_option(artifact.slug.clone()) else {
+                    continue;
+                };
+                self.write_artifact_manifest(&project_slug, &artifact_slug, artifact)
+                    .await?;
+            }
+        }
+        for artifact in &response.artifacts {
+            let Some(project_slug) = non_empty_option(artifact.project_slug.clone()) else {
+                continue;
+            };
+            let Some(artifact_slug) = non_empty_option(artifact.slug.clone()) else {
+                continue;
+            };
+            self.write_artifact_manifest(&project_slug, &artifact_slug, artifact)
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn write_project_manifest(
+        &self,
+        project: &SnapshotProject,
+        project_slug: &str,
+    ) -> Result<()> {
+        validate_segment(project_slug)?;
+        let project_dir = self.canvas_root.join(PROJECTS_DIR).join(project_slug);
+        tokio::fs::create_dir_all(&project_dir).await?;
+        let manifest = json!({
+            "schema_version": 1,
+            "kind": "hivy.canvas.project",
+            "id": project.id,
+            "slug": project_slug,
+            "name": non_empty_option(project.name.clone()).unwrap_or_else(|| project_slug.to_string())
+        });
+        write_json_file(&project_dir.join("project.json"), &manifest).await
+    }
+
+    async fn write_artifact_manifest(
+        &self,
+        project_slug: &str,
+        artifact_slug: &str,
+        artifact: &SnapshotArtifact,
+    ) -> Result<()> {
+        let artifact_root = artifact_root_path(&self.canvas_root, project_slug, artifact_slug)?;
+        tokio::fs::create_dir_all(&artifact_root).await?;
+        let manifest = artifact.manifest.clone().unwrap_or_else(|| {
+            default_snapshot_artifact_manifest(project_slug, artifact_slug, artifact)
+        });
+        write_json_file(&artifact_root.join("artifact.json"), &manifest).await
     }
 
     async fn download_snapshot_file(&self, download: SnapshotDownload) -> Result<()> {
@@ -606,7 +678,52 @@ fn artifact_parts(relative_key: &str) -> Option<(String, String, String)> {
     if artifact_path.is_empty() {
         return None;
     }
+    if artifact_path == "artifact.json" {
+        return None;
+    }
     Some((project_slug, artifact_slug, artifact_path))
+}
+
+fn artifact_root_path(
+    canvas_root: &Path,
+    project_slug: &str,
+    artifact_slug: &str,
+) -> Result<PathBuf> {
+    validate_segment(project_slug)?;
+    validate_segment(artifact_slug)?;
+    Ok(canvas_root
+        .join(PROJECTS_DIR)
+        .join(project_slug)
+        .join(ARTIFACTS_DIR)
+        .join(artifact_slug))
+}
+
+fn default_snapshot_artifact_manifest(
+    project_slug: &str,
+    artifact_slug: &str,
+    artifact: &SnapshotArtifact,
+) -> Value {
+    json!({
+        "schema_version": 1,
+        "project": project_slug,
+        "slug": artifact_slug,
+        "name": non_empty_option(artifact.name.clone()).unwrap_or_else(|| artifact_slug.to_string()),
+        "type": non_empty_option(artifact.artifact_type.clone()).unwrap_or_else(|| "web_page".to_string()),
+        "files": artifact.files.iter().map(|file| {
+            json!({
+                "path": file.path,
+                "role": file.role,
+                "content_type": file.content_type
+            })
+        }).collect::<Vec<_>>()
+    })
+}
+
+async fn write_json_file(path: &Path, value: &Value) -> Result<()> {
+    let mut data = serde_json::to_vec_pretty(value)?;
+    data.push(b'\n');
+    tokio::fs::write(path, data).await?;
+    Ok(())
 }
 
 fn clean_relative_path(raw: &str) -> Result<PathBuf> {

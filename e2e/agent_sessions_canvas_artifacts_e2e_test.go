@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -133,6 +134,14 @@ func TestAgentSessionsCanvasArtifactsCLIE2E(t *testing.T) {
 	if files != 1 {
 		t.Fatalf("synced file count=%d, want 1", files)
 	}
+
+	hydrated := agentSessionsLaunchCanvasRuntime(t, ctx, apiBase, orgID, defaultAgent.ID, runID+"hydrate")
+	t.Cleanup(func() {
+		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, hydrated.ID.String())
+	})
+	assertAgentSessionsDockerContainer(t, ctx, "canvas artifacts hydrated runtime", hydrated)
+	hydratedPath := "/workspace/canvas/projects/" + project.Slug + "/artifacts/" + created.Slug
+	waitForCanvasArtifactHydration(t, ctx, hydrated.ExternalID, hydratedPath)
 }
 
 func decodeCanvasProjectResponse(t *testing.T, raw []byte) agentSessionsCanvasProjectResponse {
@@ -178,4 +187,25 @@ func canvasArtifactPageHasSlug(page agentSessionsCanvasArtifactListResponse, slu
 		}
 	}
 	return false
+}
+
+func waitForCanvasArtifactHydration(t *testing.T, ctx context.Context, containerID, artifactPath string) {
+	t.Helper()
+	deadline := time.Now().Add(45 * time.Second)
+	var lastOut []byte
+	var lastErr error
+	for time.Now().Before(deadline) {
+		execCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cmdArgs := []string{"exec", containerID, "canvas", "artifact", "validate", artifactPath}
+		out, err := exec.CommandContext(execCtx, "docker", cmdArgs...).CombinedOutput()
+		cancel()
+		lastOut = out
+		lastErr = err
+		if err == nil && strings.Contains(string(out), `"valid": true`) {
+			t.Logf("hydrated canvas artifact validated output=%s", strings.TrimSpace(string(out)))
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	t.Fatalf("hydrated canvas artifact did not validate: %v\n%s", lastErr, lastOut)
 }

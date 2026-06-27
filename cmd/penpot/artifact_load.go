@@ -48,26 +48,49 @@ func loadArtifact(path string) (string, string, canvasArtifactManifest, map[stri
 }
 
 func validateLoadedArtifact(artifactDir, manifestPath string, manifest canvasArtifactManifest) (artifactValidationResult, error) {
+	result := artifactValidationResult{
+		Valid:        true,
+		ArtifactPath: artifactDir,
+		ManifestPath: manifestPath,
+		Type:         manifest.Type,
+		Name:         manifest.Name,
+		Files:        make([]string, 0, len(manifest.Files)),
+	}
+	addManifestIssue := func(code, message, fix string) {
+		result.Issues = append(result.Issues, artifactValidationIssue{
+			Code:     code,
+			Severity: "error",
+			File:     manifestPath,
+			Message:  message,
+			Fix:      fix,
+		})
+	}
 	if manifest.SchemaVersion == 0 {
-		return artifactValidationResult{}, errors.New("artifact.json missing schema_version")
+		addManifestIssue("manifest_missing_schema_version", "artifact.json is missing schema_version.", "Set schema_version to 1.")
 	}
 	if strings.TrimSpace(manifest.Name) == "" {
-		return artifactValidationResult{}, errors.New("artifact.json missing name")
+		addManifestIssue("manifest_missing_name", "artifact.json is missing name.", "Add a human-readable artifact name.")
 	}
 	if strings.TrimSpace(manifest.Project) == "" {
-		return artifactValidationResult{}, errors.New("artifact.json missing project")
+		addManifestIssue("manifest_missing_project", "artifact.json is missing project.", "Set project to the canvas project slug or ID.")
 	}
 	if !supportedArtifactType(manifest.Type) {
-		return artifactValidationResult{}, errors.New("artifact.json type must be web_page or presentation")
+		addManifestIssue("manifest_invalid_type", "artifact.json type must be web_page or presentation.", "Set type to web_page or presentation.")
 	}
 	if len(manifest.Files) == 0 {
-		return artifactValidationResult{}, errors.New("artifact.json files must include at least one file")
+		addManifestIssue("manifest_missing_files", "artifact.json files must include at least one file.", "Add at least one HTML file entry to files.")
 	}
 	if manifest.Type == artifactTypeWebPage && strings.TrimSpace(manifest.Entrypoint) == "" {
-		return artifactValidationResult{}, errors.New("web_page artifacts require entrypoint")
+		addManifestIssue("manifest_missing_entrypoint", "web_page artifacts require entrypoint.", "Set entrypoint to the primary HTML file, usually index.html.")
 	}
 	if manifest.Type == artifactTypePresentation && len(manifest.Slides) == 0 {
-		return artifactValidationResult{}, errors.New("presentation artifacts require slides")
+		addManifestIssue("manifest_missing_slides", "presentation artifacts require slides.", "Add slides with stable slide IDs and HTML paths.")
 	}
-	return validateArtifactFiles(artifactDir, manifestPath, manifest)
+	result = validateArtifactFiles(artifactDir, manifestPath, manifest, result)
+	if hasArtifactValidationErrors(result.Issues) {
+		result.Valid = false
+		result.Guidance = artifactValidationGuidance()
+		return result, artifactValidationError{Result: result}
+	}
+	return result, nil
 }
