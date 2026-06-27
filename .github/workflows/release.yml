@@ -129,8 +129,8 @@ jobs:
       - name: build runtime binary
         run: make ${{ matrix.make_target }}
 
-      - name: build penpot cli
-        run: GOOS=linux GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${{ needs.prepare.outputs.tag }} -X main.commit=${{ needs.prepare.outputs.commit }}" -o sandboxes/runtime/penpot ./cmd/penpot
+      - name: build canvas cli
+        run: GOOS=linux GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${{ needs.prepare.outputs.tag }} -X main.commit=${{ needs.prepare.outputs.commit }}" -o sandboxes/runtime/canvas ./cmd/canvas
 
       - name: prepare runtime Docker build context
         run: cp "sandboxes/runtime/dist/hivy-sandboxes-runtime-${{ matrix.target }}" sandboxes/runtime/hivy-sandboxes-runtime
