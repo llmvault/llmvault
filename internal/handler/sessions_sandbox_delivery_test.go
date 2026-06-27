@@ -11,11 +11,10 @@ import (
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func TestIntegration_SessionsCreate_PerSessionCreatesSandboxAndSendsFirstMessage(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+func TestIntegration_SessionsCreate_SessionCreatesSandboxAndSendsFirstMessage(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	markSessionAgentPerSession(t, h, &fx)
 
 	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
 		"channel_id": fx.channel.ID.String(),
@@ -75,11 +74,10 @@ func TestIntegration_SessionsCreate_PerSessionCreatesSandboxAndSendsFirstMessage
 	}
 }
 
-func TestIntegration_SessionsCreate_PerSessionConfigUsesSelectedModel(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+func TestIntegration_SessionsCreate_SessionConfigUsesSelectedModel(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	markSessionAgentPerSession(t, h, &fx)
 	if err := h.db.Model(&model.Agent{}).
 		Where("id = ?", fx.agent.ID).
 		Update("available_models", pq.StringArray{"deepseek-v4-flash", "minimax-m3"}).Error; err != nil {
@@ -106,11 +104,10 @@ func TestIntegration_SessionsCreate_PerSessionConfigUsesSelectedModel(t *testing
 	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text")
 }
 
-func TestIntegration_SessionsCreate_PerSessionSandboxFailureLeavesNoSessionRows(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+func TestIntegration_SessionsCreate_SessionSandboxFailureLeavesNoSessionRows(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, errors.New("provider unavailable"))
 	fx := h.seed(t)
-	markSessionAgentPerSession(t, h, &fx)
 
 	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
 		"channel_id": fx.channel.ID.String(),
@@ -128,11 +125,10 @@ func TestIntegration_SessionsCreate_PerSessionSandboxFailureLeavesNoSessionRows(
 	}
 }
 
-func TestIntegration_SessionsCreate_PerSessionFirstMessageFailureCleansUp(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusInternalServerError)
+func TestIntegration_SessionsCreate_SessionFirstMessageFailureCleansUp(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusInternalServerError)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	markSessionAgentPerSession(t, h, &fx)
 
 	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
 		"channel_id": fx.channel.ID.String(),

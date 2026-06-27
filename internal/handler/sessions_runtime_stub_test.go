@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-type sessionSyncRuntime struct {
+type sessionRuntimeStub struct {
 	server                         *httptest.Server
 	messageStatus                  int
 	configCalls                    int
@@ -25,15 +25,15 @@ type sessionSyncRuntime struct {
 	lastConfigReasoningEffort      string
 }
 
-func newSessionSyncRuntime(t *testing.T, messageStatus int) *sessionSyncRuntime {
+func newSessionRuntimeStub(t *testing.T, messageStatus int) *sessionRuntimeStub {
 	t.Helper()
-	runtime := &sessionSyncRuntime{messageStatus: messageStatus}
+	runtime := &sessionRuntimeStub{messageStatus: messageStatus}
 	runtime.server = httptest.NewServer(http.HandlerFunc(runtime.handle))
 	t.Cleanup(runtime.server.Close)
 	return runtime
 }
 
-func (rt *sessionSyncRuntime) handle(w http.ResponseWriter, r *http.Request) {
+func (rt *sessionRuntimeStub) handle(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/healthz":
 		w.WriteHeader(http.StatusOK)
@@ -49,7 +49,7 @@ func (rt *sessionSyncRuntime) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (rt *sessionSyncRuntime) handleConfig(w http.ResponseWriter, r *http.Request) {
+func (rt *sessionRuntimeStub) handleConfig(w http.ResponseWriter, r *http.Request) {
 	rt.configCalls++
 	var body struct {
 		Definition *struct {
@@ -71,7 +71,7 @@ func (rt *sessionSyncRuntime) handleConfig(w http.ResponseWriter, r *http.Reques
 	_ = json.NewEncoder(w).Encode(map[string]any{"env_key_count": 1})
 }
 
-func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Request) {
+func (rt *sessionRuntimeStub) handleMessage(w http.ResponseWriter, r *http.Request) {
 	rt.messageCalls++
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(parts) >= 3 {

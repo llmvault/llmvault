@@ -1,17 +1,20 @@
 package tasks
 
 import (
-	"github.com/usehivy/hivy/internal/agentruntime"
-	"github.com/usehivy/hivy/internal/agentsandbox"
-	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/sandbox"
+	"context"
+
+	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
-func agentRuntimeSelector(db *gorm.DB, deps agentruntime.CompileDeps) agentsandbox.Selector {
-	selector := agentsandbox.Selector{DB: db}
-	if deps.Cfg != nil {
-		selector.AgentRuntimeImage = sandbox.AgentRuntimeImageRef(deps.Cfg, model.SandboxImageDefault)
+func loadAgentSandboxByID(ctx context.Context, db *gorm.DB, orgID, agentID, sandboxID uuid.UUID) (*model.Sandbox, error) {
+	var sb model.Sandbox
+	if err := db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND agent_id = ?", sandboxID, orgID, agentID).
+		First(&sb).Error; err != nil {
+		return nil, err
 	}
-	return selector
+	return &sb, nil
 }

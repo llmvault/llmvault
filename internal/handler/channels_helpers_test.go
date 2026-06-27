@@ -92,19 +92,18 @@ func (h *channelHarness) seed(t *testing.T) channelFixture {
 	owner := h.seedUser(t, org.ID, "owner")
 	member := h.seedUser(t, org.ID, "member")
 	agent := model.Agent{
-		OrgID:           &org.ID,
-		Name:            "Hivy",
-		Description:     ptrString("default"),
-		IsDefault:       true,
-		SandboxStrategy: "always_on",
-		Model:           "deepseek-v4-flash",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
-		Status:          "active",
+		OrgID:         &org.ID,
+		Name:          "Hivy",
+		Description:   ptrString("default"),
+		IsDefault:     true,
+		Model:         "deepseek-v4-flash",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+		Status:        "active",
 	}
 	if err := h.db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

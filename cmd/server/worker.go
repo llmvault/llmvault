@@ -78,12 +78,12 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		SigningKey: deps.SigningKey,
 		Cfg:        cfg,
 	}
-	var orgAgentSyncer tasks.OrgHivyAgentSyncer
+	var orgAgentEnsurer tasks.OrgHivyAgentEnsurer
 	var agentHandler *handler.AgentHandler
 	if deps.Orchestrator != nil && agentCompile.EncKey != nil {
 		agentHandler = handler.NewAgentHandler(deps.DB, deps.Orchestrator, agentCompile, deps.Registry)
 		agentHandler.SetEnqueuer(enqueuer)
-		orgAgentSyncer = agentHandler
+		orgAgentEnsurer = agentHandler
 	}
 
 	workerDeps := &tasks.WorkerDeps{
@@ -114,8 +114,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		Enqueuer:          enqueuer,
 		PreContextCache:   preContextCache,
 		PreContextBuilder: preContextBuilder,
-		OrgAgentSyncer:    orgAgentSyncer,
-		S3Client:          deps.S3Client,
+		OrgAgentEnsurer:   orgAgentEnsurer,
 		AgentCompile:      agentCompile,
 		Rag:               ragDeps,
 		RagScheduler:      ragSched,
@@ -127,14 +126,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 			}
 			return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyTokenOptions(ctx, workerDeps.AgentCompile, sb, push.ProxyToken, push.RuntimeOptions)
 		})
-	}
-	if tasks.AgentSandboxAutoUpgradeEnabled && deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.AgentCompile.EncKey != nil && workerDeps.AgentCompile.KMS != nil && cfg.AgentSandboxAutoUpgrade {
-		if err := tasks.EnqueueAgentSandboxAutoUpgrade(ctx, enqueuer, tasks.AgentSandboxAutoUpgradePayload{
-			RuntimeImage: sandbox.AgentRuntimeTemplateRef(cfg),
-			Limit:        cfg.AgentSandboxAutoUpgradeLimit,
-		}); err != nil {
-			slog.Error("enqueue agent sandbox auto-upgrade sweep", "error", err)
-		}
 	}
 	projector := runtimestream.NewProjector(
 		runtimestream.NewStore(deps.Redis, cfg.RuntimeRedisStreamShardCount),

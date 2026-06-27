@@ -57,7 +57,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	agents := agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	defaultAgent := findDefaultAgent(t, agents)
 	assertAgentSessionsAgentSandboxImage(t, "default Hivy", defaultAgent, model.SandboxImageDefault)
-	t.Logf("default agent id=%s name=%s sandbox_present=%t", defaultAgent.ID, defaultAgent.Name, defaultAgent.Sandbox != nil)
+	t.Logf("default agent id=%s name=%s", defaultAgent.ID, defaultAgent.Name)
 	pluginFixture := agentSessionsSeedPluginFixture(t, orgID, ownerAuth.User.ID, runID)
 	t.Logf("seeded plugin slug=%s id=%s connection=%s", pluginFixture.PluginSlug, pluginFixture.PluginID, pluginFixture.ConnectionID)
 
@@ -82,6 +82,9 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		t.Fatalf("session create response missing active agent_turn_id: %+v", session.Session)
 	}
 	ownerSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
+	t.Cleanup(func() {
+		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, ownerSandboxAccess.SandboxID)
+	})
 	firstStream := agentSessionsStartSandboxStreamFromTurnFollowWithAccess(t, ctx, session.Session.ID, ownerSandboxAccess, session.Session.AgentTurnID)
 	t.Logf("opened durable direct sandbox stream from active turn id=%s", session.Session.AgentTurnID)
 	firstToolEvent := firstStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
@@ -140,18 +143,9 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, "", thinkingMarker, firstMarker, secondMarker)
 	assertAgentSessionsHistoryMatchesLiveMarkers(t, events, firstMarker, secondMarker)
 
-	agents = agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
-	defaultAgent = findDefaultAgent(t, agents)
-	if defaultAgent.Sandbox == nil {
-		t.Fatalf("default agent has no sandbox after delivery")
-	}
-	if defaultAgent.Sandbox.Status == "" || defaultAgent.Sandbox.ID == "" {
-		t.Fatalf("bad sandbox summary after delivery: %+v", defaultAgent.Sandbox)
-	}
-	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy", defaultAgent.Sandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
-	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
-
-	runAgentSessionsSameSandboxDirectStreamsE2E(t, ctx, apiBase, ownerToken, orgID, general.ID, runID, ownerSandboxAccess.SandboxID, ownerSandboxAccess.SandboxBaseURL)
+	firstSessionSandbox := agentSessionsWaitForSessionSandbox(t, ctx, orgID, session.Session.ID)
+	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy", firstSessionSandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
+	t.Logf("session sandbox id=%s status=%s external_id=%s", firstSessionSandbox.ID, firstSessionSandbox.Status, firstSessionSandbox.ExternalID)
 
 	interruptCommand := "python3 -c 'import pathlib,time; time.sleep(8); pathlib.Path(\"" + interruptSentinelPath + "\").write_text(\"done\")'"
 	interruptSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
@@ -208,9 +202,5 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		return event.Name == "turn_completed" || event.Name == "done"
 	})
 
-	runAgentSessionsPerSessionCatalogAgentE2E(t, ctx, apiBase, ownerToken, orgID, ownerAuth.User.ID, runID)
-
-	t.Cleanup(func() {
-		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, defaultAgent.Sandbox.ID)
-	})
+	runAgentSessionsCatalogAgentIsolationE2E(t, ctx, apiBase, ownerToken, orgID, ownerAuth.User.ID, runID)
 }

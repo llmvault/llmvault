@@ -17,8 +17,7 @@ func TestDeleteAgentAsset_HappyPath(t *testing.T) {
 	h.seedAgentAsset(t, "tmp", "scratch.txt", "delete me")
 	directURL := fmt.Sprintf("%s/pub/e/%s/tmp/scratch.txt", h.publicBase, h.agentID)
 
-	urlPath := fmt.Sprintf("/internal/agents/%s/drive/tmp/scratch.txt", h.agentID)
-	rr := h.delete(t, urlPath, h.runtimeSecret)
+	rr := h.delete(t, h.drivePath("tmp/scratch.txt"), h.runtimeSecret)
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -44,7 +43,7 @@ func TestDeleteAgentAsset_HappyPath(t *testing.T) {
 func TestDeleteAgentAsset_NotFound(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.delete(t,
-		fmt.Sprintf("/internal/agents/%s/drive/nope/missing.txt", h.agentID),
+		h.drivePath("nope/missing.txt"),
 		h.runtimeSecret,
 	)
 	if rr.Code != http.StatusNotFound {
@@ -56,7 +55,7 @@ func TestDeleteAgentAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	h.seedAgentAsset(t, "tmp", "x.txt", "hi")
 	rr := h.delete(t,
-		fmt.Sprintf("/internal/agents/%s/drive/tmp/x.txt", h.agentID),
+		h.drivePath("tmp/x.txt"),
 		"wrong-key",
 	)
 	if rr.Code != http.StatusUnauthorized {
@@ -70,7 +69,7 @@ func TestMoveAgentAsset_ByRelativePath(t *testing.T) {
 
 	body := `{"asset":"videos/demo.mp4","new_path":"archive/2026"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
+		h.drivePath("move"),
 		body,
 		h.runtimeSecret,
 	)
@@ -109,7 +108,7 @@ func TestMoveAgentAsset_ByPublicURL(t *testing.T) {
 
 	body := fmt.Sprintf(`{"asset":%q,"new_path":""}`, publicURL)
 	rr := h.post(t,
-		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
+		h.drivePath("move"),
 		body,
 		h.runtimeSecret,
 	)
@@ -135,7 +134,7 @@ func TestMoveAgentAsset_ByDirectPublicURL(t *testing.T) {
 
 	body := fmt.Sprintf(`{"asset":%q,"new_path":"archive"}`, publicURL)
 	rr := h.post(t,
-		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
+		h.drivePath("move"),
 		body,
 		h.runtimeSecret,
 	)
@@ -158,7 +157,7 @@ func TestMoveAgentAsset_RejectsForeignURL(t *testing.T) {
 	h := newStreamHarness(t)
 	body := fmt.Sprintf(`{"asset":"https://example.com/pub/e/%s/foo.txt","new_path":"archive"}`, uuid.New())
 	rr := h.post(t,
-		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
+		h.drivePath("move"),
 		body,
 		h.runtimeSecret,
 	)
@@ -172,7 +171,7 @@ func TestMoveAgentAsset_RejectsTraversalNewPath(t *testing.T) {
 	h.seedAgentAsset(t, "tmp", "x.txt", "hi")
 	body := `{"asset":"tmp/x.txt","new_path":"../escape"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
+		h.drivePath("move"),
 		body,
 		h.runtimeSecret,
 	)
@@ -185,7 +184,7 @@ func TestMoveAgentAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	body := `{"asset":"tmp/x.txt","new_path":"archive"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
+		h.drivePath("move"),
 		body,
 		"not-the-key",
 	)

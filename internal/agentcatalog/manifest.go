@@ -10,6 +10,7 @@ type Manifest struct {
 	Category     string                      `json:"category"`
 	AvatarURL    string                      `json:"avatar_url"`
 	Developer    string                      `json:"developer"`
+	AgentVersion string                      `json:"agent_version"`
 	Official     *bool                       `json:"official,omitempty"`
 	Enabled      *bool                       `json:"enabled,omitempty"`
 	Default      *bool                       `json:"default,omitempty"`
@@ -25,7 +26,6 @@ type Manifest struct {
 }
 
 type RuntimeManifest struct {
-	SandboxStrategy string   `json:"sandbox_strategy"`
 	SandboxImage    string   `json:"sandbox_image"`
 	Model           string   `json:"model"`
 	AvailableModels []string `json:"available_models"`

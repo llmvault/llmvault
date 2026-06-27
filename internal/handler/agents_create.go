@@ -23,6 +23,9 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 		Order("created_at ASC").
 		First(&existing).Error
 	if err == nil {
+		if err := applyHivyAgentRuntimeDefaults(ctx, db, &existing); err != nil {
+			return nil, err
+		}
 		return &existing, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -73,7 +76,6 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 	name := hivyAgentName
 	desc := hivyAgentDescription
 	avatarURL := hivyAgentAvatarURL
-	strategy := agentStrategyAlwaysOn
 	sandboxImage := model.SandboxImageDefault
 	var catalogID *uuid.UUID
 	if hasCatalog {
@@ -82,9 +84,6 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		desc = catalog.Description
 		if strings.TrimSpace(catalog.AvatarURL) != "" {
 			avatarURL = catalog.AvatarURL
-		}
-		if isValidAgentSandboxStrategy(catalog.SandboxStrategy) {
-			strategy = catalog.SandboxStrategy
 		}
 		if model.ValidSandboxImage(catalog.SandboxImage) {
 			sandboxImage = model.NormalizeSandboxImage(catalog.SandboxImage)
@@ -103,9 +102,8 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		Description:     &desc,
 		AvatarURL:       ptrString(avatarURL),
 		IsDefault:       true,
-		SandboxStrategy: strategy,
 		SandboxImage:    sandboxImage,
-		SandboxSize:     model.DefaultAgentSandboxSize,
+		SandboxSize:     model.DefaultHivyAgentSandboxSize,
 		Model:           modelID,
 		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
 		Status:          "active",
@@ -125,6 +123,26 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 	}
 
 	return &agent, nil
+}
+
+func applyHivyAgentRuntimeDefaults(ctx context.Context, db *gorm.DB, agent *model.Agent) error {
+	if agent == nil || !agent.IsDefault {
+		return nil
+	}
+	updates := map[string]any{}
+	if model.NormalizeTemplateSize(agent.SandboxSize) != model.DefaultHivyAgentSandboxSize {
+		updates["sandbox_size"] = model.DefaultHivyAgentSandboxSize
+		agent.SandboxSize = model.DefaultHivyAgentSandboxSize
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	if err := db.WithContext(ctx).Model(&model.Agent{}).
+		Where("id = ? AND status <> ?", agent.ID, "archived").
+		Updates(updates).Error; err != nil {
+		return fmt.Errorf("update Hivy agent runtime defaults: %w", err)
+	}
+	return nil
 }
 
 func loadDefaultAgentCatalog(ctx context.Context, tx *gorm.DB) (model.AgentCatalog, bool, error) {

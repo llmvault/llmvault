@@ -9,39 +9,39 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-type stubOrgHivyAgentSyncer struct {
+type stubOrgHivyAgentEnsurer struct {
 	calls int
 	orgID uuid.UUID
 	err   error
 }
 
-func (s *stubOrgHivyAgentSyncer) SyncOrgHivyAgent(_ context.Context, orgID uuid.UUID) error {
+func (s *stubOrgHivyAgentEnsurer) EnsureOrgHivyAgent(_ context.Context, orgID uuid.UUID) error {
 	s.calls++
 	s.orgID = orgID
 	return s.err
 }
 
-func TestOrgHivyAgentProvisionHandlerSyncsOrg(t *testing.T) {
+func TestOrgHivyAgentProvisionHandlerEnsuresOrgAgent(t *testing.T) {
 	orgID := uuid.New()
 	task, _, err := NewOrgHivyAgentProvisionTask(OrgHivyAgentProvisionPayload{OrgID: orgID})
 	if err != nil {
 		t.Fatalf("new task: %v", err)
 	}
-	syncer := &stubOrgHivyAgentSyncer{}
+	ensurer := &stubOrgHivyAgentEnsurer{}
 
-	err = NewOrgHivyAgentProvisionHandler(syncer).Handle(context.Background(), task)
+	err = NewOrgHivyAgentProvisionHandler(ensurer).Handle(context.Background(), task)
 	if err != nil {
 		t.Fatalf("handle: %v", err)
 	}
-	if syncer.calls != 1 {
-		t.Fatalf("sync calls = %d, want 1", syncer.calls)
+	if ensurer.calls != 1 {
+		t.Fatalf("ensure calls = %d, want 1", ensurer.calls)
 	}
-	if syncer.orgID != orgID {
-		t.Fatalf("org id = %s, want %s", syncer.orgID, orgID)
+	if ensurer.orgID != orgID {
+		t.Fatalf("org id = %s, want %s", ensurer.orgID, orgID)
 	}
 }
 
-func TestOrgHivyAgentProvisionHandlerReturnsSyncError(t *testing.T) {
+func TestOrgHivyAgentProvisionHandlerReturnsEnsureError(t *testing.T) {
 	orgID := uuid.New()
 	task, _, err := NewOrgHivyAgentProvisionTask(OrgHivyAgentProvisionPayload{OrgID: orgID})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestOrgHivyAgentProvisionHandlerReturnsSyncError(t *testing.T) {
 	}
 	want := errors.New("runner unavailable")
 
-	err = NewOrgHivyAgentProvisionHandler(&stubOrgHivyAgentSyncer{err: want}).Handle(context.Background(), task)
+	err = NewOrgHivyAgentProvisionHandler(&stubOrgHivyAgentEnsurer{err: want}).Handle(context.Background(), task)
 	if !errors.Is(err, want) {
 		t.Fatalf("handle error = %v, want %v", err, want)
 	}

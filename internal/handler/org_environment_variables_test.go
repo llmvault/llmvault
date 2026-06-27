@@ -44,12 +44,10 @@ func (h *orgUpdateHarness) doEnvRequest(t *testing.T, method, path string, userI
 	return rr
 }
 
-func TestOrgEnvironmentVariables_CRUDUsesEncryptedAgentEnvAndSyncs(t *testing.T) {
+func TestOrgEnvironmentVariables_CRUDUsesEncryptedAgentEnv(t *testing.T) {
 	h := newOrgUpdateHarness(t)
 	encKey := newTestEncKey(t)
 	h.orgHandler.SetEnvironmentEncryptionKey(encKey)
-	syncer := &stubOrgAgentSyncer{}
-	h.orgHandler.SetAgentSyncer(syncer)
 	org, user := h.createOrg(t, "admin")
 
 	createRR := h.doEnvRequest(t, http.MethodPost, "/v1/orgs/current/environment-variables", user.ID, org.ID, "admin", map[string]any{
@@ -69,10 +67,6 @@ func TestOrgEnvironmentVariables_CRUDUsesEncryptedAgentEnvAndSyncs(t *testing.T)
 	if created.Name != "STRIPE_API_KEY" || created.EnvKey != "HIVY_ORG_STRIPE_API_KEY" {
 		t.Fatalf("created = %+v, want STRIPE_API_KEY/HIVY_ORG_STRIPE_API_KEY", created)
 	}
-	if syncer.calls != 1 || syncer.orgID != org.ID {
-		t.Fatalf("sync after create = calls:%d org:%s, want 1/%s", syncer.calls, syncer.orgID, org.ID)
-	}
-
 	envVars := decryptOrgTestEnvVars(t, h, encKey, org.ID)
 	if envVars["HIVY_ORG_STRIPE_API_KEY"] != "sk_test_123" {
 		t.Fatalf("encrypted env HIVY_ORG_STRIPE_API_KEY = %q, want sk_test_123", envVars["HIVY_ORG_STRIPE_API_KEY"])
@@ -125,9 +119,6 @@ func TestOrgEnvironmentVariables_CRUDUsesEncryptedAgentEnvAndSyncs(t *testing.T)
 	}
 	if envVars["AGENT_INTERNAL_ONLY"] != "keep-me" {
 		t.Fatalf("non-custom env after delete = %q, want keep-me", envVars["AGENT_INTERNAL_ONLY"])
-	}
-	if syncer.calls != 3 {
-		t.Fatalf("sync calls = %d, want 3", syncer.calls)
 	}
 }
 

@@ -187,7 +187,7 @@ func mergeAgentConnectionResources(current model.JSON, connectionID uuid.UUID, r
 }
 
 func (h *AgentHandler) enqueueConnectionResourceReconcile(ctx context.Context, agent model.Agent, conn model.Connection) bool {
-	return enqueueGitHubRepositoryCloneForAgent(ctx, h.enqueuer, agent, conn)
+	return false
 }
 
 func isGitHubProvider(provider string) bool {

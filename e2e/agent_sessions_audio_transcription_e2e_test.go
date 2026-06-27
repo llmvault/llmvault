@@ -46,11 +46,11 @@ func TestAgentSessionsAudioTranscriptionE2E(t *testing.T) {
 	channel := agentSessionsCreateChannel(t, ctx, apiBase, token, orgID, "audio-transcription-"+runID, agent.ID)
 	session := agentSessionsCreateSession(t, ctx, apiBase, token, orgID, channel.ID, "")
 	if session.Session.ID == "" || session.Session.SandboxID == nil {
-		t.Fatalf("session did not create a per-session sandbox: %+v", session)
+		t.Fatalf("session did not create a sandbox: %+v", session)
 	}
 
 	audio := agentSessionsAudioFixture(t)
-	asset := agentSessionsUploadAudioAsset(t, ctx, apiBase, token, orgID, agent.ID, audio)
+	asset := agentSessionsUploadAudioAsset(t, ctx, apiBase, token, orgID, agent.ID, session.Session.ID, audio)
 	transcript := agentSessionsTranscribeAudio(t, ctx, apiBase, token, orgID, session.Session.ID, asset.ID)
 	t.Logf("audio transcription transcript=%q asset_id=%s", transcript.Text, asset.ID)
 	assertAgentSessionsTranscriptContains(t, transcript.Text, "voice recording test alpha banana")
@@ -75,7 +75,6 @@ func agentSessionsCreateAudioTranscriptionAgent(t *testing.T, ctx context.Contex
 		"instructions":     "This agent exists for the audio transcription E2E.",
 		"model":            agentruntime.DefaultAgentModel,
 		"available_models": []string{agentruntime.DefaultAgentModel},
-		"sandbox_strategy": "per_session",
 	}
 	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/agents", token, orgID, payload, http.StatusCreated, &out)
 	if out.Agent.ID == "" {
@@ -94,12 +93,15 @@ func agentSessionsAudioFixture(t *testing.T) []byte {
 	return audio
 }
 
-func agentSessionsUploadAudioAsset(t *testing.T, ctx context.Context, baseURL, token, orgID, agentID string, audio []byte) agentSessionsUploadedAsset {
+func agentSessionsUploadAudioAsset(t *testing.T, ctx context.Context, baseURL, token, orgID, agentID, sessionID string, audio []byte) agentSessionsUploadedAsset {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if err := writer.WriteField("agent_id", agentID); err != nil {
 		t.Fatalf("write agent_id: %v", err)
+	}
+	if err := writer.WriteField("session_id", sessionID); err != nil {
+		t.Fatalf("write session_id: %v", err)
 	}
 	if err := writer.WriteField("path", "uploads"); err != nil {
 		t.Fatalf("write path: %v", err)

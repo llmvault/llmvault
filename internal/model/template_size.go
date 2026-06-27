@@ -10,10 +10,14 @@ type TemplateSize struct {
 	Disk   int // GB
 }
 
-const DefaultAgentSandboxSize = "small"
+const (
+	DefaultAgentSandboxSize     = "small"
+	DefaultHivyAgentSandboxSize = "nano"
+)
 
 // TemplateSizes maps size names to their resource allocations.
 var TemplateSizes = map[string]TemplateSize{
+	"nano":   {Name: "nano", CPU: 1, Memory: 1, Disk: 5},
 	"small":  {Name: "small", CPU: 1, Memory: 2, Disk: 10},
 	"medium": {Name: "medium", CPU: 2, Memory: 4, Disk: 20},
 	"large":  {Name: "large", CPU: 4, Memory: 8, Disk: 40},

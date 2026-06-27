@@ -20,7 +20,6 @@ type agentMutationRequest struct {
 	Instructions      *string          `json:"instructions,omitempty"`
 	AvatarURL         *string          `json:"avatar_url,omitempty"`
 	Icon              *string          `json:"icon,omitempty"`
-	SandboxStrategy   *string          `json:"sandbox_strategy,omitempty"`
 	SandboxImage      *string          `json:"sandbox_image,omitempty"`
 	SandboxSize       *string          `json:"sandbox_size,omitempty"`
 	SandboxTemplateID *string          `json:"sandbox_template_id,omitempty"`
@@ -104,14 +103,6 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	strategy := cleanStringPtr(req.SandboxStrategy)
-	if strategy == "" {
-		strategy = agentStrategyPerSession
-	}
-	if !isValidAgentSandboxStrategy(strategy) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_strategy must be always_on or per_session"})
-		return
-	}
 	sandboxImage, ok := normalizeAgentSandboxImageForRequest(w, req.SandboxImage)
 	if !ok {
 		return
@@ -151,7 +142,6 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		AvatarURL:         optionalStringPtr(avatarURL),
 		Icon:              cleanStringPtr(req.Icon),
 		IsDefault:         false,
-		SandboxStrategy:   strategy,
 		SandboxImage:      sandboxImage,
 		SandboxSize:       sandboxSize,
 		SandboxTemplateID: sandboxTemplateID,

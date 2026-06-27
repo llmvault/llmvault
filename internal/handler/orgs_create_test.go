@@ -44,34 +44,11 @@ func (h *orgUpdateHarness) doCreate(t *testing.T, userID uuid.UUID, body any) *h
 func TestOrgCreate_EnqueuesHivyAgentProvision(t *testing.T) {
 	h := newOrgUpdateHarness(t)
 	user := h.createUser(t)
-	syncer := &stubOrgAgentSyncer{}
-	h.orgHandler.SetAgentSyncer(syncer)
 
 	rr := h.doCreate(t, user.ID, map[string]any{"name": "Provisioned Org"})
 
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status: got %d body=%s, want 201", rr.Code, rr.Body.String())
-	}
-	orgID := assertOrgProvisionTaskEnqueued(t, h.enqueuer)
-	if syncer.calls != 0 {
-		t.Fatalf("sync calls = %d, want 0 because provisioning is async", syncer.calls)
-	}
-	cleanupCreatedOrg(t, h, orgID)
-}
-
-func TestOrgCreate_DoesNotRunProvisioningInline(t *testing.T) {
-	h := newOrgUpdateHarness(t)
-	user := h.createUser(t)
-	syncer := &stubOrgAgentSyncer{}
-	h.orgHandler.SetAgentSyncer(syncer)
-
-	rr := h.doCreate(t, user.ID, map[string]any{"name": "Provision Async"})
-
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("status: got %d body=%s, want 201", rr.Code, rr.Body.String())
-	}
-	if syncer.calls != 0 {
-		t.Fatalf("sync calls = %d, want 0", syncer.calls)
 	}
 	orgID := assertOrgProvisionTaskEnqueued(t, h.enqueuer)
 	cleanupCreatedOrg(t, h, orgID)

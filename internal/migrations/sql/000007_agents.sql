@@ -3,23 +3,6 @@
 
 -- Agent runtime, schedules, triggers, and generation tables
 
-CREATE TABLE agent_sandbox_upgrades (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    agent_id uuid NOT NULL,
-    old_sandbox_id uuid,
-    new_sandbox_id uuid,
-    status character varying(32) DEFAULT 'queued'::character varying NOT NULL,
-    phase character varying(64) DEFAULT 'queued'::character varying NOT NULL,
-    backup_key text,
-    backup_sha256 text,
-    backup_bytes bigint DEFAULT 0 NOT NULL,
-    error_message text,
-    completed_at timestamp with time zone,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
 CREATE TABLE agent_schedule_runs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -106,7 +89,6 @@ CREATE TABLE agents (
     icon text DEFAULT ''::text NOT NULL,
     placeholder text DEFAULT ''::text NOT NULL,
     is_default boolean DEFAULT false NOT NULL,
-    sandbox_strategy text DEFAULT 'per_session'::text NOT NULL,
     workspace_snapshot_id uuid,
     credential_id uuid,
     sandbox_template_id uuid,
@@ -160,9 +142,6 @@ CREATE TABLE generations (
     billing_cost_source text DEFAULT ''::text NOT NULL
 );
 
-ALTER TABLE ONLY agent_sandbox_upgrades
-    ADD CONSTRAINT agent_sandbox_upgrades_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY agent_schedule_runs
     ADD CONSTRAINT agent_schedule_runs_pkey PRIMARY KEY (id);
 
@@ -187,16 +166,6 @@ CREATE INDEX idx_agent_org_id ON agents USING btree (org_id);
 CREATE UNIQUE INDEX idx_agents_org_name ON agents USING btree (org_id, name);
 
 CREATE INDEX idx_agents_is_default ON agents USING btree (is_default);
-
-CREATE INDEX idx_agent_sandbox_upgrades_agent_id ON agent_sandbox_upgrades USING btree (agent_id);
-
-CREATE INDEX idx_agent_sandbox_upgrades_new_sandbox_id ON agent_sandbox_upgrades USING btree (new_sandbox_id);
-
-CREATE INDEX idx_agent_sandbox_upgrades_old_sandbox_id ON agent_sandbox_upgrades USING btree (old_sandbox_id);
-
-CREATE INDEX idx_agent_sandbox_upgrades_org_id ON agent_sandbox_upgrades USING btree (org_id);
-
-CREATE INDEX idx_agent_sandbox_upgrades_status ON agent_sandbox_upgrades USING btree (status);
 
 CREATE UNIQUE INDEX idx_agent_schedule_agent_runtime ON agent_schedules USING btree (agent_id, runtime_job_id);
 

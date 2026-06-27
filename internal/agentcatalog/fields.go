@@ -15,10 +15,6 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 	if developer == "" {
 		developer = "Hivy"
 	}
-	strategy := strings.TrimSpace(manifest.Runtime.SandboxStrategy)
-	if strategy == "" {
-		strategy = "per_session"
-	}
 	sandboxImage := model.NormalizeSandboxImage(manifest.Runtime.SandboxImage)
 	return map[string]any{
 		"name":                strings.TrimSpace(manifest.Name),
@@ -30,7 +26,6 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"is_default":          boolValue(manifest.Default),
 		"model":               strings.TrimSpace(manifest.Runtime.Model),
 		"available_models":    pq.StringArray(normalizeCatalogAvailableModels(manifest.Runtime.Model, manifest.Runtime.AvailableModels)),
-		"sandbox_strategy":    strategy,
 		"sandbox_image":       sandboxImage,
 		"instructions":        strings.TrimSpace(manifest.instructions),
 		"tools":               normalizeToolSelection(manifest.Tools),
@@ -53,7 +48,6 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.IsDefault = updates["is_default"].(bool)
 	row.Model = updates["model"].(string)
 	row.AvailableModels = updates["available_models"].(pq.StringArray)
-	row.SandboxStrategy = updates["sandbox_strategy"].(string)
 	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)
 	row.Tools = updates["tools"].(model.JSON)

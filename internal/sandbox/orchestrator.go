@@ -122,6 +122,6 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 	return agentruntime.NewClient(sb.RuntimeURL, apiKey), nil
 }
 
-func (o *Orchestrator) AgentDriveUploadURL(agentID uuid.UUID) string {
-	return agentDriveUploadURL(o.cfg, agentID)
+func (o *Orchestrator) AgentDriveUploadURL(agentID, sandboxID uuid.UUID) string {
+	return agentDriveUploadURL(o.cfg, agentID, sandboxID)
 }

@@ -119,6 +119,7 @@ describe("agent catalog helpers", () => {
   })
 
   it("normalizes agent sandbox size values", () => {
+    expect(normalizeAgentSandboxSize("nano")).toBe("nano")
     expect(normalizeAgentSandboxSize("xlarge")).toBe("xlarge")
     expect(normalizeAgentSandboxSize("jumbo")).toBe("small")
     expect(normalizeAgentSandboxSize(undefined)).toBe("small")

@@ -19,24 +19,24 @@ import (
 	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
-func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createErr error, builders ...precontext.Builder) (*sessionHarness, *sessionSyncSandboxProvider) {
+func newSessionRuntimeHarness(t *testing.T, runtime *sessionRuntimeStub, createErr error, builders ...precontext.Builder) (*sessionHarness, *sessionSandboxProviderStub) {
 	t.Helper()
 	db := connectTestDB(t)
 	enq := &enqueue.MockClient{}
 	encKey := sessionTestEncKey(t)
 	cfg := &config.Config{
 		SandboxProviderID:        sandboxpkg.ProviderMicrosandbox,
-		SandboxesRuntimeImageTag: "sync-test-amd64",
+		SandboxesRuntimeImageTag: "delivery-test-amd64",
 		APIWebhookBaseURL:        "https://api.example.test",
 		ProxyHost:                "https://proxy.example.test",
 		MCPBaseURL:               "https://mcp.example.test",
 	}
-	provider := &sessionSyncSandboxProvider{endpoint: runtime.server.URL, createErr: createErr}
+	provider := &sessionSandboxProviderStub{endpoint: runtime.server.URL, createErr: createErr}
 	orchestrator := sandboxpkg.NewOrchestrator(db, provider, encKey, cfg)
 	compileDeps := agentruntime.CompileDeps{
 		DB:         db,
 		EncKey:     encKey,
-		SigningKey: []byte("session-sync-signing-key"),
+		SigningKey: []byte("session-delivery-signing-key"),
 		Cfg:        cfg,
 	}
 	orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandboxpkg.AgentRuntimeConfigPush) error {
@@ -71,7 +71,7 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 	return &sessionHarness{db: db, router: r, enqueuer: enq}, provider
 }
 
-type sessionSyncSandboxProvider struct {
+type sessionSandboxProviderStub struct {
 	endpoint  string
 	createErr error
 	created   []sandboxpkg.CreateSandboxOpts
@@ -80,94 +80,90 @@ type sessionSyncSandboxProvider struct {
 	autoStops []int
 }
 
-func (p *sessionSyncSandboxProvider) ID() string { return sandboxpkg.ProviderMicrosandbox }
+func (p *sessionSandboxProviderStub) ID() string { return sandboxpkg.ProviderMicrosandbox }
 
-func (p *sessionSyncSandboxProvider) Validate(context.Context) error { return nil }
+func (p *sessionSandboxProviderStub) Validate(context.Context) error { return nil }
 
-func (p *sessionSyncSandboxProvider) RuntimeLayout() sandboxpkg.RuntimeLayout {
+func (p *sessionSandboxProviderStub) RuntimeLayout() sandboxpkg.RuntimeLayout {
 	return sandboxpkg.RuntimeLayout{AgentRepoDir: "/workspace/repos", WorkspaceRepoDir: "/workspace/repos"}
 }
 
-func (p *sessionSyncSandboxProvider) CreateSandbox(_ context.Context, opts sandboxpkg.CreateSandboxOpts) (*sandboxpkg.SandboxInfo, error) {
+func (p *sessionSandboxProviderStub) CreateSandbox(_ context.Context, opts sandboxpkg.CreateSandboxOpts) (*sandboxpkg.SandboxInfo, error) {
 	p.created = append(p.created, opts)
 	if p.createErr != nil {
 		return nil, p.createErr
 	}
-	return &sandboxpkg.SandboxInfo{ExternalID: fmt.Sprintf("sync-sandbox-%d", len(p.created)), Status: sandboxpkg.StatusRunning}, nil
+	return &sandboxpkg.SandboxInfo{ExternalID: fmt.Sprintf("delivery-sandbox-%d", len(p.created)), Status: sandboxpkg.StatusRunning}, nil
 }
 
-func (p *sessionSyncSandboxProvider) StartSandbox(_ context.Context, externalID string) error {
+func (p *sessionSandboxProviderStub) StartSandbox(_ context.Context, externalID string) error {
 	p.started = append(p.started, externalID)
 	return nil
 }
 
-func (p *sessionSyncSandboxProvider) StopSandbox(context.Context, string) error { return nil }
+func (p *sessionSandboxProviderStub) StopSandbox(context.Context, string) error { return nil }
 
-func (p *sessionSyncSandboxProvider) ArchiveSandbox(context.Context, string) error { return nil }
+func (p *sessionSandboxProviderStub) ArchiveSandbox(context.Context, string) error { return nil }
 
-func (p *sessionSyncSandboxProvider) DeleteSandbox(_ context.Context, externalID string) error {
+func (p *sessionSandboxProviderStub) DeleteSandbox(_ context.Context, externalID string) error {
 	p.deleted = append(p.deleted, externalID)
 	return nil
 }
 
-func (p *sessionSyncSandboxProvider) GetStatus(context.Context, string) (sandboxpkg.SandboxStatus, error) {
+func (p *sessionSandboxProviderStub) GetStatus(context.Context, string) (sandboxpkg.SandboxStatus, error) {
 	return sandboxpkg.StatusRunning, nil
 }
 
-func (p *sessionSyncSandboxProvider) GetEndpoint(context.Context, string, int) (string, error) {
+func (p *sessionSandboxProviderStub) GetEndpoint(context.Context, string, int) (string, error) {
 	return p.endpoint, nil
 }
 
-func (p *sessionSyncSandboxProvider) BuildTemplate(context.Context, sandboxpkg.TemplateBuildRequest) (string, error) {
+func (p *sessionSandboxProviderStub) BuildTemplate(context.Context, sandboxpkg.TemplateBuildRequest) (string, error) {
 	return "", nil
 }
 
-func (p *sessionSyncSandboxProvider) BuildTemplateWithLogs(context.Context, sandboxpkg.TemplateBuildRequest, func(string)) (string, error) {
+func (p *sessionSandboxProviderStub) BuildTemplateWithLogs(context.Context, sandboxpkg.TemplateBuildRequest, func(string)) (string, error) {
 	return "", nil
 }
 
-func (p *sessionSyncSandboxProvider) GetTemplateStatus(context.Context, string) (*sandboxpkg.TemplateBuildStatus, error) {
+func (p *sessionSandboxProviderStub) GetTemplateStatus(context.Context, string) (*sandboxpkg.TemplateBuildStatus, error) {
 	return &sandboxpkg.TemplateBuildStatus{State: "ready"}, nil
 }
 
-func (p *sessionSyncSandboxProvider) GetTemplateLogs(context.Context, string) (string, error) {
+func (p *sessionSandboxProviderStub) GetTemplateLogs(context.Context, string) (string, error) {
 	return "", nil
 }
 
-func (p *sessionSyncSandboxProvider) DeleteTemplate(context.Context, string) error { return nil }
+func (p *sessionSandboxProviderStub) DeleteTemplate(context.Context, string) error { return nil }
 
-func (p *sessionSyncSandboxProvider) SetAutoStop(_ context.Context, _ string, intervalMinutes int) error {
+func (p *sessionSandboxProviderStub) SetAutoStop(_ context.Context, _ string, intervalMinutes int) error {
 	p.autoStops = append(p.autoStops, intervalMinutes)
 	return nil
 }
 
-func (p *sessionSyncSandboxProvider) SetAutoArchive(context.Context, string, int) error {
+func (p *sessionSandboxProviderStub) SetAutoArchive(context.Context, string, int) error {
 	return nil
 }
 
-func (p *sessionSyncSandboxProvider) ExecuteCommand(context.Context, string, string) (string, error) {
+func (p *sessionSandboxProviderStub) ExecuteCommand(context.Context, string, string) (string, error) {
 	return "", nil
 }
 
-func (p *sessionSyncSandboxProvider) ExecuteCommandWithTimeout(context.Context, string, string, time.Duration) (string, error) {
+func (p *sessionSandboxProviderStub) ExecuteCommandWithTimeout(context.Context, string, string, time.Duration) (string, error) {
 	return "", nil
 }
 
-func (p *sessionSyncSandboxProvider) GetResourceUsage(context.Context, string) (*sandboxpkg.ResourceUsage, error) {
+func (p *sessionSandboxProviderStub) GetResourceUsage(context.Context, string) (*sandboxpkg.ResourceUsage, error) {
 	return &sandboxpkg.ResourceUsage{}, nil
 }
 
-func markSessionAgentPerSession(t *testing.T, h *sessionHarness, fx *sessionFixture) {
+func markSessionAgentSession(t *testing.T, h *sessionHarness, fx *sessionFixture) {
 	t.Helper()
-	if err := h.db.Model(&model.Agent{}).Where("id = ?", fx.agent.ID).Update("sandbox_strategy", "per_session").Error; err != nil {
-		t.Fatalf("mark agent per-session: %v", err)
-	}
-	fx.agent.SandboxStrategy = "per_session"
 }
 
-func seedAlwaysOnRuntimeSandbox(t *testing.T, h *sessionHarness, fx sessionFixture, runtimeURL string, status string) model.Sandbox {
+func seedSessionRuntimeSandbox(t *testing.T, h *sessionHarness, fx sessionFixture, runtimeURL string, status string) model.Sandbox {
 	t.Helper()
-	encSecret, err := sessionTestEncKey(t).EncryptString("runtime-sync-secret-" + uuid.NewString())
+	encSecret, err := sessionTestEncKey(t).EncryptString("runtime-delivery-secret-" + uuid.NewString())
 	if err != nil {
 		t.Fatalf("encrypt runtime secret: %v", err)
 	}
@@ -175,13 +171,13 @@ func seedAlwaysOnRuntimeSandbox(t *testing.T, h *sessionHarness, fx sessionFixtu
 		OrgID:                  &fx.org.ID,
 		AgentID:                &fx.agent.ID,
 		ProviderID:             sandboxpkg.ProviderMicrosandbox,
-		ExternalID:             "sync-existing-" + uuid.NewString()[:8],
+		ExternalID:             "delivery-existing-" + uuid.NewString()[:8],
 		RuntimeURL:             runtimeURL,
 		EncryptedRuntimeSecret: encSecret,
 		Status:                 status,
 	}
 	if err := h.db.Create(&sb).Error; err != nil {
-		t.Fatalf("create always-on runtime sandbox: %v", err)
+		t.Fatalf("create session sandbox runtime sandbox: %v", err)
 	}
 	return sb
 }

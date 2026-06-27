@@ -17,10 +17,9 @@ import (
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func TestConnectionHandler_UpdateResourcesQueuesCloneForAlwaysOnAgents(t *testing.T) {
+func TestConnectionHandler_UpdateResourcesDoesNotQueueAgentClone(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
 	user := createTestUser(t, db, "connection-resources-"+uuid.New().String()[:8]+"@test.com")
@@ -47,16 +46,13 @@ func TestConnectionHandler_UpdateResourcesQueuesCloneForAlwaysOnAgents(t *testin
 	if err := db.Create(&install).Error; err != nil {
 		t.Fatalf("create org plugin install: %v", err)
 	}
-	alwaysOn := createResourceTestAgent(t, db, org.ID, "always_on")
-	perSession := createResourceTestAgent(t, db, org.ID, "per_session")
-	for _, agent := range []model.Agent{alwaysOn, perSession} {
-		if err := db.Create(&model.AgentPluginInstall{
-			OrgID:    org.ID,
-			AgentID:  agent.ID,
-			PluginID: plugin.ID,
-		}).Error; err != nil {
-			t.Fatalf("create agent plugin install: %v", err)
-		}
+	agent := createResourceTestAgent(t, db, org.ID, "session")
+	if err := db.Create(&model.AgentPluginInstall{
+		OrgID:    org.ID,
+		AgentID:  agent.ID,
+		PluginID: plugin.ID,
+	}).Error; err != nil {
+		t.Fatalf("create agent plugin install: %v", err)
 	}
 	conn := model.Connection{
 		ID:                uuid.New(),
@@ -99,41 +95,35 @@ func TestConnectionHandler_UpdateResourcesQueuesCloneForAlwaysOnAgents(t *testin
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
-	queued := enq.Tasks()
-	if len(queued) != 1 {
-		t.Fatalf("queued tasks=%d, want 1", len(queued))
+	var response struct {
+		CloneQueued bool `json:"clone_queued"`
 	}
-	if queued[0].TypeName != tasks.TypeAgentGitHubResourcesClone {
-		t.Fatalf("queued task type=%q, want %q", queued[0].TypeName, tasks.TypeAgentGitHubResourcesClone)
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
 	}
-	var payload tasks.AgentGitHubResourcesClonePayload
-	if err := json.Unmarshal(queued[0].Payload, &payload); err != nil {
-		t.Fatalf("decode clone payload: %v", err)
+	if response.CloneQueued {
+		t.Fatalf("clone_queued=%t, want false", response.CloneQueued)
 	}
-	if payload.AgentID != alwaysOn.ID {
-		t.Fatalf("queued agent=%s, want always-on agent %s", payload.AgentID, alwaysOn.ID)
-	}
-	if payload.ConnectionID != conn.ID {
-		t.Fatalf("queued connection=%s, want %s", payload.ConnectionID, conn.ID)
+	if queued := enq.Tasks(); len(queued) != 0 {
+		t.Fatalf("queued tasks=%d, want 0", len(queued))
 	}
 }
 
 func createResourceTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, strategy string) model.Agent {
 	t.Helper()
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		Name:            "Resource " + strategy + " " + uuid.NewString()[:8],
-		IsManaged:       true,
-		SandboxStrategy: strategy,
-		Model:           agentruntime.DefaultAgentModel,
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          "Resource " + strategy + " " + uuid.NewString()[:8],
+		IsManaged:     true,
+		Model:         agentruntime.DefaultAgentModel,
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

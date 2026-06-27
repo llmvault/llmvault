@@ -15,8 +15,8 @@ import (
 
 const orgHivyAgentProvisionTimeout = 10 * time.Minute
 
-type OrgHivyAgentSyncer interface {
-	SyncOrgHivyAgent(ctx context.Context, orgID uuid.UUID) error
+type OrgHivyAgentEnsurer interface {
+	EnsureOrgHivyAgent(ctx context.Context, orgID uuid.UUID) error
 }
 
 type OrgHivyAgentProvisionPayload struct {
@@ -58,15 +58,15 @@ func EnqueueOrgHivyAgentProvision(ctx context.Context, enq enqueue.TaskEnqueuer,
 }
 
 type OrgHivyAgentProvisionHandler struct {
-	syncer OrgHivyAgentSyncer
+	ensurer OrgHivyAgentEnsurer
 }
 
-func NewOrgHivyAgentProvisionHandler(syncer OrgHivyAgentSyncer) *OrgHivyAgentProvisionHandler {
-	return &OrgHivyAgentProvisionHandler{syncer: syncer}
+func NewOrgHivyAgentProvisionHandler(ensurer OrgHivyAgentEnsurer) *OrgHivyAgentProvisionHandler {
+	return &OrgHivyAgentProvisionHandler{ensurer: ensurer}
 }
 
 func (h *OrgHivyAgentProvisionHandler) Handle(ctx context.Context, task *asynq.Task) error {
-	if h == nil || h.syncer == nil {
+	if h == nil || h.ensurer == nil {
 		return fmt.Errorf("org Hivy agent provision handler not configured")
 	}
 	var payload OrgHivyAgentProvisionPayload
@@ -76,5 +76,5 @@ func (h *OrgHivyAgentProvisionHandler) Handle(ctx context.Context, task *asynq.T
 	if payload.OrgID == uuid.Nil {
 		return fmt.Errorf("org_id is required")
 	}
-	return h.syncer.SyncOrgHivyAgent(ctx, payload.OrgID)
+	return h.ensurer.EnsureOrgHivyAgent(ctx, payload.OrgID)
 }

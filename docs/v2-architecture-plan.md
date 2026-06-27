@@ -9,7 +9,7 @@
 ## 1. Product decisions (locked)
 
 1. **Zero onboarding.** Sign up → land directly in `/w` with a prompt input. No wizard, no Slack/connection/business-profile gates.
-2. **Multiple agents, no specialists.** Users CRUD agents. Hivy remains the default agent auto-created for every org — the always-on, org-wide concierge that does **not** write code. Each agent declares a `sandbox_strategy`: `always_on` (one 24/7 sandbox, sessions multiplexed — Hivy) or `per_session` (an isolated sandbox forked per session from the agent's workspace snapshot — the default for agents with repos/workspace tools). The specialist construct (catalog, dispatch tool, specialist sandboxes, `specialist_tasks`) is deleted entirely.
+2. **Multiple agents, no specialists.** Users CRUD agents. Hivy remains the default agent auto-created for every org — the org-wide concierge that does **not** write code. Every session gets its own sandbox; there is no separate agent sandbox type or long-lived agent runtime. The specialist construct (catalog, dispatch tool, specialist sandboxes, `specialist_tasks`) is deleted entirely.
 3. **First-class channels, web-first.** Channels are a real domain object usable entirely without any chat connector: any org member can create channels, channels have `public|private` visibility (public = org-discoverable and joinable), org members are added to channels, and channels have a **default agent**. An external app link (Slack, Discord, Microsoft Teams, or an arbitrary connected app) is optional provider/resource metadata on a channel, never its identity.
 4. **Sessions live inside channels** and are **multi-user**: org members can be invited into a session and collaborate in real time (presence, shared streaming, queued messages). A session's agent is **mutable** — reassignable by humans and via agent-initiated handoff (see decision 6 and W10).
 5. **Artifacts** (apps, drive, canvas, browser, review, terminal, files) become real, backed by the session's sandbox and org storage. Static versions exist in the `/w` right panel today.
@@ -29,7 +29,7 @@ Neither product uses an LLM router for inbound Slack. Both bind statically:
 
 **Our design** (validates decision #3+#6): a Slack channel is *linked* to a Hivy channel; the Hivy channel's **default agent** receives every new session started from that Slack channel. Thread = session (as today). Changing who answers in Slack = changing the channel's default agent, or linking the Slack channel to a different Hivy channel. Gumloop's custom-Slack-app model is **adopted** (per-agent bot handles via user-supplied credentials, W6); Notion-style user-group handles are deferred. Dynamic routing exists only as Hivy's bounded `handoff_to_agent()` fallback — a known pattern (OpenAI Agents SDK handoffs, support-triage products) that both Notion and Gumloop deliberately avoided for predictability reasons, which is why static bindings always take precedence and handoff carries hard guardrails (W10).
 
-A note on comparables: Notion and Gumloop are the right references for routing and agent CRUD but **not for compute** — their agents are thin LLM loops over SaaS connectors with no persistent filesystem. For sandbox architecture the relevant comparables are Devin, Codex, Claude Code cloud, and Cursor background agents, all of which are sandbox-per-task forked from a prepared snapshot. That is the model adopted for `per_session` agents (§2.1, W9).
+A note on comparables: Notion and Gumloop are the right references for routing and agent CRUD but **not for compute** — their agents are thin LLM loops over SaaS connectors with no persistent filesystem. For sandbox architecture the relevant comparables are Devin, Codex, Claude Code cloud, and Cursor background agents, all of which are sandbox-per-task forked from a prepared snapshot. That is the model adopted for every session (§2.1, W9).
 
 ---
 
@@ -41,8 +41,7 @@ A note on comparables: Notion and Gumloop are the right references for routing a
 Org
  ├─ OrgMembership (user, role: owner|admin|member)
  ├─ Agent (N; "Hivy" auto-created at signup; user-CRUDable)
- │    ├─ always_on  → 1 long-lived sandbox; sessions multiplex over it (Hivy)
- │    └─ per_session → workspace snapshot; 1 sandbox forked per session
+ │    └─ workspace/runtime settings used to create each session sandbox
  ├─ Channel (N; "#general" auto-created at signup; default_agent_id;
  │    │       visibility public|private; optional external app link)
  │    ├─ ChannelMember (org members create/join/are added — fully usable without Slack)
@@ -53,10 +52,10 @@ Org
  └─ Connection / Integration / Skill / Billing (unchanged shape, renamed FKs)
 ```
 
-Sandbox cardinality, by agent `sandbox_strategy`:
+Sandbox cardinality:
 
-- **`always_on` (Hivy):** one long-lived sandbox, auto-stop exempt (it is the 24/7 Slack/schedule/trigger responder — cold-starting on every ping is unacceptable latency). The control plane owns canonical `session_id`s and posts turns to the runtime `/sessions/{session_id}/messages` API, so always-on agents can safely multiplex Slack, schedule, trigger, web, and custom-channel work without a separate runtime conversation identifier.
-- **`per_session` (default for workspace/coding agents):** concurrent sessions sharing one sandbox would share a working tree, git state, ports, and processes — a correctness bug, not just a load problem (the static design's per-session "Copy worktree path" assumes isolation). Each session gets its own sandbox **forked from the agent's workspace snapshot**: repos cloned and `setup_commands` run once at agent setup, snapshotted via the existing `sandbox_templates` build pipeline; sessions boot from the snapshot (warm-claimed where the provider supports it). This is the Devin/Codex/Claude-Code-cloud model. 10-min idle auto-stop keeps cost proportional to *active* use, not session count; a new reaper deletes per-session sandboxes N days after session end so the fleet doesn't grow unbounded.
+- Each session gets its own sandbox, created from the agent's runtime settings and, where available, the latest prepared workspace snapshot. Concurrent sessions never share a working tree, git state, ports, or processes.
+- 10-min idle auto-stop keeps cost proportional to *active* use, not session count; a reaper deletes session sandboxes N days after `sessions.ended_at`/archive so the fleet does not grow unbounded.
 - Specialist sandboxes, specialist runtime mode, warm-pool specialist mode, and the snapshot-repo-based selector filtering in `internal/employeesandbox/selector.go` are all deleted. The old specialist Dockerfile is not deleted outright: `sandboxes/runtime/Dockerfile.specialist` is renamed to `sandboxes/runtime/Dockerfile.developers` and becomes a user-selectable developer workspace template image for agents.
 
 ### 2.2 New baseline migrations (goose, rewritten from 000001)
@@ -68,8 +67,8 @@ Sandbox cardinality, by agent `sandbox_strategy`:
 | 000003 | billing | `plans`, `subscriptions`, `subscription_change_quotes`, `credit_ledger_entries`, `usage`, `tool_usages`, `generations` (all current columns incl. idempotency/billing indexes folded in) |
 | 000004 | credentials | `credentials`, `tokens`, `api_keys`, `audit_log` |
 | 000005 | integrations | `integrations`, `connections`, `database_connections` |
-| 000006 | sandboxes | `sandboxes` (+ nullable `session_id` for per-session sandboxes), `sandbox_templates`, `sandbox_warm_slots` (employee/specialist *mode* column → single `agent` mode), `custom_domains` |
-| 000007 | agents | `agents`, `agent_skills`, `agent_schedules`, `agent_schedule_runs`, `agent_triggers`, `agent_trigger_deliveries`, `agent_sandbox_upgrades`, `failed_events` |
+| 000006 | sandboxes | `sandboxes` (+ nullable `session_id` for session-owned sandboxes), `sandbox_templates`, `sandbox_warm_slots` (employee/specialist *mode* column → single `agent` mode), `custom_domains` |
+| 000007 | agents | `agents`, `agent_skills`, `agent_schedules`, `agent_schedule_runs`, `agent_triggers`, `agent_trigger_deliveries`, `failed_events` |
 | 000008 | channels | `channels`, `channel_members` |
 | 000009 | sessions | `sessions`, `session_participants`, `session_events`, `session_message_queue` |
 | 000010 | skills | `skills` |
@@ -92,7 +91,6 @@ CREATE TABLE agents (
     icon text,                               -- agent-grid icon (product-level)
     placeholder text,                        -- composer placeholder text
     is_default boolean NOT NULL DEFAULT false, -- true only for Hivy
-    sandbox_strategy text NOT NULL DEFAULT 'per_session', -- always_on|per_session
     workspace_snapshot_id uuid,              -- latest ready snapshot (sandbox_templates)
     model text NOT NULL,
     instructions text,
@@ -165,9 +163,9 @@ CREATE TABLE sessions (
     org_id uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     channel_id uuid NOT NULL REFERENCES channels(id),
     agent_id uuid NOT NULL REFERENCES agents(id),  -- MUTABLE: handoff/reassignment (W10)
-    sandbox_id uuid REFERENCES sandboxes(id),      -- per-session sandbox for per_session agents
+    sandbox_id uuid REFERENCES sandboxes(id),      -- sandbox owned by this session
     created_by uuid REFERENCES users(id),          -- NULL for slack/webhook-originated
-    model text,                                    -- per-session model override
+    model text,                                    -- session model override
     reasoning_effort text NOT NULL DEFAULT 'high', -- low|medium|high  (composer)
     source text NOT NULL DEFAULT 'web',            -- web|slack|email|webhook|schedule|api
     source_id uuid,                                -- e.g. Connection.ID for slack
@@ -277,7 +275,7 @@ Blast radius (measured): 13 tables, 10 model files, 77 handler files, 4 main pac
 Rules:
 
 - **DB:** new baseline migrations use `agents`, `channels`, `sessions`, and `session_events`; sessions are first-class objects reached from channels, not agent-subordinate records.
-- **Go:** `internal/model/employee*.go` → `agent*.go` (`Employee` → `Agent`, `EmployeeSession` → `Session`, …); packages `employeeruntime` → `agentruntime`, `employeeprompts` → `agentprompts`, `employeesandbox` → `agentsandbox` (then mostly deleted — see §5.2); handlers `employees_*.go` → `agents_*.go`.
+- **Go:** `internal/model/employee*.go` → `agent*.go` (`Employee` → `Agent`, `EmployeeSession` → `Session`, …); packages `employeeruntime` → `agentruntime`, `employeeprompts` → `agentprompts`; handlers `employees_*.go` → `agents_*.go`.
 - **API:** `/v1/employees/*` → `/v1/agents/*`; scope `"employees"` → `"agents"`; OpenAPI schemas regenerate, so `schema.d.ts` renames flow into the frontend mechanically.
 - **Env/ops:** `HIVY_EMPLOYEE_SQLITE_BACKUP_MAX_BYTES` → `HIVY_AGENT_…`; `HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE` → `HIVY_SANDBOX_WARM_POOL_DEFAULT_SIZE` / `HIVY_SANDBOX_WARM_POOL_DEVELOPER_SIZE`; `HIVY_SANDBOX_WARM_POOL_SPECIALIST_SIZE` deleted; `cmd/employee-env-doctor` → `cmd/agent-env-doctor`; `cmd/employee-debug-pack` → `cmd/agent-debug-pack`; ansible/docker references swept.
 - **Runtime image:** the specialist runtime image is deleted as a runtime concept; `Dockerfile.specialist` is renamed to `Dockerfile.developers` and kept as a workspace template image users/admins can choose for developer agents. The runtime image keeps its name (it's the *sandbox* runtime, not employee-named) — only env vars passed into it rename.
@@ -301,22 +299,21 @@ New/changed endpoints (all org-scoped, JWT or API key scope `agents`):
 ```
 POST   /v1/agents                  create (name, description, model, instructions,
                                    tools, skills, mcp_servers, sandbox_tools, avatar,
-                                   icon, placeholder, sandbox_strategy)
+                                   icon, placeholder)
 GET    /v1/agents                  list (existing, renamed)
 GET    /v1/agents/{id}             get (existing, renamed)
 PATCH  /v1/agents/{id}             full update (today only model is patchable)
 DELETE /v1/agents/{id}             archive (refuse for is_default; end active sessions
                                    or block while sessions active — block, simpler)
-POST   /v1/agents/{id}/sync        existing resync, renamed
 POST   /v1/agents/{id}/workspace/build   (re)build the workspace snapshot (W9)
 GET    /v1/agents/{id}/workspace         snapshot status (building|ready|error, built_at)
-…/skills, /sandbox/*               existing, renamed; /specialists/* deleted
+…/skills                           existing, renamed; /specialists/* deleted
 GET    /v1/models                  promote from /v1/employees/models (org-level)
 ```
 
 Notes:
-- `is_default` (Hivy) is not deletable/renamable; `sandbox_strategy` is locked to `always_on` for it and Hivy's tool config excludes code/workspace tools (it does not write code — its instructions direct it to hand off coding work, W10).
-- Agent creation does **not** create a sandbox; for `per_session` agents it kicks off the workspace snapshot build (W9); the first session forks from it.
+- `is_default` (Hivy) is not deletable/renamable; Hivy's tool config excludes code/workspace tools (it does not write code — its instructions direct it to hand off coding work, W10).
+- Agent creation does **not** create a sandbox; the first session creates the session sandbox from the agent's current settings.
 - **`description` is a routing signal**: it is what Hivy triages on when deciding handoffs. The agent-creation UI must say so explicitly — handoff quality is bounded by description quality.
 
 ### W3 — Channels
@@ -361,7 +358,7 @@ GET    /v1/sessions/{id}/live              realtime stream (see W5)
 POST   /v1/sessions/{id}/presence          heartbeat {viewing: bool, typing: bool}
 ```
 
-Moved off the agent-subordinate paths (`/v1/employees/{id}/sessions/...`) because sessions are now the primary object reached from channels; the agent is an attribute. Send-message: resolve agent → resolve sandbox by strategy (`always_on`: the agent's long-lived sandbox; `per_session`: the session's own sandbox, forked from the workspace snapshot on session start, resumed if stopped — W9) → `PostHTTPMessage` to runtime → persist `user.message` event (with `actor_user_id`) → runtime streams back.
+Moved off the agent-subordinate paths (`/v1/employees/{id}/sessions/...`) because sessions are now the primary object reached from channels; the agent is an attribute. Send-message: resolve agent → resolve the session sandbox, creating or waking it when needed → `PostHTTPMessage` to runtime → persist `user.message` event (with `actor_user_id`) → runtime streams back.
 
 **Multi-user semantics:**
 - Creator becomes `owner` participant. Invitees must be org members (org invite flow already exists and stays for getting people *into* the org).
@@ -373,7 +370,7 @@ Moved off the agent-subordinate paths (`/v1/employees/{id}/sessions/...`) becaus
 
 The static design requires: all participants see the same streaming turn live, presence avatars, queued-message visibility, and system events — today's per-requester signed SSE stream can't do any of that.
 
-**Architecture: server-side turn consumption + Redis pub/sub fanout + per-session SSE.**
+**Architecture: server-side turn consumption + Redis pub/sub fanout + session SSE.**
 
 1. **Turn ingestion moves server-side.** When a message is posted, the control plane calls `POST /sessions/{session_id}/messages`, then opens the returned `/sessions/{session_id}/streams/{stream_id}` URL. Runtime events are translated into `session_events` rows (thinking/tool/edits/message) and published to Redis channel `session:{id}`. One ingestion goroutine per active turn, owned by the instance that accepted the message; on crash, reconnect-and-resume using the runtime stream's replay.
 2. **Fanout:** every API instance runs a Redis-subscriber hub; `GET /v1/sessions/{id}/live` is a long-lived SSE response (works through the existing Next.js proxy and `fetch-event-source` client — no WebSocket infra needed) that subscribes the client to that session's topic and replays from a `Last-Event-ID` cursor against `session_events` for seamless reconnect.
@@ -415,7 +412,7 @@ Two distinct things ship under "artifacts":
 | Review | turn edits | Runtime already reports edits; ingestion (W5) persists `agent.edits` events with unified diffs in payload; Review view renders the latest accumulated diff set. "Undo" = runtime revert endpoint (stretch). |
 | Side chat | second conversation | A child session: same channel + agent, `metadata.parent_session_id`, hidden from sidebar lists. Cheap — sessions are free. |
 
-**(b) Persisted artifacts** (`artifacts` table) — durable outputs: canvas documents (`content` jsonb), generated apps (S3 bundle + `preview_url`, served via existing custom-domain/CDN machinery), drive documents, browser captures (screenshot S3 key). Agents create them through new Hivy-MCP tools (`artifact_create/update`) added to the compiled runtime config; humans browse them per-session (right panel) and org-wide (Drive page). `attachments` conversation blocks reference artifact IDs.
+**(b) Persisted artifacts** (`artifacts` table) — durable outputs: canvas documents (`content` jsonb), generated apps (S3 bundle + `preview_url`, served via existing custom-domain/CDN machinery), drive documents, browser captures (screenshot S3 key). Agents create them through new Hivy-MCP tools (`artifact_create/update`) added to the compiled runtime config; humans browse them from the session right panel and org-wide Drive page. `attachments` conversation blocks reference artifact IDs.
 
 V1 ships: Review, Terminal, Files, Browser (live views) + Drive-backed documents and browser captures. Canvas and Apps land as fast-follows on the same `artifacts` substrate.
 
@@ -425,15 +422,15 @@ V1 ships: Review, Terminal, Files, Browser (live views) + Drive-backed documents
 - Keep the email-confirmation gate (it's auth, not onboarding).
 - Backend: delete onboarding fields/logic from `orgs.go` (`onboarded`, business-profile-sync trigger); business profile remains editable in settings and feeds the agent prompt as today (`prompt_company` stays as an optional org field).
 
-### W9 — Per-session sandboxes & agent workspace snapshots
+### W9 — Session Sandboxes & Agent Workspace Snapshots
 
-The biggest *new* engineering item in the program (bigger than handoff). For `per_session` agents:
+The biggest *new* engineering item in the program (bigger than handoff):
 
 1. **Snapshot build:** on agent create/update (repos, `setup_commands`, sandbox_tools changed), build the agent's workspace via the existing `sandbox_templates` pipeline — boot a builder sandbox, clone repos, run setup, snapshot, mark ready, store as `agents.workspace_snapshot_id`. Surface build status in the agent UI; sessions cannot start until the first snapshot is ready (clear UX state).
 2. **Session start:** fork a sandbox from the snapshot (provider `CreateSandbox` with snapshot ref; warm-claim where supported), set `sandboxes.session_id`, push compiled runtime config, deliver the first message. Target: comparable to today's warm-pool session start.
-3. **Lifecycle:** existing 10-min idle auto-stop and 24-h archive apply per session-sandbox; resume on new message to a stopped session. New **reaper**: delete session sandboxes N days (default 7) after `sessions.ended_at`/archive. `always_on` agents keep the current exempt lifecycle.
+3. **Lifecycle:** existing 10-min idle auto-stop and 24-h archive apply to session sandboxes; resume on new message to a stopped session. New **reaper**: delete session sandboxes N days (default 7) after `sessions.ended_at`/archive.
 4. **Snapshot staleness:** repos drift from the snapshot. Policy: sessions always fork the *latest ready* snapshot and `git pull` on boot as a cheap freshness pass; manual + scheduled rebuilds (`POST /workspace/build`); auto-rebuild on agent config change.
-5. **Runtime sessions:** one canonical `session_id` per session-sandbox. The control plane's session→sandbox resolution branches on strategy in exactly two places: web send-message and external-channel ingestion.
+5. **Runtime sessions:** one canonical `session_id` for each session sandbox. The control plane always resolves runtime work through `sessions.sandbox_id`.
 
 ### W10 — `handoff_to_agent()` and reassignment
 
@@ -441,7 +438,7 @@ A bounded, one-shot **transfer** — never a delegation. There is no return path
 
 1. **Tool:** `handoff_to_agent(agent_name, brief)` in the Hivy-MCP surface compiled into runtimes. Primary user is Hivy (its instructions: triage; hand off coding/specialized work since it has no code tools), but available to all agents — guardrails make it safe.
 2. **Guardrails:** max one handoff per user turn; an agent cannot hand off to the immediately previous agent without an intervening human message (kills A↔B loops); target must be an active agent in the org; if nothing fits, the agent answers best-effort and suggests what agent to create — no forced handoff.
-3. **Mechanics:** control plane validates → resolves target sandbox by strategy (forking a per-session sandbox at handoff time if needed, W9) → preserves the same canonical `session_id` → **context transfer** = the structured `brief` + transcript replay compiled from `session_events` (we own the full event log) → updates `sessions.agent_id` and `sandbox_id` → emits a `session.system` handoff event, visible in `/w` and posted to the source channel ("Hivy handed this off to Software Engineer").
+3. **Mechanics:** control plane validates → creates or reuses the session sandbox for the target agent (W9) → preserves the same canonical `session_id` → **context transfer** = the structured `brief` + transcript replay compiled from `session_events` (we own the full event log) → updates `sessions.agent_id` and `sandbox_id` → emits a `session.system` handoff event, visible in `/w` and posted to the source channel ("Hivy handed this off to Software Engineer").
 4. **Continuity:** same `session_id`, same Slack thread key, same `/w` URL, same participants. Only the answering agent changes.
 5. **Human override:** `PATCH /v1/sessions/{id} {agent_id}` runs the same machinery (with an automatic control-plane-authored brief). The agent chip in the session header becomes interactive — this is also the correction path when a handoff was wrong.
 
@@ -496,7 +493,7 @@ No data migration, but dependencies force an order. Each stage = one or a few PR
 
 1. **Reset & rename** (W1): migrations baseline, rename sweep, specialist deletion, org bootstrap, zero-onboarding backend. *Big-bang mechanical commit; everything still works as a single-agent product.*
 2. **Agents + channels** (W2, W3): CRUD APIs + bootstrap defaults. Frontend F1 + channel sidebar (F2) behind the existing UI.
-3. **Sessions v2 + per-session sandboxes** (W4, W9): new session API on channels/participants; workspace snapshot build + fork-per-session; old session endpoints deleted; `(console)/sessions` temporarily repointed or frozen. W9 lands here because everything downstream (realtime, handoff, live artifact views) assumes the session↔sandbox binding.
+3. **Sessions v2 + session sandboxes** (W4, W9): new session API on channels/participants; workspace snapshot build + session sandbox creation; old session endpoints deleted; `(console)/sessions` temporarily repointed or frozen. W9 lands here because everything downstream (realtime, handoff, live artifact views) assumes the session↔sandbox binding.
 4. **Realtime** (W5): ingestion-side streaming, Redis fanout, `/live`, presence. Riskiest workstream alongside W9 — build it before the new UI ships so the UI never wires to the older per-requester stream.
 5. **New /w goes real** (F2–F4 + W7 live views): conversation, composer, channel home, right panel, multi-user. Delete static data files. Zero-onboarding frontend (W8) flips on here — signup lands in a fully working `/w`.
 6. **External ingestion + handoff** (W6, W10) + persisted artifacts (W7b) + console consolidation (F5). Handoff lands with Slack/external channels because that's where triage matters; web users pick agents explicitly.
@@ -508,9 +505,9 @@ Testing: keep the `*.test` harness (renamed); new e2e suites for channel authz, 
 ## 7. Risks & watch items
 
 1. **Server-side turn ingestion (W5.1)** changes who owns the runtime stream. Failure modes: instance dies mid-turn (mitigate: resumable runtime streams + event-cursor replay), double-ingestion on retry (mitigate: `event_id` idempotency index, already in schema).
-2. **Queued multi-user messages** need a per-session FIFO with exactly-once delivery into the runtime — keep the user-visible transcript in `session_events`, and keep mutable delivery state in `session_message_queue` with leases, retries, and `session_event_id` idempotency. Do not hold the queue in memory.
+2. **Queued multi-user messages** need a session FIFO with exactly-once delivery into the runtime — keep the user-visible transcript in `session_events`, and keep mutable delivery state in `session_message_queue` with leases, retries, and `session_event_id` idempotency. Do not hold the queue in memory.
 3. **Terminal/FS/preview endpoints** widen the sandbox attack surface — every one must enforce session participation, and the preview URL must be signed/expiring (provider `GetEndpoint` URLs may be long-lived; wrap them).
-4. **Sandbox concurrency:** per-session isolation (W9) solves this for workspace agents. For `always_on` agents (Hivy), N sessions still share one sandbox — add a per-agent turn concurrency limit (config) before launch.
+4. **Sandbox concurrency:** session sandbox isolation (W9) prevents different sessions from sharing a working tree, process table, or ports.
 4b. **Snapshot pipeline reliability (W9):** session start now depends on a prior successful build; a failed/stale snapshot blocks the agent. Mitigate: clear build-status UX, retry/rebuild affordances, and fall back to cold-boot (clone + setup at session start, slow but functional) when no ready snapshot exists.
 4c. **Handoff mis-routing (W10):** a wrong handoff answers confidently in front of a team. Mitigations: static bindings take precedence (handoff only fires from Hivy-defaulted contexts), visible system events, one-click human reassignment, and the description-quality nudge in the agent creation UI. Track handoff accuracy in the evals suite from day one.
 5. **Rename sweep** must include ansible/, docker/, Makefile, evals, and the two cmd tools, or ops breaks quietly. Grep gate in CI: `git grep -il employee -- ':!docs/v2-architecture-plan.md'` must come back empty at the end of stage 1 (allowing deliberate exceptions list).
@@ -574,4 +571,4 @@ To prevent overshoot during demolition: auth/identity (incl. org invites), billi
 2. ~~Can a session be reassigned mid-life?~~ **Decided: yes** — handoff (W10) and human reassignment via `PATCH /v1/sessions/{id}`; the agent chip is interactive.
 3. Org roles vs channel roles: is `viewer` org role still needed with channel-level membership? Plan keeps owner/admin/member at org level.
 4. Apps artifact hosting: reuse `custom_domains` + CDN, or per-app subdomains? Defer to the Apps fast-follow.
-5. Reaper retention for per-session sandboxes (default 7 days after session end) — confirm against storage cost once real usage data exists.
+5. Reaper retention for session sandboxes (default 7 days after session end) — confirm against storage cost once real usage data exists.

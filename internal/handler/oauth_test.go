@@ -53,7 +53,6 @@ func newOAuthHarness(t *testing.T) *oauthTestHarness {
 		"", "", // no X creds
 		billing.NewCreditsService(db),
 	)
-	h.SetAgentSyncer(&stubOrgAgentSyncer{})
 	h.SetEnqueuer(enq)
 
 	r := chi.NewRouter()
@@ -94,7 +93,6 @@ func newOAuthHarnessWithProviders(t *testing.T) *oauthTestHarness {
 		"x-client-id", "x-client-secret",
 		billing.NewCreditsService(db),
 	)
-	h.SetAgentSyncer(&stubOrgAgentSyncer{})
 	h.SetEnqueuer(enq)
 
 	r := chi.NewRouter()

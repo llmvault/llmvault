@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
@@ -47,10 +46,6 @@ func (h *SandboxHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
-	if h.blockAgentUpgradeConflict(w, r, org.ID, &sb) {
-		return
-	}
-
 	if err := h.orchestrator.StopSandbox(r.Context(), &sb); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to stop sandbox"})
 		return
@@ -92,10 +87,6 @@ func (h *SandboxHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
-	if h.blockAgentUpgradeConflict(w, r, org.ID, &sb) {
-		return
-	}
-
 	if err := h.orchestrator.DeleteSandbox(r.Context(), &sb); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete sandbox"})
 		return
@@ -151,10 +142,6 @@ func (h *SandboxHandler) Exec(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
-	if h.blockAgentUpgradeConflict(w, r, org.ID, &sb) {
-		return
-	}
-
 	var req execRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -196,20 +183,4 @@ func (h *SandboxHandler) Exec(w http.ResponseWriter, r *http.Request) {
 		Results: results,
 		Success: allSuccess,
 	})
-}
-
-func (h *SandboxHandler) blockAgentUpgradeConflict(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, sb *model.Sandbox) bool {
-	if sb.AgentID == nil {
-		return false
-	}
-	upgrade, ok, err := activeAgentSandboxUpgrade(r.Context(), h.db, orgID, *sb.AgentID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load active upgrade"})
-		return true
-	}
-	if !ok {
-		return false
-	}
-	writeAgentUpgradeConflict(w, upgrade)
-	return true
 }

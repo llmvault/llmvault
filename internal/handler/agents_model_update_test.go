@@ -24,11 +24,11 @@ const (
 	agentModelUpdateNewModel      = "qwen3.7-plus"
 )
 
-func TestAgentHandlerUpdateModelPerSessionStoresWithoutSync(t *testing.T) {
+func TestAgentHandlerUpdateModelStoresWithoutRuntimePush(t *testing.T) {
 	h, runtime, provider, db := newAgentModelUpdateRuntimeHarness(t)
 	org := createTestOrg(t, db)
 	seedSessionModelCredential(t, db, org.ID)
-	agent := createAgentModelUpdateTestAgent(t, db, org.ID, "per_session")
+	agent := createAgentModelUpdateTestAgent(t, db, org.ID)
 
 	rr := patchAgentModel(t, h, &org, agent.ID, agentModelUpdateNewModel)
 	if rr.Code != http.StatusOK {
@@ -48,34 +48,10 @@ func TestAgentHandlerUpdateModelPerSessionStoresWithoutSync(t *testing.T) {
 	assertAgentModelResponse(t, rr, agentModelUpdateNewModel)
 }
 
-func TestAgentHandlerUpdateModelAlwaysOnStoresAndSyncs(t *testing.T) {
-	h, runtime, provider, db := newAgentModelUpdateRuntimeHarness(t)
-	org := createTestOrg(t, db)
-	seedSessionModelCredential(t, db, org.ID)
-	agent := createAgentModelUpdateTestAgent(t, db, org.ID, "always_on")
-
-	rr := patchAgentModel(t, h, &org, agent.ID, agentModelUpdateNewModel)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
-	}
-
-	assertAgentModelStored(t, db, agent.ID, agentModelUpdateNewModel)
-	if len(provider.created) != 1 {
-		t.Fatalf("provider created %d sandboxes, want 1", len(provider.created))
-	}
-	if runtime.configCalls != 1 {
-		t.Fatalf("runtime config calls = %d, want 1", runtime.configCalls)
-	}
-	if count := countAgentModelUpdateSandboxes(t, db, org.ID, agent.ID); count != 1 {
-		t.Fatalf("sandbox rows = %d, want 1", count)
-	}
-	assertAgentModelResponse(t, rr, agentModelUpdateNewModel)
-}
-
-func newAgentModelUpdateRuntimeHarness(t *testing.T) (*handler.AgentHandler, *sessionSyncRuntime, *sessionSyncSandboxProvider, *gorm.DB) {
+func newAgentModelUpdateRuntimeHarness(t *testing.T) (*handler.AgentHandler, *sessionRuntimeStub, *sessionSandboxProviderStub, *gorm.DB) {
 	t.Helper()
 	db := connectTestDB(t)
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	encKey := sessionTestEncKey(t)
 	cfg := &config.Config{
 		SandboxProviderID:        sandboxpkg.ProviderMicrosandbox,
@@ -84,7 +60,7 @@ func newAgentModelUpdateRuntimeHarness(t *testing.T) (*handler.AgentHandler, *se
 		ProxyHost:                "https://proxy.example.test",
 		MCPBaseURL:               "https://mcp.example.test",
 	}
-	provider := &sessionSyncSandboxProvider{endpoint: runtime.server.URL}
+	provider := &sessionSandboxProviderStub{endpoint: runtime.server.URL}
 	orchestrator := sandboxpkg.NewOrchestrator(db, provider, encKey, cfg)
 	compileDeps := agentruntime.CompileDeps{
 		DB:         db,
@@ -96,14 +72,13 @@ func newAgentModelUpdateRuntimeHarness(t *testing.T) (*handler.AgentHandler, *se
 	return h, runtime, provider, db
 }
 
-func createAgentModelUpdateTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, strategy string) model.Agent {
+func createAgentModelUpdateTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		ID:              uuid.New(),
 		OrgID:           &orgID,
 		Name:            "model-update-" + uuid.NewString()[:8],
 		Description:     ptrString("model update test agent"),
-		SandboxStrategy: strategy,
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           agentModelUpdateOriginalModel,
 		AvailableModels: []string{agentModelUpdateOriginalModel, agentModelUpdateNewModel},

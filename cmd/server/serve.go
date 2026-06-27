@@ -160,9 +160,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if orchestrator != nil {
 		agentHandler = handler.NewAgentHandler(database, orchestrator, runtimeCompileDeps, reg)
 		agentHandler.SetEnqueuer(enqueuer)
-		orgHandler.SetAgentSyncer(agentHandler)
-		authHandler.SetAgentSyncer(agentHandler)
-		oauthHandler.SetAgentSyncer(agentHandler)
 	}
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 	if uploadsHandler != nil {

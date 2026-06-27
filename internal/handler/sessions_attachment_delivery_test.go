@@ -12,12 +12,14 @@ import (
 )
 
 func TestIntegration_SessionsSend_AttachmentIDsHydrateAndSendTextContextOnly(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	sb := seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
-	asset := seedSessionImageAsset(t, h, fx, sb.ID, true)
 	created := h.createSession(t, fx, fx.owner, "First direct turn")
+	if created.Session.SandboxID == nil {
+		t.Fatalf("created session sandbox_id missing: %+v", created.Session)
+	}
+	asset := seedSessionImageAsset(t, h, fx, uuid.MustParse(*created.Session.SandboxID), true)
 	releaseSessionForNextUserTurn(t, h, created.Session.ID)
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
@@ -58,12 +60,14 @@ func TestIntegration_SessionsSend_AttachmentIDsHydrateAndSendTextContextOnly(t *
 }
 
 func TestIntegration_SessionsSend_AttachmentIDWithoutDescriptionFailsClearly(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	sb := seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
-	asset := seedSessionImageAsset(t, h, fx, sb.ID, false)
 	created := h.createSession(t, fx, fx.owner, "First direct turn")
+	if created.Session.SandboxID == nil {
+		t.Fatalf("created session sandbox_id missing: %+v", created.Session)
+	}
+	asset := seedSessionImageAsset(t, h, fx, uuid.MustParse(*created.Session.SandboxID), false)
 	releaseSessionForNextUserTurn(t, h, created.Session.ID)
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{

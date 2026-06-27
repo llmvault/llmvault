@@ -11,27 +11,29 @@ import (
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueOrConfig(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+func TestIntegration_SessionsCreate_SessionSendsFirstMessageWithContext(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	contextBuilder := &recordingPreContextBuilder{sections: []string{"## Relevant memories\n- Initial context"}}
-	h, _ := newSessionRuntimeHarness(t, runtime, nil, contextBuilder)
+	h, provider := newSessionRuntimeHarness(t, runtime, nil, contextBuilder)
 	fx := h.seed(t)
-	sb := seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 
-	out := h.createSession(t, fx, fx.owner, "Ship the always-on hot path")
+	out := h.createSession(t, fx, fx.owner, "Ship the session sandbox hot path")
 	if out.Queued {
-		t.Fatalf("queued=%t, want false for idle always-on session", out.Queued)
+		t.Fatalf("queued=%t, want false for idle session sandbox session", out.Queued)
 	}
-	if out.Event == nil || out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "Ship the always-on hot path" {
+	if out.Event == nil || out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "Ship the session sandbox hot path" {
 		t.Fatalf("bad backend event: %+v", out.Event)
 	}
-	if out.Session.SandboxID == nil || *out.Session.SandboxID != sb.ID.String() {
-		t.Fatalf("session sandbox_id=%v, want %s", out.Session.SandboxID, sb.ID)
+	if out.Session.SandboxID == nil || *out.Session.SandboxID == "" {
+		t.Fatalf("session sandbox_id missing: %+v", out.Session)
+	}
+	if len(provider.created) != 1 {
+		t.Fatalf("provider creates=%d, want 1", len(provider.created))
 	}
 	if out.Session.AgentTurnStatus != model.SessionAgentTurnActive || out.Session.AgentTurnID == "" || out.Session.AgentStreamID == "" {
 		t.Fatalf("session turn metadata missing: %+v", out.Session)
 	}
-	if runtime.messageCalls != 1 || runtime.lastMessageText != "Ship the always-on hot path" {
+	if runtime.messageCalls != 1 || runtime.lastMessageText != "Ship the session sandbox hot path" {
 		t.Fatalf("runtime message calls=%d text=%q", runtime.messageCalls, runtime.lastMessageText)
 	}
 	if contextBuilder.calls != 1 {
@@ -44,22 +46,19 @@ func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueO
 	if _, ok := out.Event.Payload["dynamic_context"]; ok {
 		t.Fatalf("backend event payload should not include dynamic_context: %#v", out.Event.Payload)
 	}
-	if runtime.configCalls != 0 {
-		t.Fatalf("runtime config calls=%d, want 0 for hot first message", runtime.configCalls)
-	}
-	if runtime.readyzCalls != 0 {
-		t.Fatalf("runtime readyz calls=%d, want 0 for hot first message", runtime.readyzCalls)
+	if runtime.configCalls != 1 {
+		t.Fatalf("runtime config calls=%d, want 1 sandbox-create config push", runtime.configCalls)
 	}
 	assertSessionQueueCount(t, h, out.Session.ID, 0)
 	assertNoSessionMessageDeliverTask(t, h)
 }
 
-func TestIntegration_SessionsCreate_AlwaysOnMissingSandboxProvisionsAndSendsFirstMessage(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+func TestIntegration_SessionsCreate_SessionMissingSandboxProvisionsAndSendsFirstMessage(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
 
-	out := h.createSession(t, fx, fx.owner, "Provision the missing always-on runtime")
+	out := h.createSession(t, fx, fx.owner, "Provision the missing session sandbox runtime")
 	if out.Queued {
 		t.Fatalf("queued=%t, want false after synchronous runtime provisioning", out.Queued)
 	}
@@ -72,7 +71,7 @@ func TestIntegration_SessionsCreate_AlwaysOnMissingSandboxProvisionsAndSendsFirs
 	if len(provider.created) != 1 {
 		t.Fatalf("provider creates=%d, want 1", len(provider.created))
 	}
-	if runtime.messageCalls != 1 || runtime.lastMessageText != "Provision the missing always-on runtime" {
+	if runtime.messageCalls != 1 || runtime.lastMessageText != "Provision the missing session sandbox runtime" {
 		t.Fatalf("runtime message calls=%d text=%q", runtime.messageCalls, runtime.lastMessageText)
 	}
 	if runtime.configCalls != 1 {
@@ -89,11 +88,10 @@ func TestIntegration_SessionsCreate_AlwaysOnMissingSandboxProvisionsAndSendsFirs
 }
 
 func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	contextBuilder := &recordingPreContextBuilder{sections: []string{"## Recent sessions\n- Existing context"}}
 	h, _ := newSessionRuntimeHarness(t, runtime, nil, contextBuilder)
 	fx := h.seed(t)
-	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 	created := h.createSession(t, fx, fx.owner, "First direct turn")
 	releaseSessionForNextUserTurn(t, h, created.Session.ID)
 
@@ -120,8 +118,8 @@ func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *
 		t.Fatalf("precontext calls=%d, want only initial session build", contextBuilder.calls)
 	}
 	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text")
-	if runtime.configCalls != 0 {
-		t.Fatalf("runtime config calls=%d, want 0 for idle direct send", runtime.configCalls)
+	if runtime.configCalls != 1 {
+		t.Fatalf("runtime config calls=%d, want only the initial sandbox-create config push", runtime.configCalls)
 	}
 	assertSessionQueueCount(t, h, created.Session.ID, 0)
 }
@@ -159,10 +157,9 @@ func mapKeys(values map[string]any) []string {
 }
 
 func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 	created := h.createSession(t, fx, fx.owner, "First active turn")
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
@@ -181,8 +178,8 @@ func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(
 	if runtime.messageCalls != 1 {
 		t.Fatalf("runtime message calls=%d, want only the initial direct send", runtime.messageCalls)
 	}
-	if runtime.configCalls != 0 {
-		t.Fatalf("runtime config calls=%d, want 0 for active-turn queue", runtime.configCalls)
+	if runtime.configCalls != 1 {
+		t.Fatalf("runtime config calls=%d, want only the initial sandbox-create config push", runtime.configCalls)
 	}
 
 	var rows []model.SessionMessageQueue
@@ -196,68 +193,6 @@ func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(
 		t.Fatalf("queue session_event_id=%v, want response event %s", rows[0].SessionEventID, out.Event.ID)
 	}
 	assertNoSessionMessageDeliverTask(t, h)
-}
-
-func TestIntegration_SessionsCreate_StoppedAlwaysOnSandboxSendsThroughGatewayWithoutGoWake(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
-	h, provider := newSessionRuntimeHarness(t, runtime, nil)
-	fx := h.seed(t)
-	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "stopped")
-
-	out := h.createSession(t, fx, fx.owner, "Gateway should wake and send")
-	if out.Queued {
-		t.Fatalf("queued=%t, want false for gateway-managed direct send", out.Queued)
-	}
-	if len(provider.started) != 0 {
-		t.Fatalf("provider started=%v, want no Go wake", provider.started)
-	}
-	if runtime.messageCalls != 1 {
-		t.Fatalf("runtime message calls=%d, want 1", runtime.messageCalls)
-	}
-	if runtime.configCalls != 0 {
-		t.Fatalf("runtime config calls=%d, want 0 for gateway-managed send", runtime.configCalls)
-	}
-	if runtime.readyzCalls != 0 {
-		t.Fatalf("runtime readyz calls=%d, want 0 for gateway-managed send", runtime.readyzCalls)
-	}
-	assertSessionQueueCount(t, h, out.Session.ID, 0)
-}
-
-func TestIntegration_SessionsCreate_DirectDeliveryFailureReleasesTurnWithoutQueueOrConfig(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusInternalServerError)
-	h, _ := newSessionRuntimeHarness(t, runtime, nil)
-	fx := h.seed(t)
-	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
-
-	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
-		"channel_id": fx.channel.ID.String(),
-		"text":       "Runtime should reject this hot send",
-	})
-	if rr.Code != http.StatusBadGateway {
-		t.Fatalf("create session status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if runtime.messageCalls != 1 {
-		t.Fatalf("runtime message calls=%d, want 1", runtime.messageCalls)
-	}
-	if runtime.configCalls != 0 {
-		t.Fatalf("runtime config calls=%d, want 0 on direct delivery failure", runtime.configCalls)
-	}
-
-	var session model.Session
-	if err := h.db.Where("org_id = ?", fx.org.ID).First(&session).Error; err != nil {
-		t.Fatalf("load failed session: %v", err)
-	}
-	if session.AgentTurnStatus != model.SessionAgentTurnIdle || session.AgentTurnLastOutcome != model.SessionAgentTurnOutcomeFailed {
-		t.Fatalf("session turn not released after failure: %+v", session)
-	}
-	assertSessionQueueCount(t, h, session.ID.String(), 0)
-	var eventCount int64
-	if err := h.db.Model(&model.SessionEvent{}).Where("session_id = ?", session.ID).Count(&eventCount).Error; err != nil {
-		t.Fatalf("count failed delivery events: %v", err)
-	}
-	if eventCount != 0 {
-		t.Fatalf("failed delivery event count=%d, want 0", eventCount)
-	}
 }
 
 func releaseSessionForNextUserTurn(t *testing.T, h *sessionHarness, sessionID string) {

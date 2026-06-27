@@ -69,7 +69,7 @@ func EnsureAgentProxyTokenRefreshScheduledForToken(ctx context.Context, db *gorm
 	if agent.OrgID == nil {
 		return false, nil
 	}
-	sb, err := agentRuntimeSelector(db, compileDeps).MainRuntimeByID(ctx, *agent.OrgID, agent.ID, sandboxID)
+	sb, err := loadAgentSandboxByID(ctx, db, *agent.OrgID, agent.ID, sandboxID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil

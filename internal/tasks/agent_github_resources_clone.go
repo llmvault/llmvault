@@ -88,20 +88,5 @@ func (h *AgentGitHubResourcesCloneHandler) run(ctx context.Context, payload Agen
 		}
 		return fmt.Errorf("load agent: %w", err)
 	}
-	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, payload.OrgID, payload.AgentID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return fmt.Errorf("load agent sandbox: %w", err)
-	}
-	if h.orchestrator.NeedsURLRefresh(sb) {
-		if err := h.orchestrator.RefreshAgentSandboxURL(ctx, sb); err != nil {
-			return fmt.Errorf("refresh agent sandbox url: %w", err)
-		}
-	}
-	if err := agentruntime.PushAgentRuntimeConfig(ctx, h.compileDeps, &agent, sb); err != nil {
-		return fmt.Errorf("push agent runtime config: %w", err)
-	}
 	return nil
 }

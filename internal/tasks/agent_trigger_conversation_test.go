@@ -12,11 +12,11 @@ import (
 
 func TestFindOrCreateTriggerSessionDefaultsToSystemChannel(t *testing.T) {
 	db := connectTestDB(t)
-	org, agent, sandbox := seedTriggerSessionFixture(t, db)
+	org, agent, _ := seedTriggerSessionFixture(t, db)
 	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, nil)
 	handler := &AgentTriggerDispatchHandler{db: db}
 
-	session, err := handler.findOrCreateTriggerSession(context.Background(), &agent, &sandbox, trigger, "github/acme/repo/issues/1")
+	session, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, "github/acme/repo/issues/1")
 	if err != nil {
 		t.Fatalf("findOrCreateTriggerSession: %v", err)
 	}
@@ -35,14 +35,14 @@ func TestFindOrCreateTriggerSessionDefaultsToSystemChannel(t *testing.T) {
 
 func TestFindOrCreateTriggerSessionUsesConfiguredChannel(t *testing.T) {
 	db := connectTestDB(t)
-	org, agent, sandbox := seedTriggerSessionFixture(t, db)
+	org, agent, _ := seedTriggerSessionFixture(t, db)
 	firstChannel := seedTriggerChannel(t, db, org.ID, agent.ID, "triage")
 	secondChannel := seedTriggerChannel(t, db, org.ID, agent.ID, "incidents")
 	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, &firstChannel.ID)
 	handler := &AgentTriggerDispatchHandler{db: db}
 	resourceKey := "github/acme/repo/pulls/9"
 
-	first, err := handler.findOrCreateTriggerSession(context.Background(), &agent, &sandbox, trigger, resourceKey)
+	first, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, resourceKey)
 	if err != nil {
 		t.Fatalf("find first session: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestFindOrCreateTriggerSessionUsesConfiguredChannel(t *testing.T) {
 		t.Fatalf("channel = %s, want %s", first.ChannelID, firstChannel.ID)
 	}
 
-	reused, err := handler.findOrCreateTriggerSession(context.Background(), &agent, &sandbox, trigger, resourceKey)
+	reused, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, resourceKey)
 	if err != nil {
 		t.Fatalf("reuse first session: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestFindOrCreateTriggerSessionUsesConfiguredChannel(t *testing.T) {
 	}
 
 	trigger.ChannelID = &secondChannel.ID
-	second, err := handler.findOrCreateTriggerSession(context.Background(), &agent, &sandbox, trigger, resourceKey)
+	second, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, resourceKey)
 	if err != nil {
 		t.Fatalf("find second session: %v", err)
 	}
@@ -78,17 +78,16 @@ func seedTriggerSessionFixture(t *testing.T, db *gorm.DB) (model.Org, model.Agen
 		t.Fatalf("create org: %v", err)
 	}
 	agent := model.Agent{
-		OrgID:           &org.ID,
-		Name:            "trigger-agent-" + uuid.NewString()[:8],
-		SandboxStrategy: "always_on",
-		Model:           "test-model",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
-		Status:          "active",
+		OrgID:         &org.ID,
+		Name:          "trigger-agent-" + uuid.NewString()[:8],
+		Model:         "test-model",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+		Status:        "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
