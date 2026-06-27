@@ -12,15 +12,19 @@ use crate::{Result, TurnInput};
 
 use super::capture_preloaded_context_error;
 
+pub(super) struct InitialMessagePromptSources<'a> {
+    pub(super) mcp_registry: Option<&'a McpRegistry>,
+    pub(super) mcp_tool_filter: Option<&'a ToolFilter>,
+    pub(super) skill_filter: Option<&'a SkillFilter>,
+}
+
 pub(super) async fn build_initial_messages(
     snapshot: &AgentDefinition,
     workspace_root: &Path,
     session_id: &SessionId,
     input: TurnInput,
     event_repo: Option<&dyn storage::EventRepo>,
-    mcp_registry: Option<&McpRegistry>,
-    mcp_tool_filter: Option<&ToolFilter>,
-    skill_filter: Option<&SkillFilter>,
+    prompt_sources: InitialMessagePromptSources<'_>,
 ) -> Result<Vec<AgentMessage>> {
     let session_context = if input.session_context.is_empty() {
         match load_session_context(event_repo, session_id).await {
@@ -44,9 +48,9 @@ pub(super) async fn build_initial_messages(
             render_dynamic_system_prompt(
                 snapshot,
                 workspace_root,
-                mcp_registry,
-                mcp_tool_filter,
-                skill_filter,
+                prompt_sources.mcp_registry,
+                prompt_sources.mcp_tool_filter,
+                prompt_sources.skill_filter,
                 &session_context,
             )
             .await,
