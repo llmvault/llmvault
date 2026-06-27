@@ -132,7 +132,6 @@ func (s *Service) upsertProject(ctx context.Context, tx *gorm.DB, orgID, agentID
 	}
 	project = model.CanvasProject{
 		OrgID:            orgID,
-		PenpotProjectID:  uuid.New(),
 		Slug:             slug,
 		Name:             name,
 		CreatedByAgentID: &agentID,

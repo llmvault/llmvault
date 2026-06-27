@@ -122,7 +122,8 @@ func agentSessionsAccessHasScope(scopes []string, want string) bool {
 }
 
 func agentSessionsSandboxStreamURL(access agentSessionsSandboxAccess, sessionID string, values url.Values) (string, error) {
-	parsed, err := url.Parse(strings.TrimRight(access.SandboxBaseURL, "/") + "/sessions/" + url.PathEscape(sessionID) + "/stream")
+	baseURL := agentSessionsHostReachableURL(access.SandboxBaseURL)
+	parsed, err := url.Parse(strings.TrimRight(baseURL, "/") + "/sessions/" + url.PathEscape(sessionID) + "/stream")
 	if err != nil {
 		return "", fmt.Errorf("parse sandbox stream url: %w", err)
 	}
@@ -133,7 +134,8 @@ func agentSessionsSandboxStreamURL(access agentSessionsSandboxAccess, sessionID 
 func sandboxRuntimeHealthy(ctx context.Context, sandboxBaseURL string) bool {
 	reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, strings.TrimRight(sandboxBaseURL, "/")+"/healthz", nil)
+	baseURL := agentSessionsHostReachableURL(sandboxBaseURL)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/healthz", nil)
 	if err != nil {
 		return false
 	}

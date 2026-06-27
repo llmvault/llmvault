@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,9 +19,10 @@ import (
 )
 
 const (
-	imageGenerationProviderID = "openrouter"
-	imageGenerationTimeout    = 3 * time.Minute
-	imageGenerationMaxCount   = 4
+	imageGenerationOpenRouterProviderID = "openrouter"
+	imageGenerationReveProviderID       = "reve"
+	imageGenerationTimeout              = 3 * time.Minute
+	imageGenerationMaxCount             = 4
 )
 
 type imageGenerationRequest struct {
@@ -77,14 +79,14 @@ func (h *UploadsHandler) runImageGeneration(ctx context.Context, agent *model.Ag
 		logging.FromContext(ctx).ErrorContext(ctx, "image generation model resolution failed", "agent_id", agent.ID, "vector", vector, "error", err)
 		return nil, http.StatusBadRequest, &imageGenerationError{Error: "failed to resolve image model", ErrorCode: "model_resolution_failed"}
 	}
-	route, ok := h.generationRegistry().ResolveModel(imageGenerationProviderID, modelID)
-	if !ok {
-		return nil, http.StatusServiceUnavailable, &imageGenerationError{Error: "image model route unavailable", ErrorCode: "model_route_unavailable"}
-	}
 	cred, err := credentials.ResolveForModel(ctx, h.db, h.generationRegistry(), *agent.OrgID, modelID)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "image generation credential resolution failed", "agent_id", agent.ID, "model", modelID, "error", err)
 		return nil, http.StatusServiceUnavailable, &imageGenerationError{Error: "image generation credential unavailable", ErrorCode: "credential_unavailable"}
+	}
+	route, ok := h.generationRegistry().ResolveModel(cred.ProviderID, modelID)
+	if !ok {
+		return nil, http.StatusServiceUnavailable, &imageGenerationError{Error: "image model route unavailable", ErrorCode: "model_route_unavailable"}
 	}
 	apiKey, err := decryptCredentialKey(ctx, h.imageKMS, cred)
 	if err != nil {
@@ -104,18 +106,33 @@ func (h *UploadsHandler) runImageGeneration(ctx context.Context, agent *model.Ag
 	callCtx, cancel := context.WithTimeout(ctx, imageGenerationTimeout)
 	defer cancel()
 
-	images, usage, err := h.callOpenRouterImages(callCtx, cred, string(apiKey), route.UpstreamID, prompt, req.aspectRatio(), req.count(), references)
+	images, usage, err := h.callImageGenerationProvider(callCtx, cred, string(apiKey), route, prompt, req.aspectRatio(), req.count(), references)
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "image generation upstream failed", "agent_id", agent.ID, "model", modelID, "upstream_model", route.UpstreamID, "credential_id", cred.ID, "error", err)
+		logging.FromContext(ctx).ErrorContext(ctx, "image generation upstream failed", "agent_id", agent.ID, "provider_id", route.ProviderID, "model", modelID, "upstream_model", route.UpstreamID, "credential_id", cred.ID, "error", err)
 		return nil, http.StatusBadGateway, &imageGenerationError{Error: "image generation failed", ErrorCode: "upstream_failed"}
 	}
-	results, err := h.storeGeneratedImages(ctx, agent, sandbox, vector, modelID, route.UpstreamID, prompt, req.ReferenceAssetIDs, images)
+	results, err := h.storeGeneratedImages(ctx, agent, sandbox, vector, route.ProviderID, modelID, route.UpstreamID, prompt, req.ReferenceAssetIDs, images)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "image generation asset storage failed", "agent_id", agent.ID, "model", modelID, "error", err)
 		return nil, http.StatusInternalServerError, &imageGenerationError{Error: "failed to store generated image", ErrorCode: "asset_storage_failed"}
 	}
-	h.trackImageGenerationUsage(ctx, agent, sandbox, req, h.imageGenerationUsageSession(ctx, agent, req.sessionUUID()), cred, modelID, route.UpstreamID, usage, results)
+	h.trackImageGenerationUsage(ctx, agent, sandbox, req, h.imageGenerationUsageSession(ctx, agent, req.sessionUUID()), cred, route.ProviderID, modelID, route.UpstreamID, usage, results)
 	return results, http.StatusOK, nil
+}
+
+func imageGenerationProviderIDs() []string {
+	return []string{imageGenerationReveProviderID, imageGenerationOpenRouterProviderID}
+}
+
+func (h *UploadsHandler) callImageGenerationProvider(ctx context.Context, cred *model.Credential, apiKey string, route registry.ResolvedModelRoute, prompt, aspectRatio string, count int, references []imageGenerationReference) ([]generatedImageBytes, imageGenerationUsage, error) {
+	switch route.ProviderID {
+	case imageGenerationOpenRouterProviderID:
+		return h.callOpenRouterImages(ctx, cred, apiKey, route.UpstreamID, prompt, aspectRatio, count, references)
+	case imageGenerationReveProviderID:
+		return h.callReveImages(ctx, cred, apiKey, route.UpstreamID, prompt, aspectRatio, count, references)
+	default:
+		return nil, imageGenerationUsage{}, fmt.Errorf("unsupported image generation provider %q", route.ProviderID)
+	}
 }
 
 func normalizeImageGenerationRequest(req imageGenerationRequest) (imageGenerationRequest, error) {

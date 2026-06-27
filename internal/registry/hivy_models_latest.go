@@ -13,6 +13,12 @@ var latestHivyModels = []HivyModel{
 	{
 		ID: DefaultRasterImageGenerationModelID,
 		Routes: []ModelRoute{
+			{ProviderID: "reve", ModelID: "reve-image"},
+		},
+	},
+	{
+		ID: "flux.2-klein-4b",
+		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "black-forest-labs/flux.2-klein-4b"},
 		},
 	},
@@ -29,13 +35,13 @@ var latestHivyModels = []HivyModel{
 		},
 	},
 	{
-		ID: DefaultVectorImageGenerationModelID,
+		ID: "recraft-v4.1-vector",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-vector"},
 		},
 	},
 	{
-		ID: "recraft-v4.1-pro-vector",
+		ID: DefaultVectorImageGenerationModelID,
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-pro-vector"},
 		},

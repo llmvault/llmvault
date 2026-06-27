@@ -32,11 +32,6 @@ type CompileDeps struct {
 	SigningKey []byte
 	Cfg        *config.Config
 	Nango      *nango.Client
-	Canvas     CanvasRuntimeEnvProvider
-}
-
-type CanvasRuntimeEnvProvider interface {
-	AgentRuntimeEnv(ctx context.Context, agent *model.Agent) (map[string]string, error)
 }
 
 type StartupSecrets struct {

@@ -19,12 +19,12 @@ import (
 
 // NangoWebhookHandler receives webhook events forwarded by Nango.
 type NangoWebhookHandler struct {
-	db             *gorm.DB
-	nangoSecret    string
-	encKey         *crypto.SymmetricKey
-	httpClient     *http.Client
-	enqueuer       enqueue.TaskEnqueuer
-	nangoClient    *nango.Client
+	db          *gorm.DB
+	nangoSecret string
+	encKey      *crypto.SymmetricKey
+	httpClient  *http.Client
+	enqueuer    enqueue.TaskEnqueuer
+	nangoClient *nango.Client
 }
 
 func NewNangoWebhookHandler(db *gorm.DB, nangoSecret string, encKey *crypto.SymmetricKey, nangoClient *nango.Client, enqueuer ...enqueue.TaskEnqueuer) *NangoWebhookHandler {

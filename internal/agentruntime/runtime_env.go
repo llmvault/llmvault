@@ -137,15 +137,6 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	env[AgentEnvTunnelPassword] = runtimeSecret
 	env[ProxyAPIKeyEnv] = token.Token
 	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
-	if deps.Canvas != nil {
-		canvasEnv, err := deps.Canvas.AgentRuntimeEnv(ctx, agent)
-		if err != nil {
-			return nil, fmt.Errorf("agent runtime canvas env injection failed: %w", err)
-		}
-		for key, value := range canvasEnv {
-			env[key] = value
-		}
-	}
 	if deps.Cfg != nil && sb != nil {
 		env[AgentEnvRuntimeEventWSURL] = RuntimeEventWebSocketURL(deps.Cfg, sb.ID)
 	}

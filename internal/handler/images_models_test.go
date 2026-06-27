@@ -15,9 +15,10 @@ import (
 	"github.com/usehivy/hivy/internal/registry"
 )
 
-func TestImageGenerationModels_ReturnsOpenRouterCatalogDefaults(t *testing.T) {
+func TestImageGenerationModels_ReturnsCatalogForAvailableSystemProviders(t *testing.T) {
 	db := newModelCatalogTestDB(t)
 	seedModelCatalogCredential(t, db, "openrouter")
+	seedModelCatalogCredential(t, db, "reve")
 	h := handler.NewImageDescribeHandler(db, nil, registry.Global(), nil, "")
 
 	rr := imageModels(t, h)
@@ -37,35 +38,41 @@ func TestImageGenerationModels_ReturnsOpenRouterCatalogDefaults(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.DefaultRasterModel != "flux.2-klein-4b" {
+	if resp.DefaultRasterModel != "reve-image" {
 		t.Fatalf("default raster = %q", resp.DefaultRasterModel)
 	}
-	if resp.DefaultVectorModel != "recraft-v4.1-vector" {
+	if resp.DefaultVectorModel != "recraft-v4.1-pro-vector" {
 		t.Fatalf("default vector = %q", resp.DefaultVectorModel)
 	}
 
 	foundFlux := false
+	foundReve := false
 	foundVector := false
 	for _, model := range resp.Models {
 		switch model.ID {
+		case "reve-image":
+			foundReve = true
+			if len(model.ProviderIDs) != 1 || model.ProviderIDs[0] != "reve" {
+				t.Fatalf("provider_ids for reve-image = %v", model.ProviderIDs)
+			}
 		case "flux.2-klein-4b":
 			foundFlux = true
 			if !model.OpenWeights {
 				t.Fatal("flux.2-klein-4b should be marked open_weights")
 			}
-		case "recraft-v4.1-vector":
+		case "recraft-v4.1-pro-vector":
 			foundVector = true
 		}
-		if len(model.ProviderIDs) != 1 || model.ProviderIDs[0] != "openrouter" {
+		if model.ID != "reve-image" && (len(model.ProviderIDs) != 1 || model.ProviderIDs[0] != "openrouter") {
 			t.Fatalf("provider_ids for %s = %v", model.ID, model.ProviderIDs)
 		}
 	}
-	if !foundFlux || !foundVector {
-		t.Fatalf("models missing flux=%v vector=%v", foundFlux, foundVector)
+	if !foundReve || !foundFlux || !foundVector {
+		t.Fatalf("models missing reve=%v flux=%v vector=%v", foundReve, foundFlux, foundVector)
 	}
 }
 
-func TestImageGenerationModels_MissingOpenRouterCredentialReturns503(t *testing.T) {
+func TestImageGenerationModels_MissingImageGenerationCredentialReturns503(t *testing.T) {
 	db := newModelCatalogTestDB(t)
 	h := handler.NewImageDescribeHandler(db, nil, registry.Global(), nil, "")
 

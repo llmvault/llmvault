@@ -66,7 +66,7 @@
     },
     "design-worker": {
       "name": "Design Worker",
-      "description": "Canvas implementation specialist for Kara. Use when a design task has clear enough direction and needs concrete Canvas file creation, editing, board construction, visual verification, or export work while Kara keeps the parent conversation and final user-facing judgment.",
+      "description": "Canvas implementation specialist for Kara. Use when a design task has clear enough direction and needs concrete Canvas project/artifact creation, HTML editing, validation, browser preview, interaction testing, or sync work while Kara keeps the parent conversation and final user-facing judgment.",
       "model": "kimi-k2.7-code",
       "tools": {
         "bash": true,

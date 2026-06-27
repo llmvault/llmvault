@@ -7,7 +7,7 @@ DOCKER_BIN="${DOCKER_BIN:-$(command -v docker)}"
 IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-ghcr.io/usehivy/hivy-sandboxes-runtime:runtime}"
 default_target="x86_64-unknown-linux-gnu"
 BINARY="${HIVY_SANDBOXES_RUNTIME_BINARY:-$ROOT/dist/hivy-sandboxes-runtime-$default_target}"
-PENPOT_BINARY="${PENPOT_CLI_BINARY:-$ROOT/dist/penpot-linux-amd64}"
+CANVAS_BINARY="${CANVAS_CLI_BINARY:-$ROOT/dist/canvas-linux-amd64}"
 PLATFORM="${HIVY_SANDBOXES_RUNTIME_PLATFORM:-}"
 DOCKERFILE="${HIVY_SANDBOXES_RUNTIME_DOCKERFILE:-Dockerfile.runtime}"
 TMP_CONTEXT="$(mktemp -d)"
@@ -19,9 +19,9 @@ if [[ ! -x "$BINARY" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$PENPOT_BINARY" ]]; then
-  echo "penpot CLI binary not found or not executable: $PENPOT_BINARY" >&2
-  echo "build it first with: go build -o $PENPOT_BINARY ./cmd/penpot" >&2
+if [[ ! -x "$CANVAS_BINARY" ]]; then
+  echo "canvas CLI binary not found or not executable: $CANVAS_BINARY" >&2
+  echo "build it first with: go build -o $CANVAS_BINARY ./cmd/canvas" >&2
   exit 1
 fi
 
@@ -33,11 +33,11 @@ if [[ "$kind" != *"ELF"* ]] || [[ "$kind" != *"Linux"* ]]; then
   exit 1
 fi
 
-penpot_kind="$(file "$PENPOT_BINARY")"
-echo "$penpot_kind"
-if [[ "$penpot_kind" != *"ELF"* ]]; then
-  echo "refusing to package non-Linux penpot CLI into Debian image" >&2
-  echo "expected an ELF binary at: $PENPOT_BINARY" >&2
+canvas_kind="$(file "$CANVAS_BINARY")"
+echo "$canvas_kind"
+if [[ "$canvas_kind" != *"ELF"* ]]; then
+  echo "refusing to package non-Linux canvas CLI into Debian image" >&2
+  echo "expected an ELF binary at: $CANVAS_BINARY" >&2
   exit 1
 fi
 
@@ -69,7 +69,7 @@ fi
 dockerfile_name="$(basename "$dockerfile_path")"
 cp "$dockerfile_path" "$TMP_CONTEXT/$dockerfile_name"
 cp "$BINARY" "$TMP_CONTEXT/hivy-sandboxes-runtime"
-cp "$PENPOT_BINARY" "$TMP_CONTEXT/penpot"
+cp "$CANVAS_BINARY" "$TMP_CONTEXT/canvas"
 mkdir -p "$TMP_CONTEXT/docker" "$TMP_CONTEXT/scripts"
 cp -R "$ROOT/docker/runtime" "$TMP_CONTEXT/docker/runtime"
 cp "$ROOT/scripts/hivy-guardian.sh" "$TMP_CONTEXT/scripts/hivy-guardian.sh"

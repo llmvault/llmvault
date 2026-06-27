@@ -104,7 +104,7 @@ describe("canvas artifacts", () => {
       project: { id: "project-1", name: "Launch" },
       viewport: "desktop",
       body: "Tighten the top nav spacing.",
-      selector: "top nav",
+      selector: '[data-canvas-id="top-nav"]',
       now: new Date("2026-06-26T12:00:00.000Z"),
     })
 

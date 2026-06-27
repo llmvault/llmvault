@@ -15,7 +15,6 @@ import {
 import { ThinkingBlock } from "@/app/w/(chat)/_components/conversation-thinking"
 import { UserMessageBlock } from "@/app/w/(chat)/_components/conversation-user-message"
 import { SubagentBlock } from "@/app/w/(chat)/_components/conversation-subagent"
-import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 import {
   type ConversationBlock,
@@ -29,12 +28,10 @@ type SubagentConversationBlock = Extract<
 
 export function Conversation({
   blocks,
-  onOpenCanvasTarget,
   onOpenPreviewTarget,
   onOpenSubagentRun,
 }: {
   blocks: ConversationBlock[]
-  onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
   onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
   onOpenSubagentRun?: (block: SubagentConversationBlock) => void
 }) {
@@ -57,7 +54,6 @@ export function Conversation({
           key={conversationBlockKey(block, index)}
           block={block}
           onOpenAttachment={openAttachment}
-          onOpenCanvasTarget={onOpenCanvasTarget}
           onOpenPreviewTarget={onOpenPreviewTarget}
           onOpenSubagentRun={onOpenSubagentRun}
         />
@@ -75,13 +71,11 @@ export function Conversation({
 function Block({
   block,
   onOpenAttachment,
-  onOpenCanvasTarget,
   onOpenPreviewTarget,
   onOpenSubagentRun,
 }: {
   block: ConversationBlock
   onOpenAttachment: (attachment: MediaAttachment) => void
-  onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
   onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
   onOpenSubagentRun?: (block: SubagentConversationBlock) => void
 }) {
@@ -91,7 +85,6 @@ function Block({
         <AssistantBlock
           block={block}
           onOpenAttachment={onOpenAttachment}
-          onOpenCanvasTarget={onOpenCanvasTarget}
           onOpenPreviewTarget={onOpenPreviewTarget}
         />
       )
@@ -118,7 +111,6 @@ function Block({
               key={conversationBlockKey(child, index)}
               block={child}
               onOpenAttachment={onOpenAttachment}
-              onOpenCanvasTarget={onOpenCanvasTarget}
               onOpenPreviewTarget={onOpenPreviewTarget}
               onOpenSubagentRun={onOpenSubagentRun}
             />

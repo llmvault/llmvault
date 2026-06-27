@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a first-party Canvas artifact system for UseHivey agents. This is a new system and is not based on Penpot. Penpot should remain in place until the prototype is tested, then the Penpot-specific code can be deleted and replaced.
+Build a first-party Canvas artifact system for UseHivey agents. The product flow is centered on Canvas projects, Canvas artifacts, sandbox-backed iframe previews, and comments anchored with `data-canvas-id`.
 
 The prototype should let per-session sandbox agents create, validate, verify, sync, and list Canvas projects and artifacts. The user-facing app should preview real interactive HTML artifacts and let users attach artifact comments to messages sent to the agent.
 
@@ -392,4 +392,4 @@ The test should prove:
 - Sync event durability: sync events are SSE/live-only and used for frontend refresh/iframe reload.
 - Artifact identity: use human-readable slugs derived from names. If a slug exists, append an incrementing suffix such as `-1`, `-2`. Backend UUIDs can exist internally, but the CLI should return enough slug/ID/path information for the agent to continue.
 - Concurrent sync behavior: last write wins for the prototype.
-- Penpot removal: not part of the prototype implementation. Delete Penpot after the new Canvas flow is tested.
+- Frontend flow: mount the Canvas artifact panel and artifact preview APIs directly. Do not revive the legacy external workspace-link card path.

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/canvas"
+	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -26,47 +25,37 @@ type canvasProjectHarness struct {
 func newCanvasProjectHarness(t *testing.T) *canvasProjectHarness {
 	t.Helper()
 	db := connectTestDB(t)
-	svc := canvas.NewService(db, &canvas.Client{
-		PublicURL:       "https://canvas.test",
-		APIBaseURL:      "https://canvas-api.test",
-		ControlPlaneKey: "test-key",
-	})
-	h := handler.NewCanvasHandler(db, nil, svc)
-	r := chi.NewRouter()
-	r.Get("/v1/canvas/projects", h.ListProjects)
-	return &canvasProjectHarness{db: db, router: r}
+	canvasHandler := handler.NewCanvasHandler(db, nil).
+		WithArtifactService(canvasartifact.NewService(db, nil))
+	router := chi.NewRouter()
+	router.Get("/v1/canvas/projects", canvasHandler.ListProjects)
+	return &canvasProjectHarness{db: db, router: router}
 }
 
-func TestIntegration_CanvasProjectsListIncludesFiles(t *testing.T) {
+func TestIntegration_CanvasProjectsListUsesArtifacts(t *testing.T) {
 	h := newCanvasProjectHarness(t)
 	org := createTestOrg(t, h.db)
 	otherOrg := createTestOrg(t, h.db)
 	now := time.Now().UTC()
 
-	project := seedCanvasProject(t, h.db, org.ID, "Launch redesign", now)
-	emptyProject := seedCanvasProject(t, h.db, org.ID, "Empty project", now.Add(time.Minute))
-	pageID := uuid.New()
-	file := seedCanvasFile(t, h.db, org.ID, project, "Homepage", &pageID, now.Add(2*time.Minute))
-	otherProject := seedCanvasProject(t, h.db, otherOrg.ID, "Other org", now.Add(3*time.Minute))
-	seedCanvasFile(t, h.db, otherOrg.ID, otherProject, "Private file", nil, now.Add(4*time.Minute))
+	project := seedCanvasArtifactProject(t, h.db, org.ID, "launch-redesign", "Launch redesign", now)
+	emptyProject := seedCanvasArtifactProject(t, h.db, org.ID, "empty-project", "Empty project", now.Add(time.Minute))
+	otherProject := seedCanvasArtifactProject(t, h.db, otherOrg.ID, "other-org", "Other org", now.Add(2*time.Minute))
+	seedCanvasArtifact(t, h.db, org.ID, project.ID, "landing-page", now.Add(3*time.Minute))
+	seedCanvasArtifact(t, h.db, otherOrg.ID, otherProject.ID, "private-page", now.Add(4*time.Minute))
 
-	rr := h.doCanvasProjects(t, org)
+	rr := h.doCanvasProjects(t, org, "")
 	if rr.Code != http.StatusOK {
 		t.Fatalf("list canvas projects status=%d body=%s", rr.Code, rr.Body.String())
 	}
 
-	type canvasProjectFileResponse struct {
-		FileID       string  `json:"file_id"`
-		ProjectID    string  `json:"project_id"`
-		PageID       *string `json:"page_id"`
-		Name         string  `json:"name"`
-		WorkspaceURL string  `json:"workspace_url"`
-	}
 	var resp struct {
 		Projects []struct {
-			ProjectID string                      `json:"project_id"`
-			Name      string                      `json:"name"`
-			Files     []canvasProjectFileResponse `json:"files"`
+			ID            string `json:"id"`
+			ProjectID     string `json:"project_id"`
+			Slug          string `json:"slug"`
+			Name          string `json:"name"`
+			ArtifactCount int64  `json:"artifact_count"`
 		} `json:"projects"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
@@ -77,56 +66,53 @@ func TestIntegration_CanvasProjectsListIncludesFiles(t *testing.T) {
 	}
 
 	projects := map[string]struct {
-		Name  string
-		Files int
+		Name          string
+		ProjectID     string
+		ArtifactCount int64
 	}{}
-	var listedFile canvasProjectFileResponse
 	for _, item := range resp.Projects {
-		projects[item.ProjectID] = struct {
-			Name  string
-			Files int
-		}{Name: item.Name, Files: len(item.Files)}
-		if item.ProjectID == project.PenpotProjectID.String() && len(item.Files) == 1 {
-			listedFile = item.Files[0]
-		}
+		projects[item.ID] = struct {
+			Name          string
+			ProjectID     string
+			ArtifactCount int64
+		}{Name: item.Name, ProjectID: item.ProjectID, ArtifactCount: item.ArtifactCount}
 	}
-	if projects[project.PenpotProjectID.String()].Name != "Launch redesign" || projects[project.PenpotProjectID.String()].Files != 1 {
-		t.Fatalf("created project missing files: %+v", projects)
+	if projects[project.ID.String()].Name != "Launch redesign" ||
+		projects[project.ID.String()].ProjectID != project.ID.String() ||
+		projects[project.ID.String()].ArtifactCount != 1 {
+		t.Fatalf("project missing artifact count: %+v", projects)
 	}
-	if projects[emptyProject.PenpotProjectID.String()].Name != "Empty project" || projects[emptyProject.PenpotProjectID.String()].Files != 0 {
+	if projects[emptyProject.ID.String()].Name != "Empty project" ||
+		projects[emptyProject.ID.String()].ArtifactCount != 0 {
 		t.Fatalf("empty project not listed correctly: %+v", projects)
 	}
-	if listedFile.FileID != file.PenpotFileID.String() || listedFile.ProjectID != project.PenpotProjectID.String() || listedFile.Name != "Homepage" {
-		t.Fatalf("unexpected file response: %+v", listedFile)
-	}
-	if listedFile.PageID == nil || *listedFile.PageID != pageID.String() {
-		t.Fatalf("page id = %v, want %s", listedFile.PageID, pageID)
-	}
-	if !strings.Contains(listedFile.WorkspaceURL, "https://canvas.test/#/workspace?") ||
-		!strings.Contains(listedFile.WorkspaceURL, "file-id="+file.PenpotFileID.String()) ||
-		!strings.Contains(listedFile.WorkspaceURL, "page-id="+pageID.String()) {
-		t.Fatalf("workspace url missing target ids: %s", listedFile.WorkspaceURL)
+	if _, ok := projects[otherProject.ID.String()]; ok {
+		t.Fatalf("listed project from another org: %+v", projects)
 	}
 }
 
-func (h *canvasProjectHarness) doCanvasProjects(t *testing.T, org model.Org) *httptest.ResponseRecorder {
+func (h *canvasProjectHarness) doCanvasProjects(t *testing.T, org model.Org, query string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/v1/canvas/projects", nil)
+	path := "/v1/canvas/projects"
+	if query != "" {
+		path += "?" + query
+	}
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)
 	return rr
 }
 
-func seedCanvasProject(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, updatedAt time.Time) model.CanvasProject {
+func seedCanvasArtifactProject(t *testing.T, db *gorm.DB, orgID uuid.UUID, slug, name string, updatedAt time.Time) model.CanvasProject {
 	t.Helper()
 	project := model.CanvasProject{
-		ID:              uuid.New(),
-		OrgID:           orgID,
-		PenpotProjectID: uuid.New(),
-		Name:            name,
-		CreatedAt:       updatedAt.Add(-time.Minute),
-		UpdatedAt:       updatedAt,
+		ID:        uuid.New(),
+		OrgID:     orgID,
+		Slug:      slug,
+		Name:      name,
+		CreatedAt: updatedAt.Add(-time.Minute),
+		UpdatedAt: updatedAt,
 	}
 	if err := db.Create(&project).Error; err != nil {
 		t.Fatalf("seed canvas project: %v", err)
@@ -134,21 +120,21 @@ func seedCanvasProject(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, 
 	return project
 }
 
-func seedCanvasFile(t *testing.T, db *gorm.DB, orgID uuid.UUID, project model.CanvasProject, name string, pageID *uuid.UUID, updatedAt time.Time) model.CanvasFile {
+func seedCanvasArtifact(t *testing.T, db *gorm.DB, orgID, projectID uuid.UUID, slug string, updatedAt time.Time) model.CanvasArtifact {
 	t.Helper()
-	file := model.CanvasFile{
+	artifact := model.CanvasArtifact{
 		ID:              uuid.New(),
 		OrgID:           orgID,
-		CanvasProjectID: &project.ID,
-		PenpotProjectID: project.PenpotProjectID,
-		PenpotFileID:    uuid.New(),
-		PenpotPageID:    pageID,
-		Name:            name,
+		CanvasProjectID: projectID,
+		Slug:            slug,
+		Type:            "web_page",
+		Name:            "Landing page",
+		ManifestJSON:    model.RawJSON(`{"schema_version":1}`),
 		CreatedAt:       updatedAt.Add(-time.Minute),
 		UpdatedAt:       updatedAt,
 	}
-	if err := db.Create(&file).Error; err != nil {
-		t.Fatalf("seed canvas file: %v", err)
+	if err := db.Create(&artifact).Error; err != nil {
+		t.Fatalf("seed canvas artifact: %v", err)
 	}
-	return file
+	return artifact
 }

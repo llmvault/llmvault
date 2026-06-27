@@ -79,7 +79,7 @@ Investors and their teams may skim or use tools to extract deck facts. Make key 
 - Metrics next to labels and dates.
 - Consistent formatting for revenue, customers, growth, retention, and ask.
 - Sources or assumptions for market sizing.
-- Appendix boards for deeper diligence.
+- Appendix slides for deeper diligence.
 
 ## Common Mistakes
 
@@ -94,8 +94,8 @@ Investors and their teams may skim or use tools to extract deck facts. Make key 
 
 ## Canvas Format
 
-- Use 16:9 Canvas boards.
+- Use 16:9 Canvas presentation slides.
 - Keep the deck readable at 50% zoom.
 - Use selected Canvas brand colors, type, and logo rules.
 - Include source labels for metrics and claims.
-- Export the final Canvas boards, PDF when supported, or image sequence only after visual QA.
+- Sync the final Canvas presentation artifact only after visual QA.

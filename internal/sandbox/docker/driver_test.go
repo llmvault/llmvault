@@ -17,10 +17,17 @@ func TestNormalizeRuntimeOrigin(t *testing.T) {
 		"192.0.2.10",
 		"http://192.0.2.10/runtime",
 		"http://192.0.2.10:7080",
-		"http://host.docker.internal",
 	} {
 		if got, err := normalizeRuntimeOrigin(value); err == nil {
 			t.Fatalf("normalizeRuntimeOrigin(%q) = %q, want error", value, got)
 		}
+	}
+
+	got, err = normalizeRuntimeOrigin("http://host.docker.internal")
+	if err != nil {
+		t.Fatalf("normalizeRuntimeOrigin host.docker.internal: %v", err)
+	}
+	if got != "http://host.docker.internal" {
+		t.Fatalf("host.docker.internal origin = %q", got)
 	}
 }

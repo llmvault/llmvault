@@ -326,7 +326,7 @@ export function CanvasCommentComposer({
           type="text"
           value={selector}
           disabled={disabled}
-          placeholder="Element or area"
+          placeholder="data-canvas-id or selector"
           onChange={(event) => {
             setSelector(event.target.value)
             setSent(false)

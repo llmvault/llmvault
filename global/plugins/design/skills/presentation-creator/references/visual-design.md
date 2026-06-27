@@ -10,13 +10,13 @@ Use the selected Canvas org brand first:
 - If no brand exists, use the Canvas skill's fallback: choose a restrained starter palette from the brief, persist it with `canvas brands create`, and tell the user.
 - Do not default to dark-first, gradients, or arbitrary section colors unless the brand or brief supports them.
 
-## Canvas Board Setup
+## Canvas Slide Setup
 
-- Use 16:9 boards, typically 1920x1080.
-- Name boards with slide number and job: `07 - Objection risk`.
-- Use consistent margins, usually 80-120px on desktop-scale boards.
+- Use a 16:9 slide viewport, typically 1920x1080.
+- Name slide IDs and files with slide number and job: `slide-007-objection-risk`.
+- Use consistent margins, usually 80-120px on desktop-scale slides.
 - Keep reusable header, footer, slide number, section label, and source-note components consistent.
-- Put speaker notes or internal rationale on separate notes boards or clearly labeled off-slide areas, not inside the visible slide.
+- Put speaker notes or internal rationale in artifact metadata, notes sections, or clearly labeled non-visible notes areas, not inside the visible slide.
 
 ## Typography Hierarchy
 

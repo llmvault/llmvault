@@ -1,13 +1,13 @@
 ---
 name: design-taste
-description: Use when designing, redesigning, critiquing, polishing, or improving the taste of websites, web apps, landing pages, homepages, portfolios, product pages, pricing pages, onboarding flows, settings surfaces, dashboards, or high-polish web interfaces. This is a design-direction skill for avoiding generic generated design: brief inference, visual dials, typography, color, layout, motion, asset, interaction-state, and preflight review discipline. In Hivy, use this skill with the canvas skill whenever the design artifact should be created, reviewed, or edited in Canvas.
+description: Use when designing, redesigning, critiquing, polishing, or improving the taste of websites, web apps, landing pages, homepages, portfolios, product pages, pricing pages, onboarding flows, settings surfaces, dashboards, or high-polish web interfaces. This is a design-direction skill for avoiding generic generated design: brief inference, visual dials, typography, color, layout, motion, asset, interaction-state, and preflight review discipline. In Hivy, use this skill with the canvas skill whenever the design should become a Canvas artifact.
 ---
 
-# Design Taste For Hivy Canvas
+# Design Taste For Hivy Canvas Artifacts
 
 Use this skill to make website and web app designs feel specific, intentional, and appropriate to their audience. It is not a code framework. It is a taste and review framework for design work that should usually become a Canvas artifact.
 
-The Canvas file is the source of truth when the user asks for a design, redesign, mockup, critique, or polish pass. Notes are useful, but the design decisions should be visible in Canvas.
+The Canvas artifact is the source of truth when the user asks for a design, redesign, mockup, critique, or polish pass. Notes are useful, but the design decisions should be visible in a rendered artifact.
 
 ## Core Rule
 
@@ -32,21 +32,23 @@ If the design read could diverge in materially different directions, use `reques
 When creating, redesigning, critiquing, or polishing a website or web app design:
 
 1. Load the `canvas` skill before editing the artifact.
-2. Run `canvas doctor`, then `canvas init`.
-3. Open or create the target Canvas file and page.
-4. Inspect the current file, page structure, existing colors, typography, components, and layout constraints.
+2. Run `canvas doctor`, then list or create the target project.
+3. Create or open the target `web_page` artifact.
+4. Inspect the current artifact structure, existing colors, typography, components, layout constraints, and important `data-canvas-id` anchors.
 5. Run `canvas brands list` before choosing palette, typography, logo treatment, or voice. Use the default org brand when present; otherwise inspect the relevant brand with `canvas brands view <brand-id>`. If the list is empty and a palette is needed, choose a defensible starting palette from the brief or product context, create it with `canvas brands create`, and tell the user what was saved.
-6. Create or update boards in Canvas using `canvas mcp execute_code`.
-7. Verify structurally after write batches.
-8. Export the affected board with `canvas mcp export_shape`, decode it to `/tmp`, and inspect it with `read_file` before claiming the design is visually correct.
+6. Edit the artifact HTML/CSS/JS directly under `/workspace/canvas`.
+7. Use semantic HTML and stable `data-canvas-id` anchors for major sections, repeated cards, forms, navigation, figures, and important controls.
+8. Run `canvas artifact validate` after structural edits and fix any error-level issues.
+9. Use Agent Browser to render the artifact, test desktop and mobile viewports, click important interactions, and capture screenshots.
+10. Run `canvas artifact verify`, then `canvas artifact sync` before claiming the design is ready.
 
-For pure critique, inspect the Canvas file or supplied screenshot first. If the user wants changes, apply them in Canvas.
+For pure critique, inspect the Canvas artifact, supplied screenshot, or live preview first. If the user wants changes, apply them in the artifact.
 
 ## Brand Source Rule
 
 Org brands are the source of truth for brand-sensitive design decisions. Always run `canvas brands list` before selecting or changing colors, typography, logo usage, or voice.
 
-Use the default brand when one exists. If there are multiple brands and no default, use `request_user_input` to choose the brand. If no brand exists, choose a tasteful starter palette only when the brief, audience, product category, or current Canvas file gives enough direction; then persist it with `canvas brands create` and tell the user. If the context is too thin to choose responsibly, use `request_user_input` for one focused direction question.
+Use the default brand when one exists. If there are multiple brands and no default, use `request_user_input` to choose the brand. If no brand exists, choose a tasteful starter palette only when the brief, audience, product category, or current Canvas artifact gives enough direction; then persist it with `canvas brands create` and tell the user. If the context is too thin to choose responsibly, use `request_user_input` for one focused direction question.
 
 ## Scope
 
@@ -119,7 +121,7 @@ Typography should carry hierarchy before decoration does.
 - Watch descenders in italic display text. Leave enough line height and padding so letters like `g`, `j`, `p`, `q`, and `y` do not clip.
 - Keep body copy readable and line lengths controlled.
 
-In Canvas, test type at the actual board size and at the likely mobile width. Rewrite copy or adjust scale when text breaks awkwardly.
+In Canvas, test type at the default desktop viewport and at the likely mobile width. Rewrite copy or adjust scale when text breaks awkwardly.
 
 ## Color
 
@@ -156,7 +158,7 @@ For web apps, prioritize stable dimensions, clear grouping, visible states, and 
 
 Websites and web apps need real visual evidence:
 
-- Use product screenshots, actual UI states, generated images, brand assets, or clear Canvas-drawn interface states.
+- Use product screenshots, actual UI states, generated images, brand assets, or clear artifact-rendered interface states.
 - Do not use decorative SVGs as filler.
 - Do not represent a product with random rectangles unless it is explicitly a wireframe.
 - Social proof should use real logo marks or credible generated marks, not plain text labels pretending to be logos.
@@ -168,7 +170,7 @@ If required assets are missing, use `request_user_input` when the choice matters
 
 Motion should explain hierarchy, sequence, feedback, or state change. If it cannot be justified in one sentence, skip it.
 
-For Canvas mockups, express motion as annotated states, prototype connections, or motion notes. Do not imply motion exists unless it is represented in the file.
+For Canvas artifacts, express motion as working HTML/CSS/JS interactions or as clearly labeled state sections. Do not imply motion exists unless it is represented in the artifact.
 
 For web app surfaces, include expected states:
 
@@ -203,7 +205,7 @@ Never change route structure, primary nav labels, legal/consent copy, analytics-
 
 ## Canvas Preflight
 
-Before presenting website or web app design work, run this review against the Canvas export:
+Before presenting website or web app design work, run this review against the rendered Canvas artifact:
 
 - Design read is clear and reflected in the artifact.
 - Dials match the surface type and audience.
@@ -212,7 +214,7 @@ Before presenting website or web app design work, run this review against the Ca
 - Text contrast is accessible.
 - CTA labels fit and do not wrap awkwardly.
 - Forms have labels, helper/error placement, focus treatment, and contrast.
-- Hero fits the initial viewport for the target board size.
+- Hero fits the initial viewport for the target desktop and mobile preview sizes.
 - Hero has no more than one small label element.
 - Trust logos or proof sit below the hero unless there is a strong reason.
 - Section layouts do not repeat monotonously.
@@ -224,19 +226,19 @@ Before presenting website or web app design work, run this review against the Ca
 - Motion is represented only where justified.
 - Mobile or narrow layout is accounted for when relevant.
 - Web app screens include loading, empty, error, and interaction states when the flow requires them.
-- Exported Canvas board has been inspected with `read_file`.
+- Rendered artifact has been inspected with Agent Browser screenshots and interactive snapshots.
 
-If a check fails, fix the Canvas design before calling the work done.
+If a check fails, fix the Canvas artifact before calling the work done.
 
 ## Presentation Standard
 
 When presenting the result:
 
 1. State the design read and the surface type.
-2. Name the Canvas file/page/board touched.
+2. Name the Canvas project, artifact, artifact type, and artifact path touched.
 3. Summarize the main design decisions.
 4. Call out the strongest improvement in hierarchy, trust, scanability, or memorability.
 5. Mention any assumptions or asset placeholders.
-6. Report verification: structural check plus exported board inspection.
+6. Report verification: validate/verify result plus Agent Browser viewport and interaction checks.
 
 Keep the presentation specific. Do not explain generic design theory unless the user asks for it.

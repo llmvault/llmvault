@@ -154,7 +154,7 @@ ENV HOME=/workspace
 WORKDIR /app
 
 COPY hivy-sandboxes-runtime /usr/local/bin/hivy-sandboxes-runtime
-COPY penpot /usr/local/bin/penpot
+COPY canvas /usr/local/bin/canvas
 COPY docker/runtime/entrypoint /usr/local/bin/hivy-runtime-entrypoint
 COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
 COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
@@ -163,8 +163,7 @@ COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
-  && chmod +x /usr/local/bin/penpot \
-  && ln -sf /usr/local/bin/penpot /usr/local/bin/canvas \
+  && chmod +x /usr/local/bin/canvas \
   && mkdir -p /app /workspace/.hivy/runtime /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
   && chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \

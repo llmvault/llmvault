@@ -41,7 +41,6 @@ func (s *Service) CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, 
 	}
 	project := model.CanvasProject{
 		OrgID:            org.ID,
-		PenpotProjectID:  uuid.New(),
 		Slug:             slug,
 		Name:             name,
 		CreatedByAgentID: &agent.ID,

@@ -78,11 +78,6 @@ export function createDefaultSessionWorkspace(
       src: "/",
       reloadKey: 0,
     },
-    canvas: {
-      targets: [],
-      activeTargetKey: null,
-      sessionURLs: {},
-    },
     review: {
       diffStyle: "unified",
     },

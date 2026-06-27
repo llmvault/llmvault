@@ -8,7 +8,8 @@ import (
 )
 
 type createPayload struct {
-	Instruction    string                 `json:"instruction"`
+	Prompt         string                 `json:"prompt"`
+	Version        string                 `json:"version"`
 	References     []referencePayload     `json:"references,omitempty"`
 	Layout         any                    `json:"layout,omitempty"`
 	AspectRatio    string                 `json:"aspect_ratio"`
@@ -32,10 +33,10 @@ func buildCreatePayload(req GenerateRequest) (createPayload, ImageFormat, error)
 	}
 	instruction := strings.TrimSpace(req.Instruction)
 	if instruction == "" {
-		return createPayload{}, "", errors.New("reve instruction is required")
+		return createPayload{}, "", errors.New("reve prompt is required")
 	}
 	if len([]rune(instruction)) > maxInstruction {
-		return createPayload{}, "", fmt.Errorf("reve instruction exceeds %d characters", maxInstruction)
+		return createPayload{}, "", fmt.Errorf("reve prompt exceeds %d characters", maxInstruction)
 	}
 	format := req.Format
 	if format == "" {
@@ -53,7 +54,8 @@ func buildCreatePayload(req GenerateRequest) (createPayload, ImageFormat, error)
 		return createPayload{}, "", err
 	}
 	return createPayload{
-		Instruction:    instruction,
+		Prompt:         instruction,
+		Version:        "latest",
 		References:     references,
 		Layout:         req.Layout,
 		AspectRatio:    aspectRatio,

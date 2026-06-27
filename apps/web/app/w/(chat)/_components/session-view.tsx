@@ -41,7 +41,6 @@ import {
   imageAttachmentIDs,
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
-import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import type { SubagentConversationBlock } from "@/app/w/(chat)/_lib/static-data"
@@ -79,9 +78,6 @@ export function SessionThreadView({
   const queryClient = useQueryClient()
   const liveEvents = useSessionLiveEvents(sessionId)
   const liveSubagentRuns = useSessionSubagentRuns(sessionId)
-  const openCanvasTarget = useSessionWorkspaceStore(
-    (state) => state.openCanvasTarget
-  )
   const openBrowserURL = useSessionWorkspaceStore(
     (state) => state.openBrowserURL
   )
@@ -382,12 +378,6 @@ export function SessionThreadView({
     })
   }
 
-  const handleOpenCanvasTarget = useCallback(
-    (target: CanvasDesignTarget) => {
-      openCanvasTarget(sessionId ?? "new-chat", target)
-    },
-    [openCanvasTarget, sessionId]
-  )
   const handleOpenPreviewTarget = useCallback(
     (target: PreviewBrowserTarget) => {
       openBrowserURL(sessionId ?? "new-chat", target.url)
@@ -442,7 +432,6 @@ export function SessionThreadView({
             />
             <Conversation
               blocks={visibleBlocks}
-              onOpenCanvasTarget={handleOpenCanvasTarget}
               onOpenPreviewTarget={handleOpenPreviewTarget}
               onOpenSubagentRun={handleOpenSubagentRun}
             />

@@ -18,8 +18,8 @@ func TestGenerateImageSendsCreateRequestAndReturnsImage(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Fatalf("method = %s, want POST", r.Method)
 		}
-		if r.URL.Path != "/v2/image/create" {
-			t.Fatalf("path = %s, want /v2/image/create", r.URL.Path)
+		if r.URL.Path != "/v1/image/create" {
+			t.Fatalf("path = %s, want /v1/image/create", r.URL.Path)
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
 			t.Fatalf("Authorization = %q", got)
@@ -35,8 +35,11 @@ func TestGenerateImageSendsCreateRequestAndReturnsImage(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode request body: %v", err)
 		}
-		if got := body["instruction"]; got != "A launch poster for Hivy" {
-			t.Fatalf("instruction = %#v", got)
+		if got := body["prompt"]; got != "A launch poster for Hivy" {
+			t.Fatalf("prompt = %#v", got)
+		}
+		if got := body["version"]; got != "latest" {
+			t.Fatalf("version = %#v", got)
 		}
 		if got := body["aspect_ratio"]; got != string(Aspect16x9) {
 			t.Fatalf("aspect_ratio = %#v", got)
@@ -151,7 +154,7 @@ func TestGenerateImageReturnsStructuredStatusError(t *testing.T) {
 			"error_code": "MISSING_REQUIRED_PARAMETER",
 			"message":    "Missing one or more required parameters",
 			"params": map[string]any{
-				"missing": []string{"instruction"},
+				"missing": []string{"prompt"},
 			},
 		})
 	}))

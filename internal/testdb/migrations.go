@@ -188,7 +188,6 @@ var migratedTables = []string{
 	"connections",
 	"canvas_artifact_files",
 	"canvas_artifacts",
-	"canvas_files",
 	"canvas_projects",
 	"credentials",
 	"credit_ledger_entries",
@@ -247,4 +246,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 45
+const latestMigrationVersion = 46

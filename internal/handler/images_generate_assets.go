@@ -52,7 +52,7 @@ func (h *UploadsHandler) resolveGenerationModel(ctx context.Context, agent *mode
 	return modelID, h.generationRegistry().ValidateImageGenerationModel(modelID, vector)
 }
 
-func (h *UploadsHandler) imageReferenceInputs(ctx context.Context, agent *model.Agent, rawIDs []string) ([]imageReferenceInput, error) {
+func (h *UploadsHandler) imageReferenceInputs(ctx context.Context, agent *model.Agent, rawIDs []string) ([]imageGenerationReference, error) {
 	if len(rawIDs) == 0 {
 		return nil, nil
 	}
@@ -77,7 +77,7 @@ func (h *UploadsHandler) imageReferenceInputs(ctx context.Context, agent *model.
 	for _, asset := range assets {
 		byID[asset.ID] = asset
 	}
-	out := make([]imageReferenceInput, 0, len(ids))
+	out := make([]imageGenerationReference, 0, len(ids))
 	for _, id := range ids {
 		asset, ok := byID[id]
 		if !ok {
@@ -87,9 +87,7 @@ func (h *UploadsHandler) imageReferenceInputs(ctx context.Context, agent *model.
 		if err != nil {
 			return nil, err
 		}
-		ref := imageReferenceInput{Type: "image_url"}
-		ref.ImageURL.URL = url
-		out = append(out, ref)
+		out = append(out, imageGenerationReference{URL: url})
 	}
 	return out, nil
 }
@@ -116,10 +114,10 @@ func (h *UploadsHandler) referenceAssetURL(ctx context.Context, asset model.Agen
 	return value, nil
 }
 
-func (h *UploadsHandler) storeGeneratedImages(ctx context.Context, agent *model.Agent, sandbox *model.Sandbox, vector bool, modelID, upstreamModel, prompt string, referenceIDs []string, images []generatedImageBytes) ([]imageGenerationToolResult, error) {
+func (h *UploadsHandler) storeGeneratedImages(ctx context.Context, agent *model.Agent, sandbox *model.Sandbox, vector bool, providerID, modelID, upstreamModel, prompt string, referenceIDs []string, images []generatedImageBytes) ([]imageGenerationToolResult, error) {
 	results := make([]imageGenerationToolResult, 0, len(images))
 	for _, image := range images {
-		contentType := detectGeneratedImageContentType(image.Data, vector)
+		contentType := detectGeneratedImageContentType(image.Data, vector, image.ContentType)
 		filename := generatedImageFilename(vector, contentType)
 		folder := "generated/images"
 		if vector {
@@ -134,7 +132,7 @@ func (h *UploadsHandler) storeGeneratedImages(ctx context.Context, agent *model.
 			return nil, fmt.Errorf("generated image is empty")
 		}
 		publicURL := h.publicAssetURL(stored.Key, "")
-		description, err := generatedImageDescription(vector, modelID, upstreamModel, prompt, referenceIDs)
+		description, err := generatedImageDescription(vector, providerID, modelID, upstreamModel, prompt, referenceIDs, image.Metadata)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +162,13 @@ func (h *UploadsHandler) storeGeneratedImages(ctx context.Context, agent *model.
 	return results, nil
 }
 
-func detectGeneratedImageContentType(data []byte, vector bool) string {
+func detectGeneratedImageContentType(data []byte, vector bool, declaredContentType ...string) string {
+	for _, value := range declaredContentType {
+		value = strings.TrimSpace(value)
+		if strings.HasPrefix(strings.ToLower(value), "image/") {
+			return value
+		}
+	}
 	prefix := strings.TrimSpace(string(data[:min(len(data), 512)]))
 	if strings.Contains(strings.ToLower(prefix), "<svg") {
 		return "image/svg+xml"
@@ -207,17 +211,24 @@ func extensionForImageContentType(contentType string) string {
 	}
 }
 
-func generatedImageDescription(vector bool, modelID, upstreamModel, prompt string, referenceIDs []string) (model.RawJSON, error) {
-	raw, err := json.Marshal(map[string]any{
+func generatedImageDescription(vector bool, providerID, modelID, upstreamModel, prompt string, referenceIDs []string, extra model.JSON) (model.RawJSON, error) {
+	meta := map[string]any{
 		"auto_generated":      true,
 		"generated_by":        "ai",
 		"source":              "image_generation",
 		"mode":                map[bool]string{true: "vector", false: "raster"}[vector],
+		"provider_id":         providerID,
 		"model":               modelID,
 		"upstream_model":      upstreamModel,
 		"prompt":              prompt,
 		"reference_asset_ids": cleanReferenceAssetIDs(referenceIDs),
-	})
+	}
+	for key, value := range extra {
+		if strings.TrimSpace(key) != "" {
+			meta[key] = value
+		}
+	}
+	raw, err := json.Marshal(meta)
 	if err != nil {
 		return nil, err
 	}

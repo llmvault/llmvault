@@ -1,5 +1,5 @@
 .PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-agent-streaming-e2e test-agent-production-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-test-runtime ci-quality ensure-nango-image infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
-.PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi penpot-cli-linux-build penpot-cli-linux-build-amd64 penpot-cli-linux-build-arm64 sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
+.PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi canvas-cli-linux-build canvas-cli-linux-build-amd64 canvas-cli-linux-build-arm64 sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -11,9 +11,9 @@ SANDBOX_RUNTIME_LINUX_TARGET ?= $(SANDBOX_RUNTIME_LINUX_AMD64_TARGET)
 SANDBOX_RUNTIME_LINUX_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_TARGET)
 SANDBOX_RUNTIME_LINUX_AMD64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_AMD64_TARGET)
 SANDBOX_RUNTIME_LINUX_ARM64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_ARM64_TARGET)
-PENPOT_CLI_LINUX_BINARY := dist/penpot-linux-amd64
-PENPOT_CLI_LINUX_AMD64_BINARY := dist/penpot-linux-amd64
-PENPOT_CLI_LINUX_ARM64_BINARY := dist/penpot-linux-arm64
+CANVAS_CLI_LINUX_BINARY := dist/canvas-linux-amd64
+CANVAS_CLI_LINUX_AMD64_BINARY := dist/canvas-linux-amd64
+CANVAS_CLI_LINUX_ARM64_BINARY := dist/canvas-linux-arm64
 SANDBOX_RUNTIME_IMAGE ?= ghcr.io/usehivy/hivy-sandboxes-runtime:runtime
 SANDBOX_RUNTIME_DEVELOPERS_IMAGE ?= ghcr.io/usehivy/hivy-sandboxes-runtime-developers:runtime
 MICROSANDBOX_BINARY ?= bin/microsandbox
@@ -146,17 +146,17 @@ sandbox-runtime-linux-build-all: sandbox-runtime-linux-build-amd64 sandbox-runti
 
 sandbox-runtime-release-all: sandbox-runtime-native-release sandbox-runtime-linux-build-all
 
-penpot-cli-linux-build:
+canvas-cli-linux-build:
 	mkdir -p dist
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO_BIN) build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(PENPOT_CLI_LINUX_BINARY) ./cmd/penpot
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO_BIN) build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(CANVAS_CLI_LINUX_BINARY) ./cmd/canvas
 
-penpot-cli-linux-build-amd64:
+canvas-cli-linux-build-amd64:
 	mkdir -p dist
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO_BIN) build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(PENPOT_CLI_LINUX_AMD64_BINARY) ./cmd/penpot
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO_BIN) build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(CANVAS_CLI_LINUX_AMD64_BINARY) ./cmd/canvas
 
-penpot-cli-linux-build-arm64:
+canvas-cli-linux-build-arm64:
 	mkdir -p dist
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO_BIN) build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(PENPOT_CLI_LINUX_ARM64_BINARY) ./cmd/penpot
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO_BIN) build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(CANVAS_CLI_LINUX_ARM64_BINARY) ./cmd/canvas
 
 sandbox-runtime-test:
 	cd $(SANDBOX_RUNTIME_DIR) && cargo test --workspace --locked
@@ -170,17 +170,17 @@ sandbox-runtime-clippy:
 sandbox-runtime-openapi runtime-openapi:
 	$(MAKE) -C $(SANDBOX_RUNTIME_DIR) openapi
 
-sandbox-runtime-image: sandbox-runtime-linux-build penpot-cli-linux-build
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" PENPOT_CLI_BINARY="../../$(PENPOT_CLI_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)" bash scripts/build_runtime_image.sh
+sandbox-runtime-image: sandbox-runtime-linux-build canvas-cli-linux-build
+	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" CANVAS_CLI_BINARY="../../$(CANVAS_CLI_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)" bash scripts/build_runtime_image.sh
 
-sandbox-runtime-developers-image: sandbox-runtime-linux-build penpot-cli-linux-build
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" PENPOT_CLI_BINARY="../../$(PENPOT_CLI_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_DEVELOPERS_IMAGE)" HIVY_SANDBOXES_RUNTIME_DOCKERFILE="Dockerfile.developers" bash scripts/build_runtime_image.sh
+sandbox-runtime-developers-image: sandbox-runtime-linux-build canvas-cli-linux-build
+	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" CANVAS_CLI_BINARY="../../$(CANVAS_CLI_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_DEVELOPERS_IMAGE)" HIVY_SANDBOXES_RUNTIME_DOCKERFILE="Dockerfile.developers" bash scripts/build_runtime_image.sh
 
-sandbox-runtime-image-amd64: sandbox-runtime-linux-build-amd64 penpot-cli-linux-build-amd64
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_AMD64_BINARY)" PENPOT_CLI_BINARY="../../$(PENPOT_CLI_LINUX_AMD64_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)-amd64" bash scripts/build_runtime_image.sh
+sandbox-runtime-image-amd64: sandbox-runtime-linux-build-amd64 canvas-cli-linux-build-amd64
+	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_AMD64_BINARY)" CANVAS_CLI_BINARY="../../$(CANVAS_CLI_LINUX_AMD64_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)-amd64" bash scripts/build_runtime_image.sh
 
-sandbox-runtime-image-arm64: sandbox-runtime-linux-build-arm64 penpot-cli-linux-build-arm64
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_ARM64_BINARY)" PENPOT_CLI_BINARY="../../$(PENPOT_CLI_LINUX_ARM64_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)-arm64" bash scripts/build_runtime_image.sh
+sandbox-runtime-image-arm64: sandbox-runtime-linux-build-arm64 canvas-cli-linux-build-arm64
+	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_ARM64_BINARY)" CANVAS_CLI_BINARY="../../$(CANVAS_CLI_LINUX_ARM64_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)-arm64" bash scripts/build_runtime_image.sh
 
 sandbox-runtime-image-test:
 	cd $(SANDBOX_RUNTIME_DIR) && bash scripts/test_runtime_image.sh

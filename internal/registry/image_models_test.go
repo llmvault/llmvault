@@ -5,25 +5,22 @@ import "testing"
 func TestImageGenerationModelCatalog(t *testing.T) {
 	reg := Global()
 
-	flux, ok := reg.ResolveModel("openrouter", DefaultRasterImageGenerationModelID)
+	reve, ok := reg.ResolveModel("reve", DefaultRasterImageGenerationModelID)
 	if !ok {
 		t.Fatal("default raster image model route not found")
 	}
-	if flux.UpstreamID != "black-forest-labs/flux.2-klein-4b" {
-		t.Fatalf("flux upstream = %q", flux.UpstreamID)
+	if reve.UpstreamID != "reve-image" {
+		t.Fatalf("reve upstream = %q", reve.UpstreamID)
 	}
-	if !flux.Model.OpenWeights {
-		t.Fatal("flux should be marked open_weights")
-	}
-	if !ModelSupportsImageOutput(flux.Model) || ModelSupportsTextOutput(flux.Model) {
-		t.Fatalf("flux modalities = %#v", flux.Model.Modalities)
+	if !ModelSupportsImageOutput(reve.Model) || ModelSupportsTextOutput(reve.Model) {
+		t.Fatalf("reve modalities = %#v", reve.Model.Modalities)
 	}
 
 	vector, ok := reg.ResolveModel("openrouter", DefaultVectorImageGenerationModelID)
 	if !ok {
 		t.Fatal("default vector image model route not found")
 	}
-	if vector.UpstreamID != "recraft/recraft-v4.1-vector" {
+	if vector.UpstreamID != "recraft/recraft-v4.1-pro-vector" {
 		t.Fatalf("vector upstream = %q", vector.UpstreamID)
 	}
 	if !ModelSupportsImageOutput(vector.Model) || ModelSupportsTextOutput(vector.Model) {
@@ -32,8 +29,9 @@ func TestImageGenerationModelCatalog(t *testing.T) {
 }
 
 func TestImageGenerationModelsForProviders(t *testing.T) {
-	models := Global().ImageGenerationModelsForProviders([]string{"openrouter"})
+	models := Global().ImageGenerationModelsForProviders([]string{"reve", "openrouter"})
 	want := map[string]bool{
+		"reve-image":              false,
 		"flux.2-klein-4b":         false,
 		"riverflow-v2.5-fast":     false,
 		"riverflow-v2.5-pro":      false,

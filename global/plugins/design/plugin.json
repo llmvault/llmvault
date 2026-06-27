@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "design",
   "name": "Design",
-  "description": "Canvas design workflows for brands, logos, sites, decks.",
+  "description": "Canvas artifact workflows for brands, prototypes, pages, and decks.",
   "category": "Design",
   "icon": "lucide:palette",
   "icon_color": "#14B8A6",
@@ -11,17 +11,18 @@
   "capabilities": ["Read", "Write", "Browser"],
   "examples": [
     "Polish this web app screen so it feels less generic",
-    "Explore tasteful logo directions for this brand in Canvas",
-    "Write and place landing page hero copy in a Canvas mockup",
-    "Design a persuasive business slide deck in Canvas",
-    "Turn this investor pitch outline into a polished Canvas deck",
-    "Open the current Canvas file and add a landing page mockup",
-    "Export the current Canvas board as a PNG"
+    "Create a Canvas project and build a clickable landing page artifact",
+    "Explore tasteful logo directions as a Canvas artifact",
+    "Write and place landing page hero copy in an interactive Canvas prototype",
+    "Design a persuasive business slide deck as Canvas presentation artifacts",
+    "Turn this investor pitch outline into a validated Canvas deck",
+    "Preview this Canvas artifact in Agent Browser and test the interactions",
+    "Generate prototype images and use them in a Canvas artifact"
   ],
   "links": {
     "website": "https://www.usehivy.com/"
   },
-  "long_description": "Use the Design plugin to work with Hivy-managed Canvas files and design-direction workflows. Agents use the built-in canvas CLI to open an authenticated browser session, switch between files and pages, call Canvas MCP tools, modify live design files, improve web app and website taste, create logo and visual identity explorations, write conversion-focused landing page copy in context, design persuasive business slide decks, and export design artifacts while users watch collaboration in real time.",
+  "long_description": "Use the Design plugin to create first-party Canvas artifacts and design-direction workflows. Agents use the built-in canvas CLI to create org-scoped projects, scaffold web_page and presentation artifacts under /workspace/canvas, edit self-contained HTML/CSS/JS, use semantic HTML with data-canvas-id anchors, validate and verify artifacts, preview them with Agent Browser, generate images when prototypes need real visuals, and sync finished artifacts to the control plane.",
   "plugin_version": "1",
   "enabled": true
 }

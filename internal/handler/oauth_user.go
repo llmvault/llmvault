@@ -148,7 +148,6 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 		return nil, err
 	}
 	enqueueOrgHivyAgentProvision(ctx, h.enqueuer, createdOrgID, "oauth_signup")
-	enqueueCanvasOrgSync(ctx, h.enqueuer, createdOrgID, "oauth_signup")
 
 	return &user, nil
 }

@@ -22,20 +22,20 @@ func NewTriggerDeliveryHandler(db *gorm.DB) *TriggerDeliveryHandler {
 }
 
 type triggerDeliveryResponse struct {
-	ID                    string          `json:"id"`
-	AgentID               string          `json:"agent_id"`
-	TriggerID             string          `json:"trigger_id"`
-	ConnectionID          string          `json:"connection_id,omitempty"`
-	DeliveryID            string          `json:"delivery_id"`
-	EventKey              string          `json:"event_key"`
-	ResourceKey           string          `json:"resource_key"`
-	SessionID             string          `json:"session_id"`
-	RuntimeSessionID      string          `json:"runtime_session_id"`
-	RuntimeStreamID       string          `json:"runtime_stream_id,omitempty"`
-	RuntimeTraceID        string          `json:"runtime_trace_id,omitempty"`
-	RuntimeTurnID         string          `json:"runtime_turn_id,omitempty"`
-	Payload               json.RawMessage `json:"payload"`
-	CreatedAt             string          `json:"created_at"`
+	ID               string          `json:"id"`
+	AgentID          string          `json:"agent_id"`
+	TriggerID        string          `json:"trigger_id"`
+	ConnectionID     string          `json:"connection_id,omitempty"`
+	DeliveryID       string          `json:"delivery_id"`
+	EventKey         string          `json:"event_key"`
+	ResourceKey      string          `json:"resource_key"`
+	SessionID        string          `json:"session_id"`
+	RuntimeSessionID string          `json:"runtime_session_id"`
+	RuntimeStreamID  string          `json:"runtime_stream_id,omitempty"`
+	RuntimeTraceID   string          `json:"runtime_trace_id,omitempty"`
+	RuntimeTurnID    string          `json:"runtime_turn_id,omitempty"`
+	Payload          json.RawMessage `json:"payload"`
+	CreatedAt        string          `json:"created_at"`
 }
 
 func (h *TriggerDeliveryHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -132,19 +132,19 @@ func triggerDeliveryToResponse(row model.AgentTriggerDelivery) triggerDeliveryRe
 		createdAt = time.Time{}
 	}
 	return triggerDeliveryResponse{
-		ID:                    row.ID.String(),
-		AgentID:               row.AgentID.String(),
-		TriggerID:             row.TriggerID.String(),
-		ConnectionID:          connectionID,
-		DeliveryID:            row.DeliveryID,
-		EventKey:              row.EventKey,
-		ResourceKey:           row.ResourceKey,
-		SessionID:             row.SessionID.String(),
-		RuntimeSessionID:      row.RuntimeSessionID,
-		RuntimeStreamID:       row.RuntimeStreamID,
-		RuntimeTraceID:        row.RuntimeTraceID,
-		RuntimeTurnID:         row.RuntimeTurnID,
-		Payload:               json.RawMessage(row.Payload),
-		CreatedAt:             createdAt.Format(time.RFC3339),
+		ID:               row.ID.String(),
+		AgentID:          row.AgentID.String(),
+		TriggerID:        row.TriggerID.String(),
+		ConnectionID:     connectionID,
+		DeliveryID:       row.DeliveryID,
+		EventKey:         row.EventKey,
+		ResourceKey:      row.ResourceKey,
+		SessionID:        row.SessionID.String(),
+		RuntimeSessionID: row.RuntimeSessionID,
+		RuntimeStreamID:  row.RuntimeStreamID,
+		RuntimeTraceID:   row.RuntimeTraceID,
+		RuntimeTurnID:    row.RuntimeTurnID,
+		Payload:          json.RawMessage(row.Payload),
+		CreatedAt:        createdAt.Format(time.RFC3339),
 	}
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	canvaspkg "github.com/usehivy/hivy/internal/canvas"
 	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -74,10 +73,6 @@ func (h *CanvasHandler) verifyRuntimeSecret(ctx context.Context, agentID uuid.UU
 func (h *CanvasHandler) writeRuntimeCanvasError(w http.ResponseWriter, r *http.Request, err error, op string, agentID uuid.UUID) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "canvas resource not found"})
-		return
-	}
-	if errors.Is(err, canvaspkg.ErrNotConfigured) {
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
 		return
 	}
 	if errors.Is(err, canvasartifact.ErrStorageNotConfigured) {

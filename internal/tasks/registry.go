@@ -36,7 +36,6 @@ type WorkerDeps struct {
 	PreContextBuilder precontext.Builder      // nil disables runtime pre-context injection
 	AgentCompile      agentruntime.CompileDeps
 	OrgAgentSyncer    OrgHivyAgentSyncer
-	CanvasSyncer      CanvasOrgSyncer
 	S3Client          *storage.S3Client
 
 	Rag          *ragtasks.Deps
@@ -106,7 +105,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeMemoryEmbed, NewMemoryEmbedHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
 	}
 
-	mux.HandleFunc(TypeCanvasOrgSync, NewCanvasOrgSyncHandler(deps.CanvasSyncer).Handle)
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil && deps.Enqueuer != nil {
 		mux.HandleFunc(TypeAgentSandboxUpgrade,
 			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)

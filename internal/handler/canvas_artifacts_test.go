@@ -92,7 +92,7 @@ func newCanvasArtifactHarness(t *testing.T) *canvasArtifactHarness {
 	}
 
 	store := &fakeCanvasArtifactStore{objects: map[string][]byte{}}
-	canvasHandler := handler.NewCanvasHandler(db, encKey, nil).
+	canvasHandler := handler.NewCanvasHandler(db, encKey).
 		WithArtifactService(canvasartifact.NewService(db, store))
 	router := chi.NewRouter()
 	router.Get("/internal/agents/{agentID}/canvas/projects", canvasHandler.ListAgentProjects)

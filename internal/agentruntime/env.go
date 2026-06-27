@@ -27,11 +27,6 @@ const (
 	AgentEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvGitHubNoKeyring            = "GH_NO_KEYRING"
 	AgentEnvDriveUploadURL             = "HIVY_DRIVE_UPLOAD_URL"
-	AgentEnvPenpotCanvasURL            = "PENPOT_CANVAS_URL"
-	AgentEnvPenpotCanvasTeamID         = "PENPOT_CANVAS_TEAM_ID"
-	AgentEnvPenpotCanvasProfileID      = "PENPOT_CANVAS_PROFILE_ID"
-	AgentEnvPenpotCanvasSessionJWT     = "PENPOT_CANVAS_SESSION_JWT" // #nosec G101 -- environment variable name, not a credential value.
-	AgentEnvPenpotCanvasMCPURL         = "PENPOT_CANVAS_MCP_URL"
 	AgentEnvBugsinkURL                 = "HIVY_BUGSINK_URL"
 	AgentEnvBugsinkDashboardBaseURL    = "HIVY_BUGSINK_DASHBOARD_BASE_URL"
 	AgentEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
@@ -118,11 +113,6 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvGitCredentialsURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvGitHubNoKeyring, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvDriveUploadURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvPenpotCanvasURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
-	{Key: AgentEnvPenpotCanvasTeamID, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
-	{Key: AgentEnvPenpotCanvasProfileID, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
-	{Key: AgentEnvPenpotCanvasSessionJWT, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true, Optional: true},
-	{Key: AgentEnvPenpotCanvasMCPURL, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true, Optional: true},
 	{Key: AgentEnvBugsinkURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvBugsinkDashboardBaseURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
 	{Key: AgentEnvBugsinkToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
