@@ -55,7 +55,9 @@ type AgentDefinition struct {
 	Context          map[string]any              `json:"context,omitempty"`
 	Tools            []map[string]any            `json:"tools"`
 	McpServers       []any                       `json:"mcp_servers"`
+	McpToolFilter    *model.ToolFilter           `json:"mcp_tool_filter,omitempty"`
 	Skills           []SkillSpec                 `json:"skills"`
+	SkillFilter      *model.SkillFilter          `json:"skill_filter,omitempty"`
 	OutboundChannels []any                       `json:"outbound_channels"`
 	SubAgents        map[string]*AgentDefinition `json:"sub_agents,omitempty"`
 }
@@ -260,6 +262,8 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	}
 	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID)
 	logPhase("build prompt sections", "model", modelID)
+	mcpToolFilter := resolveAgentMCPToolFilter(ctx, deps.DB, agent)
+	skillFilter := resolveAgentSkillFilter(ctx, deps.DB, agent)
 	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, modelID)
 	logPhase("resolve model route", "provider_id", modelRoute.ProviderID, "canonical_model_id", modelRoute.CanonicalModelID, "upstream_model_id", modelRoute.UpstreamModelID)
 	tools, err := buildRuntimeTools(ctx, deps.DB, agent)
@@ -288,7 +292,9 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       mcpServers,
+		McpToolFilter:    mcpToolFilter,
 		Skills:           skills,
+		SkillFilter:      skillFilter,
 		OutboundChannels: []any{},
 		SubAgents:        subAgents,
 	}, nil

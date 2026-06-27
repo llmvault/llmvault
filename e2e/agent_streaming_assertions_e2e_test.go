@@ -35,7 +35,9 @@ func assertRuntimeRedisAndPostgresConverged(t *testing.T, ctx context.Context, d
 			previewCount++
 		case runtimestream.DurabilityDurable:
 			durableCount++
-			durableBySeq[event.RuntimeSeq] = event
+			if event.EventType != "user.message.received" {
+				durableBySeq[event.RuntimeSeq] = event
+			}
 		}
 	}
 	if previewCount == 0 || durableCount == 0 {

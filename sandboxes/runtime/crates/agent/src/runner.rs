@@ -142,6 +142,8 @@ impl AgentRunner for RigAgentRunner {
         let model_config = pick_model_for_turn(&snapshot, &user_input);
         let runtime_env = self.config.runtime_env();
         let safety_config = snapshot.safety.clone();
+        let mcp_tool_filter = snapshot.mcp_tool_filter.clone();
+        let skill_filter = snapshot.skill_filter.clone();
         let session_stream_id = user_input.session_stream_id.clone();
         let provided_trace_id = user_input.trace_id.clone();
         let provided_turn_id = user_input.turn_id.clone();
@@ -163,6 +165,8 @@ impl AgentRunner for RigAgentRunner {
             user_input,
             self.event_repo.as_deref(),
             self.mcp_registry.as_deref(),
+            mcp_tool_filter.as_ref(),
+            skill_filter.as_ref(),
         )
         .await?;
         let compaction_config = snapshot.context.compaction.clone();
@@ -197,8 +201,10 @@ impl AgentRunner for RigAgentRunner {
                 outbound_emitter: self.outbound_emitter.clone(),
                 agent_registry: self.config.agent_registry(),
                 session_stream_id,
+                skill_filter: skill_filter.clone(),
             },
             mcp_registry.clone(),
+            mcp_tool_filter.as_ref(),
         );
         available_tools.sort_by(|a, b| a.definition().name.cmp(&b.definition().name));
         let tool_executor = ToolExecutor::new(
@@ -1082,7 +1088,7 @@ fn truncate_for_prompt(text: &str, max_bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, fs};
 
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
@@ -1123,6 +1129,8 @@ mod tests {
             context: ContextConfig::default(),
             tools: Some(Vec::new()),
             mcp_servers: Vec::new(),
+            mcp_tool_filter: None,
+            skill_filter: None,
             skills: Vec::new(),
             outbound_channels: Vec::new(),
             sub_agents: Default::default(),
@@ -1403,6 +1411,8 @@ mod tests {
             &definition,
             std::path::Path::new("/tmp"),
             None,
+            None,
+            None,
             &["## Channel-specific instruction\nKeep replies short.".to_string()],
         )
         .await;
@@ -1410,6 +1420,44 @@ mod tests {
         assert!(prompt.contains("Keep replies short."));
         assert!(!prompt.contains("## Runtime Context"));
         assert!(!prompt.contains("Company name: ExampleCo"));
+    }
+
+    #[tokio::test]
+    async fn dynamic_prompt_applies_skill_filter() {
+        let mut definition = test_definition();
+        definition.skill_filter = Some(domain::SkillFilter {
+            allow: Some(vec!["research-notes".to_string()]),
+        });
+        let root = std::env::temp_dir().join(format!(
+            "hivy-skill-filter-prompt-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        fs::create_dir_all(root.join(".skills/deck-review")).expect("create deck skill");
+        fs::create_dir_all(root.join(".skills/research-notes")).expect("create research skill");
+        fs::write(
+            root.join(".skills/deck-review/SKILL.md"),
+            "---\nname: deck-review\ndescription: Review decks\n---\nReview decks.",
+        )
+        .expect("write deck skill");
+        fs::write(
+            root.join(".skills/research-notes/SKILL.md"),
+            "---\nname: research-notes\ndescription: Research context\n---\nUse research context.",
+        )
+        .expect("write research skill");
+
+        let prompt = render_dynamic_system_prompt(
+            &definition,
+            &root,
+            None,
+            None,
+            definition.skill_filter.as_ref(),
+            &[],
+        )
+        .await;
+
+        assert!(prompt.contains("research-notes"));
+        assert!(!prompt.contains("deck-review"));
+        fs::remove_dir_all(root).ok();
     }
 
     #[tokio::test]
@@ -1984,11 +2032,12 @@ fn build_all_tools(
     context: &ToolBuildContext,
     tool_context: &ToolContext,
     mcp_registry: Option<Arc<McpRegistry>>,
+    mcp_tool_filter: Option<&domain::ToolFilter>,
 ) -> Vec<Arc<dyn JsonTool>> {
     let mut tools = tools::build_builtin_tools(specs, context, session_id);
     tools.extend(build_agent_tools(specs, session_id, tool_context));
     if let Some(registry) = mcp_registry {
-        for def in registry.loaded_tools() {
+        for def in registry.loaded_tools_filtered(mcp_tool_filter) {
             let registry = registry.clone();
             let prefixed = def.prefixed_name.clone();
             let session_id = session_id.clone();

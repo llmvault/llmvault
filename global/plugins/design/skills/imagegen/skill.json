@@ -1,0 +1,21 @@
+{
+  "name": "imagegen",
+  "description": "Use this skill when a design agent needs to craft, critique, refine, or structure provider-neutral prompts for generated images, image edits, product mockups, UI mockups, diagrams, ads, logos, transparent cutouts, or reference-based visual variants.",
+  "human_description": "Write high-quality provider-neutral prompts for generated images and image edits.",
+  "category": "Design",
+  "root": "./SKILL.md",
+  "tags": [
+    "image-generation",
+    "prompting",
+    "visual-assets",
+    "design"
+  ],
+  "files": [
+    {
+      "path": "references/prompting.md"
+    },
+    {
+      "path": "references/sample-prompts.md"
+    }
+  ]
+}

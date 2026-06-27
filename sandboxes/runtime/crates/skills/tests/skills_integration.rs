@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use domain::{SkillSpec, SkillTrigger};
+use domain::{SkillFilter, SkillSpec, SkillTrigger};
 use skills::{SkillManageArgs, SkillStore, SkillWriter};
 
 // SCENARIO: Control plane pushes a skill definition during deployment.
@@ -147,6 +147,29 @@ fn skill_view_returns_full_skill_and_linked_file_inventory() {
         !result.to_string().contains("# Common Errors"),
         "main skill view should list linked files, not inline their contents"
     );
+}
+
+#[test]
+fn skill_filter_limits_list_and_view() {
+    let root = setup_temp_dir("skill-filter-1");
+    SkillWriter::new(root.clone()).sync(&[
+        skill("deck-review", "Review decks", "Review the deck carefully."),
+        skill("research-notes", "Research notes", "Use research context."),
+    ]);
+    let filter = SkillFilter {
+        allow: Some(vec!["research-notes".to_string()]),
+    };
+    let store = SkillStore::new(root);
+
+    let list = store.list_filtered(None, Some(&filter));
+    assert_eq!(list["count"], 1);
+    assert_eq!(list["skills"][0]["name"], "research-notes");
+    assert!(store
+        .view_filtered("research-notes", None, Some(&filter))
+        .is_ok());
+    assert!(store
+        .view_filtered("deck-review", None, Some(&filter))
+        .is_err());
 }
 
 // SCENARIO: The relevant workflow needs one reference file.

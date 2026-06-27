@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use domain::{AgentDefinition, SessionId, SystemPromptSegment};
+use domain::{AgentDefinition, SessionId, SkillFilter, SystemPromptSegment, ToolFilter};
 use mcp::McpRegistry;
 
 use crate::history::{
@@ -19,6 +19,8 @@ pub(super) async fn build_initial_messages(
     input: TurnInput,
     event_repo: Option<&dyn storage::EventRepo>,
     mcp_registry: Option<&McpRegistry>,
+    mcp_tool_filter: Option<&ToolFilter>,
+    skill_filter: Option<&SkillFilter>,
 ) -> Result<Vec<AgentMessage>> {
     let session_context = if input.session_context.is_empty() {
         match load_session_context(event_repo, session_id).await {
@@ -39,8 +41,15 @@ pub(super) async fn build_initial_messages(
     let mut messages = vec![
         AgentMessage::system(render_cacheable_system_prompt(snapshot)),
         AgentMessage::system(
-            render_dynamic_system_prompt(snapshot, workspace_root, mcp_registry, &session_context)
-                .await,
+            render_dynamic_system_prompt(
+                snapshot,
+                workspace_root,
+                mcp_registry,
+                mcp_tool_filter,
+                skill_filter,
+                &session_context,
+            )
+            .await,
         ),
     ];
     let mut history = load_model_history(event_repo, session_id, 1000).await?;
@@ -68,13 +77,15 @@ pub(super) async fn render_dynamic_system_prompt(
     snapshot: &AgentDefinition,
     workspace_root: &Path,
     mcp_registry: Option<&McpRegistry>,
+    mcp_tool_filter: Option<&ToolFilter>,
+    skill_filter: Option<&SkillFilter>,
     session_context: &[String],
 ) -> String {
     let mut prompt = String::new();
     let skill_store = skills::SkillStore::new(workspace_root);
-    let skill_summaries = skill_store.summaries(None);
+    let skill_summaries = skill_store.summaries_filtered(None, skill_filter);
     let mcp_tools = match mcp_registry {
-        Some(registry) => registry.available_tool_names(),
+        Some(registry) => registry.available_tool_names_filtered(mcp_tool_filter),
         None => Vec::new(),
     };
     let renders_legacy_context_segment = snapshot

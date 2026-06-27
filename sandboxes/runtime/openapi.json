@@ -816,6 +816,16 @@
               "$ref": "#/components/schemas/McpSpec"
             }
           },
+          "mcp_tool_filter": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ToolFilter"
+              }
+            ]
+          },
           "model": {
             "$ref": "#/components/schemas/ModelConfig"
           },
@@ -827,6 +837,16 @@
           },
           "safety": {
             "$ref": "#/components/schemas/SafetyConfig"
+          },
+          "skill_filter": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SkillFilter"
+              }
+            ]
           },
           "skills": {
             "type": "array",
@@ -2813,6 +2833,20 @@
           },
           "payload": {
             "type": "object"
+          }
+        }
+      },
+      "SkillFilter": {
+        "type": "object",
+        "properties": {
+          "allow": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

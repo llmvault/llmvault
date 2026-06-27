@@ -41,9 +41,6 @@ func NewServer(ctx context.Context, db *gorm.DB, cfg config.Config) *Server {
 			s.watchPreviewRoutes(ctx)
 		})
 	}
-	goroutine.Go(ctx, func(ctx context.Context) {
-		s.watchIdleSandboxes(ctx)
-	})
 	return s
 }
 

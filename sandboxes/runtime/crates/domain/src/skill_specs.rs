@@ -23,6 +23,26 @@ pub struct SkillSpec {
     pub pinned: bool,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct SkillFilter {
+    #[serde(default)]
+    pub allow: Option<Vec<String>>,
+}
+
+impl SkillFilter {
+    pub fn allows(&self, name: &str) -> bool {
+        match self.allow.as_ref() {
+            Some(allow) => allow.iter().any(|item| item == name),
+            None => true,
+        }
+    }
+}
+
+pub fn skill_allowed(name: &str, filter: Option<&SkillFilter>) -> bool {
+    filter.map(|f| f.allows(name)).unwrap_or(true)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]

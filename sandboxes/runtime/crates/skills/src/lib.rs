@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use domain::SkillSpec;
+use domain::{skill_allowed, SkillFilter, SkillSpec};
 use serde_json::{json, Value};
 use tracing::{info, warn};
 use walkdir::WalkDir;
@@ -87,7 +87,11 @@ impl SkillStore {
     }
 
     pub fn list(&self, category: Option<&str>) -> Value {
-        let summaries = self.summaries(category);
+        self.list_filtered(category, None)
+    }
+
+    pub fn list_filtered(&self, category: Option<&str>, filter: Option<&SkillFilter>) -> Value {
+        let summaries = self.summaries_filtered(category, filter);
         let mut skills = Vec::new();
         let mut categories = BTreeSet::new();
 
@@ -112,6 +116,14 @@ impl SkillStore {
     }
 
     pub fn summaries(&self, category: Option<&str>) -> Vec<SkillSummary> {
+        self.summaries_filtered(category, None)
+    }
+
+    pub fn summaries_filtered(
+        &self,
+        category: Option<&str>,
+        filter: Option<&SkillFilter>,
+    ) -> Vec<SkillSummary> {
         let mut skills = Vec::new();
 
         for dir in self.skill_dirs() {
@@ -127,6 +139,9 @@ impl SkillStore {
             else {
                 continue;
             };
+            if !skill_allowed(&name, filter) {
+                continue;
+            }
             let skill_category = meta.get("category").cloned();
             if let Some(filter) = category {
                 if skill_category.as_deref() != Some(filter) {
@@ -145,7 +160,19 @@ impl SkillStore {
     }
 
     pub fn view(&self, name: &str, file_path: Option<&str>) -> anyhow::Result<Value> {
+        self.view_filtered(name, file_path, None)
+    }
+
+    pub fn view_filtered(
+        &self,
+        name: &str,
+        file_path: Option<&str>,
+        filter: Option<&SkillFilter>,
+    ) -> anyhow::Result<Value> {
         validate_skill_name(name)?;
+        if !skill_allowed(name, filter) {
+            anyhow::bail!("skill '{name}' not found");
+        }
         let dir = self.skill_dir(name);
         if !dir.join("SKILL.md").exists() {
             anyhow::bail!("skill '{name}' not found");

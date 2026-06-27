@@ -98,11 +98,13 @@ func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {
 			continue
 		}
 		out[cleanKey] = model.AgentCatalogSubAgent{
-			Name:         strings.TrimSpace(subAgent.Name),
-			Description:  strings.TrimSpace(subAgent.Description),
-			Model:        strings.TrimSpace(subAgent.Model),
-			Tools:        normalizeToolSelection(subAgent.Tools),
-			Instructions: strings.TrimSpace(subAgent.instructions),
+			Name:          strings.TrimSpace(subAgent.Name),
+			Description:   strings.TrimSpace(subAgent.Description),
+			Model:         strings.TrimSpace(subAgent.Model),
+			Tools:         normalizeToolSelection(subAgent.Tools),
+			McpToolFilter: normalizeManifestToolFilter(subAgent.McpToolFilter),
+			SkillFilter:   normalizeManifestSkillFilter(subAgent.SkillFilter),
+			Instructions:  strings.TrimSpace(subAgent.instructions),
 		}
 	}
 	raw, err := json.Marshal(out)
@@ -110,6 +112,33 @@ func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {
 		return model.RawJSON("{}")
 	}
 	return model.RawJSON(raw)
+}
+
+func normalizeManifestToolFilter(filter *ToolFilterManifest) *model.ToolFilter {
+	if filter == nil || (filter.Allow == nil && filter.Deny == nil) {
+		return nil
+	}
+	allow := normalizeManifestStringList(filter.Allow)
+	deny := normalizeManifestStringList(filter.Deny)
+	return &model.ToolFilter{Allow: allow, Deny: deny}
+}
+
+func normalizeManifestSkillFilter(filter *SkillFilterManifest) *model.SkillFilter {
+	if filter == nil || filter.Allow == nil {
+		return nil
+	}
+	allow := normalizeStrings(filter.Allow)
+	sort.Strings(allow)
+	return &model.SkillFilter{Allow: allow}
+}
+
+func normalizeManifestStringList(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	out := normalizeStrings(values)
+	sort.Strings(out)
+	return out
 }
 
 func boolValue(value *bool) bool {

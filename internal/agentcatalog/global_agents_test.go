@@ -42,7 +42,7 @@ func TestGlobalKaraManifestRequiresDesignPlugin(t *testing.T) {
 	}
 	assertManifestToolEnabled(t, kara.Tools, "bash")
 	assertManifestToolEnabled(t, kara.Tools, "skill_view")
-	if got := sortedSubAgentKeys(kara.SubAgents); !reflect.DeepEqual(got, []string{"codebase-brand-extractor", "design-worker"}) {
+	if got := sortedSubAgentKeys(kara.SubAgents); !reflect.DeepEqual(got, []string{"codebase-brand-extractor", "design-worker", "image-generator"}) {
 		t.Fatalf("kara subagents = %#v", got)
 	}
 	extractor := kara.SubAgents["codebase-brand-extractor"]

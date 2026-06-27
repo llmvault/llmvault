@@ -85,6 +85,7 @@ mod openapi {
             domain::McpSpec,
             domain::ToolFilter,
             domain::SkillSpec,
+            domain::SkillFilter,
             domain::SkillTrigger,
             domain::OutboundEvent,
             domain::OutboundChannelSpec,

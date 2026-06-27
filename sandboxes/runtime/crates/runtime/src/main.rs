@@ -488,6 +488,8 @@ fn bootstrap_agent_definition() -> AgentDefinition {
         context: Default::default(),
         tools: None,
         mcp_servers: Vec::new(),
+        mcp_tool_filter: None,
+        skill_filter: None,
         skills: Vec::new(),
         outbound_channels: Vec::new(),
         sub_agents: Default::default(),
