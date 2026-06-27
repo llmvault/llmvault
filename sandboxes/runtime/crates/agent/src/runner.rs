@@ -32,7 +32,7 @@ use crate::rig_tool_registry::{
 use crate::tool_executor::ToolExecutor;
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
 use crate::{PlanUpdater, QuestionRequester};
-use prompt::build_initial_messages;
+use prompt::{build_initial_messages, InitialMessagePromptSources};
 #[cfg(test)]
 use prompt::{render_cacheable_system_prompt, render_dynamic_system_prompt};
 
@@ -164,9 +164,11 @@ impl AgentRunner for RigAgentRunner {
             session_id,
             user_input,
             self.event_repo.as_deref(),
-            self.mcp_registry.as_deref(),
-            mcp_tool_filter.as_ref(),
-            skill_filter.as_ref(),
+            InitialMessagePromptSources {
+                mcp_registry: self.mcp_registry.as_deref(),
+                mcp_tool_filter: mcp_tool_filter.as_ref(),
+                skill_filter: skill_filter.as_ref(),
+            },
         )
         .await?;
         let compaction_config = snapshot.context.compaction.clone();
