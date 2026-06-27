@@ -20,12 +20,13 @@ type FileStore interface {
 }
 
 type ProjectResponse struct {
-	ID            uuid.UUID `json:"id"`
-	ProjectID     uuid.UUID `json:"project_id"`
-	Slug          string    `json:"slug"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description,omitempty"`
-	ArtifactCount int64     `json:"artifact_count,omitempty"`
+	ID            uuid.UUID          `json:"id"`
+	ProjectID     uuid.UUID          `json:"project_id"`
+	Slug          string             `json:"slug"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description,omitempty"`
+	ArtifactCount int64              `json:"artifact_count,omitempty"`
+	Artifacts     []ArtifactResponse `json:"artifacts"`
 }
 
 type ProjectListResponse struct {

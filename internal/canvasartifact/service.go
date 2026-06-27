@@ -48,7 +48,7 @@ func (s *Service) CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, 
 	if err := s.db.WithContext(ctx).Create(&project).Error; err != nil {
 		return nil, fmt.Errorf("create canvas project: %w", err)
 	}
-	return s.projectResponse(ctx, project)
+	return s.projectResponse(ctx, project, nil)
 }
 
 func (s *Service) ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*ProjectListResponse, error) {
@@ -67,7 +67,7 @@ func (s *Service) ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessi
 	}
 	out := &ProjectListResponse{Projects: make([]ProjectResponse, 0, len(projects))}
 	for _, project := range projects {
-		resp, err := s.projectResponse(ctx, project)
+		resp, err := s.projectResponse(ctx, project, sessionID)
 		if err != nil {
 			return nil, err
 		}
@@ -146,12 +146,10 @@ func (s *Service) loadAgentOrg(ctx context.Context, agentID uuid.UUID) (model.Ag
 	return agent, org, nil
 }
 
-func (s *Service) projectResponse(ctx context.Context, project model.CanvasProject) (*ProjectResponse, error) {
-	var count int64
-	if err := s.db.WithContext(ctx).Model(&model.CanvasArtifact{}).
-		Where("canvas_project_id = ? AND archived_at IS NULL", project.ID).
-		Count(&count).Error; err != nil {
-		return nil, fmt.Errorf("count canvas artifacts: %w", err)
+func (s *Service) projectResponse(ctx context.Context, project model.CanvasProject, sessionID *uuid.UUID) (*ProjectResponse, error) {
+	artifacts, err := s.projectArtifactResponses(ctx, project.OrgID, project.ID, sessionID)
+	if err != nil {
+		return nil, err
 	}
 	return &ProjectResponse{
 		ID:            project.ID,
@@ -159,8 +157,30 @@ func (s *Service) projectResponse(ctx context.Context, project model.CanvasProje
 		Slug:          project.Slug,
 		Name:          project.Name,
 		Description:   project.Description,
-		ArtifactCount: count,
+		ArtifactCount: int64(len(artifacts)),
+		Artifacts:     artifacts,
 	}, nil
+}
+
+func (s *Service) projectArtifactResponses(ctx context.Context, orgID, projectID uuid.UUID, sessionID *uuid.UUID) ([]ArtifactResponse, error) {
+	var artifacts []model.CanvasArtifact
+	q := s.db.WithContext(ctx).
+		Where("org_id = ? AND canvas_project_id = ? AND archived_at IS NULL", orgID, projectID)
+	if sessionID != nil {
+		q = q.Where("source_session_id = ?", *sessionID)
+	}
+	if err := q.Order("updated_at DESC").Find(&artifacts).Error; err != nil {
+		return nil, fmt.Errorf("list project canvas artifacts: %w", err)
+	}
+	out := make([]ArtifactResponse, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		resp, err := s.artifactResponse(ctx, artifact, false)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *resp)
+	}
+	return out, nil
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)

@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query"
 import {
   fetchCanvasArtifact,
   fetchCanvasArtifactPreviewURL,
-  fetchCanvasArtifacts,
   fetchCanvasProjects,
   type CanvasViewportMode,
 } from "@/app/w/(chat)/_lib/canvas-artifacts"
@@ -31,8 +30,9 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   const [viewport, setViewport] = useState<CanvasViewportMode>("desktop")
 
   const projectsQuery = useQuery({
-    queryKey: ["canvas-artifact-projects"],
-    queryFn: ({ signal }) => fetchCanvasProjects(signal),
+    queryKey: ["canvas-artifact-projects", activeSessionId],
+    queryFn: ({ signal }) =>
+      fetchCanvasProjects({ sessionId: activeSessionId }, signal),
     retry: false,
   })
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
@@ -44,22 +44,9 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
     [projects, selectedProjectId]
   )
 
-  const artifactsQuery = useQuery({
-    enabled: Boolean(selectedProject?.id),
-    queryKey: ["canvas-artifacts", selectedProject?.id, activeSessionId],
-    queryFn: ({ signal }) =>
-      fetchCanvasArtifacts(
-        {
-          projectId: selectedProject?.id,
-          sessionId: activeSessionId,
-        },
-        signal
-      ),
-    retry: false,
-  })
   const artifacts = useMemo(
-    () => artifactsQuery.data ?? [],
-    [artifactsQuery.data]
+    () => selectedProject?.artifacts ?? [],
+    [selectedProject?.artifacts]
   )
   const listedArtifact = useMemo(
     () =>
@@ -140,10 +127,9 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
         selectedProject={selectedProject}
         artifacts={artifacts}
         selectedArtifact={activeArtifact}
-        artifactsPending={artifactsQuery.isPending}
+        artifactsPending={projectsQuery.isPending}
         onRefresh={() => {
           void projectsQuery.refetch()
-          void artifactsQuery.refetch()
           void detailQuery.refetch()
           void previewQuery.refetch()
         }}
@@ -165,15 +151,10 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
             previewUrl={previewQuery.data?.url}
             viewport={viewport}
             sessionReady={Boolean(activeSessionId)}
-            loading={artifactsQuery.isPending || previewQuery.isPending}
-            error={
-              artifactsQuery.error ??
-              detailQuery.error ??
-              previewQuery.error ??
-              null
-            }
+            loading={projectsQuery.isPending || previewQuery.isPending}
+            error={detailQuery.error ?? previewQuery.error ?? null}
             onRetry={() => {
-              void artifactsQuery.refetch()
+              void projectsQuery.refetch()
               void detailQuery.refetch()
               void previewQuery.refetch()
             }}

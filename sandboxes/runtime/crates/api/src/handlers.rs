@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::{Path as FsPath, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use storage::{ConfigSnapshot, SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::question_manager::{QuestionAnswerError, QuestionAnswerResponse};
 use crate::session_stream::{
@@ -326,6 +326,22 @@ async fn apply_config_snapshot(
     runtime_env: HashMap<String, String>,
     workspace: WorkspaceConfig,
 ) -> Result<(), (StatusCode, String)> {
+    let total_started = Instant::now();
+    let mut phase_started = total_started;
+    let stats = ConfigApplyStats {
+        env_key_count: runtime_env.len(),
+        tool_count: definition
+            .tools
+            .as_ref()
+            .map(|tools| tools.len())
+            .unwrap_or(0),
+        mcp_server_count: definition.mcp_servers.len(),
+        skill_count: definition.skills.len(),
+        subagent_count: definition.sub_agents.len(),
+        outbound_channel_count: definition.outbound_channels.len(),
+        workspace_repo_count: workspace.repos.len(),
+    };
+    phase_started = log_config_apply_phase("start", phase_started, total_started, stats);
     if let Err(error) = definition.system_prompt.validate() {
         return Err((StatusCode::BAD_REQUEST, error));
     }
@@ -335,6 +351,7 @@ async fn apply_config_snapshot(
             "system_prompt.cacheable_segments must not be empty".to_string(),
         ));
     }
+    phase_started = log_config_apply_phase("validate", phase_started, total_started, stats);
 
     state
         .config_repo
@@ -345,28 +362,82 @@ async fn apply_config_snapshot(
         })
         .await
         .map_err(|error| internal_error_response("config.persist", error))?;
+    phase_started = log_config_apply_phase("persist config", phase_started, total_started, stats);
     if let Some(repo_service) = state.repo_service.as_ref() {
         repo_service.apply_workspace_config(workspace).await;
     }
+    phase_started = log_config_apply_phase(
+        "apply workspace config",
+        phase_started,
+        total_started,
+        stats,
+    );
     state.skill_writer.sync(&definition.skills);
+    phase_started =
+        log_config_apply_phase("sync parent skills", phase_started, total_started, stats);
     for sub_agent in definition.sub_agents.values() {
         state.skill_writer.sync(&sub_agent.skills);
     }
+    phase_started =
+        log_config_apply_phase("sync subagent skills", phase_started, total_started, stats);
     if let Some(registry) = state.mcp_registry.as_ref() {
         registry
             .reload_from_specs(&definition.mcp_servers, &runtime_env)
             .await;
     }
+    phase_started =
+        log_config_apply_phase("reload mcp registry", phase_started, total_started, stats);
     if let Some(reloader) = state.outbound_reloader.as_ref() {
         reloader
             .reload_outbound_channels(&definition.outbound_channels, &runtime_env)
             .await
             .map_err(|error| internal_error_response("config.reload_outbound_channels", error))?;
     }
+    phase_started = log_config_apply_phase(
+        "reload outbound channels",
+        phase_started,
+        total_started,
+        stats,
+    );
     state.config_store.set_runtime_env(runtime_env);
     state.config_store.replace(definition);
     state.mark_config_loaded();
+    phase_started = log_config_apply_phase("publish config", phase_started, total_started, stats);
+    let _ = log_config_apply_phase("complete", phase_started, total_started, stats);
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct ConfigApplyStats {
+    env_key_count: usize,
+    tool_count: usize,
+    mcp_server_count: usize,
+    skill_count: usize,
+    subagent_count: usize,
+    outbound_channel_count: usize,
+    workspace_repo_count: usize,
+}
+
+fn log_config_apply_phase(
+    phase: &'static str,
+    phase_started: Instant,
+    total_started: Instant,
+    stats: ConfigApplyStats,
+) -> Instant {
+    info!(
+        phase,
+        duration_ms = phase_started.elapsed().as_millis(),
+        total_ms = total_started.elapsed().as_millis(),
+        env_key_count = stats.env_key_count,
+        tool_count = stats.tool_count,
+        mcp_server_count = stats.mcp_server_count,
+        skill_count = stats.skill_count,
+        subagent_count = stats.subagent_count,
+        outbound_channel_count = stats.outbound_channel_count,
+        workspace_repo_count = stats.workspace_repo_count,
+        "runtime config apply phase"
+    );
+    Instant::now()
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(

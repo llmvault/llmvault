@@ -91,7 +91,7 @@ func (s *Service) SyncArtifactForAgent(ctx context.Context, agentID uuid.UUID, r
 	if err != nil {
 		return nil, err
 	}
-	projectResp, err := s.projectResponse(ctx, project)
+	projectResp, err := s.projectResponse(ctx, project, req.SessionID)
 	if err != nil {
 		return nil, err
 	}

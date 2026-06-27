@@ -59,15 +59,28 @@ func BuildAgentRuntimeConfigUpdateWithProxyToken(ctx context.Context, deps Compi
 }
 
 func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult, opts RuntimeConfigOptions) (ConfigUpdateRequest, error) {
+	phaseLog := newRuntimeConfigBuildPhaseLogger(ctx, agent, sb)
 	runtimeAgent := agentWithRuntimeModel(agent, opts.ModelID)
+	modelID := ""
+	if runtimeAgent != nil {
+		modelID = strings.TrimSpace(runtimeAgent.Model)
+	}
+	phaseLog.log("start", "model", modelID, "has_reasoning_effort", strings.TrimSpace(opts.ReasoningEffort) != "")
 	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
+	phaseLog.log("build runtime env", "env_key_count", len(env))
 	def, err := CompileWithProxyToken(ctx, deps, runtimeAgent, token)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
+	phaseLog.log("compile definition",
+		"tool_count", len(def.Tools),
+		"mcp_server_count", len(def.McpServers),
+		"skill_count", len(def.Skills),
+		"subagent_count", len(def.SubAgents),
+	)
 	if effort := strings.TrimSpace(opts.ReasoningEffort); effort != "" {
 		def.Model.ReasoningEffort = &effort
 	}
@@ -76,25 +89,18 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 		sandboxID = sb.ID
 	}
 	def.OutboundChannels = ControlPlaneOutboundChannels(deps.Cfg, sandboxID)
+	phaseLog.log("build outbound channels", "outbound_channel_count", len(def.OutboundChannels))
 	workspace, err := BuildWorkspaceConfig(ctx, deps, runtimeAgent)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
+	phaseLog.log("build workspace config", "workspace_repo_count", len(workspace.Repos))
+	phaseLog.log("complete")
 	return ConfigUpdateRequest{
 		Definition: def,
 		RuntimeEnv: env,
 		Workspace:  &workspace,
 	}, nil
-}
-
-func agentWithRuntimeModel(agent *model.Agent, modelID string) *model.Agent {
-	modelID = strings.TrimSpace(modelID)
-	if modelID == "" || agent == nil {
-		return agent
-	}
-	runtimeAgent := *agent
-	runtimeAgent.Model = modelID
-	return &runtimeAgent
 }
 
 func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {

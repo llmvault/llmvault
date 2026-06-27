@@ -14,7 +14,7 @@ import (
 const (
 	AgentSandboxPort    = 7080
 	agentHealthTimeout  = 4 * time.Minute
-	agentHealthInterval = 2 * time.Second
+	agentHealthInterval = 200 * time.Millisecond
 )
 
 func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets) (*model.Sandbox, error) {
@@ -22,6 +22,15 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 }
 
 func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets, runtimeOptions agentruntime.RuntimeConfigOptions) (*model.Sandbox, error) {
+	totalStarted := time.Now()
+	phaseStarted := totalStarted
+	logPhase := func(phase string, attrs ...any) {
+		attrs = append(attrs,
+			"total_ms", time.Since(totalStarted).Milliseconds(),
+		)
+		logging.LogPhase(ctx, "agent sandbox create phase", phase, phaseStarted, attrs...)
+		phaseStarted = time.Now()
+	}
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("CreateAgentSandbox: agent must have org_id")
 	}
@@ -34,15 +43,24 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		ExpiresAt: secrets.ProxyExpires,
 	}
 	orgID := *agent.OrgID
+	logPhase("start",
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"sandbox_strategy", agent.SandboxStrategy,
+		"requested_model", strings.TrimSpace(runtimeOptions.ModelID),
+		"has_reasoning_effort", strings.TrimSpace(runtimeOptions.ReasoningEffort) != "",
+	)
 	exposedPorts, err := o.loadOrgSandboxExposedPorts(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
+	logPhase("load exposed ports", "agent_id", agent.ID, "org_id", orgID, "port_count", len(exposedPorts))
 
 	gitIdentity, err := o.loadAgentGitIdentity(ctx, agent)
 	if err != nil {
 		return nil, fmt.Errorf("loading agent git identity: %w", err)
 	}
+	logPhase("load git identity", "agent_id", agent.ID, "org_id", orgID, "has_git_identity", gitIdentity != nil)
 
 	runtimeSecret, err := generateRandomHex(32)
 	if err != nil {
@@ -52,6 +70,7 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("encrypting runtime secret: %w", err)
 	}
+	logPhase("prepare runtime secret", "agent_id", agent.ID, "org_id", orgID)
 
 	sandboxSize := model.NormalizeTemplateSize(agent.SandboxSize)
 	templateRef := ""
@@ -81,6 +100,15 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 	if templateRef != "" {
 		snapshotID = templateRef
 	}
+	logPhase("resolve template",
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"sandbox_size", sandboxSize,
+		"sandbox_image", sandboxImage,
+		"runtime_image", runtimeImage,
+		"has_template_ref", templateRef != "",
+		"snapshot_id", snapshotID,
+	)
 	sb := model.Sandbox{
 		OrgID:                  &orgID,
 		AgentID:                &agent.ID,
@@ -94,6 +122,7 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 	if err := o.db.Create(&sb).Error; err != nil {
 		return nil, fmt.Errorf("saving sandbox: %w", err)
 	}
+	logPhase("save sandbox row", "sandbox_id", sb.ID, "agent_id", agent.ID, "org_id", orgID)
 
 	bugsinkDashboardURL := agentruntime.BugsinkDashboardBaseURL(ctx, o.db, orgID, *agent)
 	glitchTipDashboardURL := agentruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
@@ -106,6 +135,15 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		"sandbox_size":  sandboxSize,
 		"sandbox_image": sandboxImage,
 	}
+	logPhase("build provider request",
+		"sandbox_id", sb.ID,
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"env_key_count", len(envVars),
+		"label_count", len(labels),
+		"has_bugsink_dashboard_url", strings.TrimSpace(bugsinkDashboardURL) != "",
+		"has_glitchtip_dashboard_url", strings.TrimSpace(glitchTipDashboardURL) != "",
+	)
 
 	configPush := AgentRuntimeConfigPush{Agent: agent, RuntimeOptions: runtimeOptions}
 	if o.shouldTryAgentWarmPool(templateRef, exposedPorts) {
@@ -126,6 +164,13 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		logging.FromContext(ctx).InfoContext(ctx, "agent sandbox warm pool empty; creating directly",
 			"sandbox_id", sb.ID, "agent_id", agent.ID, "sandbox_image", sandboxImage, "sandbox_size", sandboxSize)
 	}
+	logPhase("warm pool check",
+		"sandbox_id", sb.ID,
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"warm_pool_profile", warmProfile,
+		"warm_pool_eligible", o.shouldTryAgentWarmPool(templateRef, exposedPorts),
+	)
 
 	info, err := o.provider.CreateSandbox(ctx, CreateSandboxOpts{
 		Name:         buildAgentSandboxName(agent),
@@ -144,12 +189,26 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		}
 		return nil, fmt.Errorf("provider create: %w", err)
 	}
+	logPhase("provider create",
+		"sandbox_id", sb.ID,
+		"external_id", info.ExternalID,
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"provider_id", o.provider.ID(),
+	)
 
 	sandboxURL, err := o.provider.GetEndpoint(ctx, info.ExternalID, AgentSandboxPort)
 	if err != nil {
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "get endpoint failed")
 		return nil, fmt.Errorf("getting agent runtime endpoint: %w", err)
 	}
+	logPhase("get runtime endpoint",
+		"sandbox_id", sb.ID,
+		"external_id", info.ExternalID,
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"runtime_port", AgentSandboxPort,
+	)
 
 	now := time.Now()
 	expiresAt := now.Add(runtimeURLTTL)
@@ -168,24 +227,35 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 	sb.RuntimeURLExpiresAt = &expiresAt
 	sb.Status = "running"
 	sb.LastActiveAt = &now
+	logPhase("persist runtime endpoint",
+		"sandbox_id", sb.ID,
+		"external_id", info.ExternalID,
+		"agent_id", agent.ID,
+		"org_id", orgID,
+		"runtime_url_expires_at", expiresAt,
+	)
 
 	if err := o.waitForAgentRuntimeLive(ctx, &sb); err != nil {
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime not live")
 		return nil, fmt.Errorf("waiting for agent runtime: %w", err)
 	}
+	logPhase("wait runtime live", "sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID, "org_id", orgID)
 	configPush.ProxyToken = startupProxyToken
 	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create", configPush); err != nil {
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime config push failed")
 		return nil, err
 	}
+	logPhase("push runtime config", "sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID, "org_id", orgID)
 
 	idleTimeout := time.Duration(0)
 	if o.cfg != nil {
 		idleTimeout = o.cfg.SandboxIdleTimeout
 	}
 	configureAgentSandboxLifecycle(ctx, o.provider, &sb, info.ExternalID, idleTimeout)
+	logPhase("configure lifecycle", "sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID, "org_id", orgID, "idle_timeout_ms", idleTimeout.Milliseconds())
 	logging.FromContext(ctx).InfoContext(ctx, "agent sandbox created",
 		"sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID)
+	logPhase("complete", "sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID, "org_id", orgID)
 	return &sb, nil
 }
 

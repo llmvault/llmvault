@@ -144,6 +144,34 @@ func TestGenerateImageDecodesJSONResponse(t *testing.T) {
 	}
 }
 
+func TestGenerateImageOmitsBlankAspectRatio(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if _, ok := body["aspect_ratio"]; ok {
+			t.Fatalf("aspect_ratio should be omitted when blank, body=%#v", body)
+		}
+		w.Header().Set("Content-Type", string(FormatPNG))
+		_, _ = w.Write([]byte("generated-png"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.Client(), time.Second)
+	result, err := client.GenerateImage(context.Background(), GenerateRequest{
+		APIKey:      "test-key",
+		BaseURL:     server.URL,
+		Instruction: "A poster",
+	})
+	if err != nil {
+		t.Fatalf("GenerateImage returned error: %v", err)
+	}
+	if string(result.Data) != "generated-png" {
+		t.Fatalf("image data = %q", result.Data)
+	}
+}
+
 func TestGenerateImageReturnsStructuredStatusError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

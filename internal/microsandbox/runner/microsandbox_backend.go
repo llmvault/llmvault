@@ -9,6 +9,7 @@ import (
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 
 	"github.com/usehivy/hivy/internal/keyedlock"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 )
 
@@ -122,8 +123,27 @@ func (m *MicrosandboxBackend) Status(ctx context.Context) (map[string]any, error
 }
 
 func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error) {
+	totalStarted := time.Now()
+	phaseStarted := totalStarted
+	logPhase := func(phase string, attrs ...any) {
+		attrs = append(attrs,
+			"total_ms", time.Since(totalStarted).Milliseconds(),
+			"sandbox_id", req.ID,
+			"image_ref", req.ImageRef,
+		)
+		logging.LogPhase(ctx, "microsandbox runner create phase", phase, phaseStarted, attrs...)
+		phaseStarted = time.Now()
+	}
+	logPhase("start",
+		"preview_port_count", len(req.PreviewPorts),
+		"env_key_count", len(req.Env),
+		"cpu", req.CPU,
+		"memory_mb", req.MemoryMB,
+		"disk_gb", req.DiskGB,
+	)
 	unlock := m.lifecycle.Lock(req.ID)
 	defer unlock()
+	logPhase("acquire lifecycle lock")
 
 	previewPorts := uniquePorts(req.PreviewPorts)
 	hostPorts, err := m.allocator.reserve(len(previewPorts))
@@ -157,6 +177,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 			Protocol:  microsandbox.PortProtocolTCP,
 		})
 	}
+	logPhase("allocate ports", "preview_port_count", len(previewPorts), "host_port_count", len(hostPorts))
 
 	workspaceVolName := workspaceVolumeName(req.ID)
 	rootOverlayMiB, workspaceVolumeMiB := sandboxVolumeSizesMiB(req.DiskGB)
@@ -167,6 +188,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	); err != nil {
 		return nil, err
 	}
+	logPhase("ensure workspace volume", "workspace_volume_mib", workspaceVolumeMiB, "root_overlay_mib", rootOverlayMiB)
 	cpu, err := positiveUint8("cpu", req.CPU)
 	if err != nil {
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
@@ -179,6 +201,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	}
 	env := sandboxEnvWithStorageDefaults(req.Env)
 	labels := hivyLabels(req.ID, req.Labels)
+	logPhase("build sandbox options", "env_key_count", len(env), "label_count", len(labels))
 
 	opts := []microsandbox.SandboxOption{
 		microsandbox.WithCPUs(cpu),
@@ -201,9 +224,11 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
 		return nil, err
 	}
+	logPhase("create sandbox process")
 	if err := sb.Detach(ctx); err != nil {
 		return nil, err
 	}
+	logPhase("detach sandbox")
 	m.mu.Lock()
 	m.ports[req.ID] = map[int]int{}
 	for _, binding := range bindings {
@@ -218,6 +243,8 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	}
 	m.mu.Unlock()
 	releaseReserved = false
+	logPhase("register sandbox state", "port_count", len(bindings))
+	logPhase("complete", "port_count", len(bindings))
 	return &CreateSandboxResponse{ID: req.ID, Ports: bindings}, nil
 }
 

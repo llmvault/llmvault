@@ -19,7 +19,6 @@ const (
 type AspectRatio string
 
 const (
-	AspectAuto AspectRatio = "auto"
 	Aspect16x9 AspectRatio = "16:9"
 	Aspect9x16 AspectRatio = "9:16"
 	Aspect3x2  AspectRatio = "3:2"
