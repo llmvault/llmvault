@@ -40,9 +40,20 @@ const (
 )
 
 type AgentCatalogSubAgent struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	Model        string `json:"model,omitempty"`
-	Tools        JSON   `json:"tools,omitempty"`
-	Instructions string `json:"instructions"`
+	Name          string       `json:"name"`
+	Description   string       `json:"description"`
+	Model         string       `json:"model,omitempty"`
+	Tools         JSON         `json:"tools,omitempty"`
+	McpToolFilter *ToolFilter  `json:"mcp_tool_filter,omitempty"`
+	SkillFilter   *SkillFilter `json:"skill_filter,omitempty"`
+	Instructions  string       `json:"instructions"`
+}
+
+type ToolFilter struct {
+	Allow []string `json:"allow"`
+	Deny  []string `json:"deny"`
+}
+
+type SkillFilter struct {
+	Allow []string `json:"allow"`
 }

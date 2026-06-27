@@ -107,7 +107,9 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       []any{},
-		Skills:           inheritSubAgentSkills(parentSkills),
+		McpToolFilter:    normalizeToolFilter(spec.McpToolFilter),
+		Skills:           copySkillSpecs(parentSkills),
+		SkillFilter:      normalizeSkillFilter(spec.SkillFilter),
 		OutboundChannels: []any{},
 		SubAgents:        map[string]*AgentDefinition{},
 	}, nil
@@ -120,14 +122,5 @@ func subAgentToolSelection(selection model.JSON) model.JSON {
 	}
 	out["skills_list"] = true
 	out["skill_view"] = true
-	return out
-}
-
-func inheritSubAgentSkills(parentSkills []SkillSpec) []SkillSpec {
-	if len(parentSkills) == 0 {
-		return []SkillSpec{}
-	}
-	out := make([]SkillSpec, len(parentSkills))
-	copy(out, parentSkills)
 	return out
 }

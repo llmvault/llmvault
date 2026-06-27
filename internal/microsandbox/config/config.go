@@ -26,8 +26,6 @@ type Config struct {
 	PreviewCacheURL    string
 	PreviewCacheToken  string
 	PreviewCacheSync   time.Duration
-	IdleCheckInterval  time.Duration
-	RuntimeBusyTimeout time.Duration
 
 	HeartbeatInterval    time.Duration
 	RunnerUnhealthyAfter time.Duration
@@ -66,8 +64,6 @@ func Load() Config {
 		PreviewCacheURL:             strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_URL"), "/"),
 		PreviewCacheToken:           os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN"),
 		PreviewCacheSync:            duration("HIVY_MICROSANDBOX_PREVIEW_CACHE_SYNC_INTERVAL", time.Minute),
-		IdleCheckInterval:           duration("HIVY_MICROSANDBOX_IDLE_CHECK_INTERVAL", time.Minute),
-		RuntimeBusyTimeout:          duration("HIVY_MICROSANDBOX_RUNTIME_BUSY_TIMEOUT", 90*time.Second),
 		HeartbeatInterval:           duration("HIVY_MICROSANDBOX_HEARTBEAT_INTERVAL", time.Minute),
 		RunnerUnhealthyAfter:        duration("HIVY_MICROSANDBOX_RUNNER_UNHEALTHY_AFTER", 3*time.Minute),
 		RunnerCheckInterval:         duration("HIVY_MICROSANDBOX_RUNNER_CHECK_INTERVAL", 5*time.Minute),

@@ -606,9 +606,11 @@ type AgentDefinition struct {
 	Context          *ContextConfig              `json:"context,omitempty"`
 	Limits           *Limits                     `json:"limits,omitempty"`
 	McpServers       *[]McpSpec                  `json:"mcp_servers,omitempty"`
+	McpToolFilter    *ToolFilter                 `json:"mcp_tool_filter,omitempty"`
 	Model            ModelConfig                 `json:"model"`
 	OutboundChannels *[]OutboundChannelSpec      `json:"outbound_channels,omitempty"`
 	Safety           *SafetyConfig               `json:"safety,omitempty"`
+	SkillFilter      *SkillFilter                `json:"skill_filter,omitempty"`
 	Skills           *[]SkillSpec                `json:"skills,omitempty"`
 	SubAgents        *map[string]AgentDefinition `json:"sub_agents,omitempty"`
 	SystemPrompt     *SystemPromptConfig         `json:"system_prompt,omitempty"`
@@ -1128,6 +1130,11 @@ type SessionMessageResponse struct {
 
 // SessionStatus defines model for SessionStatus.
 type SessionStatus string
+
+// SkillFilter defines model for SkillFilter.
+type SkillFilter struct {
+	Allow *[]string `json:"allow,omitempty"`
+}
 
 // SkillSpec defines model for SkillSpec.
 type SkillSpec struct {

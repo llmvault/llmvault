@@ -41,6 +41,8 @@ fn test_agent_definition() -> domain::AgentDefinition {
         context: Default::default(),
         tools: Some(Vec::new()),
         mcp_servers: Vec::new(),
+        mcp_tool_filter: None,
+        skill_filter: None,
         skills: Vec::new(),
         outbound_channels: Vec::new(),
         sub_agents: Default::default(),
@@ -331,6 +333,7 @@ fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dy
             test_agent_definition(),
         ))),
         session_stream_id: None,
+        skill_filter: None,
     };
     build_agent_tools(
         &[ToolSpec::SkillManage],
@@ -423,6 +426,7 @@ async fn request_user_input_tool_is_registered_and_returns_answer() {
             test_agent_definition(),
         ))),
         session_stream_id: None,
+        skill_filter: None,
     };
     let tool = build_agent_tools(
         &[ToolSpec::RequestUserInput],
@@ -499,6 +503,7 @@ async fn update_plan_tool_is_registered_and_returns_ack() {
             test_agent_definition(),
         ))),
         session_stream_id: None,
+        skill_filter: None,
     };
     let tool = build_agent_tools(
         &[ToolSpec::UpdatePlan],

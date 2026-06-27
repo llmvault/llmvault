@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use domain::McpSpec;
+use domain::{McpSpec, ToolFilter};
 use http::{HeaderName, HeaderValue};
 use rmcp::{
     model::{CallToolRequestParams, JsonObject},
@@ -56,10 +56,19 @@ impl McpRegistry {
     }
 
     pub fn available_tool_names(&self) -> Vec<String> {
+        self.available_tool_names_filtered(None)
+    }
+
+    pub fn available_tool_names_filtered(&self, tool_filter: Option<&ToolFilter>) -> Vec<String> {
         let entries = self.entries.load();
         let mut names: Vec<String> = entries
             .iter()
-            .flat_map(|e| e.tool_names.iter().map(|(pfx, _)| pfx.clone()))
+            .flat_map(|e| {
+                e.tool_names
+                    .iter()
+                    .filter(move |(pfx, raw)| mcp_tool_allowed(pfx, raw, tool_filter))
+                    .map(|(pfx, _)| pfx.clone())
+            })
             .collect();
         names.sort();
         names.dedup();
@@ -67,10 +76,20 @@ impl McpRegistry {
     }
 
     pub fn loaded_tools(&self) -> Vec<McpToolDefinition> {
+        self.loaded_tools_filtered(None)
+    }
+
+    pub fn loaded_tools_filtered(
+        &self,
+        tool_filter: Option<&ToolFilter>,
+    ) -> Vec<McpToolDefinition> {
         let entries = self.entries.load();
         let mut tools = Vec::new();
         for entry in entries.iter() {
             for tool in &entry.tools {
+                if !mcp_tool_allowed(&tool.prefixed_name, &tool.raw_name, tool_filter) {
+                    continue;
+                }
                 tools.push(tool.clone());
             }
         }
@@ -249,6 +268,23 @@ async fn discover_tools(
     (names, defs)
 }
 
+fn mcp_tool_allowed(prefixed: &str, raw: &str, tool_filter: Option<&ToolFilter>) -> bool {
+    let Some(filter) = tool_filter else {
+        return true;
+    };
+    if let Some(allow) = filter.allow.as_ref() {
+        if !allow.iter().any(|name| name == prefixed || name == raw) {
+            return false;
+        }
+    }
+    if let Some(deny) = filter.deny.as_ref() {
+        if deny.iter().any(|name| name == prefixed || name == raw) {
+            return false;
+        }
+    }
+    true
+}
+
 fn build_headers(
     headers: &HashMap<String, String>,
     runtime_env: &HashMap<String, String>,
@@ -273,7 +309,8 @@ fn expand_env_placeholders(value: &str, runtime_env: &HashMap<String, String>) -
 
 #[cfg(test)]
 mod tests {
-    use super::expand_env_placeholders;
+    use super::{expand_env_placeholders, mcp_tool_allowed};
+    use domain::ToolFilter;
     use std::collections::HashMap;
 
     #[test]
@@ -286,5 +323,43 @@ mod tests {
             expand_env_placeholders("Bearer ${HIVY_PROXY_API_KEY}", &runtime_env),
             "Bearer proxy-test-token"
         );
+    }
+
+    #[test]
+    fn tool_filter_accepts_raw_or_prefixed_tool_names() {
+        let allow_raw = ToolFilter {
+            allow: Some(vec!["web_search".to_string()]),
+            deny: None,
+        };
+        assert!(mcp_tool_allowed(
+            "hivy_web_search",
+            "web_search",
+            Some(&allow_raw)
+        ));
+        assert!(!mcp_tool_allowed(
+            "hivy_web_fetch",
+            "web_fetch",
+            Some(&allow_raw)
+        ));
+
+        let deny_prefixed = ToolFilter {
+            allow: None,
+            deny: Some(vec!["hivy_cron".to_string()]),
+        };
+        assert!(!mcp_tool_allowed("hivy_cron", "cron", Some(&deny_prefixed)));
+        assert!(mcp_tool_allowed(
+            "hivy_web_fetch",
+            "web_fetch",
+            Some(&deny_prefixed)
+        ));
+    }
+
+    #[test]
+    fn deny_wins_when_allow_and_deny_both_match() {
+        let filter = ToolFilter {
+            allow: Some(vec!["hivy_cron".to_string()]),
+            deny: Some(vec!["cron".to_string()]),
+        };
+        assert!(!mcp_tool_allowed("hivy_cron", "cron", Some(&filter)));
     }
 }

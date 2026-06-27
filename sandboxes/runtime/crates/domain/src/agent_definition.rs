@@ -3,8 +3,12 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    mcp_specs::McpSpec, model_config::ModelConfig, model_config::SafetyConfig,
-    outbound::OutboundChannelSpec, skill_specs::SkillSpec, tool_specs::ToolSpec,
+    mcp_specs::{McpSpec, ToolFilter},
+    model_config::ModelConfig,
+    model_config::SafetyConfig,
+    outbound::OutboundChannelSpec,
+    skill_specs::{SkillFilter, SkillSpec},
+    tool_specs::ToolSpec,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +26,10 @@ pub struct AgentDefinition {
     pub tools: Option<Vec<ToolSpec>>,
     #[serde(default)]
     pub mcp_servers: Vec<McpSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp_tool_filter: Option<ToolFilter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill_filter: Option<SkillFilter>,
     #[serde(default)]
     pub skills: Vec<SkillSpec>,
     #[serde(default)]

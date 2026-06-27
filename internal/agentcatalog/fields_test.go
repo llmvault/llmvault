@@ -151,6 +151,8 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
     "grep": {"max_results": 25},
     "lsp": false
   },
+  "mcp_tool_filter": {"deny": ["generate_image", "generate_vector_image", "generate_image", " "]},
+  "skill_filter": {"allow": ["deck-review", "brand-system", "deck-review", " "]},
   "prompt": {},
   "plugins": {},
   "sub_agents": {
@@ -162,6 +164,8 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
         "read_file": true,
         "multi_grep": true
       },
+      "mcp_tool_filter": {"allow": ["generate_image", "generate_vector_image", "generate_image", " "]},
+      "skill_filter": {"allow": ["research-notes", "asset-export", "research-notes", " "]},
       "prompt": {"instructions": "./sub_agents/codebase-explorer/instructions.md"}
     }
   }
@@ -176,6 +180,12 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
 	}
 	if err := validateManifests([]Manifest{manifest}); err != nil {
 		t.Fatalf("validate manifest: %v", err)
+	}
+	if manifest.McpToolFilter == nil {
+		t.Fatal("manifest mcp tool filter missing")
+	}
+	if manifest.SkillFilter == nil {
+		t.Fatal("manifest skill filter missing")
 	}
 	updates := catalogUpdates(manifest, model.RawJSON("{}"), "hash", model.AgentCatalogStatusActive)
 	tools, ok := updates["tools"].(model.JSON)
@@ -207,6 +217,14 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
 	subTools := subAgents["codebase-explorer"].Tools
 	if subTools["read_file"] != true || subTools["multi_grep"] != true {
 		t.Fatalf("subagent tools = %#v", subTools)
+	}
+	subMCPFilter := subAgents["codebase-explorer"].McpToolFilter
+	if subMCPFilter == nil || !reflect.DeepEqual(subMCPFilter.Allow, []string{"generate_image", "generate_vector_image"}) || subMCPFilter.Deny != nil {
+		t.Fatalf("subagent mcp tool filter = %#v", subMCPFilter)
+	}
+	subFilter := subAgents["codebase-explorer"].SkillFilter
+	if subFilter == nil || !reflect.DeepEqual(subFilter.Allow, []string{"asset-export", "research-notes"}) {
+		t.Fatalf("subagent skill filter = %#v", subFilter)
 	}
 }
 

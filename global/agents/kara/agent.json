@@ -41,6 +41,21 @@
     "subagent_task": true,
     "request_user_input": true
   },
+  "mcp_tool_filter": {
+    "deny": [
+      "generate_image",
+      "generate_vector_image"
+    ]
+  },
+  "skill_filter": {
+    "allow": [
+      "canvas",
+      "design-taste",
+      "landing-page-copy",
+      "logo-design",
+      "presentation-creator"
+    ]
+  },
   "sub_agents": {
     "codebase-brand-extractor": {
       "name": "Codebase Brand Extractor",
@@ -59,8 +74,40 @@
         "skills_list": true,
         "skill_view": true
       },
+      "mcp_tool_filter": {
+        "deny": [
+          "generate_image",
+          "generate_vector_image"
+        ]
+      },
+      "skill_filter": {
+        "allow": []
+      },
       "prompt": {
         "instructions": "./sub_agents/codebase-brand-extractor/instructions.md"
+      }
+    },
+    "image-generator": {
+      "name": "Image Generator",
+      "description": "Image generation specialist for Kara. Use when Kara needs generated images, image prompt refinement, visual prompt variants, image edits, product scenes, hero visuals, UI mockup imagery, icons, diagrams, illustrations, logo explorations, textures, sprites, or reference-based visual variants.",
+      "model": "kimi-k2.7-code",
+      "tools": {
+        "skills_list": true,
+        "skill_view": true
+      },
+      "mcp_tool_filter": {
+        "allow": [
+          "generate_image",
+          "generate_vector_image"
+        ]
+      },
+      "skill_filter": {
+        "allow": [
+          "imagegen"
+        ]
+      },
+      "prompt": {
+        "instructions": "./sub_agents/image-generator/instructions.md"
       }
     },
     "design-worker": {
@@ -79,6 +126,21 @@
         "update_plan": true,
         "skills_list": true,
         "skill_view": true
+      },
+      "mcp_tool_filter": {
+        "deny": [
+          "generate_image",
+          "generate_vector_image"
+        ]
+      },
+      "skill_filter": {
+        "allow": [
+          "canvas",
+          "design-taste",
+          "landing-page-copy",
+          "logo-design",
+          "presentation-creator"
+        ]
       },
       "prompt": {
         "instructions": "./sub_agents/design-worker/instructions.md"

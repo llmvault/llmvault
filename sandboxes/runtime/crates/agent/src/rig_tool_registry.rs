@@ -10,9 +10,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::agent_registry::AgentDefinitionRegistry;
 use domain::{
-    event_types, validate_request_user_input_payload, validate_update_plan_payload, OutboundEvent,
-    RequestUserInputPayload, SessionId, SubagentTask, SubagentTaskConfig, SubagentTaskState,
-    ToolSpec, UpdatePlanPayload,
+    event_types, skill_allowed, validate_request_user_input_payload, validate_update_plan_payload,
+    OutboundEvent, RequestUserInputPayload, SessionId, SkillFilter, SubagentTask,
+    SubagentTaskConfig, SubagentTaskState, ToolSpec, UpdatePlanPayload,
 };
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
@@ -67,6 +67,7 @@ pub struct ToolContext {
     pub outbound_emitter: Option<Arc<OutboundEmitter>>,
     pub agent_registry: Arc<AgentDefinitionRegistry>,
     pub session_stream_id: Option<String>,
+    pub skill_filter: Option<SkillFilter>,
 }
 
 pub fn build_agent_tools(
@@ -89,16 +90,23 @@ pub fn build_agent_tools(
                 }
             }
             ToolSpec::SkillsList => {
-                tools.push(skills_list_tool(ctx.workspace_root.clone()));
+                tools.push(skills_list_tool(
+                    ctx.workspace_root.clone(),
+                    ctx.skill_filter.clone(),
+                ));
             }
             ToolSpec::SkillView => {
-                tools.push(skill_view_tool(ctx.workspace_root.clone()));
+                tools.push(skill_view_tool(
+                    ctx.workspace_root.clone(),
+                    ctx.skill_filter.clone(),
+                ));
             }
             ToolSpec::SkillManage => {
                 tools.push(skill_manage_tool(
                     ctx.workspace_root.clone(),
                     session_id.clone(),
                     ctx.outbound_emitter.clone(),
+                    ctx.skill_filter.clone(),
                 ));
             }
             ToolSpec::SubagentTask(config) => {
@@ -348,7 +356,10 @@ fn truncate_search_text(value: &str, max_chars: usize) -> String {
     out
 }
 
-fn skills_list_tool(workspace_root: PathBuf) -> Arc<dyn JsonTool> {
+fn skills_list_tool(
+    workspace_root: PathBuf,
+    skill_filter: Option<SkillFilter>,
+) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "skills_list".into(),
@@ -368,15 +379,22 @@ fn skills_list_tool(workspace_root: PathBuf) -> Arc<dyn JsonTool> {
         },
         move |args| {
             let workspace_root = workspace_root.clone();
+            let skill_filter = skill_filter.clone();
             Box::pin(async move {
                 let store = skills::SkillStore::new(workspace_root);
-                Ok(store.list(args.get("category").and_then(Value::as_str)))
+                Ok(store.list_filtered(
+                    args.get("category").and_then(Value::as_str),
+                    skill_filter.as_ref(),
+                ))
             })
         },
     ))
 }
 
-fn skill_view_tool(workspace_root: PathBuf) -> Arc<dyn JsonTool> {
+fn skill_view_tool(
+    workspace_root: PathBuf,
+    skill_filter: Option<SkillFilter>,
+) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "skill_view".into(),
@@ -398,13 +416,18 @@ fn skill_view_tool(workspace_root: PathBuf) -> Arc<dyn JsonTool> {
         },
         move |args| {
             let workspace_root = workspace_root.clone();
+            let skill_filter = skill_filter.clone();
             Box::pin(async move {
                 let name = args
                     .get("name")
                     .and_then(Value::as_str)
                     .ok_or_else(|| anyhow!("name required"))?;
                 let store = skills::SkillStore::new(workspace_root);
-                store.view(name, args.get("file_path").and_then(Value::as_str))
+                store.view_filtered(
+                    name,
+                    args.get("file_path").and_then(Value::as_str),
+                    skill_filter.as_ref(),
+                )
             })
         },
     ))
@@ -414,6 +437,7 @@ fn skill_manage_tool(
     workspace_root: PathBuf,
     session_id: SessionId,
     emitter: Option<Arc<OutboundEmitter>>,
+    skill_filter: Option<SkillFilter>,
 ) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
@@ -440,6 +464,7 @@ fn skill_manage_tool(
             let workspace_root = workspace_root.clone();
             let session_id = session_id.clone();
             let emitter = emitter.clone();
+            let skill_filter = skill_filter.clone();
             Box::pin(async move {
                 let store = skills::SkillStore::new(workspace_root);
                 let action = args
@@ -452,6 +477,9 @@ fn skill_manage_tool(
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_string();
+                if !skill_allowed(&name, skill_filter.as_ref()) {
+                    return Err(anyhow!("skill '{name}' not found"));
+                }
                 let absorbed_into = args
                     .get("absorbed_into")
                     .and_then(Value::as_str)
