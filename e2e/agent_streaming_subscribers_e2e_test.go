@@ -179,7 +179,13 @@ func readSandboxSessionStreamUntil(ctx context.Context, body io.Reader, marker s
 
 func isDurableSandboxRuntimeEvent(event runtimeSSEEvent) bool {
 	durability, _ := event.Payload["durability"].(string)
-	return durability == "durable" && event.Name != "done"
+	if durability == "durable" && event.Name != "done" {
+		return true
+	}
+	if event.Name == "done" || event.Name == "resync" || event.Name == "resync_required" {
+		return false
+	}
+	return int64FromAny(event.Payload["sequence"]) > 0
 }
 
 func assertStreamingSubscribersConverged(t *testing.T, sessionID string, results []subscriberResult) {
