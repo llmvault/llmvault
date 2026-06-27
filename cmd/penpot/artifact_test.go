@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -82,8 +83,8 @@ func TestArtifactSyncPostsDocumentedPayload(t *testing.T) {
 		if file.Path != "index.html" || file.ContentType != "text/html" || file.SHA256 == "" || file.SizeBytes == 0 {
 			t.Errorf("file payload = %#v", file)
 		}
-		if !strings.Contains(file.Content, `data-hivy-id="page-root"`) {
-			t.Errorf("file content missing data-hivy-id: %s", file.Content)
+		if !strings.Contains(file.Content, `data-canvas-id="page"`) {
+			t.Errorf("file content missing data-canvas-id: %s", file.Content)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"synced":true}`))
@@ -103,6 +104,40 @@ func TestArtifactSyncPostsDocumentedPayload(t *testing.T) {
 	}
 }
 
+func TestArtifactValidateReturnsStructuredCorrectionFeedback(t *testing.T) {
+	artifactDir := createTestArtifact(t)
+	htmlPath := filepath.Join(artifactDir, "index.html")
+	badHTML := `<!doctype html>
+<html><body>
+  <main>
+    <section><h1>Landing Page</h1></section>
+  </main>
+</body></html>`
+	if err := os.WriteFile(htmlPath, []byte(badHTML), 0o644); err != nil {
+		t.Fatalf("write bad html: %v", err)
+	}
+
+	out, err := captureStdoutWithError(t, func() error {
+		return run([]string{"artifact", "validate", artifactDir})
+	})
+	if err == nil {
+		t.Fatalf("validate unexpectedly succeeded: %s", out)
+	}
+	var result artifactValidationResult
+	if decodeErr := json.Unmarshal([]byte(out), &result); decodeErr != nil {
+		t.Fatalf("decode validation output: %v\n%s", decodeErr, out)
+	}
+	if result.Valid {
+		t.Fatalf("validation result unexpectedly valid: %+v", result)
+	}
+	if !validationIssuesContain(result.Issues, "missing_canvas_id") {
+		t.Fatalf("expected missing_canvas_id issue: %+v", result.Issues)
+	}
+	if len(result.Guidance) == 0 {
+		t.Fatalf("expected correction guidance: %+v", result)
+	}
+}
+
 func createTestArtifact(t *testing.T) string {
 	t.Helper()
 	workspace := t.TempDir()
@@ -111,4 +146,32 @@ func createTestArtifact(t *testing.T) string {
 		return run([]string{"artifact", "create", "--project", "launch", "--type", artifactTypeWebPage, "--name", "Landing Page"})
 	})
 	return filepath.Join(workspace, "projects", "launch", "artifacts", "landing-page")
+}
+
+func captureStdoutWithError(t *testing.T, fn func() error) (string, error) {
+	t.Helper()
+	old := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = writer
+	runErr := fn()
+	_ = writer.Close()
+	os.Stdout = old
+	data, readErr := io.ReadAll(reader)
+	_ = reader.Close()
+	if readErr != nil {
+		t.Fatalf("read stdout: %v", readErr)
+	}
+	return string(data), runErr
+}
+
+func validationIssuesContain(issues []artifactValidationIssue, code string) bool {
+	for _, issue := range issues {
+		if issue.Code == code {
+			return true
+		}
+	}
+	return false
 }

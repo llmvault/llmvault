@@ -10,24 +10,33 @@ if [ -f .env ]; then
     set +a
 fi
 
+COMPOSE=(docker compose)
+if [ -f .env ]; then
+    COMPOSE+=(--env-file .env)
+fi
+if [[ "$TARGET" == "nango" || "$TARGET" == "integrations" || "$TARGET" == "all" ]]; then
+    HIVY_NANGO_COMPOSE_ENV_FILE="${HIVY_NANGO_COMPOSE_ENV_FILE:-tmp/nango-compose.env}" ./scripts/ensure-nango-image.sh
+    COMPOSE+=(--env-file "${HIVY_NANGO_COMPOSE_ENV_FILE:-tmp/nango-compose.env}")
+fi
+
 echo "==> Tearing down all services and volumes..."
-docker compose down -v --remove-orphans 2>/dev/null || true
+"${COMPOSE[@]}" down -v --remove-orphans 2>/dev/null || true
 
 echo ""
 echo "==> Starting infrastructure..."
 if [[ "$TARGET" == "nango" || "$TARGET" == "integrations" || "$TARGET" == "all" ]]; then
-    docker compose up -d postgres redis nango
+    "${COMPOSE[@]}" up -d postgres redis nango
 else
-    docker compose up -d postgres redis
+    "${COMPOSE[@]}" up -d postgres redis
 fi
 
 echo ""
 echo "==> Waiting for services to be healthy..."
 
-until docker compose exec -T postgres pg_isready -U hivy -q 2>/dev/null; do sleep 1; done
+until "${COMPOSE[@]}" exec -T postgres pg_isready -U hivy -q 2>/dev/null; do sleep 1; done
 echo "  ✓ Postgres"
 
-until docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
+until "${COMPOSE[@]}" exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
 echo "  ✓ Redis"
 
 if [[ "$TARGET" == "nango" || "$TARGET" == "integrations" || "$TARGET" == "all" ]]; then

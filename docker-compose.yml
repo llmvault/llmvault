@@ -256,8 +256,8 @@ services:
   # Used for tests that must exercise Nango's real request validation instead
   # of the in-process fake/mock.
   nango:
-    image: ghcr.io/usehivy/integrations:latest
-    platform: linux/amd64
+    image: ${HIVY_NANGO_IMAGE:-ghcr.io/usehivy/integrations:latest}
+    platform: ${HIVY_NANGO_PLATFORM:-linux/amd64}
     environment:
       PORT: "3003"
       SERVER_PORT: "3003"

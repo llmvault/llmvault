@@ -10,45 +10,62 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"golang.org/x/net/html"
 )
 
-func validateArtifactFiles(artifactDir, manifestPath string, manifest canvasArtifactManifest) (artifactValidationResult, error) {
-	result := artifactValidationResult{
-		Valid:        true,
-		ArtifactPath: artifactDir,
-		ManifestPath: manifestPath,
-		Type:         manifest.Type,
-		Name:         manifest.Name,
-		Files:        make([]string, 0, len(manifest.Files)),
-	}
+func validateArtifactFiles(artifactDir, manifestPath string, manifest canvasArtifactManifest, result artifactValidationResult) artifactValidationResult {
 	htmlFiles := 0
 	for _, file := range manifest.Files {
 		rel, err := cleanArtifactRelPath(file.Path)
 		if err != nil {
-			return artifactValidationResult{}, err
+			result.Issues = append(result.Issues, artifactValidationIssue{
+				Code:     "artifact_file_invalid_path",
+				Severity: "error",
+				File:     manifestPath,
+				Message:  err.Error(),
+				Fix:      "Use a relative file path that stays inside the artifact directory.",
+			})
+			continue
 		}
 		fullPath := filepath.Join(artifactDir, rel)
 		info, err := os.Stat(fullPath)
 		if err != nil {
-			return artifactValidationResult{}, fmt.Errorf("artifact file %q: %w", rel, err)
+			result.Issues = append(result.Issues, artifactValidationIssue{
+				Code:     "artifact_file_missing",
+				Severity: "error",
+				File:     rel,
+				Message:  fmt.Sprintf("artifact file %q is listed in artifact.json but was not found: %v", rel, err),
+				Fix:      "Create the file or remove it from artifact.json files.",
+			})
+			continue
 		}
 		if info.IsDir() {
-			return artifactValidationResult{}, fmt.Errorf("artifact file %q is a directory", rel)
+			result.Issues = append(result.Issues, artifactValidationIssue{
+				Code:     "artifact_file_is_directory",
+				Severity: "error",
+				File:     rel,
+				Message:  fmt.Sprintf("artifact file %q is a directory.", rel),
+				Fix:      "Point artifact.json files to an HTML file, not a directory.",
+			})
+			continue
 		}
 		result.Files = append(result.Files, rel)
 		if isHTMLArtifactFile(file) {
 			htmlFiles++
-			if err := validateHTMLFile(fullPath); err != nil {
-				return artifactValidationResult{}, fmt.Errorf("%s: %w", rel, err)
-			}
+			report, issues := validateHTMLFile(rel, fullPath, manifest.Type)
+			result.HTML = append(result.HTML, report)
+			result.Issues = append(result.Issues, issues...)
 		}
 	}
 	if htmlFiles == 0 {
-		return artifactValidationResult{}, errors.New("artifact files must include at least one HTML file")
+		result.Issues = append(result.Issues, artifactValidationIssue{
+			Code:     "artifact_missing_html_file",
+			Severity: "error",
+			File:     manifestPath,
+			Message:  "artifact files must include at least one HTML file.",
+			Fix:      "Add an .html file to artifact.json files and make it the web_page entrypoint or a presentation slide.",
+		})
 	}
-	return result, nil
+	return result
 }
 
 func buildArtifactSyncPayload(artifactDir string, manifest canvasArtifactManifest, manifestObject map[string]any) (artifactSyncPayload, error) {
@@ -93,52 +110,6 @@ func buildArtifactSyncPayload(artifactDir string, manifest canvasArtifactManifes
 		},
 		Files: files,
 	}, nil
-}
-
-func validateHTMLFile(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	doc, err := html.Parse(strings.NewReader(string(data)))
-	if err != nil {
-		return fmt.Errorf("invalid HTML: %w", err)
-	}
-	if !containsElement(doc, "html") || !containsElement(doc, "body") {
-		return errors.New("HTML must include html and body elements")
-	}
-	if !containsDataHivyID(doc) {
-		return errors.New("HTML must include at least one data-hivy-id attribute")
-	}
-	return nil
-}
-
-func containsElement(node *html.Node, name string) bool {
-	if node.Type == html.ElementNode && node.Data == name {
-		return true
-	}
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if containsElement(child, name) {
-			return true
-		}
-	}
-	return false
-}
-
-func containsDataHivyID(node *html.Node) bool {
-	if node.Type == html.ElementNode {
-		for _, attr := range node.Attr {
-			if attr.Key == "data-hivy-id" && strings.TrimSpace(attr.Val) != "" {
-				return true
-			}
-		}
-	}
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if containsDataHivyID(child) {
-			return true
-		}
-	}
-	return false
 }
 
 func cleanArtifactRelPath(path string) (string, error) {

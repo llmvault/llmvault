@@ -45,12 +45,39 @@ type canvasArtifactSlide struct {
 }
 
 type artifactValidationResult struct {
-	Valid        bool     `json:"valid"`
-	ArtifactPath string   `json:"artifact_path"`
-	ManifestPath string   `json:"manifest_path"`
-	Type         string   `json:"type"`
-	Name         string   `json:"name"`
-	Files        []string `json:"files"`
+	Valid        bool                       `json:"valid"`
+	ArtifactPath string                     `json:"artifact_path"`
+	ManifestPath string                     `json:"manifest_path"`
+	Type         string                     `json:"type"`
+	Name         string                     `json:"name"`
+	Files        []string                   `json:"files"`
+	HTML         []artifactHTMLReport       `json:"html,omitempty"`
+	Issues       []artifactValidationIssue  `json:"issues,omitempty"`
+	Guidance     []artifactValidationAdvice `json:"guidance,omitempty"`
+}
+
+type artifactHTMLReport struct {
+	Path                 string `json:"path"`
+	CanvasIDCount        int    `json:"canvas_id_count"`
+	SemanticElementCount int    `json:"semantic_element_count"`
+	TopLevelSectionCount int    `json:"top_level_section_count"`
+	MaxDepth             int    `json:"max_depth"`
+}
+
+type artifactValidationIssue struct {
+	Code     string `json:"code"`
+	Severity string `json:"severity"`
+	File     string `json:"file,omitempty"`
+	Element  string `json:"element,omitempty"`
+	NodePath string `json:"node_path,omitempty"`
+	CanvasID string `json:"canvas_id,omitempty"`
+	Message  string `json:"message"`
+	Fix      string `json:"fix"`
+}
+
+type artifactValidationAdvice struct {
+	Topic  string `json:"topic"`
+	Detail string `json:"detail"`
 }
 
 type artifactSyncPayload struct {
@@ -203,16 +230,29 @@ func artifactValidateCommand(args []string, verify bool) error {
 	}
 	result, err := validateArtifact(args[0])
 	if err != nil {
+		if validationErr, ok := err.(artifactValidationError); ok {
+			return printValidationResult(validationErr.Result, verify, err)
+		}
 		return err
 	}
+	return printValidationResult(result, verify, nil)
+}
+
+func printValidationResult(result artifactValidationResult, verify bool, err error) error {
 	if verify {
 		out := map[string]any{
-			"verified": true,
+			"verified": result.Valid,
 			"artifact": result,
 		}
-		return printJSON(out)
+		if printErr := printJSON(out); printErr != nil {
+			return printErr
+		}
+		return err
 	}
-	return printJSON(result)
+	if printErr := printJSON(result); printErr != nil {
+		return printErr
+	}
+	return err
 }
 
 func artifactSyncCommand(args []string) error {
@@ -224,6 +264,9 @@ func artifactSyncCommand(args []string) error {
 		return err
 	}
 	if _, err := validateLoadedArtifact(artifactDir, manifestPath, manifest); err != nil {
+		if validationErr, ok := err.(artifactValidationError); ok {
+			return printValidationResult(validationErr.Result, false, err)
+		}
 		return err
 	}
 	payload, err := buildArtifactSyncPayload(artifactDir, manifest, manifestObject)
@@ -284,7 +327,7 @@ func writeArtifactFiles(root string, manifest canvasArtifactManifest) error {
 func defaultHTML(manifest canvasArtifactManifest, file canvasArtifactFile) string {
 	title := html.EscapeString(manifest.Name)
 	if file.Role == "slide" {
-		return fmt.Sprintf("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>%s</title></head><body><main data-hivy-id=\"slide-001\"><h1>%s</h1></main></body></html>\n", title, title)
+		return fmt.Sprintf("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>%s</title></head><body><main data-canvas-id=\"slide-001\"><section data-canvas-id=\"slide-001-content\"><h1>%s</h1></section></main></body></html>\n", title, title)
 	}
-	return fmt.Sprintf("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>%s</title></head><body><main data-hivy-id=\"page-root\"><h1>%s</h1></main></body></html>\n", title, title)
+	return fmt.Sprintf("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>%s</title></head><body><main data-canvas-id=\"page\"><section data-canvas-id=\"hero\"><h1>%s</h1></section></main></body></html>\n", title, title)
 }

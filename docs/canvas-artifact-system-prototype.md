@@ -351,7 +351,7 @@ The agent should receive these comments in prompt context with enough anchor dat
   "file_path": "index.html",
   "slide_id": null,
   "element_id": "hero-title",
-  "selector": "[data-hivy-id=\"hero-title\"]",
+  "selector": "[data-canvas-id=\"hero-title\"]",
   "position": { "x": 420, "y": 180 },
   "body": "Make this headline more direct."
 }
@@ -359,7 +359,7 @@ The agent should receive these comments in prompt context with enough anchor dat
 
 This mirrors the current code line comment flow conceptually, but should use a separate payload key and separate frontend types.
 
-The artifact validator should require stable data attributes needed for comment anchoring. The initial required attribute is `data-hivy-id`. Coordinate-only comments can be a fallback later, but the prototype should require element anchors.
+The artifact validator should require data attributes needed for current-session comment targeting. The required attribute is `data-canvas-id`. Coordinate comments can be fallback context, but the prototype should require element anchors for meaningful semantic blocks.
 
 ### End-to-End Test Requirement
 
@@ -387,7 +387,7 @@ The test should prove:
 - Sync direction: bidirectional. Runtime hydrates `/workspace/canvas` from backend/S3 on startup and syncs local changes back to the control plane.
 - Deletes: mark projects/artifacts/files archived in the database rather than hard deleting rows.
 - External assets: allowed. Validation should focus on Canvas manifest requirements, HTML structure, and required data attributes, not blocking remote URLs.
-- Comment anchors: require `data-hivy-id` in the prototype.
+- Comment anchors: require `data-canvas-id` in the prototype.
 - Browser verification: no Playwright requirement. `canvas artifact verify` performs static HTML validation.
 - Sync event durability: sync events are SSE/live-only and used for frontend refresh/iframe reload.
 - Artifact identity: use human-readable slugs derived from names. If a slug exists, append an incrementing suffix such as `-1`, `-2`. Backend UUIDs can exist internally, but the CLI should return enough slug/ID/path information for the agent to continue.

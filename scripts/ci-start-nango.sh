@@ -2,8 +2,14 @@
 set -euo pipefail
 
 ./scripts/ci-create-nango-db.sh
+HIVY_NANGO_COMPOSE_ENV_FILE="${HIVY_NANGO_COMPOSE_ENV_FILE:-tmp/nango-compose.env}" ./scripts/ensure-nango-image.sh
+set -a
+# shellcheck disable=SC1091
+. "${HIVY_NANGO_COMPOSE_ENV_FILE:-tmp/nango-compose.env}"
+set +a
+
 docker rm -f hivy-ci-nango >/dev/null 2>&1 || true
-docker run -d --name hivy-ci-nango --network host --platform linux/amd64 \
+docker run -d --name hivy-ci-nango --network host --platform "${HIVY_NANGO_PLATFORM:-linux/amd64}" \
   -e PORT=23003 \
   -e SERVER_PORT=23003 \
   -e NANGO_DB_HOST=127.0.0.1 \
@@ -22,7 +28,7 @@ docker run -d --name hivy-ci-nango --network host --platform linux/amd64 \
   -e FLAG_SERVE_CONNECT_UI=false \
   -e NANGO_LOGS_ENABLED=false \
   -e TELEMETRY=false \
-  ghcr.io/usehivy/integrations:latest >/dev/null
+  "${HIVY_NANGO_IMAGE:-ghcr.io/usehivy/integrations:latest}" >/dev/null
 
 for _ in $(seq 1 90); do
   if curl -fsS http://localhost:23003/health >/dev/null 2>&1; then

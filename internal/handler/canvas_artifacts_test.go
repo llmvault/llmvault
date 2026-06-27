@@ -160,7 +160,7 @@ func TestIntegration_CanvasArtifactsRuntimeSyncAndPublicPreview(t *testing.T) {
 				"path":         "index.html",
 				"role":         "entrypoint",
 				"content_type": "text/html; charset=utf-8",
-				"content":      "<!doctype html><html><body data-hivy-id=\"hero\">Hello</body></html>",
+				"content":      "<!doctype html><html><body data-canvas-id=\"hero\">Hello</body></html>",
 			},
 		},
 	})
