@@ -22,7 +22,7 @@
   "slack": {
     "display_name": "Slack",
     "resources": {
-      "channel": {
+      "slack_channel": {
         "display_name": "Channels",
         "description": "Slack channels the AI can access",
         "id_field": "id",

@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils"
 type Connection = components["schemas"]["connectionResponse"]
 type AvailableResource = components["schemas"]["AvailableResource"]
 
+const SLACK_CHANNEL_RESOURCE_TYPE = "slack_channel"
+
 export function ChannelCreateModal({
   open,
   onOpenChange,
@@ -69,7 +71,7 @@ function ChannelCreateModalContent({
       params: {
         path: {
           id: activeConnectionID,
-          type: "channel",
+          type: SLACK_CHANNEL_RESOURCE_TYPE,
         },
       },
     },
@@ -116,7 +118,7 @@ function ChannelCreateModalContent({
           external_provider: "slack",
           external_connection_id: selectedConnection.id,
           external_workspace_key: selectedConnection.nango_connection_id,
-          external_resource_type: "channel",
+          external_resource_type: SLACK_CHANNEL_RESOURCE_TYPE,
           external_resource_key: selectedResource.id,
           external_resource_name: selectedResource.name || selectedResource.id,
         },
