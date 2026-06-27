@@ -26,6 +26,31 @@ func TestIntegration_SessionsChannelVisibilityDoesNotGrantReadOrSend(t *testing.
 	}
 }
 
+func TestIntegration_ChannelSessionsIncludeSlackSourceWithoutParticipant(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	base := time.Date(2026, 6, 21, 9, 0, 0, 0, time.UTC)
+	_ = seedActivitySession(t, h, fx, fx.member.ID, nil, base.Add(time.Hour))
+	slackSession := seedSlackActivitySession(t, h, fx, base.Add(2*time.Hour))
+
+	assertSessionListIDs(t, h.doJSON(t, http.MethodGet, "/v1/channels/"+fx.channel.ID.String()+"/sessions?sort=activity", fx, fx.viewer, nil), []string{slackSession.ID.String()})
+
+	detail := h.doJSON(t, http.MethodGet, "/v1/sessions/"+slackSession.ID.String(), fx, fx.viewer, nil)
+	if detail.Code != http.StatusOK {
+		t.Fatalf("slack session detail status=%d body=%s", detail.Code, detail.Body.String())
+	}
+	events := h.doJSON(t, http.MethodGet, "/v1/sessions/"+slackSession.ID.String()+"/events", fx, fx.viewer, nil)
+	if events.Code != http.StatusOK {
+		t.Fatalf("slack session events status=%d body=%s", events.Code, events.Body.String())
+	}
+	send := h.doJSON(t, http.MethodPost, "/v1/sessions/"+slackSession.ID.String()+"/messages", fx, fx.viewer, map[string]any{
+		"text": "web reply",
+	})
+	if send.Code != http.StatusForbidden {
+		t.Fatalf("slack session send status=%d body=%s", send.Code, send.Body.String())
+	}
+}
+
 func TestIntegration_ChannelSessionsActivitySortIsScopedToCurrentUser(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)

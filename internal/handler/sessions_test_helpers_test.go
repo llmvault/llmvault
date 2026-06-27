@@ -68,14 +68,24 @@ func assertSessionNameTaskEnqueued(t *testing.T, h *sessionHarness, sessionID st
 
 func seedActivitySession(t *testing.T, h *sessionHarness, fx sessionFixture, createdBy uuid.UUID, participantIDs []uuid.UUID, activityAt time.Time) model.Session {
 	t.Helper()
+	return seedActivitySessionWithSource(t, h, fx, &createdBy, participantIDs, activityAt, model.SessionSourceWeb)
+}
+
+func seedSlackActivitySession(t *testing.T, h *sessionHarness, fx sessionFixture, activityAt time.Time) model.Session {
+	t.Helper()
+	return seedActivitySessionWithSource(t, h, fx, nil, nil, activityAt, model.SessionSourceExternal)
+}
+
+func seedActivitySessionWithSource(t *testing.T, h *sessionHarness, fx sessionFixture, createdBy *uuid.UUID, participantIDs []uuid.UUID, activityAt time.Time, source string) model.Session {
+	t.Helper()
 	session := model.Session{
 		OrgID:           fx.org.ID,
 		ChannelID:       fx.channel.ID,
 		AgentID:         fx.agent.ID,
-		CreatedBy:       &createdBy,
+		CreatedBy:       createdBy,
 		Model:           "deepseek-v4-flash",
 		ReasoningEffort: "high",
-		Source:          "web",
+		Source:          source,
 		Name:            "activity-" + uuid.NewString()[:8],
 		Status:          "active",
 		CreatedAt:       activityAt.Add(-time.Minute),
@@ -102,8 +112,8 @@ func seedActivitySession(t *testing.T, h *sessionHarness, fx sessionFixture, cre
 		RuntimeSessionID: session.ID.String(),
 		EventID:          "activity-" + uuid.NewString(),
 		EventType:        "user.message",
-		ActorUserID:      &createdBy,
-		Source:           "web",
+		ActorUserID:      createdBy,
+		Source:           source,
 		SequenceNumber:   1,
 		Payload:          model.JSON{"text": session.Name},
 		EventAt:          activityAt,

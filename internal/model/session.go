@@ -12,6 +12,8 @@ const (
 	SessionAgentTurnOutcomeDone    = "completed"
 	SessionAgentTurnOutcomeStopped = "stopped"
 	SessionAgentTurnOutcomeFailed  = "failed"
+	SessionSourceWeb               = "web"
+	SessionSourceExternal          = "external"
 )
 
 type Session struct {

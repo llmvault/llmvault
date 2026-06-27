@@ -108,7 +108,7 @@ func (h *SlackAppMentionHandler) ensureSlackSessionEvent(tx *gorm.DB, row *model
 		RuntimeSessionID: session.ID.String(),
 		EventID:          eventID,
 		EventType:        runtimeevents.EventUserMessageReceived,
-		Source:           slackSessionSource,
+		Source:           model.SessionSourceExternal,
 		SequenceNumber:   0,
 		Durability:       "durable",
 		Payload:          payload,

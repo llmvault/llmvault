@@ -16,8 +16,6 @@ import (
 	"github.com/usehivy/hivy/internal/slackworkflow"
 )
 
-const slackSessionSource = "slack"
-
 func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client, token string) (model.Channel, model.Agent, error) {
 	channel, found, err := h.findSlackChannel(ctx, *row)
 	if err != nil {
@@ -134,7 +132,7 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 	var session model.Session
 	err := h.db.WithContext(ctx).
 		Where("org_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
-			row.OrgID, slackSessionSource, row.ConnectionID, key, "active").
+			row.OrgID, model.SessionSourceExternal, row.ConnectionID, key, "active").
 		First(&session).Error
 	if err == nil {
 		_ = slackworkflow.RecordSessionResolved(ctx, h.db, row.ID, session.ID)
@@ -151,7 +149,7 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 		AgentID:           agent.ID,
 		Model:             agent.Model,
 		ReasoningEffort:   "high",
-		Source:            slackSessionSource,
+		Source:            model.SessionSourceExternal,
 		SourceID:          &connID,
 		SourceResourceKey: key,
 		Name:              "Slack: " + channel.ExternalResourceName,

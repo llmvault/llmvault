@@ -138,14 +138,24 @@ func seedDefaultChannel(t *testing.T, h *channelHarness, fx channelFixture) stri
 
 func seedChannelRecentSession(t *testing.T, h *channelHarness, fx channelFixture, channelID uuid.UUID, createdBy uuid.UUID, participantIDs []uuid.UUID, activityAt time.Time) model.Session {
 	t.Helper()
+	return seedChannelRecentSessionWithSource(t, h, fx, channelID, &createdBy, participantIDs, activityAt, model.SessionSourceWeb)
+}
+
+func seedChannelSlackRecentSession(t *testing.T, h *channelHarness, fx channelFixture, channelID uuid.UUID, activityAt time.Time) model.Session {
+	t.Helper()
+	return seedChannelRecentSessionWithSource(t, h, fx, channelID, nil, nil, activityAt, model.SessionSourceExternal)
+}
+
+func seedChannelRecentSessionWithSource(t *testing.T, h *channelHarness, fx channelFixture, channelID uuid.UUID, createdBy *uuid.UUID, participantIDs []uuid.UUID, activityAt time.Time, source string) model.Session {
+	t.Helper()
 	session := model.Session{
 		OrgID:           fx.org.ID,
 		ChannelID:       channelID,
 		AgentID:         fx.agent.ID,
-		CreatedBy:       &createdBy,
+		CreatedBy:       createdBy,
 		Model:           "deepseek-v4-flash",
 		ReasoningEffort: "high",
-		Source:          "web",
+		Source:          source,
 		Name:            "session-" + uuid.NewString()[:8],
 		Status:          "active",
 		CreatedAt:       activityAt.Add(-time.Minute),
@@ -172,8 +182,8 @@ func seedChannelRecentSession(t *testing.T, h *channelHarness, fx channelFixture
 		RuntimeSessionID: session.ID.String(),
 		EventID:          "event-" + uuid.NewString(),
 		EventType:        "user.message",
-		ActorUserID:      &createdBy,
-		Source:           "web",
+		ActorUserID:      createdBy,
+		Source:           source,
 		SequenceNumber:   1,
 		Payload:          model.JSON{"text": session.Name},
 		EventAt:          activityAt,
