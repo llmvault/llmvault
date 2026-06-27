@@ -35,7 +35,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 		"external_provider":      "slack",
 		"external_connection_id": slackConn.ID.String(),
 		"external_workspace_key": "T123",
-		"external_resource_type": "channel",
+		"external_resource_type": "slack_channel",
 		"external_resource_key":  "CENG",
 		"external_resource_name": "engineering",
 		"external_resource_url":  "https://slack.test/T123/CENG",

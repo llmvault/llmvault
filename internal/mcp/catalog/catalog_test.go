@@ -72,6 +72,11 @@ func TestResourceDef(t *testing.T) {
 		},
 		{
 			provider:     "slack",
+			resourceType: "channel",
+			wantExists:   false,
+		},
+		{
+			provider:     "slack",
 			resourceType: "unknown",
 			wantExists:   false,
 		},

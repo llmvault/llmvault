@@ -45,11 +45,31 @@ func TestIntegration_ChannelsCreate_ExternalSlackResource(t *testing.T) {
 	if out.Channel.ExternalResourceKey != "CENG" {
 		t.Fatalf("external resource key=%q, want CENG", out.Channel.ExternalResourceKey)
 	}
+	if out.Channel.ExternalResourceType != "slack_channel" {
+		t.Fatalf("external resource type=%q, want slack_channel", out.Channel.ExternalResourceType)
+	}
 	if len(provisioner.calls) != 1 {
 		t.Fatalf("provisioner calls=%d, want 1", len(provisioner.calls))
 	}
 	call := provisioner.calls[0]
-	if call.Provider != "slack" || call.ConnectionID != conn.ID || call.ResourceKey != "CENG" {
+	if call.Provider != "slack" || call.ConnectionID != conn.ID || call.ResourceType != "slack_channel" || call.ResourceKey != "CENG" {
 		t.Fatalf("provisioner call mismatch: %+v", call)
+	}
+}
+
+func TestIntegration_ChannelsCreate_RejectsWrongSlackResourceType(t *testing.T) {
+	h := newChannelHarness(t)
+	fx := h.seed(t)
+	conn := seedChannelConnection(t, h, fx, "slack", "slack-workspace-3")
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
+		"external_provider":      "slack",
+		"external_connection_id": conn.ID.String(),
+		"external_resource_type": "channel",
+		"external_resource_key":  "CENG",
+		"external_resource_name": "engineering",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("create status=%d body=%s", rr.Code, rr.Body.String())
 	}
 }

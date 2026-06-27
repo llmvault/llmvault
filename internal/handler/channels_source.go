@@ -23,9 +23,8 @@ type channelSourceFields struct {
 
 func channelSourceFromCreate(w http.ResponseWriter, req *channelMutationRequest) (channelSourceFields, bool) {
 	source := channelSourceFields{
-		Origin:               "native",
-		ExternalResourceType: "channel",
-		ExternalMetadata:     model.JSON{},
+		Origin:           "native",
+		ExternalMetadata: model.JSON{},
 	}
 	_, ok := applyChannelSourceRequest(w, &source, req, true)
 	return source, ok
@@ -88,7 +87,7 @@ func applyChannelSourceRequest(w http.ResponseWriter, source *channelSourceField
 	}
 	applySourceStrings(source, req)
 	if source.ExternalResourceType == "" {
-		source.ExternalResourceType = "channel"
+		source.ExternalResourceType = defaultExternalChannelResourceType(source.ExternalProvider)
 	}
 	id, ok := parseOptionalUUIDForRequest(w, req.ExternalConnectionID, "external_connection_id")
 	if !ok {
@@ -102,6 +101,10 @@ func applyChannelSourceRequest(w http.ResponseWriter, source *channelSourceField
 	}
 	if source.Origin == "external" && source.ExternalProvider == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "external_provider is required for external channels"})
+		return false, false
+	}
+	if source.Origin == "external" && !validExternalChannelResourceType(source.ExternalProvider, source.ExternalResourceType) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "external_resource_type does not match external_provider"})
 		return false, false
 	}
 	if source.Origin == "external" && source.ExternalResourceKey == "" {
@@ -162,6 +165,20 @@ func clearExternalSource(source *channelSourceFields) {
 	source.ExternalResourceKey = ""
 	source.ExternalResourceName = ""
 	source.ExternalResourceURL = ""
+}
+
+func defaultExternalChannelResourceType(provider string) string {
+	if provider == "slack" {
+		return "slack_channel"
+	}
+	return "channel"
+}
+
+func validExternalChannelResourceType(provider, resourceType string) bool {
+	if provider == "slack" {
+		return resourceType == "slack_channel"
+	}
+	return resourceType != ""
 }
 
 func defaultString(value, fallback string) string {
