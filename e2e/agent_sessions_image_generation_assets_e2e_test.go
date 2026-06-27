@@ -31,7 +31,7 @@ func saveAgentSessionsImageArtifacts(t *testing.T, ctx context.Context, dir, mod
 	}
 	paths := make([]string, 0, len(results))
 	for index, result := range results {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, agentSessionsHostAssetURL(result.PublicURL), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, agentSessionsHostReachableURL(result.PublicURL), nil)
 		if err != nil {
 			t.Fatalf("build %s artifact request: %v", mode, err)
 		}
@@ -60,7 +60,7 @@ func saveAgentSessionsImageArtifacts(t *testing.T, ctx context.Context, dir, mod
 	return paths
 }
 
-func agentSessionsHostAssetURL(raw string) string {
+func agentSessionsHostReachableURL(raw string) string {
 	raw = strings.Replace(raw, "http://host.docker.internal:", "http://localhost:", 1)
 	return strings.Replace(raw, "https://host.docker.internal:", "https://localhost:", 1)
 }
@@ -88,7 +88,7 @@ func agentSessionsImageArtifactExt(contentType string) string {
 	}
 }
 
-func assertAgentSessionsGeneratedImageAssets(t *testing.T, ctx context.Context, orgIDRaw, agentIDRaw, mode string, results []agentSessionsImageGenerationResult) {
+func assertAgentSessionsGeneratedImageAssets(t *testing.T, ctx context.Context, orgIDRaw, agentIDRaw, mode, providerID, modelID string, results []agentSessionsImageGenerationResult) {
 	t.Helper()
 	if len(results) == 0 {
 		t.Fatalf("%s generation returned no assets", mode)
@@ -119,6 +119,9 @@ func assertAgentSessionsGeneratedImageAssets(t *testing.T, ctx context.Context, 
 		}
 		if meta["auto_generated"] != true || meta["source"] != "image_generation" || meta["mode"] != mode {
 			t.Fatalf("bad generated %s asset metadata: %+v", mode, meta)
+		}
+		if meta["provider_id"] != providerID || meta["model"] != modelID {
+			t.Fatalf("bad generated %s model metadata: %+v", mode, meta)
 		}
 	}
 }

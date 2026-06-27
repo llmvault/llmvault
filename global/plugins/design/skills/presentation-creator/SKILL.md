@@ -1,11 +1,11 @@
 ---
 name: presentation-creator
-description: Use this skill when the user asks a design agent to create, design, outline, critique, rewrite, or improve slides, slide decks, presentations, pitch decks, investor decks, sales decks, proposal decks, executive briefings, webinar decks, or business/conversion presentations. It teaches narrative structure, persuasive slide language, one-message-per-slide discipline, business proof, conversion asks, speaker notes, and slide QA, then directs the agent to create and verify the actual deck inside Hivy Canvas with the canvas skill.
+description: Use this skill when the user asks a design agent to create, design, outline, critique, rewrite, or improve slides, slide decks, presentations, pitch decks, investor decks, sales decks, proposal decks, executive briefings, webinar decks, or business/conversion presentations. It teaches narrative structure, persuasive slide language, one-message-per-slide discipline, business proof, conversion asks, speaker notes, and slide QA, then directs the agent to create and verify the actual presentation artifact inside Hivy Canvas with the canvas skill.
 ---
 
 # Presentation Creator
 
-Use this skill to shape slide decks that persuade clearly, then build the actual artifact in Hivy Canvas.
+Use this skill to shape slide decks that persuade clearly, then build the actual presentation artifact in Hivy Canvas.
 
 - **Use for:** narrative arcs, slide sequences, slide copy, business proof, conversion asks, pitch decks, sales decks, executive decks, stakeholder updates, speaker notes, and slide QA.
 - **Do not use for:** long-form prose, generic product UI design, logo work, or final decks built only as prose. Use `design-taste`, `landing-page-copy`, `logo-design`, and `canvas` alongside this skill when those concerns are present.
@@ -15,17 +15,18 @@ Use this skill to shape slide decks that persuade clearly, then build the actual
 When creating, editing, redesigning, or presenting a deck artifact:
 
 1. Load the `canvas` skill before editing the artifact.
-2. Run `canvas doctor`, then `canvas init`.
+2. Run `canvas doctor`, then list or create the target project.
 3. Run `canvas brands list` before choosing palette, typography, logo treatment, or voice. Use the default org brand when present; otherwise inspect the relevant brand with `canvas brands view <brand-id>`. If the list is empty and the deck needs a palette, choose a defensible starter palette from the brief or business context, create it with `canvas brands create`, and tell the user what was saved.
-4. Create or open the target Canvas file and page.
-5. Build each slide as a 16:9 Canvas board. Name boards with slide number and purpose, such as `03 - Problem cost`.
-6. Use `canvas mcp execute_code` for slide boards, text, shapes, charts, callouts, speaker-note areas, and proof elements.
-7. Verify structurally after write batches.
-8. Export representative slides or the affected deck boards with `canvas mcp export_shape`, decode them to `/tmp`, and inspect with `read_file` before claiming the deck is visually correct.
+4. Create or open the target `presentation` artifact.
+5. Build each slide as a standalone HTML file listed in `artifact.json`. Use slide IDs and filenames such as `slide-001`, `slide-002`, and names that describe the slide job.
+6. Use semantic HTML sections, `figure` elements for charts/screenshots/proof, and stable `data-canvas-id` anchors for slide regions and important proof elements.
+7. Run `canvas artifact validate` after structural batches and fix error-level issues.
+8. Use Agent Browser to render representative slides, dense slides, first/last slides, and any slide navigation or interactive elements. Capture screenshots at a 16:9 viewport.
+9. Run `canvas artifact verify`, then `canvas artifact sync` when the deck is ready.
 
-Use Canvas for the actual slide work: board sequence, visual hierarchy, copy fit, business proof, speaker notes, variants, and final export boards.
+Use Canvas for the actual slide work: slide sequence, visual hierarchy, copy fit, business proof, speaker notes, variants, and final artifact.
 
-Do not produce final deck work only as prose, Markdown, SVG snippets, local PPTX files, or local images unless the user explicitly asks for non-Canvas output. If a local file is useful, create it as an export or temporary aid and bring the result back into Canvas.
+Do not produce final deck work only as prose, Markdown, SVG snippets, local PPTX files, or local images unless the user explicitly asks for non-Canvas output. If a local file is useful, use it as a temporary aid and include the resulting material in the Canvas artifact.
 
 ## Brand Source Rule
 
@@ -43,9 +44,9 @@ Presentation progress:
 - [ ] Step 2: Pick deck mode and narrative arc
 - [ ] Step 3: Outline slide sequence
 - [ ] Step 4: Write slide copy and proof
-- [ ] Step 5: Design slides in Canvas
+- [ ] Step 5: Design slides as Canvas HTML files
 - [ ] Step 6: Add speaker notes when useful
-- [ ] Step 7: QA slides and export verified boards
+- [ ] Step 7: QA slides in Agent Browser and sync the verified artifact
 ```
 
 ### Step 1: Gather Context
@@ -108,10 +109,10 @@ Read `references/visual-design.md`.
 
 Use the selected Canvas brand first. Do not default to dark slides, gradients, or arbitrary section colors unless the brand or brief supports that direction.
 
-Build slides as Canvas boards:
+Build slides as HTML files in a `presentation` artifact:
 
-- 16:9 deck boards, usually 1920x1080 or the local Canvas equivalent.
-- One focal idea per board.
+- 16:9 default viewport, usually 1920x1080 or equivalent CSS sizing.
+- One focal idea per slide file.
 - Text sized for the presentation context.
 - Proof placed where it can be scanned: charts, metrics, logos, quotes, screenshots, or annotated product moments.
 - Reusable components for headers, footers, section labels, slide numbers, and source notes.
@@ -136,7 +137,7 @@ Review every slide before handing over:
 - **One message:** exactly one core idea per slide.
 - **Business purpose:** every slide earns its place by creating context, proof, confidence, or action.
 - **Brand fit:** colors, type, voice, and logo usage follow the selected Canvas brand or the newly created starter brand.
-- **Canvas verified:** structural read plus exported-image inspection completed for the changed boards.
+- **Canvas verified:** validate/verify plus Agent Browser inspection completed for the changed slides.
 
 Fix every flagged row before presenting the deck as complete.
 

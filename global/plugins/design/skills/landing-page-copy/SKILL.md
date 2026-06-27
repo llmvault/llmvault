@@ -1,13 +1,13 @@
 ---
 name: landing-page-copy
-description: Use when writing, revising, critiquing, or placing landing page copy, hero copy, value propositions, CTA labels, signup/demo page copy, pricing page copy, sales page sections, opt-in page copy, or conversion-focused website sections. This is a design-support skill for copy that must fit the layout, audience, offer, brand voice, and conversion goal. In Hivy, use this skill with the canvas skill whenever the copy belongs in a Canvas landing page design or mockup.
+description: Use when writing, revising, critiquing, or placing landing page copy, hero copy, value propositions, CTA labels, signup/demo page copy, pricing page copy, sales page sections, opt-in page copy, or conversion-focused website sections. This is a design-support skill for copy that must fit the layout, audience, offer, brand voice, and conversion goal. In Hivy, use this skill with the canvas skill whenever the copy belongs in a Canvas landing page artifact.
 ---
 
 # Landing Page Copy For Hivy Design
 
 Use this skill to write conversion-focused landing page copy that can live inside a real design. The copy should make the page easier to understand, easier to scan, and more persuasive without becoming generic marketing language.
 
-This skill can produce standalone copy when asked, but when the user is designing or editing a landing page, the Canvas file is the source of truth. Put the copy into the actual Canvas layout and verify that it fits.
+This skill can produce standalone copy when asked, but when the user is designing or editing a landing page, the Canvas artifact is the source of truth. Put the copy into the actual HTML layout and verify that it fits in the rendered artifact.
 
 ## Core Model
 
@@ -28,13 +28,14 @@ Good landing page copy:
 When the user asks to create, edit, mock up, or place landing page copy in a design:
 
 1. Load the `canvas` skill before editing the artifact.
-2. Run `canvas doctor`, then `canvas init`.
+2. Run `canvas doctor`, then list or create the target project.
 3. Run `canvas brands list` before choosing brand voice, naming, typography-sensitive copy length, or brand-sensitive proof language. Use the default org brand when present; otherwise inspect the relevant brand with `canvas brands view <brand-id>`. If the list is empty and brand voice or palette is needed, choose from the brief or product context, create a brand with `canvas brands create`, and tell the user what was saved.
-4. Create or open the target Canvas file/page.
-5. Inspect the current layout, text boxes, section order, and visible constraints before writing.
-6. Use `canvas mcp execute_code` to place or update the copy in the Canvas design.
-7. Verify structurally after each write batch.
-8. Export the affected board with `canvas mcp export_shape`, decode it to `/tmp`, and inspect it with `read_file` before claiming the copy fits visually.
+4. Create or open the target `web_page` artifact.
+5. Inspect the current HTML sections, visible hierarchy, CTAs, section order, responsive constraints, and `data-canvas-id` anchors before writing.
+6. Edit the artifact HTML directly so the copy lives in semantic sections and important CTAs have stable anchors.
+7. Run `canvas artifact validate` after copy placement and fix structural errors.
+8. Use Agent Browser to render desktop and mobile viewports, inspect line breaks, click CTAs or forms where relevant, and capture screenshots before claiming the copy fits visually.
+9. Run `canvas artifact verify`, then `canvas artifact sync` when the copy is ready.
 
 Do not treat copy as separate from layout. Shorten, split, or restructure copy when the design needs scannability, mobile fit, or stronger hierarchy.
 
@@ -42,7 +43,7 @@ Do not treat copy as separate from layout. Shorten, split, or restructure copy w
 
 Org brands are the source of truth for brand voice, terminology, logo references, color-sensitive copy placement, and typography constraints. Always run `canvas brands list` for Canvas-backed landing page work before writing or placing copy.
 
-Use the default brand when one exists. If there are multiple brands and no default, use `request_user_input` to choose one. If no brand exists, infer a starter voice or palette only when the offer, audience, product category, or current Canvas file gives enough direction; then persist it with `canvas brands create` and tell the user. If context is too thin, use `request_user_input` for one focused direction question.
+Use the default brand when one exists. If there are multiple brands and no default, use `request_user_input` to choose one. If no brand exists, infer a starter voice or palette only when the offer, audience, product category, or current Canvas artifact gives enough direction; then persist it with `canvas brands create` and tell the user. If context is too thin, use `request_user_input` for one focused direction question.
 
 ## When To Use
 
@@ -193,11 +194,11 @@ Separate copy problems from design/layout problems. If the issue is layout, say 
 
 When working in Canvas:
 
-1. State the Canvas file/page updated.
+1. State the Canvas project, artifact, type, and path updated.
 2. Summarize the section-level copy changes.
 3. Note the conversion goal and main objection addressed.
 4. Mention any copy that was shortened to fit the layout.
-5. Report verification: structural check plus exported board inspection.
+5. Report verification: validate/verify result plus Agent Browser desktop/mobile fit checks.
 
 When standalone copy is requested, provide a structured page draft:
 
@@ -232,4 +233,4 @@ Load only what the task needs:
 - `references/hero-formulas.md`: use when generating or improving hero headline directions.
 - `references/objection-library.md`: use when identifying and handling conversion objections.
 
-Treat the reference files as copy judgment references; translate any design-related output into Canvas sections and verified Canvas edits when the user is building a landing page artifact.
+Treat the reference files as copy judgment references; translate any design-related output into semantic HTML sections and verified Canvas artifact edits when the user is building a landing page artifact.

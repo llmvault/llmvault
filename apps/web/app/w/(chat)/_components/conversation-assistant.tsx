@@ -2,13 +2,8 @@
 
 import { Icon } from "@iconify/react"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
-import { CanvasDesignCards } from "@/app/w/(chat)/_components/conversation-canvas-card"
 import { PreviewBrowserCards } from "@/app/w/(chat)/_components/conversation-preview-card"
 import { assetPreviewAttachments } from "@/app/w/(chat)/_lib/asset-preview-links"
-import {
-  canvasDesignTargets,
-  type CanvasDesignTarget,
-} from "@/app/w/(chat)/_lib/canvas-design-links"
 import {
   previewBrowserTargets,
   type PreviewBrowserTarget,
@@ -21,26 +16,19 @@ import type {
 export function AssistantBlock({
   block,
   onOpenAttachment,
-  onOpenCanvasTarget,
   onOpenPreviewTarget,
 }: {
   block: Extract<ConversationBlock, { type: "assistant" }>
   onOpenAttachment: (attachment: MediaAttachment) => void
-  onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
   onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
 }) {
   const assetPreviews = assistantPreviewAttachments(block)
-  const canvasTargets = block.streaming ? [] : canvasDesignTargets(block.text)
   const previewTargets = block.streaming
     ? []
     : previewBrowserTargets(block.text)
   const showFooter = !block.streaming && Boolean(block.completedAt)
 
-  if (
-    !assetPreviews.length &&
-    !canvasTargets.length &&
-    !previewTargets.length
-  ) {
+  if (!assetPreviews.length && !previewTargets.length) {
     return (
       <div className="group/final-message flex min-w-0 flex-col items-start gap-1">
         <MarkdownProse text={block.text} streaming={block.streaming} />
@@ -52,7 +40,6 @@ export function AssistantBlock({
   return (
     <div className="group/final-message flex min-w-0 flex-col items-start gap-3">
       <MarkdownProse text={block.text} streaming={block.streaming} />
-      <CanvasDesignCards targets={canvasTargets} onOpen={onOpenCanvasTarget} />
       <PreviewBrowserCards
         targets={previewTargets}
         onOpen={onOpenPreviewTarget}

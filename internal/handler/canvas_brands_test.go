@@ -50,7 +50,7 @@ func newRuntimeBrandHarness(t *testing.T) *runtimeBrandHarness {
 		db.Where("id = ?", sandbox.ID).Delete(&model.Sandbox{})
 		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
 	})
-	canvasHandler := handler.NewCanvasHandler(db, encKey, nil)
+	canvasHandler := handler.NewCanvasHandler(db, encKey)
 	router := chi.NewRouter()
 	router.Get("/internal/agents/{agentID}/canvas/brands", canvasHandler.ListAgentBrands)
 	router.Post("/internal/agents/{agentID}/canvas/brands", canvasHandler.CreateAgentBrand)

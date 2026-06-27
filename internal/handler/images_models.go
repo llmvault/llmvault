@@ -1,11 +1,10 @@
 package handler
 
 import (
-	"errors"
+	"context"
 	"net/http"
 
-	"gorm.io/gorm"
-
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
@@ -17,12 +16,13 @@ type imageGenerationModelsResponse struct {
 
 // ListGenerationModels handles GET /v1/images/models.
 func (h *ImageDescribeHandler) ListGenerationModels(w http.ResponseWriter, r *http.Request) {
-	if _, err := h.openRouterSystemCredential(r.Context()); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "OpenRouter system credential unavailable", ErrorCode: "system_credential_unavailable"})
-			return
-		}
+	providerIDs, err := h.imageGenerationSystemProviderIDs(r.Context())
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, imageDescribeError{Error: "failed to load system credential", ErrorCode: "internal_error"})
+		return
+	}
+	if len(providerIDs) == 0 {
+		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "image generation system credential unavailable", ErrorCode: "system_credential_unavailable"})
 		return
 	}
 
@@ -30,7 +30,7 @@ func (h *ImageDescribeHandler) ListGenerationModels(w http.ResponseWriter, r *ht
 	if reg == nil {
 		reg = registry.Global()
 	}
-	routed := reg.ImageGenerationModelsForProviders([]string{imageDescribeProviderID})
+	routed := reg.ImageGenerationModelsForProviders(providerIDs)
 	models := make([]modelSummary, 0, len(routed))
 	for _, item := range routed {
 		mdl := item.Model
@@ -59,4 +59,24 @@ func (h *ImageDescribeHandler) ListGenerationModels(w http.ResponseWriter, r *ht
 		DefaultVectorModel: registry.DefaultVectorImageGenerationModelID,
 		Models:             models,
 	})
+}
+
+func (h *ImageDescribeHandler) imageGenerationSystemProviderIDs(ctx context.Context) ([]string, error) {
+	var creds []model.Credential
+	if err := h.db.WithContext(ctx).
+		Where("org_id IS NULL AND revoked_at IS NULL AND provider_id IN ?", imageGenerationProviderIDs()).
+		Find(&creds).Error; err != nil {
+		return nil, err
+	}
+	available := make(map[string]bool, len(creds))
+	for _, cred := range creds {
+		available[cred.ProviderID] = true
+	}
+	providerIDs := make([]string, 0, len(available))
+	for _, providerID := range imageGenerationProviderIDs() {
+		if available[providerID] {
+			providerIDs = append(providerIDs, providerID)
+		}
+	}
+	return providerIDs, nil
 }

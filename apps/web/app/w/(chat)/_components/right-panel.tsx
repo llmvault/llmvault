@@ -34,7 +34,12 @@ const PANEL_VIEWS: {
   },
   { id: "browser", label: "Browser", icon: "lucide:globe", shortcut: "⌘T" },
   { id: "files", label: "Files", icon: "lucide:folder", shortcut: "⌘P" },
-  { id: "design", label: "Design", icon: "lucide:pen-tool", shortcut: "⌘D" },
+  {
+    id: "design",
+    label: "Canvas",
+    icon: "lucide:panels-top-left",
+    shortcut: "⌘D",
+  },
   {
     id: "side-chat",
     label: "Subagents",

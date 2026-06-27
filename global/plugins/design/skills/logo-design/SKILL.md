@@ -1,13 +1,13 @@
 ---
 name: logo-design
-description: Use when designing, redesigning, refining, critiquing, or exploring logos, wordmarks, monograms, brand marks, lockups, favicon marks, app marks, or logo variants. This is a design-direction skill for logo taste and judgment: mark architecture, typographic register, symbol approach, restraint, small-size discipline, application context, critique, and decision-ready presentation. In Hivy, use this skill with the canvas skill: think with logo-design, then create and verify the actual logo boards inside Hivy Canvas.
+description: Use when designing, redesigning, refining, critiquing, or exploring logos, wordmarks, monograms, brand marks, lockups, favicon marks, app marks, or logo variants. This is a design-direction skill for logo taste and judgment: mark architecture, typographic register, symbol approach, restraint, small-size discipline, application context, critique, and decision-ready presentation. In Hivy, use this skill with the canvas skill: think with logo-design, then create and verify the actual logo exploration artifact in Hivy Canvas.
 ---
 
 # Logo Design For Hivy Canvas
 
-Use this skill to make logo work more tasteful, disciplined, and decision-ready. It is not a code-generation workflow. It tells Kara how to think, critique, narrow, and present logo directions, then routes execution through Hivy Canvas.
+Use this skill to make logo work more tasteful, disciplined, and decision-ready. It tells Kara how to think, critique, narrow, and present logo directions, then routes execution through a Canvas artifact.
 
-The Canvas file is the source of truth. Markdown notes are supporting documentation only.
+The Canvas artifact is the source of truth. Markdown notes are supporting documentation only.
 
 ## Core Model
 
@@ -18,7 +18,7 @@ Work in this order:
 1. Clarify the brand and application context.
 2. Select the mark architectures worth exploring.
 3. Establish typographic and symbol direction.
-4. Create distinct Canvas variants, not minor style tweaks.
+4. Create distinct Canvas artifact variants, not minor style tweaks.
 5. Test each variant in real logo contexts.
 6. Present the strongest directions with rationale, rejects, and next-step recommendations.
 
@@ -27,16 +27,18 @@ Work in this order:
 When the user asks to create, draw, mock up, iterate, export, or present logo work:
 
 1. Load the `canvas` skill before making or editing the logo artifact.
-2. Run `canvas doctor`, then `canvas init`.
+2. Run `canvas doctor`, then list or create the target project.
 3. Run `canvas brands list` before choosing colors, typography, logo constraints, or voice. Use the default org brand when present; otherwise inspect the relevant brand with `canvas brands view <brand-id>`. If the list is empty and color direction is needed, choose a defensible starting palette from the brief or product context, create it with `canvas brands create`, and tell the user what was saved.
-4. Create or open the target Canvas file.
-5. Build logo exploration boards in Canvas using `canvas mcp execute_code`.
-6. Verify structurally after each write batch.
-7. Export each presentation board with `canvas mcp export_shape`, decode it to `/tmp`, and inspect it with `read_file` before claiming the design is visually correct.
+4. Create or open a `web_page` artifact for the logo exploration.
+5. Build logo exploration sections in semantic HTML: brief, territories, variants, application tests, shortlist, and export-ready direction.
+6. Use `article` elements for individual variants and `figure` elements for marks, lockups, and mockups. Add stable `data-canvas-id` anchors to every major section and variant.
+7. Run `canvas artifact validate` after each structural batch and fix error-level issues.
+8. Use Agent Browser to inspect desktop and mobile renderings, test any variant filters or tabs, and capture screenshots.
+9. Run `canvas artifact verify`, then `canvas artifact sync` when the exploration is ready.
 
-Use Canvas for the actual work: variant boards, lockups, favicon tests, monochrome tests, reverse-on-dark tests, application mockups, and final export boards.
+Use Canvas for the actual work: variant sections, lockups, favicon tests, monochrome tests, reverse-on-dark tests, application mockups, and final selected direction.
 
-Do not produce final logo work only as prose, SVG snippets, or local image files unless the user explicitly asks for non-Canvas output. If a local SVG or PNG is useful, create it as an export from the Canvas artifact or as a temporary construction aid, then bring the result back into Canvas.
+Do not produce final logo work only as prose, SVG snippets, or local image files unless the user explicitly asks for non-Canvas output. If a local SVG or PNG is useful, use it as a temporary construction aid or generated asset, then include it in the Canvas artifact.
 
 ## Brand Source Rule
 
@@ -139,24 +141,24 @@ Most logo failure is over-design. Use these tests:
 
 If an element does not help at the smallest important size, remove it or reserve it for a larger application.
 
-## Canvas Board Structure
+## Canvas Artifact Structure
 
-Create a dedicated page named `Logo Exploration` unless the existing file already has a suitable logo page.
+Create a dedicated `web_page` artifact named `Logo Exploration` unless the existing project already has a suitable artifact.
 
-Use these boards:
+Use these semantic sections:
 
-- `logo/brief`: brand name, audience, category, constraints, references, rejection list.
-- `logo/territories`: 3-5 concept territories, each with a short rationale and visual rules.
-- `logo/variants`: 6-12 distinct variants across architectures. Fewer is better if each is strong.
-- `logo/application-tests`: favicon, avatar, monochrome, reverse, web header, business card, and any brief-specific contexts.
-- `logo/shortlist`: top 2-4 candidates with recommendation, risks, and next iteration notes.
-- `logo/export`: final selected direction and export-ready arrangements, only after the user chooses a direction.
+- `logo-brief`: brand name, audience, category, constraints, references, rejection list.
+- `logo-territories`: 3-5 concept territories, each with a short rationale and visual rules.
+- `logo-variants`: 6-12 distinct variants across architectures. Fewer is better if each is strong.
+- `logo-application-tests`: favicon, avatar, monochrome, reverse, web header, business card, and any brief-specific contexts.
+- `logo-shortlist`: top 2-4 candidates with recommendation, risks, and next iteration notes.
+- `logo-export`: final selected direction and export-ready arrangements, only after the user chooses a direction.
 
-Use semantic layer names such as `variant-03/symbol`, `variant-03/wordmark`, `test-favicon-16`, and `lockup-horizontal`. Avoid appearance-only names like `blue-shape`.
+Use semantic `data-canvas-id` names such as `variant-03-symbol`, `variant-03-wordmark`, `test-favicon-16`, and `lockup-horizontal`. Avoid appearance-only names like `blue-shape`.
 
 ## Variant Standard
 
-Each variant in Canvas should include:
+Each variant in the Canvas artifact should include:
 
 - Variant name and index.
 - Architecture: wordmark, lockup, symbol, letterform, or monogram.
@@ -173,7 +175,7 @@ Make variants meaningfully different. Do not present six near-identical geometri
 
 When presenting back to the user:
 
-1. Link the Canvas file or state the active Canvas file/page.
+1. State the Canvas project, artifact, and artifact path.
 2. Summarize the strongest directions, not every operation performed.
 3. For each shortlisted direction, explain:
    - what it communicates,
@@ -189,7 +191,7 @@ Ask "Which direction best fits the brand's audience and use cases?" rather than 
 
 When critiquing an existing logo:
 
-1. Inspect the actual asset or Canvas file when available.
+1. Inspect the actual asset, Canvas artifact, or supplied screenshot when available.
 2. Score it against architecture, type, symbol logic, small-size legibility, single-color reproduction, distinctiveness, and category fit.
 3. Separate fixable production issues from deeper strategic issues.
 4. Recommend whether to refine, refresh, or redesign.
@@ -205,4 +207,4 @@ Load only what the task needs:
 - `references/application-contexts.md`: use for favicon, app icon, print, embroidery, signage, motion, and production tests.
 - `references/category-conventions.md`: use when the category has strong logo conventions or cliches.
 - `references/example-variant-spec.md`: use when writing detailed rationale for variants.
-Treat the reference files as design judgment references; translate any non-Hivy output expectations into Canvas boards and exports.
+Treat the reference files as design judgment references; translate any non-Hivy output expectations into Canvas artifact sections and verified previews.

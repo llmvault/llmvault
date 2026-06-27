@@ -18,19 +18,19 @@ func (h *AgentTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Context, 
 		resp = &agentruntime.HTTPMessageResponse{}
 	}
 	task, opts, err := NewAgentTriggerStoreDeliveryTask(AgentTriggerStoreDeliveryPayload{
-		OrgID:                 trigger.OrgID,
-		AgentID:               trigger.AgentID,
-		TriggerID:             trigger.ID,
-		ConnectionID:          trigger.ConnectionID,
-		DeliveryID:            payload.DeliveryID,
-		EventKey:              eventKey(payload.EventType, payload.EventAction),
-		ResourceKey:           compiled.ResourceKey,
-		SessionID:             session.ID,
-		RuntimeSessionID:      resp.SessionID,
-		RuntimeStreamID:       resp.StreamID,
-		RuntimeTraceID:        resp.TraceID,
-		RuntimeTurnID:         resp.TurnID,
-		PayloadJSON:           payload.PayloadJSON,
+		OrgID:            trigger.OrgID,
+		AgentID:          trigger.AgentID,
+		TriggerID:        trigger.ID,
+		ConnectionID:     trigger.ConnectionID,
+		DeliveryID:       payload.DeliveryID,
+		EventKey:         eventKey(payload.EventType, payload.EventAction),
+		ResourceKey:      compiled.ResourceKey,
+		SessionID:        session.ID,
+		RuntimeSessionID: resp.SessionID,
+		RuntimeStreamID:  resp.StreamID,
+		RuntimeTraceID:   resp.TraceID,
+		RuntimeTurnID:    resp.TurnID,
+		PayloadJSON:      payload.PayloadJSON,
 	})
 	if err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("build agent trigger delivery store task: %w", err), triggerStoreEnqueueFields(payload, trigger, session, compiled, resp))

@@ -79,11 +79,6 @@ type Config struct {
 	MCPPort    int    `env:"HIVY_MCP_PORT" envDefault:"8081"`
 	MCPBaseURL string `env:"HIVY_MCP_BASE_URL" envDefault:"http://localhost:8081"`
 
-	// Canvas/Penpot integration. Empty values disable Canvas sync/runtime injection.
-	CanvasPublicURL       string `env:"HIVY_CANVAS_PUBLIC_URL"`
-	CanvasAPIBaseURL      string `env:"HIVY_CANVAS_API_BASE_URL"`
-	CanvasControlPlaneKey string `env:"HIVY_CANVAS_CONTROL_PLANE_KEY"`
-
 	// Sandbox provider (global — one provider for the whole platform)
 	SandboxEncryptionKey              string `env:"HIVY_SANDBOX_ENCRYPTION_KEY"` // base64-encoded 32-byte key for encrypting sandbox secrets
 	SandboxProviderID                 string `env:"HIVY_SANDBOX_PROVIDER_ID"`    // empty disables sandbox orchestration

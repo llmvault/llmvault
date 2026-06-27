@@ -10,12 +10,12 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestCompileBashToolPassesCanvasRuntimeEnv(t *testing.T) {
+func TestCompileBashToolPassesRuntimeControlPlaneEnv(t *testing.T) {
 	orgID := uuid.New()
 	agent := &model.Agent{
 		ID:    uuid.New(),
 		OrgID: &orgID,
-		Name:  "Canvas Agent",
+		Name:  "Control Plane Agent",
 		Model: DefaultAgentModel,
 		Tools: model.JSON{"bash": true},
 	}
@@ -36,11 +36,6 @@ func TestCompileBashToolPassesCanvasRuntimeEnv(t *testing.T) {
 		t.Fatalf("bash env passthrough = %#v", config["env_passthrough"])
 	}
 	for _, key := range []string{
-		AgentEnvPenpotCanvasURL,
-		AgentEnvPenpotCanvasTeamID,
-		AgentEnvPenpotCanvasProfileID,
-		AgentEnvPenpotCanvasSessionJWT,
-		AgentEnvPenpotCanvasMCPURL,
 		AgentEnvCloudControlPlaneURL,
 		AgentEnvAgentID,
 		AgentEnvRuntimeSecret,
@@ -51,12 +46,12 @@ func TestCompileBashToolPassesCanvasRuntimeEnv(t *testing.T) {
 	}
 }
 
-func TestCompileBashToolAddsCanvasEnvToCustomPassthrough(t *testing.T) {
+func TestCompileBashToolAddsControlPlaneEnvToCustomPassthrough(t *testing.T) {
 	orgID := uuid.New()
 	agent := &model.Agent{
 		ID:    uuid.New(),
 		OrgID: &orgID,
-		Name:  "Canvas Agent",
+		Name:  "Control Plane Agent",
 		Model: DefaultAgentModel,
 		Tools: model.JSON{
 			"bash": map[string]any{"env_passthrough": []any{"PATH", "HOME"}},
@@ -69,9 +64,6 @@ func TestCompileBashToolAddsCanvasEnvToCustomPassthrough(t *testing.T) {
 	}
 	config := def.Tools[0]["config"].(map[string]any)
 	passthrough := config["env_passthrough"].([]any)
-	if !containsAnyString(passthrough, AgentEnvPenpotCanvasSessionJWT) {
-		t.Fatalf("custom bash env passthrough missing canvas env: %#v", passthrough)
-	}
 	if !containsAnyString(passthrough, AgentEnvRuntimeSecret) {
 		t.Fatalf("custom bash env passthrough missing runtime secret: %#v", passthrough)
 	}

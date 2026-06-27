@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultBaseURL = "https://api.reve.com"
-	createPath     = "/v2/image/create"
+	createPath     = "/v1/image/create"
 	maxInstruction = 4000
 )
 
@@ -113,6 +113,7 @@ func decodeImageResult(resp *http.Response, requested ImageFormat) (ImageResult,
 func decodeJSONResult(body io.Reader) (ImageResult, error) {
 	var decoded struct {
 		Image            string          `json:"image"`
+		Data             string          `json:"data"`
 		Layout           json.RawMessage `json:"layout"`
 		Version          string          `json:"version"`
 		ContentViolation bool            `json:"content_violation"`
@@ -124,9 +125,13 @@ func decodeJSONResult(body io.Reader) (ImageResult, error) {
 		return ImageResult{}, fmt.Errorf("decode reve response: %w", err)
 	}
 	data := []byte(nil)
-	if decoded.Image != "" {
+	if decoded.Image != "" || decoded.Data != "" {
 		var err error
-		data, err = base64.StdEncoding.DecodeString(decoded.Image)
+		payload := decoded.Image
+		if payload == "" {
+			payload = decoded.Data
+		}
+		data, err = base64.StdEncoding.DecodeString(payload)
 		if err != nil {
 			return ImageResult{}, fmt.Errorf("decode reve image: %w", err)
 		}

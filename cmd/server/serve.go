@@ -13,7 +13,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
-	"github.com/usehivy/hivy/internal/canvas"
 	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
@@ -63,10 +62,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	})
 
 	auditWriter := middleware.NewAuditWriter(ctx, database, 10000)
-	canvasService := canvas.NewService(database, canvas.NewClient(cfg))
 	canvasArtifactStore := buildCanvasArtifactStore(cfg)
 	canvasArtifactService := canvasartifact.NewService(database, canvasArtifactStore)
-	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey, canvasService).WithArtifactService(canvasArtifactService)
+	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey).WithArtifactService(canvasArtifactService)
 
 	generationWriter := middleware.NewGenerationWriter(ctx, database, reg, 10000)
 	if enqueuer != nil {
@@ -87,7 +85,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		SigningKey: signingKey,
 		Cfg:        cfg,
 		Nango:      nangoClient,
-		Canvas:     canvasService,
 	}
 	if orchestrator != nil {
 		orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandbox.AgentRuntimeConfigPush) error {

@@ -30,7 +30,7 @@ func (h *UploadsHandler) imageGenerationUsageSession(ctx context.Context, agent 
 	return &session
 }
 
-func (h *UploadsHandler) trackImageGenerationUsage(ctx context.Context, agent *model.Agent, sandbox *model.Sandbox, req imageGenerationRequest, session *model.Session, cred *model.Credential, modelID, upstreamModel string, usage openRouterImageUsage, results []imageGenerationToolResult) {
+func (h *UploadsHandler) trackImageGenerationUsage(ctx context.Context, agent *model.Agent, sandbox *model.Sandbox, req imageGenerationRequest, session *model.Session, cred *model.Credential, providerID, modelID, upstreamModel string, usage imageGenerationUsage, results []imageGenerationToolResult) {
 	if agent == nil || agent.OrgID == nil || sandbox == nil || cred == nil {
 		return
 	}
@@ -39,10 +39,32 @@ func (h *UploadsHandler) trackImageGenerationUsage(ctx context.Context, agent *m
 	if vector {
 		toolName = imageGenerationVectorToolName
 	}
+	metadata := model.JSON{
+		"mode":                req.mode(),
+		"tool_name":           toolName,
+		"aspect_ratio":        strings.TrimSpace(req.AspectRatio),
+		"count":               len(results),
+		"generated_asset_ids": imageGenerationResultAssetIDs(results),
+		"reference_asset_ids": cleanReferenceAssetIDs(req.ReferenceAssetIDs),
+		"upstream_model":      upstreamModel,
+	}
+	if usage.CreditsUsed > 0 {
+		metadata["credits_used"] = usage.CreditsUsed
+	}
+	if usage.CreditsRemaining > 0 {
+		metadata["credits_remaining"] = usage.CreditsRemaining
+	}
+	if len(usage.RequestIDs) > 0 {
+		metadata["request_ids"] = usage.RequestIDs
+	}
+	if usage.ContentViolation {
+		metadata["content_violation"] = true
+	}
+
 	payload := buildModelUsagePayload(modelUsageInput{
 		Operation:       "image_generation",
 		OrgID:           *agent.OrgID,
-		ProviderID:      imageGenerationProviderID,
+		ProviderID:      providerID,
 		Model:           modelID,
 		RequestPath:     "/mcp/tools/" + toolName,
 		TokenJTI:        "system:images.generate",
@@ -57,15 +79,7 @@ func (h *UploadsHandler) trackImageGenerationUsage(ctx context.Context, agent *m
 		TotalTokens:     usage.TotalTokens,
 		Cost:            usage.Cost,
 		UpstreamStatus:  http.StatusOK,
-		Metadata: model.JSON{
-			"mode":                req.mode(),
-			"tool_name":           toolName,
-			"aspect_ratio":        strings.TrimSpace(req.AspectRatio),
-			"count":               len(results),
-			"generated_asset_ids": imageGenerationResultAssetIDs(results),
-			"reference_asset_ids": cleanReferenceAssetIDs(req.ReferenceAssetIDs),
-			"upstream_model":      upstreamModel,
-		},
+		Metadata:        metadata,
 	})
 	dispatchModelUsage(ctx, h.db, h.usageEnqueuer, payload)
 }

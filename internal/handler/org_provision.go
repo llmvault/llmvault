@@ -27,20 +27,3 @@ func enqueueOrgHivyAgentProvision(ctx context.Context, enq enqueue.TaskEnqueuer,
 		})
 	}
 }
-
-func enqueueCanvasOrgSync(ctx context.Context, enq enqueue.TaskEnqueuer, orgID uuid.UUID, stage string) {
-	if enq == nil {
-		logging.FromContext(ctx).WarnContext(ctx, "Canvas org sync skipped; queue not configured",
-			"org_id", orgID, "stage", stage)
-		return
-	}
-	if err := tasks.EnqueueCanvasOrgSync(ctx, enq, orgID); err != nil {
-		err = fmt.Errorf("enqueue Canvas org sync: %w", err)
-		logging.FromContext(ctx).ErrorContext(ctx, "failed to enqueue Canvas org sync",
-			"org_id", orgID, "stage", stage, "error", err)
-		logging.CaptureWithFields(ctx, err, map[string]any{
-			"org_id": orgID.String(),
-			"stage":  stage,
-		})
-	}
-}

@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -30,6 +31,17 @@ func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
 		label:      "E2E System OpenRouter",
 		providerID: "openrouter",
 		baseURL:    "https://openrouter.ai/api/v1",
+		authScheme: "bearer",
+	})
+}
+
+func agentSessionsEnsureSystemReveCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_REVE_API_KEY",
+		label:      "E2E System Reve",
+		providerID: "reve",
+		baseURL:    "https://api.reve.com",
 		authScheme: "bearer",
 	})
 }
@@ -74,18 +86,27 @@ func agentSessionsEnsureSystemCredential(t *testing.T, cfg agentSessionsSystemCr
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", agentSessionsSystemCredentialSeedLockKey).Error; err != nil {
 			return err
 		}
-		var existing int64
-		if err := tx.Model(&model.Credential{}).
+		var existing model.Credential
+		err := tx.
 			Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", cfg.providerID).
-			Count(&existing).Error; err != nil {
+			Order("created_at ASC").
+			First(&existing).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
-		}
-		if existing > 0 {
-			return nil
 		}
 		cred, err := agentSessionsBuildSystemCredential(t, kms, cfg, apiKey)
 		if err != nil {
 			return err
+		}
+		if existing.ID != uuid.Nil {
+			return tx.Model(&model.Credential{}).Where("id = ?", existing.ID).Updates(map[string]any{
+				"label":         cfg.label,
+				"base_url":      cfg.baseURL,
+				"auth_scheme":   cfg.authScheme,
+				"encrypted_key": cred.EncryptedKey,
+				"wrapped_dek":   cred.WrappedDEK,
+				"meta":          cred.Meta,
+			}).Error
 		}
 		return tx.Create(&cred).Error
 	})

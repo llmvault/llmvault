@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	DefaultRasterImageGenerationModelID = "flux.2-klein-4b"
-	DefaultVectorImageGenerationModelID = "recraft-v4.1-vector"
+	DefaultRasterImageGenerationModelID = "reve-image"
+	DefaultVectorImageGenerationModelID = "recraft-v4.1-pro-vector"
 )
 
 func ModelSupportsTextOutput(m Model) bool {

@@ -91,8 +91,5 @@ func normalizeRuntimeOrigin(raw string) (string, error) {
 	if parsed.Port() != "" {
 		return "", fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN must not include a port; Docker published-port mode appends the sandbox port")
 	}
-	if strings.EqualFold(parsed.Hostname(), "host.docker.internal") {
-		return "", fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN must be reachable by both browsers and containers, not host.docker.internal")
-	}
 	return origin, nil
 }

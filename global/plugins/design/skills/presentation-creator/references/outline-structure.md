@@ -1,6 +1,6 @@
 # Outline Structure
 
-Define the narrative arc and slide sequence before writing slide copy or drawing boards.
+Define the narrative arc and slide sequence before writing slide copy or building slide files.
 
 ## Standard Flow
 
@@ -111,4 +111,4 @@ Separate what is decided from what still needs feedback.
 3. Map the arc before drafting slide copy.
 4. Label each slide with its job.
 5. Cut any slide that does not create context, proof, confidence, or action.
-6. Only then start building Canvas boards.
+6. Only then start building Canvas presentation slide files.

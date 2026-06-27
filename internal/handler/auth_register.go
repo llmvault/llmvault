@@ -84,7 +84,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	enqueueOrgHivyAgentProvision(r.Context(), h.enqueuer, org.ID, "auth_register")
-	enqueueCanvasOrgSync(r.Context(), h.enqueuer, org.ID, "auth_register")
 
 	if h.autoConfirmEmail {
 

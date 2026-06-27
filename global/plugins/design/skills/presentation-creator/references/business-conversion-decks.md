@@ -123,4 +123,4 @@ For business decks, make proof visually scannable:
 - Put metrics in large type with small source labels.
 - Use screenshots and diagrams when they shorten explanation.
 - Keep every proof slide tied to the claim in the headline.
-- Reserve appendix boards for extra data, objections, security, implementation, or financial detail.
+- Reserve appendix slides for extra data, objections, security, implementation, or financial detail.

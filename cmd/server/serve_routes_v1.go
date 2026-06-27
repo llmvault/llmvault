@@ -106,7 +106,6 @@ func setupV1Routes(
 				r.Get("/canvas/artifacts", canvasHandler.ListArtifacts)
 				r.Get("/canvas/artifacts/{artifactID}", canvasHandler.GetArtifact)
 				r.Post("/canvas/artifacts/{artifactID}/preview-url", canvasHandler.PreviewArtifactURL)
-				r.Post("/canvas/session-url", canvasHandler.SessionURL)
 			}
 			if databaseIntegrationHandler != nil {
 				r.Get("/database-integrations", databaseIntegrationHandler.List)

@@ -1,4 +1,4 @@
-// Static agent (specialist) catalog for the /w design exploration. Mirrors
+// Static agent (specialist) catalog for the workspace chat UI. Mirrors
 // the backend specialist definitions: each agent owns its tools and the set
 // of models it can run on. The agent is fixed for the lifetime of a session;
 // the model can be switched mid-session, but only within the agent's list.

@@ -4347,7 +4347,7 @@ export interface paths {
         };
         /**
          * List Canvas projects
-         * @description Returns Canvas projects and their files for the current organization.
+         * @description Returns Canvas artifact projects for the current organization.
          */
         get: {
             parameters: {
@@ -4364,7 +4364,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["canvasProjectCatalogResponse"];
+                        "application/json": components["schemas"]["ProjectListResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -4398,95 +4398,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/canvas/session-url": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Canvas session URL
-         * @description Returns a short-lived Canvas iframe session URL for a file visible to the current user.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Canvas file target */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["canvasSessionURLRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["canvasSessionURLResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Bad Gateway */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -13179,6 +13090,17 @@ export interface components {
             masked_fields?: string[];
             max_rows?: number;
         };
+        ProjectListResponse: {
+            projects?: components["schemas"]["ProjectResponse"][];
+        };
+        ProjectResponse: {
+            artifact_count?: number;
+            description?: string;
+            id?: string;
+            name?: string;
+            project_id?: string;
+            slug?: string;
+        };
         Reference: {
             body?: string;
             path?: string;
@@ -13542,32 +13464,6 @@ export interface components {
             cancel_at_period_end?: boolean;
             canceled_at?: string;
             status?: string;
-        };
-        canvasProjectCatalogFileResponse: {
-            file_id?: string;
-            name?: string;
-            page_id?: string;
-            project_id?: string;
-            workspace_url?: string;
-        };
-        canvasProjectCatalogProjectResponse: {
-            files?: components["schemas"]["canvasProjectCatalogFileResponse"][];
-            name?: string;
-            project_id?: string;
-        };
-        canvasProjectCatalogResponse: {
-            projects?: components["schemas"]["canvasProjectCatalogProjectResponse"][];
-        };
-        canvasSessionURLRequest: {
-            file_id?: string;
-            page_id?: string;
-        };
-        canvasSessionURLResponse: {
-            expires_in?: number;
-            file_id?: string;
-            page_id?: string;
-            team_id?: string;
-            url?: string;
         };
         changePasswordRequest: {
             current_password?: string;
@@ -14536,6 +14432,7 @@ export interface components {
             };
         };
         sendSessionMessageRequest: {
+            artifact_comments?: components["schemas"]["JSON"][];
             attachment_ids?: string[];
             code_line_comments?: components["schemas"]["JSON"][];
             text?: string;

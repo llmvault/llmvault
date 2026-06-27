@@ -3499,7 +3499,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns Canvas projects and their files for the current organization.",
+                "description": "Returns Canvas artifact projects for the current organization.",
                 "produces": [
                     "application/json"
                 ],
@@ -3511,7 +3511,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/canvasProjectCatalogResponse"
+                            "$ref": "#/definitions/ProjectListResponse"
                         }
                     },
                     "401": {
@@ -3522,75 +3522,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/canvas/session-url": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns a short-lived Canvas iframe session URL for a file visible to the current user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "canvas"
-                ],
-                "summary": "Create Canvas session URL",
-                "parameters": [
-                    {
-                        "description": "Canvas file target",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/canvasSessionURLRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/canvasSessionURLResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -11289,6 +11220,40 @@ const docTemplate = `{
                 }
             }
         },
+        "ProjectListResponse": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProjectResponse"
+                    }
+                }
+            }
+        },
+        "ProjectResponse": {
+            "type": "object",
+            "properties": {
+                "artifact_count": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
         "Reference": {
             "type": "object",
             "properties": {
@@ -12410,85 +12375,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "canvasProjectCatalogFileResponse": {
-            "type": "object",
-            "properties": {
-                "file_id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "page_id": {
-                    "type": "string"
-                },
-                "project_id": {
-                    "type": "string"
-                },
-                "workspace_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "canvasProjectCatalogProjectResponse": {
-            "type": "object",
-            "properties": {
-                "files": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/canvasProjectCatalogFileResponse"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "project_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "canvasProjectCatalogResponse": {
-            "type": "object",
-            "properties": {
-                "projects": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/canvasProjectCatalogProjectResponse"
-                    }
-                }
-            }
-        },
-        "canvasSessionURLRequest": {
-            "type": "object",
-            "properties": {
-                "file_id": {
-                    "type": "string"
-                },
-                "page_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "canvasSessionURLResponse": {
-            "type": "object",
-            "properties": {
-                "expires_in": {
-                    "type": "integer"
-                },
-                "file_id": {
-                    "type": "string"
-                },
-                "page_id": {
-                    "type": "string"
-                },
-                "team_id": {
-                    "type": "string"
-                },
-                "url": {
                     "type": "string"
                 }
             }
@@ -15432,6 +15318,12 @@ const docTemplate = `{
         "sendSessionMessageRequest": {
             "type": "object",
             "properties": {
+                "artifact_comments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/JSON"
+                    }
+                },
                 "attachment_ids": {
                     "type": "array",
                     "items": {

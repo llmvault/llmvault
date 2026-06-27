@@ -14,7 +14,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
-	"github.com/usehivy/hivy/internal/canvas"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -71,7 +70,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		knowledgeEmbedder = ragDeps.Embedder
 	}
 	preContextBuilder := buildPreContextService(cfg, deps.DB, preContextCache, memorySearchService, knowledgeSearcher, knowledgeEmbedder, nil)
-	canvasService := canvas.NewService(deps.DB, canvas.NewClient(cfg))
 	agentCompile := agentruntime.CompileDeps{
 		DB:         deps.DB,
 		Picker:     credentials.NewPickerWithRegistry(deps.DB, deps.Registry),
@@ -79,7 +77,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		EncKey:     deps.SandboxEncKey,
 		SigningKey: deps.SigningKey,
 		Cfg:        cfg,
-		Canvas:     canvasService,
 	}
 	var orgAgentSyncer tasks.OrgHivyAgentSyncer
 	var agentHandler *handler.AgentHandler
@@ -118,7 +115,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		PreContextCache:   preContextCache,
 		PreContextBuilder: preContextBuilder,
 		OrgAgentSyncer:    orgAgentSyncer,
-		CanvasSyncer:      canvasService,
 		S3Client:          deps.S3Client,
 		AgentCompile:      agentCompile,
 		Rag:               ragDeps,

@@ -29,6 +29,7 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	workerBase := agentSessionsBaseURL("HIVY_WORKER_BASE_URL", "HIVY_COMPOSE_WORKER_HEALTH_PORT", "8090")
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
+	agentSessionsEnsureSystemReveCredential(t)
 	agentSessionsEnsureSystemOpenRouterCredential(t)
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
@@ -55,10 +56,10 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	stream := agentSessionsStartSandboxStream(t, ctx, apiBase, token, orgID, session.Session.ID)
 	waitForAgentSessionsImageToolCalls(t, ctx, stream, 4*time.Minute, "hivy_generate_image", "hivy_generate_vector_image")
 	imageResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "hivy_generate_image", 8*time.Minute)
-	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "raster", imageResults)
+	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "raster", "reve", registry.DefaultRasterImageGenerationModelID, imageResults)
 
 	vectorResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "hivy_generate_vector_image", 8*time.Minute)
-	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "vector", vectorResults)
+	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "vector", "openrouter", registry.DefaultVectorImageGenerationModelID, vectorResults)
 	artifactDir := filepath.Join(os.TempDir(), "hivy-agent-image-generation-e2e-"+runID)
 	imagePaths := saveAgentSessionsImageArtifacts(t, ctx, artifactDir, "raster", imageResults)
 	vectorPaths := saveAgentSessionsImageArtifacts(t, ctx, artifactDir, "vector", vectorResults)
@@ -115,6 +116,26 @@ func agentSessionsImageGenerationResults(event runtimeSSEEvent) []agentSessionsI
 	return nil
 }
 
+func agentSessionsImageGenerationError(event runtimeSSEEvent) string {
+	if raw, ok := event.Payload["result"]; ok {
+		body, err := json.Marshal(raw)
+		if err == nil {
+			if msg := agentSessionsParseImageGenerationError(body); msg != "" {
+				return msg
+			}
+		}
+	}
+	if summary, _ := event.Payload["result_summary"].(string); summary != "" {
+		if msg := agentSessionsParseImageGenerationError([]byte(summary)); msg != "" {
+			return msg
+		}
+	}
+	if output := agentSessionsToolResultOutput(event); output != "" {
+		return strings.TrimSpace(output)
+	}
+	return ""
+}
+
 func agentSessionsParseImageGenerationResults(raw []byte) []agentSessionsImageGenerationResult {
 	var results []agentSessionsImageGenerationResult
 	if err := json.Unmarshal(raw, &results); err == nil && len(results) > 0 {
@@ -137,6 +158,28 @@ func agentSessionsParseImageGenerationResults(raw []byte) []agentSessionsImageGe
 		}
 	}
 	return nil
+}
+
+func agentSessionsParseImageGenerationError(raw []byte) string {
+	var envelope struct {
+		IsError bool `json:"isError"`
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return ""
+	}
+	texts := make([]string, 0, len(envelope.Content))
+	for _, item := range envelope.Content {
+		if text := strings.TrimSpace(item.Text); text != "" {
+			texts = append(texts, text)
+		}
+	}
+	if envelope.IsError || len(texts) > 0 && strings.HasPrefix(texts[0], "Error:") {
+		return strings.Join(texts, "\n")
+	}
+	return ""
 }
 
 func waitForAgentSessionsImageToolCalls(t *testing.T, ctx context.Context, stream *agentSessionsLiveSandboxStream, timeout time.Duration, tools ...string) {
@@ -186,6 +229,9 @@ func waitForAgentSessionsImageResult(t *testing.T, ctx context.Context, baseURL,
 			results := agentSessionsImageGenerationResults(runtimeSSEEvent{Name: event.EventType, Payload: event.Payload})
 			if len(results) > 0 {
 				return results
+			}
+			if msg := agentSessionsImageGenerationError(runtimeSSEEvent{Name: event.EventType, Payload: event.Payload}); msg != "" {
+				t.Fatalf("image generation tool=%s returned error: %s", tool, msg)
 			}
 		}
 		t.Logf("waiting for image generation result tool=%s events=%v", tool, lastEvents)

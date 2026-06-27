@@ -1,24 +1,16 @@
 {
   "name": "canvas",
-  "description": "Use this skill when the user asks an agent to create, open, inspect, edit, design, mock up, wireframe, export, or collaborate on Canvas files. Pick it for Canvas or Canvas tasks, design file creation, UI layouts, shape/text/image changes, design review, live workspace edits, and PNG/SVG exports from the sandbox. Do not use it for unrelated browser automation or non-design file work.",
-  "human_description": "Give your agents a design canvas.",
+  "description": "Use this skill when a design agent needs to create, edit, validate, preview, browser-test, sync, or explain Hivy Canvas projects and artifacts. It teaches the first-party Canvas artifact workflow: project creation, web_page and presentation artifacts, semantic HTML, data-canvas-id anchors, validation, Agent Browser QA, image-generation assets, and final sync.",
+  "human_description": "Create, validate, preview, and sync first-party Canvas HTML artifacts.",
   "category": "Design",
   "root": "./SKILL.md",
   "tags": [
     "canvas",
-    "design",
-    "mcp",
-    "wireframes"
+    "artifact",
+    "prototype",
+    "html",
+    "browser",
+    "design"
   ],
-  "files": [
-    {
-      "path": "references/prototyping-workflows.md"
-    },
-    {
-      "path": "references/design-system-workflows.md"
-    },
-    {
-      "path": "references/design-to-code-workflows.md"
-    }
-  ]
+  "files": []
 }

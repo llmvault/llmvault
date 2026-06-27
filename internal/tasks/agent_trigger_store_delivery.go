@@ -27,19 +27,19 @@ func init() {
 }
 
 type AgentTriggerStoreDeliveryPayload struct {
-	OrgID                 uuid.UUID  `json:"org_id"`
-	AgentID               uuid.UUID  `json:"agent_id"`
-	TriggerID             uuid.UUID  `json:"trigger_id"`
-	ConnectionID          *uuid.UUID `json:"connection_id,omitempty"`
-	DeliveryID            string     `json:"delivery_id"`
-	EventKey              string     `json:"event_key"`
-	ResourceKey           string     `json:"resource_key"`
-	SessionID             uuid.UUID  `json:"session_id"`
-	RuntimeSessionID      string     `json:"runtime_session_id"`
-	RuntimeStreamID       string     `json:"runtime_stream_id"`
-	RuntimeTraceID        string     `json:"runtime_trace_id"`
-	RuntimeTurnID         string     `json:"runtime_turn_id"`
-	PayloadJSON           []byte     `json:"payload"`
+	OrgID            uuid.UUID  `json:"org_id"`
+	AgentID          uuid.UUID  `json:"agent_id"`
+	TriggerID        uuid.UUID  `json:"trigger_id"`
+	ConnectionID     *uuid.UUID `json:"connection_id,omitempty"`
+	DeliveryID       string     `json:"delivery_id"`
+	EventKey         string     `json:"event_key"`
+	ResourceKey      string     `json:"resource_key"`
+	SessionID        uuid.UUID  `json:"session_id"`
+	RuntimeSessionID string     `json:"runtime_session_id"`
+	RuntimeStreamID  string     `json:"runtime_stream_id"`
+	RuntimeTraceID   string     `json:"runtime_trace_id"`
+	RuntimeTurnID    string     `json:"runtime_turn_id"`
+	PayloadJSON      []byte     `json:"payload"`
 }
 
 // NewAgentTriggerStoreDeliveryTask returns the task plus its enqueue options.
@@ -77,19 +77,19 @@ func (h *AgentTriggerStoreDeliveryHandler) Handle(ctx context.Context, task *asy
 	}
 
 	row := model.AgentTriggerDelivery{
-		OrgID:                 payload.OrgID,
-		AgentID:               payload.AgentID,
-		TriggerID:             payload.TriggerID,
-		ConnectionID:          payload.ConnectionID,
-		DeliveryID:            payload.DeliveryID,
-		EventKey:              payload.EventKey,
-		ResourceKey:           payload.ResourceKey,
-		SessionID:             payload.SessionID,
-		RuntimeSessionID:      payload.RuntimeSessionID,
-		RuntimeStreamID:       payload.RuntimeStreamID,
-		RuntimeTraceID:        payload.RuntimeTraceID,
-		RuntimeTurnID:         payload.RuntimeTurnID,
-		Payload:               model.RawJSON(raw),
+		OrgID:            payload.OrgID,
+		AgentID:          payload.AgentID,
+		TriggerID:        payload.TriggerID,
+		ConnectionID:     payload.ConnectionID,
+		DeliveryID:       payload.DeliveryID,
+		EventKey:         payload.EventKey,
+		ResourceKey:      payload.ResourceKey,
+		SessionID:        payload.SessionID,
+		RuntimeSessionID: payload.RuntimeSessionID,
+		RuntimeStreamID:  payload.RuntimeStreamID,
+		RuntimeTraceID:   payload.RuntimeTraceID,
+		RuntimeTurnID:    payload.RuntimeTurnID,
+		Payload:          model.RawJSON(raw),
 	}
 	// The dispatcher already claimed the (trigger_id, delivery_id) row, so upsert the runtime
 	// correlation fields onto it; this also keeps the store task idempotent under asynq retries.
@@ -113,13 +113,13 @@ func (h *AgentTriggerStoreDeliveryHandler) Handle(ctx context.Context, task *asy
 
 func triggerDeliverySentryFields(payload AgentTriggerStoreDeliveryPayload) map[string]any {
 	return map[string]any{
-		"org_id":                  payload.OrgID.String(),
-		"agent_id":                payload.AgentID.String(),
-		"trigger_id":              payload.TriggerID.String(),
-		"delivery_id":             payload.DeliveryID,
-		"event_key":               payload.EventKey,
-		"resource_key":            payload.ResourceKey,
-		"session_id":              payload.SessionID.String(),
-		"runtime_session_id":      payload.RuntimeSessionID,
+		"org_id":             payload.OrgID.String(),
+		"agent_id":           payload.AgentID.String(),
+		"trigger_id":         payload.TriggerID.String(),
+		"delivery_id":        payload.DeliveryID,
+		"event_key":          payload.EventKey,
+		"resource_key":       payload.ResourceKey,
+		"session_id":         payload.SessionID.String(),
+		"runtime_session_id": payload.RuntimeSessionID,
 	}
 }
