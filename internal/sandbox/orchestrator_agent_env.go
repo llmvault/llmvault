@@ -33,6 +33,7 @@ func agentSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.San
 		agentruntime.AgentEnvOrgID:          orgID.String(),
 	}
 	opts := agentruntime.ControlPlaneRuntimeEnvOptions{
+		SandboxID:                 sb.ID,
 		GitUsername:               agentGitUsername(agent, gitIdentity),
 		GitEmail:                  agentGitEmail(agent, gitIdentity),
 		BugsinkDashboardBaseURL:   bugsinkDashboardURL,

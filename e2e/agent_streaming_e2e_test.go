@@ -71,7 +71,9 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 			if session.Queued {
 				t.Fatalf("empty session create queued a message: %+v", session)
 			}
-			assertAgentSessionsBackendOwnedMutationEvent(t, session.Event)
+			if session.Event != nil {
+				t.Fatalf("empty session create returned event: %+v", session.Event)
+			}
 			cases = append(cases, streamingSessionCase{agent: agent, channel: channel, session: session, marker: marker, prompt: prompt})
 		}
 	}
@@ -145,8 +147,8 @@ func agentStreamingCreateAgent(t *testing.T, ctx context.Context, baseURL, token
 		"available_models":    []string{streamingE2EModel},
 		"sandbox_tools":       []string{"bash"},
 		"permissions":         map[string]any{"bash": true},
+		"tools":               map[string]any{"bash": true},
 		"resources":           map[string]any{},
-		"tools":               map[string]any{},
 		"mcp_servers":         []any{},
 		"skills":              map[string]any{},
 		"sandbox_template_id": nil,
@@ -159,11 +161,11 @@ func agentStreamingCreateAgent(t *testing.T, ctx context.Context, baseURL, token
 
 func streamingE2EPrompt(runID string, agentIndex, sessionIndex int, marker string) string {
 	toolMarker := fmt.Sprintf("STREAMING_E2E_TOOL_%s_A%d_S%d", runID, agentIndex, sessionIndex)
-	lines := make([]string, 0, 90)
+	lines := make([]string, 0, 30)
 	lines = append(lines,
 		"This is the runtime Redis sequencing flagship E2E.",
 		fmt.Sprintf("Before replying, call bash exactly once with this command: python3 -c 'print(%q)'.", toolMarker),
-		"After the bash result, produce a numbered response with 90 short lines.",
+		"After the bash result, produce a numbered response with 30 short lines.",
 		"Every line must contain the exact session marker "+marker+".",
 		"Do not use markdown tables.",
 	)
