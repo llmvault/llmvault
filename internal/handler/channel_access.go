@@ -16,6 +16,9 @@ func canViewChannel(ctx context.Context, db *gorm.DB, channel model.Channel, org
 	if userID == nil || orgRole == "" {
 		return false
 	}
+	if channel.Origin == "external" {
+		return true
+	}
 	if channel.TeamID == nil {
 		return true
 	}
@@ -31,6 +34,9 @@ func canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel, orgR
 	}
 	if userID == nil || orgRole == "" {
 		return false
+	}
+	if channel.Origin == "external" {
+		return true
 	}
 	if channel.TeamID == nil {
 		return true

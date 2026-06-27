@@ -64,7 +64,24 @@ func (h *SessionHandler) canAccessSession(ctx context.Context, session model.Ses
 	if participant != "" {
 		return true
 	}
+	if !requireParticipant && session.Source == model.SessionSourceExternal {
+		channel, found, err := h.loadSessionChannel(ctx, session)
+		if err == nil && found && h.canViewChannel(ctx, channel, userID) {
+			return true
+		}
+	}
 	return userID != nil && session.CreatedBy != nil && *session.CreatedBy == *userID
+}
+
+func (h *SessionHandler) loadSessionChannel(ctx context.Context, session model.Session) (model.Channel, bool, error) {
+	var channel model.Channel
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", session.ChannelID, session.OrgID).
+		First(&channel).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return channel, false, nil
+	}
+	return channel, err == nil, err
 }
 
 func (h *SessionHandler) canUseChannel(ctx context.Context, channel model.Channel, userID *uuid.UUID) bool {

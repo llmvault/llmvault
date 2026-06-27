@@ -108,11 +108,13 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 	query := h.db.WithContext(r.Context()).
 		Model(&model.Session{}).
 		Where("org_id = ? AND status <> ?", org.ID, "archived")
+	channelScoped := false
 	if forcedChannelID != uuid.Nil {
 		if !h.canListChannelSessions(w, r, org.ID, forcedChannelID, userID) {
 			return
 		}
 		query = query.Where("channel_id = ?", forcedChannelID)
+		channelScoped = true
 	} else if channelID := strings.TrimSpace(r.URL.Query().Get("channel_id")); channelID != "" {
 		id, err := uuid.Parse(channelID)
 		if err != nil {
@@ -123,6 +125,7 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 			return
 		}
 		query = query.Where("channel_id = ?", id)
+		channelScoped = true
 	}
 	if agentID := strings.TrimSpace(r.URL.Query().Get("agent_id")); agentID != "" {
 		id, err := uuid.Parse(agentID)
@@ -132,19 +135,7 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 		}
 		query = query.Where("agent_id = ?", id)
 	}
-	if sort == sessionSortActivity && !isAPIKeyRequest(r.Context()) {
-		if userID == nil {
-			query = query.Where("1 = 0")
-		} else {
-			query = query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
-		}
-	} else if !isAPIKeyRequest(r.Context()) && !h.isOrgAdminForSession(r, org.ID, userID) {
-		if userID == nil {
-			query = query.Where("1 = 0")
-		} else {
-			query = query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
-		}
-	}
+	query = h.applySessionListVisibility(r, query, org.ID, userID, sort, channelScoped)
 	if sort == sessionSortActivity {
 		query = applySessionActivityPagination(query, activityCursor, limit)
 	} else {
@@ -196,6 +187,29 @@ func (h *SessionHandler) canListChannelSessions(w http.ResponseWriter, r *http.R
 func (h *SessionHandler) isOrgAdminForSession(r *http.Request, orgID uuid.UUID, userID *uuid.UUID) bool {
 	role, err := h.orgRole(r.Context(), orgID, userID)
 	return err == nil && isOrgManager(role)
+}
+
+func (h *SessionHandler) applySessionListVisibility(r *http.Request, query *gorm.DB, orgID uuid.UUID, userID *uuid.UUID, sort string, channelScoped bool) *gorm.DB {
+	if isAPIKeyRequest(r.Context()) {
+		return query
+	}
+	if userID == nil {
+		return query.Where("1 = 0")
+	}
+	if sort != sessionSortActivity && h.isOrgAdminForSession(r, orgID, userID) {
+		return query
+	}
+	return h.applyOwnedParticipantSessionFilter(query, userID, channelScoped)
+}
+
+func (h *SessionHandler) applyOwnedParticipantSessionFilter(query *gorm.DB, userID *uuid.UUID, includeExternalSource bool) *gorm.DB {
+	if userID == nil {
+		return query.Where("1 = 0")
+	}
+	if includeExternalSource {
+		return query.Where("created_by = ? OR id IN (?) OR source = ?", *userID, h.participantSessionSubquery(userID), model.SessionSourceExternal)
+	}
+	return query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
 }
 
 func (h *SessionHandler) participantSessionSubquery(userID *uuid.UUID) *gorm.DB {
