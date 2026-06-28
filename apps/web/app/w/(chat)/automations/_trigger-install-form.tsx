@@ -32,6 +32,7 @@ import {
   FormSection,
   InlineNotice,
 } from "@/app/w/(chat)/automations/_trigger-form-sections"
+import { TriggerDeleteConfirmModal } from "@/app/w/(chat)/automations/_trigger-delete-confirm-modal"
 
 type Connection = components["schemas"]["connectionResponse"]
 type AvailableResource = components["schemas"]["AvailableResource"]
@@ -108,6 +109,7 @@ function SlackReactionInstallForm({
     trigger?.instructions || automationTriggerDefaultInstructions(automation)
   )
   const [isEnabled, setIsEnabled] = useState(trigger?.enabled ?? true)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const connections = useMemo(
     () => (connectionsQuery.data?.data ?? []) as Connection[],
@@ -317,11 +319,16 @@ function SlackReactionInstallForm({
 
   function handleDelete() {
     if (!triggerID) return
-    if (!window.confirm("Delete this trigger?")) return
+    setDeleteConfirmOpen(true)
+  }
+
+  function confirmDelete() {
+    if (!triggerID) return
     deleteTrigger.mutate(
       { params: { path: { id: triggerID } } },
       {
         onSuccess: () => {
+          setDeleteConfirmOpen(false)
           toast.success("Trigger deleted")
           queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers"] })
           queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents"] })
@@ -335,180 +342,190 @@ function SlackReactionInstallForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {connections.length > 1 ? (
-        <FormSection
-          title="Slack workspace"
-          description="Choose the connected Slack workspace that owns the channel."
-        >
-          <SlackConnectionSelect
-            connections={connections}
-            value={activeConnectionID}
-            onChange={handleConnectionChange}
-          />
-        </FormSection>
-      ) : null}
-
-      <FormSection
-        title="Slack channel"
-        description={`Choose the ${automationSourceLabel(automation)} channel where this reaction should trigger the agent.`}
-      >
-        {connectionsQuery.isLoading ? (
-          <FieldSkeleton />
-        ) : connectionsQuery.isError ? (
-          <InlineNotice
-            icon="lucide:hash"
-            title="Could not load Slack workspaces"
-            body="Refresh the page and try again."
-          />
-        ) : connections.length === 0 ? (
-          <InlineNotice
-            icon="lucide:hash"
-            title="No Slack connections"
-            body="Connect Slack before installing this trigger."
-          />
-        ) : resourcesQuery.isLoading ? (
-          <FieldSkeleton />
-        ) : resourcesQuery.isError ? (
-          <InlineNotice
-            icon="lucide:hash"
-            title="Could not load Slack channels"
-            body="Refresh the channel list and try again."
-          />
-        ) : resources.length === 0 ? (
-          <InlineNotice
-            icon="lucide:hash"
-            title="No Slack channels"
-            body="No Slack channels were returned for this workspace."
-          />
-        ) : (
-          <SlackResourceSelect
-            resources={resources}
-            value={resourceID}
-            onChange={setResourceID}
-          />
-        )}
-      </FormSection>
-
-      <FormSection
-        title="Agent"
-        description="Select the agent that should handle matching Slack reactions."
-      >
-        {agents.length === 0 && !isLoading ? (
-          <InlineNotice
-            icon="lucide:bot"
-            title="No active agents"
-            body="Create or activate an agent before installing this trigger."
-          />
-        ) : (
-          <AgentSelect
-            agents={agents}
-            selectedAgentID={agentID}
-            isLoading={agentsQuery.isLoading}
-            onChange={setAgentID}
-          />
-        )}
-      </FormSection>
-
-      {triggerID ? (
-        <FormSection
-          title="Status"
-          description="Disable this trigger without removing its configuration."
-        >
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-border px-3 py-2.5">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-sm font-medium text-foreground">
-                {isEnabled ? "Enabled" : "Disabled"}
-              </span>
-              <span className="text-muted-foreground text-sm leading-5">
-                {isEnabled
-                  ? "Matching Slack reactions will run this automation."
-                  : "Matching Slack reactions will be ignored."}
-              </span>
-            </div>
-            <Switch
-              aria-label="Enable trigger"
-              isSelected={isEnabled}
-              isDisabled={isBusy}
-              onChange={setIsEnabled}
-              className="shrink-0"
-            >
-              <Switch.Control>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch>
-          </div>
-        </FormSection>
-      ) : null}
-
-      <FormSection
-        title="Reaction"
-        description="The automation runs when someone adds this emoji to a Slack message."
-      >
-        <SlackEmojiPicker
-          emojiName={emojiName}
-          emojiGlyph={emojiGlyph}
-          onChange={(name, glyph) => {
-            setEmojiName(name)
-            setEmojiGlyph(glyph)
-          }}
-        />
-      </FormSection>
-
-      <FormSection
-        title="Instructions"
-        description="These instructions are added to the agent run when the reaction event fires."
-      >
-        <textarea
-          value={instructions}
-          onChange={(event) => setInstructions(event.target.value)}
-          rows={8}
-          className="placeholder:text-muted-foreground min-h-44 w-full resize-y rounded-xl border border-border px-3 py-2.5 text-sm leading-5 text-foreground transition-colors outline-none focus:border-accent"
-        />
-      </FormSection>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-        {triggerID ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="text-danger sm:mr-auto"
-            isDisabled={isBusy}
-            onPress={handleDelete}
+    <>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        {connections.length > 1 ? (
+          <FormSection
+            title="Slack workspace"
+            description="Choose the connected Slack workspace that owns the channel."
           >
-            {deleteTrigger.isPending ? (
-              <Spinner color="current" size="sm" />
-            ) : (
-              <Icon icon="lucide:trash-2" className="h-4 w-4" />
-            )}
-            Delete trigger
-          </Button>
+            <SlackConnectionSelect
+              connections={connections}
+              value={activeConnectionID}
+              onChange={handleConnectionChange}
+            />
+          </FormSection>
         ) : null}
-        {existingTrigger ? (
-          <p className="text-sm leading-5 text-warning">
-            This agent already has a matching reaction trigger.
-          </p>
-        ) : null}
-        <Button
-          type="submit"
-          variant="primary"
-          size="sm"
-          className="shrink-0"
-          isDisabled={!canSubmit}
+
+        <FormSection
+          title="Slack channel"
+          description={`Choose the ${automationSourceLabel(automation)} channel where this reaction should trigger the agent.`}
         >
-          {isSaving ? (
-            <Spinner color="current" size="sm" />
+          {connectionsQuery.isLoading ? (
+            <FieldSkeleton />
+          ) : connectionsQuery.isError ? (
+            <InlineNotice
+              icon="lucide:hash"
+              title="Could not load Slack workspaces"
+              body="Refresh the page and try again."
+            />
+          ) : connections.length === 0 ? (
+            <InlineNotice
+              icon="lucide:hash"
+              title="No Slack connections"
+              body="Connect Slack before installing this trigger."
+            />
+          ) : resourcesQuery.isLoading ? (
+            <FieldSkeleton />
+          ) : resourcesQuery.isError ? (
+            <InlineNotice
+              icon="lucide:hash"
+              title="Could not load Slack channels"
+              body="Refresh the channel list and try again."
+            />
+          ) : resources.length === 0 ? (
+            <InlineNotice
+              icon="lucide:hash"
+              title="No Slack channels"
+              body="No Slack channels were returned for this workspace."
+            />
           ) : (
-            <Icon
-              icon={triggerID ? "lucide:save" : "lucide:plus"}
-              className="h-4 w-4"
+            <SlackResourceSelect
+              resources={resources}
+              value={resourceID}
+              onChange={setResourceID}
             />
           )}
-          {triggerID ? "Save trigger" : "Install trigger"}
-        </Button>
-      </div>
-    </form>
+        </FormSection>
+
+        <FormSection
+          title="Agent"
+          description="Select the agent that should handle matching Slack reactions."
+        >
+          {agents.length === 0 && !isLoading ? (
+            <InlineNotice
+              icon="lucide:bot"
+              title="No active agents"
+              body="Create or activate an agent before installing this trigger."
+            />
+          ) : (
+            <AgentSelect
+              agents={agents}
+              selectedAgentID={agentID}
+              isLoading={agentsQuery.isLoading}
+              onChange={setAgentID}
+            />
+          )}
+        </FormSection>
+
+        {triggerID ? (
+          <FormSection
+            title="Status"
+            description="Disable this trigger without removing its configuration."
+          >
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border px-3 py-2.5">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-medium text-foreground">
+                  {isEnabled ? "Enabled" : "Disabled"}
+                </span>
+                <span className="text-muted-foreground text-sm leading-5">
+                  {isEnabled
+                    ? "Matching Slack reactions will run this automation."
+                    : "Matching Slack reactions will be ignored."}
+                </span>
+              </div>
+              <Switch
+                aria-label="Enable trigger"
+                isSelected={isEnabled}
+                isDisabled={isBusy}
+                onChange={setIsEnabled}
+                className="shrink-0"
+              >
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch>
+            </div>
+          </FormSection>
+        ) : null}
+
+        <FormSection
+          title="Reaction"
+          description="The automation runs when someone adds this emoji to a Slack message."
+        >
+          <SlackEmojiPicker
+            emojiName={emojiName}
+            emojiGlyph={emojiGlyph}
+            onChange={(name, glyph) => {
+              setEmojiName(name)
+              setEmojiGlyph(glyph)
+            }}
+          />
+        </FormSection>
+
+        <FormSection
+          title="Instructions"
+          description="These instructions are added to the agent run when the reaction event fires."
+        >
+          <textarea
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+            rows={8}
+            className="placeholder:text-muted-foreground min-h-44 w-full resize-y rounded-xl border border-border px-3 py-2.5 text-sm leading-5 text-foreground transition-colors outline-none focus:border-accent"
+          />
+        </FormSection>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          {triggerID ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="text-danger sm:mr-auto"
+              isDisabled={isBusy}
+              onPress={handleDelete}
+            >
+              {deleteTrigger.isPending ? (
+                <Spinner color="current" size="sm" />
+              ) : (
+                <Icon icon="lucide:trash-2" className="h-4 w-4" />
+              )}
+              Delete trigger
+            </Button>
+          ) : null}
+          {existingTrigger ? (
+            <p className="text-sm leading-5 text-warning">
+              This agent already has a matching reaction trigger.
+            </p>
+          ) : null}
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            className="shrink-0"
+            isDisabled={!canSubmit}
+          >
+            {isSaving ? (
+              <Spinner color="current" size="sm" />
+            ) : (
+              <Icon
+                icon={triggerID ? "lucide:save" : "lucide:plus"}
+                className="h-4 w-4"
+              />
+            )}
+            {triggerID ? "Save trigger" : "Install trigger"}
+          </Button>
+        </div>
+      </form>
+      {triggerID ? (
+        <TriggerDeleteConfirmModal
+          open={deleteConfirmOpen}
+          pending={deleteTrigger.isPending}
+          onOpenChange={setDeleteConfirmOpen}
+          onConfirm={confirmDelete}
+        />
+      ) : null}
+    </>
   )
 }
 

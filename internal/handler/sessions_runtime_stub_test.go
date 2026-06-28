@@ -1,6 +1,8 @@
 package handler_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -59,7 +61,11 @@ func (rt *sessionRuntimeStub) handleConfig(w http.ResponseWriter, r *http.Reques
 			} `json:"model"`
 		} `json:"definition"`
 	}
-	rawBody, _ := io.ReadAll(r.Body)
+	rawBody, err := readSessionRuntimeBody(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	rt.lastConfigBody = map[string]any{}
 	_ = json.Unmarshal(rawBody, &rt.lastConfigBody)
 	_ = json.Unmarshal(rawBody, &body)
@@ -69,6 +75,22 @@ func (rt *sessionRuntimeStub) handleConfig(w http.ResponseWriter, r *http.Reques
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"env_key_count": 1})
+}
+
+func readSessionRuntimeBody(r *http.Request) ([]byte, error) {
+	rawBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.EqualFold(strings.TrimSpace(r.Header.Get("Content-Encoding")), "gzip") {
+		return rawBody, nil
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(rawBody))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }
 
 func (rt *sessionRuntimeStub) handleMessage(w http.ResponseWriter, r *http.Request) {
