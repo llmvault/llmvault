@@ -167,7 +167,7 @@ function ChannelCreateModalContent({
                   <button
                     type="button"
                     aria-pressed="true"
-                    className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-left"
+                    className="border-primary/40 bg-primary/10 flex items-center gap-3 rounded-lg border px-3 py-2 text-left"
                   >
                     <Icon
                       icon="lucide:message-square"
@@ -176,7 +176,10 @@ function ChannelCreateModalContent({
                     <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
                       Slack
                     </span>
-                    <Icon icon="lucide:check" className="h-4 w-4 text-primary" />
+                    <Icon
+                      icon="lucide:check"
+                      className="text-primary h-4 w-4"
+                    />
                   </button>
                 </section>
 
@@ -223,7 +226,7 @@ function ChannelCreateModalContent({
                         </div>
                       ) : null}
 
-                      <div className="flex items-center gap-2 rounded-lg border border-border bg-field-background px-3 py-2">
+                      <div className="bg-field-background flex items-center gap-2 rounded-lg border border-border px-3 py-2">
                         <Icon
                           icon="lucide:search"
                           className="h-4 w-4 shrink-0 text-muted"
@@ -313,7 +316,7 @@ function ResourceRow({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "flex items-center gap-3 border-b border-border px-3 py-2.5 text-left last:border-b-0 transition-colors",
+        "flex items-center gap-3 border-b border-border px-3 py-2.5 text-left transition-colors last:border-b-0",
         selected ? "bg-primary/10" : "hover:bg-default"
       )}
       onClick={onSelect}
@@ -321,12 +324,9 @@ function ResourceRow({
       <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{name}</p>
-        {resource.id ? (
-          <p className="truncate text-xs text-muted">{resource.id}</p>
-        ) : null}
       </div>
       {selected ? (
-        <Icon icon="lucide:check" className="h-4 w-4 shrink-0 text-primary" />
+        <Icon icon="lucide:check" className="text-primary h-4 w-4 shrink-0" />
       ) : null}
     </button>
   )

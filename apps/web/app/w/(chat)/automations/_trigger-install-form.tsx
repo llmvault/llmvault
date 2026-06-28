@@ -215,7 +215,7 @@ function SlackReactionInstallForm({
           provider: "slack",
           connection_id: selectedConnection.id,
           external_resource_key: selectedResource.id,
-          external_resource_name: resourceLabel(selectedResource),
+          external_resource_name: resourceName(selectedResource),
           agent_id: agentID,
           trigger_key: slackReactionKey,
           trigger_value: emojiName,
@@ -463,7 +463,7 @@ function SlackResourceSelect({
         <span className="flex min-w-0 items-center gap-2">
           <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
           <span className="truncate">
-            {selected ? resourceLabel(selected) : "Select channel"}
+            {selected ? resourceName(selected) : "Select channel"}
           </span>
         </span>
         <Select.Indicator />
@@ -474,14 +474,15 @@ function SlackResourceSelect({
             <ListBox.Item
               key={resource.id}
               id={resource.id ?? ""}
-              textValue={resourceLabel(resource)}
+              textValue={resourceName(resource)}
             >
-              <span className="flex min-w-0 flex-col">
+              <span className="flex min-w-0 items-center gap-2">
+                <Icon
+                  icon="lucide:hash"
+                  className="h-4 w-4 shrink-0 text-muted"
+                />
                 <span className="truncate text-sm font-medium">
-                  {resourceLabel(resource)}
-                </span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {resource.id}
+                  {resourceName(resource)}
                 </span>
               </span>
             </ListBox.Item>
@@ -527,7 +528,7 @@ function connectionLabel(connection: Connection): string {
   )
 }
 
-function resourceLabel(resource: AvailableResource): string {
+function resourceName(resource: AvailableResource): string {
   return resource.name || resource.id || "Slack channel"
 }
 
