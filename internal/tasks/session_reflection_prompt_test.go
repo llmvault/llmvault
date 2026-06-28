@@ -1,6 +1,44 @@
 package tasks
 
-import "testing"
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"github.com/usehivy/hivy/internal/trigger/hivy"
+)
+
+func TestGenerateSessionReflectionRequestsStrictJSONSchema(t *testing.T) {
+	mock := hivy.NewMockCompletionClient()
+	mock.SetFallback(hivy.CompletionResponse{Message: hivy.Message{Content: `{"memories":[]}`}})
+
+	if _, err := generateSessionReflection(context.Background(), mock, "openai/gpt-4o-mini", "transcript", ""); err != nil {
+		t.Fatalf("generate reflection: %v", err)
+	}
+
+	req := mock.LastRequest()
+	if req.ResponseFormat == nil || req.ResponseFormat.Type != hivy.ResponseFormatJSONSchema {
+		t.Fatalf("response format=%#v", req.ResponseFormat)
+	}
+	if req.ResponseFormat.JSONSchema == nil || req.ResponseFormat.JSONSchema.Name != "session_reflection" || !req.ResponseFormat.JSONSchema.Strict {
+		t.Fatalf("json schema=%#v", req.ResponseFormat.JSONSchema)
+	}
+
+	var schema map[string]any
+	if err := json.Unmarshal(req.ResponseFormat.JSONSchema.Schema, &schema); err != nil {
+		t.Fatalf("schema json: %v", err)
+	}
+	if schema["additionalProperties"] != false {
+		t.Fatalf("additionalProperties=%#v", schema["additionalProperties"])
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("schema missing properties: %#v", schema)
+	}
+	if _, ok := properties["memories"]; !ok {
+		t.Fatalf("schema missing memories property: %#v", schema["properties"])
+	}
+}
 
 func TestParseSessionReflectionResponseFiltersInvalidAndUnsafeMemories(t *testing.T) {
 	result, err := parseSessionReflectionResponse(`{

@@ -24,6 +24,9 @@ func NewAnthropicCompletionClient(apiKey string) *AnthropicCompletionClient {
 }
 
 func (c *AnthropicCompletionClient) ChatCompletion(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+	if req.ResponseFormat != nil {
+		return nil, fmt.Errorf("anthropic completion: response_format is not supported")
+	}
 
 	var systemPrompt string
 	var messages []anthropic.MessageParam
