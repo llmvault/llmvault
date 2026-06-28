@@ -39,6 +39,16 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
+			Cronspec: "@every 1m",
+			Task:     asynq.NewTask(TypeSessionReflectionScan, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(time.Minute),
+				asynq.Unique(time.Minute),
+			},
+		},
+		{
 			Cronspec: "@every 30s",
 			Task:     asynq.NewTask(TypeBillingBatchProcess, nil),
 			Opts: []asynq.Option{

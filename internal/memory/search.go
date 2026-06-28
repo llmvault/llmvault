@@ -84,7 +84,7 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]SearchHit, e
 
 	var rows []searchRow
 	query := `
-SELECT id, org_id, agent_id, user_id, scope, content, tags, metadata,
+SELECT id, org_id, agent_id, user_id, scope, content, memory_fingerprint, tags, metadata,
        embedding_model, embedding_status, embedding_revision, embedding_error,
        embedded_at, source_session_id, source_event_id, created_by_user_id,
        archived_at, created_at, updated_at,

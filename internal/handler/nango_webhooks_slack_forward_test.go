@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -71,6 +72,71 @@ func TestNangoWebhookSlackForwardSetsStatusAndEnqueuesMention(t *testing.T) {
 	}
 	if row.Status != model.SlackThreadEventStatusEnqueued || row.StatusSetAt == nil || row.EnqueuedAt == nil {
 		t.Fatalf("row status=%s status_set=%v enqueued=%v", row.Status, row.StatusSetAt, row.EnqueuedAt)
+	}
+}
+
+func TestNangoWebhookSlackReactionEnqueuesTrigger(t *testing.T) {
+	db := connectNangoSlackTestDB(t)
+	org, conn := seedNangoSlackConnection(t, db)
+	agent := seedSlackReactionAgent(t, db, org.ID)
+	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
+	trigger := model.AgentTrigger{
+		OrgID:        org.ID,
+		AgentID:      agent.ID,
+		TriggerType:  "webhook",
+		ChannelID:    &channel.ID,
+		ConnectionID: &conn.ID,
+		TriggerKeys:  pq.StringArray{slackapp.EventReactionAdded},
+		TriggerKey:   slackapp.EventReactionAdded,
+		TriggerValue: "eyes",
+		Enabled:      true,
+		Instructions: "Summarize the reacted message.",
+	}
+	if err := db.Create(&trigger).Error; err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+	enq := &enqueue.MockClient{}
+	handler := NewNangoWebhookHandler(db, "nango-secret", nil, nil, enq)
+
+	body := nangoSlackWebhookBody(t, conn.NangoConnectionID, map[string]any{
+		"type":       "event_callback",
+		"team_id":    "T111",
+		"event_id":   "EvReaction111",
+		"event_time": 1599616881,
+		"event": map[string]any{
+			"type":      "reaction_added",
+			"user":      "W111",
+			"reaction":  "eyes",
+			"item":      map[string]any{"type": "message", "channel": "C111", "ts": "1599529504.000400"},
+			"item_user": "W222",
+			"event_ts":  "1599616881.000800",
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/internal/webhooks/nango", bytes.NewReader(body))
+	req.Header.Set("X-Nango-Hmac-Sha256", signNangoTestBody(body, "nango-secret"))
+	rr := httptest.NewRecorder()
+
+	handler.Handle(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	enqueued := enq.Tasks()
+	if len(enqueued) != 1 || enqueued[0].TypeName != tasks.TypeSlackReactionTrigger {
+		t.Fatalf("enqueued tasks=%+v", enqueued)
+	}
+	var row model.SlackThreadEvent
+	if err := db.First(&row, "org_id = ? AND event_id = ?", org.ID, "EvReaction111").Error; err != nil {
+		t.Fatalf("load slack event: %v", err)
+	}
+	if row.TriggerID == nil || *row.TriggerID != trigger.ID {
+		t.Fatalf("trigger_id=%v want %s", row.TriggerID, trigger.ID)
+	}
+	if row.Status != model.SlackThreadEventStatusEnqueued || row.EventType != slackapp.EventReactionAdded {
+		t.Fatalf("row status/event=%s/%s", row.Status, row.EventType)
+	}
+	if row.ThreadTS != "1599529504.000400" || row.MessageTS != "1599529504.000400" {
+		t.Fatalf("row thread/message ts=%q/%q", row.ThreadTS, row.MessageTS)
 	}
 }
 

@@ -95,9 +95,13 @@ func (h *SlackAppMentionHandler) ensureSlackSessionEvent(tx *gorm.DB, row *model
 			"thread_ts":     row.ThreadTS,
 			"message_ts":    row.MessageTS,
 			"sender_id":     row.SenderID,
+			"sender_tag":    slackSenderTag(row.SenderID),
+			"user_name":     payloadString(row.Raw, "user_name"),
+			"display_name":  payloadString(row.Raw, "display_name"),
 			"event_id":      row.EventID,
 			"event_type":    row.EventType,
 			"connection_id": row.ConnectionID.String(),
+			"trigger_id":    uuidPtrString(row.TriggerID),
 		},
 	}
 	event := model.SessionEvent{
@@ -211,7 +215,18 @@ func slackAgentText(row model.SlackThreadEvent) string {
 	if text == "" {
 		text = strings.TrimSpace(row.MessageTS)
 	}
+	if row.EventType == "reaction_added" {
+		return text
+	}
 	return "Slack message:\n\n" + text
+}
+
+func slackSenderTag(senderID string) string {
+	senderID = strings.TrimSpace(senderID)
+	if senderID == "" {
+		return ""
+	}
+	return "<@" + senderID + ">"
 }
 
 func nextSlackQueueSequence(tx *gorm.DB, sessionID uuid.UUID) (int64, error) {

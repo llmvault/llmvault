@@ -81,6 +81,10 @@ func (h *SlackAppMentionHandler) process(ctx context.Context, row *model.SlackTh
 	if err != nil {
 		return err
 	}
+	return h.processWithSlack(ctx, row, token, client)
+}
+
+func (h *SlackAppMentionHandler) processWithSlack(ctx context.Context, row *model.SlackThreadEvent, token string, client slackapp.Client) error {
 	statusCleared := false
 	defer func() {
 		if !statusCleared {
@@ -167,6 +171,7 @@ func slackErrorFields(row model.SlackThreadEvent, stage string) map[string]any {
 		"slack_thread_event_id": row.ID.String(),
 		"org_id":                row.OrgID.String(),
 		"connection_id":         row.ConnectionID.String(),
+		"trigger_id":            uuidPtrString(row.TriggerID),
 		"session_id":            uuidPtrString(row.SessionID),
 		"event_id":              row.EventID,
 		"event_type":            row.EventType,

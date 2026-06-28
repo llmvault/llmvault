@@ -1,16 +1,19 @@
 # Global Triggers
 
-Global triggers are one-click installable trigger templates. They describe a
-provider-backed workflow a user can add to an org; installation should create
-the concrete `agent_triggers` row bound to an org, agent, and connection.
+Global triggers are installable provider automation templates. They describe a
+fixed provider event plus seed values the installation UI can prefill before it
+creates the concrete trigger row for an org, agent, channel, and connection.
 
 Each trigger folder contains:
 
-- `trigger.json`: install metadata, required integration, trigger type, event
-  keys, default conditions, and instruction file path.
-- `instructions.md`: the task instructions copied into the installed trigger.
+- `trigger.json`: template metadata, required integration, fixed
+  `trigger.key`, and `trigger.defaults`.
+- `instructions.md`: default instructions loaded into
+  `trigger.defaults.instructions`.
 
-Templates in this folder should not require users to bring or paste arbitrary
-webhook URLs. The provider event catalog stays in
-`internal/mcp/catalog/providers/*.triggers.json`; these templates are
-productized recipes built on top of that catalog.
+The trigger key is not user-editable. Defaults are only starting values:
+installation should collect the actual trigger value and instructions before
+creating the installed trigger.
+
+Provider-specific delivery code owns event handling. Do not add generic webhook
+conditions or provider event catalogs here.

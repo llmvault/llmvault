@@ -20,6 +20,8 @@ type AgentTrigger struct {
 	ConnectionID *uuid.UUID     `gorm:"type:uuid;index"`
 	Connection   *Connection    `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
 	TriggerKeys  pq.StringArray `gorm:"type:text[];not null;default:'{}'"` // e.g. {"issues.opened","issues.reopened"}
+	TriggerKey   string         `gorm:"type:text;not null;default:'';index"`
+	TriggerValue string         `gorm:"type:text;not null;default:''"`
 	Enabled      bool           `gorm:"not null;default:true"`
 	SourceSlug   string         `gorm:"type:text;not null;default:'';index"`
 	Conditions   RawJSON        `gorm:"type:jsonb"`                    // TriggerMatch JSON

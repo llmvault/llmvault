@@ -166,7 +166,7 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 	if body.RuntimeEnv == nil {
 		body.RuntimeEnv = map[string]string{}
 	}
-	resp, err := c.do(ctx, http.MethodPut, "/config", body)
+	resp, err := c.doGzip(ctx, http.MethodPut, "/config", body)
 	if err != nil {
 		return nil, err
 	}

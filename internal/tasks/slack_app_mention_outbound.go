@@ -20,13 +20,14 @@ func (h *SlackAppMentionHandler) recordSlackOutbound(ctx context.Context, inboun
 		OrgID:          inbound.OrgID,
 		ConnectionID:   inbound.ConnectionID,
 		ChannelID:      inbound.ChannelID,
+		TriggerID:      inbound.TriggerID,
 		SessionID:      &session.ID,
 		TeamID:         inbound.TeamID,
 		SlackChannelID: inbound.SlackChannelID,
 		ThreadTS:       inbound.ThreadTS,
 		MessageTS:      strings.TrimSpace(replyTS),
 		MessageAt:      messageAt,
-		EventType:      "app_mention.response",
+		EventType:      slackResponseEventType(inbound),
 		Direction:      model.SlackThreadEventDirectionOutbound,
 		SenderID:       "hivy",
 		Text:           strings.TrimSpace(text),
@@ -44,6 +45,13 @@ func (h *SlackAppMentionHandler) recordSlackOutbound(ctx context.Context, inboun
 		return fmt.Errorf("record slack outbound: %w", err)
 	}
 	return nil
+}
+
+func slackResponseEventType(inbound *model.SlackThreadEvent) string {
+	if inbound != nil && inbound.TriggerID != nil {
+		return "reaction_added.response"
+	}
+	return "app_mention.response"
 }
 
 func slackTimePtr(t time.Time) *time.Time {

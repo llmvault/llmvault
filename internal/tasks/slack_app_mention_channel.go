@@ -21,6 +21,13 @@ func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row
 	if err != nil {
 		return model.Channel{}, model.Agent{}, err
 	}
+	if row.TriggerID != nil && *row.TriggerID != uuid.Nil {
+		if !found {
+			return model.Channel{}, model.Agent{}, fmt.Errorf("slack trigger channel not found")
+		}
+		agent, err := h.loadSlackTriggerAgent(ctx, row.OrgID, *row.TriggerID, channel.ID)
+		return channel, agent, err
+	}
 	if found {
 		agent, err := h.loadAgent(ctx, channel.OrgID, channel.DefaultAgentID)
 		return channel, agent, err
@@ -38,6 +45,18 @@ func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row
 		return model.Channel{}, model.Agent{}, err
 	}
 	return channel, agent, nil
+}
+
+func (h *SlackAppMentionHandler) loadSlackTriggerAgent(ctx context.Context, orgID, triggerID, channelID uuid.UUID) (model.Agent, error) {
+	var trigger model.AgentTrigger
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND channel_id = ? AND enabled = true", triggerID, orgID, channelID).
+		Where("trigger_key = ?", slackapp.EventReactionAdded).
+		First(&trigger).Error
+	if err != nil {
+		return model.Agent{}, fmt.Errorf("load slack trigger: %w", err)
+	}
+	return h.loadAgent(ctx, orgID, trigger.AgentID)
 }
 
 func (h *SlackAppMentionHandler) findSlackChannel(ctx context.Context, row model.SlackThreadEvent) (model.Channel, bool, error) {
@@ -143,7 +162,7 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 	}
 	connID := row.ConnectionID
 	session = model.Session{
-		ID:                stableSlackSessionID(row.ConnectionID, row.TeamID, row.SlackChannelID, row.ThreadTS),
+		ID:                stableSlackSessionID(*row),
 		OrgID:             row.OrgID,
 		ChannelID:         channel.ID,
 		AgentID:           agent.ID,
@@ -190,10 +209,14 @@ func normalizeSlackName(raw string) string {
 }
 
 func slackSessionResourceKey(row model.SlackThreadEvent) string {
-	return strings.Join([]string{slackapp.Provider, row.ConnectionID.String(), row.TeamID, row.SlackChannelID, row.ThreadTS}, ":")
+	parts := []string{slackapp.Provider, row.ConnectionID.String(), row.TeamID, row.SlackChannelID, row.ThreadTS}
+	if row.TriggerID != nil && *row.TriggerID != uuid.Nil {
+		parts = append(parts, "trigger", row.TriggerID.String())
+	}
+	return strings.Join(parts, ":")
 }
 
-func stableSlackSessionID(connectionID uuid.UUID, teamID, channelID, threadTS string) uuid.UUID {
-	key := "hivy:slack-session:" + connectionID.String() + ":" + teamID + ":" + channelID + ":" + threadTS
+func stableSlackSessionID(row model.SlackThreadEvent) uuid.UUID {
+	key := "hivy:slack-session:" + slackSessionResourceKey(row)
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(key))
 }

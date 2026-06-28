@@ -250,6 +250,7 @@ dependencies = [
  "base64",
  "chrono",
  "domain",
+ "flate2",
  "futures",
  "hex",
  "hmac",

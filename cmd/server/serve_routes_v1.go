@@ -202,6 +202,7 @@ func setupV1Routes(
 					r.Post("/{id}/retry", sandboxTemplateHandler.RetryBuild)
 				})
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
+				triggerHandler := handler.NewTriggerHandler(database)
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)
 					r.Get("/agents/catalog", agentHandler.ListCatalog)
@@ -224,6 +225,7 @@ func setupV1Routes(
 						r.Delete("/agents/{id}", agentHandler.Archive)
 						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
 						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
+						r.Post("/triggers", triggerHandler.Create)
 					})
 				}
 				if systemTaskHandler != nil {

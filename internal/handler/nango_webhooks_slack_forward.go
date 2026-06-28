@@ -15,6 +15,17 @@ import (
 func (h *NangoWebhookHandler) handleSlackForward(w http.ResponseWriter, r *http.Request, wh *nangoWebhook, wctx *webhookContext) {
 	ctx := r.Context()
 	fields := slackWebhookSentryFields("decode", wh, wctx.connection, wh.Payload)
+	reaction, ok, err := slackapp.DecodeReactionAddedEvent(wh.Payload)
+	if err != nil {
+		fields["stage"] = "decode_reaction"
+		logging.CaptureWithFields(ctx, fmt.Errorf("slack reaction webhook decode: %w", err), fields)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
+		return
+	}
+	if ok {
+		h.handleSlackReactionForward(w, r, wh, wctx, reaction, fields)
+		return
+	}
 	event, ok, err := slackapp.DecodeInboundEvent(wh.Payload)
 	if err != nil {
 		fields["stage"] = "decode"

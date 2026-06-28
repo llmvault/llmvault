@@ -21,6 +21,8 @@ type Client interface {
 	PostMessageContext(context.Context, string, ...slacksdk.MsgOption) (string, string, error)
 	SetAssistantThreadsStatusContext(context.Context, slacksdk.AssistantThreadsSetStatusParameters) error
 	GetConversationInfoContext(context.Context, *slacksdk.GetConversationInfoInput) (*slacksdk.Channel, error)
+	GetConversationHistoryContext(context.Context, *slacksdk.GetConversationHistoryParameters) (*slacksdk.GetConversationHistoryResponse, error)
+	GetConversationRepliesContext(context.Context, *slacksdk.GetConversationRepliesParameters) ([]slacksdk.Message, bool, string, error)
 }
 
 var webAPIHTTPClient = &http.Client{Timeout: 30 * time.Second}

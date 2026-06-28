@@ -25,7 +25,7 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 			name:    "triggers",
 			path:    "/v1/catalog/triggers",
 			kind:    "trigger",
-			wantMin: 4,
+			wantMin: 1,
 		},
 		{
 			name:    "automations",
@@ -55,8 +55,11 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 					} `json:"integration"`
 					Instructions string `json:"instructions"`
 					Trigger      *struct {
-						Type string   `json:"type"`
-						Keys []string `json:"keys"`
+						Key      string `json:"key"`
+						Defaults struct {
+							Value        string `json:"value"`
+							Instructions string `json:"instructions"`
+						} `json:"defaults"`
 					} `json:"trigger,omitempty"`
 					Schedule *struct {
 						Kind     string `json:"kind"`
@@ -75,6 +78,9 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 			if len(resp.Data) < tc.wantMin {
 				t.Fatalf("items = %d, want at least %d", len(resp.Data), tc.wantMin)
 			}
+			if tc.kind == "trigger" && len(resp.Data) != 1 {
+				t.Fatalf("trigger items = %d, want 1", len(resp.Data))
+			}
 			for _, item := range resp.Data {
 				if item.Kind != tc.kind {
 					t.Fatalf("item %q kind = %q, want %q", item.Slug, item.Kind, tc.kind)
@@ -85,14 +91,21 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 				if !item.Enabled || item.Instructions == "" {
 					t.Fatalf("item %q should be enabled with instructions", item.Slug)
 				}
-				if item.Install.DefaultAgent == "" || item.Install.DefaultChannel == "" {
-					t.Fatalf("item %q missing install defaults", item.Slug)
+				if tc.kind == "trigger" && (item.Trigger == nil || item.Trigger.Key == "" ||
+					item.Trigger.Defaults.Value == "" || item.Trigger.Defaults.Instructions == "") {
+					t.Fatalf("trigger item %q missing trigger defaults", item.Slug)
 				}
-				if tc.kind == "trigger" && (item.Trigger == nil || len(item.Trigger.Keys) == 0) {
-					t.Fatalf("trigger item %q missing trigger keys", item.Slug)
+				if tc.kind == "trigger" && (item.Slug != "slack-reaction" ||
+					item.Integration.Provider != "slack" || item.Trigger.Key != "reaction_added") {
+					t.Fatalf("trigger item %q did not match slack reaction template", item.Slug)
 				}
-				if tc.kind == "schedule" && (item.Schedule == nil || item.Schedule.Cron == "") {
-					t.Fatalf("schedule item %q missing schedule cron", item.Slug)
+				if tc.kind == "schedule" {
+					if item.Install.DefaultAgent == "" || item.Install.DefaultChannel == "" {
+						t.Fatalf("schedule item %q missing install defaults", item.Slug)
+					}
+					if item.Schedule == nil || item.Schedule.Cron == "" {
+						t.Fatalf("schedule item %q missing schedule cron", item.Slug)
+					}
 				}
 			}
 		})

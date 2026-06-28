@@ -15,16 +15,17 @@ type Embedder interface {
 type EnqueueEmbeddingFunc func(context.Context, uuid.UUID, int) error
 
 type CreateRequest struct {
-	OrgID           uuid.UUID
-	AgentID         *uuid.UUID
-	UserID          *uuid.UUID
-	Scope           string
-	Content         string
-	Tags            []string
-	Metadata        model.JSON
-	SourceSessionID *uuid.UUID
-	SourceEventID   *uuid.UUID
-	CreatedByUserID *uuid.UUID
+	OrgID             uuid.UUID
+	AgentID           *uuid.UUID
+	UserID            *uuid.UUID
+	Scope             string
+	Content           string
+	MemoryFingerprint string
+	Tags              []string
+	Metadata          model.JSON
+	SourceSessionID   *uuid.UUID
+	SourceEventID     *uuid.UUID
+	CreatedByUserID   *uuid.UUID
 }
 
 type UpdateRequest struct {
