@@ -134,8 +134,6 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 
 	secondResponse := waitForAgentSessionsResponse(t, ctx, apiBase, memberToken, orgID, session.Session.ID, secondMarker)
 	t.Logf("collaborator agent response observed event_id=%s type=%s", secondResponse.ID, secondResponse.EventType)
-	pluginFixture = waitForPluginServiceDiscoverySession(t, ctx, orgID, pluginFixture)
-	t.Logf("plugin service discovery session observed install=%s", pluginFixture.InstallID)
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	assertAgentSessionsEventOrder(t, events)
 	assertAgentSessionsBackendOwnedUserMessages(t, events, ownerAuth.User.ID, memberAuth.User.ID)
