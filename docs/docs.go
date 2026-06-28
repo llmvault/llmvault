@@ -10311,6 +10311,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/triggers": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a provider automation trigger for an agent.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "triggers"
+                ],
+                "summary": "Create trigger",
+                "parameters": [
+                    {
+                        "description": "Trigger configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createTriggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/createTriggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/uploads/sign": {
             "post": {
                 "security": [
@@ -12748,6 +12823,43 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "createTriggerRequest": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "connection_id": {
+                    "type": "string"
+                },
+                "external_resource_key": {
+                    "type": "string"
+                },
+                "external_resource_name": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "trigger_key": {
+                    "type": "string"
+                },
+                "trigger_value": {
+                    "type": "string"
+                }
+            }
+        },
+        "createTriggerResponse": {
+            "type": "object",
+            "properties": {
+                "trigger": {
+                    "$ref": "#/definitions/agentTriggerResponse"
                 }
             }
         },

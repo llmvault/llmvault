@@ -65,7 +65,7 @@ export default function AutomationDetailPage({
     return (
       <AutomationDetailShell
         content={
-          <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-border bg-card px-6 text-center">
+          <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
             <Icon icon="lucide:clock-alert" className="h-7 w-7 text-muted" />
             <p className="mt-3 text-sm font-medium text-foreground">
               Automation not found
@@ -75,7 +75,7 @@ export default function AutomationDetailPage({
             </p>
             <NextLink
               href="/w/automations"
-              className="mt-4 text-sm font-medium text-foreground transition-colors hover:text-muted-foreground"
+              className="hover:text-muted-foreground mt-4 text-sm font-medium text-foreground transition-colors"
             >
               Back to automations
             </NextLink>
@@ -91,7 +91,7 @@ export default function AutomationDetailPage({
         <div className="flex flex-col gap-8">
           <NextLink
             href="/w/automations"
-            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="text-muted-foreground inline-flex w-fit items-center gap-1.5 text-sm font-medium transition-colors hover:text-foreground"
           >
             <Icon icon="lucide:arrow-left" className="h-4 w-4" />
             Automations
@@ -104,19 +104,24 @@ export default function AutomationDetailPage({
                 <h1 className="text-xl font-semibold text-foreground">
                   {automation.name}
                 </h1>
-                <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
+                <p className="text-muted-foreground mt-1 max-w-xl text-sm leading-5">
                   {automation.description}
                 </p>
               </div>
             </div>
 
-            <Button variant="primary" size="sm" className="shrink-0">
-              <Icon icon="lucide:plus" className="h-4 w-4" />
-              Install automation
-            </Button>
+            {automation.type === "Triggers" ? (
+              <NextLink
+                href={`/w/automations/${automation.id}/install`}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-secondary"
+              >
+                <Icon icon="lucide:plus" className="h-4 w-4" />
+                Install trigger
+              </NextLink>
+            ) : null}
           </header>
 
-          <section className="rounded-xl border border-border bg-card p-4">
+          <section className="bg-card rounded-xl border border-border p-4">
             <h2 className="text-sm font-medium text-foreground">
               Instructions
             </h2>
@@ -129,13 +134,13 @@ export default function AutomationDetailPage({
             <h2 className="text-base font-semibold text-foreground">
               Configuration preview
             </h2>
-            <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+            <div className="bg-card flex flex-col divide-y divide-border rounded-xl border border-border">
               {configurationRows(automation).map((row) => (
                 <div
                   key={row.label}
                   className="flex items-start justify-between gap-4 px-3 py-2.5"
                 >
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-muted-foreground text-sm">
                     {row.label}
                   </span>
                   <span className="max-w-[65%] text-right text-sm font-medium text-foreground">
@@ -150,10 +155,10 @@ export default function AutomationDetailPage({
             <h2 className="text-base font-semibold text-foreground">
               How it works
             </h2>
-            <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+            <div className="bg-card flex flex-col divide-y divide-border rounded-xl border border-border">
               {workflowSteps(automation).map((step, index) => (
                 <div key={step} className="flex items-start gap-3 px-3 py-3">
-                  <span className="bg-default flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium text-muted-foreground">
+                  <span className="text-muted-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-default text-xs font-medium">
                     {index + 1}
                   </span>
                   <p className="text-sm leading-5 text-foreground">{step}</p>
@@ -244,22 +249,22 @@ function cadenceLabel(automation: AutomationItem): string {
 function AutomationDetailSkeleton() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="bg-default h-5 w-28 animate-pulse rounded" />
+      <div className="h-5 w-28 animate-pulse rounded bg-default" />
       <div className="flex items-start gap-3">
-        <div className="bg-default h-12 w-12 animate-pulse rounded-xl" />
+        <div className="h-12 w-12 animate-pulse rounded-xl bg-default" />
         <div className="min-w-0 flex-1">
-          <div className="bg-default h-6 w-56 animate-pulse rounded" />
-          <div className="bg-default mt-3 h-4 w-full max-w-lg animate-pulse rounded" />
+          <div className="h-6 w-56 animate-pulse rounded bg-default" />
+          <div className="mt-3 h-4 w-full max-w-lg animate-pulse rounded bg-default" />
         </div>
       </div>
       {Array.from({ length: 3 }).map((_, index) => (
         <section
           key={index}
-          className="rounded-xl border border-border bg-card p-4"
+          className="bg-card rounded-xl border border-border p-4"
         >
-          <div className="bg-default h-4 w-32 animate-pulse rounded" />
-          <div className="bg-default mt-3 h-4 w-full animate-pulse rounded" />
-          <div className="bg-default mt-2 h-4 w-4/5 animate-pulse rounded" />
+          <div className="h-4 w-32 animate-pulse rounded bg-default" />
+          <div className="mt-3 h-4 w-full animate-pulse rounded bg-default" />
+          <div className="mt-2 h-4 w-4/5 animate-pulse rounded bg-default" />
         </section>
       ))}
     </div>
@@ -268,10 +273,10 @@ function AutomationDetailSkeleton() {
 
 function AutomationCatalogError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-border bg-card px-6 text-center">
+    <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
       <Icon
         icon="lucide:triangle-alert"
-        className="h-7 w-7 text-muted-foreground"
+        className="text-muted-foreground h-7 w-7"
       />
       <p className="mt-3 text-sm font-medium text-foreground">
         Could not load automation

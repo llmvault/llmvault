@@ -12390,6 +12390,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create trigger
+         * @description Creates a provider automation trigger for an agent.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Trigger configuration */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createTriggerRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["createTriggerResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads/sign": {
         parameters: {
             query?: never;
@@ -12761,11 +12859,13 @@ export interface components {
         SchemaRef: {
             $ref?: string;
         };
+        TriggerDefaults: {
+            instructions?: string;
+            value?: string;
+        };
         TriggerSpec: {
-            conditions?: number[];
-            keys?: string[];
-            secret_required_default?: boolean;
-            type?: string;
+            defaults?: components["schemas"]["TriggerDefaults"];
+            key?: string;
         };
         Usage: {
             cached_tokens?: number;
@@ -12958,8 +13058,10 @@ export interface components {
              */
             secret_set?: boolean;
             source_slug?: string;
+            trigger_key?: string;
             trigger_keys?: string[];
             trigger_type?: string;
+            trigger_value?: string;
         };
         apiKeyResponse: {
             created_at?: string;
@@ -13286,6 +13388,19 @@ export interface components {
             /** @description "inline" | "git" */
             source_type?: string;
             tags?: string[];
+        };
+        createTriggerRequest: {
+            agent_id?: string;
+            connection_id?: string;
+            external_resource_key?: string;
+            external_resource_name?: string;
+            instructions?: string;
+            provider?: string;
+            trigger_key?: string;
+            trigger_value?: string;
+        };
+        createTriggerResponse: {
+            trigger?: components["schemas"]["agentTriggerResponse"];
         };
         credentialResponse: {
             auth_scheme?: string;

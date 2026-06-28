@@ -25,15 +25,36 @@ func NewTriggerHandler(db *gorm.DB) *TriggerHandler {
 }
 
 type createTriggerRequest struct {
-	Provider     string `json:"provider"`
-	ConnectionID string `json:"connection_id"`
-	ChannelID    string `json:"channel_id"`
-	AgentID      string `json:"agent_id"`
-	TriggerKey   string `json:"trigger_key"`
-	TriggerValue string `json:"trigger_value"`
-	Instructions string `json:"instructions"`
+	Provider             string `json:"provider"`
+	ConnectionID         string `json:"connection_id"`
+	ExternalResourceKey  string `json:"external_resource_key"`
+	ExternalResourceName string `json:"external_resource_name"`
+	AgentID              string `json:"agent_id"`
+	TriggerKey           string `json:"trigger_key"`
+	TriggerValue         string `json:"trigger_value"`
+	Instructions         string `json:"instructions"`
 }
 
+type createTriggerResponse struct {
+	Trigger agentTriggerResponse `json:"trigger"`
+}
+
+// Create handles POST /v1/triggers.
+// @Summary Create trigger
+// @Description Creates a provider automation trigger for an agent.
+// @Tags triggers
+// @Accept json
+// @Produce json
+// @Param request body createTriggerRequest true "Trigger configuration"
+// @Success 201 {object} createTriggerResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/triggers [post]
 func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
@@ -50,9 +71,7 @@ func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, map[string]string{"error": message})
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]agentTriggerResponse{
-		"trigger": triggerToResponse(trigger, provider),
-	})
+	writeJSON(w, http.StatusCreated, createTriggerResponse{Trigger: triggerToResponse(trigger, provider)})
 }
 
 func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTriggerRequest) (model.AgentTrigger, string, int, string, error) {
@@ -81,10 +100,11 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	if err != nil || connectionID == uuid.Nil {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "connection_id must be a uuid", fmt.Errorf("invalid connection id")
 	}
-	channelID, err := uuid.Parse(strings.TrimSpace(req.ChannelID))
-	if err != nil || channelID == uuid.Nil {
-		return model.AgentTrigger{}, "", http.StatusBadRequest, "channel_id must be a uuid", fmt.Errorf("invalid channel id")
+	resourceKey := strings.TrimSpace(req.ExternalResourceKey)
+	if resourceKey == "" {
+		return model.AgentTrigger{}, "", http.StatusBadRequest, "external_resource_key is required", fmt.Errorf("missing external resource key")
 	}
+	resourceName := strings.TrimSpace(req.ExternalResourceName)
 	agentID, err := uuid.Parse(strings.TrimSpace(req.AgentID))
 	if err != nil || agentID == uuid.Nil {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "agent_id must be a uuid", fmt.Errorf("invalid agent id")
@@ -96,7 +116,7 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 		if err != nil {
 			return err
 		}
-		channel, err := loadTriggerExternalChannel(tx, orgID, channelID, conn.ID, provider)
+		channel, err := findOrCreateTriggerExternalChannel(tx, orgID, conn, provider, resourceKey, resourceName, agentID)
 		if err != nil {
 			return err
 		}
@@ -144,18 +164,43 @@ func loadTriggerConnection(db *gorm.DB, orgID, connectionID uuid.UUID, provider 
 	return conn, nil
 }
 
-func loadTriggerExternalChannel(db *gorm.DB, orgID, channelID, connectionID uuid.UUID, provider string) (model.Channel, error) {
+func findOrCreateTriggerExternalChannel(db *gorm.DB, orgID uuid.UUID, conn model.Connection, provider, resourceKey, resourceName string, agentID uuid.UUID) (model.Channel, error) {
 	var channel model.Channel
 	err := db.
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
+		Where("org_id = ? AND archived_at IS NULL", orgID).
 		Where("origin = ? AND external_provider = ?", "external", provider).
-		Where("external_connection_id = ? AND external_resource_type = ?", connectionID, "slack_channel").
+		Where("external_connection_id = ? AND external_resource_type = ?", conn.ID, "slack_channel").
+		Where("external_resource_key = ?", resourceKey).
 		First(&channel).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Channel{}, fmt.Errorf("external channel not found")
+	if err == nil {
+		return channel, nil
 	}
-	if err != nil {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Channel{}, fmt.Errorf("load external channel: %w", err)
+	}
+
+	displayName := strings.TrimSpace(resourceName)
+	if displayName == "" {
+		displayName = resourceKey
+	}
+	channel = model.Channel{
+		OrgID:                orgID,
+		Name:                 providerPrefixedChannelName(provider, displayName),
+		DefaultAgentID:       agentID,
+		Origin:               "external",
+		ExternalProvider:     provider,
+		ExternalConnectionID: &conn.ID,
+		ExternalWorkspaceKey: conn.NangoConnectionID,
+		ExternalResourceType: "slack_channel",
+		ExternalResourceKey:  resourceKey,
+		ExternalResourceName: displayName,
+		ExternalMetadata:     model.JSON{},
+	}
+	if channel.Name == "" {
+		return model.Channel{}, fmt.Errorf("external resource name is required")
+	}
+	if err := db.Create(&channel).Error; err != nil {
+		return model.Channel{}, fmt.Errorf("create external channel: %w", err)
 	}
 	return channel, nil
 }

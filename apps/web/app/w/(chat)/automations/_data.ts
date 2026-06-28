@@ -41,6 +41,11 @@ const PROVIDER_META: Record<string, ProviderMeta> = {
     icon: "simple-icons:railway",
     color: "#0B0D0E",
   },
+  slack: {
+    label: "Slack",
+    icon: "simple-icons:slack",
+    color: "#4A154B",
+  },
 }
 
 export function automationFromCatalog(
@@ -107,7 +112,7 @@ export function automationMatchesQuery(
     automation.category,
     automation.type,
     automationSourceLabel(automation),
-    ...automationTriggerKeys(automation),
+    automationTriggerKey(automation),
     ...automationRequiredPlugins(automation),
   ]
     .filter(Boolean)
@@ -115,7 +120,11 @@ export function automationMatchesQuery(
 }
 
 export function automationInstructions(automation: AutomationItem): string {
-  return automation.catalog.instructions || "No instructions available."
+  return (
+    automationTriggerDefaultInstructions(automation) ||
+    automation.catalog.instructions ||
+    "No instructions available."
+  )
 }
 
 export function automationSourceLabel(automation: AutomationItem): string {
@@ -123,13 +132,25 @@ export function automationSourceLabel(automation: AutomationItem): string {
   return PROVIDER_META[provider]?.label ?? humanizeSlug(provider) ?? "Workspace"
 }
 
-export function automationTriggerKeys(automation: AutomationItem): string[] {
-  return automation.catalog.trigger?.keys ?? []
+export function automationTriggerKey(automation: AutomationItem): string {
+  return automation.catalog.trigger?.key ?? ""
 }
 
 export function automationEventLabel(automation: AutomationItem): string {
-  const keys = automationTriggerKeys(automation)
-  return keys.length > 0 ? keys.join(", ") : automation.name
+  const key = automationTriggerKey(automation)
+  return key ? humanizeSlug(key) : automation.name
+}
+
+export function automationTriggerDefaultValue(
+  automation: AutomationItem
+): string {
+  return automation.catalog.trigger?.defaults?.value ?? ""
+}
+
+export function automationTriggerDefaultInstructions(
+  automation: AutomationItem
+): string {
+  return automation.catalog.trigger?.defaults?.instructions ?? ""
 }
 
 export function automationCadenceLabel(automation: AutomationItem): string {
