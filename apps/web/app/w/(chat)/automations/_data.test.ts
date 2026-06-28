@@ -59,4 +59,21 @@ describe("automation catalog data", () => {
     expect(automation.href).toBe("/w/automations/triggers/trigger-1")
     expect(automationMatchesQuery(automation, "general")).toBe(true)
   })
+
+  it("marks disabled installed triggers", () => {
+    const automation = automationFromInstalledTrigger({
+      id: "trigger-1",
+      provider: "slack",
+      trigger_key: "reaction_added",
+      trigger_value: "eyes",
+      external_resource_name: "general",
+      agent_id: "agent-1",
+      agent_name: "Hivy",
+      enabled: false,
+    })
+
+    expect(automation.description).toBe(
+      "Disabled. Hivy runs when :eyes: is added in general."
+    )
+  })
 })

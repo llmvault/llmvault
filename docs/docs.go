@@ -10472,6 +10472,65 @@ const docTemplate = `{
                     }
                 }
             },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a provider automation trigger installed in the current org.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "triggers"
+                ],
+                "summary": "Delete trigger",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trigger ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
@@ -16631,6 +16690,9 @@ const docTemplate = `{
                 },
                 "connection_id": {
                     "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
                 },
                 "external_resource_key": {
                     "type": "string"

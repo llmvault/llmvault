@@ -88,6 +88,7 @@ export function automationFromInstalledTrigger(
   const channel = trigger.external_resource_name || trigger.channel_name || ""
   const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
   const agent = trigger.agent_name || "Agent"
+  const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
 
   return {
     id: trigger.id || "",
@@ -95,7 +96,7 @@ export function automationFromInstalledTrigger(
     name,
     description:
       provider === "slack" && triggerKey === "reaction_added"
-        ? `${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
+        ? `${statusPrefix}${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
         : trigger.instructions || "Installed trigger.",
     category: provider === "slack" ? "Communication" : "Other",
     icon: providerMeta?.icon ?? "lucide:workflow",

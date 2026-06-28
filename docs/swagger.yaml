@@ -3911,6 +3911,8 @@ definitions:
         type: string
       connection_id:
         type: string
+      enabled:
+        type: boolean
       external_resource_key:
         type: string
       external_resource_name:
@@ -10811,6 +10813,45 @@ paths:
       tags:
       - triggers
   /v1/triggers/{id}:
+    delete:
+      description: Deletes a provider automation trigger installed in the current
+        org.
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete trigger
+      tags:
+      - triggers
     get:
       description: Gets one provider automation trigger installed in the current org.
       parameters:
