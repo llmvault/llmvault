@@ -30,8 +30,7 @@ func TestSlackReactionAutomationTextUsesRenderedMessageAndMedia(t *testing.T) {
 		}},
 		ThreadTS: "1782643393.499329",
 	}
-	handler := &SlackReactionTriggerHandler{mediaEnricher: testSlackMediaEnricher{}}
-	rendered := handler.renderReactionMessageContext(context.Background(), "xoxb-token", orgID, messageContext)
+	rendered := slackRenderedMessageContextFor(context.Background(), testSlackMediaEnricher{}, "xoxb-token", orgID, messageContext)
 	text := slackReactionAutomationText(model.AgentTrigger{
 		TriggerValue: "mag",
 		Instructions: "Investigate production errors.",
@@ -58,6 +57,52 @@ func TestSlackReactionAutomationTextUsesRenderedMessageAndMedia(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("automation text missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestSlackInboundContextTextUsesRenderedMessageAndMedia(t *testing.T) {
+	orgID := uuid.New()
+	messageContext := slackapp.ReactionMessageContext{
+		Message: slacksdk.Message{Msg: slacksdk.Msg{
+			Timestamp: "1782643393.499329",
+			User:      "U0B5QJZCPQR",
+			Text:      "<@B123> please investigate",
+			Attachments: []slacksdk.Attachment{{
+				Title:    "error screenshot",
+				ImageURL: "https://files.slack.com/screenshot.png",
+				Fields: []slacksdk.AttachmentField{
+					{Title: "Project", Value: "api.usehivy.com"},
+				},
+			}},
+		}},
+		ThreadTS: "1782643393.499329",
+	}
+	rendered := slackRenderedMessageContextFor(context.Background(), testSlackMediaEnricher{}, "xoxb-token", orgID, messageContext)
+	text := slackInboundContextText(model.SlackThreadEvent{
+		OrgID:          orgID,
+		EventType:      slackapp.EventAppMention,
+		SenderID:       "U0B5QJZCPQR",
+		SlackChannelID: "C0B8WGG0FFT",
+		MessageTS:      "1782643393.499329",
+		Text:           "please investigate",
+		Raw: model.JSON{
+			"user_name":    "dana",
+			"display_name": "Dana",
+		},
+	}, messageContext, rendered)
+
+	for _, want := range []string{
+		"Slack inbound message context:",
+		"event_type: app_mention",
+		"sender_tag: <@U0B5QJZCPQR>",
+		"clean_text: please investigate",
+		"Top-level text:\n<@B123> please investigate",
+		"**Project:** api.usehivy.com",
+		`<attachment type="image"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("inbound context missing %q:\n%s", want, text)
 		}
 	}
 }

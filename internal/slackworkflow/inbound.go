@@ -81,11 +81,11 @@ func ClaimInbound(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.UUI
 }
 
 func inboundAllowed(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.UUID, event slackapp.InboundEvent) (bool, string, error) {
-	if strings.TrimSpace(event.CleanText) == "" {
-		return false, "empty_text", nil
-	}
 	if event.EventType == slackapp.EventAppMention {
 		return true, "", nil
+	}
+	if strings.TrimSpace(event.CleanText) == "" {
+		return false, "empty_text", nil
 	}
 	if event.EventType != slackapp.EventMessage {
 		return false, "unsupported_event", nil
