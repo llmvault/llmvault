@@ -28,14 +28,23 @@ type SlackAppMentionHandler struct {
 	orgAgentEnsurer    OrgHivyAgentEnsurer
 	slackClientFactory func(string) slackapp.Client
 	waitFinal          func(context.Context, *agentruntime.Client, model.Session, string) (string, error)
+	mediaEnricher      SlackMediaEnricher
 }
 
-func NewSlackAppMentionHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, ensurer OrgHivyAgentEnsurer) *SlackAppMentionHandler {
+type SlackAppMentionOption func(*SlackAppMentionHandler)
+
+func WithSlackMediaEnricher(enricher SlackMediaEnricher) SlackAppMentionOption {
+	return func(h *SlackAppMentionHandler) {
+		h.mediaEnricher = enricher
+	}
+}
+
+func NewSlackAppMentionHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, ensurer OrgHivyAgentEnsurer, opts ...SlackAppMentionOption) *SlackAppMentionHandler {
 	var getter slackapp.ConnectionGetter
 	if nangoClient != nil {
 		getter = nangoClient
 	}
-	return &SlackAppMentionHandler{
+	h := &SlackAppMentionHandler{
 		db:              db,
 		orchestrator:    orchestrator,
 		compileDeps:     compileDeps,
@@ -43,6 +52,10 @@ func NewSlackAppMentionHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, 
 		nangoClient:     getter,
 		orgAgentEnsurer: ensurer,
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 func (h *SlackAppMentionHandler) Handle(ctx context.Context, task *asynq.Task) error {
@@ -95,6 +108,9 @@ func (h *SlackAppMentionHandler) processWithSlack(ctx context.Context, row *mode
 
 	channel, agent, err := h.resolveChannelAndAgent(ctx, row, client, token)
 	if err != nil {
+		return err
+	}
+	if err := h.enrichSlackInboundContext(ctx, row, token, client); err != nil {
 		return err
 	}
 	row.ChannelID = &channel.ID

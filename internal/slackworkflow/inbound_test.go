@@ -68,6 +68,21 @@ func TestClaimInboundAllowsContinuationOnlyAfterHivyReply(t *testing.T) {
 	}
 }
 
+func TestClaimInboundAcceptsEmptyAppMentionForWorkerEnrichment(t *testing.T) {
+	db := connectWorkflowTestDB(t)
+	org, conn := seedWorkflowConnection(t, db)
+	event := slackEvent("EvEmpty", slackapp.EventAppMention, "1710000005.000000", "")
+	event.CleanText = ""
+
+	claim, err := ClaimInbound(t.Context(), db, org.ID, conn.ID, event)
+	if err != nil {
+		t.Fatalf("claim app mention: %v", err)
+	}
+	if !claim.Accepted || claim.Reason != "" {
+		t.Fatalf("empty app mention accepted=%v reason=%q", claim.Accepted, claim.Reason)
+	}
+}
+
 func slackEvent(eventID, eventType, ts, threadTS string) slackapp.InboundEvent {
 	if threadTS == "" {
 		threadTS = ts
