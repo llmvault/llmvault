@@ -301,27 +301,18 @@ pub async fn put_config(
                 "config request body too large".to_string(),
             )
         })?;
-    phase_started = log_config_request_phase(
-        "read body",
-        phase_started,
+    let request_log = ConfigRequestPhaseLog {
         total_started,
-        body.len(),
-        body.len(),
+        wire_body_bytes: body.len(),
+        json_body_bytes: body.len(),
         content_length,
-        &content_encoding,
-        false,
-    );
+        content_encoding: &content_encoding,
+        compressed: false,
+    };
+    phase_started = log_config_request_phase("read body", phase_started, request_log);
     let (json_body, compressed) = decode_config_body(&body, &content_encoding)?;
-    phase_started = log_config_request_phase(
-        "decode content",
-        phase_started,
-        total_started,
-        body.len(),
-        json_body.len(),
-        content_length,
-        &content_encoding,
-        compressed,
-    );
+    let decoded_log = request_log.decoded(json_body.len(), compressed);
+    phase_started = log_config_request_phase("decode content", phase_started, decoded_log);
     let request: ConfigUpdateRequest = serde_json::from_slice(&json_body).map_err(|error| {
         warn!(
             error = %error,
@@ -334,16 +325,7 @@ pub async fn put_config(
             "invalid config request JSON".to_string(),
         )
     })?;
-    phase_started = log_config_request_phase(
-        "decode json",
-        phase_started,
-        total_started,
-        body.len(),
-        json_body.len(),
-        content_length,
-        &content_encoding,
-        compressed,
-    );
+    phase_started = log_config_request_phase("decode json", phase_started, decoded_log);
     if let Err(error) = request.validate() {
         warn!(
             error = %error,
@@ -359,16 +341,7 @@ pub async fn put_config(
         };
         return Err((status, error));
     }
-    phase_started = log_config_request_phase(
-        "validate request",
-        phase_started,
-        total_started,
-        body.len(),
-        json_body.len(),
-        content_length,
-        &content_encoding,
-        compressed,
-    );
+    phase_started = log_config_request_phase("validate request", phase_started, decoded_log);
     let env_key_count = request.runtime_env.len();
     let secret_rotated = request
         .runtime_secret
@@ -385,30 +358,12 @@ pub async fn put_config(
         }
     }
     apply_config_snapshot(&state, request.definition, runtime_env, request.workspace).await?;
-    phase_started = log_config_request_phase(
-        "apply snapshot",
-        phase_started,
-        total_started,
-        body.len(),
-        json_body.len(),
-        content_length,
-        &content_encoding,
-        compressed,
-    );
+    phase_started = log_config_request_phase("apply snapshot", phase_started, decoded_log);
     if let Some(secret) = next_runtime_secret {
         let mut token = state.bearer_token.write().await;
         *token = secret;
     }
-    let _ = log_config_request_phase(
-        "complete",
-        phase_started,
-        total_started,
-        body.len(),
-        json_body.len(),
-        content_length,
-        &content_encoding,
-        compressed,
-    );
+    let _ = log_config_request_phase("complete", phase_started, decoded_log);
     Ok(Json(ConfigResponse {
         applied_at: Utc::now(),
         env_key_count,
@@ -452,25 +407,40 @@ fn decode_config_body(
     Ok((decoded, true))
 }
 
-fn log_config_request_phase(
-    phase: &'static str,
-    phase_started: Instant,
+#[derive(Clone, Copy)]
+struct ConfigRequestPhaseLog<'a> {
     total_started: Instant,
     wire_body_bytes: usize,
     json_body_bytes: usize,
     content_length: Option<usize>,
-    content_encoding: &str,
+    content_encoding: &'a str,
     compressed: bool,
+}
+
+impl ConfigRequestPhaseLog<'_> {
+    fn decoded(self, json_body_bytes: usize, compressed: bool) -> Self {
+        Self {
+            json_body_bytes,
+            compressed,
+            ..self
+        }
+    }
+}
+
+fn log_config_request_phase(
+    phase: &'static str,
+    phase_started: Instant,
+    stats: ConfigRequestPhaseLog<'_>,
 ) -> Instant {
     info!(
         phase,
         duration_ms = phase_started.elapsed().as_millis(),
-        total_ms = total_started.elapsed().as_millis(),
-        wire_body_bytes,
-        json_body_bytes,
-        content_length,
-        content_encoding,
-        compressed,
+        total_ms = stats.total_started.elapsed().as_millis(),
+        wire_body_bytes = stats.wire_body_bytes,
+        json_body_bytes = stats.json_body_bytes,
+        content_length = stats.content_length,
+        content_encoding = stats.content_encoding,
+        compressed = stats.compressed,
         "runtime config request phase"
     );
     Instant::now()
