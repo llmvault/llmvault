@@ -1,11 +1,12 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Modal, Spinner, toast, useOverlayState } from "@heroui/react"
+import { Modal, toast, useOverlayState } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import type { components } from "@/lib/api/schema"
 import { invalidateSessionListQueries } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   type ConnectOptions,
@@ -22,8 +23,6 @@ import {
 } from "@/app/w/(chat)/plugins/database-connection-modal-content"
 import {
   PluginLogo,
-  RequirementLogo,
-  connectionKindLabel,
   isDatabaseRequirement,
   isIntegrationRequirement,
   isRequirementMissing,
@@ -36,6 +35,7 @@ import {
   ResourceSelectionModal,
   type ResourceModalState,
 } from "@/app/w/(chat)/plugins/[slug]/resource-requirements-section"
+import { RequiredConnectionsSection } from "@/app/w/(chat)/plugins/[slug]/required-connections-section"
 import { PluginInstallAction } from "@/app/w/(chat)/plugins/[slug]/plugin-install-action"
 import {
   type ApiPlugin,
@@ -50,6 +50,7 @@ import {
 } from "@/app/w/(chat)/plugins/_lib"
 
 type PluginSkill = NonNullable<ApiPlugin["skills"]>[number]
+type Connection = components["schemas"]["connectionResponse"]
 
 type ConnectionModalState = {
   view: "integration" | "database"
@@ -72,7 +73,11 @@ export default function PluginDetailPage({
     "/v1/plugins/{slug}/install"
   )
   const integrationsQuery = $api.useQuery("get", "/v1/integrations/available")
-  const { connectIntegration, isConnecting } = useConnectIntegration()
+  const connectionsQuery = $api.useQuery("get", "/v1/connections", {
+    params: { query: { limit: 100 } },
+  })
+  const { connectIntegration, reconnectIntegration, isConnecting } =
+    useConnectIntegration()
   const [connectionModal, setConnectionModal] =
     useState<ConnectionModalState | null>(null)
   const [resourceModal, setResourceModal] = useState<ResourceModalState | null>(
@@ -92,10 +97,24 @@ export default function PluginDetailPage({
   })
   const plugin = pluginQuery.data as ApiPlugin | undefined
   const integrations = (integrationsQuery.data ?? []) as AvailableIntegration[]
+  const connections = useMemo(
+    () => (connectionsQuery.data?.data ?? []) as Connection[],
+    [connectionsQuery.data?.data]
+  )
+  const connectionsByProvider = useMemo(() => {
+    const next = new Map<string, Connection>()
+    for (const connection of connections) {
+      const provider = connection.provider ?? ""
+      if (!provider || connection.revoked_at || next.has(provider)) continue
+      next.set(provider, connection)
+    }
+    return next
+  }, [connections])
   const busy =
     installPlugin.isPending || uninstallPlugin.isPending || isConnecting
 
   function refresh() {
+    queryClient.invalidateQueries({ queryKey: ["get", "/v1/connections"] })
     queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins/{slug}"] })
     invalidateSessionListQueries(queryClient)
@@ -197,6 +216,19 @@ export default function PluginDetailPage({
     })
   }
 
+  function handleReconnectRequirement(
+    requirement: PluginRequirement,
+    connection: Connection
+  ) {
+    if (!isIntegrationRequirement(requirement) || !connection.id) return
+    reconnectIntegration(connection.id, {
+      onSuccess: () => {
+        toast.success(`${providerLabel(requirement.provider)} reconnected`)
+        refresh()
+      },
+    })
+  }
+
   function handleDatabaseConnected() {
     closeConnectionModal()
     refresh()
@@ -284,8 +316,10 @@ export default function PluginDetailPage({
                 requirements={shownRequiredConnections}
                 missing={missing}
                 integrationsLoading={integrationsQuery.isLoading}
+                connectionsByProvider={connectionsByProvider}
                 isBusy={busy}
                 onConnect={handleConnectRequirement}
+                onReconnect={handleReconnectRequirement}
               />
             ) : null}
 
@@ -359,100 +393,6 @@ function PluginDetailShell({ content }: { content: React.ReactNode }) {
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-6 py-12">{content}</div>
     </div>
-  )
-}
-
-function RequiredConnectionsSection({
-  requirements,
-  missing,
-  integrationsLoading,
-  isBusy,
-  onConnect,
-}: {
-  requirements: PluginRequirement[]
-  missing: PluginRequirement[]
-  integrationsLoading: boolean
-  isBusy: boolean
-  onConnect: (requirement: PluginRequirement) => void
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-foreground">
-          Required connections
-        </h2>
-        {missing.length === 0 ? (
-          <p className="text-sm leading-5 text-muted-foreground">
-            All required connections are connected.
-          </p>
-        ) : null}
-      </div>
-      {missing.length > 0 ? (
-        <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-xl border p-4">
-          <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-            <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium text-foreground">
-              Required connections missing
-            </h3>
-            <p className="mt-1 text-sm leading-5 text-muted-foreground">
-              Add the required connections before adding this plugin.
-            </p>
-          </div>
-        </div>
-      ) : null}
-      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-        {requirements.map((requirement, index) => {
-          const provider = requirement.provider ?? ""
-          const isMissing = isRequirementMissing(requirement, missing)
-          const canConnect =
-            isMissing &&
-            (isDatabaseRequirement(requirement) ||
-              isIntegrationRequirement(requirement))
-          const waitingForIntegrations =
-            integrationsLoading && isIntegrationRequirement(requirement)
-
-          return (
-            <div
-              key={provider || index}
-              className="flex items-center justify-between gap-3 px-3 py-2.5"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <RequirementLogo requirement={requirement} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {provider ? providerLabel(provider) : "Connection"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {connectionKindLabel(requirement)}
-                  </p>
-                </div>
-              </div>
-              {isMissing ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className="shrink-0 rounded-full"
-                  isDisabled={!canConnect || isBusy || waitingForIntegrations}
-                  onPress={() => onConnect(requirement)}
-                >
-                  {isBusy ? <Spinner color="current" size="sm" /> : null}
-                  Connect
-                </Button>
-              ) : (
-                <span
-                  aria-label="Connected"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
-                >
-                  <Icon icon="lucide:check" className="h-3.5 w-3.5" />
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </section>
   )
 }
 
