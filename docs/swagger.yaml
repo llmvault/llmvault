@@ -1536,6 +1536,30 @@ definitions:
           type: string
         type: array
     type: object
+  createTriggerRequest:
+    properties:
+      agent_id:
+        type: string
+      connection_id:
+        type: string
+      external_resource_key:
+        type: string
+      external_resource_name:
+        type: string
+      instructions:
+        type: string
+      provider:
+        type: string
+      trigger_key:
+        type: string
+      trigger_value:
+        type: string
+    type: object
+  createTriggerResponse:
+    properties:
+      trigger:
+        $ref: '#/definitions/agentTriggerResponse'
+    type: object
   credentialResponse:
     properties:
       auth_scheme:
@@ -10642,6 +10666,54 @@ paths:
       summary: Revoke a proxy token
       tags:
       - tokens
+  /v1/triggers:
+    post:
+      consumes:
+      - application/json
+      description: Creates a provider automation trigger for an agent.
+      parameters:
+      - description: Trigger configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/createTriggerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/createTriggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create trigger
+      tags:
+      - triggers
   /v1/uploads/sign:
     post:
       consumes:

@@ -19,15 +19,15 @@ func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 	db := connectNangoSlackTestDB(t)
 	org, conn := seedNangoSlackConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
-	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
 	body, _ := json.Marshal(createTriggerRequest{
-		Provider:     slackapp.Provider,
-		ConnectionID: conn.ID.String(),
-		ChannelID:    channel.ID.String(),
-		AgentID:      agent.ID.String(),
-		TriggerKey:   slackapp.EventReactionAdded,
-		TriggerValue: ":eyes:",
-		Instructions: "Summarize the reacted message.",
+		Provider:             slackapp.Provider,
+		ConnectionID:         conn.ID.String(),
+		ExternalResourceKey:  "C111",
+		ExternalResourceName: "general",
+		AgentID:              agent.ID.String(),
+		TriggerKey:           slackapp.EventReactionAdded,
+		TriggerValue:         ":eyes:",
+		Instructions:         "Summarize the reacted message.",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
@@ -50,8 +50,59 @@ func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 	if err := db.First(&row, "id = ?", trigger.ID).Error; err != nil {
 		t.Fatalf("load trigger: %v", err)
 	}
-	if row.AgentID != agent.ID || row.TriggerValue != "eyes" || row.ChannelID == nil || *row.ChannelID != channel.ID {
+	if row.AgentID != agent.ID || row.TriggerValue != "eyes" || row.ChannelID == nil {
 		t.Fatalf("stored trigger=%+v", row)
+	}
+	var channel model.Channel
+	if err := db.First(&channel, "id = ?", *row.ChannelID).Error; err != nil {
+		t.Fatalf("load created channel: %v", err)
+	}
+	if channel.Name != "slack-general" || channel.DefaultAgentID != agent.ID ||
+		channel.ExternalResourceKey != "C111" || channel.ExternalResourceName != "general" ||
+		channel.ExternalConnectionID == nil || *channel.ExternalConnectionID != conn.ID {
+		t.Fatalf("created channel=%+v", channel)
+	}
+}
+
+func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testing.T) {
+	db := connectNangoSlackTestDB(t)
+	org, conn := seedNangoSlackConnection(t, db)
+	agent := seedSlackReactionAgent(t, db, org.ID)
+	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
+	body, _ := json.Marshal(createTriggerRequest{
+		Provider:             slackapp.Provider,
+		ConnectionID:         conn.ID.String(),
+		ExternalResourceKey:  channel.ExternalResourceKey,
+		ExternalResourceName: channel.ExternalResourceName,
+		AgentID:              agent.ID.String(),
+		TriggerKey:           slackapp.EventReactionAdded,
+		TriggerValue:         "eyes",
+		Instructions:         "Summarize the reacted message.",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+
+	NewTriggerHandler(db).Create(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var row model.AgentTrigger
+	if err := db.Where("agent_id = ?", agent.ID).First(&row).Error; err != nil {
+		t.Fatalf("load trigger: %v", err)
+	}
+	if row.ChannelID == nil || *row.ChannelID != channel.ID {
+		t.Fatalf("trigger channel=%v want %s", row.ChannelID, channel.ID)
+	}
+	var count int64
+	if err := db.Model(&model.Channel{}).
+		Where("org_id = ? AND external_resource_key = ?", org.ID, channel.ExternalResourceKey).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count channels: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("external channel count=%d want 1", count)
 	}
 }
 
