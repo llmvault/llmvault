@@ -25,7 +25,6 @@ const (
 	TypeAgentGitHubResourcesClone = "agent:github_resources_clone"
 	TypeAgentScheduleDeliver      = "agent_schedule:deliver"
 	TypeOrgHivyAgentProvision     = "org:hivy_agent_provision"
-	TypePluginInstallSync         = "plugin:install_sync"
 	TypeMemoryEmbed               = "memory:embed"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"

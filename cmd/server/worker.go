@@ -141,10 +141,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	})
 
 	mux := tasks.NewServeMux(workerDeps)
-	if agentHandler != nil {
-		mux.HandleFunc(tasks.TypePluginInstallSync,
-			handler.NewPluginInstallSyncHandler(deps.DB, agentHandler, enqueuer, deps.Orchestrator, agentCompile).Handle)
-	}
 	mux.Use(sentryobs.AsynqMiddleware())
 
 	srv := asynq.NewServer(redisOpt, asynq.Config{

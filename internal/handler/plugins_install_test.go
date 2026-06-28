@@ -14,30 +14,16 @@ import (
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func TestPluginHandler_InstallEnqueuesPluginInstallSync(t *testing.T) {
+func TestPluginHandler_InstallDoesNotEnqueueSyncTask(t *testing.T) {
 	db := connectTestDB(t)
-	enq := &recordingEnqueuer{}
-	h := handler.NewPluginHandler(db, enq)
+	h := handler.NewPluginHandler(db)
 	r := chi.NewRouter()
 	r.Post("/v1/plugins/{slug}/install", h.Install)
 
 	user := createTestUser(t, db, fmt.Sprintf("plugin-install-%s@test.com", uuid.New().String()[:8]))
 	org := createTestOrg(t, db)
-	integ := createTestIntegration(t, db, "linear")
-	conn := model.Connection{
-		ID:                uuid.New(),
-		OrgID:             org.ID,
-		UserID:            user.ID,
-		IntegrationID:     integ.ID,
-		NangoConnectionID: "linear-plugin-install-test",
-		Meta:              model.JSON{},
-	}
-	if err := db.Create(&conn).Error; err != nil {
-		t.Fatalf("create connection: %v", err)
-	}
 	plugin := model.Plugin{
 		ID:       uuid.New(),
 		Slug:     "linear-plugin-install-" + uuid.NewString()[:8],
@@ -48,19 +34,8 @@ func TestPluginHandler_InstallEnqueuesPluginInstallSync(t *testing.T) {
 	if err := db.Create(&plugin).Error; err != nil {
 		t.Fatalf("create plugin: %v", err)
 	}
-	if err := db.Create(&model.PluginIntegration{
-		PluginID: plugin.ID,
-		Provider: "linear",
-		Kind:     model.PluginIntegrationKindIntegration,
-		Required: true,
-	}).Error; err != nil {
-		t.Fatalf("create plugin integration: %v", err)
-	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
-		db.Where("id = ?", conn.ID).Delete(&model.Connection{})
-		db.Where("plugin_id = ?", plugin.ID).Delete(&model.PluginIntegration{})
 		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
 	})
 
@@ -72,20 +47,6 @@ func TestPluginHandler_InstallEnqueuesPluginInstallSync(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("install status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if len(enq.tasks) != 1 {
-		t.Fatalf("enqueued tasks=%d, want 1", len(enq.tasks))
-	}
-	task := enq.tasks[0]
-	if task.Type() != tasks.TypePluginInstallSync {
-		t.Fatalf("task type=%q, want %q", task.Type(), tasks.TypePluginInstallSync)
-	}
-	var payload tasks.PluginInstallSyncPayload
-	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
-		t.Fatalf("decode plugin sync payload: %v", err)
-	}
-	if payload.OrgID != org.ID || payload.PluginID != plugin.ID || payload.InstallID == uuid.Nil {
-		t.Fatalf("bad plugin sync payload: %+v", payload)
-	}
 	var orgInstallCount int64
 	if err := db.Model(&model.OrgPluginInstall{}).
 		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
@@ -94,15 +55,6 @@ func TestPluginHandler_InstallEnqueuesPluginInstallSync(t *testing.T) {
 	}
 	if orgInstallCount != 1 {
 		t.Fatalf("org plugin install count = %d, want 1", orgInstallCount)
-	}
-	var agentInstallCount int64
-	if err := db.Model(&model.AgentPluginInstall{}).
-		Where("org_id = ? AND plugin_id = ?", org.ID, plugin.ID).
-		Count(&agentInstallCount).Error; err != nil {
-		t.Fatalf("count agent plugin installs: %v", err)
-	}
-	if agentInstallCount != 0 {
-		t.Fatalf("agent plugin install count = %d, want 0", agentInstallCount)
 	}
 }
 

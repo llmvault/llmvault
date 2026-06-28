@@ -154,7 +154,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	}
 	sandboxTemplateHandler := handler.NewSandboxTemplateHandler(database, templateBuilder, enqueuer)
 	skillHandler := handler.NewSkillHandler(database, enqueuer)
-	pluginHandler := handler.NewPluginHandler(database, enqueuer)
+	pluginHandler := handler.NewPluginHandler(database)
 
 	var agentHandler *handler.AgentHandler
 	if orchestrator != nil {

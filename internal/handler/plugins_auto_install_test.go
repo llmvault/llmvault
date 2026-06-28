@@ -118,7 +118,7 @@ func TestPluginHandlerRejectsRemovingAutoInstallPlugin(t *testing.T) {
 		t.Fatalf("create agent install: %v", err)
 	}
 
-	h := handler.NewPluginHandler(db, &recordingEnqueuer{})
+	h := handler.NewPluginHandler(db)
 	r := chi.NewRouter()
 	r.Delete("/v1/plugins/{slug}/install", h.Uninstall)
 	r.Delete("/v1/agents/{id}/plugins/{slug}", h.DisableForAgent)
@@ -180,7 +180,7 @@ func TestPluginHandlerRejectsDisablingCatalogRequiredPlugin(t *testing.T) {
 		t.Fatalf("create agent install: %v", err)
 	}
 
-	h := handler.NewPluginHandler(db, &recordingEnqueuer{})
+	h := handler.NewPluginHandler(db)
 	r := chi.NewRouter()
 	r.Delete("/v1/agents/{id}/plugins/{slug}", h.DisableForAgent)
 
