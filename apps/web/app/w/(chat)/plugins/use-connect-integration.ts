@@ -23,6 +23,10 @@ export function useConnectIntegration() {
     "post",
     "/v1/integrations/{id}/connect-session"
   )
+  const createReconnectSession = $api.useMutation(
+    "post",
+    "/v1/connections/{id}/reconnect-session"
+  )
   const createConnection = $api.useMutation(
     "post",
     "/v1/integrations/{id}/connections"
@@ -70,6 +74,37 @@ export function useConnectIntegration() {
     queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins"] })
   }
 
+  async function runReconnect(connectionId: string, options?: ConnectOptions) {
+    const session = await createReconnectSession.mutateAsync({
+      params: { path: { id: connectionId } },
+    })
+
+    const token = session?.token
+    const providerConfigKey = session?.provider_config_key
+    if (!token || !providerConfigKey) {
+      throw new Error("Could not start reconnect")
+    }
+
+    const nango = new Nango({
+      connectSessionToken: token,
+      host: process.env.NEXT_PUBLIC_HIVY_CONNECTIONS_HOST,
+    })
+
+    const authOptions: Record<string, unknown> = {}
+    if (options?.credentials) authOptions.credentials = options.credentials
+    if (options?.params) authOptions.params = options.params
+    if (options?.installation) authOptions.installation = options.installation
+
+    if (Object.keys(authOptions).length > 0) {
+      await nango.reconnect(providerConfigKey, authOptions)
+    } else {
+      await nango.reconnect(providerConfigKey)
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["get", "/v1/connections"] })
+    queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins"] })
+  }
+
   function connectIntegration(
     integrationId: string,
     options?: ConnectIntegrationOptions
@@ -92,11 +127,35 @@ export function useConnectIntegration() {
       })
   }
 
+  function reconnectIntegration(
+    connectionId: string,
+    options?: ConnectIntegrationOptions
+  ) {
+    const { onSuccess, ...connectOptions } = options ?? {}
+    const normalizedOptions =
+      Object.keys(connectOptions).length > 0 ? connectOptions : undefined
+
+    setConnectingId(connectionId)
+    runReconnect(connectionId, normalizedOptions)
+      .then(() => {
+        onSuccess?.()
+      })
+      .catch((error) => {
+        if (error instanceof AuthError && error.type === "window_closed") return
+        toast.danger(extractErrorMessage(error, "Reconnect failed"))
+      })
+      .finally(() => {
+        setConnectingId(null)
+      })
+  }
+
   return {
     connectIntegration,
+    reconnectIntegration,
     connectingId,
     isConnecting:
       createConnectSession.isPending ||
+      createReconnectSession.isPending ||
       createConnection.isPending ||
       connectingId !== null,
   }
