@@ -143,6 +143,8 @@ func normalizeChannelName(raw string) string {
 	return value
 }
 
+const systemChannelName = "system"
+
 func isReservedChannelName(name string) bool {
 	return name == systemChannelName
 }
