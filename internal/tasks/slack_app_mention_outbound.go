@@ -48,10 +48,17 @@ func (h *SlackAppMentionHandler) recordSlackOutbound(ctx context.Context, inboun
 }
 
 func slackResponseEventType(inbound *model.SlackThreadEvent) string {
-	if inbound != nil && inbound.TriggerID != nil {
-		return "reaction_added.response"
+	if inbound == nil {
+		return "app_mention.response"
 	}
-	return "app_mention.response"
+	switch inbound.EventType {
+	case slackapp.EventReactionAdded:
+		return "reaction_added.response"
+	case slackapp.EventMessage:
+		return "message.response"
+	default:
+		return "app_mention.response"
+	}
 }
 
 func slackTimePtr(t time.Time) *time.Time {

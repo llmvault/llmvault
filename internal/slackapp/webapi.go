@@ -23,6 +23,7 @@ type Client interface {
 	GetConversationInfoContext(context.Context, *slacksdk.GetConversationInfoInput) (*slacksdk.Channel, error)
 	GetConversationHistoryContext(context.Context, *slacksdk.GetConversationHistoryParameters) (*slacksdk.GetConversationHistoryResponse, error)
 	GetConversationRepliesContext(context.Context, *slacksdk.GetConversationRepliesParameters) ([]slacksdk.Message, bool, string, error)
+	GetReactionsContext(context.Context, slacksdk.ItemRef, slacksdk.GetReactionsParameters) (slacksdk.ReactedItem, error)
 }
 
 var webAPIHTTPClient = &http.Client{Timeout: 30 * time.Second}

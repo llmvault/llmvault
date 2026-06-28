@@ -106,6 +106,9 @@ func (h *SlackAppMentionHandler) processWithSlack(ctx context.Context, row *mode
 	}()
 	_ = slackapp.SetAssistantStatus(ctx, client, row.SlackChannelID, row.ThreadTS)
 
+	if err := h.resolveSlackThreadContinuation(ctx, row); err != nil {
+		return err
+	}
 	channel, agent, err := h.resolveChannelAndAgent(ctx, row, client, token)
 	if err != nil {
 		return err
