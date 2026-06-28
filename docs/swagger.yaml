@@ -454,19 +454,18 @@ definitions:
       $ref:
         type: string
     type: object
+  TriggerDefaults:
+    properties:
+      instructions:
+        type: string
+      value:
+        type: string
+    type: object
   TriggerSpec:
     properties:
-      conditions:
-        items:
-          type: integer
-        type: array
-      keys:
-        items:
-          type: string
-        type: array
-      secret_required_default:
-        type: boolean
-      type:
+      defaults:
+        $ref: '#/definitions/TriggerDefaults'
+      key:
         type: string
     type: object
   Usage:
@@ -869,11 +868,15 @@ definitions:
         type: boolean
       source_slug:
         type: string
+      trigger_key:
+        type: string
       trigger_keys:
         items:
           type: string
         type: array
       trigger_type:
+        type: string
+      trigger_value:
         type: string
     type: object
   apiKeyResponse:

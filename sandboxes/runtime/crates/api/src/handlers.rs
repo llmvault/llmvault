@@ -10,9 +10,11 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use domain::{AgentDefinition, QuestionAnswerPayload, SessionId, SessionStatus, WorkspaceConfig};
+use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::io::Read;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::{Duration, Instant};
 use storage::{ConfigSnapshot, SessionListCursor, SessionListFilter};
@@ -304,13 +306,27 @@ pub async fn put_config(
         phase_started,
         total_started,
         body.len(),
+        body.len(),
         content_length,
         &content_encoding,
+        false,
     );
-    let request: ConfigUpdateRequest = serde_json::from_slice(&body).map_err(|error| {
+    let (json_body, compressed) = decode_config_body(&body, &content_encoding)?;
+    phase_started = log_config_request_phase(
+        "decode content",
+        phase_started,
+        total_started,
+        body.len(),
+        json_body.len(),
+        content_length,
+        &content_encoding,
+        compressed,
+    );
+    let request: ConfigUpdateRequest = serde_json::from_slice(&json_body).map_err(|error| {
         warn!(
             error = %error,
-            body_bytes = body.len(),
+            wire_body_bytes = body.len(),
+            json_body_bytes = json_body.len(),
             "config request JSON decode failed"
         );
         (
@@ -323,8 +339,10 @@ pub async fn put_config(
         phase_started,
         total_started,
         body.len(),
+        json_body.len(),
         content_length,
         &content_encoding,
+        compressed,
     );
     if let Err(error) = request.validate() {
         warn!(
@@ -346,8 +364,10 @@ pub async fn put_config(
         phase_started,
         total_started,
         body.len(),
+        json_body.len(),
         content_length,
         &content_encoding,
+        compressed,
     );
     let env_key_count = request.runtime_env.len();
     let secret_rotated = request
@@ -370,8 +390,10 @@ pub async fn put_config(
         phase_started,
         total_started,
         body.len(),
+        json_body.len(),
         content_length,
         &content_encoding,
+        compressed,
     );
     if let Some(secret) = next_runtime_secret {
         let mut token = state.bearer_token.write().await;
@@ -382,8 +404,10 @@ pub async fn put_config(
         phase_started,
         total_started,
         body.len(),
+        json_body.len(),
         content_length,
         &content_encoding,
+        compressed,
     );
     Ok(Json(ConfigResponse {
         applied_at: Utc::now(),
@@ -392,21 +416,61 @@ pub async fn put_config(
     }))
 }
 
+fn decode_config_body(
+    body: &[u8],
+    content_encoding: &str,
+) -> Result<(Vec<u8>, bool), (StatusCode, String)> {
+    let encoding = content_encoding.trim();
+    if encoding.is_empty() || encoding.eq_ignore_ascii_case("identity") {
+        return Ok((body.to_vec(), false));
+    }
+    if !encoding.eq_ignore_ascii_case("gzip") {
+        return Err((
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "unsupported config content encoding".to_string(),
+        ));
+    }
+    let mut decoder = GzDecoder::new(body);
+    let mut decoded = Vec::new();
+    decoder
+        .by_ref()
+        .take((MAX_CONFIG_REQUEST_BODY_BYTES + 1) as u64)
+        .read_to_end(&mut decoded)
+        .map_err(|error| {
+            warn!(error = %error, "config request gzip decode failed");
+            (
+                StatusCode::BAD_REQUEST,
+                "invalid gzip config request body".to_string(),
+            )
+        })?;
+    if decoded.len() > MAX_CONFIG_REQUEST_BODY_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "config request body too large".to_string(),
+        ));
+    }
+    Ok((decoded, true))
+}
+
 fn log_config_request_phase(
     phase: &'static str,
     phase_started: Instant,
     total_started: Instant,
-    body_bytes: usize,
+    wire_body_bytes: usize,
+    json_body_bytes: usize,
     content_length: Option<usize>,
     content_encoding: &str,
+    compressed: bool,
 ) -> Instant {
     info!(
         phase,
         duration_ms = phase_started.elapsed().as_millis(),
         total_ms = total_started.elapsed().as_millis(),
-        body_bytes,
+        wire_body_bytes,
+        json_body_bytes,
         content_length,
         content_encoding,
+        compressed,
         "runtime config request phase"
     );
     Instant::now()
@@ -1187,6 +1251,7 @@ mod tests {
     use super::*;
 
     use std::collections::HashMap;
+    use std::io::Write;
 
     #[test]
     fn stream_query_default_replays_all() {
@@ -1370,6 +1435,20 @@ mod tests {
             body.get("definition").is_none(),
             "PUT /config should not echo the full agent definition"
         );
+    }
+
+    #[test]
+    fn decode_config_body_accepts_gzip() {
+        let raw = br#"{"runtime_env":{},"definition":{"agent":{"name":"test","description":""}}}"#;
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(raw).expect("write gzip body");
+        let compressed = encoder.finish().expect("finish gzip body");
+
+        let (decoded, compressed_body) =
+            decode_config_body(&compressed, "gzip").expect("gzip body decodes");
+
+        assert!(compressed_body);
+        assert_eq!(decoded, raw);
     }
 
     #[test]

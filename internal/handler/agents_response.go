@@ -31,6 +31,8 @@ type agentTriggerResponse struct {
 	ConnectionID string   `json:"connection_id,omitempty"`
 	Provider     string   `json:"provider,omitempty"`
 	TriggerKeys  []string `json:"trigger_keys,omitempty"`
+	TriggerKey   string   `json:"trigger_key,omitempty"`
+	TriggerValue string   `json:"trigger_value,omitempty"`
 	Enabled      bool     `json:"enabled"`
 	Conditions   any      `json:"conditions,omitempty"`
 	SourceSlug   string   `json:"source_slug,omitempty"`

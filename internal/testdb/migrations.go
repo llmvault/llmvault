@@ -234,6 +234,7 @@ var migratedTables = []string{
 	"session_events",
 	"session_message_queue",
 	"session_participants",
+	"session_reflection_states",
 	"sessions",
 	"skills",
 	"subscription_change_quotes",
@@ -246,4 +247,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 49
+const latestMigrationVersion = 51

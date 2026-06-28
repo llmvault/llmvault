@@ -17,7 +17,9 @@ const (
 	TypeAgentTriggerDispatch      = "agent_trigger:dispatch"
 	TypeAgentTriggerStoreDelivery = "agent_trigger:store_delivery"
 	TypeSessionMessageDeliver     = "session:message_deliver"
+	TypeSessionReflection         = "session:reflect"
 	TypeSlackAppMention           = "slack:app_mention"
+	TypeSlackReactionTrigger      = "slack:reaction_trigger"
 	TypeSessionName               = "session:name"
 	TypeAgentProxyTokenRefresh    = "agent:proxy_token_refresh"
 	TypeAgentGitHubResourcesClone = "agent:github_resources_clone"
@@ -29,13 +31,14 @@ const (
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
 
 	// Periodic tasks (scheduled by the worker)
-	TypeTokenCleanup         = "periodic:token_cleanup"
-	TypeSandboxResourceCheck = "periodic:sandbox_resource_check"
-	TypeSandboxReap          = "periodic:sandbox_reap"
-	TypeCreditsExpire        = "periodic:credits_expire"
-	TypeBillingBatchProcess  = "periodic:billing_batch_process"
-	TypeBillingRenewSweep    = "periodic:billing_renew_sweep"
-	TypeAgentScheduleScan    = "periodic:agent_schedule_scan"
+	TypeTokenCleanup          = "periodic:token_cleanup"
+	TypeSandboxResourceCheck  = "periodic:sandbox_resource_check"
+	TypeSandboxReap           = "periodic:sandbox_reap"
+	TypeCreditsExpire         = "periodic:credits_expire"
+	TypeBillingBatchProcess   = "periodic:billing_batch_process"
+	TypeBillingRenewSweep     = "periodic:billing_renew_sweep"
+	TypeAgentScheduleScan     = "periodic:agent_schedule_scan"
+	TypeSessionReflectionScan = "periodic:session_reflection_scan"
 
 	// On-demand task enqueued by the sweep for each due subscription.
 	TypeBillingRenewSubscription = "billing:renew_subscription"

@@ -57,6 +57,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (*model.AgentMe
 		UserID:            userID,
 		Scope:             scope,
 		Content:           content,
+		MemoryFingerprint: strings.TrimSpace(req.MemoryFingerprint),
 		Tags:              pq.StringArray(NormalizeTags(req.Tags)),
 		Metadata:          normalizeMetadata(req.Metadata),
 		EmbeddingModel:    s.embeddingModel(),

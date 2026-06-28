@@ -11114,25 +11114,24 @@ const docTemplate = `{
                 }
             }
         },
+        "TriggerDefaults": {
+            "type": "object",
+            "properties": {
+                "instructions": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "TriggerSpec": {
             "type": "object",
             "properties": {
-                "conditions": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                "defaults": {
+                    "$ref": "#/definitions/TriggerDefaults"
                 },
-                "keys": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "secret_required_default": {
-                    "type": "boolean"
-                },
-                "type": {
+                "key": {
                     "type": "string"
                 }
             }
@@ -11732,6 +11731,9 @@ const docTemplate = `{
                 "source_slug": {
                     "type": "string"
                 },
+                "trigger_key": {
+                    "type": "string"
+                },
                 "trigger_keys": {
                     "type": "array",
                     "items": {
@@ -11739,6 +11741,9 @@ const docTemplate = `{
                     }
                 },
                 "trigger_type": {
+                    "type": "string"
+                },
+                "trigger_value": {
                     "type": "string"
                 }
             }

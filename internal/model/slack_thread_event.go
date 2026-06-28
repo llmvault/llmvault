@@ -27,6 +27,8 @@ type SlackThreadEvent struct {
 	Connection            Connection           `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
 	ChannelID             *uuid.UUID           `gorm:"type:uuid;index"`
 	Channel               *Channel             `gorm:"foreignKey:ChannelID;constraint:OnDelete:SET NULL"`
+	TriggerID             *uuid.UUID           `gorm:"type:uuid;index"`
+	Trigger               *AgentTrigger        `gorm:"foreignKey:TriggerID;constraint:OnDelete:SET NULL"`
 	SessionID             *uuid.UUID           `gorm:"type:uuid;index"`
 	Session               *Session             `gorm:"foreignKey:SessionID;constraint:OnDelete:SET NULL"`
 	SessionEventID        *uuid.UUID           `gorm:"type:uuid"`

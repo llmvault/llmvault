@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "slug": "slack-reaction",
+  "name": "React with emoji",
+  "description": "Run an agent when someone reacts to a Slack message with a configured emoji.",
+  "category": "Communication",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "slack",
+    "required": true
+  },
+  "plugins": {
+    "required": [
+      "slack"
+    ],
+    "recommended": []
+  },
+  "trigger": {
+    "key": "reaction_added",
+    "defaults": {
+      "value": "eyes",
+      "instructions": "./instructions.md"
+    }
+  },
+  "install": {
+    "enabled": true
+  }
+}

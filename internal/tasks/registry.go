@@ -100,6 +100,13 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			mux.HandleFunc(TypeSessionName, handler.Handle)
 		}
 		mux.HandleFunc(TypeMemoryEmbed, NewMemoryEmbedHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
+		if deps.Enqueuer != nil {
+			mux.HandleFunc(TypeSessionReflection,
+				NewSessionReflectionHandler(deps.DB, deps.CacheManager, deps.Enqueuer, memoryEmbeddingConfigFromDeps(deps)).Handle)
+		}
+	}
+	if deps.Enqueuer != nil {
+		mux.HandleFunc(TypeSessionReflectionScan, NewSessionReflectionScanHandler(deps.DB, deps.Enqueuer).Handle)
 	}
 
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {
@@ -115,6 +122,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSlackAppMention,
 			NewSlackAppMentionHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer).Handle)
+		mux.HandleFunc(TypeSlackReactionTrigger,
+			NewSlackReactionTriggerHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)

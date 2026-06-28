@@ -49,10 +49,13 @@ type PluginsSpec struct {
 }
 
 type TriggerSpec struct {
-	Type                  string          `json:"type"`
-	Keys                  []string        `json:"keys"`
-	Conditions            json.RawMessage `json:"conditions,omitempty"`
-	SecretRequiredDefault bool            `json:"secret_required_default,omitempty"`
+	Key      string          `json:"key"`
+	Defaults TriggerDefaults `json:"defaults"`
+}
+
+type TriggerDefaults struct {
+	Value        string `json:"value"`
+	Instructions string `json:"instructions"`
 }
 
 type ScheduleSpec struct {
@@ -123,19 +126,38 @@ func loadItem(dir, manifestName, kind string) (CatalogItem, error) {
 		return CatalogItem{}, fmt.Errorf("parse automation catalog item %q: %w", manifestPath, err)
 	}
 	item.Kind = kind
-	instructionsPath, err := instructionsFile(dir, item.Install.Instructions)
-	if err != nil {
-		return CatalogItem{}, fmt.Errorf("load instructions for %q: %w", item.Slug, err)
+	if err := item.loadInstructions(dir, kind); err != nil {
+		return CatalogItem{}, err
 	}
-	instructions, err := os.ReadFile(instructionsPath)
-	if err != nil {
-		return CatalogItem{}, fmt.Errorf("read instructions for %q: %w", item.Slug, err)
-	}
-	item.Instructions = string(instructions)
 	if err := item.validate(kind); err != nil {
 		return CatalogItem{}, err
 	}
 	return item, nil
+}
+
+func (item *CatalogItem) loadInstructions(dir, kind string) error {
+	switch kind {
+	case KindTrigger:
+		if item.Trigger == nil {
+			return nil
+		}
+		instructions, err := readInstructions(dir, item.Trigger.Defaults.Instructions)
+		if err != nil {
+			return fmt.Errorf("load trigger instructions for %q: %w", item.Slug, err)
+		}
+		item.Trigger.Defaults.Instructions = instructions
+		item.Instructions = instructions
+		return nil
+	case KindSchedule:
+		instructions, err := readInstructions(dir, item.Install.Instructions)
+		if err != nil {
+			return fmt.Errorf("load instructions for %q: %w", item.Slug, err)
+		}
+		item.Instructions = instructions
+		return nil
+	default:
+		return nil
+	}
 }
 
 func (item CatalogItem) validate(kind string) error {
@@ -152,10 +174,6 @@ func (item CatalogItem) validate(kind string) error {
 		return fmt.Errorf("catalog item %q category is required", item.Slug)
 	case strings.TrimSpace(item.Integration.Provider) == "":
 		return fmt.Errorf("catalog item %q integration.provider is required", item.Slug)
-	case strings.TrimSpace(item.Install.DefaultAgent) == "":
-		return fmt.Errorf("catalog item %q install.default_agent is required", item.Slug)
-	case strings.TrimSpace(item.Instructions) == "":
-		return fmt.Errorf("catalog item %q instructions are required", item.Slug)
 	}
 	switch kind {
 	case KindTrigger:
@@ -171,11 +189,14 @@ func (item CatalogItem) validateTrigger() error {
 	if item.Trigger == nil {
 		return fmt.Errorf("catalog trigger %q trigger config is required", item.Slug)
 	}
-	if item.Trigger.Type != "webhook" {
-		return fmt.Errorf("catalog trigger %q type must be webhook", item.Slug)
+	if strings.TrimSpace(item.Trigger.Key) == "" {
+		return fmt.Errorf("catalog trigger %q key is required", item.Slug)
 	}
-	if len(item.Trigger.Keys) == 0 {
-		return fmt.Errorf("catalog trigger %q keys are required", item.Slug)
+	if strings.TrimSpace(item.Trigger.Defaults.Value) == "" {
+		return fmt.Errorf("catalog trigger %q defaults.value is required", item.Slug)
+	}
+	if strings.TrimSpace(item.Trigger.Defaults.Instructions) == "" {
+		return fmt.Errorf("catalog trigger %q defaults.instructions is required", item.Slug)
 	}
 	return nil
 }
@@ -193,16 +214,34 @@ func (item CatalogItem) validateSchedule() error {
 	if strings.TrimSpace(item.Schedule.Timezone) == "" {
 		return fmt.Errorf("catalog schedule %q timezone is required", item.Slug)
 	}
+	if strings.TrimSpace(item.Install.DefaultAgent) == "" {
+		return fmt.Errorf("catalog schedule %q install.default_agent is required", item.Slug)
+	}
+	if strings.TrimSpace(item.Instructions) == "" {
+		return fmt.Errorf("catalog schedule %q instructions are required", item.Slug)
+	}
 	return nil
+}
+
+func readInstructions(dir, rawPath string) (string, error) {
+	instructionsPath, err := instructionsFile(dir, rawPath)
+	if err != nil {
+		return "", err
+	}
+	instructions, err := os.ReadFile(instructionsPath)
+	if err != nil {
+		return "", fmt.Errorf("read instructions: %w", err)
+	}
+	return string(instructions), nil
 }
 
 func instructionsFile(dir, rawPath string) (string, error) {
 	rawPath = strings.TrimSpace(rawPath)
 	if rawPath == "" {
-		return "", fmt.Errorf("install.instructions is required")
+		return "", fmt.Errorf("instructions path is required")
 	}
 	if filepath.IsAbs(rawPath) {
-		return "", fmt.Errorf("install.instructions must be relative")
+		return "", fmt.Errorf("instructions path must be relative")
 	}
 	cleaned := filepath.Clean(rawPath)
 	full := filepath.Join(dir, cleaned)
@@ -211,7 +250,7 @@ func instructionsFile(dir, rawPath string) (string, error) {
 		return "", err
 	}
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("install.instructions must stay within the catalog item")
+		return "", fmt.Errorf("instructions path must stay within the catalog item")
 	}
 	return full, nil
 }

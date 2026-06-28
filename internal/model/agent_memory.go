@@ -26,6 +26,7 @@ type AgentMemory struct {
 	User              *User          `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 	Scope             string         `gorm:"type:text;not null"`
 	Content           string         `gorm:"type:text;not null"`
+	MemoryFingerprint string         `gorm:"type:text;not null;default:''"`
 	Tags              pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 	Metadata          JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	EmbeddingModel    string         `gorm:"type:text;not null;default:''"`
