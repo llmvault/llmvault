@@ -233,6 +233,7 @@ func setupV1Routes(
 						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
 						r.Post("/triggers", triggerHandler.Create)
 						r.Patch("/triggers/{id}", triggerHandler.Update)
+						r.Delete("/triggers/{id}", triggerHandler.Delete)
 					})
 				}
 				if systemTaskHandler != nil {

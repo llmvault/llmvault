@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, ListBox, Select, Spinner, toast } from "@heroui/react"
+import { Button, Spinner, Switch, toast } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -22,6 +22,11 @@ import {
   normalizeEmojiName,
   SlackEmojiPicker,
 } from "@/app/w/(chat)/automations/_slack-emoji-picker"
+import {
+  resourceName,
+  SlackConnectionSelect,
+  SlackResourceSelect,
+} from "@/app/w/(chat)/automations/_slack-resource-select"
 import {
   FieldSkeleton,
   FormSection,
@@ -84,6 +89,7 @@ function SlackReactionInstallForm({
   })
   const createTrigger = $api.useMutation("post", "/v1/triggers")
   const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
+  const deleteTrigger = $api.useMutation("delete", "/v1/triggers/{id}")
   const defaultEmojiName = normalizeEmojiName(
     trigger?.trigger_value ||
       automationTriggerDefaultValue(automation) ||
@@ -101,6 +107,7 @@ function SlackReactionInstallForm({
   const [instructions, setInstructions] = useState(
     trigger?.instructions || automationTriggerDefaultInstructions(automation)
   )
+  const [isEnabled, setIsEnabled] = useState(trigger?.enabled ?? true)
 
   const connections = useMemo(
     () => (connectionsQuery.data?.data ?? []) as Connection[],
@@ -210,10 +217,11 @@ function SlackReactionInstallForm({
     connectionsQuery.isLoading ||
     resourcesQuery.isLoading ||
     agentsQuery.isLoading
+  const isSaving = createTrigger.isPending || updateTrigger.isPending
+  const isBusy = isSaving || deleteTrigger.isPending
   const canSubmit =
     !isLoading &&
-    !createTrigger.isPending &&
-    !updateTrigger.isPending &&
+    !isBusy &&
     !existingTrigger &&
     Boolean(
       activeConnectionID &&
@@ -257,6 +265,7 @@ function SlackReactionInstallForm({
       trigger_value: emojiName,
       instructions: trimmedInstructions,
     }
+    const updateBody = { ...body, enabled: isEnabled }
     const onSuccess = () => {
       toast.success(
         triggerID
@@ -291,7 +300,7 @@ function SlackReactionInstallForm({
       updateTrigger.mutate(
         {
           params: { path: { id: triggerID } },
-          body,
+          body: updateBody,
         },
         { onSuccess, onError }
       )
@@ -303,6 +312,25 @@ function SlackReactionInstallForm({
         body,
       },
       { onSuccess, onError }
+    )
+  }
+
+  function handleDelete() {
+    if (!triggerID) return
+    if (!window.confirm("Delete this trigger?")) return
+    deleteTrigger.mutate(
+      { params: { path: { id: triggerID } } },
+      {
+        onSuccess: () => {
+          toast.success("Trigger deleted")
+          queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers"] })
+          queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents"] })
+          queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+          router.push("/w/automations")
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not delete trigger")),
+      }
     )
   }
 
@@ -382,6 +410,37 @@ function SlackReactionInstallForm({
         )}
       </FormSection>
 
+      {triggerID ? (
+        <FormSection
+          title="Status"
+          description="Disable this trigger without removing its configuration."
+        >
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border px-3 py-2.5">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sm font-medium text-foreground">
+                {isEnabled ? "Enabled" : "Disabled"}
+              </span>
+              <span className="text-muted-foreground text-sm leading-5">
+                {isEnabled
+                  ? "Matching Slack reactions will run this automation."
+                  : "Matching Slack reactions will be ignored."}
+              </span>
+            </div>
+            <Switch
+              aria-label="Enable trigger"
+              isSelected={isEnabled}
+              isDisabled={isBusy}
+              onChange={setIsEnabled}
+              className="shrink-0"
+            >
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch>
+          </div>
+        </FormSection>
+      ) : null}
+
       <FormSection
         title="Reaction"
         description="The automation runs when someone adds this emoji to a Slack message."
@@ -409,6 +468,23 @@ function SlackReactionInstallForm({
       </FormSection>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        {triggerID ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="text-danger sm:mr-auto"
+            isDisabled={isBusy}
+            onPress={handleDelete}
+          >
+            {deleteTrigger.isPending ? (
+              <Spinner color="current" size="sm" />
+            ) : (
+              <Icon icon="lucide:trash-2" className="h-4 w-4" />
+            )}
+            Delete trigger
+          </Button>
+        ) : null}
         {existingTrigger ? (
           <p className="text-sm leading-5 text-warning">
             This agent already has a matching reaction trigger.
@@ -421,7 +497,7 @@ function SlackReactionInstallForm({
           className="shrink-0"
           isDisabled={!canSubmit}
         >
-          {createTrigger.isPending || updateTrigger.isPending ? (
+          {isSaving ? (
             <Spinner color="current" size="sm" />
           ) : (
             <Icon
@@ -434,126 +510,6 @@ function SlackReactionInstallForm({
       </div>
     </form>
   )
-}
-
-function SlackConnectionSelect({
-  connections,
-  value,
-  onChange,
-}: {
-  connections: Connection[]
-  value: string
-  onChange: (value: string) => void
-}) {
-  const selected = connections.find((connection) => connection.id === value)
-
-  return (
-    <Select
-      aria-label="Slack workspace"
-      selectedKey={value || null}
-      onSelectionChange={(key) => {
-        if (key !== null) onChange(String(key))
-      }}
-      className="w-full"
-    >
-      <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
-        <span className="flex min-w-0 items-center gap-2">
-          <Icon icon="simple-icons:slack" className="h-4 w-4 shrink-0" />
-          <span className="truncate">
-            {selected ? connectionLabel(selected) : "Select workspace"}
-          </span>
-        </span>
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover className="rounded-xl p-1.5">
-        <ListBox>
-          {connections.map((connection) => (
-            <ListBox.Item
-              key={connection.id}
-              id={connection.id ?? ""}
-              textValue={connectionLabel(connection)}
-            >
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {connectionLabel(connection)}
-                </span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {connection.nango_connection_id}
-                </span>
-              </span>
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  )
-}
-
-function SlackResourceSelect({
-  resources,
-  value,
-  onChange,
-}: {
-  resources: AvailableResource[]
-  value: string
-  onChange: (value: string) => void
-}) {
-  const selected = resources.find((resource) => resource.id === value)
-
-  return (
-    <Select
-      aria-label="Slack channel"
-      selectedKey={value || null}
-      onSelectionChange={(key) => {
-        if (key !== null) onChange(String(key))
-      }}
-      className="w-full"
-    >
-      <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
-        <span className="flex min-w-0 items-center gap-2">
-          <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
-          <span className="truncate">
-            {selected ? resourceName(selected) : "Select channel"}
-          </span>
-        </span>
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover className="rounded-xl p-1.5">
-        <ListBox>
-          {resources.map((resource) => (
-            <ListBox.Item
-              key={resource.id}
-              id={resource.id ?? ""}
-              textValue={resourceName(resource)}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <Icon
-                  icon="lucide:hash"
-                  className="h-4 w-4 shrink-0 text-muted"
-                />
-                <span className="truncate text-sm font-medium">
-                  {resourceName(resource)}
-                </span>
-              </span>
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  )
-}
-
-function connectionLabel(connection: Connection): string {
-  return (
-    connection.display_name ||
-    connection.nango_connection_id ||
-    connection.id ||
-    "Slack"
-  )
-}
-
-function resourceName(resource: AvailableResource): string {
-  return resource.name || resource.id || "Slack channel"
 }
 
 function triggerSourceSlug(

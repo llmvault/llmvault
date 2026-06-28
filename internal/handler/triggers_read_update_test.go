@@ -97,6 +97,55 @@ func TestTriggerHandlerUpdateSlackReactionTrigger(t *testing.T) {
 	}
 }
 
+func TestTriggerHandlerUpdateCanDisableTrigger(t *testing.T) {
+	db := connectNangoSlackTestDB(t)
+	org, conn := seedNangoSlackConnection(t, db)
+	agent := seedSlackReactionAgent(t, db, org.ID)
+	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
+	trigger := seedSlackReactionTrigger(t, db, org.ID, conn, channel, agent, "eyes")
+	body, _ := json.Marshal(map[string]any{"enabled": false})
+	req := triggerRouteRequest(http.MethodPatch, "/v1/triggers/"+trigger.ID.String(), trigger.ID.String(), body)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+
+	NewTriggerHandler(db).Update(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var updated model.AgentTrigger
+	if err := db.First(&updated, "id = ?", trigger.ID).Error; err != nil {
+		t.Fatalf("load trigger: %v", err)
+	}
+	if updated.Enabled {
+		t.Fatalf("trigger enabled=%v want false", updated.Enabled)
+	}
+}
+
+func TestTriggerHandlerDeleteTrigger(t *testing.T) {
+	db := connectNangoSlackTestDB(t)
+	org, conn := seedNangoSlackConnection(t, db)
+	agent := seedSlackReactionAgent(t, db, org.ID)
+	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
+	trigger := seedSlackReactionTrigger(t, db, org.ID, conn, channel, agent, "eyes")
+	req := triggerRouteRequest(http.MethodDelete, "/v1/triggers/"+trigger.ID.String(), trigger.ID.String(), nil)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+
+	NewTriggerHandler(db).Delete(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var count int64
+	if err := db.Model(&model.AgentTrigger{}).Where("id = ?", trigger.ID).Count(&count).Error; err != nil {
+		t.Fatalf("count trigger: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("trigger count=%d want 0", count)
+	}
+}
+
 func seedSlackReactionTrigger(t *testing.T, db *gorm.DB, orgID uuid.UUID, conn model.Connection, channel model.Channel, agent model.Agent, value string) model.AgentTrigger {
 	t.Helper()
 	trigger := model.AgentTrigger{

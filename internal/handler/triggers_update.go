@@ -25,6 +25,7 @@ type updateTriggerRequest struct {
 	AgentID              *string `json:"agent_id,omitempty"`
 	TriggerKey           *string `json:"trigger_key,omitempty"`
 	TriggerValue         *string `json:"trigger_value,omitempty"`
+	Enabled              *bool   `json:"enabled,omitempty"`
 	Instructions         *string `json:"instructions,omitempty"`
 }
 
@@ -114,7 +115,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 				"source_slug":   triggerSourceSlug(parsed.provider, parsed.triggerKey, channel.ExternalResourceKey, parsed.triggerValue),
 				"instructions":  parsed.instructions,
 				"trigger_type":  "webhook",
-				"enabled":       true,
+				"enabled":       parsed.enabled,
 				"conditions":    nil,
 				"secret_key":    "",
 			}).Error
@@ -138,6 +139,7 @@ type parsedTriggerUpdate struct {
 	agentID      uuid.UUID
 	triggerKey   string
 	triggerValue string
+	enabled      bool
 	instructions string
 }
 
@@ -150,6 +152,7 @@ func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (p
 		agentID:      current.AgentID,
 		triggerKey:   current.TriggerKey,
 		triggerValue: current.TriggerValue,
+		enabled:      current.Enabled,
 		instructions: current.Instructions,
 	}
 	if current.ConnectionID != nil {
@@ -187,6 +190,9 @@ func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (p
 	}
 	if req.TriggerValue != nil {
 		parsed.triggerValue = normalizeTriggerValue(*req.TriggerValue)
+	}
+	if req.Enabled != nil {
+		parsed.enabled = *req.Enabled
 	}
 	if req.Instructions != nil {
 		parsed.instructions = strings.TrimSpace(*req.Instructions)
