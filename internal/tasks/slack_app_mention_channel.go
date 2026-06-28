@@ -17,6 +17,23 @@ import (
 )
 
 func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client, token string) (model.Channel, model.Agent, error) {
+	if row.SessionID != nil && *row.SessionID != uuid.Nil {
+		session, err := h.loadActiveSlackSession(ctx, row.OrgID, *row.SessionID)
+		if err != nil {
+			return model.Channel{}, model.Agent{}, fmt.Errorf("load slack continuation session: %w", err)
+		}
+		channel, err := h.loadSlackSessionChannel(ctx, row.OrgID, session.ChannelID)
+		if err != nil {
+			return model.Channel{}, model.Agent{}, err
+		}
+		agent, err := h.loadAgent(ctx, row.OrgID, session.AgentID)
+		if err != nil {
+			return model.Channel{}, model.Agent{}, err
+		}
+		row.ChannelID = &channel.ID
+		_ = slackworkflow.RecordChannelResolved(ctx, h.db, row.ID, channel.ID)
+		return channel, agent, nil
+	}
 	channel, found, err := h.findSlackChannel(ctx, *row)
 	if err != nil {
 		return model.Channel{}, model.Agent{}, err
@@ -147,6 +164,14 @@ func (h *SlackAppMentionHandler) createSlackChannel(ctx context.Context, row mod
 }
 
 func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, row *model.SlackThreadEvent, channel model.Channel, agent model.Agent) (model.Session, error) {
+	if row.SessionID != nil && *row.SessionID != uuid.Nil {
+		session, err := h.loadActiveSlackSession(ctx, row.OrgID, *row.SessionID)
+		if err != nil {
+			return model.Session{}, fmt.Errorf("load slack continuation session: %w", err)
+		}
+		_ = slackworkflow.RecordSessionResolved(ctx, h.db, row.ID, session.ID)
+		return session, nil
+	}
 	key := slackSessionResourceKey(*row)
 	var session model.Session
 	err := h.db.WithContext(ctx).
@@ -187,6 +212,29 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 	}
 	_ = slackworkflow.RecordSessionResolved(ctx, h.db, row.ID, session.ID)
 	return session, nil
+}
+
+func (h *SlackAppMentionHandler) loadActiveSlackSession(ctx context.Context, orgID, sessionID uuid.UUID) (model.Session, error) {
+	var session model.Session
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND source = ? AND status = ?", sessionID, orgID, model.SessionSourceExternal, "active").
+		First(&session).Error
+	if err != nil {
+		return model.Session{}, err
+	}
+	return session, nil
+}
+
+func (h *SlackAppMentionHandler) loadSlackSessionChannel(ctx context.Context, orgID, channelID uuid.UUID) (model.Channel, error) {
+	var channel model.Channel
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND origin = ? AND external_provider = ? AND archived_at IS NULL",
+			channelID, orgID, "external", slackapp.Provider).
+		First(&channel).Error
+	if err != nil {
+		return model.Channel{}, fmt.Errorf("load slack session channel: %w", err)
+	}
+	return channel, nil
 }
 
 func slackChannelName(name string) string {

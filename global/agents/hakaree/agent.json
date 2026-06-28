@@ -12,7 +12,7 @@
   "default": true,
   "runtime": {
     "sandbox_image": "developer",
-    "model": "deepseek-v4-flash",
+    "model": "mimo-v2.5-pro",
     "available_models": [
       "deepseek-v4-flash",
       "deepseek-v4-pro",

@@ -14,7 +14,7 @@ func (h *SlackAppMentionHandler) enrichSlackInboundContext(ctx context.Context, 
 	if row.EventType == slackapp.EventReactionAdded {
 		return nil
 	}
-	messageContext, err := slackapp.FetchReactionMessageContext(ctx, client, row.SlackChannelID, row.MessageTS)
+	messageContext, err := slackapp.FetchInboundMessageContext(ctx, client, row.SlackChannelID, row.ThreadTS, row.MessageTS)
 	if err != nil {
 		return fmt.Errorf("fetch slack inbound message context: %w", err)
 	}
