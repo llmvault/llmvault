@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,10 +16,21 @@ import (
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
+type fakeTriggerProvisioner struct {
+	calls []ChannelExternalProvisionRequest
+	err   error
+}
+
+func (f *fakeTriggerProvisioner) EnsureExternalChannel(_ context.Context, _ uuid.UUID, req ChannelExternalProvisionRequest) error {
+	f.calls = append(f.calls, req)
+	return f.err
+}
+
 func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 	db := connectNangoSlackTestDB(t)
 	org, conn := seedNangoSlackConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
+	provisioner := &fakeTriggerProvisioner{}
 	body, _ := json.Marshal(createTriggerRequest{
 		Provider:             slackapp.Provider,
 		ConnectionID:         conn.ID.String(),
@@ -33,7 +45,7 @@ func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 
-	NewTriggerHandler(db).Create(rr, req)
+	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Create(rr, req)
 
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -62,6 +74,15 @@ func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 		channel.ExternalConnectionID == nil || *channel.ExternalConnectionID != conn.ID {
 		t.Fatalf("created channel=%+v", channel)
 	}
+	if len(provisioner.calls) != 1 {
+		t.Fatalf("provisioner calls=%d, want 1", len(provisioner.calls))
+	}
+	call := provisioner.calls[0]
+	if call.Provider != slackapp.Provider || call.ConnectionID != conn.ID ||
+		call.ResourceType != "slack_channel" || call.ResourceKey != "C111" ||
+		call.ResourceName != "general" || call.WorkspaceKey != conn.NangoConnectionID {
+		t.Fatalf("provisioner call=%+v", call)
+	}
 }
 
 func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testing.T) {
@@ -69,6 +90,7 @@ func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testin
 	org, conn := seedNangoSlackConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
 	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
+	provisioner := &fakeTriggerProvisioner{}
 	body, _ := json.Marshal(createTriggerRequest{
 		Provider:             slackapp.Provider,
 		ConnectionID:         conn.ID.String(),
@@ -83,7 +105,7 @@ func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testin
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 
-	NewTriggerHandler(db).Create(rr, req)
+	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Create(rr, req)
 
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -103,6 +125,58 @@ func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testin
 	}
 	if count != 1 {
 		t.Fatalf("external channel count=%d want 1", count)
+	}
+	if len(provisioner.calls) != 0 {
+		t.Fatalf("provisioner calls=%d, want 0", len(provisioner.calls))
+	}
+}
+
+func TestTriggerHandlerCreateSlackReactionTriggerProvisionFailure(t *testing.T) {
+	db := connectNangoSlackTestDB(t)
+	org, conn := seedNangoSlackConnection(t, db)
+	agent := seedSlackReactionAgent(t, db, org.ID)
+	provisioner := &fakeTriggerProvisioner{
+		err: &ChannelExternalProvisionError{StatusCode: http.StatusBadRequest, Message: "Slack channel is not available"},
+	}
+	body, _ := json.Marshal(createTriggerRequest{
+		Provider:             slackapp.Provider,
+		ConnectionID:         conn.ID.String(),
+		ExternalResourceKey:  "CFAIL",
+		ExternalResourceName: "private-room",
+		AgentID:              agent.ID.String(),
+		TriggerKey:           slackapp.EventReactionAdded,
+		TriggerValue:         "eyes",
+		Instructions:         "Summarize the reacted message.",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+
+	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Create(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if len(provisioner.calls) != 1 {
+		t.Fatalf("provisioner calls=%d, want 1", len(provisioner.calls))
+	}
+	var channelCount int64
+	if err := db.Model(&model.Channel{}).
+		Where("org_id = ? AND external_resource_key = ?", org.ID, "CFAIL").
+		Count(&channelCount).Error; err != nil {
+		t.Fatalf("count channels: %v", err)
+	}
+	if channelCount != 0 {
+		t.Fatalf("created channels=%d, want 0", channelCount)
+	}
+	var triggerCount int64
+	if err := db.Model(&model.AgentTrigger{}).
+		Where("org_id = ? AND trigger_value = ?", org.ID, "eyes").
+		Count(&triggerCount).Error; err != nil {
+		t.Fatalf("count triggers: %v", err)
+	}
+	if triggerCount != 0 {
+		t.Fatalf("created triggers=%d, want 0", triggerCount)
 	}
 }
 

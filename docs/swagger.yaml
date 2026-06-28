@@ -3661,6 +3661,61 @@ definitions:
       text:
         type: string
     type: object
+  triggerAutomationResponse:
+    properties:
+      agent_avatar_url:
+        type: string
+      agent_icon:
+        type: string
+      agent_id:
+        type: string
+      agent_name:
+        type: string
+      channel_id:
+        type: string
+      channel_name:
+        type: string
+      connection_id:
+        type: string
+      connection_name:
+        type: string
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      external_resource_key:
+        type: string
+      external_resource_name:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      provider:
+        type: string
+      source_slug:
+        type: string
+      trigger_key:
+        type: string
+      trigger_type:
+        type: string
+      trigger_value:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  triggerGetResponse:
+    properties:
+      trigger:
+        $ref: '#/definitions/triggerAutomationResponse'
+    type: object
+  triggerListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/triggerAutomationResponse'
+        type: array
+    type: object
   triggerResponse:
     properties:
       deduplicated:
@@ -3849,6 +3904,25 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  updateTriggerRequest:
+    properties:
+      agent_id:
+        type: string
+      connection_id:
+        type: string
+      external_resource_key:
+        type: string
+      external_resource_name:
+        type: string
+      instructions:
+        type: string
+      provider:
+        type: string
+      trigger_key:
+        type: string
+      trigger_value:
+        type: string
     type: object
   upsertAdminIntegrationRequest:
     properties:
@@ -10667,6 +10741,28 @@ paths:
       tags:
       - tokens
   /v1/triggers:
+    get:
+      description: Lists provider automation triggers installed in the current org.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/triggerListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List triggers
+      tags:
+      - triggers
     post:
       consumes:
       - application/json
@@ -10712,6 +10808,91 @@ paths:
       security:
       - BearerAuth: []
       summary: Create trigger
+      tags:
+      - triggers
+  /v1/triggers/{id}:
+    get:
+      description: Gets one provider automation trigger installed in the current org.
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/triggerGetResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get trigger
+      tags:
+      - triggers
+    patch:
+      consumes:
+      - application/json
+      description: Updates a provider automation trigger.
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Trigger update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/updateTriggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/triggerGetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update trigger
       tags:
       - triggers
   /v1/uploads/sign:

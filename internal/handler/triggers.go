@@ -17,11 +17,26 @@ import (
 )
 
 type TriggerHandler struct {
-	db *gorm.DB
+	db                  *gorm.DB
+	externalProvisioner ChannelExternalProvisioner
 }
 
-func NewTriggerHandler(db *gorm.DB) *TriggerHandler {
-	return &TriggerHandler{db: db}
+type TriggerHandlerOption func(*TriggerHandler)
+
+func NewTriggerHandler(db *gorm.DB, opts ...TriggerHandlerOption) *TriggerHandler {
+	h := &TriggerHandler{db: db}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(h)
+		}
+	}
+	return h
+}
+
+func WithTriggerExternalProvisioner(p ChannelExternalProvisioner) TriggerHandlerOption {
+	return func(h *TriggerHandler) {
+		h.externalProvisioner = p
+	}
 }
 
 type createTriggerRequest struct {
@@ -110,16 +125,26 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "agent_id must be a uuid", fmt.Errorf("invalid agent id")
 	}
 
+	conn, err := loadTriggerConnection(h.db.WithContext(r.Context()), orgID, connectionID, provider)
+	if err != nil {
+		status, message := triggerCreateError(err)
+		return model.AgentTrigger{}, provider, status, message, err
+	}
+	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
+		Provider:       provider,
+		Connection:     conn,
+		ResourceType:   "slack_channel",
+		ResourceKey:    resourceKey,
+		ResourceName:   resourceName,
+		DefaultAgentID: agentID,
+	})
+	if err != nil {
+		status, message := triggerCreateError(err)
+		return model.AgentTrigger{}, provider, status, message, err
+	}
+
 	var trigger model.AgentTrigger
 	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		conn, err := loadTriggerConnection(tx, orgID, connectionID, provider)
-		if err != nil {
-			return err
-		}
-		channel, err := findOrCreateTriggerExternalChannel(tx, orgID, conn, provider, resourceKey, resourceName, agentID)
-		if err != nil {
-			return err
-		}
 		if err := validateTriggerAgent(tx, orgID, agentID, channel.ID); err != nil {
 			return err
 		}
@@ -164,47 +189,6 @@ func loadTriggerConnection(db *gorm.DB, orgID, connectionID uuid.UUID, provider 
 	return conn, nil
 }
 
-func findOrCreateTriggerExternalChannel(db *gorm.DB, orgID uuid.UUID, conn model.Connection, provider, resourceKey, resourceName string, agentID uuid.UUID) (model.Channel, error) {
-	var channel model.Channel
-	err := db.
-		Where("org_id = ? AND archived_at IS NULL", orgID).
-		Where("origin = ? AND external_provider = ?", "external", provider).
-		Where("external_connection_id = ? AND external_resource_type = ?", conn.ID, "slack_channel").
-		Where("external_resource_key = ?", resourceKey).
-		First(&channel).Error
-	if err == nil {
-		return channel, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Channel{}, fmt.Errorf("load external channel: %w", err)
-	}
-
-	displayName := strings.TrimSpace(resourceName)
-	if displayName == "" {
-		displayName = resourceKey
-	}
-	channel = model.Channel{
-		OrgID:                orgID,
-		Name:                 providerPrefixedChannelName(provider, displayName),
-		DefaultAgentID:       agentID,
-		Origin:               "external",
-		ExternalProvider:     provider,
-		ExternalConnectionID: &conn.ID,
-		ExternalWorkspaceKey: conn.NangoConnectionID,
-		ExternalResourceType: "slack_channel",
-		ExternalResourceKey:  resourceKey,
-		ExternalResourceName: displayName,
-		ExternalMetadata:     model.JSON{},
-	}
-	if channel.Name == "" {
-		return model.Channel{}, fmt.Errorf("external resource name is required")
-	}
-	if err := db.Create(&channel).Error; err != nil {
-		return model.Channel{}, fmt.Errorf("create external channel: %w", err)
-	}
-	return channel, nil
-}
-
 func validateTriggerAgent(db *gorm.DB, orgID, agentID, channelID uuid.UUID) error {
 	var count int64
 	if err := db.Model(&model.Agent{}).
@@ -236,6 +220,10 @@ func triggerSourceSlug(provider, key, resourceKey, value string) string {
 func triggerCreateError(err error) (int, string) {
 	if isDuplicateKeyError(err) {
 		return http.StatusConflict, "trigger already exists"
+	}
+	var provisionErr *ChannelExternalProvisionError
+	if errors.As(err, &provisionErr) {
+		return externalProvisionResponse(provisionErr)
 	}
 	switch {
 	case strings.Contains(err.Error(), "not found"):

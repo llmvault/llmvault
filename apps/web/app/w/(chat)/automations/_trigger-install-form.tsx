@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, ListBox, Select, Spinner, toast } from "@heroui/react"
 import { Icon } from "@iconify/react"
@@ -13,6 +14,7 @@ import {
   automationTriggerDefaultValue,
   automationTriggerKey,
   type AutomationItem,
+  type InstalledTrigger,
 } from "@/app/w/(chat)/automations/_data"
 import { AgentSelect } from "@/app/w/(chat)/automations/_agent-select"
 import {
@@ -20,23 +22,29 @@ import {
   normalizeEmojiName,
   SlackEmojiPicker,
 } from "@/app/w/(chat)/automations/_slack-emoji-picker"
+import {
+  FieldSkeleton,
+  FormSection,
+  InlineNotice,
+} from "@/app/w/(chat)/automations/_trigger-form-sections"
 
 type Connection = components["schemas"]["connectionResponse"]
 type AvailableResource = components["schemas"]["AvailableResource"]
-type Agent = components["schemas"]["agentListItem"]
-
 const slackReactionKey = "reaction_added"
 const slackChannelResourceType = "slack_channel"
-
 export function TriggerInstallForm({
   automation,
+  trigger,
 }: {
   automation: AutomationItem
+  trigger?: InstalledTrigger
 }) {
-  const triggerKey = automationTriggerKey(automation)
+  const triggerKey = trigger?.trigger_key || automationTriggerKey(automation)
 
   if (automation.provider === "slack" && triggerKey === slackReactionKey) {
-    return <SlackReactionInstallForm automation={automation} />
+    return (
+      <SlackReactionInstallForm automation={automation} trigger={trigger} />
+    )
   }
 
   return (
@@ -55,10 +63,14 @@ export function TriggerInstallForm({
 
 function SlackReactionInstallForm({
   automation,
+  trigger,
 }: {
   automation: AutomationItem
+  trigger?: InstalledTrigger
 }) {
+  const router = useRouter()
   const queryClient = useQueryClient()
+  const triggerID = trigger?.id || ""
   const connectionsQuery = $api.useQuery(
     "get",
     "/v1/connections",
@@ -71,18 +83,23 @@ function SlackReactionInstallForm({
     params: { query: { status: "active", limit: 100 } },
   })
   const createTrigger = $api.useMutation("post", "/v1/triggers")
+  const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
   const defaultEmojiName = normalizeEmojiName(
-    automationTriggerDefaultValue(automation) || "eyes"
+    trigger?.trigger_value ||
+      automationTriggerDefaultValue(automation) ||
+      "eyes"
   )
-  const [connectionID, setConnectionID] = useState("")
-  const [resourceID, setResourceID] = useState("")
-  const [agentID, setAgentID] = useState("")
+  const [connectionID, setConnectionID] = useState(trigger?.connection_id || "")
+  const [resourceID, setResourceID] = useState(
+    trigger?.external_resource_key || ""
+  )
+  const [agentID, setAgentID] = useState(trigger?.agent_id || "")
   const [emojiName, setEmojiName] = useState(defaultEmojiName)
   const [emojiGlyph, setEmojiGlyph] = useState(
     defaultEmojiGlyph(defaultEmojiName)
   )
   const [instructions, setInstructions] = useState(
-    automationTriggerDefaultInstructions(automation)
+    trigger?.instructions || automationTriggerDefaultInstructions(automation)
   )
 
   const connections = useMemo(
@@ -109,13 +126,26 @@ function SlackReactionInstallForm({
       retry: false,
     }
   )
-  const resources = useMemo(
-    () =>
-      ((resourcesQuery.data?.resources ?? []) as AvailableResource[]).filter(
-        (resource) => Boolean(resource.id)
-      ),
-    [resourcesQuery.data?.resources]
-  )
+  const initialResource = useMemo(() => {
+    if (!trigger?.external_resource_key) return null
+    return {
+      id: trigger.external_resource_key,
+      name: trigger.external_resource_name || trigger.external_resource_key,
+      type: slackChannelResourceType,
+    } satisfies AvailableResource
+  }, [trigger?.external_resource_key, trigger?.external_resource_name])
+  const resources = useMemo(() => {
+    const list = (
+      (resourcesQuery.data?.resources ?? []) as AvailableResource[]
+    ).filter((resource) => Boolean(resource.id))
+    if (
+      initialResource?.id &&
+      !list.some((resource) => resource.id === initialResource.id)
+    ) {
+      return [initialResource, ...list]
+    }
+    return list
+  }, [initialResource, resourcesQuery.data?.resources])
   const selectedResource = useMemo(
     () => resources.find((resource) => resource.id === resourceID),
     [resourceID, resources]
@@ -131,12 +161,13 @@ function SlackReactionInstallForm({
   const existingTrigger = useMemo(
     () =>
       selectedAgent?.triggers?.some(
-        (trigger) =>
-          trigger.provider === "slack" &&
-          trigger.connection_id === activeConnectionID &&
-          trigger.trigger_key === slackReactionKey &&
-          normalizeEmojiName(trigger.trigger_value ?? "") === emojiName &&
-          trigger.source_slug ===
+        (item) =>
+          item.id !== triggerID &&
+          item.provider === "slack" &&
+          item.connection_id === activeConnectionID &&
+          item.trigger_key === slackReactionKey &&
+          normalizeEmojiName(item.trigger_value ?? "") === emojiName &&
+          item.source_slug ===
             triggerSourceSlug(
               "slack",
               slackReactionKey,
@@ -144,7 +175,13 @@ function SlackReactionInstallForm({
               emojiName
             )
       ) ?? false,
-    [activeConnectionID, emojiName, selectedAgent, selectedResource?.id]
+    [
+      activeConnectionID,
+      emojiName,
+      selectedAgent,
+      selectedResource?.id,
+      triggerID,
+    ]
   )
 
   useEffect(() => {
@@ -176,6 +213,7 @@ function SlackReactionInstallForm({
   const canSubmit =
     !isLoading &&
     !createTrigger.isPending &&
+    !updateTrigger.isPending &&
     !existingTrigger &&
     Boolean(
       activeConnectionID &&
@@ -209,33 +247,62 @@ function SlackReactionInstallForm({
       toast.danger("Instructions are required")
       return
     }
+    const body = {
+      provider: "slack",
+      connection_id: selectedConnection.id,
+      external_resource_key: selectedResource.id,
+      external_resource_name: resourceName(selectedResource),
+      agent_id: agentID,
+      trigger_key: slackReactionKey,
+      trigger_value: emojiName,
+      instructions: trimmedInstructions,
+    }
+    const onSuccess = () => {
+      toast.success(
+        triggerID
+          ? "Slack reaction trigger saved"
+          : "Slack reaction trigger installed"
+      )
+      queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers"] })
+      queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents"] })
+      queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+      if (triggerID) {
+        queryClient.invalidateQueries({
+          queryKey: ["get", "/v1/triggers/{id}"],
+        })
+      }
+      if (agentID) {
+        queryClient.invalidateQueries({
+          queryKey: ["get", "/v1/agents/{id}"],
+        })
+      }
+      router.push("/w/automations")
+    }
+    const onError = (error: unknown) => {
+      toast.danger(
+        extractErrorMessage(
+          error,
+          triggerID ? "Could not save trigger" : "Could not install trigger"
+        )
+      )
+    }
+
+    if (triggerID) {
+      updateTrigger.mutate(
+        {
+          params: { path: { id: triggerID } },
+          body,
+        },
+        { onSuccess, onError }
+      )
+      return
+    }
+
     createTrigger.mutate(
       {
-        body: {
-          provider: "slack",
-          connection_id: selectedConnection.id,
-          external_resource_key: selectedResource.id,
-          external_resource_name: resourceName(selectedResource),
-          agent_id: agentID,
-          trigger_key: slackReactionKey,
-          trigger_value: emojiName,
-          instructions: trimmedInstructions,
-        },
+        body,
       },
-      {
-        onSuccess: () => {
-          toast.success("Slack reaction trigger installed")
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents"] })
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
-          if (agentID) {
-            queryClient.invalidateQueries({
-              queryKey: ["get", "/v1/agents/{id}"],
-            })
-          }
-        },
-        onError: (error) =>
-          toast.danger(extractErrorMessage(error, "Could not install trigger")),
-      }
+      { onSuccess, onError }
     )
   }
 
@@ -354,35 +421,18 @@ function SlackReactionInstallForm({
           className="shrink-0"
           isDisabled={!canSubmit}
         >
-          {createTrigger.isPending ? (
+          {createTrigger.isPending || updateTrigger.isPending ? (
             <Spinner color="current" size="sm" />
           ) : (
-            <Icon icon="lucide:plus" className="h-4 w-4" />
+            <Icon
+              icon={triggerID ? "lucide:save" : "lucide:plus"}
+              className="h-4 w-4"
+            />
           )}
-          Install trigger
+          {triggerID ? "Save trigger" : "Install trigger"}
         </Button>
       </div>
     </form>
-  )
-}
-
-function FormSection({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-muted-foreground text-sm leading-5">{description}</p>
-      </div>
-      {children}
-    </section>
   )
 }
 
@@ -490,32 +540,6 @@ function SlackResourceSelect({
         </ListBox>
       </Select.Popover>
     </Select>
-  )
-}
-
-function FieldSkeleton() {
-  return <div className="h-9 animate-pulse rounded-md bg-default" />
-}
-
-function InlineNotice({
-  icon,
-  title,
-  body,
-}: {
-  icon: string
-  title: string
-  body: string
-}) {
-  return (
-    <div className="flex gap-3 rounded-xl border border-border p-3">
-      <div className="text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
-        <Icon icon={icon} className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-muted-foreground mt-0.5 text-sm leading-5">{body}</p>
-      </div>
-    </div>
   )
 }
 

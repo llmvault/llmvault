@@ -12838,6 +12838,50 @@
       }
     },
     "/v1/triggers": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists provider automation triggers installed in the current org.",
+        "tags": [
+          "triggers"
+        ],
+        "summary": "List triggers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/triggerListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "security": [
           {
@@ -12867,6 +12911,179 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/createTriggerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/triggers/{id}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Gets one provider automation trigger installed in the current org.",
+        "tags": [
+          "triggers"
+        ],
+        "summary": "Get trigger",
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/triggerGetResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Updates a provider automation trigger.",
+        "tags": [
+          "triggers"
+        ],
+        "summary": "Update trigger",
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateTriggerRequest"
+              }
+            }
+          },
+          "description": "Trigger update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/triggerGetResponse"
                 }
               }
             }
@@ -18689,6 +18906,90 @@
           }
         }
       },
+      "triggerAutomationResponse": {
+        "type": "object",
+        "properties": {
+          "agent_avatar_url": {
+            "type": "string"
+          },
+          "agent_icon": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "string"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_name": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "connection_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "external_resource_key": {
+            "type": "string"
+          },
+          "external_resource_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "source_slug": {
+            "type": "string"
+          },
+          "trigger_key": {
+            "type": "string"
+          },
+          "trigger_type": {
+            "type": "string"
+          },
+          "trigger_value": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "triggerGetResponse": {
+        "type": "object",
+        "properties": {
+          "trigger": {
+            "$ref": "#/components/schemas/triggerAutomationResponse"
+          }
+        }
+      },
+      "triggerListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/triggerAutomationResponse"
+            }
+          }
+        }
+      },
       "triggerResponse": {
         "type": "object",
         "properties": {
@@ -18978,6 +19279,35 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "updateTriggerRequest": {
+        "type": "object",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "external_resource_key": {
+            "type": "string"
+          },
+          "external_resource_name": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "trigger_key": {
+            "type": "string"
+          },
+          "trigger_value": {
+            "type": "string"
           }
         }
       },
