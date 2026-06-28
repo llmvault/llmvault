@@ -218,7 +218,18 @@ func slackAgentText(row model.SlackThreadEvent) string {
 	if row.EventType == "reaction_added" {
 		return text
 	}
-	return "Slack message:\n\n" + text
+	var b strings.Builder
+	b.WriteString("Slack message:\n\n")
+	if strings.TrimSpace(row.SenderID) != "" {
+		b.WriteString("sender_id: ")
+		b.WriteString(strings.TrimSpace(row.SenderID))
+		b.WriteString("\nsender_tag: ")
+		b.WriteString(slackSenderTag(row.SenderID))
+		b.WriteString("\n\n")
+	}
+	b.WriteString("Message:\n")
+	b.WriteString(text)
+	return b.String()
 }
 
 func slackSenderTag(senderID string) string {
