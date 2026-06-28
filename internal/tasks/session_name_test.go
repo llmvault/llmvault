@@ -67,6 +67,12 @@ func TestSessionNameHandlerHandleAutoGeneratesNameAndMarksTimestamp(t *testing.T
 	if req.Model != "openai/gpt-4o-mini" {
 		t.Fatalf("model=%q", req.Model)
 	}
+	if req.ResponseFormat == nil || req.ResponseFormat.Type != hivy.ResponseFormatJSONSchema {
+		t.Fatalf("response format=%#v", req.ResponseFormat)
+	}
+	if req.ResponseFormat.JSONSchema == nil || req.ResponseFormat.JSONSchema.Name != "session_name" || !req.ResponseFormat.JSONSchema.Strict {
+		t.Fatalf("json schema=%#v", req.ResponseFormat.JSONSchema)
+	}
 	if len(req.Messages) < 2 || req.Messages[1].Role != "user" {
 		t.Fatalf("unexpected request messages=%+v", req.Messages)
 	}

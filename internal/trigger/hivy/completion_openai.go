@@ -2,6 +2,7 @@ package hivy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -86,6 +87,13 @@ func (c *OpenAICompletionClient) ChatCompletion(ctx context.Context, req Complet
 	if req.MaxTokens > 0 {
 		oaiReq.MaxTokens = req.MaxTokens
 	}
+	if req.ResponseFormat != nil {
+		responseFormat, err := openAIResponseFormat(req.ResponseFormat)
+		if err != nil {
+			return nil, err
+		}
+		oaiReq.ResponseFormat = responseFormat
+	}
 	if req.ToolChoice == "required" {
 		oaiReq.ToolChoice = openai.ToolChoice{
 			Type: openai.ToolTypeFunction,
@@ -116,4 +124,30 @@ func (c *OpenAICompletionClient) ChatCompletion(ctx context.Context, req Complet
 	}
 
 	return result, nil
+}
+
+func openAIResponseFormat(format *ResponseFormat) (*openai.ChatCompletionResponseFormat, error) {
+	if format == nil {
+		return nil, nil
+	}
+	switch format.Type {
+	case ResponseFormatJSONSchema:
+		if format.JSONSchema == nil {
+			return nil, fmt.Errorf("openai completion: missing json schema response format")
+		}
+		if !json.Valid(format.JSONSchema.Schema) {
+			return nil, fmt.Errorf("openai completion: invalid json schema response format")
+		}
+		return &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
+			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
+				Name:        format.JSONSchema.Name,
+				Description: format.JSONSchema.Description,
+				Schema:      format.JSONSchema.Schema,
+				Strict:      format.JSONSchema.Strict,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("openai completion: unsupported response format %q", format.Type)
+	}
 }

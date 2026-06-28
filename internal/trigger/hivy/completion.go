@@ -23,11 +23,26 @@ type CompletionClient interface {
 // CompletionRequest is a provider-agnostic chat completion request with
 // tool calling support.
 type CompletionRequest struct {
-	Model      string    `json:"model"`
-	Messages   []Message `json:"messages"`
-	Tools      []ToolDef `json:"tools,omitempty"`
-	ToolChoice string    `json:"tool_choice,omitempty"` // "required" forces tool calls, "auto" allows text
-	MaxTokens  int       `json:"max_tokens,omitempty"`
+	Model          string          `json:"model"`
+	Messages       []Message       `json:"messages"`
+	Tools          []ToolDef       `json:"tools,omitempty"`
+	ToolChoice     string          `json:"tool_choice,omitempty"` // "required" forces tool calls, "auto" allows text
+	MaxTokens      int             `json:"max_tokens,omitempty"`
+	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
+}
+
+const ResponseFormatJSONSchema = "json_schema"
+
+type ResponseFormat struct {
+	Type       string              `json:"type"`
+	JSONSchema *ResponseJSONSchema `json:"json_schema,omitempty"`
+}
+
+type ResponseJSONSchema struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Schema      json.RawMessage `json:"schema"`
+	Strict      bool            `json:"strict"`
 }
 
 // Message represents a chat message. For assistant messages with tool calls,

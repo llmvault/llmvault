@@ -22,6 +22,15 @@ const (
 	sessionNameMaxLen     = 80
 )
 
+const sessionNameResponseSchema = `{
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"name": {"type": "string"}
+	},
+	"required": ["name"]
+}`
+
 var errSessionNameModelUnavailable = errors.New("session name model unavailable")
 
 type sessionNameCredential struct {
@@ -144,6 +153,14 @@ func generateSessionName(
 			{Role: "user", Content: userPrompt},
 		},
 		MaxTokens: 48,
+		ResponseFormat: &hivy.ResponseFormat{
+			Type: hivy.ResponseFormatJSONSchema,
+			JSONSchema: &hivy.ResponseJSONSchema{
+				Name:   "session_name",
+				Schema: json.RawMessage(sessionNameResponseSchema),
+				Strict: true,
+			},
+		},
 	}
 
 	resp, err := client.ChatCompletion(ctx, req)

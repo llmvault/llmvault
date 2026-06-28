@@ -11,6 +11,46 @@ import (
 
 const sessionReflectionMaxTokens = 3000
 
+const sessionReflectionResponseSchema = `{
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"memories": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"properties": {
+					"content": {"type": "string"},
+					"scope": {"type": "string", "enum": ["org", "user"]},
+					"visibility": {"type": "string", "enum": ["all_agents", "this_agent"]},
+					"kind": {
+						"type": "string",
+						"enum": ["identity", "preference", "role", "project", "system", "environment", "workaround", "constraint", "decision", "integration", "other"]
+					},
+					"tags": {"type": "array", "items": {"type": "string"}},
+					"confidence": {"type": "number"},
+					"source_event_ids": {"type": "array", "items": {"type": "string"}},
+					"actor_display_name": {"type": "string"},
+					"actor_external_ref": {"type": "string"}
+				},
+				"required": [
+					"content",
+					"scope",
+					"visibility",
+					"kind",
+					"tags",
+					"confidence",
+					"source_event_ids",
+					"actor_display_name",
+					"actor_external_ref"
+				]
+			}
+		}
+	},
+	"required": ["memories"]
+}`
+
 type sessionReflectionResult struct {
 	Memories []reflectionMemoryCandidate `json:"memories"`
 }
@@ -51,6 +91,14 @@ func generateSessionReflection(ctx context.Context, client hivy.CompletionClient
 			{Role: "user", Content: userPrompt},
 		},
 		MaxTokens: sessionReflectionMaxTokens,
+		ResponseFormat: &hivy.ResponseFormat{
+			Type: hivy.ResponseFormatJSONSchema,
+			JSONSchema: &hivy.ResponseJSONSchema{
+				Name:   "session_reflection",
+				Schema: json.RawMessage(sessionReflectionResponseSchema),
+				Strict: true,
+			},
+		},
 	}
 	resp, err := client.ChatCompletion(ctx, req)
 	if err != nil {
