@@ -12397,7 +12397,48 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List triggers
+         * @description Lists provider automation triggers installed in the current org.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerListResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Create trigger
@@ -12486,6 +12527,160 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/triggers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get trigger
+         * @description Gets one provider automation trigger installed in the current org.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Trigger ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerGetResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update trigger
+         * @description Updates a provider automation trigger.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Trigger ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Trigger update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateTriggerRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerGetResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/v1/uploads/sign": {
@@ -14472,6 +14667,34 @@ export interface components {
         transcribeSessionAudioResponse: {
             text?: string;
         };
+        triggerAutomationResponse: {
+            agent_avatar_url?: string;
+            agent_icon?: string;
+            agent_id?: string;
+            agent_name?: string;
+            channel_id?: string;
+            channel_name?: string;
+            connection_id?: string;
+            connection_name?: string;
+            created_at?: string;
+            enabled?: boolean;
+            external_resource_key?: string;
+            external_resource_name?: string;
+            id?: string;
+            instructions?: string;
+            provider?: string;
+            source_slug?: string;
+            trigger_key?: string;
+            trigger_type?: string;
+            trigger_value?: string;
+            updated_at?: string;
+        };
+        triggerGetResponse: {
+            trigger?: components["schemas"]["triggerAutomationResponse"];
+        };
+        triggerListResponse: {
+            data?: components["schemas"]["triggerAutomationResponse"][];
+        };
         triggerResponse: {
             deduplicated?: boolean;
             source_id?: string;
@@ -14570,6 +14793,16 @@ export interface components {
             repo_ref?: string;
             status?: string;
             tags?: string[];
+        };
+        updateTriggerRequest: {
+            agent_id?: string;
+            connection_id?: string;
+            external_resource_key?: string;
+            external_resource_name?: string;
+            instructions?: string;
+            provider?: string;
+            trigger_key?: string;
+            trigger_value?: string;
         };
         upsertAdminIntegrationRequest: {
             credentials?: components["schemas"]["Credentials"];

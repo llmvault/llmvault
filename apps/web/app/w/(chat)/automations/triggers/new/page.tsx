@@ -3,14 +3,18 @@
 import { useMemo } from "react"
 import { $api } from "@/lib/api/hooks"
 import { AutomationsListView } from "@/app/w/(chat)/automations/_automation-list"
-import { automationFromInstalledTrigger } from "@/app/w/(chat)/automations/_data"
+import { automationFromCatalog } from "@/app/w/(chat)/automations/_data"
 
-export default function AutomationsPage() {
-  const triggersQuery = $api.useQuery("get", "/v1/triggers")
+export default function NewTriggerPage() {
+  const triggersQuery = $api.useQuery("get", "/v1/catalog/triggers")
   const automations = useMemo(
     () =>
-      (triggersQuery.data?.data ?? []).map((trigger) =>
-        automationFromInstalledTrigger(trigger)
+      (triggersQuery.data?.data ?? []).map((item) =>
+        automationFromCatalog(
+          item,
+          "Triggers",
+          `/w/automations/${item.slug || ""}/install`
+        )
       ),
     [triggersQuery.data?.data]
   )
@@ -21,10 +25,6 @@ export default function AutomationsPage() {
       isLoading={triggersQuery.isLoading}
       isError={triggersQuery.isError}
       onRetry={() => void triggersQuery.refetch()}
-      action={{
-        label: "Install trigger",
-        href: "/w/automations/triggers/new",
-      }}
       searchLabel="triggers"
       emptyTab="Triggers"
     />

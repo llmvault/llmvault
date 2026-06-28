@@ -2,6 +2,7 @@
 
 import { use, useMemo } from "react"
 import NextLink from "next/link"
+import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { $api } from "@/lib/api/hooks"
 import { TriggerInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form"
@@ -10,66 +11,68 @@ import {
   type AutomationItem,
 } from "@/app/w/(chat)/automations/_data"
 
-export default function AutomationInstallPage({
+export default function EditTriggerPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const triggersQuery = $api.useQuery("get", "/v1/catalog/triggers")
-  const automations = useMemo(
-    () =>
-      (triggersQuery.data?.data ?? []).map((item) =>
-        automationFromCatalog(item, "Triggers")
-      ),
-    [triggersQuery.data?.data]
-  )
-  const automation = automations.find((item) => item.id === id)
+  const triggerQuery = $api.useQuery("get", "/v1/triggers/{id}", {
+    params: { path: { id } },
+  })
+  const catalogQuery = $api.useQuery("get", "/v1/catalog/triggers")
+  const trigger = triggerQuery.data?.trigger
+  const automation = useMemo(() => {
+    if (!trigger) return undefined
+    const item = (catalogQuery.data?.data ?? []).find(
+      (candidate) =>
+        candidate.integration?.provider === trigger.provider &&
+        candidate.trigger?.key === trigger.trigger_key
+    )
+    return item ? automationFromCatalog(item, "Triggers") : undefined
+  }, [catalogQuery.data?.data, trigger])
+  const isLoading = triggerQuery.isLoading || catalogQuery.isLoading
+  const isError = triggerQuery.isError || catalogQuery.isError
 
-  if (triggersQuery.isLoading) {
-    return <InstallShell content={<InstallSkeleton />} />
+  if (isLoading) {
+    return <TriggerPageShell content={<TriggerPageSkeleton />} />
   }
 
-  if (triggersQuery.isError) {
+  if (isError) {
     return (
-      <InstallShell
+      <TriggerPageShell
         content={
-          <InstallErrorState onRetry={() => void triggersQuery.refetch()} />
+          <TriggerPageError
+            title="Could not load trigger"
+            onRetry={() => {
+              void triggerQuery.refetch()
+              void catalogQuery.refetch()
+            }}
+          />
         }
       />
     )
   }
 
-  if (!automation) {
+  if (!trigger || !automation) {
     return (
-      <InstallShell
+      <TriggerPageShell
         content={
-          <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-            <Icon icon="lucide:clock-alert" className="h-7 w-7 text-muted" />
-            <p className="mt-3 text-sm font-medium text-foreground">
-              Trigger not found
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              This trigger may have been removed from the catalog.
-            </p>
-            <NextLink
-              href="/w/automations"
-              className="hover:text-muted-foreground mt-4 text-sm font-medium text-foreground transition-colors"
-            >
-              Back to automations
-            </NextLink>
-          </div>
+          <TriggerNotFound
+            title="Trigger not found"
+            body="This trigger may have been removed."
+          />
         }
       />
     )
   }
 
   return (
-    <InstallShell
+    <TriggerPageShell
       content={
         <div className="flex flex-col gap-8">
           <NextLink
-            href="/w/automations/triggers/new"
+            href="/w/automations"
             className="text-muted-foreground inline-flex w-fit items-center gap-1.5 text-sm font-medium transition-colors hover:text-foreground"
           >
             <Icon icon="lucide:arrow-left" className="h-4 w-4" />
@@ -80,7 +83,7 @@ export default function AutomationInstallPage({
             <AutomationLogo automation={automation} />
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-foreground">
-                Install trigger
+                Edit trigger
               </h1>
               <p className="text-muted-foreground mt-1 max-w-xl text-sm leading-5">
                 {automation.description}
@@ -88,14 +91,14 @@ export default function AutomationInstallPage({
             </div>
           </header>
 
-          <TriggerInstallForm automation={automation} />
+          <TriggerInstallForm automation={automation} trigger={trigger} />
         </div>
       }
     />
   )
 }
 
-function InstallShell({ content }: { content: React.ReactNode }) {
+function TriggerPageShell({ content }: { content: React.ReactNode }) {
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-6 py-12">{content}</div>
@@ -114,7 +117,7 @@ function AutomationLogo({ automation }: { automation: AutomationItem }) {
   )
 }
 
-function InstallSkeleton() {
+function TriggerPageSkeleton() {
   return (
     <div className="flex flex-col gap-8">
       <div className="h-5 w-32 animate-pulse rounded bg-default" />
@@ -136,23 +139,40 @@ function InstallSkeleton() {
   )
 }
 
-function InstallErrorState({ onRetry }: { onRetry: () => void }) {
+function TriggerPageError({
+  title,
+  onRetry,
+}: {
+  title: string
+  onRetry: () => void
+}) {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
       <Icon
         icon="lucide:triangle-alert"
         className="text-muted-foreground h-7 w-7"
       />
-      <p className="mt-3 text-sm font-medium text-foreground">
-        Could not load trigger
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="hover:text-muted-foreground mt-3 text-sm font-medium text-foreground transition-colors"
-      >
+      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
+      <Button variant="ghost" size="sm" className="mt-3" onPress={onRetry}>
+        <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
         Retry
-      </button>
+      </Button>
+    </div>
+  )
+}
+
+function TriggerNotFound({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
+      <Icon icon="lucide:clock-alert" className="h-7 w-7 text-muted" />
+      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
+      <p className="mt-1 text-sm text-muted">{body}</p>
+      <NextLink
+        href="/w/automations"
+        className="hover:text-muted-foreground mt-4 text-sm font-medium text-foreground transition-colors"
+      >
+        Back to automations
+      </NextLink>
     </div>
   )
 }

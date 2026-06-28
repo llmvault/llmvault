@@ -1,0 +1,220 @@
+package handler
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/middleware"
+	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/slackapp"
+)
+
+type updateTriggerRequest struct {
+	Provider             *string `json:"provider,omitempty"`
+	ConnectionID         *string `json:"connection_id,omitempty"`
+	ExternalResourceKey  *string `json:"external_resource_key,omitempty"`
+	ExternalResourceName *string `json:"external_resource_name,omitempty"`
+	AgentID              *string `json:"agent_id,omitempty"`
+	TriggerKey           *string `json:"trigger_key,omitempty"`
+	TriggerValue         *string `json:"trigger_value,omitempty"`
+	Instructions         *string `json:"instructions,omitempty"`
+}
+
+// Update handles PATCH /v1/triggers/{id}.
+// @Summary Update trigger
+// @Description Updates a provider automation trigger.
+// @Tags triggers
+// @Accept json
+// @Produce json
+// @Param id path string true "Trigger ID"
+// @Param request body updateTriggerRequest true "Trigger update"
+// @Success 200 {object} triggerGetResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/triggers/{id} [patch]
+func (h *TriggerHandler) Update(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok || org == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		return
+	}
+	id, ok := triggerIDFromString(chi.URLParam(r, "id"))
+	if !ok {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
+		return
+	}
+	var req updateTriggerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+		return
+	}
+	trigger, status, message, err := h.update(r, org.ID, id, req)
+	if err != nil {
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: triggerAutomationToResponse(trigger)})
+}
+
+func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req updateTriggerRequest) (model.AgentTrigger, int, string, error) {
+	current, err := h.loadTrigger(r, orgID, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.AgentTrigger{}, http.StatusNotFound, "trigger not found", err
+		}
+		return model.AgentTrigger{}, http.StatusInternalServerError, "failed to load trigger", err
+	}
+	parsed, err := parseTriggerUpdate(current, req)
+	if err != nil {
+		return model.AgentTrigger{}, http.StatusBadRequest, err.Error(), err
+	}
+	conn, err := loadTriggerConnection(h.db.WithContext(r.Context()), orgID, parsed.connectionID, parsed.provider)
+	if err != nil {
+		status, message := triggerCreateError(err)
+		return model.AgentTrigger{}, status, message, err
+	}
+	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
+		Provider:       parsed.provider,
+		Connection:     conn,
+		ResourceType:   "slack_channel",
+		ResourceKey:    parsed.resourceKey,
+		ResourceName:   parsed.resourceName,
+		DefaultAgentID: parsed.agentID,
+	})
+	if err != nil {
+		status, message := triggerCreateError(err)
+		return model.AgentTrigger{}, status, message, err
+	}
+	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := validateTriggerAgent(tx, orgID, parsed.agentID, channel.ID); err != nil {
+			return err
+		}
+		return tx.Model(&model.AgentTrigger{}).
+			Where("id = ? AND org_id = ?", id, orgID).
+			Updates(map[string]any{
+				"agent_id":      parsed.agentID,
+				"channel_id":    channel.ID,
+				"connection_id": conn.ID,
+				"trigger_keys":  pq.StringArray{parsed.triggerKey},
+				"trigger_key":   parsed.triggerKey,
+				"trigger_value": parsed.triggerValue,
+				"source_slug":   triggerSourceSlug(parsed.provider, parsed.triggerKey, channel.ExternalResourceKey, parsed.triggerValue),
+				"instructions":  parsed.instructions,
+				"trigger_type":  "webhook",
+				"enabled":       true,
+				"conditions":    nil,
+				"secret_key":    "",
+			}).Error
+	})
+	if err != nil {
+		status, message := triggerCreateError(err)
+		return model.AgentTrigger{}, status, message, err
+	}
+	updated, err := h.loadTrigger(r, orgID, id)
+	if err != nil {
+		return model.AgentTrigger{}, http.StatusInternalServerError, "failed to load trigger", err
+	}
+	return updated, http.StatusOK, "", nil
+}
+
+type parsedTriggerUpdate struct {
+	provider     string
+	connectionID uuid.UUID
+	resourceKey  string
+	resourceName string
+	agentID      uuid.UUID
+	triggerKey   string
+	triggerValue string
+	instructions string
+}
+
+func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (parsedTriggerUpdate, error) {
+	parsed := parsedTriggerUpdate{
+		provider:     defaultString(triggerProvider(current), slackapp.Provider),
+		connectionID: uuid.Nil,
+		resourceKey:  "",
+		resourceName: "",
+		agentID:      current.AgentID,
+		triggerKey:   current.TriggerKey,
+		triggerValue: current.TriggerValue,
+		instructions: current.Instructions,
+	}
+	if current.ConnectionID != nil {
+		parsed.connectionID = *current.ConnectionID
+	}
+	if current.Channel != nil {
+		parsed.resourceKey = current.Channel.ExternalResourceKey
+		parsed.resourceName = current.Channel.ExternalResourceName
+	}
+	if req.Provider != nil {
+		parsed.provider = strings.ToLower(strings.TrimSpace(*req.Provider))
+	}
+	if req.ConnectionID != nil {
+		id, err := uuid.Parse(strings.TrimSpace(*req.ConnectionID))
+		if err != nil || id == uuid.Nil {
+			return parsedTriggerUpdate{}, fmt.Errorf("connection_id must be a uuid")
+		}
+		parsed.connectionID = id
+	}
+	if req.ExternalResourceKey != nil {
+		parsed.resourceKey = strings.TrimSpace(*req.ExternalResourceKey)
+	}
+	if req.ExternalResourceName != nil {
+		parsed.resourceName = strings.TrimSpace(*req.ExternalResourceName)
+	}
+	if req.AgentID != nil {
+		id, err := uuid.Parse(strings.TrimSpace(*req.AgentID))
+		if err != nil || id == uuid.Nil {
+			return parsedTriggerUpdate{}, fmt.Errorf("agent_id must be a uuid")
+		}
+		parsed.agentID = id
+	}
+	if req.TriggerKey != nil {
+		parsed.triggerKey = strings.TrimSpace(*req.TriggerKey)
+	}
+	if req.TriggerValue != nil {
+		parsed.triggerValue = normalizeTriggerValue(*req.TriggerValue)
+	}
+	if req.Instructions != nil {
+		parsed.instructions = strings.TrimSpace(*req.Instructions)
+	}
+	return validateParsedTriggerUpdate(parsed)
+}
+
+func validateParsedTriggerUpdate(parsed parsedTriggerUpdate) (parsedTriggerUpdate, error) {
+	if parsed.provider != slackapp.Provider {
+		return parsed, fmt.Errorf("provider is not supported")
+	}
+	if parsed.triggerKey != slackapp.EventReactionAdded {
+		return parsed, fmt.Errorf("trigger_key is not supported")
+	}
+	if parsed.triggerValue == "" {
+		return parsed, fmt.Errorf("trigger_value is required")
+	}
+	if parsed.connectionID == uuid.Nil {
+		return parsed, fmt.Errorf("connection_id must be a uuid")
+	}
+	if parsed.resourceKey == "" {
+		return parsed, fmt.Errorf("external_resource_key is required")
+	}
+	if parsed.agentID == uuid.Nil {
+		return parsed, fmt.Errorf("agent_id must be a uuid")
+	}
+	if parsed.instructions == "" {
+		return parsed, fmt.Errorf("instructions are required")
+	}
+	return parsed, nil
+}

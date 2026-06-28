@@ -1,6 +1,8 @@
 import type { components } from "@/lib/api/schema"
 
 export type CatalogAutomation = components["schemas"]["CatalogItem"]
+export type InstalledTrigger =
+  components["schemas"]["triggerAutomationResponse"]
 export type AutomationTab = "Triggers" | "Schedules"
 export type AutomationCategory = "All" | "Featured" | string
 
@@ -14,7 +16,9 @@ export interface AutomationItem {
   iconColor: string
   provider: string
   featured?: boolean
-  catalog: CatalogAutomation
+  href?: string
+  catalog?: CatalogAutomation
+  trigger?: InstalledTrigger
 }
 
 export const AUTOMATION_TABS: AutomationTab[] = ["Triggers", "Schedules"]
@@ -50,7 +54,8 @@ const PROVIDER_META: Record<string, ProviderMeta> = {
 
 export function automationFromCatalog(
   item: CatalogAutomation,
-  type: AutomationTab
+  type: AutomationTab,
+  href?: string
 ): AutomationItem {
   const provider = item.integration?.provider || ""
   const providerMeta = PROVIDER_META[provider]
@@ -65,7 +70,39 @@ export function automationFromCatalog(
     icon: providerMeta?.icon ?? "lucide:workflow",
     iconColor: providerMeta?.color ?? "#64748B",
     provider,
+    href,
     catalog: item,
+  }
+}
+
+export function automationFromInstalledTrigger(
+  trigger: InstalledTrigger
+): AutomationItem {
+  const provider = trigger.provider || "slack"
+  const providerMeta = PROVIDER_META[provider]
+  const triggerKey = trigger.trigger_key || ""
+  const name =
+    provider === "slack" && triggerKey === "reaction_added"
+      ? "React with emoji"
+      : humanizeSlug(triggerKey) || "Trigger"
+  const channel = trigger.external_resource_name || trigger.channel_name || ""
+  const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
+  const agent = trigger.agent_name || "Agent"
+
+  return {
+    id: trigger.id || "",
+    type: "Triggers",
+    name,
+    description:
+      provider === "slack" && triggerKey === "reaction_added"
+        ? `${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
+        : trigger.instructions || "Installed trigger.",
+    category: provider === "slack" ? "Communication" : "Other",
+    icon: providerMeta?.icon ?? "lucide:workflow",
+    iconColor: providerMeta?.color ?? "#64748B",
+    provider,
+    href: trigger.id ? `/w/automations/triggers/${trigger.id}` : undefined,
+    trigger,
   }
 }
 
@@ -122,7 +159,8 @@ export function automationMatchesQuery(
 export function automationInstructions(automation: AutomationItem): string {
   return (
     automationTriggerDefaultInstructions(automation) ||
-    automation.catalog.instructions ||
+    automation.catalog?.instructions ||
+    automation.trigger?.instructions ||
     "No instructions available."
   )
 }
@@ -133,7 +171,9 @@ export function automationSourceLabel(automation: AutomationItem): string {
 }
 
 export function automationTriggerKey(automation: AutomationItem): string {
-  return automation.catalog.trigger?.key ?? ""
+  return (
+    automation.catalog?.trigger?.key ?? automation.trigger?.trigger_key ?? ""
+  )
 }
 
 export function automationEventLabel(automation: AutomationItem): string {
@@ -144,38 +184,38 @@ export function automationEventLabel(automation: AutomationItem): string {
 export function automationTriggerDefaultValue(
   automation: AutomationItem
 ): string {
-  return automation.catalog.trigger?.defaults?.value ?? ""
+  return automation.catalog?.trigger?.defaults?.value ?? ""
 }
 
 export function automationTriggerDefaultInstructions(
   automation: AutomationItem
 ): string {
-  return automation.catalog.trigger?.defaults?.instructions ?? ""
+  return automation.catalog?.trigger?.defaults?.instructions ?? ""
 }
 
 export function automationCadenceLabel(automation: AutomationItem): string {
   return (
-    automation.catalog.schedule?.suggested_time_label ||
-    automation.catalog.schedule?.cron ||
+    automation.catalog?.schedule?.suggested_time_label ||
+    automation.catalog?.schedule?.cron ||
     "Custom cadence"
   )
 }
 
 export function automationTimezoneLabel(automation: AutomationItem): string {
-  const timezone = automation.catalog.schedule?.timezone
+  const timezone = automation.catalog?.schedule?.timezone
   if (!timezone || timezone === "workspace") return "Workspace timezone"
   return timezone
 }
 
 export function automationDefaultAgent(automation: AutomationItem): string {
-  const agent = automation.catalog.install?.default_agent
+  const agent = automation.catalog?.install?.default_agent
   if (!agent) return "Choose during setup"
   if (agent === "hivy") return "Hivy"
   return humanizeSlug(agent) || agent
 }
 
 export function automationDefaultChannel(automation: AutomationItem): string {
-  const channel = automation.catalog.install?.default_channel
+  const channel = automation.catalog?.install?.default_channel
   if (!channel || channel === "workspace") return "Workspace thread"
   return humanizeSlug(channel) || channel
 }
@@ -183,7 +223,7 @@ export function automationDefaultChannel(automation: AutomationItem): string {
 export function automationRequiredPlugins(
   automation: AutomationItem
 ): string[] {
-  return automation.catalog.plugins?.required ?? []
+  return automation.catalog?.plugins?.required ?? []
 }
 
 function humanizeSlug(value: string): string {

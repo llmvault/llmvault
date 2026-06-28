@@ -202,7 +202,11 @@ func setupV1Routes(
 					r.Post("/{id}/retry", sandboxTemplateHandler.RetryBuild)
 				})
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
-				triggerHandler := handler.NewTriggerHandler(database)
+				triggerOptions := []handler.TriggerHandlerOption{}
+				if slackChannelHandler != nil {
+					triggerOptions = append(triggerOptions, handler.WithTriggerExternalProvisioner(slackChannelHandler))
+				}
+				triggerHandler := handler.NewTriggerHandler(database, triggerOptions...)
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)
 					r.Get("/agents/catalog", agentHandler.ListCatalog)
@@ -214,6 +218,8 @@ func setupV1Routes(
 						r.Post("/agents/{id}/plugins/{slug}", pluginHandler.EnableForAgent)
 						r.Delete("/agents/{id}/plugins/{slug}", pluginHandler.DisableForAgent)
 					}
+					r.Get("/triggers", triggerHandler.List)
+					r.Get("/triggers/{id}", triggerHandler.Get)
 					r.Get("/agents/{id}/trigger-deliveries", triggerDeliveryHandler.List)
 					r.Get("/agents/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
 					r.Group(func(r chi.Router) {
@@ -226,6 +232,7 @@ func setupV1Routes(
 						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
 						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
 						r.Post("/triggers", triggerHandler.Create)
+						r.Patch("/triggers/{id}", triggerHandler.Update)
 					})
 				}
 				if systemTaskHandler != nil {
