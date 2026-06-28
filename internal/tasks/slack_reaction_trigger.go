@@ -24,12 +24,25 @@ import (
 
 type SlackReactionTriggerHandler struct {
 	*SlackAppMentionHandler
+	mediaEnricher SlackMediaEnricher
 }
 
-func NewSlackReactionTriggerHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, ensurer OrgHivyAgentEnsurer) *SlackReactionTriggerHandler {
-	return &SlackReactionTriggerHandler{
+type SlackReactionTriggerOption func(*SlackReactionTriggerHandler)
+
+func WithSlackReactionMediaEnricher(enricher SlackMediaEnricher) SlackReactionTriggerOption {
+	return func(h *SlackReactionTriggerHandler) {
+		h.mediaEnricher = enricher
+	}
+}
+
+func NewSlackReactionTriggerHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, ensurer OrgHivyAgentEnsurer, opts ...SlackReactionTriggerOption) *SlackReactionTriggerHandler {
+	h := &SlackReactionTriggerHandler{
 		SlackAppMentionHandler: NewSlackAppMentionHandler(db, orchestrator, compileDeps, enq, nangoClient, ensurer),
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 func (h *SlackReactionTriggerHandler) Handle(ctx context.Context, task *asynq.Task) error {
@@ -77,11 +90,29 @@ func (h *SlackReactionTriggerHandler) processReaction(ctx context.Context, row *
 	if err != nil {
 		return err
 	}
-	text := slackReactionAutomationText(trigger, *row, messageContext)
+	renderedContext := h.renderReactionMessageContext(ctx, token, row.OrgID, messageContext)
+	text := slackReactionAutomationText(trigger, *row, messageContext, renderedContext)
 	if err := h.updateReactionContext(ctx, row, messageContext.ThreadTS, text); err != nil {
 		return err
 	}
 	return h.SlackAppMentionHandler.processWithSlack(ctx, row, token, client)
+}
+
+type slackRenderedReactionContext struct {
+	Message        string
+	ThreadMessages []string
+}
+
+func (h *SlackReactionTriggerHandler) renderReactionMessageContext(ctx context.Context, token string, orgID uuid.UUID, context slackapp.ReactionMessageContext) slackRenderedReactionContext {
+	render := slackReactionMessageRenderer(ctx, h.mediaEnricher, token, orgID)
+	rendered := slackRenderedReactionContext{
+		Message: render(context.Message),
+	}
+	rendered.ThreadMessages = make([]string, 0, len(context.ThreadMessages))
+	for _, message := range context.ThreadMessages {
+		rendered.ThreadMessages = append(rendered.ThreadMessages, render(message))
+	}
+	return rendered
 }
 
 func (h *SlackReactionTriggerHandler) loadReactionTrigger(ctx context.Context, row *model.SlackThreadEvent) (model.AgentTrigger, error) {
@@ -122,7 +153,7 @@ func (h *SlackReactionTriggerHandler) updateReactionContext(ctx context.Context,
 	return nil
 }
 
-func slackReactionAutomationText(trigger model.AgentTrigger, row model.SlackThreadEvent, context slackapp.ReactionMessageContext) string {
+func slackReactionAutomationText(trigger model.AgentTrigger, row model.SlackThreadEvent, context slackapp.ReactionMessageContext, rendered slackRenderedReactionContext) string {
 	reaction := rawSlackReaction(row.Raw)
 	if reaction == "" {
 		reaction = trigger.TriggerValue
@@ -146,13 +177,15 @@ func slackReactionAutomationText(trigger model.AgentTrigger, row model.SlackThre
 	writeAutomationLine(&b, "message_ts", row.MessageTS)
 	writeAutomationLine(&b, "thread_ts", context.ThreadTS)
 	b.WriteString("\nReacted message:\n")
-	b.WriteString(slackMessageLine(context.Message))
-	if len(context.ThreadMessages) > 0 {
+	b.WriteString(slackMessageSection(context.Message, rendered.Message))
+	if len(rendered.ThreadMessages) > 0 {
 		b.WriteString("\n\nThread context:\n")
-		for _, message := range context.ThreadMessages {
-			b.WriteString("- ")
-			b.WriteString(slackMessageLine(message))
-			b.WriteString("\n")
+		for i, message := range context.ThreadMessages {
+			if i >= len(rendered.ThreadMessages) {
+				break
+			}
+			b.WriteString(slackMessageSection(message, rendered.ThreadMessages[i]))
+			b.WriteString("\n\n")
 		}
 	}
 	return strings.TrimSpace(b.String())
@@ -170,17 +203,42 @@ func writeAutomationLine(b *strings.Builder, key, value string) {
 	b.WriteString("\n")
 }
 
-func slackMessageLine(message slacksdk.Message) string {
+func slackRenderedSlackMessage(ctx context.Context, enricher SlackMediaEnricher, token string, orgID uuid.UUID, message slacksdk.Message) string {
+	parts := []string{slackapp.RenderSlackMessageMarkdown(message)}
+	if media := EnrichSlackMedia(ctx, enricher, token, orgID, message); media != "" {
+		parts = append(parts, media)
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+func slackReactionMessageRenderer(ctx context.Context, enricher SlackMediaEnricher, token string, orgID uuid.UUID) func(slacksdk.Message) string {
+	renderedByTS := map[string]string{}
+	return func(message slacksdk.Message) string {
+		ts := strings.TrimSpace(message.Timestamp)
+		if ts != "" {
+			if rendered, ok := renderedByTS[ts]; ok {
+				return rendered
+			}
+		}
+		rendered := slackRenderedSlackMessage(ctx, enricher, token, orgID, message)
+		if ts != "" {
+			renderedByTS[ts] = rendered
+		}
+		return rendered
+	}
+}
+
+func slackMessageSection(message slacksdk.Message, text string) string {
 	sender := slackMessageSender(message)
-	text := strings.TrimSpace(message.Text)
+	text = strings.TrimSpace(text)
 	if text == "" {
 		text = "(no text)"
 	}
 	ts := strings.TrimSpace(message.Timestamp)
 	if ts == "" {
-		return sender + ": " + text
+		return sender + ":\n" + text
 	}
-	return sender + " [" + ts + "]: " + text
+	return sender + " [" + ts + "]:\n" + text
 }
 
 func slackMessageSender(message slacksdk.Message) string {

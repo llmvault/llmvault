@@ -20,21 +20,22 @@ import (
 
 // WorkerDeps holds the dependencies needed by task handlers.
 type WorkerDeps struct {
-	DB                *gorm.DB
-	Orchestrator      *sandbox.Orchestrator   // nil if sandbox not configured
-	EncKey            *crypto.SymmetricKey    // nil if not configured
-	EmailSend         EmailSenderFunc         // nil if email not configured
-	EmailSendTemplate EmailTemplateSenderFunc // nil if template email not configured
-	SkillFetcher      *skills.GitFetcher      // nil disables git skill hydration
-	NangoClient       *nango.Client           // nil disables deterministic enrichment
-	CacheManager      *cache.Manager          // nil disables tasks that need credential decryption
-	Credits           *billing.CreditsService // required for billing-token-spend deduction
-	Subscriptions     *subscription.Service   // required for renewal worker
-	Enqueuer          enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
-	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
-	PreContextBuilder precontext.Builder      // nil disables runtime pre-context injection
-	AgentCompile      agentruntime.CompileDeps
-	OrgAgentEnsurer   OrgHivyAgentEnsurer
+	DB                 *gorm.DB
+	Orchestrator       *sandbox.Orchestrator   // nil if sandbox not configured
+	EncKey             *crypto.SymmetricKey    // nil if not configured
+	EmailSend          EmailSenderFunc         // nil if email not configured
+	EmailSendTemplate  EmailTemplateSenderFunc // nil if template email not configured
+	SkillFetcher       *skills.GitFetcher      // nil disables git skill hydration
+	NangoClient        *nango.Client           // nil disables deterministic enrichment
+	CacheManager       *cache.Manager          // nil disables tasks that need credential decryption
+	Credits            *billing.CreditsService // required for billing-token-spend deduction
+	Subscriptions      *subscription.Service   // required for renewal worker
+	Enqueuer           enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
+	PreContextCache    precontext.Cache        // nil disables agent pre-context cache invalidation
+	PreContextBuilder  precontext.Builder      // nil disables runtime pre-context injection
+	AgentCompile       agentruntime.CompileDeps
+	OrgAgentEnsurer    OrgHivyAgentEnsurer
+	SlackMediaEnricher SlackMediaEnricher
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -123,7 +124,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSlackAppMention,
 			NewSlackAppMentionHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer).Handle)
 		mux.HandleFunc(TypeSlackReactionTrigger,
-			NewSlackReactionTriggerHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer).Handle)
+			NewSlackReactionTriggerHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer,
+				WithSlackReactionMediaEnricher(deps.SlackMediaEnricher)).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)
