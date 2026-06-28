@@ -116,27 +116,43 @@ func readSlackFinalText(ctx context.Context, body io.Reader) (string, error) {
 }
 
 func slackStreamFrameText(eventType, raw string) (string, bool, error) {
+	payload := slackStreamPayload(raw)
 	switch eventType {
 	case runtimeevents.EventFinal:
-		return streamPayloadText(raw), false, nil
+		if !slackStreamPayloadFromMainAgent(payload) {
+			return "", false, nil
+		}
+		return slackFinalText(payload), false, nil
 	case runtimeevents.EventTurnCompleted, runtimeevents.EventDone:
-		return "", true, nil
+		return "", slackStreamPayloadFromMainAgent(payload), nil
 	case runtimeevents.EventTurnFailed, runtimeevents.EventError, runtimeevents.EventAgentError:
-		return "", true, fmt.Errorf("runtime stream emitted %s", eventType)
+		if slackStreamPayloadFromMainAgent(payload) {
+			return "", true, fmt.Errorf("runtime stream emitted %s", eventType)
+		}
+		return "", false, nil
 	default:
 		return "", false, nil
 	}
 }
 
-func streamPayloadText(raw string) string {
+func slackStreamPayload(raw string) map[string]any {
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		return ""
+		return nil
 	}
+	return payload
+}
+
+func slackFinalText(payload map[string]any) string {
 	for _, key := range []string{"text", "message", "content"} {
 		if value, _ := payload[key].(string); strings.TrimSpace(value) != "" {
 			return strings.TrimSpace(value)
 		}
 	}
 	return ""
+}
+
+func slackStreamPayloadFromMainAgent(payload map[string]any) bool {
+	scope, ok := payload["scope"].(string)
+	return ok && scope == "main"
 }

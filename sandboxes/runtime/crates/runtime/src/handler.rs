@@ -412,10 +412,12 @@ impl TurnEventSink for api::SessionStreamBroker {
 }
 
 fn stream_payload(mut payload: Value, metadata: Option<&StreamEventMetadata>) -> Value {
-    let Some(metadata) = metadata else {
+    let Some(map) = payload.as_object_mut() else {
         return payload;
     };
-    let Some(map) = payload.as_object_mut() else {
+    let Some(metadata) = metadata else {
+        map.entry("scope".to_string())
+            .or_insert_with(|| serde_json::json!("main"));
         return payload;
     };
     if let Some(trace_id) = metadata.trace_id.as_deref() {
@@ -437,6 +439,9 @@ fn stream_payload(mut payload: Value, metadata: Option<&StreamEventMetadata>) ->
                 "child_session_id": subagent.child_session_id.as_str(),
             }),
         );
+    } else {
+        map.entry("scope".to_string())
+            .or_insert_with(|| serde_json::json!("main"));
     }
     payload
 }
@@ -2101,7 +2106,10 @@ mod tests {
 
 #[cfg(test)]
 mod stream_tests {
-    use super::{consume_agent_stream, TurnEventSink};
+    use super::{
+        consume_agent_stream, stream_payload, StreamEventMetadata, SubagentStreamMetadata,
+        TurnEventSink,
+    };
     use agent::AgentEvent;
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -2247,6 +2255,36 @@ mod stream_tests {
         assert!(events.contains(&("full-stream".to_string(), "thinking".to_string())));
         assert!(events.contains(&("full-stream".to_string(), "tool_call".to_string())));
         assert!(events.contains(&("full-stream".to_string(), "token".to_string())));
+    }
+
+    #[test]
+    fn stream_payload_stamps_main_scope() {
+        let payload = stream_payload(json!({"text": "answer"}), None);
+
+        assert_eq!(payload["scope"], "main");
+    }
+
+    #[test]
+    fn stream_payload_stamps_subagent_scope() {
+        let metadata = StreamEventMetadata {
+            trace_id: Some("trace-1".to_string()),
+            turn_id: Some("turn-1".to_string()),
+            subagent: Some(SubagentStreamMetadata {
+                job_id: "job-1".to_string(),
+                agent_name: "helper".to_string(),
+                parent_session_id: "parent-session".to_string(),
+                child_session_id: "child-session".to_string(),
+            }),
+        };
+        let payload = stream_payload(json!({"text": "answer"}), Some(&metadata));
+
+        assert_eq!(payload["scope"], "subagent");
+        assert_eq!(payload["trace_id"], "trace-1");
+        assert_eq!(payload["turn_id"], "turn-1");
+        assert_eq!(payload["subagent"]["job_id"], "job-1");
+        assert_eq!(payload["subagent"]["agent_name"], "helper");
+        assert_eq!(payload["subagent"]["parent_session_id"], "parent-session");
+        assert_eq!(payload["subagent"]["child_session_id"], "child-session");
     }
 }
 
