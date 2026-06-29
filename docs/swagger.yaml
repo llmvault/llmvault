@@ -365,6 +365,10 @@ definitions:
         items:
           type: string
         type: array
+      allowed_keys:
+        items:
+          type: string
+        type: array
       allowed_schemas:
         items:
           type: string
@@ -1643,8 +1647,6 @@ definitions:
     properties:
       access_policy:
         $ref: '#/definitions/Policy'
-      agent_id:
-        type: string
       connection_url:
         type: string
       display_name:
@@ -1656,8 +1658,6 @@ definitions:
     properties:
       access_policy:
         $ref: '#/definitions/JSON'
-      agent_id:
-        type: string
       created_at:
         type: string
       display_name:

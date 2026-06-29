@@ -13073,6 +13073,7 @@ export interface components {
         };
         Policy: {
             allowed_collections?: string[];
+            allowed_keys?: string[];
             allowed_schemas?: string[];
             allowed_tables?: string[];
             masked_fields?: string[];
@@ -13706,14 +13707,12 @@ export interface components {
         };
         databaseConnectionRequest: {
             access_policy?: components["schemas"]["Policy"];
-            agent_id?: string;
             connection_url?: string;
             display_name?: string;
             provider?: string;
         };
         databaseConnectionResponse: {
             access_policy?: components["schemas"]["JSON"];
-            agent_id?: string;
             created_at?: string;
             display_name?: string;
             id?: string;

@@ -12,6 +12,7 @@ const (
 	ProviderPostgres = "postgres"
 	ProviderMySQL    = "mysql"
 	ProviderMongoDB  = "mongodb"
+	ProviderRedis    = "redis"
 	DefaultMaxRows   = 100
 )
 
@@ -19,6 +20,7 @@ type Policy struct {
 	AllowedSchemas     []string `json:"allowed_schemas,omitempty"`
 	AllowedTables      []string `json:"allowed_tables,omitempty"`
 	AllowedCollections []string `json:"allowed_collections,omitempty"`
+	AllowedKeys        []string `json:"allowed_keys,omitempty"`
 	MaskedFields       []string `json:"masked_fields,omitempty"`
 	MaxRows            int      `json:"max_rows,omitempty"`
 }
@@ -31,6 +33,8 @@ func NormalizeProvider(provider string) (string, error) {
 		return ProviderMySQL, nil
 	case ProviderMongoDB, "mongo":
 		return ProviderMongoDB, nil
+	case ProviderRedis:
+		return ProviderRedis, nil
 	default:
 		return "", fmt.Errorf("unsupported database provider")
 	}

@@ -35,8 +35,12 @@ import {
   ResourceSelectionModal,
   type ResourceModalState,
 } from "@/app/w/(chat)/plugins/[slug]/resource-requirements-section"
-import { RequiredConnectionsSection } from "@/app/w/(chat)/plugins/[slug]/required-connections-section"
+import {
+  type ConnectionDisconnectTarget,
+  RequiredConnectionsSection,
+} from "@/app/w/(chat)/plugins/[slug]/required-connections-section"
 import { PluginInstallAction } from "@/app/w/(chat)/plugins/[slug]/plugin-install-action"
+import { DisconnectConnectionConfirmDialog } from "@/app/w/(chat)/plugins/[slug]/disconnect-connection-confirm-dialog"
 import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
@@ -51,6 +55,7 @@ import {
 
 type PluginSkill = NonNullable<ApiPlugin["skills"]>[number]
 type Connection = components["schemas"]["connectionResponse"]
+type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
 
 type ConnectionModalState = {
   view: "integration" | "database"
@@ -76,13 +81,27 @@ export default function PluginDetailPage({
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
+  const databaseConnectionsQuery = $api.useQuery(
+    "get",
+    "/v1/database-integrations"
+  )
   const { connectIntegration, reconnectIntegration, isConnecting } =
     useConnectIntegration()
+  const disconnectIntegration = $api.useMutation(
+    "delete",
+    "/v1/connections/{id}"
+  )
+  const disconnectDatabase = $api.useMutation(
+    "delete",
+    "/v1/database-integrations/{id}"
+  )
   const [connectionModal, setConnectionModal] =
     useState<ConnectionModalState | null>(null)
   const [resourceModal, setResourceModal] = useState<ResourceModalState | null>(
     null
   )
+  const [disconnectTarget, setDisconnectTarget] =
+    useState<ConnectionDisconnectTarget | null>(null)
   const connectionModalState = useOverlayState({
     isOpen: connectionModal !== null,
     onOpenChange: (next) => {
@@ -101,6 +120,10 @@ export default function PluginDetailPage({
     () => (connectionsQuery.data?.data ?? []) as Connection[],
     [connectionsQuery.data?.data]
   )
+  const databaseConnections = useMemo(
+    () => (databaseConnectionsQuery.data ?? []) as DatabaseConnection[],
+    [databaseConnectionsQuery.data]
+  )
   const connectionsByProvider = useMemo(() => {
     const next = new Map<string, Connection>()
     for (const connection of connections) {
@@ -110,11 +133,28 @@ export default function PluginDetailPage({
     }
     return next
   }, [connections])
+  const databaseConnectionsByProvider = useMemo(() => {
+    const next = new Map<string, DatabaseConnection>()
+    for (const connection of databaseConnections) {
+      const provider = connection.provider ?? ""
+      if (!provider || connection.revoked_at || next.has(provider)) continue
+      next.set(provider, connection)
+    }
+    return next
+  }, [databaseConnections])
+  const disconnectPending =
+    disconnectIntegration.isPending || disconnectDatabase.isPending
   const busy =
-    installPlugin.isPending || uninstallPlugin.isPending || isConnecting
+    installPlugin.isPending ||
+    uninstallPlugin.isPending ||
+    isConnecting ||
+    disconnectPending
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["get", "/v1/connections"] })
+    queryClient.invalidateQueries({
+      queryKey: ["get", "/v1/database-integrations"],
+    })
     queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins/{slug}"] })
     invalidateSessionListQueries(queryClient)
@@ -148,6 +188,41 @@ export default function PluginDetailPage({
         },
         onError: (error) =>
           toast.danger(extractErrorMessage(error, "Could not remove plugin")),
+      }
+    )
+  }
+
+  function handleDisconnectRequest(target: ConnectionDisconnectTarget) {
+    if (plugin?.installed === true) return
+    setDisconnectTarget(target)
+  }
+
+  function closeDisconnectDialog(open: boolean) {
+    if (!open) setDisconnectTarget(null)
+  }
+
+  function handleDisconnectConfirm() {
+    if (!disconnectTarget?.connection.id) return
+
+    const mutation =
+      disconnectTarget.kind === "database"
+        ? disconnectDatabase
+        : disconnectIntegration
+
+    mutation.mutate(
+      { params: { path: { id: disconnectTarget.connection.id } } },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${providerLabel(disconnectTarget.provider)} disconnected`
+          )
+          setDisconnectTarget(null)
+          refresh()
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not disconnect connection")
+          ),
       }
     )
   }
@@ -251,7 +326,7 @@ export default function PluginDetailPage({
     return (
       <PluginDetailShell
         content={
-          <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-border bg-card px-6 text-center">
+          <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
             <Icon icon="lucide:plug-zap" className="h-7 w-7 text-muted" />
             <p className="mt-3 text-sm font-medium text-foreground">
               Plugin not found
@@ -297,7 +372,7 @@ export default function PluginDetailPage({
                   <h1 className="text-xl font-semibold text-foreground">
                     {pluginName(plugin)}
                   </h1>
-                  <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
+                  <p className="text-muted-foreground mt-1 max-w-xl text-sm leading-5">
                     {pluginDescription(plugin)}
                   </p>
                 </div>
@@ -317,9 +392,12 @@ export default function PluginDetailPage({
                 missing={missing}
                 integrationsLoading={integrationsQuery.isLoading}
                 connectionsByProvider={connectionsByProvider}
+                databaseConnectionsByProvider={databaseConnectionsByProvider}
                 isBusy={busy}
+                disconnectDisabled={plugin.installed === true}
                 onConnect={handleConnectRequirement}
                 onReconnect={handleReconnectRequirement}
+                onDisconnect={handleDisconnectRequest}
               />
             ) : null}
 
@@ -335,7 +413,7 @@ export default function PluginDetailPage({
                 <h2 className="text-base font-semibold text-foreground">
                   Examples
                 </h2>
-                <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+                <div className="bg-card flex flex-col divide-y divide-border rounded-xl border border-border">
                   {examples.map((example, index) => (
                     <button
                       key={index}
@@ -350,7 +428,7 @@ export default function PluginDetailPage({
                       </div>
                       <Icon
                         icon="lucide:arrow-right"
-                        className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                        className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
                       />
                     </button>
                   ))}
@@ -384,6 +462,12 @@ export default function PluginDetailPage({
         onSaved={handleResourceSaved}
         onCancel={closeResourceModal}
       />
+      <DisconnectConnectionConfirmDialog
+        target={disconnectTarget}
+        pending={disconnectPending}
+        onOpenChange={closeDisconnectDialog}
+        onConfirm={handleDisconnectConfirm}
+      />
     </>
   )
 }
@@ -406,7 +490,7 @@ function SkillsSection({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-base font-semibold text-foreground">Skills</h2>
-      <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+      <div className="bg-card flex flex-col divide-y divide-border rounded-xl border border-border">
         {skills.map((skill, index) => (
           <div
             key={skill.name || index}
@@ -417,7 +501,7 @@ function SkillsSection({
               <p className="text-sm leading-5 font-medium text-foreground">
                 {skill.name || "Skill"}
               </p>
-              <p className="text-sm leading-5 text-muted-foreground">
+              <p className="text-muted-foreground text-sm leading-5">
                 {skill.human_description ||
                   skill.description ||
                   "No description available."}
@@ -494,16 +578,16 @@ function DetailSkeleton() {
     <div className="flex flex-col gap-8">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="bg-default h-12 w-12 animate-pulse rounded-xl" />
+          <div className="h-12 w-12 animate-pulse rounded-xl bg-default" />
           <div className="flex flex-col gap-3">
-            <div className="bg-default h-5 w-36 animate-pulse rounded" />
-            <div className="bg-default h-4 w-80 max-w-full animate-pulse rounded" />
+            <div className="h-5 w-36 animate-pulse rounded bg-default" />
+            <div className="h-4 w-80 max-w-full animate-pulse rounded bg-default" />
           </div>
         </div>
-        <div className="bg-default h-8 w-16 animate-pulse rounded-full" />
+        <div className="h-8 w-16 animate-pulse rounded-full bg-default" />
       </header>
-      <div className="bg-default h-40 animate-pulse rounded-xl" />
-      <div className="bg-default h-56 animate-pulse rounded-xl" />
+      <div className="h-40 animate-pulse rounded-xl bg-default" />
+      <div className="h-56 animate-pulse rounded-xl bg-default" />
     </div>
   )
 }

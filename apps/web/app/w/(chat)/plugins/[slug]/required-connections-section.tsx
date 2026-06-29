@@ -15,23 +15,44 @@ import {
 import type { PluginRequirement } from "@/app/w/(chat)/plugins/_lib"
 
 type Connection = components["schemas"]["connectionResponse"]
+type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
+
+export type ConnectionDisconnectTarget =
+  | {
+      kind: "integration"
+      provider: string
+      requirement: PluginRequirement
+      connection: Connection
+    }
+  | {
+      kind: "database"
+      provider: string
+      requirement: PluginRequirement
+      connection: DatabaseConnection
+    }
 
 export function RequiredConnectionsSection({
   requirements,
   missing,
   integrationsLoading,
   connectionsByProvider,
+  databaseConnectionsByProvider,
   isBusy,
+  disconnectDisabled,
   onConnect,
   onReconnect,
+  onDisconnect,
 }: {
   requirements: PluginRequirement[]
   missing: PluginRequirement[]
   integrationsLoading: boolean
   connectionsByProvider: Map<string, Connection>
+  databaseConnectionsByProvider: Map<string, DatabaseConnection>
   isBusy: boolean
+  disconnectDisabled: boolean
   onConnect: (requirement: PluginRequirement) => void
   onReconnect: (requirement: PluginRequirement, connection: Connection) => void
+  onDisconnect: (target: ConnectionDisconnectTarget) => void
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -40,27 +61,27 @@ export function RequiredConnectionsSection({
           Required connections
         </h2>
         {missing.length === 0 ? (
-          <p className="text-sm leading-5 text-muted-foreground">
+          <p className="text-muted-foreground text-sm leading-5">
             All required connections are connected.
           </p>
         ) : null}
       </div>
       {missing.length > 0 ? (
-        <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-xl border p-4">
-          <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+        <div className="flex gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
             <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-medium text-foreground">
               Required connections missing
             </h3>
-            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            <p className="text-muted-foreground mt-1 text-sm leading-5">
               Add the required connections before adding this plugin.
             </p>
           </div>
         </div>
       ) : null}
-      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <div className="bg-card flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
         {requirements.map((requirement, index) => {
           const provider = requirement.provider ?? ""
           const isMissing = isRequirementMissing(requirement, missing)
@@ -74,6 +95,26 @@ export function RequiredConnectionsSection({
             !isMissing && isIntegrationRequirement(requirement)
               ? connectionsByProvider.get(provider)
               : undefined
+          const connectedDatabase =
+            !isMissing && isDatabaseRequirement(requirement)
+              ? databaseConnectionsByProvider.get(provider)
+              : undefined
+          const disconnectTarget: ConnectionDisconnectTarget | undefined =
+            connectedConnection
+              ? {
+                  kind: "integration",
+                  provider,
+                  requirement,
+                  connection: connectedConnection,
+                }
+              : connectedDatabase
+                ? {
+                    kind: "database",
+                    provider,
+                    requirement,
+                    connection: connectedDatabase,
+                  }
+                : undefined
 
           return (
             <div
@@ -86,7 +127,7 @@ export function RequiredConnectionsSection({
                   <p className="truncate text-sm font-medium text-foreground">
                     {provider ? providerLabel(provider) : "Connection"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {connectionKindLabel(requirement)}
                   </p>
                 </div>
@@ -110,13 +151,17 @@ export function RequiredConnectionsSection({
                   >
                     <Icon icon="lucide:check" className="h-3.5 w-3.5" />
                   </span>
-                  {connectedConnection ? (
+                  {disconnectTarget ? (
                     <RequiredConnectionOptionsMenu
                       provider={provider}
                       isBusy={isBusy}
-                      onReconnect={() =>
-                        onReconnect(requirement, connectedConnection)
+                      disconnectDisabled={disconnectDisabled}
+                      onReconnect={
+                        connectedConnection
+                          ? () => onReconnect(requirement, connectedConnection)
+                          : undefined
                       }
+                      onDisconnect={() => onDisconnect(disconnectTarget)}
                     />
                   ) : null}
                 </div>
@@ -132,18 +177,28 @@ export function RequiredConnectionsSection({
 function RequiredConnectionOptionsMenu({
   provider,
   isBusy,
+  disconnectDisabled,
   onReconnect,
+  onDisconnect,
 }: {
   provider: string
   isBusy: boolean
-  onReconnect: () => void
+  disconnectDisabled: boolean
+  onReconnect?: () => void
+  onDisconnect?: () => void
 }) {
   const [open, setOpen] = useState(false)
 
   function reconnect() {
-    if (isBusy) return
+    if (isBusy || !onReconnect) return
     setOpen(false)
     onReconnect()
+  }
+
+  function disconnect() {
+    if (isBusy || disconnectDisabled || !onDisconnect) return
+    setOpen(false)
+    onDisconnect()
   }
 
   return (
@@ -152,7 +207,7 @@ function RequiredConnectionOptionsMenu({
         aria-label={`${providerLabel(provider)} connection options`}
         aria-disabled={isBusy ? "true" : undefined}
         data-open={open ? "true" : undefined}
-        className="hover:bg-default data-[open=true]:bg-default flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors aria-disabled:pointer-events-none aria-disabled:opacity-45"
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default aria-disabled:pointer-events-none aria-disabled:opacity-45 data-[open=true]:bg-default"
       >
         <Icon icon="lucide:ellipsis" className="h-4 w-4" />
       </Popover.Trigger>
@@ -163,15 +218,33 @@ function RequiredConnectionOptionsMenu({
           className="w-44 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            <button
-              type="button"
-              disabled={isBusy}
-              onClick={reconnect}
-              className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors disabled:pointer-events-none disabled:opacity-45"
-            >
-              <Icon icon="lucide:refresh-cw" className="h-4 w-4 shrink-0" />
-              Reconnect
-            </button>
+            {onReconnect ? (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={reconnect}
+                className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
+              >
+                <Icon icon="lucide:refresh-cw" className="h-4 w-4 shrink-0" />
+                Reconnect
+              </button>
+            ) : null}
+            {onDisconnect ? (
+              <button
+                type="button"
+                disabled={isBusy || disconnectDisabled}
+                title={
+                  disconnectDisabled
+                    ? "Remove this plugin before disconnecting."
+                    : undefined
+                }
+                onClick={disconnect}
+                className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-danger transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
+              >
+                <Icon icon="lucide:unlink" className="h-4 w-4 shrink-0" />
+                Disconnect
+              </button>
+            ) : null}
           </Popover.Dialog>
         </Popover.Content>
       ) : null}
