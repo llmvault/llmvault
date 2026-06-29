@@ -109,6 +109,7 @@ func setupPublicRoutes(
 		r.Post("/internal/database-proxy/postgres/{agentID}", databaseProxyHandler.Handle("postgres"))
 		r.Post("/internal/database-proxy/mysql/{agentID}", databaseProxyHandler.Handle("mysql"))
 		r.Post("/internal/database-proxy/mongodb/{agentID}", databaseProxyHandler.Handle("mongodb"))
+		r.Post("/internal/database-proxy/redis/{agentID}", databaseProxyHandler.Handle("redis"))
 	}
 
 	// Direct incoming webhooks for providers requiring manual webhook configuration

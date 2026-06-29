@@ -14,8 +14,12 @@ import {
   type DatabaseConnection,
   type DatabasePolicy,
 } from "@/app/w/(chat)/plugins/database-policy-configuration"
+import {
+  RedisDatabaseConfiguration,
+  normalizeRedisSnapshot,
+} from "@/app/w/(chat)/plugins/redis-database-configuration"
 
-type DatabaseProvider = "postgres" | "mysql" | "mongodb"
+type DatabaseProvider = "postgres" | "mysql" | "mongodb" | "redis"
 
 interface ProviderConfig {
   label: string
@@ -40,13 +44,21 @@ const PROVIDERS: Record<DatabaseProvider, ProviderConfig> = {
     urlLabel: "Connection URI",
     urlPlaceholder: "mongodb+srv://readonly:password@cluster/database",
   },
+  redis: {
+    label: "Redis",
+    urlLabel: "Connection URL",
+    urlPlaceholder: "redis://default:password@host:6379/0",
+  },
 }
 
 export function isDatabaseProvider(
   provider: string | null | undefined
 ): provider is DatabaseProvider {
   return (
-    provider === "postgres" || provider === "mysql" || provider === "mongodb"
+    provider === "postgres" ||
+    provider === "mysql" ||
+    provider === "mongodb" ||
+    provider === "redis"
   )
 }
 
@@ -80,6 +92,7 @@ export function DatabaseConnectionModalContent({
     () => normalizeMongoSnapshot(snapshot),
     [snapshot]
   )
+  const redisKeys = useMemo(() => normalizeRedisSnapshot(snapshot), [snapshot])
   const schemas = useMemo(() => {
     return Array.from(new Set(sqlTables.map((table) => table.schema))).sort(
       (a, b) => a.localeCompare(b)
@@ -203,6 +216,16 @@ export function DatabaseConnectionModalContent({
         <MongoDatabaseConfiguration
           connection={connection}
           collections={mongoCollections}
+          errorMessage={errorMessage}
+          introspecting={introspectConnection.isPending}
+          saving={updatePolicy.isPending}
+          onRetryIntrospection={handleRetryIntrospection}
+          onSavePolicy={handleSavePolicy}
+        />
+      ) : provider === "redis" ? (
+        <RedisDatabaseConfiguration
+          connection={connection}
+          keys={redisKeys}
           errorMessage={errorMessage}
           introspecting={introspectConnection.isPending}
           saving={updatePolicy.isPending}

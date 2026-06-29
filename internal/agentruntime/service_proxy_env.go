@@ -26,6 +26,7 @@ var serviceProxyEnvSpecs = []ServiceProxyEnvSpec{
 	{Provider: "postgres", SkillName: "postgres", BaseURLEnv: AgentEnvPostgresURL, AuthEnv: AgentEnvPostgresToken, Path: "/internal/database-proxy/postgres/%s"},
 	{Provider: "mysql", SkillName: "mysql", BaseURLEnv: AgentEnvMySQLURL, AuthEnv: AgentEnvMySQLToken, Path: "/internal/database-proxy/mysql/%s"},
 	{Provider: "mongodb", SkillName: "mongodb", BaseURLEnv: AgentEnvMongoDBURL, AuthEnv: AgentEnvMongoDBToken, Path: "/internal/database-proxy/mongodb/%s"},
+	{Provider: "redis", SkillName: "redis", BaseURLEnv: AgentEnvRedisURL, AuthEnv: AgentEnvRedisToken, Path: "/internal/database-proxy/redis/%s"},
 }
 
 func ServiceProxyEnvSpecs() []ServiceProxyEnvSpec {

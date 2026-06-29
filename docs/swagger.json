@@ -11273,6 +11273,12 @@
                         "type": "string"
                     }
                 },
+                "allowed_keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "allowed_schemas": {
                     "type": "array",
                     "items": {
@@ -13214,9 +13220,6 @@
                 "access_policy": {
                     "$ref": "#/definitions/Policy"
                 },
-                "agent_id": {
-                    "type": "string"
-                },
                 "connection_url": {
                     "type": "string"
                 },
@@ -13233,9 +13236,6 @@
             "properties": {
                 "access_policy": {
                     "$ref": "#/definitions/JSON"
-                },
-                "agent_id": {
-                    "type": "string"
                 },
                 "created_at": {
                     "type": "string"

@@ -11276,6 +11276,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allowed_keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "allowed_schemas": {
                     "type": "array",
                     "items": {
@@ -13217,9 +13223,6 @@ const docTemplate = `{
                 "access_policy": {
                     "$ref": "#/definitions/Policy"
                 },
-                "agent_id": {
-                    "type": "string"
-                },
                 "connection_url": {
                     "type": "string"
                 },
@@ -13236,9 +13239,6 @@ const docTemplate = `{
             "properties": {
                 "access_policy": {
                     "$ref": "#/definitions/JSON"
-                },
-                "agent_id": {
-                    "type": "string"
                 },
                 "created_at": {
                     "type": "string"

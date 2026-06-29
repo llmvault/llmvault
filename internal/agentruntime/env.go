@@ -49,6 +49,8 @@ const (
 	AgentEnvMySQLToken                 = "HIVY_MYSQL_TOKEN"
 	AgentEnvMongoDBURL                 = "HIVY_MONGODB_URL"
 	AgentEnvMongoDBToken               = "HIVY_MONGODB_TOKEN"
+	AgentEnvRedisURL                   = "HIVY_REDIS_PROXY_URL"
+	AgentEnvRedisToken                 = "HIVY_REDIS_PROXY_TOKEN"
 	AgentEnvSentryDSN                  = "SENTRY_DSN"
 	AgentEnvSentryEnvironment          = "SENTRY_ENVIRONMENT"
 	AgentEnvSentrySampleRate           = "SENTRY_SAMPLE_RATE"
@@ -135,6 +137,8 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvMySQLToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvMongoDBURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvMongoDBToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvRedisURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvRedisToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvSentryDSN, Source: AgentEnvSourceConditionalSentry, Optional: true},
 	{Key: AgentEnvSentryEnvironment, Source: AgentEnvSourceConditionalSentry, Optional: true},
 	{Key: AgentEnvSentrySampleRate, Source: AgentEnvSourceConditionalSentry, Optional: true},

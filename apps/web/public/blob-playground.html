@@ -1,0 +1,1274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blob Playground</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: oklch(96.5% 0.018 78);
+        --panel: oklch(98.7% 0.009 78);
+        --panel-strong: oklch(92.7% 0.02 78);
+        --line: oklch(84.5% 0.022 76);
+        --ink: oklch(24% 0.032 252);
+        --muted: oklch(49% 0.035 250);
+        --accent: oklch(57% 0.17 27);
+        --accent-soft: oklch(91% 0.058 33);
+        --blob-fill: #1f2937;
+        --eye-fill: #fbf6ec;
+        --stage-fill: #efe5d7;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: var(--page);
+        color: var(--ink);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .shell {
+        width: min(1540px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 720px;
+        margin: 0;
+        font-size: 1.85rem;
+        line-height: 1.12;
+        font-weight: 760;
+      }
+
+      .summary {
+        width: min(360px, 100%);
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns:
+          minmax(280px, 1.05fr) minmax(280px, 1fr)
+          minmax(280px, 0.95fr);
+        gap: 16px;
+        align-items: stretch;
+        margin-bottom: 24px;
+      }
+
+      .control-band {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 14px;
+      }
+
+      .control-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .control-title h2 {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.2;
+      }
+
+      .count {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 650;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .field {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 650;
+      }
+
+      input[type="color"] {
+        width: 100%;
+        height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-strong);
+        padding: 3px;
+      }
+
+      .button-row,
+      .swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .button-row {
+        margin-top: 12px;
+      }
+
+      .button {
+        min-height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: oklch(98% 0.01 78);
+        color: var(--ink);
+        padding: 0 12px;
+        font-size: 0.84rem;
+        font-weight: 720;
+        transition:
+          background 170ms ease,
+          border-color 170ms ease,
+          transform 170ms ease;
+      }
+
+      .button:hover {
+        border-color: oklch(73% 0.052 66);
+        background: oklch(95.5% 0.024 72);
+        transform: translateY(-1px);
+      }
+
+      .button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid oklch(72% 0.12 40 / 0.35);
+        outline-offset: 2px;
+      }
+
+      .button[aria-pressed="true"],
+      .toggle input:checked + span {
+        border-color: oklch(57% 0.17 27);
+        background: var(--accent-soft);
+        color: oklch(31% 0.088 30);
+      }
+
+      .button:disabled {
+        cursor: not-allowed;
+        opacity: 0.46;
+        transform: none;
+      }
+
+      .button.primary {
+        border-color: oklch(49% 0.15 27);
+        background: var(--accent);
+        color: oklch(97% 0.012 72);
+      }
+
+      .button.primary:hover {
+        border-color: oklch(42% 0.15 27);
+        background: oklch(52% 0.17 27);
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .toggle input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .toggle span {
+        display: inline-flex;
+        min-height: 36px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: oklch(98% 0.01 78);
+        padding: 0 12px;
+        color: var(--ink);
+        font-size: 0.84rem;
+        font-weight: 720;
+      }
+
+      .swatch {
+        display: inline-grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 4px;
+      }
+
+      .swatch span {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 5px;
+        background:
+          linear-gradient(
+            135deg,
+            var(--swatch-body) 0 49%,
+            var(--swatch-eye) 50% 64%,
+            var(--swatch-stage) 65% 100%
+          );
+      }
+
+      .variants {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .variant {
+        min-height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: oklch(98% 0.01 78);
+        color: var(--ink);
+        font-size: 0.82rem;
+        font-weight: 720;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+      }
+
+      .tile {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 12px;
+        transition:
+          border-color 180ms ease,
+          box-shadow 180ms ease,
+          transform 180ms ease;
+      }
+
+      .tile:hover {
+        border-color: oklch(75% 0.055 68);
+        box-shadow: 0 18px 38px oklch(45% 0.04 65 / 0.1);
+        transform: translateY(-2px);
+      }
+
+      .tile.is-selected {
+        border-color: oklch(57% 0.17 27);
+        background: oklch(97.2% 0.024 64);
+      }
+
+      .tile.is-selected .stage {
+        box-shadow: inset 0 0 0 2px oklch(57% 0.17 27);
+      }
+
+      .stage {
+        display: grid;
+        aspect-ratio: 1;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 7px;
+        background:
+          radial-gradient(
+            circle at 30% 22%,
+            oklch(99% 0.012 78 / 0.78),
+            transparent 36%
+          ),
+          var(--stage-fill);
+      }
+
+      .blob {
+        width: 78%;
+        height: 78%;
+        overflow: visible;
+        transition:
+          transform 180ms ease,
+          filter 180ms ease;
+        filter: drop-shadow(0 14px 18px oklch(42% 0.035 260 / 0.16));
+      }
+
+      .tile:hover .blob {
+        transform: rotate(-2deg) scale(1.02);
+      }
+
+      .tile-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .blob-name {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 760;
+      }
+
+      .tile-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 760;
+      }
+
+      .selector input {
+        width: 15px;
+        height: 15px;
+        margin: 0;
+        accent-color: var(--accent);
+      }
+
+      .copy {
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: oklch(98.2% 0.01 78);
+        color: var(--ink);
+        padding: 0 9px;
+        font-size: 0.74rem;
+        font-weight: 760;
+      }
+
+      .copy:hover {
+        border-color: oklch(68% 0.09 38);
+      }
+
+      .toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        transform: translateY(18px);
+        border: 1px solid oklch(70% 0.06 58);
+        border-radius: 8px;
+        background: oklch(24% 0.026 250);
+        color: oklch(97% 0.01 78);
+        padding: 11px 13px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        opacity: 0;
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease;
+        pointer-events: none;
+      }
+
+      .toast.is-visible {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      @media (max-width: 900px) {
+        .topbar,
+        .toolbar {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          display: grid;
+          align-items: start;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .shell {
+          width: min(100% - 20px, 1540px);
+          padding-top: 22px;
+        }
+
+        h1 {
+          font-size: 1.45rem;
+        }
+
+        .controls,
+        .variants {
+          grid-template-columns: 1fr;
+        }
+
+        .grid {
+          grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+          gap: 10px;
+        }
+
+        .control-band,
+        .tile {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Extracted SVG set</p>
+          <h1>Blob playground with generated shapes and selectable exports</h1>
+        </div>
+        <p class="summary">
+          Nine inline SVG blobs from the pasted HTML, with generated body
+          variants that keep the extracted eye shapes intact.
+        </p>
+      </header>
+
+      <section class="toolbar" aria-label="Blob controls">
+        <div class="control-band">
+          <div class="control-title">
+            <h2>Colors</h2>
+            <span class="count" id="totalCount">9 symbols</span>
+          </div>
+          <div class="controls">
+            <label class="field">
+              Blob
+              <input id="blobColor" type="color" value="#1f2937" />
+            </label>
+            <label class="field">
+              Eyes
+              <input id="eyeColor" type="color" value="#fbf6ec" />
+            </label>
+            <label class="field">
+              Stage
+              <input id="stageColor" type="color" value="#efe5d7" />
+            </label>
+          </div>
+          <div class="button-row">
+            <button class="button" id="randomize" type="button">
+              Random palette
+            </button>
+            <button class="button" id="reset" type="button">Reset</button>
+            <label class="toggle">
+              <input id="spectrum" type="checkbox" />
+              <span>Per blob colors</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-band">
+          <div class="control-title">
+            <h2>Eye shape</h2>
+            <div class="swatches" aria-label="Palette presets"></div>
+          </div>
+          <div class="variants" role="group" aria-label="Eye variant">
+            <button class="variant" type="button" data-variant="cutout">
+              Original
+            </button>
+            <button class="variant" type="button" data-variant="soft">
+              Softer
+            </button>
+            <button class="variant" type="button" data-variant="thin">
+              Thinner
+            </button>
+            <button class="variant" type="button" data-variant="upward">
+              Upward
+            </button>
+            <button class="variant" type="button" data-variant="tilted">
+              Tilted
+            </button>
+          </div>
+        </div>
+
+        <div class="control-band">
+          <div class="control-title">
+            <h2>Generate</h2>
+            <span class="count" id="selectionCount">0 selected</span>
+          </div>
+          <div class="button-row">
+            <button class="button primary" id="generateShapes" type="button">
+              Generate shapes
+            </button>
+            <button class="button" id="clearGenerated" type="button">
+              Clear variants
+            </button>
+          </div>
+          <div class="status-row">
+            <button class="button" id="selectAll" type="button">
+              Select all
+            </button>
+            <button class="button" id="downloadSelected" type="button" disabled>
+              Download selected
+            </button>
+            <button class="button" id="clearSelection" type="button" disabled>
+              Clear selection
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid" id="grid" aria-label="Extracted blob SVGs"></section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const blobs = [
+        {
+          id: 1,
+          viewBox: "0 0 207 221",
+          d: "M128.291 0.37645C151.11 -1.76664 179.506 5.00638 193.772 26.7319C207.556 47.7249 208.074 75.9446 204.587 100.695C198.156 146.347 178.289 198.288 136.518 215.125C118.348 222.488 101.472 221.969 82.6707 218.788C62.4605 214.826 43.5622 204.898 27.9275 190.03C13.0537 175.707 1.4312 153.55 0.1697 131.372C-3.05175 74.7378 40.1292 30.2672 83.95 11.4673C98.9631 5.02599 112.123 1.65972 128.291 0.37645ZM41.9861 100.781C18.7195 110.802 64.9352 155.194 92.1599 118.906C94.6781 114.311 96.3611 111.794 95.1746 106.236C94.1416 101.395 91.1418 99.9929 87.1297 101.428C77.6802 104.809 77.717 119.276 65.4129 117.572C62.81 117.358 60.514 117.015 58.0662 115.54C50.1951 110.793 51.7173 100.982 41.9861 100.781ZM115.721 100.77C96.8648 110.802 128.844 144.907 156.146 128.535C160.368 126.039 164.017 122.484 166.808 118.149C168.988 114.06 170.585 111.602 169.476 106.686C168.309 101.513 165.316 99.9961 161.03 101.723C151.755 105.462 152.332 119.14 140.163 117.32C138.144 117.147 134.591 116.849 132.677 115.87C123.673 111.266 126.849 100.76 115.721 100.77Z",
+        },
+        {
+          id: 2,
+          viewBox: "0 0 207 221",
+          d: "M118.817 0.62856C152.544 -4.86793 182.256 26.3224 167.543 69.1852C169.511 68.7715 171.564 68.3684 173.56 68.2946C181.172 68.0073 188.555 71.4975 194.023 77.9684C202.716 88.1729 206.362 104.168 206.4 118.372C206.536 167.906 178.906 217.505 135.198 216.546C119.777 216.207 109 214.313 97.3991 200.5C91.1734 209.147 87.6437 211.929 78.9763 216.457C65.8699 221.549 51.9012 222.377 38.4528 218.856C25.445 215.389 13.9344 206.944 6.69598 192.979C0.416795 181.021 -1.55507 166.435 1.24285 152.647C3.50269 141.207 8.21174 132.744 16.446 126.708C14.9647 125.211 12.9277 122.841 11.8727 120.993C-10.0112 82.6515 24.1572 23.868 60.7458 31.4772C70.3081 33.4657 75.08 38.1281 80.2829 47.1061C80.1455 18.698 97.7761 4.50106 118.817 0.62856ZM50.5622 125.872C30.6609 135.894 69.6222 176.018 92.3054 143.382C94.7702 138.511 97.7778 130.871 92.7819 126.471C81.9373 122.163 80.3375 148.159 65.0934 140.428C56.332 135.985 59.8922 128.187 50.5622 125.872ZM112.131 125.863C110.454 127.052 108.069 128.629 107.798 131.256C106.513 143.682 118.809 153.327 127.538 155.076C138.459 157.263 148.481 153.159 155.216 142.209C157.506 137.262 159.541 129.903 154.435 126.194C143.924 123.53 144.098 146.112 129.101 140.766C118.316 136.922 122.252 126.276 112.131 125.863Z",
+        },
+        {
+          id: 3,
+          viewBox: "0 0 207 221",
+          d: "M123.615 0.769331C143.933 -2.71225 169.029 5.90734 183.624 20.8728C227.882 66.3522 200.32 143.669 163.011 183.85C140.972 207.592 116.343 220.312 84.5495 221.001C64.9887 220.429 48.3518 216.187 32.3884 203.844C15.3348 190.711 4.00884 171.081 0.906951 149.276C-5.47736 103.382 22.8539 74.928 54.1589 50.1111C58.6456 46.5544 66.7944 36.4047 70.904 31.5467C85.8971 13.8254 101.023 4.09461 123.615 0.769331ZM37.1589 125.517C34.9729 127.364 32.4277 129.539 32.739 132.425C35.121 154.504 69.2151 159.986 82.5837 145.08C84.0611 143.433 85.2019 142.065 86.3064 140.523C89.046 135.254 91.3339 129.023 84.8005 125.588C71.8378 124.768 74.107 141.803 60.8503 140.118C56.3164 139.541 53.2254 139.287 50.029 135.415C45.1069 129.451 46.0785 125.162 37.1589 125.517ZM130.12 140.102C114.091 139.459 120.782 124.731 106.775 125.605C104.961 127.086 102.587 128.908 102.659 131.21C103.312 153.263 136.589 159.938 150.517 146.54C152.755 144.391 154.161 142.754 155.746 140.638C159.396 133.914 159.776 123.499 150.603 126.083C141.136 128.75 143.632 140.644 130.12 140.102Z",
+        },
+        {
+          id: 4,
+          viewBox: "0 0 207 221",
+          d: "M136.879 0.187887C145.31 -0.565397 153.78 0.953166 161.61 4.62148C174.726 10.9508 185.093 22.9921 190.433 38.0834C197.862 59.1328 193.57 87.3667 174.72 98.8285C171.443 100.82 166.289 102.763 162.678 104.343C169.82 104.576 175.42 102.971 182.476 106.266C191.781 110.519 198.15 119.794 201.921 130.161C213.402 161.717 202.421 203.641 173.438 216.958C160.982 222.585 147.085 222.327 134.796 216.241C119.951 208.862 110.205 195.713 104.337 178.652C95.8131 193.879 87.6563 200.91 73.6253 208.662C47.5791 221.821 16.7605 214.834 4.54518 182.871C-8.11071 149.762 6.23373 105.476 40.47 101.474C38.7545 100.182 37.0593 98.8594 35.3772 97.5092C15.6591 81.5378 11.7009 43.5035 26.1458 21.7738C44.5757 -5.94316 80.708 -8.86778 94.9661 25.1059C96.2877 28.2598 96.7281 36.0949 98.6839 37.7543C100.98 34.7324 99.1642 25.0214 106.039 16.5893C115.371 5.14048 123.709 1.87326 136.879 0.187887ZM118.102 127.328C100.84 137.021 131.765 169.13 156.143 150.987C158.799 149.033 161.109 146.519 162.951 143.581C165.548 138.336 168.004 132.279 162.504 128.05C155.148 126.52 152.432 133.153 148.627 138.417C144.028 144.789 132.58 143.298 128.595 136.672C125.351 131.281 124.389 127.541 118.102 127.328ZM53.427 127.383C35.5312 134.545 60.976 165.684 85.8606 153.645C90.0125 151.684 93.6775 148.587 96.5344 144.626C99.2045 139.819 102.468 132.545 97.3352 128.034C91.181 125.602 86.0948 132.948 83.0911 137.985C80.2609 142.734 72.6714 143.106 68.1389 141.381C60.516 138.479 62.2779 129.057 53.427 127.383Z",
+        },
+        {
+          id: 5,
+          viewBox: "0 0 207 221",
+          d: "M78.8968 1.07191C99.952 -3.44884 126.937 6.20295 136.268 32.445C199.398 20.1463 224.711 121.322 192.229 176.466C175.856 204.257 154.978 213.682 128.871 219.051C96.9698 223.999 60.0385 220.598 33.1243 196.262C16.0506 181.144 4.51685 158.015 1.12336 132.078C-6.96716 69.5287 29.6381 10.8586 78.8968 1.07191ZM42.6243 110.573C26.5071 119.72 46.0528 139.199 56.0775 142.67C64.7063 145.639 73.9162 144.062 81.6029 138.299C84.6703 135.991 86.456 133.635 88.9212 130.401C93.1153 122.412 96.7144 109.375 83.2112 112.043C79.9312 112.691 77.8481 118.721 76.3958 122.417C53.8674 140.064 55.362 111.963 42.6243 110.573ZM111.245 110.476C109.382 111.711 106.492 113.646 106.4 116.093C105.415 141.356 136.451 151.178 150.67 138.463C154.347 135.177 155.85 133.63 158.223 130.122C161.291 123.978 164.103 116.924 158.626 111.392C145.471 107.505 146.42 134.302 129.311 127.13C118.365 122.539 122.495 110.681 111.245 110.476Z",
+        },
+        {
+          id: 6,
+          viewBox: "0 0 207 221",
+          d: "M116.199 0.417082C130.069 -1.06676 139.866 1.07509 151.03 12.2911C165.421 26.7502 166.277 47.7327 175.276 66.2559C180.373 76.7497 190.451 85.1462 195.942 95.6183C204.596 111.788 208.093 131.413 205.628 150.656C203.252 169.175 195.251 185.701 183.402 196.561C168.83 209.677 148.978 212.8 132.204 205.833C120.972 201.169 111.597 193.364 99.2805 196.254C90.4831 198.318 84.5575 204.267 77.4016 210.613C72.4408 214.826 65.6291 218.263 59.927 219.796C49.2121 222.677 36.4968 220.489 27.3645 212.129C0.0822407 187.154 14.9519 146.981 11.5569 112.252C9.98757 95.7133 3.54954 80.9803 1.2239 64.6534C-1.95231 42.4056 0.16592 13.7561 18.2932 3.33114C39.5556 -8.89609 54.666 21.2226 74.68 20.4395C84.6486 20.0493 93.7992 10.0693 102.801 5.27548C107.655 2.6908 111.097 1.67275 116.199 0.417082ZM82.6819 93.0479C75.2955 91.3387 71.63 101.017 67.7073 106.712C63.3838 112.989 51.174 111.416 47.7747 104.401C43.6426 96.6735 44.0198 93.0542 35.8557 93.3565C18.4943 109.021 59.003 148.749 83.4973 111.712C85.8324 106.022 88.4082 97.2361 82.6819 93.0479ZM151.061 93.8995C149.909 93.0159 148.193 93.074 146.944 93.7032C138.308 99.6586 134.302 116.329 121.632 109.586C111.883 104.398 115.311 91.3973 103.18 93.5235C87.9097 112.391 129.759 147.973 152.494 110.471C154.944 104.274 157.353 98.7276 151.061 93.8995Z",
+        },
+        {
+          id: 7,
+          viewBox: "0 0 207 221",
+          d: "M83.5624 0.334682C97.797 -1.61227 113.319 5.08713 121.314 16.4773C135.806 37.116 148.396 24.5164 167.893 29.5944C178.669 32.4006 186.548 43.697 188.263 54.9372C190.193 67.619 182.335 77.3092 183.984 89.4011C185.324 96.7756 198.376 106.9 200.99 114.642C205.989 126.486 208.359 135.926 204.44 148.561C202.467 154.763 199.197 160.445 194.868 165.209C177.682 183.982 158.486 171.898 147.51 181.153C135.532 191.259 138.118 205.808 117.007 217.248C100.001 224.535 82.8375 221.45 71.5819 205.869C68.649 201.809 63.1073 191.453 58.8866 189.702C45.2418 184.043 29.3254 192.924 15.7606 182.259C1.02192 171.331 -4.35871 149.567 3.83286 132.756C5.77909 128.762 9.44443 123.439 11.912 119.817C20.5353 107.161 9.15776 98.3572 6.80454 86.2009C5.29414 78.468 7.60639 70.311 11.6629 63.7312C18.2995 53.7539 29.3661 53.4171 39.7674 51.8337C48.7908 50.4595 48.5159 44.8849 49.2499 37.7946C50.058 30.5752 52.5605 23.6668 56.5399 17.6657C63.2405 7.68762 72.1505 2.3974 83.5624 0.334682ZM112.75 108.585C97.7251 113.119 111.057 128.558 119.211 132.864C126.759 136.825 135.532 137.527 143.585 134.814C149.015 132.935 153.236 129.833 157.097 125.519C160.604 120.265 164.357 114.349 158.119 109.111C149.26 106.304 142.554 127.302 129.352 122.479C118.75 118.605 122.337 110.502 112.75 108.585ZM43.4393 108.61C24.9875 115.752 52.5344 146.052 78.6268 133.283C82.8971 131.202 86.633 128.12 89.5428 124.283C92.4742 119.111 95.2113 113.076 89.0536 109.009C81.0342 107.91 78.9522 113.858 74.6581 119.257C70.2976 124.74 58.2936 123.965 54.1463 118.12C50.1455 112.48 50.3393 109.76 43.4393 108.61Z",
+        },
+        {
+          id: 8,
+          viewBox: "0 0 207 221",
+          d: "M75.5904 0.0969328C99.4468 -1.19465 130.613 10.342 135.18 39.4544C136.517 47.9802 133.075 56.7362 130.346 64.6555C131.848 63.0284 133.912 60.4342 135.132 58.5139C146.454 40.6109 169.412 41.1449 185.094 52.3938C195.593 60.0591 202.854 71.9071 205.282 85.3411C209.883 110.246 200.345 135.82 175.549 141.066C200.756 169.375 177.949 208.677 147.915 218.05C141.098 220.178 137.251 220.546 130.215 220.999C103.582 219.327 82.3924 204.811 88.8863 173.188C87.2611 175.595 85.2728 178.794 83.4488 180.967C66.7101 200.966 35.2214 196.369 17.9205 179.738C7.19576 169.456 0.770309 154.931 0.0982094 139.458C-1.19781 113.91 10.2951 87.2004 36.8531 86.1262C27.4998 78.3017 22.4809 69.5414 21.5963 56.4817C20.8077 43.4663 24.8673 30.6508 32.8629 20.8762C44.1774 6.80834 58.9683 1.30116 75.5904 0.0969328ZM91.4722 124.372C94.3934 118.11 95.1812 106.779 86.0543 110.343C76.8863 113.924 76.8858 129.774 61.6148 123.042C53.5716 120.111 56.1498 109.267 44.7945 110.067C29.0502 124.905 69.1998 155.025 91.4722 124.372ZM155.313 109.998C143.183 108.853 146.46 125.122 132.718 124.353C118.024 123.53 123.255 109.031 109.953 110.112C103.692 116.026 106.49 122.636 111.578 128.159C117.228 134.266 124.915 137.666 132.911 137.598C142.867 137.595 150.836 133.35 156.788 124.804C159.291 119.56 161.244 113.569 155.313 109.998Z",
+        },
+        {
+          id: 9,
+          viewBox: "0 0 207 221",
+          d: "M99.8354 0.0913298C125.278 -0.962398 145.543 7.07485 163.998 25.6138C231.186 93.0989 221.572 217.895 113.247 220.994C86.7435 221.305 60.8923 212.253 39.767 195.261C18.9312 178.279 4.17797 152.86 0.780719 125.066C-2.57944 96.4002 4.99438 67.4992 21.81 44.7915C39.5454 20.348 65.7217 4.41739 94.5463 0.5259C96.3043 0.30065 98.0626 0.155124 99.8354 0.0913298ZM95.7485 108.589C83.6134 104.837 82.4709 129.571 65.1733 122.703C54.4475 118.442 58.4006 109.818 47.9272 108.219C26.7352 117.62 66.5745 157.71 95.2583 125.351C98.1066 120.597 101.527 112.793 95.7485 108.589ZM118.587 108.114C103.24 115.113 120.293 131.812 129.736 135.52C137.954 138.725 147.033 138.319 154.97 134.394C159.651 132.028 163.048 128.925 166.297 124.668C169.361 119.217 171.608 113.034 165.77 108.56C152.619 106.128 154.622 127.222 137.806 123.114C124.588 119.884 130.411 110.384 118.587 108.114Z",
+        },
+      ];
+
+      const palettes = [
+        {
+          name: "Ink",
+          body: "#1f2937",
+          eye: "#fbf6ec",
+          stage: "#efe5d7",
+          fills: ["#1f2937", "#324052", "#5b4639", "#264653", "#6f3d2e"],
+        },
+        {
+          name: "Citrus",
+          body: "#d85f2d",
+          eye: "#fff3d8",
+          stage: "#f7e2b8",
+          fills: ["#d85f2d", "#ed9f31", "#3d7654", "#246f88", "#a84d56"],
+        },
+        {
+          name: "Moss",
+          body: "#3e6b4b",
+          eye: "#fbf7e8",
+          stage: "#e2ead5",
+          fills: ["#3e6b4b", "#677d3b", "#8b5e38", "#2f6971", "#794b63"],
+        },
+        {
+          name: "Berry",
+          body: "#8d3f6d",
+          eye: "#f9edf2",
+          stage: "#eadbe6",
+          fills: ["#8d3f6d", "#4e5e9b", "#b6574c", "#537b67", "#8d6b2f"],
+        },
+        {
+          name: "Blue",
+          body: "#315d86",
+          eye: "#eef7f7",
+          stage: "#dce8ed",
+          fills: ["#315d86", "#2b7772", "#76578b", "#9d5b44", "#5a6d3f"],
+        },
+      ];
+
+      const defaults = {
+        body: palettes[0].body,
+        eye: palettes[0].eye,
+        stage: palettes[0].stage,
+        variant: "cutout",
+        spectrum: false,
+        fills: palettes[0].fills,
+      };
+
+      const state = {
+        ...defaults,
+        generation: 0,
+        items: [],
+        selected: new Set(),
+      };
+      const grid = document.querySelector("#grid");
+      const blobColor = document.querySelector("#blobColor");
+      const eyeColor = document.querySelector("#eyeColor");
+      const stageColor = document.querySelector("#stageColor");
+      const spectrum = document.querySelector("#spectrum");
+      const swatches = document.querySelector(".swatches");
+      const toast = document.querySelector("#toast");
+      const totalCount = document.querySelector("#totalCount");
+      const selectionCount = document.querySelector("#selectionCount");
+      const generateShapes = document.querySelector("#generateShapes");
+      const clearGenerated = document.querySelector("#clearGenerated");
+      const selectAllButton = document.querySelector("#selectAll");
+      const downloadSelectedButton = document.querySelector("#downloadSelected");
+      const clearSelectionButton = document.querySelector("#clearSelection");
+      let toastTimer;
+
+      function splitBlob(d) {
+        return d.match(/M[^M]+/g) || [d];
+      }
+
+      function originalItem(blob) {
+        const [bodyPath, ...eyePaths] = splitBlob(blob.d);
+        return {
+          uid: `original-${blob.id}`,
+          sourceId: blob.id,
+          label: `blob-${blob.id}`,
+          viewBox: blob.viewBox,
+          bodyPath,
+          eyePaths,
+          generated: false,
+        };
+      }
+
+      const originalItems = blobs.map(originalItem);
+      state.items = originalItems.map((item) => ({ ...item }));
+
+      function pathNumber(value) {
+        return Number(value.toFixed(2));
+      }
+
+      function randomBetween(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      const shapeProfiles = {
+        1: [
+          { x: 118, y: 2, r: 72, dx: 6, dy: 9 },
+          { x: 203, y: 93, r: 58, dx: 8, dy: 8 },
+          { x: 132, y: 217, r: 64, dx: 7, dy: 7 },
+          { x: 26, y: 188, r: 58, dx: 7, dy: 7 },
+          { x: 2, y: 126, r: 62, dx: 8, dy: 8 },
+        ],
+        2: [
+          { x: 116, y: 1, r: 54, dx: 6, dy: 9 },
+          { x: 168, y: 69, r: 42, dx: 7, dy: 8 },
+          { x: 205, y: 125, r: 54, dx: 8, dy: 8 },
+          { x: 97, y: 201, r: 62, dx: 6, dy: 8 },
+          { x: 15, y: 127, r: 50, dx: 8, dy: 7 },
+          { x: 80, y: 47, r: 45, dx: 6, dy: 8 },
+        ],
+        3: [
+          { x: 124, y: 1, r: 64, dx: 6, dy: 8 },
+          { x: 202, y: 92, r: 70, dx: 8, dy: 8 },
+          { x: 163, y: 184, r: 54, dx: 7, dy: 7 },
+          { x: 84, y: 221, r: 58, dx: 7, dy: 7 },
+          { x: 2, y: 149, r: 62, dx: 8, dy: 7 },
+          { x: 70, y: 32, r: 46, dx: 6, dy: 8 },
+        ],
+        4: [
+          { x: 137, y: 1, r: 48, dx: 6, dy: 8 },
+          { x: 174, y: 99, r: 44, dx: 8, dy: 8 },
+          { x: 202, y: 139, r: 52, dx: 8, dy: 8 },
+          { x: 174, y: 217, r: 52, dx: 7, dy: 7 },
+          { x: 104, y: 179, r: 48, dx: 7, dy: 8 },
+          { x: 5, y: 183, r: 54, dx: 8, dy: 7 },
+          { x: 40, y: 101, r: 44, dx: 7, dy: 8 },
+          { x: 99, y: 38, r: 40, dx: 6, dy: 7 },
+        ],
+        5: [
+          { x: 79, y: 1, r: 58, dx: 6, dy: 9 },
+          { x: 136, y: 32, r: 44, dx: 7, dy: 8 },
+          { x: 193, y: 176, r: 62, dx: 8, dy: 8 },
+          { x: 129, y: 219, r: 58, dx: 7, dy: 7 },
+          { x: 33, y: 196, r: 58, dx: 7, dy: 8 },
+          { x: 1, y: 132, r: 62, dx: 8, dy: 8 },
+        ],
+        6: [
+          { x: 116, y: 1, r: 48, dx: 6, dy: 8 },
+          { x: 175, y: 66, r: 48, dx: 7, dy: 8 },
+          { x: 196, y: 96, r: 44, dx: 8, dy: 7 },
+          { x: 183, y: 197, r: 54, dx: 8, dy: 7 },
+          { x: 99, y: 196, r: 44, dx: 7, dy: 8 },
+          { x: 60, y: 220, r: 44, dx: 7, dy: 7 },
+          { x: 12, y: 112, r: 54, dx: 8, dy: 8 },
+          { x: 18, y: 3, r: 48, dx: 7, dy: 8 },
+          { x: 75, y: 20, r: 42, dx: 6, dy: 7 },
+        ],
+        7: [
+          { x: 84, y: 1, r: 46, dx: 6, dy: 8 },
+          { x: 121, y: 16, r: 38, dx: 6, dy: 7 },
+          { x: 188, y: 55, r: 44, dx: 7, dy: 8 },
+          { x: 184, y: 89, r: 38, dx: 7, dy: 8 },
+          { x: 205, y: 149, r: 48, dx: 8, dy: 7 },
+          { x: 148, y: 181, r: 42, dx: 7, dy: 7 },
+          { x: 117, y: 217, r: 42, dx: 7, dy: 7 },
+          { x: 59, y: 190, r: 42, dx: 7, dy: 8 },
+          { x: 4, y: 133, r: 46, dx: 8, dy: 7 },
+          { x: 12, y: 120, r: 34, dx: 7, dy: 8 },
+          { x: 40, y: 52, r: 42, dx: 7, dy: 8 },
+        ],
+        8: [
+          { x: 76, y: 1, r: 54, dx: 6, dy: 8 },
+          { x: 135, y: 39, r: 40, dx: 7, dy: 8 },
+          { x: 185, y: 52, r: 46, dx: 7, dy: 8 },
+          { x: 175, y: 141, r: 44, dx: 8, dy: 8 },
+          { x: 148, y: 218, r: 52, dx: 7, dy: 7 },
+          { x: 89, y: 173, r: 42, dx: 7, dy: 8 },
+          { x: 18, y: 180, r: 52, dx: 7, dy: 7 },
+          { x: 37, y: 86, r: 42, dx: 7, dy: 8 },
+          { x: 22, y: 56, r: 44, dx: 7, dy: 8 },
+        ],
+        9: [
+          { x: 100, y: 1, r: 70, dx: 6, dy: 8 },
+          { x: 164, y: 26, r: 56, dx: 7, dy: 8 },
+          { x: 217, y: 105, r: 68, dx: 8, dy: 8 },
+          { x: 113, y: 221, r: 68, dx: 7, dy: 7 },
+          { x: 40, y: 195, r: 60, dx: 7, dy: 8 },
+          { x: 1, y: 125, r: 62, dx: 8, dy: 7 },
+          { x: 22, y: 45, r: 52, dx: 7, dy: 8 },
+        ],
+      };
+
+      function randomAnchorMoves(sourceId) {
+        return shapeProfiles[sourceId].map((anchor) => ({
+          ...anchor,
+          moveX: randomBetween(-anchor.dx, anchor.dx),
+          moveY: randomBetween(-anchor.dy, anchor.dy),
+        }));
+      }
+
+      function deformPoint(x, y, anchors) {
+        let moveX = 0;
+        let moveY = 0;
+        anchors.forEach((anchor) => {
+          const dx = x - anchor.x;
+          const dy = y - anchor.y;
+          const influence = Math.exp(
+            -(dx * dx + dy * dy) / (2 * anchor.r * anchor.r),
+          );
+          moveX += anchor.moveX * influence;
+          moveY += anchor.moveY * influence;
+        });
+        return {
+          x: pathNumber(clamp(x + moveX, -14, 234)),
+          y: pathNumber(clamp(y + moveY, -12, 226)),
+        };
+      }
+
+      function mutateBodyPath(sourceItem) {
+        const anchors = randomAnchorMoves(sourceItem.sourceId);
+        let pairIndex = 0;
+        return sourceItem.bodyPath.replace(
+          /(-?\d*\.?\d+(?:e[-+]?\d+)?)\s+(-?\d*\.?\d+(?:e[-+]?\d+)?)/gi,
+          (match, xValue, yValue) => {
+            const x = Number(xValue);
+            const y = Number(yValue);
+            const moved = pairIndex === 0 ? { x, y } : deformPoint(x, y, anchors);
+            pairIndex += 1;
+            return `${moved.x} ${moved.y}`;
+          },
+        );
+      }
+
+      function generateShapeBatch() {
+        state.generation += 1;
+        const generated = originalItems.map((item, index) => ({
+          ...item,
+          uid: `generated-${state.generation}-${item.sourceId}`,
+          label: `blob-${item.sourceId}-v${state.generation}`,
+          bodyPath: mutateBodyPath(item),
+          generated: true,
+        }));
+        state.items = [...state.items, ...generated];
+        render();
+        showToast(`Generated ${generated.length} new shape variants`);
+      }
+
+      function bboxFromPath(d) {
+        const numbers = d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+        const xs = [];
+        const ys = [];
+        for (let index = 0; index < numbers.length - 1; index += 2) {
+          xs.push(numbers[index]);
+          ys.push(numbers[index + 1]);
+        }
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        return {
+          x: minX,
+          y: minY,
+          w: maxX - minX,
+          h: maxY - minY,
+          cx: minX + (maxX - minX) / 2,
+          cy: minY + (maxY - minY) / 2,
+        };
+      }
+
+      function scaleAround(box, sx, sy) {
+        const e = box.cx * (1 - sx);
+        const f = box.cy * (1 - sy);
+        return `matrix(${sx} 0 0 ${sy} ${e.toFixed(2)} ${f.toFixed(2)})`;
+      }
+
+      function rotateAround(box, degrees) {
+        const radians = (degrees * Math.PI) / 180;
+        const a = Math.cos(radians);
+        const b = Math.sin(radians);
+        const c = -b;
+        const d = a;
+        const e = box.cx - a * box.cx - c * box.cy;
+        const f = box.cy - b * box.cx - d * box.cy;
+        return `matrix(${a.toFixed(4)} ${b.toFixed(4)} ${c.toFixed(
+          4,
+        )} ${d.toFixed(4)} ${e.toFixed(2)} ${f.toFixed(2)})`;
+      }
+
+      function eyeTransform(pathD, variant, eyeIndex) {
+        if (variant === "cutout") {
+          return "";
+        }
+        const box = bboxFromPath(pathD);
+        if (variant === "soft") {
+          return scaleAround(box, 1, 0.72);
+        }
+        if (variant === "thin") {
+          return scaleAround(box, 1.03, 0.46);
+        }
+        if (variant === "upward") {
+          return scaleAround(box, 1, -0.86);
+        }
+        const angle = eyeIndex === 0 ? -7 : 7;
+        return rotateAround(box, angle);
+      }
+
+      function eyeMarkup(pathD, variant, fill, eyeIndex) {
+        const transform = eyeTransform(pathD, variant, eyeIndex);
+        const transformAttr = transform ? ` transform="${transform}"` : "";
+        return `<path d="${pathD}" fill="${fill}"${transformAttr}></path>`;
+      }
+
+      function svgMarkup(item, fill, options = {}) {
+        const classAttr = options.className === false ? "" : ' class="blob"';
+        const roleAttr =
+          options.accessible === false
+            ? ""
+            : ` role="img" aria-label="${item.label}"`;
+        const eyes = item.eyePaths
+          .map((pathD, index) =>
+            eyeMarkup(pathD, state.variant, state.eye, index),
+          )
+          .join("");
+        return `<svg${classAttr} viewBox="${item.viewBox}" xmlns="http://www.w3.org/2000/svg"${roleAttr}>
+          <path d="${item.bodyPath}" fill="${fill}"></path>
+          <g>${eyes}</g>
+        </svg>`;
+      }
+
+      function fillFor(index) {
+        return state.spectrum
+          ? state.fills[index % state.fills.length]
+          : state.body;
+      }
+
+      function exportSvgMarkup(item, index) {
+        return svgMarkup(item, fillFor(index), {
+          accessible: false,
+          className: false,
+        }).trim();
+      }
+
+      function render() {
+        document.documentElement.style.setProperty("--blob-fill", state.body);
+        document.documentElement.style.setProperty("--eye-fill", state.eye);
+        document.documentElement.style.setProperty("--stage-fill", state.stage);
+        totalCount.textContent = `${state.items.length} symbols`;
+        selectionCount.textContent = `${state.selected.size} selected`;
+        selectAllButton.disabled = state.selected.size === state.items.length;
+        downloadSelectedButton.disabled = state.selected.size === 0;
+        clearSelectionButton.disabled = state.selected.size === 0;
+        clearGenerated.disabled = state.items.every((item) => !item.generated);
+
+        grid.innerHTML = state.items
+          .map(
+            (item, index) => `<article class="tile${
+              state.selected.has(item.uid) ? " is-selected" : ""
+            }" data-uid="${item.uid}">
+              <div class="stage">${svgMarkup(item, fillFor(index))}</div>
+              <div class="tile-footer">
+                <span class="blob-name">${item.label}</span>
+                <div class="tile-actions">
+                  <label class="selector">
+                    <input type="checkbox" data-select="${item.uid}"${
+                      state.selected.has(item.uid) ? " checked" : ""
+                    } />
+                    Select
+                  </label>
+                  <button class="copy" type="button" data-copy="${
+                    item.uid
+                  }">Copy SVG</button>
+                </div>
+              </div>
+            </article>`,
+          )
+          .join("");
+        document.querySelectorAll(".variant").forEach((button) => {
+          const active = button.dataset.variant === state.variant;
+          button.setAttribute("aria-pressed", String(active));
+        });
+      }
+
+      function applyPalette(palette) {
+        state.body = palette.body;
+        state.eye = palette.eye;
+        state.stage = palette.stage;
+        state.fills = palette.fills;
+        blobColor.value = palette.body;
+        eyeColor.value = palette.eye;
+        stageColor.value = palette.stage;
+        render();
+      }
+
+      function showToast(message) {
+        window.clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add("is-visible");
+        toastTimer = window.setTimeout(() => {
+          toast.classList.remove("is-visible");
+        }, 1600);
+      }
+
+      function writeClipboard(text) {
+        if (navigator.clipboard?.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.append(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        return copied ? Promise.resolve() : Promise.reject();
+      }
+
+      function itemIndex(uid) {
+        return state.items.findIndex((item) => item.uid === uid);
+      }
+
+      function itemByUid(uid) {
+        return state.items.find((item) => item.uid === uid);
+      }
+
+      function copyBlob(uid) {
+        const item = itemByUid(uid);
+        const index = itemIndex(uid);
+        if (!item || index === -1) return;
+        const markup = exportSvgMarkup(item, index);
+        writeClipboard(markup).then(
+          () => showToast(`Copied ${item.label} SVG`),
+          () => showToast("Could not copy SVG"),
+        );
+      }
+
+      function setSelected(uid, selected) {
+        if (selected) {
+          state.selected.add(uid);
+        } else {
+          state.selected.delete(uid);
+        }
+        render();
+      }
+
+      function toggleSelected(uid) {
+        setSelected(uid, !state.selected.has(uid));
+      }
+
+      function selectedItems() {
+        return state.items.filter((item) => state.selected.has(item.uid));
+      }
+
+      function safeFileName(name) {
+        return name.replace(/[^a-z0-9._-]+/gi, "-").toLowerCase();
+      }
+
+      function downloadBlob(name, blob) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+      }
+
+      const crcTable = Array.from({ length: 256 }, (_, index) => {
+        let value = index;
+        for (let bit = 0; bit < 8; bit += 1) {
+          value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+        }
+        return value >>> 0;
+      });
+
+      function crc32(bytes) {
+        let value = 0xffffffff;
+        for (const byte of bytes) {
+          value = crcTable[(value ^ byte) & 0xff] ^ (value >>> 8);
+        }
+        return (value ^ 0xffffffff) >>> 0;
+      }
+
+      function zipDateParts(date = new Date()) {
+        const time =
+          (date.getHours() << 11) |
+          (date.getMinutes() << 5) |
+          Math.floor(date.getSeconds() / 2);
+        const day =
+          ((date.getFullYear() - 1980) << 9) |
+          ((date.getMonth() + 1) << 5) |
+          date.getDate();
+        return { day, time };
+      }
+
+      function zipSelectedFiles(files) {
+        const encoder = new TextEncoder();
+        const localParts = [];
+        const centralParts = [];
+        let offset = 0;
+        const { day, time } = zipDateParts();
+
+        files.forEach((file) => {
+          const nameBytes = encoder.encode(file.name);
+          const data = encoder.encode(file.content);
+          const checksum = crc32(data);
+          const local = new Uint8Array(30 + nameBytes.length);
+          const localView = new DataView(local.buffer);
+          localView.setUint32(0, 0x04034b50, true);
+          localView.setUint16(4, 20, true);
+          localView.setUint16(10, time, true);
+          localView.setUint16(12, day, true);
+          localView.setUint32(14, checksum, true);
+          localView.setUint32(18, data.length, true);
+          localView.setUint32(22, data.length, true);
+          localView.setUint16(26, nameBytes.length, true);
+          local.set(nameBytes, 30);
+          localParts.push(local, data);
+
+          const central = new Uint8Array(46 + nameBytes.length);
+          const centralView = new DataView(central.buffer);
+          centralView.setUint32(0, 0x02014b50, true);
+          centralView.setUint16(4, 20, true);
+          centralView.setUint16(6, 20, true);
+          centralView.setUint16(12, time, true);
+          centralView.setUint16(14, day, true);
+          centralView.setUint32(16, checksum, true);
+          centralView.setUint32(20, data.length, true);
+          centralView.setUint32(24, data.length, true);
+          centralView.setUint16(28, nameBytes.length, true);
+          centralView.setUint32(42, offset, true);
+          central.set(nameBytes, 46);
+          centralParts.push(central);
+          offset += local.length + data.length;
+        });
+
+        const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+        const end = new Uint8Array(22);
+        const endView = new DataView(end.buffer);
+        endView.setUint32(0, 0x06054b50, true);
+        endView.setUint16(8, files.length, true);
+        endView.setUint16(10, files.length, true);
+        endView.setUint32(12, centralSize, true);
+        endView.setUint32(16, offset, true);
+        return new Blob([...localParts, ...centralParts, end], {
+          type: "application/zip",
+        });
+      }
+
+      function downloadSelected() {
+        const items = selectedItems();
+        if (items.length === 0) {
+          showToast("Select at least one blob first");
+          return;
+        }
+
+        const files = items.map((item) => {
+          const index = itemIndex(item.uid);
+          return {
+            name: `${safeFileName(item.label)}.svg`,
+            content: exportSvgMarkup(item, index),
+          };
+        });
+
+        if (files.length === 1) {
+          downloadBlob(
+            files[0].name,
+            new Blob([files[0].content], { type: "image/svg+xml" }),
+          );
+          showToast(`Downloaded ${items[0].label}`);
+          return;
+        }
+
+        downloadBlob("selected-blobs.zip", zipSelectedFiles(files));
+        showToast(`Downloaded ${files.length} SVG files`);
+      }
+
+      function clearGeneratedVariants() {
+        const generatedUids = new Set(
+          state.items.filter((item) => item.generated).map((item) => item.uid),
+        );
+        state.items = state.items.filter((item) => !item.generated);
+        generatedUids.forEach((uid) => state.selected.delete(uid));
+        render();
+        showToast("Cleared generated variants");
+      }
+
+      swatches.innerHTML = palettes
+        .map(
+          (palette) => `<button class="swatch" type="button" title="${palette.name}" aria-label="${palette.name} palette" data-palette="${palette.name}" style="--swatch-body:${palette.body};--swatch-eye:${palette.eye};--swatch-stage:${palette.stage}">
+            <span></span>
+          </button>`,
+        )
+        .join("");
+
+      blobColor.addEventListener("input", (event) => {
+        state.body = event.target.value;
+        render();
+      });
+      eyeColor.addEventListener("input", (event) => {
+        state.eye = event.target.value;
+        render();
+      });
+      stageColor.addEventListener("input", (event) => {
+        state.stage = event.target.value;
+        render();
+      });
+      spectrum.addEventListener("change", (event) => {
+        state.spectrum = event.target.checked;
+        render();
+      });
+      document.querySelector(".variants").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-variant]");
+        if (!button) return;
+        state.variant = button.dataset.variant;
+        render();
+      });
+      swatches.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-palette]");
+        if (!button) return;
+        const palette = palettes.find((item) => item.name === button.dataset.palette);
+        applyPalette(palette);
+      });
+      document.querySelector("#randomize").addEventListener("click", () => {
+        const palette = palettes[Math.floor(Math.random() * palettes.length)];
+        applyPalette(palette);
+        if (!state.spectrum) {
+          state.body = palette.fills[Math.floor(Math.random() * palette.fills.length)];
+          blobColor.value = state.body;
+          render();
+        }
+      });
+      document.querySelector("#reset").addEventListener("click", () => {
+        Object.assign(state, defaults);
+        blobColor.value = defaults.body;
+        eyeColor.value = defaults.eye;
+        stageColor.value = defaults.stage;
+        spectrum.checked = defaults.spectrum;
+        render();
+      });
+      generateShapes.addEventListener("click", generateShapeBatch);
+      clearGenerated.addEventListener("click", clearGeneratedVariants);
+      selectAllButton.addEventListener("click", () => {
+        state.items.forEach((item) => state.selected.add(item.uid));
+        render();
+      });
+      downloadSelectedButton.addEventListener("click", downloadSelected);
+      clearSelectionButton.addEventListener("click", () => {
+        state.selected.clear();
+        render();
+      });
+      grid.addEventListener("change", (event) => {
+        const checkbox = event.target.closest("[data-select]");
+        if (!checkbox) return;
+        setSelected(checkbox.dataset.select, checkbox.checked);
+      });
+      grid.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-copy]");
+        if (button) {
+          copyBlob(button.dataset.copy);
+          return;
+        }
+
+        if (event.target.closest("label, input")) return;
+        const tile = event.target.closest("[data-uid]");
+        if (!tile) return;
+        toggleSelected(tile.dataset.uid);
+      });
+
+      render();
+    </script>
+  </body>
+</html>

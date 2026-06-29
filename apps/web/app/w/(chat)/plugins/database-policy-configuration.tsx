@@ -247,7 +247,7 @@ export function MongoDatabaseConfiguration({
   )
 }
 
-function ConfigureFrame({
+export function ConfigureFrame({
   children,
   selectedObjectCount,
   canSave,
@@ -433,7 +433,7 @@ function FieldMaskList({
   )
 }
 
-function EmptyPolicyState({ text }: { text: string }) {
+export function EmptyPolicyState({ text }: { text: string }) {
   return (
     <div className="bg-default rounded-2xl px-3 py-8 text-center text-sm text-muted">
       {text}

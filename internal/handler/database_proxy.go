@@ -66,6 +66,17 @@ func (h *DatabaseProxyHandler) handle(w http.ResponseWriter, r *http.Request, pr
 		writeJSON(w, status, map[string]string{"error": "agent not found"})
 		return
 	}
+	allowed, err := h.hasDatabasePluginAccess(ctx, agent, provider)
+	if err != nil {
+		h.capture(ctx, provider, http.StatusInternalServerError, "database plugin access check failed", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database connection not found"})
+		return
+	}
+	if !allowed {
+		h.capture(ctx, provider, http.StatusNotFound, "database plugin access denied", gorm.ErrRecordNotFound)
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "database connection not found"})
+		return
+	}
 	conn, err := h.resolveConnection(ctx, agent, provider)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -125,9 +136,20 @@ func (h *DatabaseProxyHandler) resolveConnection(ctx context.Context, agent mode
 	var conn model.DatabaseConnection
 	return conn, h.db.WithContext(ctx).
 		Where("org_id = ? AND provider = ? AND revoked_at IS NULL", *agent.OrgID, provider).
-		Where("agent_id IS NULL OR agent_id = ?", agent.ID).
-		Order("agent_id DESC, created_at ASC").
+		Order("created_at ASC").
 		First(&conn).Error
+}
+
+func (h *DatabaseProxyHandler) hasDatabasePluginAccess(ctx context.Context, agent model.Agent, provider string) (bool, error) {
+	var count int64
+	err := h.db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
+		Joins("JOIN plugin_integrations ON plugin_integrations.plugin_id = agent_plugin_installs.plugin_id").
+		Joins("JOIN org_plugin_installs ON org_plugin_installs.plugin_id = agent_plugin_installs.plugin_id AND org_plugin_installs.org_id = agent_plugin_installs.org_id AND org_plugin_installs.revoked_at IS NULL").
+		Joins("JOIN plugins ON plugins.id = agent_plugin_installs.plugin_id AND plugins.status = ?", model.PluginStatusActive).
+		Where("agent_plugin_installs.org_id = ? AND agent_plugin_installs.agent_id = ?", *agent.OrgID, agent.ID).
+		Where("plugin_integrations.kind = ? AND plugin_integrations.provider = ?", model.PluginIntegrationKindDatabase, provider).
+		Count(&count).Error
+	return count > 0, err
 }
 
 func (h *DatabaseProxyHandler) capture(ctx context.Context, provider string, status int, reason string, err error) {

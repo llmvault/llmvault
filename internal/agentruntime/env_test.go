@@ -56,6 +56,8 @@ func TestAgentEnvCatalogGolden(t *testing.T) {
 		AgentEnvMySQLToken,
 		AgentEnvMongoDBURL,
 		AgentEnvMongoDBToken,
+		AgentEnvRedisURL,
+		AgentEnvRedisToken,
 		AgentEnvSentryDSN,
 		AgentEnvSentryEnvironment,
 		AgentEnvSentrySampleRate,
@@ -98,6 +100,8 @@ func TestApplyServiceProxyEnvSetsAllProviderProxyVariables(t *testing.T) {
 		AgentEnvMySQLToken:     "runtime-secret",
 		AgentEnvMongoDBURL:     "https://api.example.test/internal/database-proxy/mongodb/11111111-1111-1111-1111-111111111111",
 		AgentEnvMongoDBToken:   "runtime-secret",
+		AgentEnvRedisURL:       "https://api.example.test/internal/database-proxy/redis/11111111-1111-1111-1111-111111111111",
+		AgentEnvRedisToken:     "runtime-secret",
 	}
 	if !reflect.DeepEqual(env, want) {
 		t.Fatalf("proxy env = %#v, want %#v", env, want)

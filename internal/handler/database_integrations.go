@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,7 +30,6 @@ type databaseConnectionRequest struct {
 	Provider      string     `json:"provider"`
 	DisplayName   string     `json:"display_name"`
 	ConnectionURL string     `json:"connection_url"`
-	AgentID       *uuid.UUID `json:"agent_id,omitempty"`
 	AccessPolicy  dbi.Policy `json:"access_policy,omitempty"`
 }
 
@@ -39,7 +37,6 @@ type databaseConnectionResponse struct {
 	ID             uuid.UUID  `json:"id"`
 	Provider       string     `json:"provider"`
 	DisplayName    string     `json:"display_name"`
-	AgentID        *uuid.UUID `json:"agent_id,omitempty"`
 	SchemaSnapshot any        `json:"schema_snapshot,omitempty"`
 	AccessPolicy   model.JSON `json:"access_policy"`
 	CreatedAt      string     `json:"created_at"`
@@ -77,11 +74,6 @@ func (h *DatabaseIntegrationHandler) Create(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "provider and connection_url are required"})
 		return
 	}
-	agentID, err := h.resolveAgentID(r.Context(), org.ID, req.AgentID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
 	encrypted, wrapped, err := dbi.EncryptSecret(r.Context(), h.kms, req.ConnectionURL)
 	if err != nil {
 		logging.Capture(r.Context(), fmt.Errorf("database integration encrypt: %w", err))
@@ -91,7 +83,6 @@ func (h *DatabaseIntegrationHandler) Create(w http.ResponseWriter, r *http.Reque
 	conn := model.DatabaseConnection{
 		ID:           uuid.New(),
 		OrgID:        org.ID,
-		AgentID:      &agentID,
 		Provider:     provider,
 		DisplayName:  req.DisplayName,
 		EncryptedDSN: encrypted,
@@ -167,22 +158,6 @@ func (h *DatabaseIntegrationHandler) Revoke(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, databaseConnectionToResponse(conn))
 }
 
-func (h *DatabaseIntegrationHandler) resolveAgentID(ctx context.Context, orgID uuid.UUID, requested *uuid.UUID) (uuid.UUID, error) {
-	if requested != nil {
-		var count int64
-		if err := h.db.WithContext(ctx).Model(&model.Agent{}).
-			Where("id = ? AND org_id = ?", *requested, orgID).Count(&count).Error; err != nil || count == 0 {
-			return uuid.Nil, fmt.Errorf("agent not found")
-		}
-		return *requested, nil
-	}
-	var agent model.Agent
-	if err := h.db.WithContext(ctx).Where("org_id = ? AND status <> ?", orgID, "archived").Order("created_at ASC").First(&agent).Error; err != nil {
-		return uuid.Nil, fmt.Errorf("agent not found")
-	}
-	return agent.ID, nil
-}
-
 func (h *DatabaseIntegrationHandler) loadOrgConnection(w http.ResponseWriter, r *http.Request) (model.DatabaseConnection, bool) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -209,7 +184,6 @@ func databaseConnectionToResponse(conn model.DatabaseConnection) databaseConnect
 		ID:             conn.ID,
 		Provider:       conn.Provider,
 		DisplayName:    conn.DisplayName,
-		AgentID:        conn.AgentID,
 		SchemaSnapshot: snapshot,
 		AccessPolicy:   conn.AccessPolicy,
 		CreatedAt:      conn.CreatedAt.Format(time.RFC3339),

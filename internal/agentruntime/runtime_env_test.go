@@ -87,6 +87,8 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		AgentEnvMySQLToken:             "runtime-secret",
 		AgentEnvMongoDBURL:             "https://api.example.test/internal/database-proxy/mongodb/" + agentID.String(),
 		AgentEnvMongoDBToken:           "runtime-secret",
+		AgentEnvRedisURL:               "https://api.example.test/internal/database-proxy/redis/" + agentID.String(),
+		AgentEnvRedisToken:             "runtime-secret",
 		AgentEnvSentryDSN:              "https://agent@example.test/1",
 		AgentEnvSentryEnvironment:      "production",
 		AgentEnvSentrySampleRate:       "1",
