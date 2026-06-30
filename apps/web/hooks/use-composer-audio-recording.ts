@@ -3,25 +3,34 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useVoiceVisualizer } from "react-voice-visualizer"
 import { useMicrophonePermission } from "@/hooks/use-microphone-permission"
-import { useSessionAudioTranscription } from "@/hooks/use-session-audio-transcription"
 
 export type RecordingTranscriptIntent = "edit" | "send"
 
+// The transcription dependency is injected so the same recorder UX can be
+// driven by either session-scoped (`useSessionAudioTranscription`) or
+// org-scoped (`useOrgAudioTranscription`) transcription. The recorder only
+// needs the recognized text back.
+export interface RecordingTranscription {
+  mutateAsync: (input: {
+    blob: Blob
+    mimeType?: string
+  }) => Promise<{ text: string }>
+  isPending: boolean
+}
+
 interface UseComposerAudioRecordingOptions {
-  agentId: string
   isStreaming: boolean
   onTranscript: (
     text: string,
     intent: RecordingTranscriptIntent
   ) => Promise<void> | void
-  sessionId: string
+  transcription: RecordingTranscription
 }
 
 export function useComposerAudioRecording({
-  agentId,
   isStreaming,
   onTranscript,
-  sessionId,
+  transcription,
 }: UseComposerAudioRecordingOptions) {
   const [micPromptOpen, setMicPromptOpen] = useState(false)
   const completionIntentRef = useRef<RecordingTranscriptIntent>("edit")
@@ -54,7 +63,7 @@ export function useComposerAudioRecording({
   const {
     mutateAsync: transcribeRecording,
     isPending: isTranscribingRecording,
-  } = useSessionAudioTranscription({ agentId, sessionId })
+  } = transcription
 
   useEffect(() => {
     onTranscriptRef.current = onTranscript
@@ -100,29 +109,11 @@ export function useComposerAudioRecording({
 
     lastLoggedRecordingRef.current = recordedBlob
     const intent = completionIntentRef.current
-    const url = URL.createObjectURL(recordedBlob)
-    const startedAt = recordingStartedAtRef.current
-    const elapsedMs = startedAt
-      ? Date.now() - startedAt
-      : recordingDurationRef.current
     const mimeType =
       recordedBlob.type || recordingMimeTypeRef.current || "audio/webm"
-    console.warn("Audio recording complete", {
-      blob: recordedBlob,
-      blobUrl: url,
-      durationMs: Math.max(recordingDurationRef.current, elapsedMs),
-      mimeType,
-      sessionId,
-      size: recordedBlob.size,
-      startedAt: startedAt ? new Date(startedAt).toISOString() : null,
-      stoppedAt: new Date().toISOString(),
-    })
+
     void transcribeRecording({ blob: recordedBlob, mimeType })
-      .then(async ({ asset, text }) => {
-        console.warn("Audio transcription complete", {
-          driveAssetId: asset.id,
-          text,
-        })
+      .then(async ({ text }) => {
         if (!text.trim()) return
         await onTranscriptRef.current(text, intent)
       })
@@ -132,9 +123,7 @@ export function useComposerAudioRecording({
       .finally(() => {
         completionIntentRef.current = "edit"
       })
-
-    return () => URL.revokeObjectURL(url)
-  }, [recordedBlob, sessionId, transcribeRecording])
+  }, [recordedBlob, transcribeRecording])
 
   const startRecordingFromCurrentState = useCallback(() => {
     clearCanvas()

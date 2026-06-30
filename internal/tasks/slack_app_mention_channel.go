@@ -196,13 +196,12 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 		Source:            model.SessionSourceExternal,
 		SourceID:          &connID,
 		SourceResourceKey: key,
-		Name:              "Slack: " + channel.ExternalResourceName,
+		// Name is left empty so Slack sessions follow the same naming strategy
+		// as web/API sessions: no name up front, then an async LLM title
+		// generated from the first message (enqueued after delivery commits it).
 		Status:            "active",
 		AgentTurnStatus:   model.SessionAgentTurnIdle,
 		IntegrationScopes: model.JSON{},
-	}
-	if strings.TrimSpace(session.Name) == "Slack:" {
-		session.Name = "Slack: " + row.SlackChannelID
 	}
 	if err := h.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&session).Error; err != nil {
 		return model.Session{}, fmt.Errorf("create slack session: %w", err)

@@ -208,6 +208,21 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			reg,
 		)
 	}
+	// Org-scoped transcription (settings surfaces with no session) reuses the
+	// same ElevenLabs stack as session transcription.
+	var transcriptionHandler *handler.TranscriptionHandler
+	if deps.KMS != nil {
+		transcriptionHandler = handler.NewTranscriptionHandler(
+			database,
+			enqueuer,
+			deps.KMS,
+			transcription.NewElevenLabsTranscriber(&http.Client{
+				Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
+				Timeout:   65 * time.Second,
+			}, 60*time.Second),
+			reg,
+		)
+	}
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -235,7 +250,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, brandHandler, teamHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, memoryHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, brandHandler, teamHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, memoryHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, transcriptionHandler, orchestrator, auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, integrationHandler, connectionHandler, credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)

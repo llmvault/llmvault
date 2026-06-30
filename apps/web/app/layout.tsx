@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Bricolage_Grotesque, Geist_Mono } from "next/font/google"
+import { Geist, Geist_Mono } from "next/font/google"
 import "./hero.css"
 import { Toast } from "@heroui/react"
 import { QueryProvider } from "@/components/query-provider"
@@ -9,7 +9,10 @@ import { ThemeProviders } from "@/components/theme-providers"
 // next-themes injects its own equivalent script for the light/dark mode.
 const PRESET_NO_FLASH = `(function(){try{var p=localStorage.getItem('hivy-theme-preset');if(p&&p!=='default')document.documentElement.dataset.themePreset=p;}catch(e){}})();`
 
-const bricolage = Bricolage_Grotesque({})
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+})
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
@@ -40,10 +43,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistMono.variable} bg-background font-sans antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased dark`}
       suppressHydrationWarning
     >
-      <body className={bricolage.className}>
+      <body className={geistSans.className}>
         <script dangerouslySetInnerHTML={{ __html: PRESET_NO_FLASH }} />
         <ThemeProviders>
           <QueryProvider>

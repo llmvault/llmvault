@@ -19,10 +19,7 @@ export function Logo({ className = "h-8" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <LogoMark className="h-full w-auto shrink-0" />
-      <span
-        className="text-lg font-semibold tracking-tight text-foreground"
-        style={{ fontFamily: "var(--font-sora), sans-serif" }}
-      >
+      <span className="text-lg font-semibold tracking-tight text-foreground">
         hivy
       </span>
     </div>
