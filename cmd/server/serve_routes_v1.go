@@ -50,6 +50,7 @@ func setupV1Routes(
 	systemTaskHandler *handler.SystemTaskHandler,
 	agentHandler *handler.AgentHandler,
 	canvasHandler *handler.CanvasHandler,
+	transcriptionHandler *handler.TranscriptionHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
 ) {
@@ -292,6 +293,9 @@ func setupV1Routes(
 			if imageDescribeHandler != nil {
 				r.Get("/images/models", imageDescribeHandler.ListGenerationModels)
 				r.Post("/images/describe", imageDescribeHandler.Describe)
+			}
+			if transcriptionHandler != nil {
+				r.Post("/transcriptions", transcriptionHandler.Create)
 			}
 		})
 	})

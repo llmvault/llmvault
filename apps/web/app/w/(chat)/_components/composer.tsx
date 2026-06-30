@@ -36,6 +36,7 @@ import {
   useComposerAudioRecording,
   type RecordingTranscriptIntent,
 } from "@/hooks/use-composer-audio-recording"
+import { useSessionAudioTranscription } from "@/hooks/use-session-audio-transcription"
 import { ComposerLineComments } from "./composer-line-comments"
 import { MicrophonePermissionModal } from "./microphone-permission-modal"
 import { RecordingWaveform } from "./recording-waveform"
@@ -398,10 +399,9 @@ export function Composer({
     startRecordingFromPrompt,
     toggleRecording,
   } = useComposerAudioRecording({
-    agentId,
     isStreaming: isStreaming || isDisabled,
     onTranscript: handleRecordingTranscript,
-    sessionId,
+    transcription: useSessionAudioTranscription({ agentId, sessionId }),
   })
 
   const submit = async () => {

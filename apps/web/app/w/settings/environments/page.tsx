@@ -3,7 +3,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
@@ -51,7 +50,7 @@ export default function EnvironmentsSettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Environments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -59,90 +58,44 @@ export default function EnvironmentsSettingsPage() {
         </p>
       </div>
 
-      <section className="bg-surface overflow-hidden rounded-2xl border border-border">
-        <div className="flex items-start gap-3 border-b border-border px-4 py-4">
-          <div className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground">
-            <Icon icon="lucide:radio-tower" className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm font-medium text-foreground">
-              Sandbox previews
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">
-              These ports are exposed on public preview URLs when a new sandbox
-              is created. Existing sandboxes keep the ports they were created
-              with until they are recreated.
-            </p>
-          </div>
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold text-foreground">
+            Sandbox preview ports
+          </h2>
+          <p className="text-sm leading-5 text-muted-foreground">
+            These ports are exposed on public preview URLs when a new sandbox is
+            created. Existing sandboxes keep the ports they were created with
+            until they are recreated.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-4 py-4">
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-foreground">
-              Preview ports
-            </span>
-            <Input
-              value={portsInput}
-              onChange={(event) => setPortsInput(event.target.value)}
-              placeholder="3000, 5173, 8000, 8080"
-              className={cn(
-                "w-full max-w-xl",
-                parsed.error && "border-danger/70"
-              )}
-              aria-invalid={Boolean(parsed.error) || undefined}
-              aria-describedby="sandbox-preview-ports-help"
-            />
-          </label>
-
-          <div
-            id="sandbox-preview-ports-help"
-            className="flex max-w-2xl flex-col gap-2 text-sm leading-5"
-          >
-            {parsed.error ? (
-              <p className="text-danger">{parsed.error}</p>
-            ) : (
-              <p className="text-muted-foreground">
-                Runtime control uses reserved port {RESERVED_RUNTIME_PORT}; Hivy
-                adds it automatically.
-              </p>
-            )}
-            <div className="flex flex-wrap gap-1.5">
-              {parsed.ports.map((port) => (
-                <span
-                  key={port}
-                  className="rounded-md border border-border bg-card px-2 py-1 font-mono text-xs text-foreground"
-                >
-                  {port}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button
-              type="button"
-              variant="tertiary"
-              size="sm"
-              isDisabled={updateOrg.isPending || !hasChanges}
-              onPress={() => setPortsInput(savedInput)}
-            >
-              Reset
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              isDisabled={!canSave}
-            >
-              {updateOrg.isPending ? (
-                <Spinner color="current" size="sm" />
-              ) : null}
-              Save
-            </Button>
-          </div>
-        </form>
+        <Input
+          aria-label="Preview ports"
+          value={portsInput}
+          onChange={(event) => setPortsInput(event.target.value)}
+          placeholder="3000, 5173, 8000, 8080"
+          className={cn("w-full", parsed.error && "border-danger/70")}
+          aria-invalid={Boolean(parsed.error) || undefined}
+        />
       </section>
-    </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="tertiary"
+          size="sm"
+          isDisabled={updateOrg.isPending || !hasChanges}
+          onPress={() => setPortsInput(savedInput)}
+        >
+          Reset
+        </Button>
+        <Button type="submit" variant="primary" size="sm" isDisabled={!canSave}>
+          {updateOrg.isPending ? <Spinner color="current" size="sm" /> : null}
+          Save changes
+        </Button>
+      </div>
+    </form>
   )
 }
 
