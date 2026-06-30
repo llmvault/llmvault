@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react"
 import { AttachmentThumbs } from "@/app/w/(chat)/_components/conversation-attachments"
+import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import { PersonAvatar } from "@/app/w/(chat)/_components/person-avatar"
 import { UserCodeLineComments } from "@/app/w/(chat)/_components/conversation-user-code-line-comments"
 import type {
@@ -38,7 +39,7 @@ export function UserMessageBlock({
       ) : null}
       {hasTextBubble ? (
         <div className="flex max-w-full flex-col gap-2 rounded-2xl bg-default px-3.5 py-2.5 text-sm">
-          {block.text ? <span>{block.text}</span> : null}
+          {block.text ? <MarkdownProse text={block.text} /> : null}
           {block.link ? (
             <a
               href={block.link}
