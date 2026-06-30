@@ -278,25 +278,7 @@ func setupV1Routes(
 				})
 			}
 
-			if uploadsHandler != nil {
-				r.Route("/uploads", func(r chi.Router) {
-					r.Use(middleware.ResolveUser(database))
-					r.Post("/sign", uploadsHandler.Sign)
-					r.Post("/upload", uploadsHandler.Upload)
-				})
-				r.Get("/assets", uploadsHandler.ListAssets)
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.ResolveUser(database))
-					r.Post("/assets/upload", uploadsHandler.UploadAgentAsset)
-				})
-			}
-			if imageDescribeHandler != nil {
-				r.Get("/images/models", imageDescribeHandler.ListGenerationModels)
-				r.Post("/images/describe", imageDescribeHandler.Describe)
-			}
-			if transcriptionHandler != nil {
-				r.Post("/transcriptions", transcriptionHandler.Create)
-			}
+			mountUploadRoutes(r, database, uploadsHandler, imageDescribeHandler, transcriptionHandler)
 		})
 	})
 }
