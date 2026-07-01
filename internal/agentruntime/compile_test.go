@@ -55,6 +55,29 @@ func TestBuildPromptSections_UsesCatalogInstructions(t *testing.T) {
 	}
 }
 
+func TestBuildPromptSections_FoldsModelAdapterIntoToolContract(t *testing.T) {
+	agent := &model.Agent{ID: uuid.New(), Name: "Aria"}
+	fragments := buildPromptSections(context.Background(), nil, agent, "", "glm-5.2")
+
+	if strings.Contains(fragments.Base, "model_adapter") {
+		t.Fatalf("base prompt must not keep a model_adapter section: %q", fragments.Base)
+	}
+	open := strings.Index(fragments.Base, "<tool_contract>")
+	closeIdx := strings.Index(fragments.Base, "</tool_contract>")
+	if open < 0 || closeIdx < 0 || closeIdx < open {
+		t.Fatalf("tool_contract section missing from base: %q", fragments.Base)
+	}
+	body := fragments.Base[open:closeIdx]
+	for _, want := range []string{
+		"- Prefer concrete tool calls over extended thinking.",
+		"- keep tool-call arguments compact",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("tool contract missing folded model guidance %q:\n%s", want, body)
+		}
+	}
+}
+
 func TestBuildPromptSections_IncludesCatalogSubAgentRouting(t *testing.T) {
 	rawSubAgents, err := json.Marshal(map[string]model.AgentCatalogSubAgent{
 		"codebase-explorer": {
@@ -95,11 +118,6 @@ func TestBuildPromptSections_IncludesCatalogSubAgentRouting(t *testing.T) {
 
 func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	fragments := PromptSections{
-		ModelAdapter: PromptSection{
-			Title:   "Model adapter",
-			Tag:     "model_adapter",
-			Content: renderModelAdapterSection("glm-5.2"),
-		},
 		Instructions: PromptSection{
 			Title:   "Instructions",
 			Tag:     "instructions",
@@ -116,7 +134,7 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	cacheable := requireCacheableSegments(t, prompt)
 	dynamic := requireDynamicSegments(t, prompt)
 
-	if len(cacheable) != 4 {
+	if len(cacheable) != 3 {
 		t.Fatalf("cacheable segment count = %d", len(cacheable))
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
@@ -145,16 +163,11 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	if !strings.Contains(baseText, "Do not claim work is complete until you have evidence") {
 		t.Fatalf("base prompt missing agent contract: %#v", base)
 	}
-	adapterContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
-	if !strings.Contains(adapterContent, "<model_adapter>\nThis section is runtime-owned model guidance.") ||
-		!strings.Contains(adapterContent, "GLM/ZAI-family adapter") {
-		t.Fatalf("model adapter segment is not XML wrapped: %q", adapterContent)
-	}
-	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[2]).Content)
+	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
 	if !strings.Contains(instructionsContent, "<instructions>\nHandle production changes carefully.\n</instructions>") {
 		t.Fatalf("instructions segment is not XML wrapped: %q", instructionsContent)
 	}
-	companyContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[3]).Content)
+	companyContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[2]).Content)
 	if !strings.Contains(companyContent, "<company>\nCompany name: ExampleCo\n</company>") {
 		t.Fatalf("company segment is not XML wrapped: %q", companyContent)
 	}

@@ -44,13 +44,6 @@ export const TOOL_GROUPS: ToolGroup[] = [
     ],
   },
   {
-    title: "Skills",
-    tools: [
-      { id: "skills_list", label: "List skills", kind: "runtime" },
-      { id: "skill_view", label: "View skill", kind: "runtime" },
-    ],
-  },
-  {
     title: "Image & web",
     tools: [
       { id: "generate_image", label: "Generate image", kind: "mcp" },

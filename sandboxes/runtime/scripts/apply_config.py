@@ -16,13 +16,6 @@ for segment in [
             'item_template': '- {name}: {description}',
         },
     },
-    {
-        'type': 'mcp_tools',
-        'config': {
-            'title': 'Available MCP tools (use directly)',
-            'item_template': '- {name}',
-        },
-    },
 ]:
     if segment['type'] not in existing_dynamic:
         dynamic_segments.append(segment)
