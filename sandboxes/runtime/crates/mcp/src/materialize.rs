@@ -51,7 +51,10 @@ pub fn apply_materialize(workspace_root: &Path, result: &mut Value) {
 }
 
 fn write_instruction(workspace_root: &Path, instruction: &Value) -> Value {
-    let root = instruction.get("root").and_then(Value::as_str).unwrap_or("");
+    let root = instruction
+        .get("root")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let root = match validate_relative_dir(root) {
         Ok(root) => root,
         Err(error) => {
@@ -115,7 +118,10 @@ fn safe_join(base: &Path, rel: &str) -> Result<PathBuf, String> {
     if rel.is_empty() {
         return Err("file path is empty".to_string());
     }
-    if !rel_path.components().all(|c| matches!(c, Component::Normal(_))) {
+    if !rel_path
+        .components()
+        .all(|c| matches!(c, Component::Normal(_)))
+    {
         return Err("file path must not contain traversal components".to_string());
     }
     Ok(base.join(rel_path))

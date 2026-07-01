@@ -244,7 +244,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
 	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, imageDescribeHandler, canvasHandler, orchestrator, orchestratorMissing)
-	runtimeIngressHandler := handler.NewRuntimeStreamIngressHandler(database, sandboxEncKey, runtimeStreamStore)
+	runtimeIngressHandler := handler.NewRuntimeStreamIngressHandler(database, sandboxEncKey, runtimeStreamStore, enqueuer)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/sessions/{sessionID}/ws", runtimeIngressHandler.HandleSessionWS)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/ws", runtimeIngressHandler.HandleWS)
 	r.Post("/internal/runtime-events/sandboxes/{sandboxID}/turn-state", runtimeIngressHandler.HandleTurnState)

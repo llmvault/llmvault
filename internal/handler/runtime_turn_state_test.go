@@ -172,7 +172,7 @@ func postRuntimeTurnState(t *testing.T, h *sessionHarness, sandboxID uuid.UUID, 
 	req = withChiURLParam(req, "sandboxID", sandboxID.String())
 
 	rr := httptest.NewRecorder()
-	handler.NewRuntimeStreamIngressHandler(h.db, sessionTestEncKey(t), nil).HandleTurnState(rr, req)
+	handler.NewRuntimeStreamIngressHandler(h.db, sessionTestEncKey(t), nil, nil).HandleTurnState(rr, req)
 	return rr
 }
 

@@ -28,6 +28,7 @@ const (
 	TypeMemoryEmbed               = "memory:embed"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
+	TypeSandboxMarkRunning        = "sandbox:mark_running"
 
 	// Periodic tasks (scheduled by the worker)
 	TypeTokenCleanup          = "periodic:token_cleanup"
@@ -38,6 +39,7 @@ const (
 	TypeBillingRenewSweep     = "periodic:billing_renew_sweep"
 	TypeAgentScheduleScan     = "periodic:agent_schedule_scan"
 	TypeSessionReflectionScan = "periodic:session_reflection_scan"
+	TypeSandboxAutoSleep      = "periodic:sandbox_auto_sleep"
 
 	// On-demand task enqueued by the sweep for each due subscription.
 	TypeBillingRenewSubscription = "billing:renew_subscription"
