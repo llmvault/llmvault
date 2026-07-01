@@ -61,19 +61,22 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	assertRuntimeSystemPromptPayloadShape(t, body)
 	cacheable := requireCacheableSegments(t, def.SystemPrompt)
 	dynamic := requireDynamicSegments(t, def.SystemPrompt)
-	if len(cacheable) < 4 {
-		t.Fatalf("expected base, model adapter, instructions, and company prompt segments: %#v", cacheable)
+	if len(cacheable) < 3 {
+		t.Fatalf("expected base, instructions, and company prompt segments: %#v", cacheable)
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
-	if !strings.Contains(requirePromptString(t, base.Content), "Default to action.") {
+	baseContent := requirePromptString(t, base.Content)
+	if !strings.Contains(baseContent, "Default to action.") {
 		t.Fatalf("base system prompt missing from first cacheable segment: %#v", cacheable[0])
 	}
-	if !strings.Contains(requirePromptString(t, base.Content), "You are Aria, an AI agent running in Hivy's sandbox environment.") {
-		t.Fatalf("base identity missing agent sentence: %q", requirePromptString(t, base.Content))
+	if !strings.Contains(baseContent, "You are Aria, an AI agent running in Hivy's sandbox environment.") {
+		t.Fatalf("base identity missing agent sentence: %q", baseContent)
 	}
-	adapterSegment := requireStaticPromptSegmentByTitle(t, cacheable, "Model adapter")
-	if !strings.Contains(requirePromptString(t, adapterSegment.Content), "<model_adapter>") {
-		t.Fatalf("model adapter content is not XML wrapped: %q", requirePromptString(t, adapterSegment.Content))
+	if strings.Contains(baseContent, "model_adapter") {
+		t.Fatalf("base must not carry a standalone model_adapter section: %q", baseContent)
+	}
+	if !strings.Contains(baseContent, "- Prefer concrete tool calls over extended thinking.") {
+		t.Fatalf("model adapter guidance did not fold into the base tool contract: %q", baseContent)
 	}
 	instructionsSegment := requireStaticPromptSegmentByTitle(t, cacheable, "Instructions")
 	if !strings.Contains(requirePromptString(t, instructionsSegment.Content), "<instructions>\n"+instructions+"\n</instructions>") {

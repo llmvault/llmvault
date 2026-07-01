@@ -21,9 +21,8 @@ use anyhow::{Context, Result};
 use api::{ApiState, OutboundConfigReloader};
 use async_trait::async_trait;
 use domain::{
-    AgentDefinition, AgentMeta, ConfigStore, InboundEvent, ListPromptSegment, ModelConfig,
-    OutboundChannelSpec, ReasoningEffort, StaticPromptSegment, SystemPromptConfig,
-    SystemPromptSegment,
+    AgentDefinition, AgentMeta, ConfigStore, InboundEvent, ModelConfig, OutboundChannelSpec,
+    ReasoningEffort, StaticPromptSegment, SystemPromptConfig, SystemPromptSegment,
 };
 use mcp::McpRegistry;
 use outbound::{
@@ -513,13 +512,7 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
             title: String::new(),
             content: "You are Aria, a friendly AI agent. Reply concisely. Use search_sessions for recent local conversation context and search_knowledge_base for indexed company knowledge when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
         })],
-        dynamic_segments: vec![
-            SystemPromptSegment::McpTools(ListPromptSegment {
-                title: "Available MCP tools (use directly)".into(),
-                preamble: String::new(),
-                item_template: "- {name}".into(),
-            }),
-        ],
+        dynamic_segments: vec![],
     }
 }
 

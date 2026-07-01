@@ -1090,8 +1090,8 @@ mod tests {
 
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
-        AgentMeta, ContextConfig, Limits, ListPromptSegment, ModelConfig, StaticPromptSegment,
-        SystemPromptConfig, SystemPromptSegment,
+        AgentMeta, ContextConfig, Limits, ModelConfig, StaticPromptSegment, SystemPromptConfig,
+        SystemPromptSegment,
     };
     use futures::StreamExt;
     use tokio::net::TcpListener;
@@ -1943,13 +1943,7 @@ mod tests {
                     content: "Use the injected identity segment.".to_string(),
                 }),
             ],
-            dynamic_segments: vec![
-                SystemPromptSegment::McpTools(ListPromptSegment {
-                    title: "Available MCP tools (use directly)".to_string(),
-                    preamble: String::new(),
-                    item_template: "- {name}".to_string(),
-                }),
-            ],
+            dynamic_segments: vec![],
         }
     }
 }
