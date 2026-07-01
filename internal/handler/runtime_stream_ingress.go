@@ -15,23 +15,28 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/runtimestream"
+	"github.com/usehivy/hivy/internal/sandbox"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 type RuntimeStreamIngressHandler struct {
 	db       *gorm.DB
 	encKey   *crypto.SymmetricKey
 	store    *runtimestream.Store
+	enqueuer enqueue.TaskEnqueuer
 	upgrader websocket.Upgrader
 }
 
-func NewRuntimeStreamIngressHandler(db *gorm.DB, encKey *crypto.SymmetricKey, store *runtimestream.Store) *RuntimeStreamIngressHandler {
+func NewRuntimeStreamIngressHandler(db *gorm.DB, encKey *crypto.SymmetricKey, store *runtimestream.Store, enqueuer enqueue.TaskEnqueuer) *RuntimeStreamIngressHandler {
 	return &RuntimeStreamIngressHandler{
-		db:     db,
-		encKey: encKey,
-		store:  store,
+		db:       db,
+		encKey:   encKey,
+		store:    store,
+		enqueuer: enqueuer,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(*http.Request) bool { return true },
 		},
@@ -97,6 +102,14 @@ func (h *RuntimeStreamIngressHandler) handleWS(w http.ResponseWriter, r *http.Re
 	}
 	defer conn.Close()
 	conn.SetReadLimit(10 * 1024 * 1024)
+
+	// The runtime has (re)connected, so its sandbox is awake. If auto-sleep had
+	// marked it 'stopped', flip it back to 'running'.
+	if sb.Status == string(sandbox.StatusStopped) {
+		if err := tasks.EnqueueSandboxMarkRunning(r.Context(), h.enqueuer, sb.ID); err != nil {
+			logging.FromContext(r.Context()).WarnContext(r.Context(), "runtime stream ingress: enqueue mark-running", "sandbox_id", sb.ID, "error", err)
+		}
+	}
 
 	for {
 		_, raw, err := conn.ReadMessage()
