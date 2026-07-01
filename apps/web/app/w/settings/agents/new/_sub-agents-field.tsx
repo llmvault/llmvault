@@ -7,11 +7,13 @@ import { ModelSelect } from "./_model-select"
 import { ToolsField } from "./_tools-field"
 import {
   emptySubAgent,
-  selectedToolLabels,
+  toolGroupsFor,
   type ModelSummary,
   type SubAgentForm,
   type ToolSelection,
 } from "./_lib"
+
+const SUBAGENT_TOOL_GROUPS = toolGroupsFor("subagent")
 
 export function SubAgentsField({
   subAgents,
@@ -62,7 +64,6 @@ export function SubAgentsField({
       <div className="flex flex-col gap-2">
         {subAgents.map((sub) => {
           const open = openKeys.has(sub.key)
-          const toolLabels = selectedToolLabels(sub.tools)
           return (
             <div
               key={sub.key}
@@ -78,15 +79,8 @@ export function SubAgentsField({
                     icon={open ? "lucide:chevron-down" : "lucide:chevron-right"}
                     className="h-4 w-4 shrink-0 text-muted-foreground"
                   />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-foreground">
-                      {sub.name.trim() || "Untitled sub-agent"}
-                    </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {toolLabels.length > 0
-                        ? toolLabels.join(", ")
-                        : "No tools selected"}
-                    </span>
+                  <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                    {sub.name.trim() || "Untitled sub-agent"}
                   </span>
                 </button>
                 <button
@@ -154,6 +148,7 @@ export function SubAgentsField({
                   </Field>
                   <Field label="Tools">
                     <ToolsField
+                      groups={SUBAGENT_TOOL_GROUPS}
                       selection={sub.tools}
                       onToolsChange={(tools: ToolSelection) =>
                         patchSubAgent(sub.key, { tools })

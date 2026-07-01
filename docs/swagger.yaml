@@ -458,6 +458,17 @@ definitions:
       $ref:
         type: string
     type: object
+  ToolFilter:
+    properties:
+      allow:
+        items:
+          type: string
+        type: array
+      deny:
+        items:
+          type: string
+        type: array
+    type: object
   TriggerDefaults:
     properties:
       instructions:
@@ -676,6 +687,8 @@ definitions:
         items:
           type: integer
         type: array
+      mcp_tool_filter:
+        $ref: '#/definitions/ToolFilter'
       model:
         type: string
       name:
@@ -737,6 +750,8 @@ definitions:
         items:
           type: integer
         type: array
+      mcp_tool_filter:
+        $ref: '#/definitions/ToolFilter'
       model:
         type: string
       name:
@@ -807,6 +822,8 @@ definitions:
         items:
           type: integer
         type: array
+      mcp_tool_filter:
+        $ref: '#/definitions/ToolFilter'
       model:
         type: string
       name:
@@ -3468,6 +3485,8 @@ definitions:
         type: string
       instructions:
         type: string
+      mcp_tool_filter:
+        $ref: '#/definitions/ToolFilter'
       model:
         type: string
       name:
@@ -3485,6 +3504,8 @@ definitions:
         type: string
       instructions:
         type: string
+      mcp_tool_filter:
+        $ref: '#/definitions/ToolFilter'
       model:
         type: string
       name:

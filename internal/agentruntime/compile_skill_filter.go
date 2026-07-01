@@ -25,18 +25,19 @@ func resolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Ag
 			return filter
 		}
 	}
-	if db == nil || agent.AgentCatalogID == nil {
-		return nil
+	if db != nil && agent.AgentCatalogID != nil {
+		var catalog model.AgentCatalog
+		if err := db.WithContext(ctx).
+			Select("manifest").
+			Where("id = ? AND status = ?", *agent.AgentCatalogID, model.AgentCatalogStatusActive).
+			First(&catalog).Error; err == nil {
+			if filter := mcpToolFilterFromCatalogManifest(catalog.Manifest); filter != nil {
+				return filter
+			}
+		}
 	}
-	var catalog model.AgentCatalog
-	err := db.WithContext(ctx).
-		Select("manifest").
-		Where("id = ? AND status = ?", *agent.AgentCatalogID, model.AgentCatalogStatusActive).
-		First(&catalog).Error
-	if err != nil {
-		return nil
-	}
-	return mcpToolFilterFromCatalogManifest(catalog.Manifest)
+	// User-created agents carry their own MCP tool filter.
+	return normalizeToolFilter(agent.McpToolFilter)
 }
 
 func mcpToolFilterFromCatalogManifest(raw model.RawJSON) *model.ToolFilter {

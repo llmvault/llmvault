@@ -70,10 +70,3 @@ func agentRuntimeFileTools() []any {
 	}
 }
 
-func agentRuntimeSkillsTools() []any {
-	return append(agentRuntimeFileTools(),
-		map[string]any{"type": "builtin.skills_list"},
-		map[string]any{"type": "builtin.skill_view"},
-		map[string]any{"type": "builtin.skill_manage"},
-	)
-}
