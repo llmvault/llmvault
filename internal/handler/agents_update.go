@@ -68,6 +68,20 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !h.applyAgentUpdateFields(w, ctx, &agent, &req, updates) {
 		return
 	}
+	// Sub-agents are only owned by user-created (non-catalog) agents; editing them
+	// replaces the whole set (delete + recreate) to mirror the create form.
+	var subAgentRows []model.Agent
+	if req.SubAgents != nil {
+		if agent.AgentCatalogID != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "catalog agents cannot define sub-agents"})
+			return
+		}
+		var ok bool
+		subAgentRows, ok = h.buildSubAgentRows(ctx, w, org.ID, agent.Model, req.SubAgents)
+		if !ok {
+			return
+		}
+	}
 	var channelIDs []uuid.UUID
 	if req.ChannelIDs != nil {
 		var parsed bool
@@ -76,13 +90,25 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if len(updates) > 0 || req.ChannelIDs != nil {
+	if len(updates) > 0 || req.ChannelIDs != nil || req.SubAgents != nil {
 		if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if len(updates) > 0 {
 				if err := tx.Model(&model.Agent{}).
 					Where("id = ? AND org_id = ?", agent.ID, org.ID).
 					Updates(updates).Error; err != nil {
 					return err
+				}
+			}
+			if req.SubAgents != nil {
+				if err := tx.Where("parent_agent_id = ? AND type = ?", agent.ID, model.AgentTypeSubAgent).
+					Delete(&model.Agent{}).Error; err != nil {
+					return err
+				}
+				for i := range subAgentRows {
+					subAgentRows[i].ParentAgentID = &agent.ID
+					if err := tx.Create(&subAgentRows[i]).Error; err != nil {
+						return err
+					}
 				}
 			}
 			if req.ChannelIDs != nil {
@@ -101,7 +127,9 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
+	item := h.agentListItem(ctx, org.ID, agent)
+	item.SubAgents = h.loadSubAgentResponses(ctx, agent.ID)
+	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: item})
 }
 
 func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context.Context, agent *model.Agent, req *agentMutationRequest, updates map[string]any) bool {
@@ -206,6 +234,11 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		value := normalizeJSONPtr(req.Tools)
 		updates["tools"] = value
 		agent.Tools = value
+	}
+	if req.McpToolFilter != nil {
+		value := normalizeMcpToolFilter(req.McpToolFilter)
+		updates["mcp_tool_filter"] = value
+		agent.McpToolFilter = value
 	}
 	if req.McpServers != nil {
 		value, ok := normalizeMCPServersForRequest(w, req.McpServers)

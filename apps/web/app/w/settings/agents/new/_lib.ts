@@ -3,6 +3,9 @@ import type { AgentSandboxImage, AgentSandboxSize } from "../_lib"
 
 export type ModelSummary = components["schemas"]["modelSummary"]
 export type AgentCreateBody = components["schemas"]["agentMutationRequest"]
+export type AgentDetail = components["schemas"]["agentListItem"]
+type SubAgentDetail = components["schemas"]["subAgentResponse"]
+type ToolFilter = components["schemas"]["ToolFilter"]
 
 // Default model for a new agent.
 export const DEFAULT_AGENT_MODEL = "deepseek-v4-flash"
@@ -135,12 +138,10 @@ function runtimeToolsMap(selection: ToolSelection): Record<string, boolean> {
 }
 
 // MCP tools the user turned off, expressed as a deny list (default = all allowed,
-// so only unchecked tools are denied). Returns undefined when nothing is denied.
-export function mcpToolFilterFor(
-  selection: ToolSelection
-): { deny: string[] } | undefined {
-  const deny = MCP_TOOL_IDS.filter((id) => !selection[id])
-  return deny.length > 0 ? { deny } : undefined
+// so only unchecked tools are denied). Always sent so an edit can also clear a
+// previously-set filter; an empty deny list normalizes to "no filter" server-side.
+export function mcpToolFilterFor(selection: ToolSelection): { deny: string[] } {
+  return { deny: MCP_TOOL_IDS.filter((id) => !selection[id]) }
 }
 
 export type SubAgentForm = {
@@ -213,6 +214,65 @@ export function canSubmitAgent(form: AgentForm): boolean {
     form.model.trim().length > 0 &&
     subAgentNameError(form.subAgents) === null
   )
+}
+
+// Rebuilds the tool selection from a saved agent: runtime tools come from the
+// stored tools map, MCP tools are on unless present in the mcp_tool_filter deny.
+function toolSelectionFromAgent(
+  tools: Record<string, unknown> | undefined,
+  mcpFilter: ToolFilter | undefined
+): ToolSelection {
+  const selection: ToolSelection = {}
+  for (const id of RUNTIME_TOOL_IDS) selection[id] = Boolean(tools?.[id])
+  const deny = new Set(mcpFilter?.deny ?? [])
+  for (const id of MCP_TOOL_IDS) selection[id] = !deny.has(id)
+  return selection
+}
+
+function subAgentFormFromDetail(
+  sub: SubAgentDetail,
+  parentModel: string,
+  index: number
+): SubAgentForm {
+  // A sub-agent model equal to the parent's is shown as "inherit".
+  const subModel = (sub.model ?? "").trim()
+  return {
+    key: sub.id || `sub-${index}`,
+    name: sub.name ?? "",
+    description: sub.description ?? "",
+    model: subModel && subModel !== parentModel ? subModel : "",
+    instructions: sub.instructions ?? "",
+    tools: toolSelectionFromAgent(
+      sub.tools as Record<string, unknown> | undefined,
+      sub.mcp_tool_filter
+    ),
+  }
+}
+
+// Maps a saved agent (plus its enabled plugin slugs) into editable form state.
+export function agentFormFromDetail(
+  agent: AgentDetail,
+  pluginSlugs: string[]
+): AgentForm {
+  const model = agent.model ?? ""
+  return {
+    name: agent.name ?? "",
+    description: agent.description ?? "",
+    icon: agent.icon ?? "",
+    model,
+    availableModels: model ? [model] : [],
+    instructions: agent.instructions ?? "",
+    tools: toolSelectionFromAgent(
+      agent.tools as Record<string, unknown> | undefined,
+      agent.mcp_tool_filter
+    ),
+    sandboxImage: (agent.sandbox_image as AgentSandboxImage) || "default",
+    sandboxSize: (agent.sandbox_size as AgentSandboxSize) || "small",
+    pluginSlugs,
+    subAgents: (agent.sub_agents ?? []).map((sub, index) =>
+      subAgentFormFromDetail(sub, model, index)
+    ),
+  }
 }
 
 export function buildCreateBody(form: AgentForm): AgentCreateBody {

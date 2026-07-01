@@ -32,7 +32,7 @@ function SettingsChrome({ children }: { children: React.ReactNode }) {
   })).filter((section) => section.items.length > 0)
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden bg-background text-foreground">
+    <div className="fixed inset-0 flex overflow-clip bg-background text-foreground">
       <div className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
         <div className="flex flex-col gap-3 px-4 pb-2 pt-5">
           <Link

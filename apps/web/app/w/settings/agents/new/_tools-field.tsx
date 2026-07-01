@@ -76,6 +76,9 @@ export function ToolsField({
                   onClick={() => toggle(tool.id)}
                   disabled={disabled || locked}
                   aria-pressed={on}
+                  aria-label={`${tool.label} tool`}
+                  data-testid={`tool-${tool.id}`}
+                  data-tool-on={on ? "true" : "false"}
                   className={[
                     "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors",
                     on
