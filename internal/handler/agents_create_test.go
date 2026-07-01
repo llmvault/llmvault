@@ -321,6 +321,50 @@ func TestCreateAgent_SubAgentsExcludedFromListAndReturnedByGet(t *testing.T) {
 	}
 }
 
+// An MCP tool filter on the agent and on a sub-agent is persisted (deny on the
+// parent, allow on the sub-agent), normalized and de-duped.
+func TestCreateAgent_PersistsMcpToolFilter(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	cleanupAgents(t, db, org.ID)
+	seedDefaultModelCredential(t, db)
+	h := newAgentHandlerForTest(db)
+
+	body := `{
+		"name": "Filtered Agent",
+		"mcp_tool_filter": { "deny": ["generate_image", "generate_vector_image"] },
+		"sub_agents": [
+			{ "name": "Imager", "mcp_tool_filter": { "allow": ["generate_image"] } }
+		]
+	}`
+	rr := postCreateAgent(t, h, &org, body)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	parentID := decodeCreateAgent(t, rr).Agent.ID
+
+	var parent model.Agent
+	if err := db.First(&parent, "id = ?", parentID).Error; err != nil {
+		t.Fatalf("load parent: %v", err)
+	}
+	if parent.McpToolFilter == nil ||
+		len(parent.McpToolFilter.Deny) != 2 ||
+		parent.McpToolFilter.Deny[0] != "generate_image" {
+		t.Fatalf("parent mcp_tool_filter = %#v, want deny generate_image+vector", parent.McpToolFilter)
+	}
+
+	var sub model.Agent
+	if err := db.Where("parent_agent_id = ? AND type = ?", parent.ID, model.AgentTypeSubAgent).
+		First(&sub).Error; err != nil {
+		t.Fatalf("load sub-agent: %v", err)
+	}
+	if sub.McpToolFilter == nil ||
+		len(sub.McpToolFilter.Allow) != 1 ||
+		sub.McpToolFilter.Allow[0] != "generate_image" {
+		t.Fatalf("sub-agent mcp_tool_filter = %#v, want allow generate_image", sub.McpToolFilter)
+	}
+}
+
 func TestCreateAgent_DuplicateNameConflict(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)

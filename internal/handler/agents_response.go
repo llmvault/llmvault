@@ -84,6 +84,7 @@ type agentResponse struct {
 	ImageModel        string                 `json:"image_model"`
 	VectorImageModel  string                 `json:"vector_image_model"`
 	Tools             model.JSON             `json:"tools"`
+	McpToolFilter     *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
 	McpServers        json.RawMessage        `json:"mcp_servers"`
 	Skills            model.JSON             `json:"skills"`
 	Permissions       model.JSON             `json:"permissions"`
@@ -132,6 +133,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 		ImageModel:       a.ImageModel,
 		VectorImageModel: a.VectorImageModel,
 		Tools:            nonNilJSON(a.Tools),
+		McpToolFilter:    a.McpToolFilter,
 		McpServers:       mcpServers,
 		Skills:           nonNilJSON(a.Skills),
 		Permissions:      nonNilJSON(a.Permissions),

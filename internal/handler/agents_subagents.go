@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,25 +17,27 @@ import (
 // subAgentInput is one sub-agent supplied when creating a user agent. Each
 // becomes a row in the agents table (type='subagent') owned by the new parent.
 type subAgentInput struct {
-	Name         string      `json:"name"`
-	Description  *string     `json:"description,omitempty"`
-	Instructions *string     `json:"instructions,omitempty"`
-	Model        *string     `json:"model,omitempty"`
-	Tools        *model.JSON `json:"tools,omitempty"`
+	Name          string            `json:"name"`
+	Description   *string           `json:"description,omitempty"`
+	Instructions  *string           `json:"instructions,omitempty"`
+	Model         *string           `json:"model,omitempty"`
+	Tools         *model.JSON       `json:"tools,omitempty"`
+	McpToolFilter *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
 }
 
 // subAgentResponse is one sub-agent as returned inside an agent payload.
 type subAgentResponse struct {
-	ID            string     `json:"id"`
-	ParentAgentID string     `json:"parent_agent_id"`
-	Name          string     `json:"name"`
-	Description   *string    `json:"description,omitempty"`
-	Instructions  string     `json:"instructions"`
-	Model         string     `json:"model"`
-	Tools         model.JSON `json:"tools"`
-	Status        string     `json:"status"`
-	CreatedAt     string     `json:"created_at"`
-	UpdatedAt     string     `json:"updated_at"`
+	ID            string            `json:"id"`
+	ParentAgentID string            `json:"parent_agent_id"`
+	Name          string            `json:"name"`
+	Description   *string           `json:"description,omitempty"`
+	Instructions  string            `json:"instructions"`
+	Model         string            `json:"model"`
+	Tools         model.JSON        `json:"tools"`
+	McpToolFilter *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
+	Status        string            `json:"status"`
+	CreatedAt     string            `json:"created_at"`
+	UpdatedAt     string            `json:"updated_at"`
 }
 
 func toSubAgentResponse(a model.Agent) subAgentResponse {
@@ -59,6 +62,7 @@ func toSubAgentResponse(a model.Agent) subAgentResponse {
 		Instructions:  instructions,
 		Model:         a.Model,
 		Tools:         nonNilJSON(a.Tools),
+		McpToolFilter: a.McpToolFilter,
 		Status:        a.Status,
 		CreatedAt:     a.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     a.UpdatedAt.Format(time.RFC3339),
@@ -143,6 +147,7 @@ func (h *AgentHandler) buildSubAgentRows(ctx context.Context, w http.ResponseWri
 			AvailableModels: pq.StringArray{subModel},
 			Tools:           tools,
 			McpServers:      model.RawJSON("[]"),
+			McpToolFilter:   normalizeMcpToolFilter(in.McpToolFilter),
 			Skills:          model.JSON{},
 			Permissions:     model.JSON{},
 			Resources:       model.JSON{},
@@ -153,6 +158,38 @@ func (h *AgentHandler) buildSubAgentRows(ctx context.Context, w http.ResponseWri
 		})
 	}
 	return rows, true
+}
+
+// normalizeMcpToolFilter trims and de-dupes an MCP tool filter, returning nil
+// when it carries no allow or deny entries (nil filter = all MCP tools allowed).
+func normalizeMcpToolFilter(filter *model.ToolFilter) *model.ToolFilter {
+	if filter == nil {
+		return nil
+	}
+	allow := normalizeToolFilterList(filter.Allow)
+	deny := normalizeToolFilterList(filter.Deny)
+	if len(allow) == 0 && len(deny) == 0 {
+		return nil
+	}
+	return &model.ToolFilter{Allow: allow, Deny: deny}
+}
+
+func normalizeToolFilterList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // loadSubAgentResponses returns a parent agent's active sub-agents for API

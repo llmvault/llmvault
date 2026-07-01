@@ -39,11 +39,13 @@ type Agent struct {
 	VectorImageModel string         `gorm:"type:text;not null;default:''"`
 	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	McpServers       RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
-	Skills           JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	Integrations     JSON           `gorm:"-"`
-	RuntimeConfig    JSON           `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
-	Permissions      JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	Resources        JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	// McpToolFilter gates MCP tools (allow/deny). NULL = all MCP tools allowed.
+	McpToolFilter *ToolFilter `gorm:"type:jsonb;serializer:json"`
+	Skills        JSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	Integrations  JSON        `gorm:"-"`
+	RuntimeConfig JSON        `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
+	Permissions   JSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	Resources     JSON        `gorm:"type:jsonb;not null;default:'{}'"`
 
 	SandboxTools     pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
 	SetupCommands    pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run during sandbox creation

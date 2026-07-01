@@ -14209,6 +14209,23 @@
           }
         }
       },
+      "ToolFilter": {
+        "type": "object",
+        "properties": {
+          "allow": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deny": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "TriggerDefaults": {
         "type": "object",
         "properties": {
@@ -14535,6 +14552,9 @@
               "type": "integer"
             }
           },
+          "mcp_tool_filter": {
+            "$ref": "#/components/schemas/ToolFilter"
+          },
           "model": {
             "type": "string"
           },
@@ -14626,6 +14646,9 @@
             "items": {
               "type": "integer"
             }
+          },
+          "mcp_tool_filter": {
+            "$ref": "#/components/schemas/ToolFilter"
           },
           "model": {
             "type": "string"
@@ -14732,6 +14755,9 @@
             "items": {
               "type": "integer"
             }
+          },
+          "mcp_tool_filter": {
+            "$ref": "#/components/schemas/ToolFilter"
           },
           "model": {
             "type": "string"
@@ -18797,6 +18823,9 @@
           "instructions": {
             "type": "string"
           },
+          "mcp_tool_filter": {
+            "$ref": "#/components/schemas/ToolFilter"
+          },
           "model": {
             "type": "string"
           },
@@ -18822,6 +18851,9 @@
           },
           "instructions": {
             "type": "string"
+          },
+          "mcp_tool_filter": {
+            "$ref": "#/components/schemas/ToolFilter"
           },
           "model": {
             "type": "string"

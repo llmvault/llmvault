@@ -29,7 +29,7 @@ func agentSessionsCreateCronViaMCP(t *testing.T, ctx context.Context, orgIDRaw, 
 			model.TokenMetaAgentID: agentID.String(),
 		},
 	}
-	server, err := mcpserver.BuildServer(ctx, token, db, nil, nil, nil, nil, nil)
+	server, err := mcpserver.BuildServer(ctx, token, db, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("build Hivy MCP server: %v", err)
 	}

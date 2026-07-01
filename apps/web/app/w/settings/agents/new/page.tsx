@@ -21,13 +21,17 @@ import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
 import { PluginsField } from "./_plugins-field"
 import {
+  DEFAULT_AGENT_MODEL,
   SUBAGENT_TASK_TOOL,
   buildCreateBody,
   emptyAgentForm,
   subAgentNameError,
+  toolGroupsFor,
   type AgentForm,
   type ModelSummary,
 } from "./_lib"
+
+const AGENT_TOOL_GROUPS = toolGroupsFor("agent")
 
 const EMPTY_MODELS: ModelSummary[] = []
 const EMPTY_PLUGINS: ApiPlugin[] = []
@@ -47,9 +51,14 @@ export default function CreateAgentPage() {
   const [form, setForm] = useState<AgentForm>(emptyAgentForm)
   const submitting = createAgent.isPending || enablePlugin.isPending
 
-  // Derived state (no effects): default the model to the first available, and
-  // keep subagent_task enabled whenever the agent has sub-agents.
-  const effectiveModel = form.model || models[0]?.id || ""
+  // Derived state (no effects): default the model to deepseek-v4-flash when
+  // available (else the first model), and keep subagent_task enabled whenever
+  // the agent has sub-agents.
+  const defaultModel =
+    models.find((model) => model.id === DEFAULT_AGENT_MODEL)?.id ||
+    models[0]?.id ||
+    ""
+  const effectiveModel = form.model || defaultModel
   const hasSubAgents = form.subAgents.length > 0
   const parentTools = hasSubAgents
     ? { ...form.tools, [SUBAGENT_TASK_TOOL]: true }
@@ -166,6 +175,7 @@ export default function CreateAgentPage() {
         description="Which runtime tools this agent may use. Defaults to all."
       >
         <ToolsField
+          groups={AGENT_TOOL_GROUPS}
           selection={parentTools}
           onToolsChange={(tools) => update({ tools })}
           lockedOn={lockedTools}
@@ -205,7 +215,7 @@ export default function CreateAgentPage() {
       </Section>
 
       <Section title="Advanced" description="Sandbox environment.">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <LabeledField label="Image template">
             <OptionSelect
               ariaLabel="Sandbox image"

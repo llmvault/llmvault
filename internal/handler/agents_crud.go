@@ -15,26 +15,27 @@ import (
 )
 
 type agentMutationRequest struct {
-	Name              *string          `json:"name,omitempty"`
-	Description       *string          `json:"description,omitempty"`
-	Instructions      *string          `json:"instructions,omitempty"`
-	AvatarURL         *string          `json:"avatar_url,omitempty"`
-	Icon              *string          `json:"icon,omitempty"`
-	SandboxImage      *string          `json:"sandbox_image,omitempty"`
-	SandboxSize       *string          `json:"sandbox_size,omitempty"`
-	SandboxTemplateID *string          `json:"sandbox_template_id,omitempty"`
-	Model             *string          `json:"model,omitempty"`
-	AvailableModels   *[]string        `json:"available_models,omitempty"`
-	ImageModel        *string          `json:"image_model,omitempty"`
-	VectorImageModel  *string          `json:"vector_image_model,omitempty"`
-	Tools             *model.JSON      `json:"tools,omitempty"`
-	McpServers        *json.RawMessage `json:"mcp_servers,omitempty"`
-	Skills            *model.JSON      `json:"skills,omitempty"`
-	Permissions       *model.JSON      `json:"permissions,omitempty"`
-	Resources         *model.JSON      `json:"resources,omitempty"`
-	SandboxTools      *[]string        `json:"sandbox_tools,omitempty"`
-	ChannelIDs        *[]string        `json:"channel_ids,omitempty"`
-	SubAgents         *[]subAgentInput `json:"sub_agents,omitempty"`
+	Name              *string           `json:"name,omitempty"`
+	Description       *string           `json:"description,omitempty"`
+	Instructions      *string           `json:"instructions,omitempty"`
+	AvatarURL         *string           `json:"avatar_url,omitempty"`
+	Icon              *string           `json:"icon,omitempty"`
+	SandboxImage      *string           `json:"sandbox_image,omitempty"`
+	SandboxSize       *string           `json:"sandbox_size,omitempty"`
+	SandboxTemplateID *string           `json:"sandbox_template_id,omitempty"`
+	Model             *string           `json:"model,omitempty"`
+	AvailableModels   *[]string         `json:"available_models,omitempty"`
+	ImageModel        *string           `json:"image_model,omitempty"`
+	VectorImageModel  *string           `json:"vector_image_model,omitempty"`
+	Tools             *model.JSON       `json:"tools,omitempty"`
+	McpToolFilter     *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
+	McpServers        *json.RawMessage  `json:"mcp_servers,omitempty"`
+	Skills            *model.JSON       `json:"skills,omitempty"`
+	Permissions       *model.JSON       `json:"permissions,omitempty"`
+	Resources         *model.JSON       `json:"resources,omitempty"`
+	SandboxTools      *[]string         `json:"sandbox_tools,omitempty"`
+	ChannelIDs        *[]string         `json:"channel_ids,omitempty"`
+	SubAgents         *[]subAgentInput  `json:"sub_agents,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -165,6 +166,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		ImageModel:        imageModel,
 		VectorImageModel:  vectorImageModel,
 		Tools:             tools,
+		McpToolFilter:     normalizeMcpToolFilter(req.McpToolFilter),
 		McpServers:        mcpServers,
 		Skills:            normalizeJSONPtr(req.Skills),
 		Permissions:       permissions,

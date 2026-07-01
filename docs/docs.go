@@ -11500,6 +11500,23 @@ const docTemplate = `{
                 }
             }
         },
+        "ToolFilter": {
+            "type": "object",
+            "properties": {
+                "allow": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "deny": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "TriggerDefaults": {
             "type": "object",
             "properties": {
@@ -11826,6 +11843,9 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "mcp_tool_filter": {
+                    "$ref": "#/definitions/ToolFilter"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -11917,6 +11937,9 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "mcp_tool_filter": {
+                    "$ref": "#/definitions/ToolFilter"
                 },
                 "model": {
                     "type": "string"
@@ -12023,6 +12046,9 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "mcp_tool_filter": {
+                    "$ref": "#/definitions/ToolFilter"
                 },
                 "model": {
                     "type": "string"
@@ -16088,6 +16114,9 @@ const docTemplate = `{
                 "instructions": {
                     "type": "string"
                 },
+                "mcp_tool_filter": {
+                    "$ref": "#/definitions/ToolFilter"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -16113,6 +16142,9 @@ const docTemplate = `{
                 },
                 "instructions": {
                     "type": "string"
+                },
+                "mcp_tool_filter": {
+                    "$ref": "#/definitions/ToolFilter"
                 },
                 "model": {
                     "type": "string"

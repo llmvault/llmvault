@@ -2,27 +2,24 @@
 
 import { Icon } from "@iconify/react"
 import { Tooltip } from "@heroui/react"
-import {
-  ALL_TOOL_IDS,
-  TOOL_GROUPS,
-  allToolsSelected,
-  selectedToolCount,
-  type ToolSelection,
-} from "./_lib"
+import type { ToolGroup, ToolSelection } from "./_lib"
 
 export function ToolsField({
+  groups,
   selection,
   onToolsChange,
   lockedOn = [],
   disabled = false,
 }: {
+  groups: ToolGroup[]
   selection: ToolSelection
   onToolsChange: (next: ToolSelection) => void
   lockedOn?: string[]
   disabled?: boolean
 }) {
   const lockedSet = new Set(lockedOn)
-  const count = selectedToolCount(selection)
+  const toolIds = groups.flatMap((group) => group.tools.map((tool) => tool.id))
+  const count = toolIds.filter((id) => selection[id]).length
 
   function toggle(id: string) {
     if (disabled || lockedSet.has(id)) return
@@ -31,12 +28,8 @@ export function ToolsField({
 
   function setAll(value: boolean) {
     if (disabled) return
-    if (value) {
-      onToolsChange(allToolsSelected())
-      return
-    }
-    const next: ToolSelection = {}
-    for (const id of lockedOn) next[id] = true
+    const next: ToolSelection = { ...selection }
+    for (const id of toolIds) next[id] = value || lockedSet.has(id)
     onToolsChange(next)
   }
 
@@ -44,7 +37,7 @@ export function ToolsField({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          {count} of {ALL_TOOL_IDS.length} enabled
+          {count} of {toolIds.length} enabled
         </span>
         <div className="flex items-center gap-2 text-xs">
           <button
@@ -67,7 +60,7 @@ export function ToolsField({
         </div>
       </div>
 
-      {TOOL_GROUPS.map((group) => (
+      {groups.map((group) => (
         <div key={group.title} className="flex flex-col gap-2">
           <span className="text-xs font-medium text-muted-foreground">
             {group.title}

@@ -13224,6 +13224,10 @@ export interface components {
         SchemaRef: {
             $ref?: string;
         };
+        ToolFilter: {
+            allow?: string[];
+            deny?: string[];
+        };
         TriggerDefaults: {
             instructions?: string;
             value?: string;
@@ -13331,6 +13335,7 @@ export interface components {
             instructions?: string;
             is_default?: boolean;
             mcp_servers?: number[];
+            mcp_tool_filter?: components["schemas"]["ToolFilter"];
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
@@ -13356,6 +13361,7 @@ export interface components {
             image_model?: string;
             instructions?: string;
             mcp_servers?: number[];
+            mcp_tool_filter?: components["schemas"]["ToolFilter"];
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
@@ -13386,6 +13392,7 @@ export interface components {
             instructions?: string;
             is_default?: boolean;
             mcp_servers?: number[];
+            mcp_tool_filter?: components["schemas"]["ToolFilter"];
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
@@ -14725,6 +14732,7 @@ export interface components {
         subAgentInput: {
             description?: string;
             instructions?: string;
+            mcp_tool_filter?: components["schemas"]["ToolFilter"];
             model?: string;
             name?: string;
             tools?: components["schemas"]["JSON"];
@@ -14734,6 +14742,7 @@ export interface components {
             description?: string;
             id?: string;
             instructions?: string;
+            mcp_tool_filter?: components["schemas"]["ToolFilter"];
             model?: string;
             name?: string;
             parent_agent_id?: string;
