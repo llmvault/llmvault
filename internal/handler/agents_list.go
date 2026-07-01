@@ -45,7 +45,8 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	q := h.db.WithContext(r.Context()).
 		Preload("AgentCatalog").
-		Where("agents.org_id = ?", org.ID)
+		Where("agents.org_id = ?", org.ID).
+		Where("agents.parent_agent_id IS NULL")
 
 	if status := r.URL.Query().Get("status"); status != "" {
 		q = q.Where("agents.status = ?", status)
@@ -135,6 +136,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	base.ChannelIDs = h.loadAgentChannelIDs(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
+	base.SubAgents = h.loadSubAgentResponses(r.Context(), agent.ID)
 	writeJSON(w, http.StatusOK, agentListItem{agentResponse: base})
 }
 

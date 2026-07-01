@@ -13,7 +13,6 @@ openapi = ["dep:utoipa", "domain/openapi", "observability/openapi"]
 domain.workspace = true
 observability.workspace = true
 storage.workspace = true
-skills.workspace = true
 outbound.workspace = true
 mcp.workspace = true
 agent.workspace = true

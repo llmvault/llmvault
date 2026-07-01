@@ -26,7 +26,7 @@ func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.Respo
 	}
 	var agent model.Agent
 	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND is_default = ? AND status <> ?", orgID, true, "archived").
+		Where("org_id = ? AND is_default = ? AND status <> ? AND parent_agent_id IS NULL", orgID, true, "archived").
 		First(&agent).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_agent_id is required"})

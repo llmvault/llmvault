@@ -255,36 +255,6 @@ func (e SessionStatus) Valid() bool {
 	}
 }
 
-// Defines values for SkillTrigger0Type.
-const (
-	Always SkillTrigger0Type = "always"
-)
-
-// Valid indicates whether the value is a known member of the SkillTrigger0Type enum.
-func (e SkillTrigger0Type) Valid() bool {
-	switch e {
-	case Always:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SkillTrigger1Type.
-const (
-	Keyword SkillTrigger1Type = "keyword"
-)
-
-// Valid indicates whether the value is a known member of the SkillTrigger1Type enum.
-func (e SkillTrigger1Type) Valid() bool {
-	switch e {
-	case Keyword:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for SystemPromptSegment0Type.
 const (
 	StaticText SystemPromptSegment0Type = "static_text"
@@ -317,26 +287,11 @@ func (e SystemPromptSegment1Type) Valid() bool {
 
 // Defines values for SystemPromptSegment2Type.
 const (
-	SkillCatalog SystemPromptSegment2Type = "skill_catalog"
+	McpTools SystemPromptSegment2Type = "mcp_tools"
 )
 
 // Valid indicates whether the value is a known member of the SystemPromptSegment2Type enum.
 func (e SystemPromptSegment2Type) Valid() bool {
-	switch e {
-	case SkillCatalog:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SystemPromptSegment3Type.
-const (
-	McpTools SystemPromptSegment3Type = "mcp_tools"
-)
-
-// Valid indicates whether the value is a known member of the SystemPromptSegment3Type enum.
-func (e SystemPromptSegment3Type) Valid() bool {
 	switch e {
 	case McpTools:
 		return true
@@ -512,56 +467,11 @@ func (e ToolSpec10Type) Valid() bool {
 
 // Defines values for ToolSpec11Type.
 const (
-	BuiltinSkillsList ToolSpec11Type = "builtin.skills_list"
+	BuiltinSearchSessions ToolSpec11Type = "builtin.search_sessions"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec11Type enum.
 func (e ToolSpec11Type) Valid() bool {
-	switch e {
-	case BuiltinSkillsList:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec12Type.
-const (
-	BuiltinSkillView ToolSpec12Type = "builtin.skill_view"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
-func (e ToolSpec12Type) Valid() bool {
-	switch e {
-	case BuiltinSkillView:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec13Type.
-const (
-	BuiltinSkillManage ToolSpec13Type = "builtin.skill_manage"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
-func (e ToolSpec13Type) Valid() bool {
-	switch e {
-	case BuiltinSkillManage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec14Type.
-const (
-	BuiltinSearchSessions ToolSpec14Type = "builtin.search_sessions"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec14Type enum.
-func (e ToolSpec14Type) Valid() bool {
 	switch e {
 	case BuiltinSearchSessions:
 		return true
@@ -570,13 +480,13 @@ func (e ToolSpec14Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec15Type.
+// Defines values for ToolSpec12Type.
 const (
-	BuiltinRequestUserInput ToolSpec15Type = "builtin.request_user_input"
+	BuiltinRequestUserInput ToolSpec12Type = "builtin.request_user_input"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec15Type enum.
-func (e ToolSpec15Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
+func (e ToolSpec12Type) Valid() bool {
 	switch e {
 	case BuiltinRequestUserInput:
 		return true
@@ -585,13 +495,13 @@ func (e ToolSpec15Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec16Type.
+// Defines values for ToolSpec13Type.
 const (
-	BuiltinUpdatePlan ToolSpec16Type = "builtin.update_plan"
+	BuiltinUpdatePlan ToolSpec13Type = "builtin.update_plan"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
-func (e ToolSpec16Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
+func (e ToolSpec13Type) Valid() bool {
 	switch e {
 	case BuiltinUpdatePlan:
 		return true
@@ -610,8 +520,6 @@ type AgentDefinition struct {
 	Model            ModelConfig                 `json:"model"`
 	OutboundChannels *[]OutboundChannelSpec      `json:"outbound_channels,omitempty"`
 	Safety           *SafetyConfig               `json:"safety,omitempty"`
-	SkillFilter      *SkillFilter                `json:"skill_filter,omitempty"`
-	Skills           *[]SkillSpec                `json:"skills,omitempty"`
 	SubAgents        *map[string]AgentDefinition `json:"sub_agents,omitempty"`
 	SystemPrompt     *SystemPromptConfig         `json:"system_prompt,omitempty"`
 	Tools            *[]ToolSpec                 `json:"tools,omitempty"`
@@ -1130,48 +1038,6 @@ type SessionMessageResponse struct {
 // SessionStatus defines model for SessionStatus.
 type SessionStatus string
 
-// SkillFilter defines model for SkillFilter.
-type SkillFilter struct {
-	Allow *[]string `json:"allow,omitempty"`
-}
-
-// SkillSpec defines model for SkillSpec.
-type SkillSpec struct {
-	Category                     *string            `json:"category,omitempty"`
-	Description                  string             `json:"description"`
-	Files                        *map[string]string `json:"files,omitempty"`
-	Instructions                 string             `json:"instructions"`
-	Name                         string             `json:"name"`
-	Pinned                       *bool              `json:"pinned,omitempty"`
-	RelatedSkills                *[]string          `json:"related_skills,omitempty"`
-	RequiredCredentialFiles      *[]string          `json:"required_credential_files,omitempty"`
-	RequiredEnvironmentVariables *[]string          `json:"required_environment_variables,omitempty"`
-	Tags                         *[]string          `json:"tags,omitempty"`
-	Trigger                      SkillTrigger       `json:"trigger"`
-}
-
-// SkillTrigger defines model for SkillTrigger.
-type SkillTrigger struct {
-	union json.RawMessage
-}
-
-// SkillTrigger0 defines model for .
-type SkillTrigger0 struct {
-	Type SkillTrigger0Type `json:"type"`
-}
-
-// SkillTrigger0Type defines model for SkillTrigger.0.Type.
-type SkillTrigger0Type string
-
-// SkillTrigger1 defines model for .
-type SkillTrigger1 struct {
-	Patterns []string          `json:"patterns"`
-	Type     SkillTrigger1Type `json:"type"`
-}
-
-// SkillTrigger1Type defines model for SkillTrigger.1.Type.
-type SkillTrigger1Type string
-
 // StaticPromptSegment defines model for StaticPromptSegment.
 type StaticPromptSegment struct {
 	Content *string `json:"content,omitempty"`
@@ -1221,15 +1087,6 @@ type SystemPromptSegment2 struct {
 
 // SystemPromptSegment2Type defines model for SystemPromptSegment.2.Type.
 type SystemPromptSegment2Type string
-
-// SystemPromptSegment3 defines model for .
-type SystemPromptSegment3 struct {
-	Config ListPromptSegment        `json:"config"`
-	Type   SystemPromptSegment3Type `json:"type"`
-}
-
-// SystemPromptSegment3Type defines model for SystemPromptSegment.3.Type.
-type SystemPromptSegment3Type string
 
 // ToolFilter defines model for ToolFilter.
 type ToolFilter struct {
@@ -1364,30 +1221,6 @@ type ToolSpec13 struct {
 // ToolSpec13Type defines model for ToolSpec.13.Type.
 type ToolSpec13Type string
 
-// ToolSpec14 defines model for .
-type ToolSpec14 struct {
-	Type ToolSpec14Type `json:"type"`
-}
-
-// ToolSpec14Type defines model for ToolSpec.14.Type.
-type ToolSpec14Type string
-
-// ToolSpec15 defines model for .
-type ToolSpec15 struct {
-	Type ToolSpec15Type `json:"type"`
-}
-
-// ToolSpec15Type defines model for ToolSpec.15.Type.
-type ToolSpec15Type string
-
-// ToolSpec16 defines model for .
-type ToolSpec16 struct {
-	Type ToolSpec16Type `json:"type"`
-}
-
-// ToolSpec16Type defines model for ToolSpec.16.Type.
-type ToolSpec16Type string
-
 // ToolUsage defines model for ToolUsage.
 type ToolUsage struct {
 	CallId   string `json:"call_id"`
@@ -1449,6 +1282,12 @@ type WriteFileConfig struct {
 
 // bearerContextKey is the context key for bearer security scheme
 type bearerContextKey string
+
+// PreviewCanvasFileParams defines parameters for PreviewCanvasFile.
+type PreviewCanvasFileParams struct {
+	// Token Read-only browser token for iframe previews
+	Token *string `form:"token,omitempty" json:"token,omitempty"`
+}
 
 // ListSessionsParams defines parameters for ListSessions.
 type ListSessionsParams struct {
@@ -1790,68 +1629,6 @@ func (t *OutboundChannelSpec) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsSkillTrigger0 returns the union data inside the SkillTrigger as a SkillTrigger0
-func (t SkillTrigger) AsSkillTrigger0() (SkillTrigger0, error) {
-	var body SkillTrigger0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSkillTrigger0 overwrites any union data inside the SkillTrigger as the provided SkillTrigger0
-func (t *SkillTrigger) FromSkillTrigger0(v SkillTrigger0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSkillTrigger0 performs a merge with any union data inside the SkillTrigger, using the provided SkillTrigger0
-func (t *SkillTrigger) MergeSkillTrigger0(v SkillTrigger0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSkillTrigger1 returns the union data inside the SkillTrigger as a SkillTrigger1
-func (t SkillTrigger) AsSkillTrigger1() (SkillTrigger1, error) {
-	var body SkillTrigger1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSkillTrigger1 overwrites any union data inside the SkillTrigger as the provided SkillTrigger1
-func (t *SkillTrigger) FromSkillTrigger1(v SkillTrigger1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSkillTrigger1 performs a merge with any union data inside the SkillTrigger, using the provided SkillTrigger1
-func (t *SkillTrigger) MergeSkillTrigger1(v SkillTrigger1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SkillTrigger) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SkillTrigger) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
 // AsSystemPromptSegment0 returns the union data inside the SystemPromptSegment as a SystemPromptSegment0
 func (t SystemPromptSegment) AsSystemPromptSegment0() (SystemPromptSegment0, error) {
 	var body SystemPromptSegment0
@@ -1920,32 +1697,6 @@ func (t *SystemPromptSegment) FromSystemPromptSegment2(v SystemPromptSegment2) e
 
 // MergeSystemPromptSegment2 performs a merge with any union data inside the SystemPromptSegment, using the provided SystemPromptSegment2
 func (t *SystemPromptSegment) MergeSystemPromptSegment2(v SystemPromptSegment2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSystemPromptSegment3 returns the union data inside the SystemPromptSegment as a SystemPromptSegment3
-func (t SystemPromptSegment) AsSystemPromptSegment3() (SystemPromptSegment3, error) {
-	var body SystemPromptSegment3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSystemPromptSegment3 overwrites any union data inside the SystemPromptSegment as the provided SystemPromptSegment3
-func (t *SystemPromptSegment) FromSystemPromptSegment3(v SystemPromptSegment3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSystemPromptSegment3 performs a merge with any union data inside the SystemPromptSegment, using the provided SystemPromptSegment3
-func (t *SystemPromptSegment) MergeSystemPromptSegment3(v SystemPromptSegment3) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2330,84 +2081,6 @@ func (t *ToolSpec) MergeToolSpec13(v ToolSpec13) error {
 	return err
 }
 
-// AsToolSpec14 returns the union data inside the ToolSpec as a ToolSpec14
-func (t ToolSpec) AsToolSpec14() (ToolSpec14, error) {
-	var body ToolSpec14
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec14 overwrites any union data inside the ToolSpec as the provided ToolSpec14
-func (t *ToolSpec) FromToolSpec14(v ToolSpec14) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec14 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec14
-func (t *ToolSpec) MergeToolSpec14(v ToolSpec14) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec15 returns the union data inside the ToolSpec as a ToolSpec15
-func (t ToolSpec) AsToolSpec15() (ToolSpec15, error) {
-	var body ToolSpec15
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec15 overwrites any union data inside the ToolSpec as the provided ToolSpec15
-func (t *ToolSpec) FromToolSpec15(v ToolSpec15) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec15 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec15
-func (t *ToolSpec) MergeToolSpec15(v ToolSpec15) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec16 returns the union data inside the ToolSpec as a ToolSpec16
-func (t ToolSpec) AsToolSpec16() (ToolSpec16, error) {
-	var body ToolSpec16
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec16 overwrites any union data inside the ToolSpec as the provided ToolSpec16
-func (t *ToolSpec) FromToolSpec16(v ToolSpec16) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec16 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec16
-func (t *ToolSpec) MergeToolSpec16(v ToolSpec16) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 func (t ToolSpec) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
@@ -2491,6 +2164,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// PreviewCanvasFile request
+	PreviewCanvasFile(ctx context.Context, path string, params *PreviewCanvasFileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetConfig request
 	GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2558,6 +2234,18 @@ type ClientInterface interface {
 
 	// GetSessionLiveStream request
 	GetSessionLiveStream(ctx context.Context, sessionId string, params *GetSessionLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) PreviewCanvasFile(ctx context.Context, path string, params *PreviewCanvasFileParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewCanvasFileRequest(c.Server, path, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2846,6 +2534,67 @@ func (c *Client) GetSessionLiveStream(ctx context.Context, sessionId string, par
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewPreviewCanvasFileRequest generates requests for PreviewCanvasFile
+func NewPreviewCanvasFileRequest(server string, path string, params *PreviewCanvasFileParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "path", path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/canvas/preview/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Token != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "token", *params.Token, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewGetConfigRequest generates requests for GetConfig
@@ -3698,6 +3447,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// PreviewCanvasFileWithResponse request
+	PreviewCanvasFileWithResponse(ctx context.Context, path string, params *PreviewCanvasFileParams, reqEditors ...RequestEditorFn) (*PreviewCanvasFileResp, error)
+
 	// GetConfigWithResponse request
 	GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigResp, error)
 
@@ -3765,6 +3517,35 @@ type ClientWithResponsesInterface interface {
 
 	// GetSessionLiveStreamWithResponse request
 	GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, params *GetSessionLiveStreamParams, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error)
+}
+
+type PreviewCanvasFileResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewCanvasFileResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewCanvasFileResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewCanvasFileResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type GetConfigResp struct {
@@ -4365,6 +4146,15 @@ func (r GetSessionLiveStreamResp) ContentType() string {
 	return ""
 }
 
+// PreviewCanvasFileWithResponse request returning *PreviewCanvasFileResp
+func (c *ClientWithResponses) PreviewCanvasFileWithResponse(ctx context.Context, path string, params *PreviewCanvasFileParams, reqEditors ...RequestEditorFn) (*PreviewCanvasFileResp, error) {
+	rsp, err := c.PreviewCanvasFile(ctx, path, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewCanvasFileResp(rsp)
+}
+
 // GetConfigWithResponse request returning *GetConfigResp
 func (c *ClientWithResponses) GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigResp, error) {
 	rsp, err := c.GetConfig(ctx, reqEditors...)
@@ -4575,6 +4365,22 @@ func (c *ClientWithResponses) GetSessionLiveStreamWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetSessionLiveStreamResp(rsp)
+}
+
+// ParsePreviewCanvasFileResp parses an HTTP response from a PreviewCanvasFileWithResponse call
+func ParsePreviewCanvasFileResp(rsp *http.Response) (*PreviewCanvasFileResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewCanvasFileResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
 }
 
 // ParseGetConfigResp parses an HTTP response from a GetConfigWithResponse call

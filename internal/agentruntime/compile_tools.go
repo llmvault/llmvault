@@ -34,9 +34,6 @@ var runtimeToolOrder = []string{
 	"lsp",
 	"subagent_task",
 	"check_bash_status",
-	"skills_list",
-	"skill_view",
-	"skill_manage",
 	"search_sessions",
 	"request_user_input",
 	"update_plan",
@@ -171,7 +168,10 @@ func expandRuntimeToolID(raw string) ([]string, bool) {
 	case "todowrite", "todoread":
 		return []string{"update_plan"}, true
 	case "skill":
-		return []string{"skills_list", "skill_view", "skill_manage"}, true
+		// Skills moved to the MCP layer (skills_list / skill_view are served by
+		// Hivy's MCP server). A legacy "skill" permission on an existing agent is
+		// still accepted but no longer maps to any runtime builtin tool.
+		return nil, true
 	default:
 		return nil, model.IsValidPermissionKey(key)
 	}

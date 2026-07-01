@@ -9,7 +9,6 @@ use domain::{ConfigStore, OutboundChannelSpec};
 use mcp::McpRegistry;
 use observability::ObservabilityRecorder;
 use serde::Serialize;
-use skills::SkillWriter;
 use storage::{ConfigRepo, EventRepo, SessionRepo};
 use tokio::sync::{Notify, RwLock};
 use tools::LocalBashOperations;
@@ -30,7 +29,6 @@ pub struct ApiState {
     pub session_api_ready: Arc<AtomicBool>,
     pub config_loaded: Arc<AtomicBool>,
     pub config_notify: Arc<Notify>,
-    pub skill_writer: Arc<SkillWriter>,
     pub session_stream: Option<SessionMessageState>,
     pub question_manager: Option<Arc<QuestionManager>>,
     pub repo_service: Option<Arc<RepoService>>,
@@ -84,7 +82,6 @@ impl ApiState {
         bearer_token: String,
         workspace_root: PathBuf,
         bash: Arc<LocalBashOperations>,
-        skill_writer: Arc<SkillWriter>,
         session_stream: Option<SessionMessageState>,
         question_manager: Option<Arc<QuestionManager>>,
         repo_service: Option<Arc<RepoService>>,
@@ -109,7 +106,6 @@ impl ApiState {
             session_api_ready: Arc::new(AtomicBool::new(false)),
             config_loaded: Arc::new(AtomicBool::new(false)),
             config_notify: Arc::new(Notify::new()),
-            skill_writer,
             session_stream,
             question_manager,
             repo_service,

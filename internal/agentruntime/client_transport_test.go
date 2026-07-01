@@ -46,7 +46,6 @@ func TestPutRuntimeConfigSendsGzipBody(t *testing.T) {
 			Agent:            AgentMeta{Name: "test"},
 			Tools:            []map[string]any{},
 			McpServers:       []any{},
-			Skills:           []SkillSpec{},
 			OutboundChannels: []any{},
 		},
 	})

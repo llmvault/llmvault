@@ -3,7 +3,7 @@ use super::*;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{
-    QuestionAnswerPayload, QuestionAnswerValue, RequestUserInputPayload, ToolSpec,
+    OutboundEvent, QuestionAnswerPayload, QuestionAnswerValue, RequestUserInputPayload, ToolSpec,
     UpdatePlanPayload, UpdatePlanResult,
 };
 use outbound::{OutboundChannel, OutboundError, OutboundRegistry};
@@ -42,8 +42,6 @@ fn test_agent_definition() -> domain::AgentDefinition {
         tools: Some(Vec::new()),
         mcp_servers: Vec::new(),
         mcp_tool_filter: None,
-        skill_filter: None,
-        skills: Vec::new(),
         outbound_channels: Vec::new(),
         sub_agents: Default::default(),
         safety: Default::default(),
@@ -276,12 +274,12 @@ impl PlanUpdater for FakePlanUpdater {
     }
 }
 
-struct SkillSyncChannel;
+struct TestOutboundChannel;
 
 #[async_trait]
-impl OutboundChannel for SkillSyncChannel {
+impl OutboundChannel for TestOutboundChannel {
     fn name(&self) -> &str {
-        "skill-sync"
+        "test-channel"
     }
 
     fn kind(&self) -> &'static str {
@@ -289,7 +287,7 @@ impl OutboundChannel for SkillSyncChannel {
     }
 
     fn accepts(&self, event_type: &str) -> bool {
-        event_type == event_types::SKILL_SYNCED || event_type.starts_with("schedule.")
+        event_type.starts_with("schedule.")
     }
 
     async fn deliver(&self, _event: &OutboundEvent) -> outbound::Result<()> {
@@ -311,38 +309,11 @@ fn temp_workspace() -> PathBuf {
 }
 
 fn test_emitter(outbox: Arc<FakeOutbox>) -> Arc<OutboundEmitter> {
-    let registry = OutboundRegistry::new().with_channel(Arc::new(SkillSyncChannel));
+    let registry = OutboundRegistry::new().with_channel(Arc::new(TestOutboundChannel));
     Arc::new(OutboundEmitter::new(
         outbox,
         Arc::new(RwLock::new(registry)),
     ))
-}
-
-fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dyn JsonTool> {
-    let emitter = test_emitter(outbox);
-    let ctx = ToolContext {
-        subagent_task_repo: None,
-        event_repo: None,
-        process_registry: None,
-        question_requester: None,
-        plan_updater: None,
-        mcp_registry: None,
-        workspace_root: workspace,
-        outbound_emitter: Some(emitter),
-        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
-            test_agent_definition(),
-        ))),
-        session_stream_id: None,
-        skill_filter: None,
-    };
-    build_agent_tools(
-        &[ToolSpec::SkillManage],
-        &SessionId::from("C123-456.789"),
-        &ctx,
-    )
-    .into_iter()
-    .find(|tool| tool.definition().name == "skill_manage")
-    .expect("skill_manage tool")
 }
 
 #[tokio::test]
@@ -426,7 +397,6 @@ async fn request_user_input_tool_is_registered_and_returns_answer() {
             test_agent_definition(),
         ))),
         session_stream_id: None,
-        skill_filter: None,
     };
     let tool = build_agent_tools(
         &[ToolSpec::RequestUserInput],
@@ -503,7 +473,6 @@ async fn update_plan_tool_is_registered_and_returns_ack() {
             test_agent_definition(),
         ))),
         session_stream_id: None,
-        skill_filter: None,
     };
     let tool = build_agent_tools(
         &[ToolSpec::UpdatePlan],
@@ -592,106 +561,6 @@ async fn update_plan_tool_rejects_empty_steps() {
         "unexpected error: {error}"
     );
     assert!(updater.updates.lock().expect("plan lock").is_empty());
-}
-
-#[tokio::test]
-async fn skill_manage_create_emits_complete_sync_snapshot() {
-    let workspace = temp_workspace();
-    let outbox = Arc::new(FakeOutbox::default());
-    let tool = skill_manage_test_tool(workspace.clone(), outbox.clone());
-
-    tool.call(json!({
-            "action": "create",
-            "name": "debug-deploys",
-            "category": "engineering",
-            "content": "---\nname: debug-deploys\ndescription: Debug deploy failures.\ntags: deploy, debug\n---\n# Debug\nCheck logs first."
-        }))
-        .await
-        .expect("skill create");
-    tool.call(json!({
-        "action": "write_file",
-        "name": "debug-deploys",
-        "file_path": "references/errors.md",
-        "file_content": "# Errors"
-    }))
-    .await
-    .expect("supporting file write");
-
-    let rows = outbox.rows.lock().expect("outbox lock");
-    assert_eq!(rows.len(), 2);
-    let (_, event_type, payload) = &rows[1];
-    assert_eq!(event_type, event_types::SKILL_SYNCED);
-    assert_eq!(payload["action"], "write_file");
-    assert_eq!(payload["name"], "debug-deploys");
-    assert_eq!(payload["source"], "session");
-    assert_eq!(payload["description"], "Debug deploy failures.");
-    assert_eq!(payload["files"]["references/errors.md"], "# Errors");
-    assert!(payload["content"]
-        .as_str()
-        .expect("content string")
-        .contains("# Debug"));
-
-    let _ = fs::remove_dir_all(workspace);
-}
-
-#[tokio::test]
-async fn skill_manage_failed_call_emits_no_sync_event() {
-    let workspace = temp_workspace();
-    let outbox = Arc::new(FakeOutbox::default());
-    let tool = skill_manage_test_tool(workspace.clone(), outbox.clone());
-
-    let result = tool
-        .call(json!({
-            "action": "write_file",
-            "name": "missing-skill",
-            "file_path": "references/errors.md",
-            "content": "# Errors"
-        }))
-        .await;
-
-    assert!(result.is_err());
-    assert!(outbox.rows.lock().expect("outbox lock").is_empty());
-    let _ = fs::remove_dir_all(workspace);
-}
-
-#[tokio::test]
-async fn skill_manage_delete_emits_tombstone() {
-    let workspace = temp_workspace();
-    let outbox = Arc::new(FakeOutbox::default());
-    let tool = skill_manage_test_tool(workspace.clone(), outbox.clone());
-
-    tool.call(json!({
-        "action": "create",
-        "name": "debug-deploys",
-        "content": "---\nname: debug-deploys\n---\n# Debug"
-    }))
-    .await
-    .expect("skill create");
-    tool.call(json!({
-        "action": "create",
-        "name": "deploy-ops",
-        "content": "---\nname: deploy-ops\n---\n# Deploy ops"
-    }))
-    .await
-    .expect("absorbed target create");
-    tool.call(json!({
-        "action": "delete",
-        "name": "debug-deploys",
-        "absorbed_into": "deploy-ops"
-    }))
-    .await
-    .expect("skill delete");
-
-    let rows = outbox.rows.lock().expect("outbox lock");
-    assert_eq!(rows.len(), 3);
-    let (_, event_type, payload) = &rows[2];
-    assert_eq!(event_type, event_types::SKILL_SYNCED);
-    assert_eq!(payload["action"], "delete");
-    assert_eq!(payload["deleted"], true);
-    assert_eq!(payload["absorbed_into"], "deploy-ops");
-    assert!(payload.get("content").is_none());
-
-    let _ = fs::remove_dir_all(workspace);
 }
 
 #[tokio::test]

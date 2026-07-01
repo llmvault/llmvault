@@ -212,7 +212,7 @@ func (h *RawProviderProxyHandler) resolveOwningAgent(ctx context.Context, orgID 
 	}
 	var owningAgent model.Agent
 	if err := h.db.WithContext(ctx).
-		Where("org_id = ? AND status <> ?", orgID, "archived").
+		Where("org_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, "archived").
 		Order("created_at ASC").
 		First(&owningAgent).Error; err != nil {
 		return model.Agent{}, err

@@ -1,4 +1,7 @@
+mod materialize;
+
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
@@ -36,13 +39,19 @@ pub struct McpToolDefinition {
 
 pub struct McpRegistry {
     entries: ArcSwap<Vec<McpEntry>>,
+    workspace_root: PathBuf,
 }
 
 impl McpRegistry {
-    pub async fn from_specs(specs: &[McpSpec], runtime_env: &HashMap<String, String>) -> Self {
+    pub async fn from_specs(
+        specs: &[McpSpec],
+        runtime_env: &HashMap<String, String>,
+        workspace_root: PathBuf,
+    ) -> Self {
         let entries = connect_specs(specs, runtime_env).await;
         Self {
             entries: ArcSwap::from_pointee(entries),
+            workspace_root,
         }
     }
 
@@ -137,7 +146,13 @@ impl McpRegistry {
                     .peer
                     .call_tool(CallToolRequestParams::new(raw.clone()).with_arguments(arguments))
                     .await?;
-                return Ok(serde_json::to_value(result)?);
+                let mut value = serde_json::to_value(result)?;
+                // Only trusted servers (the Hivy control plane) may ask the
+                // runtime to write files into the workspace.
+                if entry.server_name == "hivy" {
+                    materialize::apply_materialize(&self.workspace_root, &mut value);
+                }
+                return Ok(value);
             }
         }
         anyhow::bail!("MCP tool '{prefixed_name}' not found")

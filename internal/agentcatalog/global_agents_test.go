@@ -41,7 +41,6 @@ func TestGlobalKaraManifestRequiresDesignPlugin(t *testing.T) {
 		t.Fatal("kara instructions should be loaded")
 	}
 	assertManifestToolEnabled(t, kara.Tools, "bash")
-	assertManifestToolEnabled(t, kara.Tools, "skill_view")
 	if got := sortedSubAgentKeys(kara.SubAgents); !reflect.DeepEqual(got, []string{"codebase-brand-extractor", "design-worker", "image-generator"}) {
 		t.Fatalf("kara subagents = %#v", got)
 	}

@@ -56,8 +56,6 @@ type AgentDefinition struct {
 	Tools            []map[string]any            `json:"tools"`
 	McpServers       []any                       `json:"mcp_servers"`
 	McpToolFilter    *model.ToolFilter           `json:"mcp_tool_filter,omitempty"`
-	Skills           []SkillSpec                 `json:"skills"`
-	SkillFilter      *model.SkillFilter          `json:"skill_filter,omitempty"`
 	OutboundChannels []any                       `json:"outbound_channels"`
 	SubAgents        map[string]*AgentDefinition `json:"sub_agents,omitempty"`
 }
@@ -83,20 +81,6 @@ type ModelConfig struct {
 	ReasoningEffort  *string           `json:"reasoning_effort,omitempty"`
 	ExtraHeaders     map[string]string `json:"extra_headers"`
 	Fallback         *ModelConfig      `json:"fallback,omitempty"`
-}
-
-type SkillSpec struct {
-	Name                         string            `json:"name"`
-	Description                  string            `json:"description"`
-	Trigger                      map[string]any    `json:"trigger"`
-	Instructions                 string            `json:"instructions"`
-	Files                        map[string]string `json:"files,omitempty"`
-	Category                     *string           `json:"category,omitempty"`
-	Tags                         []string          `json:"tags"`
-	RelatedSkills                []string          `json:"related_skills"`
-	RequiredEnvironmentVariables []string          `json:"required_environment_variables"`
-	RequiredCredentialFiles      []string          `json:"required_credential_files"`
-	Pinned                       bool              `json:"pinned"`
 }
 
 func PrepareStartup(ctx context.Context, deps CompileDeps, agent *model.Agent) (*StartupSecrets, error) {
@@ -241,11 +225,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		phaseStarted = time.Now()
 	}
 	logPhase("start", "has_proxy_token", proxyToken != nil, "model", strings.TrimSpace(agent.Model))
-	skills, err := buildSkills(ctx, deps.DB, agent.ID)
-	if err != nil {
-		return nil, err
-	}
-	logPhase("build skills", "skill_count", len(skills), "skill_file_count", skillFileCount(skills))
 	mcpServers := jsonArray(agent.McpServers)
 	ourMCP := buildHivyMCPServer(ctx, deps, agent)
 	if proxyToken != nil {
@@ -263,7 +242,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID)
 	logPhase("build prompt sections", "model", modelID)
 	mcpToolFilter := resolveAgentMCPToolFilter(ctx, deps.DB, agent)
-	skillFilter := resolveAgentSkillFilter(ctx, deps.DB, agent)
 	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, modelID)
 	logPhase("resolve model route", "provider_id", modelRoute.ProviderID, "canonical_model_id", modelRoute.CanonicalModelID, "upstream_model_id", modelRoute.UpstreamModelID)
 	tools, err := buildRuntimeTools(ctx, deps.DB, agent)
@@ -271,7 +249,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		return nil, err
 	}
 	logPhase("build tools", "tool_count", len(tools))
-	subAgents, err := buildSubAgents(ctx, deps, agent, modelID, skills)
+	subAgents, err := buildSubAgents(ctx, deps, agent, modelID)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +257,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	logPhase("complete",
 		"tool_count", len(tools),
 		"mcp_server_count", len(mcpServers),
-		"skill_count", len(skills),
 		"subagent_count", len(subAgents),
 	)
 	return &AgentDefinition{
@@ -293,19 +270,9 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		Tools:            tools,
 		McpServers:       mcpServers,
 		McpToolFilter:    mcpToolFilter,
-		Skills:           skills,
-		SkillFilter:      skillFilter,
 		OutboundChannels: []any{},
 		SubAgents:        subAgents,
 	}, nil
-}
-
-func skillFileCount(skills []SkillSpec) int {
-	count := 0
-	for _, skill := range skills {
-		count += len(skill.Files)
-	}
-	return count
 }
 
 func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any {

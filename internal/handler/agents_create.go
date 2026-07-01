@@ -19,7 +19,7 @@ import (
 func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
 	var existing model.Agent
 	err := db.WithContext(ctx).
-		Where("org_id = ? AND status <> ?", orgID, "archived").
+		Where("org_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, "archived").
 		Order("created_at ASC").
 		First(&existing).Error
 	if err == nil {
@@ -44,7 +44,7 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			if refetch := db.WithContext(ctx).
-				Where("org_id = ? AND status <> ?", orgID, "archived").
+				Where("org_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, "archived").
 				Order("created_at ASC").
 				First(&existing).Error; refetch == nil {
 				return &existing, nil

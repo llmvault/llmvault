@@ -31,7 +31,6 @@ use outbound::{
     OutboundRegistry, StreamBatcher, DATABASE_BATCH_FLUSH_INTERVAL, DATABASE_BATCH_MAX_BYTES,
     DATABASE_BATCH_MAX_EVENTS,
 };
-use skills::SkillWriter;
 use storage::{
     init_sqlite_store, SqliteConfigRepo, SqliteEventRepo, SqliteInboundDedupeRepo,
     SqliteOutboxRepo, SqliteQuestionRequestRepo, SqliteSessionRepo, SqliteSubagentTaskRepo,
@@ -139,7 +138,12 @@ async fn main() -> Result<()> {
     let config = ConfigStore::with_runtime_env(initial_definition.clone(), initial_runtime_env);
     let initial_runtime_env = config.runtime_env();
     let mcp_registry = Arc::new(
-        McpRegistry::from_specs(&initial_definition.mcp_servers, &initial_runtime_env).await,
+        McpRegistry::from_specs(
+            &initial_definition.mcp_servers,
+            &initial_runtime_env,
+            workspace_root.clone(),
+        )
+        .await,
     );
     phase_started =
         log_runtime_startup_phase("initialize mcp registry", phase_started, startup_started);
@@ -164,16 +168,6 @@ async fn main() -> Result<()> {
         phase_started,
         startup_started,
     );
-
-    let skill_writer = Arc::new(SkillWriter::new(workspace_root.clone()));
-    if config_loaded_from_database {
-        skill_writer.sync(&initial_definition.skills);
-        for sub_agent in initial_definition.sub_agents.values() {
-            skill_writer.sync(&sub_agent.skills);
-        }
-    }
-    phase_started =
-        log_runtime_startup_phase("sync persisted skills", phase_started, startup_started);
 
     if config_loaded_from_database {
         info!(
@@ -226,7 +220,6 @@ async fn main() -> Result<()> {
         runtime_secret,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),
-        skill_writer,
         Some(api::SessionMessageState {
             inbound_sink: inbound_sink.clone(),
             broker: session_stream_broker.clone(),
@@ -489,8 +482,6 @@ fn bootstrap_agent_definition() -> AgentDefinition {
         tools: None,
         mcp_servers: Vec::new(),
         mcp_tool_filter: None,
-        skill_filter: None,
-        skills: Vec::new(),
         outbound_channels: Vec::new(),
         sub_agents: Default::default(),
         safety: Default::default(),
@@ -523,11 +514,6 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
             content: "You are Aria, a friendly AI agent. Reply concisely. Use search_sessions for recent local conversation context and search_knowledge_base for indexed company knowledge when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
         })],
         dynamic_segments: vec![
-            SystemPromptSegment::SkillCatalog(ListPromptSegment {
-                title: "Available skills (load when relevant)".into(),
-                preamble: "Before using tools for a task, check this list and call skill_view(name) when a skill matches the user's request. Do not load unrelated skills.".into(),
-                item_template: "- {name}: {description}".into(),
-            }),
             SystemPromptSegment::McpTools(ListPromptSegment {
                 title: "Available MCP tools (use directly)".into(),
                 preamble: String::new(),

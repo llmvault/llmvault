@@ -27,6 +27,7 @@ import (
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
+	"github.com/usehivy/hivy/internal/skills"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
 	"github.com/usehivy/hivy/internal/transcription"
@@ -138,6 +139,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	memorySearchService := buildMemorySearchService(cfg, database, cacheManager)
 	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
 	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))
+	mcpHandler.SetSkillTools(skills.NewToolsFunc(database))
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,

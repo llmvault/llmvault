@@ -187,10 +187,7 @@ pub fn build_builtin_tools(
             | ToolSpec::CheckBashStatus
             | ToolSpec::SearchSessions
             | ToolSpec::RequestUserInput
-            | ToolSpec::UpdatePlan
-            | ToolSpec::SkillsList
-            | ToolSpec::SkillView
-            | ToolSpec::SkillManage => {}
+            | ToolSpec::UpdatePlan => {}
         }
     }
     tools

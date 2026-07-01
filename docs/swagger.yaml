@@ -698,6 +698,10 @@ definitions:
         $ref: '#/definitions/JSON'
       status:
         type: string
+      sub_agents:
+        items:
+          $ref: '#/definitions/subAgentResponse'
+        type: array
       tools:
         $ref: '#/definitions/JSON'
       triggers:
@@ -753,6 +757,10 @@ definitions:
         type: array
       skills:
         $ref: '#/definitions/JSON'
+      sub_agents:
+        items:
+          $ref: '#/definitions/subAgentInput'
+        type: array
       tools:
         $ref: '#/definitions/JSON'
       vector_image_model:
@@ -821,6 +829,10 @@ definitions:
         $ref: '#/definitions/JSON'
       status:
         type: string
+      sub_agents:
+        items:
+          $ref: '#/definitions/subAgentResponse'
+        type: array
       tools:
         $ref: '#/definitions/JSON'
       triggers:
@@ -3448,6 +3460,42 @@ definitions:
       key:
         type: string
       path:
+        type: string
+    type: object
+  subAgentInput:
+    properties:
+      description:
+        type: string
+      instructions:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      tools:
+        $ref: '#/definitions/JSON'
+    type: object
+  subAgentResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      parent_agent_id:
+        type: string
+      status:
+        type: string
+      tools:
+        $ref: '#/definitions/JSON'
+      updated_at:
         type: string
     type: object
   subscriptionResponse:

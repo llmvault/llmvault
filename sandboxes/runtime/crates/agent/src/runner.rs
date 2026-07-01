@@ -143,7 +143,6 @@ impl AgentRunner for RigAgentRunner {
         let runtime_env = self.config.runtime_env();
         let safety_config = snapshot.safety.clone();
         let mcp_tool_filter = snapshot.mcp_tool_filter.clone();
-        let skill_filter = snapshot.skill_filter.clone();
         let session_stream_id = user_input.session_stream_id.clone();
         let provided_trace_id = user_input.trace_id.clone();
         let provided_turn_id = user_input.turn_id.clone();
@@ -160,14 +159,12 @@ impl AgentRunner for RigAgentRunner {
 
         let mut messages = build_initial_messages(
             &snapshot,
-            &self.tool_context.workspace_root,
             session_id,
             user_input,
             self.event_repo.as_deref(),
             InitialMessagePromptSources {
                 mcp_registry: self.mcp_registry.as_deref(),
                 mcp_tool_filter: mcp_tool_filter.as_ref(),
-                skill_filter: skill_filter.as_ref(),
             },
         )
         .await?;
@@ -203,7 +200,6 @@ impl AgentRunner for RigAgentRunner {
                 outbound_emitter: self.outbound_emitter.clone(),
                 agent_registry: self.config.agent_registry(),
                 session_stream_id,
-                skill_filter: skill_filter.clone(),
             },
             mcp_registry.clone(),
             mcp_tool_filter.as_ref(),
@@ -1090,7 +1086,7 @@ fn truncate_for_prompt(text: &str, max_bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs};
+    use std::collections::HashMap;
 
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
@@ -1132,8 +1128,6 @@ mod tests {
             tools: Some(Vec::new()),
             mcp_servers: Vec::new(),
             mcp_tool_filter: None,
-            skill_filter: None,
-            skills: Vec::new(),
             outbound_channels: Vec::new(),
             sub_agents: Default::default(),
             safety: Default::default(),
@@ -1153,9 +1147,6 @@ mod tests {
             ToolSpec::Lsp(_) => "lsp",
             ToolSpec::SubagentTask(_) => "subagent_task",
             ToolSpec::CheckBashStatus => "check_bash_status",
-            ToolSpec::SkillsList => "skills_list",
-            ToolSpec::SkillView => "skill_view",
-            ToolSpec::SkillManage => "skill_manage",
             ToolSpec::SearchSessions => "search_sessions",
             ToolSpec::RequestUserInput => "request_user_input",
             ToolSpec::UpdatePlan => "update_plan",
@@ -1179,9 +1170,6 @@ mod tests {
             "write_file",
             "subagent_task",
             "check_bash_status",
-            "skills_list",
-            "skill_view",
-            "skill_manage",
             "search_sessions",
             "request_user_input",
             "update_plan",
@@ -1202,9 +1190,6 @@ mod tests {
             "read_file",
             "write_file",
             "check_bash_status",
-            "skills_list",
-            "skill_view",
-            "skill_manage",
             "search_sessions",
             "update_plan",
         ] {
@@ -1219,7 +1204,7 @@ mod tests {
     fn explicit_subagent_tools_are_filtered_from_child_agents() {
         let mut definition = test_definition();
         definition.tools = Some(vec![
-            ToolSpec::SkillsList,
+            ToolSpec::SearchSessions,
             ToolSpec::SubagentTask(Default::default()),
             ToolSpec::RequestUserInput,
             ToolSpec::UpdatePlan,
@@ -1227,7 +1212,7 @@ mod tests {
 
         let specs = effective_tool_specs(&definition, true);
 
-        assert!(has_tool(&specs, "skills_list"));
+        assert!(has_tool(&specs, "search_sessions"));
         assert!(has_tool(&specs, "update_plan"));
         for kind in ["subagent_task", "request_user_input"] {
             assert!(!has_tool(&specs, kind), "unexpected {kind}");
@@ -1411,8 +1396,6 @@ mod tests {
         let definition = test_definition();
         let prompt = render_dynamic_system_prompt(
             &definition,
-            std::path::Path::new("/tmp"),
-            None,
             None,
             None,
             &["## Channel-specific instruction\nKeep replies short.".to_string()],
@@ -1422,44 +1405,6 @@ mod tests {
         assert!(prompt.contains("Keep replies short."));
         assert!(!prompt.contains("## Runtime Context"));
         assert!(!prompt.contains("Company name: ExampleCo"));
-    }
-
-    #[tokio::test]
-    async fn dynamic_prompt_applies_skill_filter() {
-        let mut definition = test_definition();
-        definition.skill_filter = Some(domain::SkillFilter {
-            allow: Some(vec!["research-notes".to_string()]),
-        });
-        let root = std::env::temp_dir().join(format!(
-            "hivy-skill-filter-prompt-{}",
-            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
-        ));
-        fs::create_dir_all(root.join(".skills/deck-review")).expect("create deck skill");
-        fs::create_dir_all(root.join(".skills/research-notes")).expect("create research skill");
-        fs::write(
-            root.join(".skills/deck-review/SKILL.md"),
-            "---\nname: deck-review\ndescription: Review decks\n---\nReview decks.",
-        )
-        .expect("write deck skill");
-        fs::write(
-            root.join(".skills/research-notes/SKILL.md"),
-            "---\nname: research-notes\ndescription: Research context\n---\nUse research context.",
-        )
-        .expect("write research skill");
-
-        let prompt = render_dynamic_system_prompt(
-            &definition,
-            &root,
-            None,
-            None,
-            definition.skill_filter.as_ref(),
-            &[],
-        )
-        .await;
-
-        assert!(prompt.contains("research-notes"));
-        assert!(!prompt.contains("deck-review"));
-        fs::remove_dir_all(root).ok();
     }
 
     #[tokio::test]
@@ -1999,11 +1944,6 @@ mod tests {
                 }),
             ],
             dynamic_segments: vec![
-                SystemPromptSegment::SkillCatalog(ListPromptSegment {
-                    title: "Available skills (load when relevant)".to_string(),
-                    preamble: "Before using tools for a task, check this list and call skill_view(name) when a skill matches the user's request. Do not load unrelated skills.".to_string(),
-                    item_template: "- {name}: {description}".to_string(),
-                }),
                 SystemPromptSegment::McpTools(ListPromptSegment {
                     title: "Available MCP tools (use directly)".to_string(),
                     preamble: String::new(),

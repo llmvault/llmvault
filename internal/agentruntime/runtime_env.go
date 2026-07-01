@@ -78,7 +78,6 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	phaseLog.log("compile definition",
 		"tool_count", len(def.Tools),
 		"mcp_server_count", len(def.McpServers),
-		"skill_count", len(def.Skills),
 		"subagent_count", len(def.SubAgents),
 	)
 	if effort := strings.TrimSpace(opts.ReasoningEffort); effort != "" {

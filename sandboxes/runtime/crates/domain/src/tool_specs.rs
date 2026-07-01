@@ -26,12 +26,6 @@ pub enum ToolSpec {
     SubagentTask(#[serde(default)] SubagentTaskConfig),
     #[serde(rename = "builtin.check_bash_status")]
     CheckBashStatus,
-    #[serde(rename = "builtin.skills_list")]
-    SkillsList,
-    #[serde(rename = "builtin.skill_view")]
-    SkillView,
-    #[serde(rename = "builtin.skill_manage")]
-    SkillManage,
     #[serde(rename = "builtin.search_sessions")]
     SearchSessions,
     #[serde(rename = "builtin.request_user_input")]
@@ -284,9 +278,6 @@ pub fn default_subagent_builtin_tool_specs() -> Vec<ToolSpec> {
         ToolSpec::CheckBashStatus,
         ToolSpec::SearchSessions,
         ToolSpec::UpdatePlan,
-        ToolSpec::SkillsList,
-        ToolSpec::SkillView,
-        ToolSpec::SkillManage,
     ]
 }
 

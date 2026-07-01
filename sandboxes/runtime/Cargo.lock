@@ -186,7 +186,6 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
- "skills",
  "storage",
  "thiserror 1.0.69",
  "tokio",
@@ -265,7 +264,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "skills",
  "storage",
  "thiserror 1.0.69",
  "tokio",
@@ -1019,7 +1017,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
- "skills",
  "storage",
  "tokio",
  "tools",
@@ -1505,7 +1502,6 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
- "skills",
  "sqlx",
  "storage",
  "thiserror 1.0.69",
@@ -3810,18 +3806,6 @@ name = "siphasher"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ee5873ec9cce0195efcb7a4e9507a04cd49aec9c83d0389df45b1ef7ba2e649"
-
-[[package]]
-name = "skills"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "domain",
- "serde_json",
- "tokio",
- "tracing",
- "walkdir",
-]
 
 [[package]]
 name = "slab"

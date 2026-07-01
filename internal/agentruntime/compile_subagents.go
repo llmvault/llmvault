@@ -13,8 +13,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func buildSubAgents(ctx context.Context, deps CompileDeps, agent *model.Agent, parentModelID string, parentSkills []SkillSpec) (map[string]*AgentDefinition, error) {
-	specs, err := loadCatalogSubAgents(ctx, deps.DB, agent)
+func buildSubAgents(ctx context.Context, deps CompileDeps, agent *model.Agent, parentModelID string) (map[string]*AgentDefinition, error) {
+	specs, err := loadSubAgentSpecs(ctx, deps.DB, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -25,13 +25,61 @@ func buildSubAgents(ctx context.Context, deps CompileDeps, agent *model.Agent, p
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		def, err := compileSubAgent(ctx, deps, agent, key, specs[key], parentModelID, parentSkills)
+		def, err := compileSubAgent(ctx, deps, agent, key, specs[key], parentModelID)
 		if err != nil {
 			return nil, err
 		}
 		out[key] = def
 	}
 	return out, nil
+}
+
+// loadSubAgentSpecs resolves an agent's sub-agent specs from the right source:
+// catalog-linked agents keep their sub-agents in agent_catalog.sub_agents, while
+// user-created agents (no catalog link) own sub-agents as rows in the agents table.
+func loadSubAgentSpecs(ctx context.Context, db *gorm.DB, agent *model.Agent) (map[string]model.AgentCatalogSubAgent, error) {
+	if agent == nil {
+		return map[string]model.AgentCatalogSubAgent{}, nil
+	}
+	// Catalog-linked agents (identified by a catalog id or a preloaded catalog
+	// association) keep their sub-agents in agent_catalog.sub_agents. Only
+	// user-created agents with no catalog link own sub-agents as agents rows.
+	if agent.AgentCatalogID != nil || agent.AgentCatalog != nil {
+		return loadCatalogSubAgents(ctx, db, agent)
+	}
+	return loadDBSubAgents(ctx, db, agent)
+}
+
+// loadDBSubAgents loads a user-created agent's sub-agents from the agents table,
+// mapping each row into the same spec shape the compiler already understands.
+func loadDBSubAgents(ctx context.Context, db *gorm.DB, agent *model.Agent) (map[string]model.AgentCatalogSubAgent, error) {
+	out := map[string]model.AgentCatalogSubAgent{}
+	if db == nil || agent == nil {
+		return out, nil
+	}
+	var rows []model.Agent
+	if err := db.WithContext(ctx).
+		Where("parent_agent_id = ? AND type = ? AND status = ?", agent.ID, model.AgentTypeSubAgent, "active").
+		Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load db subagents: %w", err)
+	}
+	for _, row := range rows {
+		out[row.ID.String()] = model.AgentCatalogSubAgent{
+			Name:         row.Name,
+			Description:  strings.TrimSpace(derefString(row.Description)),
+			Model:        strings.TrimSpace(row.Model),
+			Tools:        row.Tools,
+			Instructions: strings.TrimSpace(derefString(row.Instructions)),
+		}
+	}
+	return out, nil
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func loadCatalogSubAgents(ctx context.Context, db *gorm.DB, agent *model.Agent) (map[string]model.AgentCatalogSubAgent, error) {
@@ -68,7 +116,7 @@ func agentCatalogSubAgentsRaw(agent *model.Agent) model.RawJSON {
 	return agent.AgentCatalog.SubAgents
 }
 
-func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent, key string, spec model.AgentCatalogSubAgent, parentModelID string, parentSkills []SkillSpec) (*AgentDefinition, error) {
+func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent, key string, spec model.AgentCatalogSubAgent, parentModelID string) (*AgentDefinition, error) {
 	name := strings.TrimSpace(spec.Name)
 	if name == "" {
 		name = key
@@ -108,19 +156,15 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Tools:            tools,
 		McpServers:       []any{},
 		McpToolFilter:    normalizeToolFilter(spec.McpToolFilter),
-		Skills:           copySkillSpecs(parentSkills),
-		SkillFilter:      normalizeSkillFilter(spec.SkillFilter),
 		OutboundChannels: []any{},
 		SubAgents:        map[string]*AgentDefinition{},
 	}, nil
 }
 
 func subAgentToolSelection(selection model.JSON) model.JSON {
-	out := make(model.JSON, len(selection)+2)
+	out := make(model.JSON, len(selection))
 	for key, value := range selection {
 		out[key] = value
 	}
-	out["skills_list"] = true
-	out["skill_view"] = true
 	return out
 }

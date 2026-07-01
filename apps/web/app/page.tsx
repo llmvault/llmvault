@@ -1,6 +1,7 @@
 import { Button, Link } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import Image from "next/image"
+import { AuthLogo } from "@/app/auth/_components/shared"
 import { WatchDemo } from "@/components/watch-demo"
 
 const GITHUB_URL = "https://github.com/usehivy/hivy"
@@ -36,14 +37,7 @@ export default function RootPage() {
 
       {/* Top bar */}
       <header className="flex items-center justify-between px-5 py-5 sm:px-8">
-        <Image
-          src="/logomark-no-background.png"
-          alt="Hivy"
-          width={36}
-          height={36}
-          priority
-          className="object-contain"
-        />
+        <AuthLogo className="h-9 w-9" />
         <Link
           href={GITHUB_URL}
           target="_blank"
@@ -58,14 +52,7 @@ export default function RootPage() {
       {/* Left-aligned hero, flush to the browser edge, anchored to the bottom */}
       <div className="flex w-full flex-1 flex-col items-start justify-end px-5 pb-10 text-left sm:px-8 sm:pb-14">
         {/* Large graphic */}
-        <Image
-          src="/logomark-no-background.png"
-          alt="Hivy logomark"
-          width={160}
-          height={160}
-          priority
-          className="h-24 w-24 object-contain drop-shadow-xl sm:h-32 sm:w-32"
-        />
+        <AuthLogo className="h-24 w-24 drop-shadow-xl sm:h-32 sm:w-32" />
 
         <h1 className="mt-8 max-w-4xl text-5xl leading-[0.95] font-medium tracking-tight text-balance text-foreground sm:text-7xl">
           Productive AI agents for your entire team.

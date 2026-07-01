@@ -13341,6 +13341,7 @@ export interface components {
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
             status?: string;
+            sub_agents?: components["schemas"]["subAgentResponse"][];
             tools?: components["schemas"]["JSON"];
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
@@ -13364,6 +13365,7 @@ export interface components {
             sandbox_template_id?: string;
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
+            sub_agents?: components["schemas"]["subAgentInput"][];
             tools?: components["schemas"]["JSON"];
             vector_image_model?: string;
         };
@@ -13394,6 +13396,7 @@ export interface components {
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
             status?: string;
+            sub_agents?: components["schemas"]["subAgentResponse"][];
             tools?: components["schemas"]["JSON"];
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
@@ -14718,6 +14721,25 @@ export interface components {
             id?: string;
             key?: string;
             path?: string;
+        };
+        subAgentInput: {
+            description?: string;
+            instructions?: string;
+            model?: string;
+            name?: string;
+            tools?: components["schemas"]["JSON"];
+        };
+        subAgentResponse: {
+            created_at?: string;
+            description?: string;
+            id?: string;
+            instructions?: string;
+            model?: string;
+            name?: string;
+            parent_agent_id?: string;
+            status?: string;
+            tools?: components["schemas"]["JSON"];
+            updated_at?: string;
         };
         subscriptionResponse: {
             cancel_at_period_end?: boolean;

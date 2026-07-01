@@ -41,9 +41,6 @@
     "check_bash_status": true,
     "search_sessions": true,
     "update_plan": true,
-    "skills_list": true,
-    "skill_view": true,
-    "skill_manage": true,
     "subagent_task": true,
     "request_user_input": true
   },
@@ -60,9 +57,7 @@
         "multi_grep": true,
         "lsp": true,
         "search_sessions": true,
-        "update_plan": true,
-        "skills_list": true,
-        "skill_view": true
+        "update_plan": true
       },
       "prompt": {
         "instructions": "./sub_agents/codebase-explorer/instructions.md"
@@ -81,9 +76,7 @@
         "grep": true,
         "multi_grep": true,
         "search_sessions": true,
-        "update_plan": true,
-        "skills_list": true,
-        "skill_view": true
+        "update_plan": true
       },
       "prompt": {
         "instructions": "./sub_agents/librarian/instructions.md"
@@ -100,9 +93,7 @@
         "grep": true,
         "multi_grep": true,
         "lsp": true,
-        "search_sessions": true,
-        "skills_list": true,
-        "skill_view": true
+        "search_sessions": true
       },
       "prompt": {
         "instructions": "./sub_agents/oracle/instructions.md"

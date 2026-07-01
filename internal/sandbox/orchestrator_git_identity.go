@@ -41,7 +41,7 @@ func (o *Orchestrator) resolveGitIdentityAgent(ctx context.Context, agent *model
 
 	var owner model.Agent
 	query := o.db.WithContext(ctx).
-		Where("org_id = ? AND id <> ? AND status <> ?", *agent.OrgID, agent.ID, "archived")
+		Where("org_id = ? AND id <> ? AND status <> ? AND parent_agent_id IS NULL", *agent.OrgID, agent.ID, "archived")
 	err := query.Order("created_at ASC").First(&owner).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

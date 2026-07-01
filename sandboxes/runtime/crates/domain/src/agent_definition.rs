@@ -7,7 +7,6 @@ use crate::{
     model_config::ModelConfig,
     model_config::SafetyConfig,
     outbound::OutboundChannelSpec,
-    skill_specs::{SkillFilter, SkillSpec},
     tool_specs::ToolSpec,
 };
 
@@ -28,10 +27,6 @@ pub struct AgentDefinition {
     pub mcp_servers: Vec<McpSpec>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mcp_tool_filter: Option<ToolFilter>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub skill_filter: Option<SkillFilter>,
-    #[serde(default)]
-    pub skills: Vec<SkillSpec>,
     #[serde(default)]
     pub outbound_channels: Vec<OutboundChannelSpec>,
     #[serde(default)]
@@ -90,7 +85,6 @@ impl SystemPromptConfig {
 pub enum SystemPromptSegment {
     StaticText(StaticPromptSegment),
     DynamicContext(DynamicContextPromptSegment),
-    SkillCatalog(ListPromptSegment),
     McpTools(ListPromptSegment),
 }
 
@@ -114,7 +108,7 @@ impl SystemPromptSegment {
                     max_text_chars,
                 )?;
             }
-            SystemPromptSegment::SkillCatalog(segment) | SystemPromptSegment::McpTools(segment) => {
+            SystemPromptSegment::McpTools(segment) => {
                 validate_prompt_text("list.title", &segment.title, max_text_chars)?;
                 validate_prompt_text("list.preamble", &segment.preamble, max_text_chars)?;
                 validate_prompt_text("list.item_template", &segment.item_template, max_text_chars)?;

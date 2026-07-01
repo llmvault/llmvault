@@ -78,30 +78,25 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 		t.Fatalf("compile kara runtime definition: %v", err)
 	}
 
-	allInstalledSkills := []string{"browser", "canvas", "design-taste", "drive", "imagegen", "landing-page-copy", "logo-design", "presentation-creator"}
-	karaVisibleSkills := []string{"canvas", "design-taste", "landing-page-copy", "logo-design", "presentation-creator"}
 	imageTools := []string{"generate_image", "generate_vector_image"}
 
-	assertCompiledSkills(t, "kara", def.Skills, allInstalledSkills)
 	assertToolFilter(t, "kara", def.McpToolFilter, nil, imageTools)
-	assertSkillFilter(t, "kara", def.SkillFilter, karaVisibleSkills)
 
 	imageGenerator := def.SubAgents["image-generator"]
 	if imageGenerator == nil {
 		t.Fatalf("missing image-generator subagent; got %s", strings.Join(sortedSubAgentKeys(def.SubAgents), ", "))
 	}
-	assertCompiledSkills(t, "image-generator", imageGenerator.Skills, allInstalledSkills)
 	assertToolFilter(t, "image-generator", imageGenerator.McpToolFilter, imageTools, nil)
-	assertSkillFilter(t, "image-generator", imageGenerator.SkillFilter, []string{"imagegen"})
-	assertRuntimeToolTypes(t, "image-generator", imageGenerator.Tools, []string{"builtin.skills_list", "builtin.skill_view"})
+	// image-generator has no configured runtime tools (skills_list/skill_view moved to MCP layer)
+	if len(imageGenerator.Tools) != 0 {
+		t.Fatalf("image-generator tools = %#v, want empty (skills are now MCP tools)", imageGenerator.Tools)
+	}
 
 	designWorker := def.SubAgents["design-worker"]
 	if designWorker == nil {
 		t.Fatalf("missing design-worker subagent; got %s", strings.Join(sortedSubAgentKeys(def.SubAgents), ", "))
 	}
-	assertCompiledSkills(t, "design-worker", designWorker.Skills, allInstalledSkills)
 	assertToolFilter(t, "design-worker", designWorker.McpToolFilter, nil, imageTools)
-	assertSkillFilter(t, "design-worker", designWorker.SkillFilter, karaVisibleSkills)
 
 	body, err := json.Marshal(def)
 	if err != nil {
@@ -112,7 +107,6 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 		t.Fatalf("compiled definition does not match runtime API shape: %v", err)
 	}
 	assertRuntimeAPIFilter(t, "runtime kara mcp", runtimeDef.McpToolFilter, nil, imageTools)
-	assertRuntimeAPISkillFilter(t, "runtime kara skill", runtimeDef.SkillFilter, karaVisibleSkills)
 	if runtimeDef.SubAgents == nil {
 		t.Fatal("runtime payload missing subagents")
 	}
@@ -121,23 +115,6 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 		t.Fatalf("runtime payload missing image-generator subagent")
 	}
 	assertRuntimeAPIFilter(t, "runtime image-generator mcp", runtimeImageGenerator.McpToolFilter, imageTools, nil)
-	assertRuntimeAPISkillFilter(t, "runtime image-generator skill", runtimeImageGenerator.SkillFilter, []string{"imagegen"})
-}
-
-func assertCompiledSkills(t *testing.T, label string, skills []agentruntime.SkillSpec, want []string) {
-	t.Helper()
-	if got := compiledSkillNames(skills); !reflect.DeepEqual(got, want) {
-		t.Fatalf("%s skills = %#v, want %#v", label, got, want)
-	}
-}
-
-func compiledSkillNames(skills []agentruntime.SkillSpec) []string {
-	out := make([]string, 0, len(skills))
-	for _, skill := range skills {
-		out = append(out, skill.Name)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func assertToolFilter(t *testing.T, label string, filter *model.ToolFilter, wantAllow, wantDeny []string) {
@@ -147,16 +124,6 @@ func assertToolFilter(t *testing.T, label string, filter *model.ToolFilter, want
 	}
 	if !sameOptionalStrings(filter.Allow, wantAllow) || !sameOptionalStrings(filter.Deny, wantDeny) {
 		t.Fatalf("%s tool filter = %#v, want allow=%#v deny=%#v", label, filter, wantAllow, wantDeny)
-	}
-}
-
-func assertSkillFilter(t *testing.T, label string, filter *model.SkillFilter, wantAllow []string) {
-	t.Helper()
-	if filter == nil {
-		t.Fatalf("%s skill filter is nil", label)
-	}
-	if !sameOptionalStrings(filter.Allow, wantAllow) {
-		t.Fatalf("%s skill filter = %#v, want allow=%#v", label, filter, wantAllow)
 	}
 }
 
@@ -182,16 +149,6 @@ func assertRuntimeAPIFilter(t *testing.T, label string, filter *runtimeapi.ToolF
 	}
 	if !sameOptionalStringPointer(filter.Allow, wantAllow) || !sameOptionalStringPointer(filter.Deny, wantDeny) {
 		t.Fatalf("%s filter = %#v, want allow=%#v deny=%#v", label, filter, wantAllow, wantDeny)
-	}
-}
-
-func assertRuntimeAPISkillFilter(t *testing.T, label string, filter *runtimeapi.SkillFilter, wantAllow []string) {
-	t.Helper()
-	if filter == nil {
-		t.Fatalf("%s filter is nil", label)
-	}
-	if !sameOptionalStringPointer(filter.Allow, wantAllow) {
-		t.Fatalf("%s filter = %#v, want allow=%#v", label, filter, wantAllow)
 	}
 }
 

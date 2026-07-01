@@ -462,7 +462,6 @@ async fn apply_config_snapshot(
             .map(|tools| tools.len())
             .unwrap_or(0),
         mcp_server_count: definition.mcp_servers.len(),
-        skill_count: definition.skills.len(),
         subagent_count: definition.sub_agents.len(),
         outbound_channel_count: definition.outbound_channels.len(),
         workspace_repo_count: workspace.repos.len(),
@@ -498,14 +497,6 @@ async fn apply_config_snapshot(
         total_started,
         stats,
     );
-    state.skill_writer.sync(&definition.skills);
-    phase_started =
-        log_config_apply_phase("sync parent skills", phase_started, total_started, stats);
-    for sub_agent in definition.sub_agents.values() {
-        state.skill_writer.sync(&sub_agent.skills);
-    }
-    phase_started =
-        log_config_apply_phase("sync subagent skills", phase_started, total_started, stats);
     if let Some(registry) = state.mcp_registry.as_ref() {
         registry
             .reload_from_specs(&definition.mcp_servers, &runtime_env)
@@ -538,7 +529,6 @@ struct ConfigApplyStats {
     env_key_count: usize,
     tool_count: usize,
     mcp_server_count: usize,
-    skill_count: usize,
     subagent_count: usize,
     outbound_channel_count: usize,
     workspace_repo_count: usize,
@@ -557,7 +547,6 @@ fn log_config_apply_phase(
         env_key_count = stats.env_key_count,
         tool_count = stats.tool_count,
         mcp_server_count = stats.mcp_server_count,
-        skill_count = stats.skill_count,
         subagent_count = stats.subagent_count,
         outbound_channel_count = stats.outbound_channel_count,
         workspace_repo_count = stats.workspace_repo_count,
@@ -1370,8 +1359,6 @@ mod tests {
             tools: Some(Vec::new()),
             mcp_servers: Vec::new(),
             mcp_tool_filter: None,
-            skill_filter: None,
-            skills: Vec::new(),
             outbound_channels: Vec::new(),
             sub_agents: Default::default(),
             safety: Default::default(),

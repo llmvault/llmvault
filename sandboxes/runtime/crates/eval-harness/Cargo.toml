@@ -10,7 +10,6 @@ rust-version.workspace = true
 api.workspace = true
 domain.workspace = true
 observability.workspace = true
-skills.workspace = true
 storage.workspace = true
 tools.workspace = true
 anyhow.workspace = true

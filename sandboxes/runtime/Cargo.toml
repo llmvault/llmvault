@@ -7,7 +7,6 @@ members = [
     "crates/storage",
     "crates/tools",
     "crates/mcp",
-    "crates/skills",
     "crates/outbound",
     "crates/api",
     "crates/eval-harness",
@@ -66,7 +65,6 @@ agent = { path = "crates/agent" }
 storage = { path = "crates/storage" }
 tools = { path = "crates/tools" }
 mcp = { path = "crates/mcp" }
-skills = { path = "crates/skills" }
 outbound = { path = "crates/outbound" }
 api = { path = "crates/api" }
 safety = { path = "crates/safety" }

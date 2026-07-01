@@ -56,8 +56,6 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 	if !reflect.DeepEqual(imageGenerator.SkillFilter.Allow, []string{"imagegen"}) {
 		t.Fatalf("image-generator skill filter = %#v", imageGenerator.SkillFilter)
 	}
-	assertManifestToolEnabled(t, imageGenerator.Tools, "skills_list")
-	assertManifestToolEnabled(t, imageGenerator.Tools, "skill_view")
 	assertManifestToolDisabled(t, imageGenerator.Tools, "bash")
 	assertManifestToolDisabled(t, imageGenerator.Tools, "read_file")
 
