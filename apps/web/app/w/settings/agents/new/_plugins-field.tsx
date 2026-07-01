@@ -53,6 +53,9 @@ export function PluginsField({
         return (
           <div
             key={slug || plugin.id || plugin.name}
+            data-testid={`plugin-row-${slug}`}
+            data-plugin-on={on ? "true" : "false"}
+            data-plugin-connectable={connectable ? "true" : "false"}
             className="flex min-w-0 items-center justify-between gap-4 rounded-lg border border-border bg-card p-3"
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">

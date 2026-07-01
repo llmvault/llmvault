@@ -67,12 +67,14 @@ export function SubAgentsField({
           return (
             <div
               key={sub.key}
+              data-testid="sub-agent-card"
               className="overflow-hidden rounded-xl border border-border bg-card"
             >
               <div className="flex items-center gap-3 px-3 py-2.5">
                 <button
                   type="button"
                   onClick={() => toggleOpen(sub.key)}
+                  data-testid="sub-agent-toggle"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
                   <Icon
@@ -105,6 +107,8 @@ export function SubAgentsField({
                       placeholder="Researcher"
                       className="w-full"
                       disabled={disabled}
+                      aria-label="Sub-agent name"
+                      data-testid="sub-agent-name"
                     />
                   </Field>
                   <Field label="Description">
@@ -118,6 +122,8 @@ export function SubAgentsField({
                       placeholder="When the parent should delegate to this sub-agent"
                       className="w-full"
                       disabled={disabled}
+                      aria-label="Sub-agent description"
+                      data-testid="sub-agent-description"
                     />
                   </Field>
                   <Field label="Model">
@@ -143,6 +149,8 @@ export function SubAgentsField({
                       placeholder="What this sub-agent should do when delegated to…"
                       rows={4}
                       disabled={disabled}
+                      aria-label="Sub-agent instructions"
+                      data-testid="sub-agent-instructions"
                       className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/40"
                     />
                   </Field>
@@ -170,6 +178,7 @@ export function SubAgentsField({
           size="sm"
           onPress={addSubAgent}
           isDisabled={disabled}
+          data-testid="add-sub-agent"
         >
           <Icon icon="lucide:plus" className="h-4 w-4" />
           Add sub-agent

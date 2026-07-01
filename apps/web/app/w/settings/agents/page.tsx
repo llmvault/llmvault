@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react"
 import NextLink from "next/link"
-import { Input, ListBox, Select } from "@heroui/react"
+import { useRouter } from "next/navigation"
+import { Button, Input, ListBox, Select } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { $api } from "@/lib/api/hooks"
 import { AgentAvatar } from "./_agent-avatar"
@@ -10,6 +11,7 @@ import {
   agentCategories,
   agentDescription,
   agentIsInstalled,
+  agentIsOrgCreated,
   agentMatchesCategory,
   agentMatchesQuery,
   agentName,
@@ -24,6 +26,7 @@ const EMPTY_CATALOG_AGENTS: CatalogAgent[] = []
 const EMPTY_INSTALLED_AGENTS: InstalledAgent[] = []
 
 export default function AgentsSettingsPage() {
+  const router = useRouter()
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<AgentCategory>("All")
 
@@ -55,6 +58,14 @@ export default function AgentsSettingsPage() {
     [categories, category, filteredAgents]
   )
   const sectionEntries = Object.entries(groupedAgents)
+  const orgCreatedAgents = useMemo(
+    () => installedAgents.filter(agentIsOrgCreated),
+    [installedAgents]
+  )
+  const catalogInstalledAgents = useMemo(
+    () => installedAgents.filter((agent) => !agentIsOrgCreated(agent)),
+    [installedAgents]
+  )
 
   return (
     <div className="flex flex-col gap-8">
@@ -65,13 +76,15 @@ export default function AgentsSettingsPage() {
             Install workspace agents from the catalog, or build your own.
           </p>
         </div>
-        <NextLink
-          href="/w/settings/agents/new"
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        <Button
+          variant="primary"
+          size="sm"
+          className="shrink-0"
+          onPress={() => router.push("/w/settings/agents/new")}
         >
           <Icon icon="lucide:plus" className="h-4 w-4" />
           Create agent
-        </NextLink>
+        </Button>
       </div>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
@@ -95,8 +108,13 @@ export default function AgentsSettingsPage() {
         />
       </div>
 
+      <OrgAgentsSection
+        agents={orgCreatedAgents}
+        isLoading={installedQuery.isLoading}
+      />
+
       <InstalledAgentsSection
-        agents={installedAgents}
+        agents={catalogInstalledAgents}
         isLoading={installedQuery.isLoading}
       />
 
@@ -127,6 +145,54 @@ export default function AgentsSettingsPage() {
   )
 }
 
+function OrgAgentsSection({
+  agents,
+  isLoading,
+}: {
+  agents: InstalledAgent[]
+  isLoading: boolean
+}) {
+  if (isLoading || agents.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium text-foreground">Your agents</h2>
+      <div className="flex flex-col bg-card">
+        {agents.map((agent) => (
+          <OrgAgentRow key={agent.id ?? agentName(agent)} agent={agent} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function OrgAgentRow({ agent }: { agent: InstalledAgent }) {
+  return (
+    <NextLink
+      href={`/w/settings/agents/edit/${agent.id}`}
+      className="group -mx-3 block py-1.5"
+    >
+      <div className="group-hover:bg-default rounded-xl px-3 py-1.5 transition-colors">
+        <div className="flex items-center gap-3">
+          <AgentAvatar agent={agent} size="md" />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-medium text-foreground">
+              {agentName(agent)}
+            </h3>
+            <p className="truncate text-sm text-muted-foreground">
+              {agentDescription(agent)}
+            </p>
+          </div>
+          <Icon
+            icon="lucide:chevron-right"
+            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+          />
+        </div>
+      </div>
+    </NextLink>
+  )
+}
+
 function InstalledAgentsSection({
   agents,
   isLoading,
@@ -137,12 +203,7 @@ function InstalledAgentsSection({
   if (isLoading) {
     return (
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-foreground">
-            Installed agents
-          </h2>
-          <span className="text-sm text-muted-foreground">Manage</span>
-        </div>
+        <h2 className="text-sm font-medium text-foreground">Installed agents</h2>
         <div className="flex flex-wrap items-center gap-2">
           {Array.from({ length: 4 }).map((_, index) => (
             <div
@@ -159,17 +220,7 @@ function InstalledAgentsSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-foreground">
-          Installed agents
-        </h2>
-        <button
-          type="button"
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Manage
-        </button>
-      </div>
+      <h2 className="text-sm font-medium text-foreground">Installed agents</h2>
       <div className="flex flex-wrap items-center gap-2">
         {agents.map((agent) => (
           <div

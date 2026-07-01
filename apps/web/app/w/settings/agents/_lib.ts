@@ -83,6 +83,12 @@ export function agentIsInstalled(agent: CatalogAgent): boolean {
   return Boolean(agent.installed_agent_id)
 }
 
+// An installed agent is org-created when it has no catalog source (built via the
+// create-agent form rather than installed from the catalog).
+export function agentIsOrgCreated(agent: InstalledAgent): boolean {
+  return !agent.catalog
+}
+
 export function agentRequiredPlugins(
   agent: CatalogAgent | undefined
 ): AgentPluginRequirement[] {
