@@ -31,7 +31,7 @@ func (h *SlackAppMentionHandler) ensureOrgAgent(ctx context.Context, orgID uuid.
 func (h *SlackAppMentionHandler) loadFirstOrgAgent(ctx context.Context, orgID uuid.UUID) (model.Agent, error) {
 	var agent model.Agent
 	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND status <> ?", orgID, "archived").
+		Where("org_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, "archived").
 		Order("created_at ASC").
 		First(&agent).Error
 	if err != nil {

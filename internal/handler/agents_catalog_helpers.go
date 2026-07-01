@@ -27,7 +27,7 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 	var installedID *string
 	var agent model.Agent
 	err = h.db.WithContext(ctx).
-		Where("org_id = ? AND agent_catalog_id = ? AND status <> ?", orgID, c.ID, "archived").
+		Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, c.ID, "archived").
 		First(&agent).Error
 	if err == nil {
 		value := agent.ID.String()
@@ -139,7 +139,7 @@ func (h *AgentHandler) loadAgentCatalogBySlug(w http.ResponseWriter, r *http.Req
 func activeAgentForCatalog(ctx context.Context, tx *gorm.DB, orgID, catalogID uuid.UUID) (model.Agent, bool, error) {
 	var agent model.Agent
 	err := tx.WithContext(ctx).
-		Where("org_id = ? AND agent_catalog_id = ? AND status <> ?", orgID, catalogID, "archived").
+		Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, catalogID, "archived").
 		First(&agent).Error
 	if err == nil {
 		return agent, true, nil

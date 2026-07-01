@@ -11,6 +11,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/model"
 	runtimeapi "github.com/usehivy/hivy/internal/sandboxruntime"
+	"github.com/usehivy/hivy/internal/skills"
 )
 
 type PromptSections struct {
@@ -19,6 +20,7 @@ type PromptSections struct {
 	Instructions PromptSection
 	SubAgents    PromptSection
 	Company      PromptSection
+	SkillHint    string
 }
 
 type PromptSection struct {
@@ -44,6 +46,7 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 	}
 
 	fragments := PromptSections{Base: renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description)}
+	fragments.SkillHint = renderSkillHint(ctx, db, agent)
 	if adapter := renderModelAdapterSection(modelID); adapter != "" {
 		fragments.ModelAdapter = PromptSection{Title: "Model adapter", Tag: "model_adapter", Content: adapter}
 	}
@@ -86,8 +89,10 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 	}
 
 	dynamic := []SystemPromptSegment{
-		skillCatalogPromptSegment(),
 		mcpToolsPromptSegment(),
+	}
+	if hint := strings.TrimSpace(fragments.SkillHint); hint != "" {
+		dynamic = append([]SystemPromptSegment{staticPromptSegment("Available skills", hint)}, dynamic...)
 	}
 
 	return SystemPromptConfig{
@@ -191,22 +196,34 @@ func staticPromptSegment(title, content string) SystemPromptSegment {
 	return segment
 }
 
-func skillCatalogPromptSegment() SystemPromptSegment {
-	segment := SystemPromptSegment{}
-	mustBuildPromptSegment(segment.FromSystemPromptSegment2(runtimeapi.SystemPromptSegment2{
-		Type: runtimeapi.SkillCatalog,
-		Config: runtimeapi.ListPromptSegment{
-			Title:        ptrString("Available skills (load when relevant)"),
-			Preamble:     ptrString("Skills provide task-specific instructions. For non-trivial work, check this list before acting. When a skill clearly matches the user's request, call skill_view(name) and follow the loaded instructions. Do not load unrelated skills."),
-			ItemTemplate: ptrString("- {name}: {description}"),
-		},
-	}))
-	return segment
+// renderSkillHint builds a static "Available skills" prompt hint from the
+// agent's DB-backed skills. Skills themselves live behind the skills_list /
+// skill_view MCP tools; this hint just tells the model what is available and
+// how to load one. Returns "" when the agent has no skills.
+func renderSkillHint(ctx context.Context, db *gorm.DB, agent *model.Agent) string {
+	summaries, err := skills.AgentSkillSummaries(ctx, db, agent)
+	if err != nil || len(summaries) == 0 {
+		return ""
+	}
+	lines := []string{
+		"Skills provide task-specific instructions. For non-trivial work, check this list before acting.",
+		"When a skill clearly matches the request, call skill_view(name) to load it (this also materializes its files into .skills/<name>) and follow the loaded instructions. Do not load unrelated skills.",
+		"",
+	}
+	for _, summary := range summaries {
+		description := strings.TrimSpace(summary.Description)
+		if description == "" {
+			lines = append(lines, fmt.Sprintf("- %s", summary.Name))
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("- %s: %s", summary.Name, description))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func mcpToolsPromptSegment() SystemPromptSegment {
 	segment := SystemPromptSegment{}
-	mustBuildPromptSegment(segment.FromSystemPromptSegment3(runtimeapi.SystemPromptSegment3{
+	mustBuildPromptSegment(segment.FromSystemPromptSegment2(runtimeapi.SystemPromptSegment2{
 		Type: runtimeapi.McpTools,
 		Config: runtimeapi.ListPromptSegment{
 			Title:        ptrString("Available MCP tools (use directly)"),

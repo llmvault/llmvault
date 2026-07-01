@@ -29,6 +29,7 @@ type MCPHandler struct {
 	knowledgeTools mcpserver.KnowledgeToolsFunc
 	memoryTools    mcpserver.MemoryToolsFunc
 	imageTools     mcpserver.ImageGenerationToolsFunc
+	skillTools     mcpserver.SkillToolsFunc
 	ServerCache    *mcpserver.ServerCache
 }
 
@@ -65,6 +66,11 @@ func (h *MCPHandler) SetImageGenerationTools(fn mcpserver.ImageGenerationToolsFu
 	h.imageTools = fn
 }
 
+// SetSkillTools sets the callback for registering the read-only skill tools.
+func (h *MCPHandler) SetSkillTools(fn mcpserver.SkillToolsFunc) {
+	h.skillTools = fn
+}
+
 // StreamableHTTPHandler returns an HTTP handler for the MCP Streamable HTTP transport.
 func (h *MCPHandler) StreamableHTTPHandler() http.Handler {
 	return mcp.NewStreamableHTTPHandler(h.serverFactory, &mcp.StreamableHTTPOptions{
@@ -95,7 +101,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools)
 		if err != nil {
 			return nil, time.Time{}, err
 		}

@@ -34,6 +34,7 @@ type agentMutationRequest struct {
 	Resources         *model.JSON      `json:"resources,omitempty"`
 	SandboxTools      *[]string        `json:"sandbox_tools,omitempty"`
 	ChannelIDs        *[]string        `json:"channel_ids,omitempty"`
+	SubAgents         *[]subAgentInput `json:"sub_agents,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -119,9 +120,23 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Every agent is created with the full toolset enabled. Tool selection is
-	// not exposed at creation time, so requested permissions and sandbox tools
-	// are ignored in favour of the canonical "all enabled" defaults.
+	// Tool selection is caller-controlled: an explicit tools map restricts the
+	// agent to those runtime tools, while an omitted map defaults to the full
+	// runtime toolset so the agent is usable out of the box.
+	tools, ok := resolveAgentToolSelection(w, req.Tools)
+	if !ok {
+		return
+	}
+	subAgentRows, ok := h.buildSubAgentRows(ctx, w, org.ID, modelID, req.SubAgents)
+	if !ok {
+		return
+	}
+	if len(subAgentRows) > 0 {
+		// A parent must be able to dispatch to its sub-agents.
+		tools["subagent_task"] = true
+	}
+	// Permissions and sandbox tools are not caller-controlled at creation time;
+	// they default to the canonical "all enabled" set.
 	permissions := model.JSON{}
 	for _, id := range model.BuiltInToolIDs() {
 		permissions[id] = true
@@ -149,7 +164,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		AvailableModels:   availableModels,
 		ImageModel:        imageModel,
 		VectorImageModel:  vectorImageModel,
-		Tools:             normalizeJSONPtr(req.Tools),
+		Tools:             tools,
 		McpServers:        mcpServers,
 		Skills:            normalizeJSONPtr(req.Skills),
 		Permissions:       permissions,
@@ -166,6 +181,12 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := tx.Create(&agent).Error; err != nil {
 			return err
 		}
+		for i := range subAgentRows {
+			subAgentRows[i].ParentAgentID = &agent.ID
+			if err := tx.Create(&subAgentRows[i]).Error; err != nil {
+				return err
+			}
+		}
 		if err := h.replaceAgentChannelsTx(tx, org.ID, agent.ID, channelIDs); err != nil {
 			return err
 		}
@@ -179,5 +200,10 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create agent"})
 		return
 	}
-	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
+	item := h.agentListItem(ctx, org.ID, agent)
+	item.SubAgents = make([]subAgentResponse, 0, len(subAgentRows))
+	for _, sub := range subAgentRows {
+		item.SubAgents = append(item.SubAgents, toSubAgentResponse(sub))
+	}
+	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: item})
 }

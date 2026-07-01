@@ -70,7 +70,6 @@ pub mod event_types {
     pub const SESSION_CREATED: &str = "session.created";
     pub const SESSION_COMPLETED: &str = "session.completed";
     pub const CONFIG_APPLIED: &str = "config.applied";
-    pub const SKILL_SYNCED: &str = "skill.synced";
     pub const SCHEDULE_CREATED: &str = "schedule.created";
     pub const SCHEDULE_UPDATED: &str = "schedule.updated";
     pub const SCHEDULE_PAUSED: &str = "schedule.paused";

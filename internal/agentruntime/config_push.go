@@ -140,7 +140,6 @@ func runtimeConfigLogAttrs(update ConfigUpdateRequest) []any {
 		attrs = append(attrs,
 			"tool_count", len(update.Definition.Tools),
 			"mcp_server_count", len(update.Definition.McpServers),
-			"skill_count", len(update.Definition.Skills),
 			"subagent_count", len(update.Definition.SubAgents),
 			"outbound_channel_count", len(update.Definition.OutboundChannels),
 		)

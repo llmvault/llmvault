@@ -94,6 +94,7 @@ type agentResponse struct {
 	Resources         model.JSON             `json:"resources"`
 	Triggers          []agentTriggerResponse `json:"triggers"`
 	AttachedSkills    []agentSkillSummary    `json:"attached_skills"`
+	SubAgents         []subAgentResponse     `json:"sub_agents"`
 	CreatedAt         string                 `json:"created_at"`
 	UpdatedAt         string                 `json:"updated_at"`
 }
@@ -137,6 +138,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 		SandboxTools:     append([]string(nil), a.SandboxTools...),
 		Status:           a.Status,
 		Resources:        nonNilJSON(a.Resources),
+		SubAgents:        []subAgentResponse{},
 		CreatedAt:        a.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        a.UpdatedAt.Format(time.RFC3339),
 	}

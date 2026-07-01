@@ -11859,6 +11859,12 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "sub_agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/subAgentResponse"
+                    }
+                },
                 "tools": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -11941,6 +11947,12 @@ const docTemplate = `{
                 },
                 "skills": {
                     "$ref": "#/definitions/JSON"
+                },
+                "sub_agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/subAgentInput"
+                    }
                 },
                 "tools": {
                     "$ref": "#/definitions/JSON"
@@ -12044,6 +12056,12 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "sub_agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/subAgentResponse"
+                    }
                 },
                 "tools": {
                     "$ref": "#/definitions/JSON"
@@ -16057,6 +16075,61 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "subAgentInput": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tools": {
+                    "$ref": "#/definitions/JSON"
+                }
+            }
+        },
+        "subAgentResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_agent_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tools": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

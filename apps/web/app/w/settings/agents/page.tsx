@@ -58,11 +58,20 @@ export default function AgentsSettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Agents</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Install workspace agents from the catalog.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Agents</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Install workspace agents from the catalog, or build your own.
+          </p>
+        </div>
+        <NextLink
+          href="/w/settings/agents/new"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Icon icon="lucide:plus" className="h-4 w-4" />
+          Create agent
+        </NextLink>
       </div>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">

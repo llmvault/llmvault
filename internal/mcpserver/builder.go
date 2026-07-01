@@ -23,6 +23,9 @@ type MemoryToolsFunc func(server *mcp.Server, token *model.Token)
 // ImageGenerationToolsFunc registers agent image generation tools.
 type ImageGenerationToolsFunc func(server *mcp.Server, token *model.Token)
 
+// SkillToolsFunc registers the read-only skill tools (skills_list, skill_view).
+type SkillToolsFunc func(server *mcp.Server, token *model.Token)
+
 // BuildServer creates an MCP server with platform-native tools. Connection and
 // integration access is handled by provider proxy endpoints, not MCP tools.
 // If addWebTools is non-nil, it is called to register web_fetch and web_search
@@ -36,6 +39,7 @@ func BuildServer(
 	addKnowledgeTools KnowledgeToolsFunc,
 	addMemoryTools MemoryToolsFunc,
 	addImageGenerationTools ImageGenerationToolsFunc,
+	addSkillTools SkillToolsFunc,
 ) (*mcp.Server, error) {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "hivy",
@@ -56,6 +60,10 @@ func BuildServer(
 
 	if addImageGenerationTools != nil {
 		addImageGenerationTools(server, token)
+	}
+
+	if addSkillTools != nil {
+		addSkillTools(server, token)
 	}
 
 	addCronTool(server, token, db)

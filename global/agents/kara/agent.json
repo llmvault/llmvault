@@ -35,9 +35,6 @@
     "check_bash_status": true,
     "search_sessions": true,
     "update_plan": true,
-    "skills_list": true,
-    "skill_view": true,
-    "skill_manage": true,
     "subagent_task": true,
     "request_user_input": true
   },
@@ -70,9 +67,7 @@
         "grep": true,
         "multi_grep": true,
         "search_sessions": true,
-        "update_plan": true,
-        "skills_list": true,
-        "skill_view": true
+        "update_plan": true
       },
       "mcp_tool_filter": {
         "deny": [
@@ -91,10 +86,7 @@
       "name": "Image Generator",
       "description": "Image generation specialist for Kara. Use when Kara needs generated images, image prompt refinement, visual prompt variants, image edits, product scenes, hero visuals, UI mockup imagery, icons, diagrams, illustrations, logo explorations, textures, sprites, or reference-based visual variants.",
       "model": "kimi-k2.7-code",
-      "tools": {
-        "skills_list": true,
-        "skill_view": true
-      },
+      "tools": {},
       "mcp_tool_filter": {
         "allow": [
           "generate_image",
@@ -123,9 +115,7 @@
         "glob": true,
         "grep": true,
         "multi_grep": true,
-        "update_plan": true,
-        "skills_list": true,
-        "skill_view": true
+        "update_plan": true
       },
       "mcp_tool_filter": {
         "deny": [

@@ -11,7 +11,6 @@ use domain::{
 use observability::{ModelUsage, ObservabilityEvent, TraceSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use skills::SkillWriter;
 use storage::{
     ConfigRepo, ConfigSnapshot, EventRepo, SessionListFilter, SessionRepo, StorageError,
 };
@@ -247,9 +246,6 @@ impl FakeRuntimeServer {
             bearer_token.clone(),
             std::env::temp_dir(),
             Arc::new(LocalBashOperations),
-            Arc::new(SkillWriter::new(
-                std::env::temp_dir().join("eval-harness-skills"),
-            )),
             Some(api::SessionMessageState {
                 inbound_sink,
                 broker: broker.clone(),
@@ -452,8 +448,6 @@ fn fake_agent_definition() -> AgentDefinition {
         tools: Some(Vec::new()),
         mcp_servers: Vec::new(),
         mcp_tool_filter: None,
-        skill_filter: None,
-        skills: Vec::new(),
         outbound_channels: Vec::new(),
         sub_agents: Default::default(),
         safety: Default::default(),

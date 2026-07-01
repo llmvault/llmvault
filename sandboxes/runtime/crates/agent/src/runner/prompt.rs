@@ -1,6 +1,4 @@
-use std::path::Path;
-
-use domain::{AgentDefinition, SessionId, SkillFilter, SystemPromptSegment, ToolFilter};
+use domain::{AgentDefinition, SessionId, SystemPromptSegment, ToolFilter};
 use mcp::McpRegistry;
 
 use crate::history::{
@@ -15,12 +13,10 @@ use super::capture_preloaded_context_error;
 pub(super) struct InitialMessagePromptSources<'a> {
     pub(super) mcp_registry: Option<&'a McpRegistry>,
     pub(super) mcp_tool_filter: Option<&'a ToolFilter>,
-    pub(super) skill_filter: Option<&'a SkillFilter>,
 }
 
 pub(super) async fn build_initial_messages(
     snapshot: &AgentDefinition,
-    workspace_root: &Path,
     session_id: &SessionId,
     input: TurnInput,
     event_repo: Option<&dyn storage::EventRepo>,
@@ -47,10 +43,8 @@ pub(super) async fn build_initial_messages(
         AgentMessage::system(
             render_dynamic_system_prompt(
                 snapshot,
-                workspace_root,
                 prompt_sources.mcp_registry,
                 prompt_sources.mcp_tool_filter,
-                prompt_sources.skill_filter,
                 &session_context,
             )
             .await,
@@ -79,15 +73,11 @@ pub(super) fn render_cacheable_system_prompt(snapshot: &AgentDefinition) -> Stri
 
 pub(super) async fn render_dynamic_system_prompt(
     snapshot: &AgentDefinition,
-    workspace_root: &Path,
     mcp_registry: Option<&McpRegistry>,
     mcp_tool_filter: Option<&ToolFilter>,
-    skill_filter: Option<&SkillFilter>,
     session_context: &[String],
 ) -> String {
     let mut prompt = String::new();
-    let skill_store = skills::SkillStore::new(workspace_root);
-    let skill_summaries = skill_store.summaries_filtered(None, skill_filter);
     let mcp_tools = match mcp_registry {
         Some(registry) => registry.available_tool_names_filtered(mcp_tool_filter),
         None => Vec::new(),
@@ -105,9 +95,6 @@ pub(super) async fn render_dynamic_system_prompt(
             SystemPromptSegment::StaticText(_) => render_static_segment(segment),
             SystemPromptSegment::DynamicContext(config) => {
                 render_dynamic_context_segment(config, session_context)
-            }
-            SystemPromptSegment::SkillCatalog(config) => {
-                render_skill_catalog_segment(config, &skill_summaries)
             }
             SystemPromptSegment::McpTools(config) => render_tool_list_segment(config, &mcp_tools),
         };
@@ -173,25 +160,6 @@ fn render_dynamic_context_segment(
         }
         return None;
     }
-    render_item_section(&config.title, &config.preamble, &[], &items, &[])
-}
-
-fn render_skill_catalog_segment(
-    config: &domain::ListPromptSegment,
-    skills: &[skills::SkillSummary],
-) -> Option<String> {
-    let items = skills
-        .iter()
-        .map(|skill| {
-            apply_template(
-                &config.item_template,
-                &[
-                    ("name", skill.name.as_str()),
-                    ("description", skill.description.as_str()),
-                ],
-            )
-        })
-        .collect::<Vec<_>>();
     render_item_section(&config.title, &config.preamble, &[], &items, &[])
 }
 

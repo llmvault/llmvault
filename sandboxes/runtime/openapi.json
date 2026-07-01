@@ -13,6 +13,53 @@
     "version": "0.0.1"
   },
   "paths": {
+    "/canvas/preview/{path}": {
+      "get": {
+        "tags": [
+          "crate::canvas_preview"
+        ],
+        "operationId": "preview_canvas_file",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "description": "Canvas file path relative to /workspace/canvas",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "Read-only browser token for iframe previews",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canvas artifact file"
+          },
+          "400": {
+            "description": "Invalid path"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "File not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/config": {
       "get": {
         "tags": [
@@ -838,22 +885,6 @@
           "safety": {
             "$ref": "#/components/schemas/SafetyConfig"
           },
-          "skill_filter": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/SkillFilter"
-              }
-            ]
-          },
-          "skills": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SkillSpec"
-            }
-          },
           "sub_agents": {
             "type": "object",
             "additionalProperties": {
@@ -1056,7 +1087,6 @@
         "type": "object",
         "required": [
           "applied_at",
-          "definition",
           "env_key_count",
           "secret_rotated"
         ],
@@ -1064,9 +1094,6 @@
           "applied_at": {
             "type": "string",
             "format": "date-time"
-          },
-          "definition": {
-            "$ref": "#/components/schemas/AgentDefinition"
           },
           "env_key_count": {
             "type": "integer",
@@ -2836,124 +2863,6 @@
           }
         }
       },
-      "SkillFilter": {
-        "type": "object",
-        "properties": {
-          "allow": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "SkillSpec": {
-        "type": "object",
-        "required": [
-          "name",
-          "description",
-          "trigger",
-          "instructions"
-        ],
-        "properties": {
-          "category": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "description": {
-            "type": "string"
-          },
-          "files": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "propertyNames": {
-              "type": "string"
-            }
-          },
-          "instructions": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "pinned": {
-            "type": "boolean"
-          },
-          "related_skills": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "required_credential_files": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "required_environment_variables": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "trigger": {
-            "$ref": "#/components/schemas/SkillTrigger"
-          }
-        }
-      },
-      "SkillTrigger": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "always"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "patterns",
-              "type"
-            ],
-            "properties": {
-              "patterns": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "keyword"
-                ]
-              }
-            }
-          }
-        ]
-      },
       "StaticPromptSegment": {
         "type": "object",
         "properties": {
@@ -3110,24 +3019,6 @@
                 "type": "string",
                 "enum": [
                   "dynamic_context"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "config",
-              "type"
-            ],
-            "properties": {
-              "config": {
-                "$ref": "#/components/schemas/ListPromptSegment"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "skill_catalog"
                 ]
               }
             }
@@ -3367,48 +3258,6 @@
                 "type": "string",
                 "enum": [
                   "builtin.check_bash_status"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.skills_list"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.skill_view"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.skill_manage"
                 ]
               }
             }

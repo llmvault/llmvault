@@ -18,9 +18,13 @@ export function AuthCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function AuthLogo() {
+export function AuthLogo({ className }: { className?: string }) {
   return (
-    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl">
+    <div
+      className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl${
+        className ? ` ${className}` : ""
+      }`}
+    >
       <Image
         src="/hivy-logo.svg"
         alt="Hivy"

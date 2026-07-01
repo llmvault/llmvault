@@ -31,9 +31,6 @@
     "check_bash_status": true,
     "search_sessions": true,
     "update_plan": true,
-    "skills_list": true,
-    "skill_view": true,
-    "skill_manage": true,
     "request_user_input": true
   },
   "plugins": {

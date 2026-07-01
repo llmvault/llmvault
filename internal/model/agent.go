@@ -8,12 +8,19 @@ import (
 )
 
 type Agent struct {
-	ID                  uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID               *uuid.UUID       `gorm:"type:uuid;not null;index:idx_agent_org_id;uniqueIndex:idx_agents_org_name,priority:1"`
-	Org                 *Org             `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	AgentCatalogID      *uuid.UUID       `gorm:"type:uuid;index"`
-	AgentCatalog        *AgentCatalog    `gorm:"foreignKey:AgentCatalogID;constraint:OnDelete:SET NULL"`
-	Name                string           `gorm:"type:text;not null;uniqueIndex:idx_agents_org_name,priority:2"`
+	ID             uuid.UUID     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID          *uuid.UUID    `gorm:"type:uuid;not null;index:idx_agent_org_id"`
+	Org            *Org          `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	AgentCatalogID *uuid.UUID    `gorm:"type:uuid;index"`
+	AgentCatalog   *AgentCatalog `gorm:"foreignKey:AgentCatalogID;constraint:OnDelete:SET NULL"`
+	// Type is "agent" for top-level agents and "subagent" for a sub-agent owned
+	// by ParentAgentID. Sub-agents are excluded from top-level agent listings.
+	Type          string     `gorm:"type:text;not null;default:'agent'"`
+	ParentAgentID *uuid.UUID `gorm:"type:uuid;index"`
+	// Name is unique per org among top-level agents (partial unique index
+	// idx_agents_org_name WHERE parent_agent_id IS NULL) and unique within a
+	// parent for sub-agents (idx_agents_parent_name).
+	Name                string           `gorm:"type:text;not null"`
 	Description         *string          `gorm:"type:text;not null;default:''"`
 	AvatarURL           *string          `gorm:"type:text"`
 	Category            *string          `gorm:"-"`
@@ -54,6 +61,13 @@ type Agent struct {
 }
 
 func (Agent) TableName() string { return "agents" }
+
+const (
+	// AgentTypeAgent is a top-level agent (parent_agent_id IS NULL).
+	AgentTypeAgent = "agent"
+	// AgentTypeSubAgent is a sub-agent owned by a parent agent via ParentAgentID.
+	AgentTypeSubAgent = "subagent"
+)
 
 // SandboxToolDefinition describes a tool/service that can be enabled in a sandbox.
 type SandboxToolDefinition struct {
@@ -183,9 +197,6 @@ var RuntimeBuiltInToolIDs = []string{
 	"lsp",
 	"subagent_task",
 	"check_bash_status",
-	"skills_list",
-	"skill_view",
-	"skill_manage",
 	"search_sessions",
 	"request_user_input",
 	"update_plan",

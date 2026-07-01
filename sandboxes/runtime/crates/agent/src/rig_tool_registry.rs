@@ -10,9 +10,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::agent_registry::AgentDefinitionRegistry;
 use domain::{
-    event_types, skill_allowed, validate_request_user_input_payload, validate_update_plan_payload,
-    OutboundEvent, RequestUserInputPayload, SessionId, SkillFilter, SubagentTask,
-    SubagentTaskConfig, SubagentTaskState, ToolSpec, UpdatePlanPayload,
+    validate_request_user_input_payload, validate_update_plan_payload, RequestUserInputPayload,
+    SessionId, SubagentTask, SubagentTaskConfig, SubagentTaskState, ToolSpec, UpdatePlanPayload,
 };
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
@@ -67,7 +66,6 @@ pub struct ToolContext {
     pub outbound_emitter: Option<Arc<OutboundEmitter>>,
     pub agent_registry: Arc<AgentDefinitionRegistry>,
     pub session_stream_id: Option<String>,
-    pub skill_filter: Option<SkillFilter>,
 }
 
 pub fn build_agent_tools(
@@ -88,26 +86,6 @@ pub fn build_agent_tools(
                 if let Some(repo) = &ctx.event_repo {
                     tools.push(search_sessions_tool(repo.clone()));
                 }
-            }
-            ToolSpec::SkillsList => {
-                tools.push(skills_list_tool(
-                    ctx.workspace_root.clone(),
-                    ctx.skill_filter.clone(),
-                ));
-            }
-            ToolSpec::SkillView => {
-                tools.push(skill_view_tool(
-                    ctx.workspace_root.clone(),
-                    ctx.skill_filter.clone(),
-                ));
-            }
-            ToolSpec::SkillManage => {
-                tools.push(skill_manage_tool(
-                    ctx.workspace_root.clone(),
-                    session_id.clone(),
-                    ctx.outbound_emitter.clone(),
-                    ctx.skill_filter.clone(),
-                ));
             }
             ToolSpec::SubagentTask(config) => {
                 if let Some(repo) = &ctx.subagent_task_repo {
@@ -156,14 +134,6 @@ pub async fn emit_tool_error(
     _args: &Value,
     _error: &str,
 ) {
-}
-
-fn event_source_from_session(session_id: &SessionId) -> &'static str {
-    if session_id.as_str().starts_with("subagent-") {
-        "subagent"
-    } else {
-        "session"
-    }
 }
 
 fn request_user_input_tool(
@@ -354,193 +324,6 @@ fn truncate_search_text(value: &str, max_chars: usize) -> String {
         out.push(ch);
     }
     out
-}
-
-fn skills_list_tool(
-    workspace_root: PathBuf,
-    skill_filter: Option<SkillFilter>,
-) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "skills_list".into(),
-            description:
-                "List available skills (name + description). Use skill_view(name) to load full content."
-                    .into(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "Optional category filter to narrow results"
-                    }
-                },
-                "required": []
-            }),
-        },
-        move |args| {
-            let workspace_root = workspace_root.clone();
-            let skill_filter = skill_filter.clone();
-            Box::pin(async move {
-                let store = skills::SkillStore::new(workspace_root);
-                Ok(store.list_filtered(
-                    args.get("category").and_then(Value::as_str),
-                    skill_filter.as_ref(),
-                ))
-            })
-        },
-    ))
-}
-
-fn skill_view_tool(
-    workspace_root: PathBuf,
-    skill_filter: Option<SkillFilter>,
-) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "skill_view".into(),
-            description: "Skills allow loading task workflows plus linked files. Load a skill's full content or access linked files under references/, templates/, scripts/, or assets/.".into(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "The skill name (use skills_list to see available skills)."
-                    },
-                    "file_path": {
-                        "type": "string",
-                        "description": "Optional linked file path within the skill, e.g. references/api.md or scripts/check.sh."
-                    }
-                },
-                "required": ["name"]
-            }),
-        },
-        move |args| {
-            let workspace_root = workspace_root.clone();
-            let skill_filter = skill_filter.clone();
-            Box::pin(async move {
-                let name = args
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow!("name required"))?;
-                let store = skills::SkillStore::new(workspace_root);
-                store.view_filtered(
-                    name,
-                    args.get("file_path").and_then(Value::as_str),
-                    skill_filter.as_ref(),
-                )
-            })
-        },
-    ))
-}
-
-fn skill_manage_tool(
-    workspace_root: PathBuf,
-    session_id: SessionId,
-    emitter: Option<Arc<OutboundEmitter>>,
-    skill_filter: Option<SkillFilter>,
-) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "skill_manage".into(),
-            description: "Manage filesystem-backed skills in /workspace/.skills. Actions: create, patch, edit, delete, write_file, remove_file. Use only when asked, or after confirming the user wants to save/update durable skill instructions.".into(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "enum": ["create", "patch", "edit", "delete", "write_file", "remove_file"]},
-                    "name": {"type": "string", "description": "Skill name: lowercase, numbers, hyphens/underscores, max 64 chars."},
-                    "content": {"type": "string", "description": "Full SKILL.md content. Required for create and edit."},
-                    "old_string": {"type": "string", "description": "Text to find for patch."},
-                    "new_string": {"type": "string", "description": "Replacement text for patch."},
-                    "replace_all": {"type": "boolean", "description": "For patch, replace all matches instead of requiring uniqueness."},
-                    "category": {"type": "string", "description": "Optional category for create when content has no frontmatter."},
-                    "file_path": {"type": "string", "description": "Supporting file path under references/, templates/, scripts/, or assets/."},
-                    "file_content": {"type": "string", "description": "Content for write_file."},
-                    "absorbed_into": {"type": "string", "description": "For delete, skill this was merged into, or empty string for pruning."}
-                },
-                "required": ["action", "name"]
-            }),
-        },
-        move |args| {
-            let workspace_root = workspace_root.clone();
-            let session_id = session_id.clone();
-            let emitter = emitter.clone();
-            let skill_filter = skill_filter.clone();
-            Box::pin(async move {
-                let store = skills::SkillStore::new(workspace_root);
-                let action = args
-                    .get("action")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string();
-                let name = args
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string();
-                if !skill_allowed(&name, skill_filter.as_ref()) {
-                    return Err(anyhow!("skill '{name}' not found"));
-                }
-                let absorbed_into = args
-                    .get("absorbed_into")
-                    .and_then(Value::as_str)
-                    .map(ToString::to_string);
-                let result = store.manage(skills::SkillManageArgs {
-                    action: action.clone(),
-                    name: name.clone(),
-                    content: args.get("content").and_then(Value::as_str).map(ToString::to_string),
-                    category: args.get("category").and_then(Value::as_str).map(ToString::to_string),
-                    file_path: args.get("file_path").and_then(Value::as_str).map(ToString::to_string),
-                    file_content: args.get("file_content").and_then(Value::as_str).map(ToString::to_string),
-                    old_string: args.get("old_string").and_then(Value::as_str).map(ToString::to_string),
-                    new_string: args.get("new_string").and_then(Value::as_str).map(ToString::to_string),
-                    replace_all: args.get("replace_all").and_then(Value::as_bool).unwrap_or(false),
-                    absorbed_into: absorbed_into.clone(),
-                })?;
-                emit_skill_synced(emitter, &session_id, &store, &action, &name, absorbed_into).await;
-                Ok(result)
-            })
-        },
-    ))
-}
-
-async fn emit_skill_synced(
-    emitter: Option<Arc<OutboundEmitter>>,
-    session_id: &SessionId,
-    store: &skills::SkillStore,
-    action: &str,
-    name: &str,
-    absorbed_into: Option<String>,
-) {
-    let Some(emitter) = emitter else { return };
-    let mut payload = json!({
-        "session_id": session_id.as_str(),
-        "source": event_source_from_session(session_id),
-        "action": action,
-        "name": name,
-    });
-    if action == "delete" {
-        payload["deleted"] = Value::Bool(true);
-        if let Some(absorbed_into) = absorbed_into {
-            payload["absorbed_into"] = Value::String(absorbed_into);
-        }
-    } else {
-        match store.sync_snapshot(name) {
-            Ok(snapshot) => {
-                if let Some(obj) = snapshot.as_object() {
-                    for (key, value) in obj {
-                        payload[key] = value.clone();
-                    }
-                }
-            }
-            Err(error) => {
-                tracing::warn!(%error, skill = %name, "skill sync snapshot failed");
-                return;
-            }
-        }
-    }
-    emitter
-        .emit(OutboundEvent::new(event_types::SKILL_SYNCED, payload))
-        .await;
 }
 
 fn check_bash_status_tool(registry: Arc<ProcessRegistry>) -> Arc<dyn JsonTool> {

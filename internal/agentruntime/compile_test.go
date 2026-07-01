@@ -158,16 +158,13 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	if !strings.Contains(companyContent, "<company>\nCompany name: ExampleCo\n</company>") {
 		t.Fatalf("company segment is not XML wrapped: %q", companyContent)
 	}
-	if len(dynamic) != 2 {
-		t.Fatalf("dynamic segment count = %d", len(dynamic))
+	if len(dynamic) != 1 {
+		t.Fatalf("dynamic segment count = %d (expected only mcp_tools when no skills are seeded)", len(dynamic))
 	}
-	if got := requireListSegment2Type(t, dynamic[0]); got != "skill_catalog" {
-		t.Fatalf("first dynamic segment = %q", got)
+	if got := requireListSegment3Type(t, dynamic[0]); got != "mcp_tools" {
+		t.Fatalf("first dynamic segment = %q, want mcp_tools", got)
 	}
-	if got := requireListSegment3Type(t, dynamic[1]); got != "mcp_tools" {
-		t.Fatalf("second dynamic segment = %q", got)
-	}
-	mcpTools := requireListSegment3(t, dynamic[1])
+	mcpTools := requireListSegment3(t, dynamic[0])
 	mcpPreamble := requirePromptString(t, mcpTools.Config.Preamble)
 	for _, want := range []string{
 		"Use these tools directly when they provide evidence or action.",
