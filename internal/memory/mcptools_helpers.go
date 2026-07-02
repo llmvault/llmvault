@@ -171,6 +171,9 @@ func normalizeMemoryVisibility(raw, fallback string) string {
 }
 
 func (toolCtx memoryToolContext) canForget(mem model.AgentMemory) error {
+	if mem.AgentID != nil && *mem.AgentID != toolCtx.AgentID {
+		return fmt.Errorf("forget_memory cannot archive another agent's memory")
+	}
 	if mem.Scope != model.AgentMemoryScopeUser {
 		return nil
 	}

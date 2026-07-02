@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -87,6 +88,51 @@ func TestMemoryMCPToolsRetainSearchAndForget(t *testing.T) {
 	assertMemoryArchived(t, db, retainedID)
 }
 
+func TestMemoryMCPToolsForgetAgentIsolation(t *testing.T) {
+	ctx := context.Background()
+	db := connectMemoryToolTestDB(t)
+	fixture := seedMemoryToolFixture(t, db)
+	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
+
+	otherAgent := model.Agent{ID: uuid.New(), OrgID: &fixture.org.ID, Name: "Memory MCP Other Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	if err := db.Create(&otherAgent).Error; err != nil {
+		t.Fatalf("create other agent: %v", err)
+	}
+	otherToken := &model.Token{
+		OrgID: fixture.org.ID,
+		Meta: model.JSON{
+			model.TokenMetaType:    model.TokenTypeAgentProxy,
+			model.TokenMetaAgentID: otherAgent.ID.String(),
+		},
+	}
+	otherClient := connectMemoryToolClient(t, ctx, service, otherToken)
+
+	privateID := seedReadyMemory(t, service, fixture.org.ID, &fixture.agent.ID, nil, "Agent A's private release checklist notes.")
+	assertMemoryToolError(t, ctx, otherClient, "forget_memory", map[string]any{
+		"memory_id": privateID.String(),
+	}, "another agent's memory")
+	assertMemoryNotArchived(t, db, privateID)
+
+	sharedID := seedReadyMemory(t, service, fixture.org.ID, nil, nil, "Org-wide memory forgettable by any agent.")
+	callMemoryTool(t, ctx, otherClient, "forget_memory", map[string]any{
+		"memory_id": sharedID.String(),
+	})
+	assertMemoryArchived(t, db, sharedID)
+
+	// SQL hardening: an agent-scoped archive must not cross agent boundaries
+	// even when the Go guard is bypassed.
+	if err := service.Archive(ctx, ArchiveRequest{OrgID: fixture.org.ID, ID: privateID, AgentID: &otherAgent.ID}); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("agent-scoped archive of another agent's memory = %v, want gorm.ErrRecordNotFound", err)
+	}
+	assertMemoryNotArchived(t, db, privateID)
+
+	// The unscoped path (REST/dashboard) can still archive agent-bound memories.
+	if err := service.Archive(ctx, ArchiveRequest{OrgID: fixture.org.ID, ID: privateID}); err != nil {
+		t.Fatalf("unscoped archive: %v", err)
+	}
+	assertMemoryArchived(t, db, privateID)
+}
+
 func assertMemoryToolError(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any, want string) {
 	t.Helper()
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{
@@ -109,5 +155,16 @@ func assertMemoryArchived(t *testing.T, db *gorm.DB, memoryID uuid.UUID) {
 	}
 	if archived.ArchivedAt == nil {
 		t.Fatalf("memory %s was not archived", memoryID)
+	}
+}
+
+func assertMemoryNotArchived(t *testing.T, db *gorm.DB, memoryID uuid.UUID) {
+	t.Helper()
+	var mem model.AgentMemory
+	if err := db.First(&mem, "id = ?", memoryID).Error; err != nil {
+		t.Fatalf("load memory: %v", err)
+	}
+	if mem.ArchivedAt != nil {
+		t.Fatalf("memory %s was archived but should not be", memoryID)
 	}
 }

@@ -215,7 +215,7 @@ func handleForgetMemory(ctx context.Context, service *Service, token *model.Toke
 	if err := toolCtx.canForget(mem); err != nil {
 		return memoryToolError(err.Error()), nil
 	}
-	if err := service.Archive(ctx, ArchiveRequest{OrgID: token.OrgID, ID: memoryID}); err != nil {
+	if err := service.Archive(ctx, ArchiveRequest{OrgID: token.OrgID, ID: memoryID, AgentID: &agentID}); err != nil {
 		return memoryToolError("forget_memory failed: " + err.Error()), nil
 	}
 	return memoryToolJSON(map[string]any{

@@ -147,9 +147,12 @@ func (s *Service) Archive(ctx context.Context, req ArchiveRequest) error {
 		return fmt.Errorf("memory service is not configured")
 	}
 	now := time.Now()
-	res := s.cfg.DB.WithContext(ctx).Model(&model.AgentMemory{}).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", req.ID, req.OrgID).
-		Update("archived_at", &now)
+	q := s.cfg.DB.WithContext(ctx).Model(&model.AgentMemory{}).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", req.ID, req.OrgID)
+	if req.AgentID != nil && *req.AgentID != uuid.Nil {
+		q = q.Where("(agent_id IS NULL OR agent_id = ?)", *req.AgentID)
+	}
+	res := q.Update("archived_at", &now)
 	if res.Error != nil {
 		return fmt.Errorf("archive memory: %w", res.Error)
 	}

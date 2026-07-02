@@ -40,6 +40,10 @@ type UpdateRequest struct {
 type ArchiveRequest struct {
 	OrgID uuid.UUID
 	ID    uuid.UUID
+	// AgentID, when set, restricts archiving to memories visible to that
+	// agent (agent_id IS NULL or agent_id = AgentID). Used by the agent
+	// tool path; the org-admin REST path leaves it nil.
+	AgentID *uuid.UUID
 }
 
 type ListRequest struct {
