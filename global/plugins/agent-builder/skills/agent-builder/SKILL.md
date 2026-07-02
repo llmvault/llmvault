@@ -50,7 +50,7 @@ Response shape: `{ "agent": { "id", "name", "description", "instructions", "mode
   "instructions": "You are Support Triage for the team's support inbox.\n\nYour job: classify each incoming request (bug, billing, how-to, feature request), answer the ones covered by known solutions, and escalate anything ambiguous, angry, or contractual to a human — never guess on those.\n\nHow to work: read the full request first. Search the web only when the answer likely changed recently. When you draft a reply, delegate to your Responder sub-agent and review its draft before sending.\n\nBoundaries: never promise refunds, legal terms, or timelines. Never reply to legal threats — escalate.\n\nVoice: warm, direct, under 8 sentences.",
   "plugin_slugs": ["github"],
   "skills": ["github-triage"],
-  "tools": ["web_search", "web_fetch", "skills_list", "skill_view"],
+  "tools": ["web_search", "web_fetch"],
   "sub_agents": [
     {
       "name": "Responder",
@@ -62,7 +62,7 @@ Response shape: `{ "agent": { "id", "name", "description", "instructions", "mode
 }
 ```
 
-Note what the example does **not** include: `model` is omitted (org default — see Model selection), and the sub-agent has no `model` field (sub-agents always inherit the parent's model; the schema has no such field, so do not send one).
+Note what the example does **not** include: `model` is omitted (org default — see Model selection), the sub-agent has no `model` field (sub-agents always inherit the parent's model; the schema has no such field, so do not send one), and `tools` lists **only optional capabilities** — every agent you create automatically gets the baseline sandbox tools (shell, file read/write/search, planning) and the read-only floor (`skills_list`, `skill_view`, `list_channels`). Never list baseline tools; they are not in the enum.
 
 The response is `{ "agent": { …same shape as get_agent… }, "url" }`. Verify it: confirm the `plugins`, `skills`, `tools`, and `sub_agents` in the response match what you intended before telling the user anything succeeded.
 
@@ -89,21 +89,23 @@ Archive an agent (removes it from list_agents; it stops running):
 | `status` | update only | no | `active` or `archived`. |
 | `plugin_slugs` | both | no | Must be **installed for the org and active** — from `list_org_plugins.installed`. Replaces the set on update. Auto-installed org plugins stay attached no matter what you send. |
 | `skills` | both | no | Skill slugs from **installed** plugins only (shown under each plugin in `list_org_plugins`). Replaces the set on update. |
-| `tools` | both | no | Strict enum (see Tools). Replaces the set on update. |
+| `tools` | both | no | Strict enum of **optional capabilities only** (see Tools). Replaces the optional set on update; the automatic baseline is never affected. |
 | `sub_agents` | both | no | Array of `{ name (required), description, instructions, skills, tools }`. Replaces the **entire** set on update — sub-agents are deleted and recreated. Names must be unique within one parent. |
 
 **NOT settable with these tools** — do not promise them or try to fake them via fields that don't exist: channels, schedules, sandbox image/size, permission toggles, per-sub-agent models, MCP servers. The user configures those on the agent's page — share the `url` from the response and tell them where to look.
 
-### Tools you can grant
+### Tools — baseline is automatic, the enum is the extras
 
-Runtime tools: `bash`, `read_file`, `write_file`, `file_search`, `glob`, `grep`, `multi_grep`, `apply_patch`, `lsp`, `subagent_task`, `check_bash_status`, `search_sessions`, `request_user_input`, `update_plan`.
-MCP tools: `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `search_memories`, `retain_memory`, `forget_memory`, `skills_list`, `skill_view`, `search_knowledge_base`, `cron`.
+**Every agent you create automatically gets** (do not list these; they are not in the enum):
+- The baseline sandbox tools: `bash`, `check_bash_status`, `read_file`, `write_file`, `apply_patch`, `file_search`, `glob`, `grep`, `multi_grep`, `update_plan`, `search_sessions`, `request_user_input`.
+- The read-only MCP floor: `skills_list`, `skill_view` (how it reads its skills — granting `skills` alone is enough), and `list_channels`.
+- `subagent_task`, added automatically whenever the agent has `sub_agents`.
 
-The schema's `tools` enum is the authoritative list. Three rules:
+**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `search_memories`, `retain_memory`, `forget_memory`, `search_knowledge_base`, `cron`, `create_http_trigger`. The schema's `tools` enum is the authoritative list. Grant only what the job needs.
 
-- If you grant any `skills`, also grant `skills_list` and `skill_view` — that's how the agent reads its skills.
-- When you define `sub_agents`, the delegation tool (`subagent_task`) is added to the parent automatically.
-- **`create_agent`, `update_agent`, and `list_org_plugins` are not grantable.** You cannot build another builder; don't try, and don't promise it.
+Sub-agents' `tools` accept the full tool set (baseline included), so a deliberately narrow read-only sub-agent is expressible; a sub-agent with no `tools` defaults to read-only file tools.
+
+**`create_agent`, `update_agent`, and `list_org_plugins` are not grantable.** You cannot build another builder; don't try, and don't promise it.
 
 ## Worked example — add one tool without wiping the rest
 
@@ -113,16 +115,16 @@ Lists **replace**, they never merge. To add `generate_image` to the Support Tria
 { "agent_id": "7c9e6679-…" }
 ```
 
-The response shows `"tools": ["web_search", "web_fetch", "skills_list", "skill_view", "subagent_task"]` (the last one was added automatically for its sub-agent). Send back the **full current list plus the new tool**:
+The response shows `"tools": ["web_search", "web_fetch"]` — the echo lists **only the optional capabilities**; baseline tools, the read-only floor, and the auto-granted `subagent_task` are on the agent but never appear here. Send back the **full current list plus the new tool**:
 
 ```json
 {
   "agent_id": "7c9e6679-…",
-  "tools": ["web_search", "web_fetch", "skills_list", "skill_view", "subagent_task", "generate_image"]
+  "tools": ["web_search", "web_fetch", "generate_image"]
 }
 ```
 
-Sending `"tools": ["generate_image"]` instead would strip the other five. The same rule applies to `plugin_slugs`, `skills`, and `sub_agents` — for `sub_agents`, re-send every sub-agent you want to keep (from `get_agent`'s `sub_agents`, minus their `id`/`model` fields), or they are deleted.
+Sending `"tools": ["generate_image"]` instead would strip `web_search` and `web_fetch`. The baseline and floor are never affected by what you send — only the optional set replaces. The same rule applies to `plugin_slugs`, `skills`, and `sub_agents` — for `sub_agents`, re-send every sub-agent you want to keep (from `get_agent`'s `sub_agents`, minus their `id`/`model` fields), or they are deleted.
 
 ## Model selection
 
@@ -199,8 +201,8 @@ If the user isn't sure what they want: propose a small concrete starter agent, c
 - Interview before you build; confirm before you create or change.
 - Least privilege: only the capabilities the job needs.
 - `get_agent` before every `update_agent`.
-- Arrays replace. Re-send the full intended list, always.
-- Sub-agents: no `model` field; whole set replaced on update; `subagent_task` is added to the parent automatically.
+- Arrays replace. Re-send the full intended list, always (for `tools`: the full *optional* list — baseline and floor are automatic and untouchable).
+- Sub-agents: no `model` field; whole set replaced on update; `subagent_task` is added to the parent automatically; empty sub-agent `tools` default to read-only file tools.
 - Never grant or promise `create_agent`/`update_agent`/`list_org_plugins` on a created agent — they are not grantable.
 - Don't reconfigure or rename the user's default assistant beyond what they asked.
 - Don't promise capabilities that need an uninstalled plugin or missing connection — share the `install_url` instead.

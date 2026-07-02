@@ -28,7 +28,7 @@ const (
   "instructions": "You are Support Triage for the team's support inbox.\n\nYour job: classify each incoming request (bug, billing, how-to, feature request), answer the ones covered by known solutions, and escalate anything ambiguous, angry, or contractual to a human — never guess on those.\n\nHow to work: read the full request first. Search the web only when the answer likely changed recently. When you draft a reply, delegate to your Responder sub-agent and review its draft before sending.\n\nBoundaries: never promise refunds, legal terms, or timelines. Never reply to legal threats — escalate.\n\nVoice: warm, direct, under 8 sentences.",
   "plugin_slugs": ["github"],
   "skills": ["github-triage"],
-  "tools": ["web_search", "web_fetch", "skills_list", "skill_view"],
+  "tools": ["web_search", "web_fetch"],
   "sub_agents": [
     {
       "name": "Responder",
@@ -42,7 +42,7 @@ const (
 	abPayloadUpdateArchive     = `{ "agent_id": "7c9e6679-…", "status": "archived" }`
 	abPayloadUpdateAddTool     = `{
   "agent_id": "7c9e6679-…",
-  "tools": ["web_search", "web_fetch", "skills_list", "skill_view", "subagent_task", "generate_image"]
+  "tools": ["web_search", "web_fetch", "generate_image"]
 }`
 	abPayloadUpdateModel = `{ "agent_id": "7c9e6679-…", "model": "MODEL_ID_FROM_ENUM" }`
 )
