@@ -204,6 +204,37 @@ var RuntimeBuiltInToolIDs = []string{
 	"update_plan",
 }
 
+// BaselineRuntimeToolIDs is the subset of RuntimeBuiltInToolIDs every
+// top-level agent needs to operate its sandbox: shell, file read/write/edit,
+// search, planning, session search, and asking the user. The agent-builder
+// MCP tools always grant these to parent agents and only expose the remaining
+// runtime tools for selection. Sub-agents are exempt so read-only sub-agents
+// stay expressible.
+var BaselineRuntimeToolIDs = []string{
+	"bash",
+	"check_bash_status",
+	"read_file",
+	"write_file",
+	"apply_patch",
+	"file_search",
+	"glob",
+	"grep",
+	"multi_grep",
+	"update_plan",
+	"search_sessions",
+	"request_user_input",
+}
+
+// ReadOnlyMCPToolFloor lists read-only MCP tools that an MCP tool filter allow
+// list must never lock out: skills are unusable without the skill tools, and
+// the cron / create_http_trigger tools are unusable without list_channels to
+// resolve Hivy channel UUIDs. An explicit deny still wins.
+var ReadOnlyMCPToolFloor = []string{
+	"skills_list",
+	"skill_view",
+	"list_channels",
+}
+
 var validRuntimeBuiltInToolIDs = func() map[string]bool {
 	result := make(map[string]bool, len(RuntimeBuiltInToolIDs))
 	for _, id := range RuntimeBuiltInToolIDs {

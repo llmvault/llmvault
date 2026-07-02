@@ -57,20 +57,65 @@ func toolFilterFromPayload(payload *toolFilterJSON) *model.ToolFilter {
 	if payload == nil || (payload.Allow == nil && payload.Deny == nil) {
 		return nil
 	}
-	return &model.ToolFilter{
+	// Route catalog manifest filters through the same normalization choke point
+	// (normalizeToolFilter) as user-created and sub-agent filters so the
+	// read-only floor is applied once, everywhere.
+	return normalizeToolFilter(&model.ToolFilter{
 		Allow: normalizeOptionalStrings(payload.Allow),
 		Deny:  normalizeOptionalStrings(payload.Deny),
-	}
+	})
 }
 
+// normalizeToolFilter is the single choke point every compiled MCP tool filter
+// flows through: user-created agent filters (resolveAgentMCPToolFilter), catalog
+// manifest filters (toolFilterFromPayload), and sub-agent filters
+// (compile_subagents.go). It sorts/dedupes the allow and deny lists and applies
+// the read-only floor.
 func normalizeToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 	if filter == nil || (filter.Allow == nil && filter.Deny == nil) {
 		return nil
 	}
-	return &model.ToolFilter{
+	return applyReadOnlyMCPToolFloor(&model.ToolFilter{
 		Allow: normalizeStringsPreservingNil(filter.Allow),
 		Deny:  normalizeStringsPreservingNil(filter.Deny),
+	})
+}
+
+// applyReadOnlyMCPToolFloor keeps allow-list MCP tool filters from locking an
+// agent out of read-only skill/channel tools. Allow-list agents built by the old
+// agent-builder flow (before this floor existed) would otherwise be denied every
+// MCP tool not named in their allow list — including list_channels (needed to
+// resolve Hivy channel UUIDs for cron / create_http_trigger) and the skill tools
+// (skills are unusable without them). For any filter with a NON-empty allow list
+// we union in each model.ReadOnlyMCPToolFloor id that is not already explicitly
+// denied; an explicit deny is respected as deliberate and still wins. Nil filters
+// and pure deny-list filters (a deny list already permits every unnamed tool) are
+// left untouched. Output stays sorted and deduped.
+func applyReadOnlyMCPToolFloor(filter *model.ToolFilter) *model.ToolFilter {
+	if filter == nil || len(filter.Allow) == 0 {
+		return filter
 	}
+	denied := make(map[string]bool, len(filter.Deny))
+	for _, id := range filter.Deny {
+		denied[id] = true
+	}
+	present := make(map[string]bool, len(filter.Allow))
+	for _, id := range filter.Allow {
+		present[id] = true
+	}
+	changed := false
+	for _, id := range model.ReadOnlyMCPToolFloor {
+		if denied[id] || present[id] {
+			continue
+		}
+		filter.Allow = append(filter.Allow, id)
+		present[id] = true
+		changed = true
+	}
+	if changed {
+		sort.Strings(filter.Allow)
+	}
+	return filter
 }
 
 func normalizeOptionalStrings(values *[]string) []string {

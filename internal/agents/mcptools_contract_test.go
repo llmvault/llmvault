@@ -184,9 +184,56 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 		t.Fatalf("create_agent response has no url")
 	}
 	tools := agentToolStrings(t, agentObj, "tools")
-	for _, want := range []string{"web_search", "web_fetch", "skills_list", "skill_view", "subagent_task"} {
+	// The parent tools array echoes only parent-assignable grants: the two picked
+	// MCP capabilities. Baseline sandbox tools, the read-only floor
+	// (skills_list/skill_view), and the auto-granted subagent_task are all applied
+	// to the stored agent but intentionally omitted from the echo so the list
+	// round-trips through the parent tools schema.
+	for _, want := range []string{"web_search", "web_fetch"} {
 		if !containsString(tools, want) {
-			t.Fatalf("created agent tools missing %q (subagent_task must be auto-added): %v", want, tools)
+			t.Fatalf("created agent tools missing picked capability %q: %v", want, tools)
+		}
+	}
+	for _, forbidden := range []string{"skills_list", "skill_view", "subagent_task", "bash", "read_file"} {
+		if containsString(tools, forbidden) {
+			t.Fatalf("parent tools echo must omit auto-granted %q: %v", forbidden, tools)
+		}
+	}
+	// The stored agent must still have the baseline sandbox tools and subagent_task
+	// (auto-added because it has a sub-agent), and its MCP filter must be a
+	// deny-list that does NOT deny the read-only floor.
+	{
+		var stored model.Agent
+		if err := db.Where("id = ?", agentID).First(&stored).Error; err != nil {
+			t.Fatalf("load stored agent: %v", err)
+		}
+		for _, id := range model.BaselineRuntimeToolIDs {
+			if stored.Tools[id] != true {
+				t.Fatalf("stored agent missing baseline runtime tool %q: %#v", id, stored.Tools)
+			}
+		}
+		if stored.Tools["subagent_task"] != true {
+			t.Fatalf("stored agent missing auto-granted subagent_task: %#v", stored.Tools)
+		}
+		if stored.McpToolFilter == nil || len(stored.McpToolFilter.Allow) != 0 {
+			t.Fatalf("parent MCP filter must be a deny-list, got: %#v", stored.McpToolFilter)
+		}
+		denied := map[string]bool{}
+		for _, d := range stored.McpToolFilter.Deny {
+			denied[d] = true
+		}
+		for _, floor := range model.ReadOnlyMCPToolFloor {
+			if denied[floor] {
+				t.Fatalf("deny-list must not deny read-only floor %q: %v", floor, stored.McpToolFilter.Deny)
+			}
+		}
+		for _, picked := range []string{"web_search", "web_fetch"} {
+			if denied[picked] {
+				t.Fatalf("deny-list must not deny picked capability %q: %v", picked, stored.McpToolFilter.Deny)
+			}
+		}
+		if !denied["cron"] || !denied["generate_image"] {
+			t.Fatalf("deny-list must deny unpicked capabilities cron/generate_image: %v", stored.McpToolFilter.Deny)
 		}
 	}
 	if subs := agentObj["sub_agents"].([]any); len(subs) != 1 || subs[0].(map[string]any)["name"] != "Responder" {
@@ -223,9 +270,27 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	runUpdate(idReplace(abPayloadUpdateDescription))
 	afterAdd := runUpdate(idReplace(abPayloadUpdateAddTool))
 	addedTools := agentToolStrings(t, afterAdd["agent"].(map[string]any), "tools")
-	for _, want := range []string{"web_search", "generate_image", "subagent_task"} {
+	// The resent full list adds generate_image while keeping web_search/web_fetch.
+	// subagent_task stays granted on the stored agent (sub-agent still present) but
+	// is not echoed for a parent.
+	for _, want := range []string{"web_search", "web_fetch", "generate_image"} {
 		if !containsString(addedTools, want) {
 			t.Fatalf("add-one-tool update lost %q: %v", want, addedTools)
+		}
+	}
+	if containsString(addedTools, "subagent_task") {
+		t.Fatalf("parent tools echo must omit subagent_task: %v", addedTools)
+	}
+	{
+		var stored model.Agent
+		if err := db.Where("id = ?", agentID).First(&stored).Error; err != nil {
+			t.Fatalf("load stored agent after add-tool update: %v", err)
+		}
+		if stored.Tools["subagent_task"] != true {
+			t.Fatalf("update must keep subagent_task while sub-agent exists: %#v", stored.Tools)
+		}
+		if stored.Tools["bash"] != true {
+			t.Fatalf("update must keep baseline bash: %#v", stored.Tools)
 		}
 	}
 	afterModel := runUpdate(strings.ReplaceAll(idReplace(abPayloadUpdateModel), "MODEL_ID_FROM_ENUM", "test-model-alt"))

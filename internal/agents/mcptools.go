@@ -361,7 +361,7 @@ type subAgentToolArgs struct {
 func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolCreateAgent,
-		Description: "Create a new agent for this organization. Grant the parent tools/skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. Use list_org_plugins to discover valid plugin_slugs and skills.",
+		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. Use list_org_plugins to discover valid plugin_slugs and skills.",
 		InputSchema: createAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args createAgentArgs
@@ -383,6 +383,12 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, front
 	if err != nil {
 		return toolError(err.Error()), nil
 	}
+	// Baseline sandbox tools are always granted to a top-level agent; the parent
+	// schema only exposes the optional capabilities.
+	mergeBaselineRuntime(runtime)
+	if len(args.SubAgents) > 0 {
+		runtime["subagent_task"] = true
+	}
 	skillSlugs, err := validateSkillSlugs(ctx, deps.DB, token.OrgID, args.Skills)
 	if err != nil {
 		return toolError(err.Error()), nil
@@ -402,7 +408,7 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		Instructions:  args.Instructions,
 		Model:         strings.TrimSpace(args.Model),
 		Tools:         runtime,
-		McpToolFilter: allowFilter(mcpAllow),
+		McpToolFilter: parentDenyFilter(mcpAllow),
 		Skills:        skillsJSON(skillSlugs),
 		PluginIDs:     pluginIDs(plugins),
 		SubAgents:     subAgents,
@@ -432,7 +438,7 @@ type updateAgentArgs struct {
 func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateAgent,
-		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (plugin_slugs, skills, tools, sub_agents) REPLACES that field entirely. Use list_org_plugins to discover valid plugin_slugs and skills.",
+		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (plugin_slugs, skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Use list_org_plugins to discover valid plugin_slugs and skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args updateAgentArgs
@@ -475,8 +481,25 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		if err != nil {
 			return toolError(err.Error()), nil
 		}
+		// Baseline sandbox tools are always granted to a top-level agent.
+		mergeBaselineRuntime(runtime)
+		// Keep subagent_task when the agent still dispatches to sub-agents: either
+		// this update provides a non-empty sub_agents array, or it leaves
+		// sub_agents untouched and active sub-agent rows already exist.
+		keepSubagentTask := false
+		if args.SubAgents != nil {
+			keepSubagentTask = len(*args.SubAgents) > 0
+		} else {
+			keepSubagentTask, err = hasActiveSubAgents(ctx, deps.DB, agentID)
+			if err != nil {
+				return toolError(err.Error()), nil
+			}
+		}
+		if keepSubagentTask {
+			runtime["subagent_task"] = true
+		}
 		in.Tools = &runtime
-		in.McpToolFilter = allowFilter(mcpAllow)
+		in.McpToolFilter = parentDenyFilter(mcpAllow)
 		in.SetMcpFilter = true
 	}
 	if args.Skills != nil {
@@ -523,6 +546,16 @@ func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID uuid.UUID, ar
 		if err != nil {
 			return nil, toolError(fmt.Sprintf("sub-agent %q: %s", sub.Name, err.Error()))
 		}
+		// A sub-agent that picked nothing defaults to a read-only sandbox set so it
+		// is still useful without inheriting the parent's full tool grant.
+		if len(runtime) == 0 && len(mcpAllow) == 0 {
+			runtime = model.JSON{"read_file": true, "glob": true, "grep": true, "file_search": true}
+		}
+		// A non-empty allow list keeps allow-list semantics but must never lock the
+		// sub-agent out of the read-only MCP floor.
+		if len(mcpAllow) > 0 {
+			mcpAllow = unionReadOnlyFloor(mcpAllow)
+		}
 		skillSlugs, err := validateSkillSlugs(ctx, deps.DB, orgID, sub.Skills)
 		if err != nil {
 			return nil, toolError(fmt.Sprintf("sub-agent %q: %s", sub.Name, err.Error()))
@@ -541,10 +574,27 @@ func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID uuid.UUID, ar
 
 // --- schemas -----------------------------------------------------------------
 
-func toolsArraySchema() map[string]any {
+// parentToolsArraySchema is the `tools` schema for a top-level agent. Its enum
+// is only the optional capabilities: baseline sandbox tools and the read-only
+// skill/channel tools are always granted and must not be listed here.
+func parentToolsArraySchema() map[string]any {
 	return map[string]any{
 		"type":        "array",
-		"description": "Tools the agent may use. Each value must be one of the listed runtime or MCP tools.",
+		"description": "Additional capabilities for the agent. Core sandbox tools (bash, file read/write/edit, search, planning) and the read-only skill/channel tools are ALWAYS granted to top-level agents and must not be listed here. subagent_task is granted automatically when sub_agents are defined.",
+		"items": map[string]any{
+			"type": "string",
+			"enum": enumValues(ParentAssignableToolIDs()),
+		},
+	}
+}
+
+// subAgentToolsArraySchema is the `tools` schema for a sub-agent. Its enum is the
+// full union so a read-only sub-agent can be expressed by listing just the
+// read-only file tools. Sub-agents receive ONLY the tools listed.
+func subAgentToolsArraySchema() map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"description": "Tools the sub-agent may use. A sub-agent gets ONLY what is listed here — e.g. a read-only sub-agent lists just read_file, glob, grep, file_search. An empty list defaults to that read-only set. Each value must be one of the listed runtime or MCP tools.",
 		"items": map[string]any{
 			"type": "string",
 			"enum": toolEnumValues(),
@@ -572,7 +622,7 @@ func subAgentsSchema() map[string]any {
 				"description":  map[string]any{"type": "string"},
 				"instructions": map[string]any{"type": "string"},
 				"skills":       skillsArraySchema("Skill slugs the sub-agent can use."),
-				"tools":        toolsArraySchema(),
+				"tools":        subAgentToolsArraySchema(),
 			},
 			"required": []string{"name"},
 		},
@@ -605,7 +655,7 @@ func createAgentSchema(models []string) map[string]any {
 			"model":        modelSchema(models, "Model the agent uses. Omit to use the org default."),
 			"plugin_slugs": skillsArraySchema("Slugs of org-installed plugins to enable on the agent."),
 			"skills":       skillsArraySchema("Skill slugs the parent agent can use."),
-			"tools":        toolsArraySchema(),
+			"tools":        parentToolsArraySchema(),
 			"sub_agents":   subAgentsSchema(),
 		},
 		"required": []string{"name"},
@@ -625,7 +675,7 @@ func updateAgentSchema(models []string) map[string]any {
 			"status":       map[string]any{"type": "string", "enum": []any{"active", "archived"}, "description": "Agent status."},
 			"plugin_slugs": skillsArraySchema("Slugs of org-installed plugins to enable on the agent. Replaces the current set."),
 			"skills":       skillsArraySchema("Skill slugs the parent agent can use. Replaces the current set."),
-			"tools":        toolsArraySchema(),
+			"tools":        parentToolsArraySchema(),
 			"sub_agents":   subAgentsSchema(),
 		},
 		"required": []string{"agent_id"},
@@ -707,7 +757,21 @@ func agentSkillSlugs(agent *model.Agent) []string {
 	return filter
 }
 
+// agentToolIDs reports the tool ids to echo back to the agent-builder, made
+// round-trip-safe against the schema for the agent's kind. For a sub-agent
+// (full enum) it reports every enabled runtime tool plus the filter allow list.
+// For a parent it reports only parent-assignable ids: the optional runtime tools
+// actually enabled (baseline and subagent_task are auto-granted and omitted) and
+// the parent-assignable MCP grants derived from the filter — so the returned
+// list can be re-sent to update_agent without tripping the parent enum.
 func agentToolIDs(agent *model.Agent) []string {
+	if agent.Type == model.AgentTypeSubAgent {
+		return subAgentToolIDs(agent)
+	}
+	return parentToolIDs(agent)
+}
+
+func subAgentToolIDs(agent *model.Agent) []string {
 	out := make([]string, 0, len(agent.Tools))
 	for id, enabled := range agent.Tools {
 		if b, ok := enabled.(bool); ok && b {
@@ -719,6 +783,51 @@ func agentToolIDs(agent *model.Agent) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func parentToolIDs(agent *model.Agent) []string {
+	out := make([]string, 0)
+	// Optional runtime tools only (e.g. lsp); baseline + subagent_task omitted.
+	for id, enabled := range agent.Tools {
+		if b, ok := enabled.(bool); ok && b && optionalRuntimeToolSet[id] {
+			out = append(out, id)
+		}
+	}
+	out = append(out, parentGrantedMCPTools(agent.McpToolFilter)...)
+	sort.Strings(out)
+	return out
+}
+
+// parentGrantedMCPTools derives the parent-assignable MCP tools a parent agent
+// currently has, from its filter: nil filter → all parent-assignable MCP tools;
+// a deny-list → parent-assignable MCP minus the denied ids; a legacy allow-list
+// → the allow ids that are parent-assignable.
+func parentGrantedMCPTools(filter *model.ToolFilter) []string {
+	assignable := parentAssignableMCPTools()
+	if filter == nil {
+		return assignable
+	}
+	if len(filter.Deny) > 0 {
+		denied := stringSet(filter.Deny)
+		out := make([]string, 0, len(assignable))
+		for _, id := range assignable {
+			if !denied[id] {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	if len(filter.Allow) > 0 {
+		out := make([]string, 0, len(filter.Allow))
+		for _, id := range filter.Allow {
+			if parentAssignableMCPToolSet[id] {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	// Empty filter (no allow, no deny) grants all MCP tools.
+	return assignable
 }
 
 func agentSubAgents(ctx context.Context, db *gorm.DB, parentID uuid.UUID) ([]map[string]any, error) {
@@ -783,6 +892,67 @@ func allowFilter(allow []string) *model.ToolFilter {
 		return nil
 	}
 	return &model.ToolFilter{Allow: allow}
+}
+
+// mergeBaselineRuntime unions the always-granted baseline sandbox tools into a
+// parent agent's runtime tool map so a top-level agent can never end up without
+// the core sandbox tools (the incident: an agent that picked only skill tools
+// got an empty runtime map and zero built-ins).
+func mergeBaselineRuntime(runtime model.JSON) {
+	for _, id := range model.BaselineRuntimeToolIDs {
+		runtime[id] = true
+	}
+}
+
+// parentDenyFilter builds the MCP filter for a parent agent as a DENY list: the
+// parent-assignable MCP tools the builder did NOT grant. A deny-list keeps
+// plugin-gated MCP tools (sheets etc.) and the read-only floor
+// (skills_list/skill_view/list_channels) usable while still restricting the
+// optional capabilities the builder chose to withhold; an allow-list would
+// silently lock out tools that are not even in the parent enum (the incident).
+// Returns nil when nothing needs denying (every parent-assignable MCP tool was
+// granted), which means "all MCP tools allowed".
+func parentDenyFilter(mcpAllow []string) *model.ToolFilter {
+	picked := stringSet(mcpAllow)
+	deny := make([]string, 0)
+	for _, id := range parentAssignableMCPTools() {
+		if !picked[id] {
+			deny = append(deny, id)
+		}
+	}
+	if len(deny) == 0 {
+		return nil
+	}
+	sort.Strings(deny)
+	return &model.ToolFilter{Deny: deny}
+}
+
+// unionReadOnlyFloor adds the read-only MCP floor to a non-empty sub-agent allow
+// list so an allow-listed sub-agent never loses access to the skill/channel
+// tools. The result is deduped and sorted.
+func unionReadOnlyFloor(allow []string) []string {
+	seen := stringSet(allow)
+	out := append([]string(nil), allow...)
+	for _, id := range model.ReadOnlyMCPToolFloor {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// hasActiveSubAgents reports whether the parent agent still has active sub-agent
+// rows, used to decide whether a tools-only update should keep subagent_task.
+func hasActiveSubAgents(ctx context.Context, db *gorm.DB, parentID uuid.UUID) (bool, error) {
+	var count int64
+	if err := db.WithContext(ctx).Model(&model.Agent{}).
+		Where("parent_agent_id = ? AND type = ? AND status = ?", parentID, model.AgentTypeSubAgent, "active").
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("count sub-agents: %w", err)
+	}
+	return count > 0, nil
 }
 
 func pluginIDs(plugins []model.Plugin) []uuid.UUID {

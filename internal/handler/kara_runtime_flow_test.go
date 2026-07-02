@@ -79,6 +79,11 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	}
 
 	imageTools := []string{"generate_image", "generate_vector_image"}
+	// Non-empty allow lists gain the read-only MCP floor at compile time so
+	// allow-listed (sub-)agents keep skill/channel access.
+	imageToolsWithFloor := []string{
+		"generate_image", "generate_vector_image", "list_channels", "skill_view", "skills_list",
+	}
 
 	assertToolFilter(t, "kara", def.McpToolFilter, nil, imageTools)
 
@@ -86,10 +91,11 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	if imageGenerator == nil {
 		t.Fatalf("missing image-generator subagent; got %s", strings.Join(sortedSubAgentKeys(def.SubAgents), ", "))
 	}
-	assertToolFilter(t, "image-generator", imageGenerator.McpToolFilter, imageTools, nil)
-	// image-generator has no configured runtime tools (skills_list/skill_view moved to MCP layer)
-	if len(imageGenerator.Tools) != 0 {
-		t.Fatalf("image-generator tools = %#v, want empty (skills are now MCP tools)", imageGenerator.Tools)
+	assertToolFilter(t, "image-generator", imageGenerator.McpToolFilter, imageToolsWithFloor, nil)
+	// image-generator configures no runtime tools; empty sub-agent selections
+	// now default to the read-only sandbox set instead of compiling tool-less.
+	if got := len(imageGenerator.Tools); got != 4 {
+		t.Fatalf("image-generator tools = %#v, want the 4-tool read-only default", imageGenerator.Tools)
 	}
 
 	designWorker := def.SubAgents["design-worker"]
@@ -114,7 +120,7 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	if !ok {
 		t.Fatalf("runtime payload missing image-generator subagent")
 	}
-	assertRuntimeAPIFilter(t, "runtime image-generator mcp", runtimeImageGenerator.McpToolFilter, imageTools, nil)
+	assertRuntimeAPIFilter(t, "runtime image-generator mcp", runtimeImageGenerator.McpToolFilter, imageToolsWithFloor, nil)
 }
 
 func assertToolFilter(t *testing.T, label string, filter *model.ToolFilter, wantAllow, wantDeny []string) {

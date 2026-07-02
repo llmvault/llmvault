@@ -46,10 +46,19 @@ func TestListAndGetAgent(t *testing.T) {
 		t.Fatalf("get_agent error: %s", errResultText(getRes))
 	}
 	getText := errResultText(getRes)
-	for _, want := range []string{"coordinate work", "bash", "web_search", "Helper", "read_file"} {
+	// The parent reports its instructions, the parent-assignable MCP grant
+	// (web_search), and its sub-agent (Helper + its read_file tool). Baseline
+	// runtime tools like bash are auto-granted and intentionally NOT echoed for a
+	// parent so the list round-trips through the parent tools schema.
+	for _, want := range []string{"coordinate work", "web_search", "Helper", "read_file"} {
 		if !strings.Contains(getText, want) {
 			t.Fatalf("get_agent output missing %q, got: %s", want, getText)
 		}
+	}
+	// The parent's own tools array must not surface baseline tools.
+	getObj := builderResultJSON(t, getRes)["agent"].(map[string]any)
+	if parentTools := agentToolStrings(t, getObj, "tools"); containsString(parentTools, "bash") {
+		t.Fatalf("parent tools must not echo baseline bash: %v", parentTools)
 	}
 
 	// Unknown id → helpful not-found error.

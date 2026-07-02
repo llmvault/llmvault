@@ -303,8 +303,17 @@ func TestCompile_IncludesCatalogSubAgents(t *testing.T) {
 	if def.Tools == nil || len(def.Tools) != 0 {
 		t.Fatalf("parent tools should be explicit empty tools: %#v", def.Tools)
 	}
-	if len(subAgent.Tools) != 0 {
-		t.Fatalf("subagent with no configured tools should have empty tools, got = %#v", runtimeToolTypes(subAgent.Tools))
+	// A sub-agent with no configured tools defaults to the read-only sandbox
+	// set instead of compiling tool-less (see buildSubAgentRuntimeTools).
+	wantDefault := []string{"builtin.read_file", "builtin.file_search", "builtin.glob", "builtin.grep"}
+	gotDefault := runtimeToolTypes(subAgent.Tools)
+	if len(gotDefault) != len(wantDefault) {
+		t.Fatalf("subagent default tools = %#v, want %#v", gotDefault, wantDefault)
+	}
+	for i, want := range wantDefault {
+		if gotDefault[i] != want {
+			t.Fatalf("subagent default tools = %#v, want %#v", gotDefault, wantDefault)
+		}
 	}
 }
 

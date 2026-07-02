@@ -141,7 +141,7 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Tools:        subAgentToolSelection(spec.Tools),
 		McpServers:   model.RawJSON("[]"),
 	}
-	tools, err := buildRuntimeToolsFromSelection(subAgent.Tools)
+	tools, err := buildSubAgentRuntimeTools(subAgent.Tools)
 	if err != nil {
 		return nil, fmt.Errorf("compile subagent %q tools: %w", key, err)
 	}
@@ -160,6 +160,28 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		OutboundChannels: []any{},
 		SubAgents:        map[string]*AgentDefinition{},
 	}, nil
+}
+
+// buildSubAgentRuntimeTools compiles a sub-agent's runtime tools, defaulting an
+// EMPTY tool selection to a read-only set instead of zero tools. An empty
+// selection previously compiled to a tool-less, useless sub-agent (the runtime
+// AgentDefinition.tools has no omitempty); read-only (read_file, glob, grep,
+// file_search) is the safe default, and parents that want more grant it
+// explicitly. This applies to both DB and catalog sub-agents by design.
+func buildSubAgentRuntimeTools(selection model.JSON) ([]map[string]any, error) {
+	if len(selection) == 0 {
+		selection = defaultSubAgentToolSelection()
+	}
+	return buildRuntimeToolsFromSelection(selection)
+}
+
+func defaultSubAgentToolSelection() model.JSON {
+	return model.JSON{
+		"read_file":   true,
+		"glob":        true,
+		"grep":        true,
+		"file_search": true,
+	}
 }
 
 func subAgentToolSelection(selection model.JSON) model.JSON {
