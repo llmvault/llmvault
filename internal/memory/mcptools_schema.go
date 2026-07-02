@@ -10,7 +10,7 @@ Use content for one durable fact, preference, rule, or decision. target.owner ch
 
 const forgetMemoryDescription = `Archive a memory that is wrong, stale, duplicated, unsafe, or no longer useful.
 
-Call search_memories first if you need the memory_id. Agents may forget org memories. User memories may only be forgotten in a session for that same user.`
+Call search_memories first if you need the memory_id. Agents may forget org memories. User memories may only be forgotten in a session for that same user. A memory bound to another agent can only be archived by the org's default agent, and only with user_approved true after showing the user the memory and its owning agent and receiving explicit confirmation.`
 
 func memorySearchTargetSchema() map[string]any {
 	return map[string]any{

@@ -25,6 +25,13 @@ const (
 )
 
 // NewToolsFunc registers memory tools for agent proxy MCP servers.
+//
+// search_memories, retain_memory, and forget_memory always register for agent
+// proxy tokens. The privileged org_memories supervisor tool (and forget_memory's
+// user_approved cross-agent path) additionally require the calling agent to be
+// the org's default agent or explicitly allow-listed (see orgMemoriesEnabled);
+// the org-scoped agent row is loaded once here to evaluate that gate. A failed
+// agent load never blocks the three base tools.
 func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || service == nil || service.cfg.DB == nil || !memoryToolAgentProxy(token) {
@@ -34,9 +41,16 @@ func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token)
 		if err != nil {
 			return
 		}
+		supervisor := false
+		if agent, err := service.loadOrgAgent(context.Background(), token.OrgID, agentID); err == nil {
+			supervisor = orgMemoriesEnabled(agent)
+		}
 		registerSearchMemoriesTool(server, service, token, agentID)
 		registerRetainMemoryTool(server, service, token, agentID)
-		registerForgetMemoryTool(server, service, token, agentID)
+		registerForgetMemoryTool(server, service, token, agentID, supervisor)
+		if supervisor {
+			registerOrgMemoriesTool(server, service, token)
+		}
 	}
 }
 
@@ -94,7 +108,7 @@ func registerRetainMemoryTool(server *mcp.Server, service *Service, token *model
 	})
 }
 
-func registerForgetMemoryTool(server *mcp.Server, service *Service, token *model.Token, agentID uuid.UUID) {
+func registerForgetMemoryTool(server *mcp.Server, service *Service, token *model.Token, agentID uuid.UUID, supervisor bool) {
 	server.AddTool(&mcp.Tool{
 		Name:        "forget_memory",
 		Description: forgetMemoryDescription,
@@ -110,6 +124,10 @@ func registerForgetMemoryTool(server *mcp.Server, service *Service, token *model
 					"type":        "string",
 					"description": "Brief reason the memory is wrong, stale, duplicated, or unsafe to keep.",
 				},
+				"user_approved": map[string]any{
+					"type":        "boolean",
+					"description": "Only honored for the org's default agent. Required when archiving a memory that belongs to another agent. Set it ONLY after showing the user the memory's content and owning agent and receiving explicit confirmation in this session.",
+				},
 			},
 			"required": []string{"memory_id"},
 		},
@@ -118,7 +136,7 @@ func registerForgetMemoryTool(server *mcp.Server, service *Service, token *model
 		if err := decodeMemoryToolArgs(req, &args); err != nil {
 			return memoryToolError(err.Error()), nil
 		}
-		return handleForgetMemory(ctx, service, token, agentID, args)
+		return handleForgetMemory(ctx, service, token, agentID, supervisor, args)
 	})
 }
 
@@ -199,10 +217,13 @@ func handleRetainMemory(ctx context.Context, service *Service, token *model.Toke
 	})
 }
 
-func handleForgetMemory(ctx context.Context, service *Service, token *model.Token, agentID uuid.UUID, args memoryForgetArgs) (*mcp.CallToolResult, error) {
+func handleForgetMemory(ctx context.Context, service *Service, token *model.Token, agentID uuid.UUID, supervisor bool, args memoryForgetArgs) (*mcp.CallToolResult, error) {
 	memoryID, err := uuid.Parse(strings.TrimSpace(args.MemoryID))
 	if err != nil || memoryID == uuid.Nil {
 		return memoryToolError("memory_id must be a valid UUID"), nil
+	}
+	if args.UserApproved && !supervisor {
+		return memoryToolError("user_approved is only honored for the org's default agent"), nil
 	}
 	toolCtx, err := service.memoryToolContext(ctx, token, agentID, args.HivySessionID)
 	if err != nil {
@@ -212,10 +233,17 @@ func handleForgetMemory(ctx context.Context, service *Service, token *model.Toke
 	if err != nil {
 		return memoryToolError(memoryToolLoadMessage(err)), nil
 	}
-	if err := toolCtx.canForget(mem); err != nil {
+	if err := toolCtx.canForget(mem, supervisor, args.UserApproved); err != nil {
 		return memoryToolError(err.Error()), nil
 	}
-	if err := service.Archive(ctx, ArchiveRequest{OrgID: token.OrgID, ID: memoryID, AgentID: &agentID}); err != nil {
+	archiveReq := ArchiveRequest{OrgID: token.OrgID, ID: memoryID, AgentID: &agentID}
+	if mem.AgentID != nil && *mem.AgentID != agentID {
+		// Only reachable after canForget approved the supervisor+user_approved
+		// cross-agent path; lift the agent-scoped SQL guard so the archive can
+		// reach the other agent's memory.
+		archiveReq.AgentID = nil
+	}
+	if err := service.Archive(ctx, archiveReq); err != nil {
 		return memoryToolError("forget_memory failed: " + err.Error()), nil
 	}
 	return memoryToolJSON(map[string]any{

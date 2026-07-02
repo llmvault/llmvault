@@ -39,6 +39,7 @@ type memoryRetainArgs struct {
 type memoryForgetArgs struct {
 	MemoryID      string `json:"memory_id"`
 	Reason        string `json:"reason"`
+	UserApproved  bool   `json:"user_approved"`
 	HivySessionID string `json:"_hivy_session_id"`
 }
 
@@ -205,15 +206,25 @@ func normalizeMemoryVisibility(raw, fallback string) string {
 	return value
 }
 
-func (toolCtx memoryToolContext) canForget(mem model.AgentMemory) error {
-	if mem.AgentID != nil && *mem.AgentID != toolCtx.AgentID {
-		return fmt.Errorf("forget_memory cannot archive another agent's memory")
+// canForget decides whether the calling agent may archive mem. The user-scope
+// rule applies to everyone, supervisor included: personal memories may only be
+// forgotten in a session for that same user. Memories bound to another agent
+// are only forgettable by a supervisor (see orgMemoriesEnabled) carrying
+// explicit user approval.
+func (toolCtx memoryToolContext) canForget(mem model.AgentMemory, supervisor, userApproved bool) error {
+	if mem.Scope == model.AgentMemoryScopeUser {
+		if toolCtx.UserID == nil || mem.UserID == nil || *toolCtx.UserID != *mem.UserID {
+			return fmt.Errorf("forget_memory cannot archive another user's memory")
+		}
 	}
-	if mem.Scope != model.AgentMemoryScopeUser {
+	if mem.AgentID == nil || *mem.AgentID == toolCtx.AgentID {
 		return nil
 	}
-	if toolCtx.UserID == nil || mem.UserID == nil || *toolCtx.UserID != *mem.UserID {
-		return fmt.Errorf("forget_memory cannot archive another user's memory")
+	if !supervisor {
+		return fmt.Errorf("forget_memory cannot archive another agent's memory")
+	}
+	if !userApproved {
+		return fmt.Errorf("this memory belongs to another agent: show the user its content and owning agent, get their explicit confirmation, then retry with user_approved true")
 	}
 	return nil
 }
