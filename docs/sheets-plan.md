@@ -148,7 +148,7 @@ New package `internal/sheets/mcptools.go`, modeled on `internal/agents/mcptools.
 | `sheet_manage` | `action` enum: `rename_sheet\|archive_sheet\|create_page\|rename_page\|archive_page\|add_field\|update_field\|archive_field` (cron-style dispatch keeps tool count down). |
 | `rows_query` | page_id + filter AST + sorts + `search` + cursor + `resolve_relations` (hydrate linked row IDs to `{id,label}`). Returns `{rows:[{id,data}], fields_legend, next_cursor}`. Limit clamp 100. |
 | `rows_write` | `action`: `insert\|update\|delete`; batch arrays (≤100 rows/call). Insert takes `[{data}]`, update `[{id, data}]` (partial merge), delete `[ids]`. |
-| `sheet_import_csv` | kicks off async import from an agent-drive asset (see §2). Returns job id; agent polls job status. |
+| `sheet_import_csv` | `action: start` (drive asset key + options → job id) \| `status` (`job_id` → status/processed/total). |
 | `sheet_operations` | `action`: `list` (recent operations on a page, with type/row_count/actor) \| `revert` (undo one operation by id). Backed by the operation log in §0. |
 
 Implementation conventions (all confirmed in-repo):
@@ -166,6 +166,8 @@ Wiring (three known edit sites):
 3. `cmd/server/serve.go` (~line 145-161) — `mcpHandler.SetSheetTools(sheets.NewToolsFunc(db, enqueuer))`.
 
 Tests mirroring `internal/agents/tools_test.go` and `internal/memory/mcptools_test.go`.
+
+**Payload contract (locked by the shipped SKILL.md — tool schemas MUST match):** `rows_write` wraps batches as `rows` (insert/update) and `ids` (delete); sorts are `sorts: [{field, direction}]`; `search` is a top-level `rows_query` param (sibling of `filter`, not inside the AST); `sheet_manage` takes flat args (`page_id`, `field_id`, `name`, `type`, `options`); `sheet_operations` revert takes `operation_id`. Any deviation requires editing `global/plugins/sheets/skills/sheets/SKILL.md` in the same change.
 
 ---
 
