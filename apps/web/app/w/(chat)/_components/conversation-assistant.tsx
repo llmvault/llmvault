@@ -3,7 +3,9 @@
 import { Icon } from "@iconify/react"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import { PreviewBrowserCards } from "@/app/w/(chat)/_components/conversation-preview-card"
+import { InternalAppLinkCards } from "@/app/w/(chat)/_components/conversation-internal-link-card"
 import { assetPreviewAttachments } from "@/app/w/(chat)/_lib/asset-preview-links"
+import { internalAppLinkTargets } from "@/app/w/(chat)/_lib/internal-app-links"
 import {
   previewBrowserTargets,
   type PreviewBrowserTarget,
@@ -26,9 +28,16 @@ export function AssistantBlock({
   const previewTargets = block.streaming
     ? []
     : previewBrowserTargets(block.text)
+  const internalLinkTargets = block.streaming
+    ? []
+    : internalAppLinkTargets(block.text)
   const showFooter = !block.streaming && Boolean(block.completedAt)
 
-  if (!assetPreviews.length && !previewTargets.length) {
+  if (
+    !assetPreviews.length &&
+    !previewTargets.length &&
+    !internalLinkTargets.length
+  ) {
     return (
       <div className="group/final-message flex min-w-0 flex-col items-start gap-1">
         <MarkdownProse text={block.text} streaming={block.streaming} />
@@ -44,6 +53,7 @@ export function AssistantBlock({
         targets={previewTargets}
         onOpen={onOpenPreviewTarget}
       />
+      <InternalAppLinkCards targets={internalLinkTargets} />
       {assetPreviews.length ? (
         <AssistantAssetPreviews
           items={assetPreviews}
