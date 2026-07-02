@@ -13,6 +13,7 @@ import {
   compileFilter,
   createSheetField,
   createView,
+  deleteView,
   fetchViews,
   sheetKeys,
   updateView,
@@ -20,6 +21,7 @@ import {
   type SheetFieldSpec,
   type SheetPage,
   type SheetSort,
+  type SheetView,
 } from "@/app/w/(chat)/_lib/sheets"
 import { SheetGrid } from "./grid"
 import { ImportDialog } from "./import-dialog"
@@ -37,7 +39,8 @@ const EMPTY_SELECTION: GridSelection = {
 interface PersistedConfig {
   column_widths?: Record<string, number>
   filters?: FilterRuleState[]
-  sort?: SheetSort | null
+  /** Ordered multi-sort. Older configs stored a single `sort` instead. */
+  sorts?: SheetSort[]
   hidden_fields?: string[]
 }
 
@@ -64,13 +67,15 @@ function parsePersistedConfig(raw: unknown): PersistedConfig {
         typeof (entry as FilterRuleState).op === "string"
     )
   }
-  const sort = record.sort
-  if (
-    sort &&
-    typeof sort === "object" &&
-    typeof (sort as SheetSort).field === "string"
-  ) {
-    config.sort = sort as SheetSort
+  const isSort = (entry: unknown): entry is SheetSort =>
+    Boolean(entry) &&
+    typeof entry === "object" &&
+    typeof (entry as SheetSort).field === "string"
+  if (Array.isArray(record.sorts)) {
+    config.sorts = record.sorts.filter(isSort)
+  } else if (isSort(record.sort)) {
+    // Legacy single-sort config.
+    config.sorts = [record.sort]
   }
   if (Array.isArray(record.hidden_fields)) {
     config.hidden_fields = record.hidden_fields.filter(
@@ -83,7 +88,10 @@ function parsePersistedConfig(raw: unknown): PersistedConfig {
 /**
  * Everything for one sheet page: toolbar, Glide grid, import dialog.
  * Mount with key={pageId} so all local state resets per page. Waits for the
- * page's saved view so filters/sorts/widths initialize from its config.
+ * page's saved views so filters/sorts/widths initialize from the active
+ * view's config; switching views remounts the inner workbench with the
+ * selected view's config. When no view is selected the first (implicit
+ * default) view applies, matching the previous behavior.
  */
 export function SheetWorkbench({
   sheetId,
@@ -95,6 +103,7 @@ export function SheetWorkbench({
   pages: SheetPage[]
 }) {
   const pageId = page.id ?? ""
+  const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
   const viewsQuery = useQuery({
     queryKey: sheetKeys.views(pageId),
     queryFn: ({ signal }) => fetchViews(sheetId, pageId, signal),
@@ -108,14 +117,19 @@ export function SheetWorkbench({
     )
   }
 
-  const defaultView = viewsQuery.data?.views?.[0] ?? null
+  const views = viewsQuery.data?.views ?? []
+  const activeView =
+    views.find((view) => view.id === selectedViewId) ?? views[0] ?? null
   return (
     <WorkbenchInner
+      key={activeView?.id ?? "default"}
       sheetId={sheetId}
       page={page}
       pages={pages}
-      defaultViewId={defaultView?.id ?? null}
-      initialConfig={parsePersistedConfig(defaultView?.config)}
+      views={views}
+      activeViewId={activeView?.id ?? null}
+      onSelectView={setSelectedViewId}
+      initialConfig={parsePersistedConfig(activeView?.config)}
     />
   )
 }
@@ -124,13 +138,17 @@ function WorkbenchInner({
   sheetId,
   page,
   pages,
-  defaultViewId,
+  views,
+  activeViewId,
+  onSelectView,
   initialConfig,
 }: {
   sheetId: string
   page: SheetPage
   pages: SheetPage[]
-  defaultViewId: string | null
+  views: SheetView[]
+  activeViewId: string | null
+  onSelectView: (viewId: string | null) => void
   initialConfig: PersistedConfig
 }) {
   const pageId = page.id ?? ""
@@ -143,8 +161,8 @@ function WorkbenchInner({
   const [filterRules, setFilterRules] = useState<FilterRuleState[]>(
     () => initialConfig.filters ?? []
   )
-  const [sort, setSort] = useState<SheetSort | null>(
-    () => initialConfig.sort ?? null
+  const [sorts, setSorts] = useState<SheetSort[]>(
+    () => initialConfig.sorts ?? []
   )
   const [hiddenFieldIds, setHiddenFieldIds] = useState<string[]>(
     () => initialConfig.hidden_fields ?? []
@@ -168,33 +186,38 @@ function WorkbenchInner({
   const latestRef = useRef({
     columnWidths,
     filterRules,
-    sort,
+    sorts,
     hiddenFieldIds,
-    defaultViewId,
+    activeViewId,
   })
   useEffect(() => {
     latestRef.current = {
       columnWidths,
       filterRules,
-      sort,
+      sorts,
       hiddenFieldIds,
-      defaultViewId,
+      activeViewId,
     }
   })
+
+  const currentConfig = useCallback(
+    () => ({
+      column_widths: latestRef.current.columnWidths,
+      filters: latestRef.current.filterRules,
+      sorts: latestRef.current.sorts,
+      hidden_fields: latestRef.current.hiddenFieldIds,
+    }),
+    []
+  )
 
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const schedulePersist = useCallback(() => {
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
     persistTimerRef.current = setTimeout(() => {
       const latest = latestRef.current
-      const config = {
-        column_widths: latest.columnWidths,
-        filters: latest.filterRules,
-        sort: latest.sort,
-        hidden_fields: latest.hiddenFieldIds,
-      }
-      if (latest.defaultViewId) {
-        updateView(sheetId, pageId, latest.defaultViewId, { config }).catch(
+      const config = currentConfig()
+      if (latest.activeViewId) {
+        updateView(sheetId, pageId, latest.activeViewId, { config }).catch(
           () => {
             /* view persistence is best-effort */
           }
@@ -215,7 +238,7 @@ function WorkbenchInner({
           })
       }
     }, PERSIST_DEBOUNCE_MS)
-  }, [pageId, queryClient, sheetId])
+  }, [currentConfig, pageId, queryClient, sheetId])
 
   useEffect(
     () => () => {
@@ -230,13 +253,12 @@ function WorkbenchInner({
     () => compileFilter(filterRules, fields),
     [filterRules, fields]
   )
-  const sorts = useMemo(() => (sort ? [sort] : undefined), [sort])
 
   const controller = useSheetRows({
     sheetId,
     pageId,
     filter,
-    sorts,
+    sorts: sorts.length > 0 ? sorts : undefined,
     search: debouncedSearch || undefined,
   })
 
@@ -267,13 +289,44 @@ function WorkbenchInner({
     [schedulePersist]
   )
 
-  const onSortChange = useCallback(
-    (nextSort: SheetSort | null) => {
-      setSort(nextSort)
+  const onSortsChange = useCallback(
+    (nextSorts: SheetSort[]) => {
+      setSorts(nextSorts)
       schedulePersist()
     },
     [schedulePersist]
   )
+
+  /* ---------------- named views -------------------------------------- */
+
+  const onSaveAsView = useCallback(
+    async (name: string) => {
+      const created = await createView(sheetId, pageId, {
+        name,
+        type: "grid",
+        config: currentConfig(),
+      })
+      await queryClient.invalidateQueries({ queryKey: sheetKeys.views(pageId) })
+      if (created.id) onSelectView(created.id)
+    },
+    [currentConfig, onSelectView, pageId, queryClient, sheetId]
+  )
+
+  const onRenameView = useCallback(
+    async (name: string) => {
+      if (!activeViewId) return
+      await updateView(sheetId, pageId, activeViewId, { name })
+      await queryClient.invalidateQueries({ queryKey: sheetKeys.views(pageId) })
+    },
+    [activeViewId, pageId, queryClient, sheetId]
+  )
+
+  const onDeleteView = useCallback(async () => {
+    if (!activeViewId) return
+    await deleteView(sheetId, pageId, activeViewId)
+    await queryClient.invalidateQueries({ queryKey: sheetKeys.views(pageId) })
+    onSelectView(null)
+  }, [activeViewId, onSelectView, pageId, queryClient, sheetId])
 
   const onHideField = useCallback(
     (fieldId: string) => {
@@ -331,8 +384,14 @@ function WorkbenchInner({
         onSearchChange={setSearch}
         filterRules={filterRules}
         onFilterRulesChange={onFilterRulesChange}
-        sort={sort}
-        onSortChange={onSortChange}
+        sorts={sorts}
+        onSortsChange={onSortsChange}
+        views={views}
+        activeViewId={activeViewId}
+        onSelectView={onSelectView}
+        onSaveAsView={onSaveAsView}
+        onRenameView={onRenameView}
+        onDeleteView={onDeleteView}
         selectedRowIds={selectedRowIds}
         onDeleteSelected={onDeleteSelected}
         onOpenImport={() => setImportOpen(true)}

@@ -550,20 +550,33 @@ export interface FilterRuleState {
   field: string
   op: string
   value: string
+  /** Values for multi-value operators (`in`); entered as tags. */
+  values?: string[]
 }
 
 const VALUELESS_OPS = new Set(["is_empty", "is_not_empty"])
+const MULTI_VALUE_OPS = new Set(["in"])
 
 export function filterOpsForType(type: string | undefined): string[] {
   switch (type) {
     case "number":
-      return ["eq", "neq", "gt", "gte", "lt", "lte", "is_empty", "is_not_empty"]
+      return [
+        "eq",
+        "neq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "is_empty",
+        "is_not_empty",
+      ]
     case "date":
       return ["eq", "gt", "gte", "lt", "lte", "is_empty", "is_not_empty"]
     case "checkbox":
       return ["eq"]
     case "select":
-      return ["eq", "neq", "is_empty", "is_not_empty"]
+      return ["eq", "neq", "in", "is_empty", "is_not_empty"]
     case "multi_select":
       return ["contains", "not_contains", "is_empty", "is_not_empty"]
     case "attachment":
@@ -576,6 +589,7 @@ export function filterOpsForType(type: string | undefined): string[] {
         "contains",
         "not_contains",
         "starts_with",
+        "in",
         "is_empty",
         "is_not_empty",
       ]
@@ -606,6 +620,8 @@ export function filterOpLabel(op: string): string {
       return "is empty"
     case "is_not_empty":
       return "is not empty"
+    case "in":
+      return "is any of"
     default:
       return op
   }
@@ -613,6 +629,10 @@ export function filterOpLabel(op: string): string {
 
 export function filterOpNeedsValue(op: string): boolean {
   return !VALUELESS_OPS.has(op)
+}
+
+export function filterOpIsMulti(op: string): boolean {
+  return MULTI_VALUE_OPS.has(op)
 }
 
 export function compileFilter(
@@ -624,6 +644,21 @@ export function compileFilter(
   for (const rule of rules) {
     const field = byId.get(rule.field)
     if (!field?.id || !rule.op) continue
+
+    if (filterOpIsMulti(rule.op)) {
+      let values: unknown[] = (rule.values ?? [])
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+      if (field.type === "number") {
+        values = values
+          .map((entry) => Number(entry))
+          .filter((entry) => Number.isFinite(entry))
+      }
+      if (values.length === 0) continue
+      nodes.push({ field: field.id, op: rule.op, value: values })
+      continue
+    }
+
     if (filterOpNeedsValue(rule.op) && rule.value.trim() === "") continue
     let value: unknown = rule.value
     if (field.type === "number") {
