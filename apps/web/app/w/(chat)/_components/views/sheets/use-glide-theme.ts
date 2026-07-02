@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
 /**
- * Spike: bridges the app's OKLCH CSS-variable design tokens (defined in
+ * Bridges the app's OKLCH CSS-variable design tokens (defined in
  * app/hero.css, switched via next-themes `.dark` class + `[data-theme-preset]`)
  * onto Glide Data Grid's canvas Theme object.
  *
@@ -9,34 +9,34 @@
  * modern browsers, so we pass the resolved token values through untouched.
  */
 
-import { useEffect, useState } from "react";
-import type { Theme } from "@glideapps/glide-data-grid";
+import { useEffect, useState } from "react"
+import type { Theme } from "@glideapps/glide-data-grid"
 
 function readToken(
   styles: CSSStyleDeclaration,
   token: string,
-  fallback: string,
+  fallback: string
 ): string {
-  const value = styles.getPropertyValue(token).trim();
-  return value.length > 0 ? value : fallback;
+  const value = styles.getPropertyValue(token).trim()
+  return value.length > 0 ? value : fallback
 }
 
 /** Derive a translucent tint from a token without needing to parse OKLCH. */
 function tint(color: string, percent: number): string {
-  return `color-mix(in oklab, ${color} ${percent}%, transparent)`;
+  return `color-mix(in oklab, ${color} ${percent}%, transparent)`
 }
 
 export function resolveGlideTheme(): Partial<Theme> {
-  const styles = getComputedStyle(document.documentElement);
+  const styles = getComputedStyle(document.documentElement)
 
-  const background = readToken(styles, "--background", "#ffffff");
-  const surface = readToken(styles, "--surface", background);
-  const foreground = readToken(styles, "--foreground", "#111111");
-  const muted = readToken(styles, "--muted", foreground);
-  const accent = readToken(styles, "--accent", "#4f5dff");
-  const accentForeground = readToken(styles, "--accent-foreground", surface);
-  const border = readToken(styles, "--border", muted);
-  const fieldBackground = readToken(styles, "--field-background", surface);
+  const background = readToken(styles, "--background", "#ffffff")
+  const surface = readToken(styles, "--surface", background)
+  const foreground = readToken(styles, "--foreground", "#111111")
+  const muted = readToken(styles, "--muted", foreground)
+  const accent = readToken(styles, "--accent", "#4f5dff")
+  const accentForeground = readToken(styles, "--accent-foreground", surface)
+  const border = readToken(styles, "--border", muted)
+  const fieldBackground = readToken(styles, "--field-background", surface)
 
   return {
     // Cells
@@ -71,7 +71,7 @@ export function resolveGlideTheme(): Partial<Theme> {
     // Borders
     borderColor: border,
     horizontalBorderColor: border,
-  };
+  }
 }
 
 /**
@@ -82,21 +82,21 @@ export function resolveGlideTheme(): Partial<Theme> {
  * Client-only: returns `undefined` until mounted (safe under SSR/prerender).
  */
 export function useGlideTheme(): Partial<Theme> | undefined {
-  const [theme, setTheme] = useState<Partial<Theme> | undefined>(undefined);
+  const [theme, setTheme] = useState<Partial<Theme> | undefined>(() =>
+    typeof document === "undefined" ? undefined : resolveGlideTheme()
+  )
 
   useEffect(() => {
-    setTheme(resolveGlideTheme());
-
     const observer = new MutationObserver(() => {
-      setTheme(resolveGlideTheme());
-    });
+      setTheme(resolveGlideTheme())
+    })
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class", "data-theme-preset", "style"],
-    });
+    })
 
-    return () => observer.disconnect();
-  }, []);
+    return () => observer.disconnect()
+  }, [])
 
-  return theme;
+  return theme
 }
