@@ -147,6 +147,9 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if _, err := createDefaultGeneralChannelTx(ctx, tx, org.ID, uuid.MustParse(claims.UserID), agent.ID); err != nil {
 			return fmt.Errorf("creating default channel: %w", err)
 		}
+		if _, err := createSystemChannelTx(ctx, tx, org.ID, agent.ID); err != nil {
+			return fmt.Errorf("creating system channel: %w", err)
+		}
 
 		return nil
 	})

@@ -45,3 +45,33 @@ func createDefaultGeneralChannelTx(ctx context.Context, tx *gorm.DB, orgID, user
 	}
 	return &channel, nil
 }
+
+// createSystemChannelTx creates the org's private "system" channel, the
+// default conversation surface for scheduled runs and triggers. The default
+// agent is the same agent that anchors #general (the org's default agent).
+// Attributes are kept identical to the lazy FirstOrCreate fallbacks in
+// agentschedule.ensureSystemChannel and the trigger dispatch handler so all
+// paths converge on this row.
+func createSystemChannelTx(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID) (*model.Channel, error) {
+	channel := model.Channel{
+		OrgID:            orgID,
+		Name:             systemChannelName,
+		Description:      "System-managed jobs",
+		Kind:             "system",
+		Visibility:       "private",
+		DefaultAgentID:   agentID,
+		Origin:           "native",
+		ExternalMetadata: model.JSON{"source": "system"},
+	}
+	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&channel).Error; err != nil {
+		return nil, fmt.Errorf("create system channel: %w", err)
+	}
+	if channel.ID == uuid.Nil {
+		if err := tx.WithContext(ctx).
+			Where("org_id = ? AND name = ? AND archived_at IS NULL", orgID, systemChannelName).
+			First(&channel).Error; err != nil {
+			return nil, fmt.Errorf("load system channel: %w", err)
+		}
+	}
+	return &channel, nil
+}

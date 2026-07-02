@@ -59,6 +59,9 @@ func createUserDefaultOrg(ctx context.Context, tx *gorm.DB, credits *billing.Cre
 	if _, err := createDefaultGeneralChannelTx(ctx, tx, org.ID, user.ID, agent.ID); err != nil {
 		return org, fmt.Errorf("creating default channel: %w", err)
 	}
+	if _, err := createSystemChannelTx(ctx, tx, org.ID, agent.ID); err != nil {
+		return org, fmt.Errorf("creating system channel: %w", err)
+	}
 	return org, nil
 }
 
