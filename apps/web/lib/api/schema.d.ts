@@ -13003,6 +13003,8 @@ export interface paths {
                     search?: string;
                     /** @description Max sheets to return (clamped to 200) */
                     limit?: number;
+                    /** @description Opaque cursor from a previous response's next_cursor; continues the walk */
+                    cursor?: string;
                 };
                 header?: never;
                 path?: never;
@@ -17468,6 +17470,8 @@ export interface components {
         };
         SheetListResponse: {
             sheets?: components["schemas"]["SheetSummary"][];
+            /** @description Non-empty when more sheets follow; pass back as ?cursor= to continue */
+            next_cursor?: string;
         };
         SheetRow: {
             id?: string;

@@ -147,7 +147,7 @@ func registerSheetList(server *mcp.Server, svc *Service, token *model.Token) {
 func handleSheetList(ctx context.Context, svc *Service, token *model.Token, args sheetListArgs) (*mcp.CallToolResult, error) {
 	tctx, cancel := sheetToolContext(ctx)
 	defer cancel()
-	sheets, err := svc.ListSheets(tctx, token.OrgID, args.Search, ClampLimit(args.Limit, QueryLimitMCP))
+	sheets, _, err := svc.ListSheets(tctx, token.OrgID, args.Search, ClampLimit(args.Limit, QueryLimitMCP), "")
 	if err != nil {
 		return sheetToolError(err.Error()), nil
 	}

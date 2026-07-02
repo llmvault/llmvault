@@ -44,6 +44,80 @@ func TestSheetsOrgIsolation(t *testing.T) {
 	}
 }
 
+func TestSheetsListCursorPagination(t *testing.T) {
+	h := newSheetsHarness(t)
+	// The harness already created one sheet; add two more so the org has 3.
+	for _, name := range []string{"Cursor B", "Cursor C"} {
+		resp := h.do(t, &h.org, http.MethodPost, "/v1/sheets", map[string]any{"name": name})
+		if resp.Code != http.StatusCreated {
+			t.Fatalf("create sheet %q status=%d body=%s", name, resp.Code, resp.Body.String())
+		}
+	}
+
+	type listPage struct {
+		Sheets []struct {
+			ID string `json:"id"`
+		} `json:"sheets"`
+		NextCursor string `json:"next_cursor"`
+	}
+	fetch := func(query string) listPage {
+		t.Helper()
+		resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets"+query, nil)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("list %q status=%d body=%s", query, resp.Code, resp.Body.String())
+		}
+		var page listPage
+		if err := json.Unmarshal(resp.Body.Bytes(), &page); err != nil {
+			t.Fatalf("decode list page: %v", err)
+		}
+		return page
+	}
+
+	seen := map[string]bool{}
+	cursor := ""
+	pages := 0
+	for {
+		query := "?limit=2"
+		if cursor != "" {
+			query += "&cursor=" + cursor
+		}
+		page := fetch(query)
+		if len(page.Sheets) == 0 {
+			t.Fatalf("page %d returned no sheets", pages)
+		}
+		for _, sheet := range page.Sheets {
+			if seen[sheet.ID] {
+				t.Fatalf("cursor walk repeated sheet %s", sheet.ID)
+			}
+			seen[sheet.ID] = true
+		}
+		pages++
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+		if pages > 5 {
+			t.Fatalf("cursor walk did not terminate")
+		}
+	}
+	if len(seen) != 3 || pages != 2 {
+		t.Fatalf("cursor walk saw %d sheets over %d pages, want 3 over 2", len(seen), pages)
+	}
+
+	// A full first page (no cursor) still reports next_cursor empty when the
+	// org fits in one page — backward-compatible shape.
+	full := fetch("")
+	if len(full.Sheets) != 3 || full.NextCursor != "" {
+		t.Fatalf("full list = %d sheets next_cursor=%q", len(full.Sheets), full.NextCursor)
+	}
+
+	// Garbage cursors are a 400, not a 500.
+	resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets?cursor=not-a-cursor", nil)
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("bad cursor status=%d body=%s", resp.Code, resp.Body.String())
+	}
+}
+
 func TestSheetsRowsPatchPartialMerge(t *testing.T) {
 	h := newSheetsHarness(t)
 	nameID, scoreID, mailID := h.fields["Name"], h.fields["Score"], h.fields["Mail"]

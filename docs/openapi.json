@@ -13500,6 +13500,15 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Opaque cursor from a previous response's next_cursor; continues the walk",
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -22626,6 +22635,10 @@
             "items": {
               "$ref": "#/components/schemas/SheetSummary"
             }
+          },
+          "next_cursor": {
+            "type": "string",
+            "description": "Non-empty when more sheets follow; pass back as ?cursor= to continue"
           }
         }
       },

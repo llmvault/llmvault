@@ -82,7 +82,7 @@ func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	result, err := h.svc.ListSheets(r.Context(), org.ID, r.URL.Query().Get("search"), limit)
+	result, nextCursor, err := h.svc.ListSheets(r.Context(), org.ID, r.URL.Query().Get("search"), limit, r.URL.Query().Get("cursor"))
 	if err != nil {
 		writeSheetsError(w, r, err)
 		return
@@ -91,7 +91,7 @@ func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 	for _, sheet := range result {
 		summaries = append(summaries, sheetSummaryFrom(sheet))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sheets": summaries})
+	writeJSON(w, http.StatusOK, map[string]any{"sheets": summaries, "next_cursor": nextCursor})
 }
 
 func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {

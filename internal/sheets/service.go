@@ -2,6 +2,8 @@ package sheets
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -148,21 +150,77 @@ func (s *Service) CreateSheet(ctx context.Context, orgID uuid.UUID, req CreateSh
 	return structure, nil
 }
 
-// ListSheets returns the org's active sheets, newest-updated first, with an
-// optional name search.
-func (s *Service) ListSheets(ctx context.Context, orgID uuid.UUID, search string, limit int) ([]model.Sheet, error) {
+// ListSheets returns one page of the org's active sheets, newest-updated
+// first, with an optional name search. The returned cursor is non-empty when
+// more sheets follow; pass it back to continue the walk.
+func (s *Service) ListSheets(ctx context.Context, orgID uuid.UUID, search string, limit int, cursor string) ([]model.Sheet, string, error) {
+	pageSize := ClampLimit(limit, QueryLimitREST)
 	q := s.db.WithContext(ctx).
 		Where("org_id = ? AND archived_at IS NULL", orgID).
-		Order("updated_at DESC").
-		Limit(ClampLimit(limit, QueryLimitREST))
+		Order("updated_at DESC, id DESC").
+		Limit(pageSize + 1)
 	if search = strings.TrimSpace(search); search != "" {
 		q = q.Where("name ILIKE ?", "%"+escapeLike(search)+"%")
 	}
+	if cursor != "" {
+		updatedAt, id, err := decodeSheetListCursor(cursor)
+		if err != nil {
+			return nil, "", err
+		}
+		q = q.Where("(updated_at, id) < (?, ?)", updatedAt, id)
+	}
 	var sheets []model.Sheet
 	if err := q.Find(&sheets).Error; err != nil {
-		return nil, fmt.Errorf("list sheets: %w", err)
+		return nil, "", fmt.Errorf("list sheets: %w", err)
 	}
-	return sheets, nil
+	next := ""
+	if len(sheets) > pageSize {
+		sheets = sheets[:pageSize]
+		encoded, err := encodeSheetListCursor(&sheets[len(sheets)-1])
+		if err != nil {
+			return nil, "", err
+		}
+		next = encoded
+	}
+	return sheets, next, nil
+}
+
+// sheetListCursor is the opaque keyset cursor for ListSheets: the last
+// sheet's updated_at and id under the fixed (updated_at DESC, id DESC) order.
+type sheetListCursor struct {
+	U  string `json:"u"`
+	ID string `json:"id"`
+}
+
+func encodeSheetListCursor(sheet *model.Sheet) (string, error) {
+	raw, err := json.Marshal(sheetListCursor{
+		U:  sheet.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		ID: sheet.ID.String(),
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode sheet list cursor: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func decodeSheetListCursor(cursor string) (time.Time, uuid.UUID, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, uuid.Nil, ErrInvalidCursor
+	}
+	var payload sheetListCursor
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return time.Time{}, uuid.Nil, ErrInvalidCursor
+	}
+	updatedAt, err := time.Parse(time.RFC3339Nano, payload.U)
+	if err != nil {
+		return time.Time{}, uuid.Nil, ErrInvalidCursor
+	}
+	id, err := uuid.Parse(payload.ID)
+	if err != nil {
+		return time.Time{}, uuid.Nil, ErrInvalidCursor
+	}
+	return updatedAt, id, nil
 }
 
 // GetSheet loads one sheet with all active pages and fields.
