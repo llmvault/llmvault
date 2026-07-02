@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -144,9 +145,38 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
 	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))
 	mcpHandler.SetSkillTools(skills.NewToolsFunc(database))
+	// Assignable agent models: the full text-output catalog minus the scribe
+	// transcription model. Used verbatim as the strict `model` enum in the
+	// agent-builder tools; per-org credential availability is enforced at call
+	// time by ValidateModel.
+	agentBuilderModels := func() []string {
+		provs := reg.AllProviders()
+		provIDs := make([]string, 0, len(provs))
+		for _, p := range provs {
+			provIDs = append(provIDs, p.ID)
+		}
+		seen := map[string]bool{}
+		var out []string
+		for _, routed := range reg.CanonicalModelsForProviders(provIDs) {
+			if !registry.ModelSupportsTextOutput(routed.Model) {
+				continue
+			}
+			if routed.ID == "scribe-v2" { // the scribe transcription model
+				continue
+			}
+			if seen[routed.ID] {
+				continue
+			}
+			seen[routed.ID] = true
+			out = append(out, routed.ID)
+		}
+		sort.Strings(out)
+		return out
+	}()
 	agentBuilderDeps := agents.Deps{
 		DB:           database,
 		DefaultModel: agentruntime.DefaultAgentModel,
+		Models:       agentBuilderModels,
 		ValidateModel: func(ctx context.Context, orgID uuid.UUID, modelID string) error {
 			if strings.TrimSpace(modelID) == "" {
 				return fmt.Errorf("model is required")

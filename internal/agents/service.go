@@ -31,6 +31,11 @@ type Deps struct {
 	DB            *gorm.DB
 	DefaultModel  string
 	ValidateModel func(ctx context.Context, orgID uuid.UUID, modelID string) error
+	// Models is the set of canonical model ids an agent-builder caller may
+	// select (the full agent-selectable catalog minus the scribe model). It is
+	// used verbatim as the `model` schema enum and to reject unknown models with
+	// a helpful message. Empty disables model selection (falls back to default).
+	Models []string
 }
 
 func (d Deps) validateModel(ctx context.Context, orgID uuid.UUID, modelID string) error {
@@ -81,6 +86,7 @@ type UpdateInput struct {
 	Name         *string
 	Description  *string
 	Instructions *string
+	Model        *string // non-nil sets the agent's model (and available_models)
 	Status       *string
 
 	Tools         *model.JSON
@@ -226,6 +232,21 @@ func UpdateAgent(ctx context.Context, deps Deps, orgID, agentID uuid.UUID, in Up
 		value := strings.TrimSpace(*in.Instructions)
 		updates["instructions"] = value
 		agent.Instructions = &value
+	}
+	if in.Model != nil {
+		modelID := strings.TrimSpace(*in.Model)
+		if modelID == "" {
+			return nil, fmt.Errorf("model cannot be empty")
+		}
+		if err := deps.validateModel(ctx, orgID, modelID); err != nil {
+			return nil, err
+		}
+		// Keep available_models consistent with the selected model, matching the
+		// single-model shape CreateAgent uses.
+		updates["model"] = modelID
+		updates["available_models"] = pq.StringArray{modelID}
+		agent.Model = modelID
+		agent.AvailableModels = pq.StringArray{modelID}
 	}
 	if in.Status != nil {
 		status := strings.TrimSpace(*in.Status)

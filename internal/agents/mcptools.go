@@ -198,6 +198,7 @@ type createAgentArgs struct {
 	Name         string             `json:"name"`
 	Description  string             `json:"description"`
 	Instructions string             `json:"instructions"`
+	Model        string             `json:"model"`
 	PluginSlugs  []string           `json:"plugin_slugs"`
 	Skills       []string           `json:"skills"`
 	Tools        []string           `json:"tools"`
@@ -215,8 +216,8 @@ type subAgentToolArgs struct {
 func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolCreateAgent,
-		Description: "Create a new agent for this organization. The agent uses the org default model. Grant the parent tools/skills and optionally define sub-agents. Use list_org_plugins to discover valid plugin_slugs and skills.",
-		InputSchema: createAgentSchema(),
+		Description: "Create a new agent for this organization. Grant the parent tools/skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. Use list_org_plugins to discover valid plugin_slugs and skills.",
+		InputSchema: createAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args createAgentArgs
 		if errResult := decodeArgs(req, &args); errResult != nil {
@@ -229,6 +230,9 @@ func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, frontendURL string, args createAgentArgs) (*mcp.CallToolResult, error) {
 	if strings.TrimSpace(args.Name) == "" {
 		return toolError("name is required"), nil
+	}
+	if errResult := checkModelChoice(deps, args.Model); errResult != nil {
+		return errResult, nil
 	}
 	runtime, mcpAllow, err := SplitTools(args.Tools)
 	if err != nil {
@@ -251,6 +255,7 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		Name:          args.Name,
 		Description:   args.Description,
 		Instructions:  args.Instructions,
+		Model:         strings.TrimSpace(args.Model),
 		Tools:         runtime,
 		McpToolFilter: allowFilter(mcpAllow),
 		Skills:        skillsJSON(skillSlugs),
@@ -271,6 +276,7 @@ type updateAgentArgs struct {
 	Name         *string             `json:"name"`
 	Description  *string             `json:"description"`
 	Instructions *string             `json:"instructions"`
+	Model        *string             `json:"model"`
 	Status       *string             `json:"status"`
 	PluginSlugs  *[]string           `json:"plugin_slugs"`
 	Skills       *[]string           `json:"skills"`
@@ -282,7 +288,7 @@ func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateAgent,
 		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (plugin_slugs, skills, tools, sub_agents) REPLACES that field entirely. Use list_org_plugins to discover valid plugin_slugs and skills.",
-		InputSchema: updateAgentSchema(),
+		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args updateAgentArgs
 		if errResult := decodeArgs(req, &args); errResult != nil {
@@ -298,10 +304,17 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		return toolError("agent_id must be a valid UUID"), nil
 	}
 
+	if args.Model != nil {
+		if errResult := checkModelChoice(deps, *args.Model); errResult != nil {
+			return errResult, nil
+		}
+	}
+
 	in := UpdateInput{
 		Name:         args.Name,
 		Description:  args.Description,
 		Instructions: args.Instructions,
+		Model:        args.Model,
 		Status:       args.Status,
 	}
 
@@ -421,7 +434,22 @@ func subAgentsSchema() map[string]any {
 	}
 }
 
-func createAgentSchema() map[string]any {
+// modelSchema returns the schema for the optional `model` field. When the model
+// catalog is available it is a strict enum so agents cannot hallucinate model
+// ids; otherwise a plain string.
+func modelSchema(models []string, desc string) map[string]any {
+	out := map[string]any{"type": "string", "description": desc}
+	if len(models) > 0 {
+		enum := make([]any, len(models))
+		for i, id := range models {
+			enum[i] = id
+		}
+		out["enum"] = enum
+	}
+	return out
+}
+
+func createAgentSchema(models []string) map[string]any {
 	return map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
@@ -429,6 +457,7 @@ func createAgentSchema() map[string]any {
 			"name":         map[string]any{"type": "string", "description": "The agent's display name."},
 			"description":  map[string]any{"type": "string", "description": "Short description of the agent."},
 			"instructions": map[string]any{"type": "string", "description": "System instructions for the agent."},
+			"model":        modelSchema(models, "Model the agent uses. Omit to use the org default."),
 			"plugin_slugs": skillsArraySchema("Slugs of org-installed plugins to enable on the agent."),
 			"skills":       skillsArraySchema("Skill slugs the parent agent can use."),
 			"tools":        toolsArraySchema(),
@@ -438,7 +467,7 @@ func createAgentSchema() map[string]any {
 	}
 }
 
-func updateAgentSchema() map[string]any {
+func updateAgentSchema(models []string) map[string]any {
 	return map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
@@ -447,6 +476,7 @@ func updateAgentSchema() map[string]any {
 			"name":         map[string]any{"type": "string", "description": "The agent's display name."},
 			"description":  map[string]any{"type": "string", "description": "Short description of the agent."},
 			"instructions": map[string]any{"type": "string", "description": "System instructions for the agent."},
+			"model":        modelSchema(models, "Model the agent uses. Omit to leave unchanged."),
 			"status":       map[string]any{"type": "string", "enum": []any{"active", "archived"}, "description": "Agent status."},
 			"plugin_slugs": skillsArraySchema("Slugs of org-installed plugins to enable on the agent. Replaces the current set."),
 			"skills":       skillsArraySchema("Skill slugs the parent agent can use. Replaces the current set."),
@@ -455,6 +485,22 @@ func updateAgentSchema() map[string]any {
 		},
 		"required": []string{"agent_id"},
 	}
+}
+
+// checkModelChoice rejects a model id that is not in the assignable catalog,
+// returning a helpful IsError result listing the allowed models. An empty model
+// is allowed (create defaults to the org default; update leaves it unchanged).
+func checkModelChoice(deps Deps, modelID string) *mcp.CallToolResult {
+	id := strings.TrimSpace(modelID)
+	if id == "" || len(deps.Models) == 0 {
+		return nil
+	}
+	for _, allowed := range deps.Models {
+		if allowed == id {
+			return nil
+		}
+	}
+	return toolError(fmt.Sprintf("unknown model %q: allowed models are: %s", id, strings.Join(deps.Models, ", ")))
 }
 
 // --- output ------------------------------------------------------------------
