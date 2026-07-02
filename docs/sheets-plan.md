@@ -98,7 +98,7 @@ sheet_operations (
 
 **Operation log + revert (undo log, NOT a versioning system).** Every mutation (one `rows_write` call, one import job, one field change) writes one `sheet_operations` row capturing its inverse:
 - `rows_insert` → inverse = `{row_ids}`; undo archives them.
-- `rows_update` → inverse = `{patches: {row_id: {fld_x: old_value}}}` — **only the changed keys' prior values**. Batches are capped at ≤100 rows/call, so the before-image stays small by construction.
+- `rows_update` → inverse = `{patches: {row_id: {fld_x: old_value}}}` — **only the changed keys' prior values**. Batches are capped at ≤100 rows/call, so the before-image stays small by construction. Row `position` changes (drag-reorder) are intentionally NOT captured in the inverse — undo restores cell values only, never row order.
 - `rows_delete` → deletes are `archived_at` soft-deletes, so inverse = `{row_ids}`; undo un-archives (data was never lost).
 - `csv_import` → inverse = `{import_job_id}`; undo archives `WHERE import_job_id = ?`.
 - `field_change` → inverse = the prior field definition (archive/restore for field deletes; rows untouched since cells key by field ID).
