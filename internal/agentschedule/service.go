@@ -49,6 +49,8 @@ type UpdateInput struct {
 	RepeatCount     *int64
 }
 
+// CreateFromSession creates a schedule for the agent that owns the given
+// session (the self-scheduling path used by the cron tool).
 func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, sessionID string, input CreateInput) (*model.AgentSchedule, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database is required")
@@ -66,6 +68,24 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 		First(&session).Error; err != nil {
 		return nil, fmt.Errorf("load current session: %w", err)
 	}
+	return create(ctx, db, agent, session.ID.String(), input)
+}
+
+// Create persists a schedule for the given agent WITHOUT requiring a caller
+// session. This is the cross-agent path: one agent (e.g. the Hivy builder
+// agent) scheduling another agent in the same org. Callers must have already
+// resolved and authorized `agent` within the caller's org.
+func Create(ctx context.Context, db *gorm.DB, agent *model.Agent, input CreateInput) (*model.AgentSchedule, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database is required")
+	}
+	if agent == nil || agent.ID == uuid.Nil || agent.OrgID == nil {
+		return nil, fmt.Errorf("agent context is required")
+	}
+	return create(ctx, db, agent, "", input)
+}
+
+func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySession string, input CreateInput) (*model.AgentSchedule, error) {
 	channelID, err := resolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, input.ChannelID)
 	if err != nil {
 		return nil, err
@@ -98,7 +118,7 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 		RepeatCount:      input.RepeatCount,
 		RepeatCompleted:  0,
 		NextRunAt:        &nextRunAt,
-		CreatedBySession: session.ID.String(),
+		CreatedBySession: createdBySession,
 		RuntimeCreatedAt: &now,
 	}
 	if err := db.WithContext(ctx).Clauses(clause.OnConflict{
@@ -116,7 +136,7 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 			"interval_seconds":   schedule.IntervalSeconds,
 			"repeat_count":       schedule.RepeatCount,
 			"next_run_at":        schedule.NextRunAt,
-			"created_by_session": schedule.CreatedBySession,
+			"created_by_session": gorm.Expr("CASE WHEN EXCLUDED.created_by_session <> '' THEN EXCLUDED.created_by_session ELSE agent_schedules.created_by_session END"),
 			"runtime_created_at": schedule.RuntimeCreatedAt,
 			"cancelled_at":       nil,
 			"last_error":         "",

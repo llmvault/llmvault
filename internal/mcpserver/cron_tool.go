@@ -32,13 +32,17 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 	}
 	server.AddTool(&mcp.Tool{
 		Name:        "cron",
-		Description: "Create, list, update, pause, resume, and cancel recurring cron jobs for this agent.",
+		Description: "Create, list, update, pause, resume, and cancel recurring cron jobs. By default the job belongs to the calling agent; pass agent_id to manage jobs for another agent in the same organization. All times are UTC.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"action": map[string]any{
 					"type":        "string",
 					"description": "One of create, list, update, pause, resume, cancel.",
+				},
+				"agent_id": map[string]any{
+					"type":        "string",
+					"description": "Optional UUID of the agent this job belongs to. Defaults to the calling agent. Must be an agent in the same organization.",
 				},
 				"job_id": map[string]any{
 					"type":        "string",
@@ -82,6 +86,7 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 
 type cronToolArgs struct {
 	Action          string  `json:"action"`
+	AgentID         string  `json:"agent_id"`
 	JobID           string  `json:"job_id"`
 	TaskPrompt      string  `json:"task_prompt"`
 	Description     string  `json:"description"`
@@ -104,14 +109,24 @@ func decodeCronToolArgs(req *mcp.CallToolRequest) (cronToolArgs, error) {
 	return args, nil
 }
 
-func handleCronTool(ctx context.Context, db *gorm.DB, agent *model.Agent, args cronToolArgs) (*mcp.CallToolResult, error) {
+func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, args cronToolArgs) (*mcp.CallToolResult, error) {
+	// By default the job belongs to the calling agent; agent_id targets another
+	// agent in the same org (validated here).
+	agent := callingAgent
+	if strings.TrimSpace(args.AgentID) != "" {
+		target, errResult := resolveCronAgent(ctx, db, callingAgent, args.AgentID)
+		if errResult != nil {
+			return errResult, nil
+		}
+		agent = target
+	}
 	switch args.Action {
 	case "create":
 		expr := ""
 		if args.CronExpression != nil {
 			expr = strings.TrimSpace(*args.CronExpression)
 		}
-		schedule, err := agentschedule.CreateFromSession(ctx, db, agent, args.HivySessionID, agentschedule.CreateInput{
+		input := agentschedule.CreateInput{
 			JobID:           args.JobID,
 			Description:     args.Description,
 			TaskPrompt:      args.TaskPrompt,
@@ -119,7 +134,18 @@ func handleCronTool(ctx context.Context, db *gorm.DB, agent *model.Agent, args c
 			IntervalSeconds: args.IntervalSeconds,
 			CronExpression:  expr,
 			RepeatCount:     args.RepeatCount,
-		})
+		}
+		var (
+			schedule *model.AgentSchedule
+			err      error
+		)
+		if agent.ID == callingAgent.ID {
+			// Self-scheduling: tie the schedule to the caller's session.
+			schedule, err = agentschedule.CreateFromSession(ctx, db, agent, args.HivySessionID, input)
+		} else {
+			// Cross-agent: no caller session for the target agent.
+			schedule, err = agentschedule.Create(ctx, db, agent, input)
+		}
 		if err != nil {
 			return cronToolError(err.Error()), nil
 		}
@@ -166,6 +192,29 @@ func handleCronTool(ctx context.Context, db *gorm.DB, agent *model.Agent, args c
 	default:
 		return cronToolError("action must be one of create, list, update, pause, resume, cancel"), nil
 	}
+}
+
+// resolveCronAgent returns the target agent for a cron action, validating it
+// belongs to the calling agent's organization. Returns the calling agent when
+// agent_id matches it.
+func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, idText string) (*model.Agent, *mcp.CallToolResult) {
+	id, err := uuid.Parse(strings.TrimSpace(idText))
+	if err != nil || id == uuid.Nil {
+		return nil, cronToolError("agent_id must be a valid UUID")
+	}
+	if callingAgent == nil || callingAgent.OrgID == nil {
+		return nil, cronToolError("agent context is missing an organization")
+	}
+	if id == callingAgent.ID {
+		return callingAgent, nil
+	}
+	var target model.Agent
+	if err := db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND status <> ?", id, *callingAgent.OrgID, "archived").
+		First(&target).Error; err != nil {
+		return nil, cronToolError("agent not found in this organization")
+	}
+	return &target, nil
 }
 
 func cronToolSetStatus(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID, status string) (*mcp.CallToolResult, error) {
