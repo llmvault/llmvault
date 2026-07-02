@@ -313,6 +313,16 @@ impl SessionStreamBroker {
                         None
                     }
                 });
+            // The run-terminal `done` is the last event of a turn (emitted for
+            // persistent streams too, it just doesn't evict them). Dropping the
+            // turn's context here — after it was resolved above for this event —
+            // bounds `turn_contexts` for persistent streams without affecting the
+            // recording of any turn event.
+            if event.event == "done" {
+                if let Some(turn_id) = event.payload.get("turn_id").and_then(Value::as_str) {
+                    state.turn_contexts.remove(turn_id);
+                }
+            }
             recorded_event = Some(event);
             let _ = state.sender.send(seq_event);
         }

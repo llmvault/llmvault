@@ -29,7 +29,12 @@ pub(super) async fn git_status(repo_path: &Path) -> Result<BTreeMap<String, Stri
             "status".into(),
             "--porcelain=v1".into(),
             "-z".into(),
-            "--untracked-files=all".into(),
+            // `normal` reports untracked directories without descending into
+            // them (e.g. node_modules is a single entry, not a full recursive
+            // stat walk). `all` made the once-per-second repo monitor scan the
+            // entire working tree, pinning a CPU core. `normal` still detects
+            // new/changed tracked files and top-level untracked directories.
+            "--untracked-files=normal".into(),
         ],
     )
     .await?;

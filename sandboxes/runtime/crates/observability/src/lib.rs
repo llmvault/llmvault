@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
@@ -132,10 +132,18 @@ pub struct TraceSummary {
     pub duration_ms: Option<u64>,
 }
 
+/// Upper bound on retained observability events. The recorder is an in-memory
+/// ring: every turn appends events (including one per streamed frame, each
+/// carrying a full JSON `payload`), so without a cap a long-lived runtime grows
+/// without bound. Once full, the oldest events are dropped. Trace/session
+/// summaries for very old turns may therefore be partial — acceptable for
+/// best-effort observability.
+const MAX_RETAINED_OBSERVABILITY_EVENTS: usize = 4096;
+
 #[derive(Debug, Default)]
 struct ObservabilityInner {
     next_event_id: u64,
-    events: Vec<ObservabilityEvent>,
+    events: VecDeque<ObservabilityEvent>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -154,7 +162,10 @@ impl ObservabilityRecorder {
         if event.event_id.is_empty() {
             event.event_id = format!("evt-{:020}", inner.next_event_id);
         }
-        inner.events.push(event.clone());
+        if inner.events.len() >= MAX_RETAINED_OBSERVABILITY_EVENTS {
+            inner.events.pop_front();
+        }
+        inner.events.push_back(event.clone());
         event
     }
 

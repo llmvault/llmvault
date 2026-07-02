@@ -62,12 +62,21 @@ impl RepoService {
     }
 
     pub fn start(self: Arc<Self>) {
+        // Poll interval for the repo change monitor. Kept modest (not sub-second)
+        // because each reconcile shells out to `git status` per repo.
+        const MONITOR_INTERVAL: Duration = Duration::from_secs(3);
         tokio::spawn(async move {
             loop {
-                if let Err(error) = self.reconcile_and_publish().await {
-                    warn!(%error, "repo monitor reconciliation failed");
+                // Skip the git scan entirely when no session is registered:
+                // an idle/orphaned sandbox has nobody to publish change batches
+                // to, so there is no reason to burn CPU scanning repos.
+                let has_sessions = !self.state.read().await.sessions.is_empty();
+                if has_sessions {
+                    if let Err(error) = self.reconcile_and_publish().await {
+                        warn!(%error, "repo monitor reconciliation failed");
+                    }
                 }
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(MONITOR_INTERVAL).await;
             }
         });
     }
