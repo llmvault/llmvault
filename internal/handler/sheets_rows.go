@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -193,15 +194,24 @@ func (h *SheetsHandler) AttachmentDownloadURL(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "keys must contain between 1 and 50 entries"})
 		return
 	}
-	urls := make(map[string]string, len(req.Keys))
+	keys := make([]string, 0, len(req.Keys))
 	for _, key := range req.Keys {
-		key = strings.TrimSpace(key)
-		// Same predicate that admitted the key into the cell — the two
-		// checks must stay identical (sheets.ValidAttachmentKey).
-		if !sheets.ValidAttachmentKey(org.ID, key) {
+		keys = append(keys, strings.TrimSpace(key))
+	}
+	// Same admission rule that let the keys into cells — org-owned keys plus
+	// org-agent drive keys (sheets.Service.AuthorizeObjectKeys, one batched
+	// agents lookup). The two contracts must stay identical.
+	if err := h.svc.AuthorizeObjectKeys(r.Context(), org.ID, keys); err != nil {
+		var attErr *sheets.AttachmentError
+		if errors.As(err, &attErr) {
 			writeJSON(w, http.StatusForbidden, errorResponse{Error: "object key is not owned by this org"})
 			return
 		}
+		writeSheetsError(w, r, err)
+		return
+	}
+	urls := make(map[string]string, len(keys))
+	for _, key := range keys {
 		url, err := h.presigner.PresignGet(r.Context(), key)
 		if err != nil {
 			writeSheetsError(w, r, err)

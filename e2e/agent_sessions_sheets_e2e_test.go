@@ -86,7 +86,7 @@ const (
 }`
 	sheetsE2ESkillImportStart = `{
   "page_id": "9a2d4e7f-…",
-  "object_key": "pub/o/…/imports/leads.csv",
+  "object_key": "pub/e/…/imports/leads.csv",
   "options": {
     "has_header": true,
     "delimiter": ",",
@@ -113,7 +113,9 @@ var sheetsE2EToolNames = []string{
 //	skills_list visibility → agent creates a sheet and writes/queries rows
 //	with the exact SKILL.md payloads → user reads and cell-edits via /v1 →
 //	agent reverts the user's edit via sheet_operations → CSV imports from
-//	both the MCP tool and the REST endpoint run through the real enqueuer
+//	both the MCP tool (CSV uploaded through the sandbox drive endpoint, so
+//	the import runs from a pub/e/{agentID}/… key — the real agent flow) and
+//	the REST endpoint (org-owned pub/o key) run through the real enqueuer
 //	and worker to completion.
 //
 // The MCP layer is built through the production mcpserver.BuildServer path
@@ -294,14 +296,22 @@ func TestAgentSessionsSheetsE2E(t *testing.T) {
 	}
 	t.Log("agent reverted the user's cell edit via sheet_operations")
 
-	// --- CSV import, MCP path (354a4dec0 regression): the tool-created job
-	// must reach the enqueuer, then complete via the live worker.
+	// --- CSV import, MCP path — the REAL agent flow from SKILL.md: the CSV
+	// is uploaded through the sandbox drive endpoint (runtime-secret auth,
+	// key lands under pub/e/{agentID}/…) and imported from that drive key.
+	// Also pins the 354a4dec0 regression: the tool-created job must reach
+	// the enqueuer, then complete via the live worker.
 	csvOne := "Company,Website,Employees\n" +
 		"Import One,https://one.example.com,10\n" +
 		"Import Two,https://two.example.com,20\n" +
 		"Import Three,https://three.example.com,30\n"
-	keyOne := sheetsE2EUploadCSV(t, ctx, apiBase, ownerToken, orgID, "mcp-leads-"+runID+".csv", csvOne)
-	importPayload := strings.ReplaceAll(replace(sheetsE2ESkillImportStart), "pub/o/…/imports/leads.csv", keyOne)
+	runtimeSecret := "sheets-e2e-" + runID
+	sandbox := agentSessionsCreateCanvasSandboxRow(t, ctx, orgID, defaultAgent.ID, runtimeSecret, "sheets-"+runID)
+	keyOne := sheetsE2EUploadDriveCSV(t, ctx, apiBase, defaultAgent.ID, sandbox.ID.String(), runtimeSecret, "imports/mcp-leads-"+runID+".csv", csvOne)
+	if !strings.HasPrefix(keyOne, "pub/e/"+defaultAgent.ID+"/") {
+		t.Fatalf("drive upload key %q is not under pub/e/%s/", keyOne, defaultAgent.ID)
+	}
+	importPayload := strings.ReplaceAll(replace(sheetsE2ESkillImportStart), "pub/e/…/imports/leads.csv", keyOne)
 	started := sheetsE2ECallToolJSON(t, ctx, client, "sheet_import_csv", importPayload)
 	mcpJobID := started["job"].(map[string]any)["job_id"].(string)
 	if !spy.saw(uuid.MustParse(mcpJobID)) {
@@ -487,6 +497,33 @@ func sheetsE2ESkillListed(out map[string]any, slug string) bool {
 		}
 	}
 	return false
+}
+
+// sheetsE2EUploadDriveCSV uploads a CSV exactly as a sandbox agent does:
+// PUT /internal/agents/{agentID}/sandboxes/{sandboxID}/drive/{path} with the
+// sandbox's runtime secret as the bearer (the SKILL.md walkthrough's
+// $HIVY_DRIVE_UPLOAD_URL flow). Returns the pub/e/{agentID}/… object key.
+func sheetsE2EUploadDriveCSV(t *testing.T, ctx context.Context, apiBase, agentID, sandboxID, runtimeSecret, path, content string) string {
+	t.Helper()
+	url := apiBase + "/internal/agents/" + agentID + "/sandboxes/" + sandboxID + "/drive/" + path
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, strings.NewReader(content))
+	if err != nil {
+		t.Fatalf("build drive upload request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+runtimeSecret)
+	req.Header.Set("Content-Type", "text/csv")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("drive upload: %v", err)
+	}
+	defer resp.Body.Close()
+	var decoded struct {
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil || resp.StatusCode != http.StatusCreated || decoded.Key == "" {
+		t.Fatalf("drive upload status=%d key=%q err=%v", resp.StatusCode, decoded.Key, err)
+	}
+	return decoded.Key
 }
 
 // sheetsE2EUploadCSV uploads a CSV through the server-side upload proxy

@@ -162,12 +162,12 @@ object_key=$(
 )
 ```
 
-3. Call `sheet_import_csv` with the target page and the object key. Map columns to existing field IDs with `field_mapping`, or set `create_fields: true` to let the importer create fields with type inference (number/date/checkbox/email/url detection, falling back to `text`):
+3. Call `sheet_import_csv` with the target page and the object key exactly as the drive returned it — your drive keys look like `pub/e/{agentID}/…` and are accepted directly (org-owned `pub/o/{orgID}/…` keys work too). Map columns to existing field IDs with `field_mapping`, or set `create_fields: true` to let the importer create fields with type inference (number/date/checkbox/email/url detection, falling back to `text`):
 
 ```json
 {
   "page_id": "9a2d4e7f-…",
-  "object_key": "pub/o/…/imports/leads.csv",
+  "object_key": "pub/e/…/imports/leads.csv",
   "options": {
     "has_header": true,
     "delimiter": ",",
@@ -204,7 +204,7 @@ All 12 field types, the value shape to send in `data`, and how the service coerc
 | `url` | string | `{}` | Validated as a URL |
 | `email` | string | `{}` | Validated as an email address |
 | `phone` | string | `{}` | Stored as text; keep a consistent format like E.164 |
-| `attachment` | array of object keys | `{}` | Org-owned object keys only (`pub/o/{orgID}/…`); agent-drive keys (`pub/e/…`) are rejected; ≤10 per cell, ≤25 MB per file |
+| `attachment` | array of object keys | `{}` | Org-owned keys (`pub/o/{orgID}/…`) or your own drive uploads (`pub/e/{agentID}/…`); other orgs' keys are rejected; ≤10 per cell, ≤25 MB per file |
 | `relation` | array of row UUIDs | `{"target_page_id": "…"}` | Every ID must be a live row on the target page in the same org; ≤100 links per cell |
 
 ### Relations — worked example
@@ -231,14 +231,14 @@ When reading, pass `resolve_relations: true` to `rows_query` and relation cells 
 
 ### Attachments — worked example
 
-Attachment cells only accept org-owned object keys (`pub/o/{orgID}/…`). Agent drive uploads land under `pub/e/{agentID}/…` and are rejected — do not put drive keys in attachment cells. Files must be uploaded through the platform's `sign(sheet_attachment)` flow (which stores them under `pub/o/{orgID}/sheets/attachments/`); you may also reference other existing org-owned assets by key:
+Attachment cells accept object keys your org owns: org assets (`pub/o/{orgID}/…`, e.g. files uploaded by users through the platform's `sign(sheet_attachment)` flow, which land under `pub/o/{orgID}/sheets/attachments/`) and your own agent drive uploads (`pub/e/{agentID}/…`). To attach a file you produced, upload it via the drive endpoint (see the drive skill), capture the returned `key`, and write that key into the cell — keys belonging to another org or another org's agents are rejected:
 
 ```json
 {
   "page_id": "9a2d4e7f-…",
   "action": "update",
   "rows": [
-    { "id": "c31a9d20-…", "data": { "fld_pitchdeck7": ["pub/o/…/sheets/attachments/acme-deck.pdf"] } }
+    { "id": "c31a9d20-…", "data": { "fld_pitchdeck7": ["pub/e/…/reports/acme-deck.pdf"] } }
   ]
 }
 ```

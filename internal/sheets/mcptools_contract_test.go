@@ -89,7 +89,7 @@ const (
 	skillSearch            = `{ "page_id": "9a2d4e7f-…", "search": "acme", "limit": 25 }`
 	skillImportStart       = `{
   "page_id": "9a2d4e7f-…",
-  "object_key": "pub/o/…/imports/leads.csv",
+  "object_key": "pub/e/…/imports/leads.csv",
   "options": {
     "has_header": true,
     "delimiter": ",",
@@ -156,6 +156,9 @@ func TestSheetToolsSkillPayloadContract(t *testing.T) {
 		"fld_2j9xc4hb", fieldByName["Tier"],
 		"fld_7t5ry1ns", fieldByName["Employees"],
 		"pub/o/…/", OrgAttachmentPrefix(fixture.org.ID),
+		// The documented import flow uploads through the agent drive; the
+		// fixture agent stands in for the drive key's {agentID} segment.
+		"pub/e/…/", "pub/e/"+fixture.agent.ID.String()+"/",
 	).Replace
 
 	// 3-4. describe, then insert; capture the documented row-id placeholders.

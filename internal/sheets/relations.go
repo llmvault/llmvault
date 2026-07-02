@@ -31,10 +31,15 @@ func validateRelationTargetPage(tx *gorm.DB, orgID, targetPageID uuid.UUID) erro
 	return nil
 }
 
-// relationBatch aggregates linked row IDs per relation field across a write
-// batch so validation is one query per field, not per cell.
+// relationBatch aggregates linked row IDs per relation field and pending
+// agent-drive attachment keys across a write batch so validation is one
+// query per field (relations) plus at most one query total (drive owners),
+// not per cell.
 type relationBatch struct {
 	byField map[string]*relationFieldLinks
+	// driveKeys queues well-formed pub/e/{agentID}/… attachment keys for the
+	// batched "agent belongs to this org" ownership check.
+	driveKeys map[uuid.UUID][]agentDriveRef
 }
 
 type relationFieldLinks struct {
@@ -42,8 +47,18 @@ type relationFieldLinks struct {
 	ids   map[string]bool
 }
 
+// agentDriveRef is one queued agent-drive attachment key, kept with its
+// field ID so ownership failures report the offending cell.
+type agentDriveRef struct {
+	fieldID string
+	key     string
+}
+
 func newRelationBatch() *relationBatch {
-	return &relationBatch{byField: map[string]*relationFieldLinks{}}
+	return &relationBatch{
+		byField:   map[string]*relationFieldLinks{},
+		driveKeys: map[uuid.UUID][]agentDriveRef{},
+	}
 }
 
 func (b *relationBatch) add(field *model.SheetField, ids []string) {
@@ -57,10 +72,23 @@ func (b *relationBatch) add(field *model.SheetField, ids []string) {
 	}
 }
 
+func (b *relationBatch) addDriveKey(agentID uuid.UUID, fieldID, key string) {
+	b.driveKeys[agentID] = append(b.driveKeys[agentID], agentDriveRef{fieldID: fieldID, key: key})
+}
+
 // validate checks every linked row ID against the field's configured target
-// page within the caller's org. Any row that is missing, cross-org, or in a
-// different page rejects the whole write.
+// page within the caller's org, and every queued agent-drive attachment key
+// against the agents table. Any row that is missing, cross-org, or in a
+// different page — or any drive key whose agent is not in the org — rejects
+// the whole write.
 func (b *relationBatch) validate(tx *gorm.DB, orgID uuid.UUID) error {
+	if err := b.validateRelations(tx, orgID); err != nil {
+		return err
+	}
+	return b.validateDriveOwners(tx, orgID)
+}
+
+func (b *relationBatch) validateRelations(tx *gorm.DB, orgID uuid.UUID) error {
 	fieldIDs := make([]string, 0, len(b.byField))
 	for id := range b.byField {
 		fieldIDs = append(fieldIDs, id)
@@ -102,20 +130,54 @@ func (b *relationBatch) validate(tx *gorm.DB, orgID uuid.UUID) error {
 	return nil
 }
 
-// OrgAttachmentPrefix is the object-key prefix every attachment in orgID's
-// cells must carry. Keys outside the org's prefix are rejected.
+// validateDriveOwners resolves every queued pub/e/{agentID}/… attachment key
+// with one indexed lookup on the agents table: each agent ID must belong to
+// the caller's org. Agents in another org (or non-existent agents) reject
+// the whole write.
+func (b *relationBatch) validateDriveOwners(tx *gorm.DB, orgID uuid.UUID) error {
+	if len(b.driveKeys) == 0 {
+		return nil
+	}
+	agentIDs := make([]uuid.UUID, 0, len(b.driveKeys))
+	for id := range b.driveKeys {
+		agentIDs = append(agentIDs, id)
+	}
+	sort.Slice(agentIDs, func(i, j int) bool { return agentIDs[i].String() < agentIDs[j].String() })
+	var found []uuid.UUID
+	err := tx.Model(&model.Agent{}).
+		Where("id IN ? AND org_id = ?", agentIDs, orgID).
+		Pluck("id", &found).Error
+	if err != nil {
+		return fmt.Errorf("check attachment drive owners: %w", err)
+	}
+	foundSet := make(map[uuid.UUID]bool, len(found))
+	for _, id := range found {
+		foundSet[id] = true
+	}
+	for _, id := range agentIDs {
+		if !foundSet[id] {
+			ref := b.driveKeys[id][0]
+			return &AttachmentError{FieldID: ref.fieldID, Key: ref.key, Message: "object key is not owned by this org"}
+		}
+	}
+	return nil
+}
+
+// OrgAttachmentPrefix is the object-key prefix for org-owned assets. Keys
+// under it are accepted without any DB lookup.
 func OrgAttachmentPrefix(orgID uuid.UUID) string {
 	return fmt.Sprintf("pub/o/%s/", orgID)
 }
 
-// ValidAttachmentKey is the single acceptance predicate for attachment
-// object keys, shared by cell-value validation and the download-url
-// endpoint so the two contracts can never drift: a key must be a non-empty
-// object under the org's pub/o/{orgID}/ prefix with no path traversal. Any
-// org-owned asset qualifies (sign(sheet_attachment) uploads land under
+// ValidAttachmentKey is the pure-string fast path of the shared attachment
+// acceptance contract: a non-empty object under the org's pub/o/{orgID}/
+// prefix with no path traversal. Any org-owned asset qualifies
+// (sign(sheet_attachment) uploads land under
 // pub/o/{orgID}/sheets/attachments/, but other org assets are referenceable
-// too). Agent drive objects live under pub/e/{agentID}/ and are therefore
-// never attachable.
+// too). Agent drive keys (pub/e/{agentID}/…) are NOT covered here — they are
+// accepted only after the batched owner check proves the agent belongs to
+// the org (stageObjectKey / Service.AuthorizeObjectKeys), so callers must
+// not use this predicate alone as the full acceptance rule.
 func ValidAttachmentKey(orgID uuid.UUID, key string) bool {
 	prefix := OrgAttachmentPrefix(orgID)
 	return strings.HasPrefix(key, prefix) &&
@@ -123,14 +185,73 @@ func ValidAttachmentKey(orgID uuid.UUID, key string) bool {
 		!strings.Contains(key, "..")
 }
 
-// validateAttachmentKeys enforces org ownership of attachment object keys.
-func validateAttachmentKeys(orgID uuid.UUID, fieldID string, keys []string) error {
+// agentDriveKeyOwner extracts the agent ID from a well-formed agent drive
+// key: pub/e/{agentID}/{non-empty remainder} with a parseable UUID and no
+// path traversal. It is a pure-string check — callers MUST still verify the
+// agent belongs to the org before accepting the key.
+func agentDriveKeyOwner(key string) (uuid.UUID, bool) {
+	const prefix = "pub/e/"
+	if !strings.HasPrefix(key, prefix) || strings.Contains(key, "..") {
+		return uuid.Nil, false
+	}
+	rest := key[len(prefix):]
+	slash := strings.IndexByte(rest, '/')
+	if slash <= 0 || slash == len(rest)-1 {
+		return uuid.Nil, false
+	}
+	agentID, err := uuid.Parse(rest[:slash])
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return agentID, true
+}
+
+// stageObjectKey is the single admission rule for object keys referenced by
+// sheets (attachment cells, CSV imports, download-url): org-owned
+// pub/o/{orgID}/ keys pass immediately; well-formed agent drive keys
+// (pub/e/{agentID}/…) are queued on the batch for the one-query "agent
+// belongs to this org" check; everything else is rejected before any DB hit.
+func stageObjectKey(orgID uuid.UUID, fieldID, key string, batch *relationBatch) error {
+	if ValidAttachmentKey(orgID, key) {
+		return nil
+	}
+	if agentID, ok := agentDriveKeyOwner(key); ok {
+		batch.addDriveKey(agentID, fieldID, key)
+		return nil
+	}
+	return &AttachmentError{FieldID: fieldID, Key: key, Message: "object key is not owned by this org"}
+}
+
+// validateAttachmentKeys enforces the admission rule on a cell's attachment
+// keys, queueing agent-drive keys on the batch for the deferred owner check.
+func validateAttachmentKeys(orgID uuid.UUID, fieldID string, keys []string, batch *relationBatch) error {
 	for _, key := range keys {
-		if !ValidAttachmentKey(orgID, key) {
-			return &AttachmentError{FieldID: fieldID, Key: key, Message: "object key is not owned by this org"}
+		if err := stageObjectKey(orgID, fieldID, key, batch); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// AuthorizeObjectKey authorizes one object key for orgID: accepted when it
+// is org-owned (pub/o/{orgID}/…) or an agent drive key (pub/e/{agentID}/…)
+// whose agent belongs to the org. Used on write and download-url paths only
+// — never per-row reads.
+func (s *Service) AuthorizeObjectKey(ctx context.Context, orgID uuid.UUID, key string) error {
+	return s.AuthorizeObjectKeys(ctx, orgID, []string{key})
+}
+
+// AuthorizeObjectKeys authorizes a batch of object keys for orgID with at
+// most one agents-table lookup. Malformed keys are rejected on the pure
+// string fast path before any DB hit.
+func (s *Service) AuthorizeObjectKeys(ctx context.Context, orgID uuid.UUID, keys []string) error {
+	batch := newRelationBatch()
+	for _, key := range keys {
+		if err := stageObjectKey(orgID, "", key, batch); err != nil {
+			return err
+		}
+	}
+	return batch.validateDriveOwners(s.db.WithContext(ctx), orgID)
 }
 
 // RelationRef is a hydrated relation chip: the linked row's ID and a label

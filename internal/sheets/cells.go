@@ -11,9 +11,10 @@ import (
 
 // coerceCells validates and normalizes one row's incoming cell payload:
 // every key must be a known active field ID, every value passes the field
-// type's coercion, attachment keys must be org-owned, and relation links are
-// queued on batch for one batched existence/org/page check. A nil coerced
-// value means "clear the cell".
+// type's coercion, attachment keys must be org-owned or org-agent drive keys
+// (the latter queued on batch for one batched owner check), and relation
+// links are queued on batch for one batched existence/org/page check. A nil
+// coerced value means "clear the cell".
 func coerceCells(orgID uuid.UUID, fields map[string]*model.SheetField, input map[string]any, batch *relationBatch) (map[string]any, error) {
 	out := make(map[string]any, len(input))
 	for key, raw := range input {
@@ -32,7 +33,7 @@ func coerceCells(orgID uuid.UUID, fields map[string]*model.SheetField, input map
 		switch def.Type {
 		case FieldTypeAttachment:
 			keys, _ := coerced.([]string)
-			if err := validateAttachmentKeys(orgID, def.ID, keys); err != nil {
+			if err := validateAttachmentKeys(orgID, def.ID, keys, batch); err != nil {
 				return nil, err
 			}
 		case FieldTypeRelation:

@@ -31,7 +31,7 @@ func registerSheetImportCSV(server *mcp.Server, svc *Service, token *model.Token
 			"properties": map[string]any{
 				"action":     map[string]any{"type": "string", "enum": []string{"start", "status"}, "description": "start begins an import (default when omitted); status polls a job."},
 				"page_id":    map[string]any{"type": "string", "description": "UUID of the target page (start)."},
-				"object_key": map[string]any{"type": "string", "description": "Object key returned by the drive upload, e.g. pub/o/…/imports/leads.csv (start)."},
+				"object_key": map[string]any{"type": "string", "description": "Object key returned by the drive upload, e.g. pub/e/{agentID}/imports/leads.csv; org-owned pub/o/… keys are accepted too (start)."},
 				"options": map[string]any{
 					"type":        "object",
 					"description": "Import options (start).",

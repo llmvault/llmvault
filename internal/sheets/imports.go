@@ -32,16 +32,17 @@ type CreateImportJobRequest struct {
 }
 
 // CreateImportJob persists a CSV import job for a page and hands it to the
-// enqueuer. The object key must belong to the caller's org.
+// enqueuer. The object key must be org-owned (pub/o/{orgID}/…) or an agent
+// drive upload (pub/e/{agentID}/…) whose agent belongs to the caller's org —
+// the documented SKILL.md flow uploads the CSV through the drive endpoint.
 func (s *Service) CreateImportJob(ctx context.Context, orgID, pageID uuid.UUID, req CreateImportJobRequest, actor Actor) (*model.SheetImportJob, error) {
 	page, err := s.loadPage(ctx, orgID, pageID)
 	if err != nil {
 		return nil, err
 	}
 	key := strings.TrimSpace(req.ObjectKey)
-	prefix := OrgAttachmentPrefix(orgID)
-	if !strings.HasPrefix(key, prefix) || len(key) <= len(prefix) {
-		return nil, &AttachmentError{Key: key, Message: "object key is not owned by this org"}
+	if err := s.AuthorizeObjectKey(ctx, orgID, key); err != nil {
+		return nil, err
 	}
 	options := req.Options
 	if options == nil {

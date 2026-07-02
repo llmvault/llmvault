@@ -157,6 +157,18 @@ func (h *sheetsHarness) do(t *testing.T, org *model.Org, method, path string, bo
 	return rr
 }
 
+// createAgent seeds an active agent in orgID for drive-key ownership tests.
+// Rows are cascade-deleted with the org (createTestOrg cleanup).
+func (h *sheetsHarness) createAgent(t *testing.T, orgID uuid.UUID) model.Agent {
+	t.Helper()
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	if err := h.db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	t.Cleanup(func() { h.db.Delete(&model.Agent{}, "id = ?", agent.ID) })
+	return agent
+}
+
 func (h *sheetsHarness) pagePath(suffix string) string {
 	return "/v1/sheets/" + h.sheet.Sheet.ID.String() + "/pages/" + h.page.Page.ID.String() + suffix
 }

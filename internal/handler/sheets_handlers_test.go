@@ -228,27 +228,35 @@ func TestSheetsOperationsRevertEndpoint(t *testing.T) {
 
 func TestSheetsAttachmentDownloadURL(t *testing.T) {
 	h := newSheetsHarness(t)
-	// Accepted: any org-owned pub/o/{orgID}/ key — the same predicate cell
-	// validation applies (sheets.ValidAttachmentKey), so whatever a cell can
-	// hold, download-url can sign.
+	orgAgent := h.createAgent(t, h.org.ID)
+	foreignAgent := h.createAgent(t, h.other.ID)
+
+	// Accepted: any org-owned pub/o/{orgID}/ key, plus drive keys of the
+	// org's OWN agents — the same admission rule cell validation applies
+	// (sheets.Service.AuthorizeObjectKeys), so whatever a cell can hold,
+	// download-url can sign.
 	ownKey := "pub/o/" + h.org.ID.String() + "/sheets/attachments/file.png"
 	brandKey := "pub/o/" + h.org.ID.String() + "/brand-assets/logo.png"
+	driveKey := "pub/e/" + orgAgent.ID.String() + "/report.pdf"
 	resp := h.do(t, &h.org, http.MethodPost, h.pagePath("/attachments/download-url"), map[string]any{
-		"keys": []string{ownKey, brandKey},
+		"keys": []string{ownKey, brandKey, driveKey},
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("download-url status=%d body=%s", resp.Code, resp.Body.String())
 	}
-	for _, key := range []string{ownKey, brandKey} {
+	for _, key := range []string{ownKey, brandKey, driveKey} {
 		if !strings.Contains(resp.Body.String(), "https://storage.test/"+key) {
 			t.Fatalf("missing presigned url for %s: %s", key, resp.Body.String())
 		}
 	}
 
-	// Rejected: foreign-org keys, agent drive keys (pub/e/…), traversal.
+	// Rejected: foreign-org keys, drive keys of a foreign org's agent or a
+	// non-existent agent, traversal.
 	rejected := []string{
 		"pub/o/" + h.other.ID.String() + "/sheets/attachments/secret.png",
-		"pub/e/" + h.user.ID.String() + "/report.pdf",
+		"pub/e/" + foreignAgent.ID.String() + "/report.pdf",
+		"pub/e/" + h.user.ID.String() + "/report.pdf", // no agent with this ID
+		"pub/e/" + orgAgent.ID.String() + "/../escape.pdf",
 		"pub/o/" + h.org.ID.String() + "/sheets/attachments/../../escape.png",
 	}
 	for _, key := range rejected {
@@ -292,6 +300,23 @@ func TestSheetsImportEndpoints(t *testing.T) {
 	})
 	if foreign.Code != http.StatusBadRequest {
 		t.Fatalf("foreign import key status=%d body=%s", foreign.Code, foreign.Body.String())
+	}
+
+	// Agent drive keys: accepted for the org's own agent (the SKILL.md drive
+	// upload → import flow), rejected for a foreign org's agent.
+	orgAgent := h.createAgent(t, h.org.ID)
+	foreignAgent := h.createAgent(t, h.other.ID)
+	drive := h.do(t, &h.org, http.MethodPost, h.pagePath("/imports"), map[string]any{
+		"object_key": "pub/e/" + orgAgent.ID.String() + "/imports/leads.csv",
+	})
+	if drive.Code != http.StatusCreated {
+		t.Fatalf("org-agent drive import status=%d body=%s, want 201", drive.Code, drive.Body.String())
+	}
+	foreignDrive := h.do(t, &h.org, http.MethodPost, h.pagePath("/imports"), map[string]any{
+		"object_key": "pub/e/" + foreignAgent.ID.String() + "/imports/leads.csv",
+	})
+	if foreignDrive.Code != http.StatusBadRequest {
+		t.Fatalf("foreign-agent drive import status=%d body=%s, want 400", foreignDrive.Code, foreignDrive.Body.String())
 	}
 }
 

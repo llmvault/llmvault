@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestRowLifecycleAndQuery(t *testing.T) {
@@ -182,25 +184,50 @@ func TestRelationAndAttachmentValidation(t *testing.T) {
 		t.Fatalf("tampered-field link error = %v, want RelationError", err)
 	}
 
-	// Attachments: org-owned prefix required. Any pub/o/{orgID}/ key is
-	// accepted (not just sheets/attachments/ uploads) — the same predicate
-	// the download-url endpoint applies (ValidAttachmentKey).
+	// Attachments: org-owned prefix accepted outright. Any pub/o/{orgID}/
+	// key qualifies (not just sheets/attachments/ uploads) — the same
+	// admission rule the download-url endpoint applies
+	// (Service.AuthorizeObjectKeys). Drive keys of the org's OWN agents
+	// (pub/e/{agentID}/…) are accepted too, via the batched agents lookup.
 	ownKey := OrgAttachmentPrefix(f.org.ID) + "sheets/attachments/file.png"
 	brandKey := OrgAttachmentPrefix(f.org.ID) + "brand-assets/logo.png"
+	orgAgentDriveKey := "pub/e/" + f.agent.ID.String() + "/report.pdf"
 	if _, err := f.svc.InsertRows(ctx, f.org.ID, f.leads.Page.ID, []RowInsert{
-		{Data: map[string]any{filesID: []any{ownKey, brandKey}}},
+		{Data: map[string]any{filesID: []any{ownKey, brandKey, orgAgentDriveKey}}},
 	}, MaxRowsPerWriteMCP, f.actor); err != nil {
-		t.Fatalf("org-owned attachment rejected: %v", err)
+		t.Fatalf("org-owned/org-agent attachment rejected: %v", err)
 	}
+	if err := f.svc.AuthorizeObjectKeys(ctx, f.org.ID, []string{ownKey, brandKey, orgAgentDriveKey}); err != nil {
+		t.Fatalf("AuthorizeObjectKeys rejected accepted cell keys: %v", err)
+	}
+
+	// A foreign org's agent — its drive keys must stay unreachable from f.org.
+	foreignAgent := model.Agent{ID: uuid.New(), OrgID: &f.otherOrg.ID, Name: "Foreign Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	if err := db.Create(&foreignAgent).Error; err != nil {
+		t.Fatalf("seed foreign agent: %v", err)
+	}
+
 	var attErr *AttachmentError
 	foreignKey := OrgAttachmentPrefix(f.otherOrg.ID) + "sheets/attachments/file.png"
-	agentDriveKey := "pub/e/" + f.agent.ID.String() + "/report.pdf"
+	foreignAgentDriveKey := "pub/e/" + foreignAgent.ID.String() + "/report.pdf"
+	missingAgentDriveKey := "pub/e/" + uuid.NewString() + "/report.pdf"
+	notUUIDDriveKey := "pub/e/not-a-uuid/report.pdf"
+	emptyDriveRemainder := "pub/e/" + f.agent.ID.String() + "/"
+	driveTraversalKey := "pub/e/" + f.agent.ID.String() + "/../escape.pdf"
 	traversalKey := OrgAttachmentPrefix(f.org.ID) + "sheets/attachments/../../escape.png"
-	for _, key := range []string{foreignKey, agentDriveKey, traversalKey, "pub/o/file.png", "other/prefix.png", OrgAttachmentPrefix(f.org.ID)} {
+	rejected := []string{
+		foreignKey, foreignAgentDriveKey, missingAgentDriveKey, notUUIDDriveKey,
+		emptyDriveRemainder, driveTraversalKey, traversalKey,
+		"pub/o/file.png", "pub/e/", "other/prefix.png", OrgAttachmentPrefix(f.org.ID),
+	}
+	for _, key := range rejected {
 		if _, err := f.svc.InsertRows(ctx, f.org.ID, f.leads.Page.ID, []RowInsert{
 			{Data: map[string]any{filesID: []any{key}}},
 		}, MaxRowsPerWriteMCP, f.actor); !errors.As(err, &attErr) {
 			t.Fatalf("attachment key %q error = %v, want AttachmentError", key, err)
+		}
+		if err := f.svc.AuthorizeObjectKeys(ctx, f.org.ID, []string{key}); !errors.As(err, &attErr) {
+			t.Fatalf("AuthorizeObjectKeys(%q) = %v, want AttachmentError", key, err)
 		}
 	}
 }
