@@ -30,7 +30,10 @@ const (
   "target": { "owner": "org", "agent_id": "7c9e6679-…" },
   "tags": ["service-discovery", "railway"]
 }`
-	sdPayloadForget = `{ "memory_id": "b82fd4c1-…", "reason": "stale service inventory replaced after re-discovery" }`
+	sdPayloadForget    = `{ "memory_id": "b82fd4c1-…", "reason": "stale service inventory replaced after re-discovery" }`
+	sdPayloadOrgSearch = `{ "action": "search", "query": "railway services inventory", "agent_id": "7c9e6679-…", "tags": ["service-discovery", "railway"] }`
+	sdPayloadOverview  = `{ "action": "overview" }`
+	sdPayloadSupForget = `{ "memory_id": "b82fd4c1-…", "reason": "duplicate railway inventory superseded by fresh discovery", "user_approved": true }`
 )
 
 func sdStrictDecode(t *testing.T, payload string, dst any) {
@@ -62,10 +65,13 @@ func TestServiceDiscoverySkillPayloadContract(t *testing.T) {
 	}
 	skillText := string(raw)
 	for name, payload := range map[string]string{
-		"search": sdPayloadSearch,
-		"retain": sdPayloadRetain,
-		"seed":   sdPayloadSeed,
-		"forget": sdPayloadForget,
+		"search":            sdPayloadSearch,
+		"retain":            sdPayloadRetain,
+		"seed":              sdPayloadSeed,
+		"forget":            sdPayloadForget,
+		"org_search":        sdPayloadOrgSearch,
+		"org_overview":      sdPayloadOverview,
+		"supervisor_forget": sdPayloadSupForget,
 	} {
 		if !strings.Contains(skillText, payload) {
 			t.Fatalf("payload %q is not present verbatim in SKILL.md — skill and contract test drifted", name)
@@ -77,10 +83,18 @@ func TestServiceDiscoverySkillPayloadContract(t *testing.T) {
 	sdStrictDecode(t, sdPayloadRetain, &memoryRetainArgs{})
 	sdStrictDecode(t, sdPayloadSeed, &memoryRetainArgs{})
 	sdStrictDecode(t, sdPayloadForget, &memoryForgetArgs{})
+	sdStrictDecode(t, sdPayloadOrgSearch, &orgMemoriesArgs{})
+	sdStrictDecode(t, sdPayloadOverview, &orgMemoriesArgs{})
+	sdStrictDecode(t, sdPayloadSupForget, &memoryForgetArgs{})
 
-	// 2. Execute the documented flow against the real tools.
+	// 2. Execute the documented flow against the real tools. The fixture agent
+	// is promoted to org default so the supervisor payloads (org_memories,
+	// user_approved forget) execute exactly as the skill documents them.
 	db := connectMemoryToolTestDB(t)
 	fixture := seedMemoryToolFixture(t, db)
+	if err := db.Model(&model.Agent{}).Where("id = ?", fixture.agent.ID).Update("is_default", true).Error; err != nil {
+		t.Fatalf("promote fixture agent to default: %v", err)
+	}
 	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
 	client := connectMemoryToolClient(t, ctx, service, fixture.token)
 	sessionID := fixture.session.ID.String()
@@ -127,5 +141,39 @@ func TestServiceDiscoverySkillPayloadContract(t *testing.T) {
 	}
 	if archived.ArchivedAt == nil {
 		t.Fatalf("documented forget payload did not archive the memory")
+	}
+
+	// Supervisor flow: the documented org_memories payloads execute against the
+	// live tool, and the seeded memory is visible with its owning agent.
+	orgSearch := callMemoryTool(t, ctx, client, "org_memories",
+		sdToolArgs(t, strings.ReplaceAll(sdPayloadOrgSearch, "7c9e6679-…", agentB.ID.String()), sessionID))
+	if orgSearch["success"] != true {
+		t.Fatalf("documented org_memories search failed: %#v", orgSearch)
+	}
+	overview := callMemoryTool(t, ctx, client, "org_memories", sdToolArgs(t, sdPayloadOverview, sessionID))
+	agentsList, ok := overview["agents"].([]any)
+	if !ok {
+		t.Fatalf("documented overview payload returned no agents list: %#v", overview)
+	}
+	foundB := false
+	for _, raw := range agentsList {
+		if raw.(map[string]any)["agent_id"] == agentB.ID.String() {
+			foundB = true
+		}
+	}
+	if !foundB {
+		t.Fatalf("overview does not list the seeded agent B: %#v", agentsList)
+	}
+
+	// Supervisor cleanup with the documented user_approved payload archives the
+	// memory seeded into agent B.
+	callMemoryTool(t, ctx, client, "forget_memory",
+		sdToolArgs(t, strings.ReplaceAll(sdPayloadSupForget, "b82fd4c1-…", seededID.String()), sessionID))
+	var supArchived model.AgentMemory
+	if err := db.First(&supArchived, "id = ?", seededID).Error; err != nil {
+		t.Fatalf("reload supervisor-forgotten memory: %v", err)
+	}
+	if supArchived.ArchivedAt == nil {
+		t.Fatalf("documented user_approved forget did not archive the cross-agent memory")
 	}
 }

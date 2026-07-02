@@ -56,6 +56,38 @@ Memories are immutable to you: no update call exists, and retains do not dedupli
 
 Never retain a fresh inventory while the stale one still exists — you would duplicate, and both would compete for the injection budget. Forget first, retain second.
 
+## Supervising org memory (default Hivy agent only)
+
+If you are the org's default agent you have one extra tool: **`org_memories`** — supervisor-wide visibility across every agent's org memories (other agents' `search_memories` only ever sees their own plus shared). Use it for two things:
+
+**Check any agent's inventory** before discovering or seeding — this replaces guessing:
+
+```json
+{ "action": "search", "query": "railway services inventory", "agent_id": "7c9e6679-…", "tags": ["service-discovery", "railway"] }
+```
+
+Drop `agent_id` to search across all agents at once. Results carry each memory's `agent_id`, `agent_name`, and `shared` flag so you can see exactly who knows what.
+
+**Map the org's memory** — totals, shared count, per-agent counts, top tags:
+
+```json
+{ "action": "overview" }
+```
+
+Privacy boundary you must respect and can rely on: `org_memories` never returns user-scoped personal memories — they appear only as an aggregate `user_scoped_count`. Do not try to inspect them; the tool will not show them.
+
+**Cleaning up another agent's memories — only with the user's explicit approval.** As the default agent you may archive a memory that belongs to another agent, but the flow is strict:
+
+1. Find it (`org_memories` search) and show the user the memory's **content and owning agent**.
+2. Get an explicit yes **in this session** — for that specific memory, not a blanket "clean things up".
+3. Only then call `forget_memory` with `user_approved`:
+
+```json
+{ "memory_id": "b82fd4c1-…", "reason": "duplicate railway inventory superseded by fresh discovery", "user_approved": true }
+```
+
+Never set `user_approved` speculatively, never batch-forget without listing each memory to the user first, and note the flag does nothing for non-default agents — it is not an escalation path. User-scoped personal memories remain untouchable regardless of approval.
+
 ## Seeding another agent's memory
 
 When the discovered IDs belong in a *different* agent's head — you are coordinating, and a deploy agent will do the work — bind the memory to that agent instead of yourself:
@@ -79,7 +111,7 @@ Hard rules for seeding:
 - `agent_id` and `visibility` are **mutually exclusive** — sending both is rejected. Pick one.
 - `agent_id` requires `owner: "org"` and must be an active agent in this org.
 - **Only the receiving agent can forget a seeded memory.** You cannot retract it afterward — seed accurate, atomic facts or don't seed.
-- **Seeding is blind.** You cannot search or list another agent's memories, so you cannot check whether it already carries this inventory. Seed only right after a fresh discovery or when the user explicitly asks, tell the user exactly what you seeded, and note that duplicates can only be cleaned up by the receiving agent (or from the dashboard).
+- **Check before you seed — or acknowledge you can't.** If you are the default agent, run `org_memories` with the target's `agent_id` first and seed only what's missing (stale entries: propose cleanup via the approved-forget flow above). If you are NOT the default agent, seeding is blind — you cannot see the target's memories — so seed only right after a fresh discovery or when the user explicitly asks, tell the user exactly what you seeded, and note that duplicates can only be cleaned up by the receiving agent, the default agent (with user approval), or the dashboard.
 
 ## Step 2 — per-service discovery
 
@@ -122,6 +154,7 @@ Discover one provider at a time, and only the providers the user asked about (or
 - A 404 "no connection" means stop and tell the user — never invent services.
 - IDs come from tool results only — and the seeding `agent_id` is resolved fresh via `list_agents` (or the user) in the current session, never from recollection.
 - Don't broadcast (`all_agents`) unless the user explicitly wants org-wide memory.
+- `user_approved` on forget_memory is set only after showing the user that exact memory and its owner and hearing yes in this session — never speculatively, never batched.
 
 ## Final response checklist
 
@@ -130,4 +163,5 @@ When discovery finishes, your reply must state:
 1. What was discovered, per provider, with counts (projects/services/domains/data sources/channels).
 2. What was persisted: how many memories, under which tags — and for which agent, if you seeded another agent.
 3. What was skipped and why (provider not connected, volatile data excluded).
-4. That future sessions will know this automatically, and a refresh is one ask away ("re-discover my Railway services").
+4. Any cleanup performed — each memory forgotten, its owner, and that the user approved it.
+5. That future sessions will know this automatically, and a refresh is one ask away ("re-discover my Railway services").
