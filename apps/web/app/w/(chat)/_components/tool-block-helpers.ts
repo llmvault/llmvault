@@ -35,7 +35,7 @@ export function statusLabel(detail: ToolCallDetail, running?: boolean) {
 }
 
 export function toolIcon(detail: ToolCallDetail) {
-  return detail.icon || "lucide:square-chevron-right"
+  return detail.icon || "square-chevron-right"
 }
 
 export function hasExpandableDetail(detail: ToolCallDetail) {

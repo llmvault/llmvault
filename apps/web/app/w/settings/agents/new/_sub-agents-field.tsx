@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button, Input } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { ModelSelect } from "./_model-select"
 import { ToolsField } from "./_tools-field"
 import {
@@ -77,8 +77,8 @@ export function SubAgentsField({
                   data-testid="sub-agent-toggle"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  <Icon
-                    icon={open ? "lucide:chevron-down" : "lucide:chevron-right"}
+                  <AppIcon
+                    icon={open ? "chevron-down" : "chevron-right"}
                     className="h-4 w-4 shrink-0 text-muted-foreground"
                   />
                   <span className="min-w-0 truncate text-sm font-medium text-foreground">
@@ -92,7 +92,7 @@ export function SubAgentsField({
                   aria-label="Remove sub-agent"
                   className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-danger"
                 >
-                  <Icon icon="lucide:x" className="h-4 w-4" />
+                  <AppIcon icon="x" className="h-4 w-4" />
                 </button>
               </div>
 
@@ -180,7 +180,7 @@ export function SubAgentsField({
           isDisabled={disabled}
           data-testid="add-sub-agent"
         >
-          <Icon icon="lucide:plus" className="h-4 w-4" />
+          <AppIcon icon="plus" className="h-4 w-4" />
           Add sub-agent
         </Button>
       </div>

@@ -76,6 +76,7 @@ RUN apt-get update \
     fonts-noto-color-emoji \
     ghostscript \
     imagemagick \
+    librsvg2-bin \
     pandoc \
     poppler-utils \
     tesseract-ocr \

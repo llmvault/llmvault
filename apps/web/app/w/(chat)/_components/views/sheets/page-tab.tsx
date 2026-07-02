@@ -13,7 +13,7 @@ import {
   TextField,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQueryClient } from "@tanstack/react-query"
 import { extractErrorMessage } from "@/lib/api/error"
 import {
@@ -132,7 +132,7 @@ export function PageTab({
                 : "opacity-0 group-hover:opacity-100"
             }`}
           >
-            <Icon icon="lucide:chevron-down" className="h-3 w-3" />
+            <AppIcon icon="chevron-down" className="h-3 w-3" />
           </Dropdown.Trigger>
           <Dropdown.Popover placement="bottom start" className="w-44">
             <Dropdown.Menu
@@ -157,7 +157,7 @@ export function PageTab({
               }}
             >
               <Dropdown.Item id="rename" textValue="Rename page">
-                <Icon icon="lucide:pencil" className="h-3.5 w-3.5 text-muted" />
+                <AppIcon icon="pencil" className="h-3.5 w-3.5 text-muted" />
                 Rename
               </Dropdown.Item>
               <Dropdown.Item
@@ -165,8 +165,8 @@ export function PageTab({
                 textValue="Move left"
                 isDisabled={index <= 0}
               >
-                <Icon
-                  icon="lucide:arrow-left"
+                <AppIcon
+                  icon="arrow-left"
                   className="h-3.5 w-3.5 text-muted"
                 />
                 Move left
@@ -176,14 +176,14 @@ export function PageTab({
                 textValue="Move right"
                 isDisabled={index < 0 || index >= pages.length - 1}
               >
-                <Icon
-                  icon="lucide:arrow-right"
+                <AppIcon
+                  icon="arrow-right"
                   className="h-3.5 w-3.5 text-muted"
                 />
                 Move right
               </Dropdown.Item>
               <Dropdown.Item id="archive" textValue="Archive page" variant="danger">
-                <Icon icon="lucide:archive" className="h-3.5 w-3.5" />
+                <AppIcon icon="archive" className="h-3.5 w-3.5" />
                 Archive page
               </Dropdown.Item>
             </Dropdown.Menu>
@@ -231,7 +231,7 @@ export function PageTab({
               <AlertDialog.Dialog className="p-8">
                 <AlertDialog.Header>
                   <AlertDialog.Icon status="danger">
-                    <Icon icon="lucide:archive" className="h-6 w-6" />
+                    <AppIcon icon="archive" className="h-6 w-6" />
                   </AlertDialog.Icon>
                   <div className="flex flex-col gap-1">
                     <AlertDialog.Heading>

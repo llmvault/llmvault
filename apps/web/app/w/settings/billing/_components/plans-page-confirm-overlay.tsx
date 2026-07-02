@@ -1,5 +1,5 @@
 import { Button, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { DetailRow } from "./plans-modal-components"
 
 export function PlanChangeConfirmOverlay({
@@ -38,13 +38,13 @@ export function PlanChangeConfirmOverlay({
           disabled={isProcessing}
           className="hover:bg-default absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
         >
-          <Icon icon="lucide:x" className="h-4 w-4" />
+          <AppIcon icon="x" className="h-4 w-4" />
         </button>
 
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-4">
             <div className="bg-default flex size-12 items-center justify-center rounded-2xl text-foreground">
-              <Icon icon="lucide:credit-card" className="h-6 w-6" />
+              <AppIcon icon="credit-card" className="h-6 w-6" />
             </div>
             <div className="flex flex-col gap-1 pr-8">
               <h2

@@ -3,7 +3,7 @@
 import { use, useMemo } from "react"
 import NextLink from "next/link"
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { TriggerInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form"
 import {
@@ -75,7 +75,7 @@ export default function EditTriggerPage({
             href="/w/automations"
             className="text-muted-foreground inline-flex w-fit items-center gap-1.5 text-sm font-medium transition-colors hover:text-foreground"
           >
-            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+            <AppIcon icon="arrow-left" className="h-4 w-4" />
             Automations
           </NextLink>
 
@@ -112,7 +112,7 @@ function AutomationLogo({ automation }: { automation: AutomationItem }) {
       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
       style={{ backgroundColor: automation.iconColor }}
     >
-      <Icon icon={automation.icon} className="h-6 w-6 text-white" />
+      <AppIcon icon={automation.icon} className="h-6 w-6 text-white" />
     </div>
   )
 }
@@ -148,13 +148,13 @@ function TriggerPageError({
 }) {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <Icon
-        icon="lucide:triangle-alert"
+      <AppIcon
+        icon="triangle-alert"
         className="text-muted-foreground h-7 w-7"
       />
       <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
       <Button variant="ghost" size="sm" className="mt-3" onPress={onRetry}>
-        <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+        <AppIcon icon="refresh-cw" className="h-4 w-4" />
         Retry
       </Button>
     </div>
@@ -164,7 +164,7 @@ function TriggerPageError({
 function TriggerNotFound({ title, body }: { title: string; body: string }) {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <Icon icon="lucide:clock-alert" className="h-7 w-7 text-muted" />
+      <AppIcon icon="clock-alert" className="h-7 w-7 text-muted" />
       <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
       <p className="mt-1 text-sm text-muted">{body}</p>
       <NextLink

@@ -2,7 +2,7 @@
 
 import { memo, useState } from "react"
 import { Button, Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { components } from "@/lib/api/schema"
 import {
   FilesRepoSelector,
@@ -25,20 +25,20 @@ const PANEL_VIEWS: {
   icon: string
   shortcut: string
 }[] = [
-  { id: "review", label: "Review", icon: "lucide:file-diff", shortcut: "⌃⇧G" },
-  { id: "browser", label: "Browser", icon: "lucide:globe", shortcut: "⌘T" },
-  { id: "files", label: "Files", icon: "lucide:folder", shortcut: "⌘P" },
+  { id: "review", label: "Review", icon: "file-diff", shortcut: "⌃⇧G" },
+  { id: "browser", label: "Browser", icon: "globe", shortcut: "⌘T" },
+  { id: "files", label: "Files", icon: "folder", shortcut: "⌘P" },
   {
     id: "design",
     label: "Canvas",
-    icon: "lucide:panels-top-left",
+    icon: "panels-top-left",
     shortcut: "⌘D",
   },
-  { id: "sheets", label: "Sheets", icon: "lucide:table", shortcut: "" },
+  { id: "sheets", label: "Sheets", icon: "table", shortcut: "" },
   {
     id: "side-chat",
     label: "Subagents",
-    icon: "lucide:bot",
+    icon: "bot",
     shortcut: "⌥⌘S",
   },
 ]
@@ -103,7 +103,7 @@ export const RightPanel = memo(function RightPanel({
                   className="flex min-w-0 items-center gap-1.5"
                   onClick={() => onSelectView(id)}
                 >
-                  <Icon icon={view.icon} className="h-3.5 w-3.5 shrink-0" />
+                  <AppIcon icon={view.icon} className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{view.label}</span>
                 </button>
                 {id === "files" && filesHeader ? (
@@ -115,7 +115,7 @@ export const RightPanel = memo(function RightPanel({
                   className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-default"
                   onClick={() => onCloseView(id)}
                 >
-                  <Icon icon="lucide:x" className="h-3 w-3" />
+                  <AppIcon icon="x" className="h-3 w-3" />
                 </button>
               </div>
             )
@@ -127,7 +127,7 @@ export const RightPanel = memo(function RightPanel({
                 aria-label="Open view"
                 className="flex items-center rounded-lg p-1.5 text-muted transition-colors hover:bg-default"
               >
-                <Icon icon="lucide:plus" className="h-4 w-4" />
+                <AppIcon icon="plus" className="h-4 w-4" />
               </Popover.Trigger>
               <Popover.Content className="w-64 rounded-2xl border border-border p-1.5">
                 <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
@@ -158,8 +158,8 @@ export const RightPanel = memo(function RightPanel({
             aria-label={maximized ? "Restore panel" : "Expand panel"}
             onPress={onToggleMaximize}
           >
-            <Icon
-              icon={maximized ? "lucide:minimize-2" : "lucide:maximize-2"}
+            <AppIcon
+              icon={maximized ? "minimize-2" : "maximize-2"}
               className="h-4 w-4 text-muted"
             />
           </Button>
@@ -170,8 +170,8 @@ export const RightPanel = memo(function RightPanel({
             aria-label="Close panel"
             onPress={onClosePanel}
           >
-            <Icon
-              icon="lucide:panel-right-close"
+            <AppIcon
+              icon="panel-right-close"
               className="h-4 w-4 text-muted"
             />
           </Button>

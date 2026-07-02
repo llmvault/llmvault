@@ -1,171 +1,154 @@
 ---
 name: "imagegen"
-description: "Provider-neutral prompting guide for high-quality image generation and image editing. Use when an agent needs to craft, critique, refine, or structure prompts for photos, illustrations, sprites, product mockups, UI mockups, diagrams, ads, logos, transparent cutouts, or reference-based visual variants. This skill covers prompt strategy only; do not use it for runtime setup, credentials, billing, network configuration, execution instructions, or model-parameter guidance."
+description: "Prompting guide for high-quality image generation and image editing. Routes each image request to a detailed per-pattern reference file (landing-page hero patterns today; more image-type families over time) with hard rules that prevent common image-model failures, plus a fallback recipe for requests that map to no documented pattern. Use when an agent needs to generate or edit photos, illustrations, hero images, product mockups, UI mockups, diagrams, ads, logos, transparent cutouts, or reference-based visual variants. Pick the specific reference file for your image type and load only that file. Do not use this skill for credentials, billing, or network configuration."
 ---
 
-# Image Generation Prompting Guide
+# Image Generation
 
-This skill teaches how to write strong prompts for image generation and image editing. It is intentionally provider-neutral and prompt-only.
-
-It does not include runtime instructions, provider-specific model notes, integration examples, credentials, environment variables, network setup, or local post-processing guidance.
-
-## Use this skill for
-
-- Turning a rough visual request into a clear production prompt.
-- Refining prompts for higher visual quality, clearer composition, better text rendering, or fewer unwanted artifacts.
-- Writing prompts for new images: photos, illustrations, concept art, product mockups, UI mockups, game assets, ads, diagrams, and logos.
-- Writing prompts for edits: object replacement, background changes, lighting/weather changes, text replacement, compositing, style transfer, sketch-to-render, and identity-preserving edits.
-- Using reference images by clearly labeling each image's role.
-- Creating prompt variants for exploration without changing the user's core intent.
-
-## Do not use this skill for
-
-- Running an image model or choosing a provider.
-- Installing tools, wiring integrations, or configuring credentials.
-- File movement, asset storage, or post-processing implementation.
-- Creating deterministic SVG, HTML, CSS, canvas, or vector-native assets when those are better authored directly.
-- Extending an existing icon, logo, or illustration system where repo-native source files should be edited instead.
+This skill turns an image request into a strong prompt. It works pattern-first: identify what *kind* of image the layout or task needs, load the one reference file documenting that pattern, and adapt its tested recipe. Requests that map to no documented pattern fall back to the general prompting method at the end of this file.
 
 ## Core workflow
 
-1. Identify the intent: generate a new image, edit an existing image, or generate with reference images.
-2. Identify the asset's job: hero image, product shot, ad, slide, game sprite, diagram, icon, logo exploration, etc.
-3. Label every input image by role: edit target, subject reference, style reference, composition reference, insert element, or mood reference.
-4. Classify the request using the taxonomy below.
-5. Preserve user-provided constraints, exact text, subject identity, brand requirements, and avoid-list items.
-6. Rewrite the prompt as a concise visual brief using only the schema fields that help.
-7. Add negative constraints only when they prevent likely failure.
-8. For edits, state the intended change and the invariants in the same prompt.
-9. For prompt variants, change one dimension at a time: composition, lighting, medium, palette, or mood.
-10. Before finalizing, check that the prompt names the subject, setting, style, composition, lighting, constraints, and any exact text.
+1. **Classify the intent**: generate a new image, edit an existing image, or generate with reference images. (Edit and reference-image work: see `references/prompting.md`.)
+2. **Identify the image's job**: where will it live? A landing-page hero, a section illustration, a product shot, a diagram, a game asset?
+3. **Match it to a documented pattern family** (tables below). If it matches, load ONLY that pattern's reference file — it contains layout anatomy, image requirements, the right aspect ratio, tested example prompts, and pitfalls. Never load more than two pattern files in one task.
+4. **If nothing matches**, use the fallback method (bottom of this file) plus `references/prompting.md` for depth.
+5. **Generate, then review** every result against the quality checklist before using it.
 
-## Intent rules
+## Hard rules — common image-model failure modes
 
-- If the user wants to modify an existing image while preserving parts of it, treat the request as an edit.
-- If the user provides images for style, composition, mood, or subject guidance but does not ask to modify those images, treat the request as generation with references.
-- If the user provides no image, treat the request as generation.
-- If the request is for an icon, logo, or UI graphic that should match existing repo-native vector/code assets, prefer direct native editing instead of generated-image prompting.
+These failure modes recur across image models. Violating these rules produces broken images.
 
-## Specificity policy
+1. **Never use layout or web vocabulary in a prompt** for imagery that is not itself a UI. Words like "website", "hero section", "landing page", "headline", "button", "CTA", or "space for text overlay" make the model render a literal page mockup with garbled placeholder text. Describe a *photograph* or *artwork*, never its intended use. (Exception: `ui-mockup` and wireframe requests, where rendering an interface IS the goal — see `references/prompting.md`.)
+2. **Get negative space photographically, not by instruction.** Wrong: "leave the left 50% empty for a headline." Right: "a vast expanse of soft dawn sky fills the left of the frame; all structures sit in the right third." Name what occupies the quiet zone (sky, water, wall, fog, bokeh) — emptiness must be made of *something*.
+3. **Flat/vector illustration prompts must force full-bleed composition.** Without it the model floats a small centered vignette in a sea of empty background. Include language like: "the scene fills the entire canvas edge to edge, no empty margins, every part of the frame contains scenery."
+4. **Add "no text, no letters, no writing, no logos" to prompts for text-free assets.** The model leaks letter-like artifacts, especially in line art and anything resembling signage. Text belongs in HTML, not in the image (exception: assets whose job includes rendered text, e.g. ads and diagrams — then quote it verbatim, keep it short, and see the text rules in `references/prompting.md`).
 
-Use the user's prompt specificity to decide how much augmentation is appropriate:
+## Reliable levers
 
-- If the prompt is already specific and detailed, preserve that specificity and only normalize or structure it.
-- If the prompt is generic, add tasteful detail only when it materially improves the result.
+- **Prompt adherence is strong.** Specific concrete nouns reliably appear (a welder's sparks, a woman pointing, blueprints). Say exactly what you want; vagueness is what produces generic results.
+- **Style keywords execute with high fidelity:** "risograph print", "paper-cut collage", "impasto oil painting", "line art with spot color", "flat vector", "isometric". These produce distinctive, non-stock results.
+- **Camera language works for photos:** focal length, aperture (f/1.8 for creamy bokeh, f/8 for sharp scenes), "golden hour", film stocks ("Kodak Portra 400"), "anamorphic widescreen".
+- **Hex codes set palette intent, not exact values.** "Deep navy #0F1E3C with amber #FFC400 accents" steers the grade convincingly; don't promise exact brand-color reproduction.
+- **Mood/cinematic language beats keyword stacking** for premium feel. Keyword soup ("8k, sharp focus, professional") yields competent but stock-looking images.
+- **Centered-diorama gravity:** isometric, soft-3D, and clay styles pull toward a centered object on a plain background even when told otherwise. Accept it where a contained image is fine, or fight it with "cropped by the frame on all four sides".
+- **"Claymorphism" renders as tilt-shift photography of miniatures,** not a 3D render. Ask for "soft 3D render, matte clay material" for the render look.
 
-Good augmentation:
+## Generating with the image tools
 
-- Composition and framing hints.
-- Intended-use or polish-level hints.
-- Practical layout guidance.
-- Reasonable scene concreteness that supports the user's request.
-- Material, texture, lighting, and camera details when they match the goal.
+Use `generate_image` (raster) or `generate_vector_image` (SVG) for new images:
 
-Avoid augmentation that invents:
+- `prompt` — up to 4000 chars; 400–900 chars is the sweet spot.
+- `aspect_ratio` — supported: `16:9`, `9:16`, `3:2`, `2:3`, `4:3`, `3:4`, `1:1`. Take it from the pattern file; don't default to one ratio for everything.
+- `count` — generate 2–4 variants and pick the best; single generations gamble on one dice roll.
+- `type` — hint such as `photo`, `illustration`, `logo`, `icon`.
+- `reference_asset_ids` — up to 10 drive assets for loose style guidance.
 
-- Extra characters, props, or objects not implied by the request.
-- Brand names, slogans, palettes, or story beats not supplied by the user.
-- Arbitrary left/right placement unless the surrounding layout supports it.
-- Unrequested style shifts, decorative flourishes, or dramatic narratives.
+Use `remix_image` when the new image must contain something that already exists — a recurring character, a specific product, or the next sibling in a set. It takes `prompt` + `reference_asset_ids` (the master asset) and preserves the identity of what the references show. Elements are only consistent *within* one generation; across generations the model reinvents whatever it redraws — so identity-critical raster work MUST go through `remix_image` with the master-asset workflow in `references/consistent-assets.md`.
 
-## Use-case taxonomy
+**Logos are the exception: load the `logo-design` skill and do the work there.** It generates the mark as a native SVG (`generate_vector_image`), refines with reference-conditioned regeneration until the user approves, then composes every lockup and variant deterministically from the same vector geometry — byte-identical, no remix drift, delivered as a full SVG + transparent-PNG pack. Never build a logo by generating a raster lockup and remixing variants from it; that workflow is superseded.
 
-Classify each request into one of these buckets and keep the slug consistent across prompts and notes.
+## Pattern families
 
-Generate:
+### Hero images (landing pages)
 
-- `photorealistic-natural` - candid/editorial lifestyle scenes with real texture and natural lighting.
-- `product-mockup` - product/packaging shots, catalog imagery, merch concepts.
-- `ui-mockup` - app/web interface mockups and wireframes; specify the desired fidelity.
-- `infographic-diagram` - diagrams/infographics with structured layout and text.
-- `scientific-educational` - classroom explainers, scientific diagrams, and learning visuals with required labels and accuracy constraints.
-- `ads-marketing` - campaign concepts and ad creatives with audience, brand position, scene, and exact tagline/copy.
-- `productivity-visual` - slide, chart, workflow, and data-heavy business visuals.
-- `logo-brand` - logo/mark exploration, vector-friendly.
-- `illustration-story` - comics, children's book art, narrative scenes.
-- `stylized-concept` - style-driven concept art, 3D/stylized renders.
-- `historical-scene` - period-accurate/world-knowledge scenes.
+A hero image's requirements are dictated by the hero section's *layout* — where the headline sits, whether text overlays the image, how it crops. Pick exactly one pattern, then load `references/hero-patterns/<slug>.md`.
 
-Edit:
+Image-as-background (text overlays the image — image must reserve quiet space):
 
-- `text-localization` - translate/replace in-image text while preserving layout.
-- `identity-preserve` - try-on, person-in-scene, character continuation; lock face/body/pose or character design.
-- `precise-object-edit` - remove or replace a specific element.
-- `lighting-weather` - time-of-day, season, or atmosphere changes only.
-- `background-extraction` - transparent background, clean cutout, or silhouette isolation.
-- `style-transfer` - apply a reference style while changing subject or scene.
-- `compositing` - multi-image insert/merge with matched lighting and perspective.
-- `sketch-to-render` - drawing/line art to photoreal or polished render.
+| Slug | Pick when |
+|------|-----------|
+| `full-bleed-centered` | Bold single message, dramatic photo, centered headline. Hospitality, real estate, events. |
+| `full-bleed-text-left` | Full-width photo, copy column left. The most common marketing hero. |
+| `full-bleed-text-right` | Mirror of the above; subject anchored left, copy right. |
+| `bottom-anchored` | Headline in the upper half, scene detail along the bottom (skyline, crowd, product row). |
+| `dark-cinematic-glow` | Dev tools, fintech, AI; dark-UI brands (Linear/Vercel aesthetic). White text anywhere. |
+| `duotone-brand-wash` | Strong brand colors; image reads as branded texture, not photo. |
 
-## Shared prompt schema
+Split layouts (image in its own column/region — text never overlaps it):
 
-Use this labeled spec as prompt scaffolding. Include only fields that help.
+| Slug | Pick when |
+|------|-----------|
+| `split-50-50` | Classic text-left image-right. Safe default for most SaaS and services. |
+| `split-breakout` | Image column bleeds off the viewport edge for energy/scale. |
+| `angled-split` | Diagonal/curved boundary between copy and image; sporty, dynamic brands. |
+| `device-frame` | Visual shown inside a laptop/phone/browser frame. |
+| `card-hero` | Image floats in a rounded card over a plain/gradient background. |
+| `bento-grid` | Headline plus a mosaic of 3–6 tiles; needs a consistent image set. |
 
-```text
-Use case: <taxonomy slug>
-Asset type: <where the asset will be used>
-Primary request: <user's main prompt>
-Input images: <Image 1: role; Image 2: role> (optional)
-Scene/backdrop: <environment>
-Subject: <main subject>
-Style/medium: <photo/illustration/3D/vector-like/etc>
-Composition/framing: <wide/close/top-down; placement; crop>
-Lighting/mood: <lighting and emotional tone>
-Color palette: <palette notes>
-Materials/textures: <surface and detail notes>
-Text (verbatim): "<exact text>"
-Constraints: <must keep/must include/must avoid>
-Avoid: <negative constraints>
-```
+Illustration and abstract:
 
-Notes:
+| Slug | Pick when |
+|------|-----------|
+| `flat-illustration` | Friendly SaaS, HR, education. Flat vector scenes. |
+| `isometric-scene` | Technical/logistics/infrastructure; explanatory diorama feel. |
+| `abstract-gradient` | No literal subject; pure atmosphere behind text. Easiest text overlay. |
+| `textured-editorial` | Brands wanting craft: risograph, paper collage, painterly. |
 
-- `Asset type` and `Input images` are prompt scaffolding, not tool arguments.
-- `Scene/backdrop` means the visual setting, not a runtime background parameter.
-- Keep prompts compact. A complete visual brief beats a long pile of generic quality words.
-- For edits, explicitly list invariants: `change only X; keep Y unchanged`.
-- If critical information is missing and would block success, ask a question; otherwise make the most conservative reasonable assumption.
+Subject-led:
 
-## Prompting best practices
+| Slug | Pick when |
+|------|-----------|
+| `human-portrait` | Trust and human connection: coaching, healthcare, local services. |
+| `product-object` | A physical product is the star: e-commerce, hardware, CPG. |
+| `lifestyle-context` | Product/service in real use; aspirational e-commerce. |
+| `aerial-establishing` | Scale and scope: construction, real estate, logistics, agriculture. |
 
-- Structure prompts as scene/backdrop -> subject -> key details -> constraints -> output intent.
-- Include intended use to set the mode and polish level.
-- Use camera, lens, framing, and lighting language for photorealism.
-- Use material and texture language to avoid plastic or generic surfaces.
-- Quote exact text and specify typography, size, color, and placement.
-- For tricky words, spell them letter by letter and require verbatim rendering.
-- For multi-image inputs, reference images by index and describe how each image should be used.
-- For edits, repeat invariants every iteration to reduce drift.
-- Iterate with a single targeted change rather than rewriting the whole prompt.
-- Use negative constraints sparingly: remove common failure modes without overloading the prompt.
+### Product UI vignettes (feature sections, product visuals)
 
-## Transparent and cutout prompts
+The stylized fake-screenshot style (Stripe/Intercom/Kit): simplified UI fragments — stat cards, flow diagrams, chat bubbles, kanban boards — as floating white cards on flat pastel backgrounds. Use for feature-section visuals, split-hero image columns, bento/card tiles, and `device-frame` content. Load `references/product-ui-vignette.md`.
 
-For transparent-background or cutout requests, prompt for the cleanest possible isolation:
+This family is the sanctioned exception to hard rule 4: up to ~6 short verbatim UI strings render reliably in this flat style (with a restricted character set and a mandatory glyph-by-glyph review). The dominant failure mode is geometry (tilted "sticker" badges, background color drift), not spelling — the reference file documents the counters and a tested archetype menu.
 
-```text
-Create the requested subject isolated on a clean transparent background.
-If true transparency is not available, use a perfectly flat, solid, high-contrast background color that does not appear in the subject.
-Keep the subject fully separated from the background with crisp edges and generous padding.
-No cast shadow, contact shadow, reflection, watermark, extra text, background texture, gradient, floor plane, or lighting variation.
-```
+### Background textures and patterns
 
-For complex subjects such as hair, fur, feathers, glass, smoke, liquids, translucent materials, or reflective objects, be explicit about edge quality and what should remain visible.
+Full-bleed textures, gradients, and patterns behind page content: paper grain, mesh gradients, dark-mode atmospheres. Load `references/backgrounds.md`. The family's prime directive: **a background must recede** — tone-on-tone, barely perceptible, no focal points; a beautiful pattern that grabs attention is a failed background. Note the file's "should this be generated at all?" gate: flat geometric patterns belong in CSS/SVG; generate only organic/material qualities code can't produce.
+
+More families (section illustrations, object/e-commerce sets, blog headers, and others) will be added under `references/` over time; check the reference map before falling back.
+
+## Fallback — requests that map to no pattern
+
+When the request fits no documented pattern (a game sprite, a diagram, an ad, a one-off scene), build the prompt from this method. Read `references/prompting.md` for the full treatment; the short version:
+
+1. Classify the use case with the taxonomy in `references/prompting.md` (photorealistic-natural, product-mockup, ui-mockup, infographic-diagram, ads-marketing, logo-brand, illustration-story, stylized-concept, and the edit categories).
+2. Respect the user's specificity: a detailed request gets normalized, not embellished; a generic request gets tasteful concrete detail — never invented characters, brands, palettes, or story beats.
+3. Compose in this order: **medium/style → subject and action → environment → composition/framing → lighting/mood → palette/materials → constraints → negatives.** Every clause concrete, no quality-word piles.
+4. Apply the hard rules above — they hold for every image, pattern or not.
+5. Copy a matching recipe from `references/sample-prompts.md` and adapt it rather than writing from scratch.
+
+Write the prompt as **one flowing paragraph** in that clause order — the same
+format as every example in `references/hero-patterns/` and
+`references/sample-prompts.md`. Do not submit the prompt as a labeled key-value
+list; the clause order is a composition method, not a form to fill in. For
+example:
+
+> Photorealistic candid photograph of an elderly sailor on a small fishing boat,
+> hands mid-pull adjusting a net, worn oilskin jacket. Coastal water with soft
+> haze behind him. Medium close-up at eye level, the sailor in the right two
+> thirds of the frame. Soft coastal daylight, shallow depth of field. Natural
+> color balance, no glamorization. No text, no letters, no logos, no watermark.
 
 ## Quality review checklist
 
-Before using a prompt, check:
+Before accepting any generated image:
 
-- Subject: Is the main subject unambiguous?
-- Setting: Is the environment clear enough without being over-specified?
-- Style: Is the desired medium or realism level stated?
-- Composition: Is framing, scale, and placement clear where it matters?
-- Lighting: Does the prompt define mood and visibility?
-- Text: Is all required text quoted exactly?
-- Invariants: For edits, are preserved elements clearly named?
-- Avoid list: Does it block likely problems without contradicting the request?
+- Subject correct and unambiguous; nothing important invented or missing.
+- Composition honors the pattern's quiet-zone/full-bleed/margin requirement.
+- No letter-like artifacts anywhere (inspect signage, screens, spines, line art closely).
+- Hands, teeth, and eyes intact on any people, at full zoom.
+- Style matches the brand direction, not drifted to generic stock.
+- Tone/contrast in the text zone (if any) is uniform enough for readable copy.
+- For sets: siblings share medium, palette, lighting, and detail level.
+
+If a result fails, change ONE prompt dimension and retry — don't rewrite the whole prompt, and don't accept a near-miss for a load-bearing image.
 
 ## Reference map
 
-- `references/prompting.md` - deeper prompt principles, composition guidance, text handling, reference-image usage, transparent/cutout prompts, and use-case tips.
-- `references/sample-prompts.md` - reusable prompt recipes by generation/edit category.
+Load only the file(s) relevant to the current task.
+
+- `references/hero-patterns/<slug>.md` — one file per hero-section pattern (slugs in the tables above): layout anatomy, image requirements, aspect ratio, example prompts, pitfalls. Load after picking a pattern; never more than two.
+- `references/product-ui-vignette.md` — the product-UI-vignette family: visual system contract, text and geometry rules, tested archetype menu (stat cards, flows, chat, kanban, dark mode), set-consistency method, review checklist.
+- `references/backgrounds.md` — the backgrounds family: the recede directive, generate-vs-CSS gate, tested recipes (material texture, mesh gradient, tone-on-tone patterns, dark mode), recurring model behaviors, review checklist.
+- `references/consistent-assets.md` — identity-critical assets (logos, characters, products, sibling sets): the master-asset workflow, `remix_image` usage, invariant prompt language, worked logo-package example, review checklist. REQUIRED reading before any logo generation or multi-image set.
+- `references/prompting.md` — the detailed fallback guide: intent rules, use-case taxonomy, specificity and augmentation policy, composition, lighting/camera/material language, text-in-image rules, reference-image roles, transparent/cutout prompts, edit invariants, iteration method.
+- `references/sample-prompts.md` — copy/paste recipes by use case for generation and edits, plus asset-type templates (game assets, wireframes, logos, diagrams).

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { Button, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useDropzone } from "react-dropzone"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
@@ -483,7 +483,7 @@ export function Composer({
               isDisabled={isDisabled}
               onPress={open}
             >
-              <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
+              <AppIcon icon="plus" className="h-4 w-4 text-muted" />
             </Button>
             <SessionSpendPill usage={usage} />
 
@@ -538,8 +538,8 @@ export function Composer({
                 }
                 onPress={() => void toggleRecording()}
               >
-                <Icon
-                  icon={isRecordingInProgress ? "lucide:square" : "lucide:mic"}
+                <AppIcon
+                  icon={isRecordingInProgress ? "square" : "mic"}
                   className={`h-4 w-4 ${isRecordingInProgress ? "text-danger" : "text-muted"}`}
                 />
               </Button>
@@ -554,7 +554,7 @@ export function Composer({
                 onPress={onStop}
                 className="rounded-full"
               >
-                <Icon icon="lucide:square" className="h-3.5 w-3.5" />
+                <AppIcon icon="square" className="h-3.5 w-3.5" />
               </Button>
             ) : (
               <Button
@@ -571,7 +571,7 @@ export function Composer({
                 onPress={() => void submit()}
                 className="rounded-full"
               >
-                <Icon icon="lucide:arrow-up" className="h-4 w-4" />
+                <AppIcon icon="arrow-up" className="h-4 w-4" />
               </Button>
             )}
           </div>

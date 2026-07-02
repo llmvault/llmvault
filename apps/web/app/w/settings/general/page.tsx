@@ -10,7 +10,7 @@ import {
 } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
@@ -208,12 +208,12 @@ export default function GeneralSettingsPage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <Icon icon="lucide:image" className="h-5 w-5 text-muted-foreground" />
+              <AppIcon icon="image" className="h-5 w-5 text-muted-foreground" />
             )}
 
             {/* Hover edit affordance */}
             <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-              <Icon icon="lucide:pencil" className="h-4 w-4 text-white" />
+              <AppIcon icon="pencil" className="h-4 w-4 text-white" />
             </span>
 
             {/* Uploading state */}
@@ -354,8 +354,8 @@ export default function GeneralSettingsPage() {
                 isDisabled={orgQuery.isLoading || isProcessingStartRecording}
                 onPress={() => void toggleRecording()}
               >
-                <Icon
-                  icon={isRecordingInProgress ? "lucide:square" : "lucide:mic"}
+                <AppIcon
+                  icon={isRecordingInProgress ? "square" : "mic"}
                   className={`h-4 w-4 ${isRecordingInProgress ? "text-danger" : "text-muted"}`}
                 />
               </Button>

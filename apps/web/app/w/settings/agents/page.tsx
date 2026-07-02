@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { Button, Input, ListBox, Select } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { AgentAvatar } from "./_agent-avatar"
 import {
@@ -82,15 +82,15 @@ export default function AgentsSettingsPage() {
           className="shrink-0"
           onPress={() => router.push("/w/settings/agents/new")}
         >
-          <Icon icon="lucide:plus" className="h-4 w-4" />
+          <AppIcon icon="plus" className="h-4 w-4" />
           Create agent
         </Button>
       </div>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
-          <Icon
-            icon="lucide:search"
+          <AppIcon
+            icon="search"
             className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           />
           <Input
@@ -183,8 +183,8 @@ function OrgAgentRow({ agent }: { agent: InstalledAgent }) {
               {agentDescription(agent)}
             </p>
           </div>
-          <Icon
-            icon="lucide:chevron-right"
+          <AppIcon
+            icon="chevron-right"
             className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
           />
         </div>
@@ -298,11 +298,11 @@ function AgentRow({ agent }: { agent: CatalogAgent }) {
               aria-label="Installed"
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
             >
-              <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+              <AppIcon icon="check" className="h-3.5 w-3.5" />
             </span>
           ) : (
-            <Icon
-              icon="lucide:chevron-right"
+            <AppIcon
+              icon="chevron-right"
               className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
             />
           )}
@@ -338,8 +338,8 @@ function CatalogSkeleton() {
 function ErrorState() {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <Icon
-        icon="lucide:triangle-alert"
+      <AppIcon
+        icon="triangle-alert"
         className="h-7 w-7 text-muted-foreground"
       />
       <p className="mt-3 text-sm font-medium text-foreground">
@@ -355,7 +355,7 @@ function ErrorState() {
 function EmptyState({ query }: { query: string }) {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <Icon icon="lucide:bot" className="h-7 w-7 text-muted-foreground" />
+      <AppIcon icon="bot" className="h-7 w-7 text-muted-foreground" />
       <p className="mt-3 text-sm font-medium text-foreground">
         {query ? "No matching agents" : "No agents available"}
       </p>

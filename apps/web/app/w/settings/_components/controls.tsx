@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function SettingRow({
   title,
@@ -46,7 +46,7 @@ export function IconSegmented({
               : "text-muted hover:text-foreground"
           }`}
         >
-          <Icon icon={option.icon} className="h-4 w-4" />
+          <AppIcon icon={option.icon} className="h-4 w-4" />
           {option.label}
         </button>
       ))}

@@ -39,7 +39,7 @@ func TestImageGenerationMCPToolsRegisterForAgentProxyToken(t *testing.T) {
 	for _, tool := range tools.Tools {
 		byName[tool.Name] = tool
 	}
-	for _, name := range []string{"generate_image", "generate_vector_image"} {
+	for _, name := range []string{"generate_image", "generate_vector_image", "remix_image"} {
 		tool := byName[name]
 		if tool == nil {
 			t.Fatalf("tool %s not registered", name)
@@ -50,6 +50,14 @@ func TestImageGenerationMCPToolsRegisterForAgentProxyToken(t *testing.T) {
 		}
 		if strings.Contains(string(schema), "_hivy_session_id") {
 			t.Fatalf("tool %s exposes _hivy_session_id: %s", name, schema)
+		}
+		if name == "remix_image" {
+			if !strings.Contains(string(schema), `"required":["reference_asset_ids"]`) || !strings.Contains(string(schema), `"minItems":1`) {
+				t.Fatalf("remix_image schema must require reference_asset_ids with minItems 1: %s", schema)
+			}
+			if strings.Contains(string(schema), `"type":{`) {
+				t.Fatalf("remix_image schema must not expose the type hint property: %s", schema)
+			}
 		}
 	}
 }
@@ -144,37 +152,36 @@ func TestImageGenerationMCPToolUsesDefaultReveRasterModel(t *testing.T) {
 	assertImageGenerationMCPAsset(t, h, result, "raster", "reve", registry.DefaultRasterImageGenerationModelID, "reve-image")
 }
 
-func TestImageGenerationMCPToolUsesDefaultRecraftVectorModel(t *testing.T) {
+func TestImageGenerationMCPToolUsesDefaultQuiverVectorModel(t *testing.T) {
 	ctx := context.Background()
 	h := newStreamHarness(t)
 	kms := newTestKMS(t)
-	resetImageGenerationMCPProviderCredentials(t, h, "openrouter")
-	t.Cleanup(func() { resetImageGenerationMCPProviderCredentials(t, h, "openrouter") })
+	resetImageGenerationMCPProviderCredentials(t, h, "quiver")
+	t.Cleanup(func() { resetImageGenerationMCPProviderCredentials(t, h, "quiver") })
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/images" {
+		if r.URL.Path != "/v1/svgs/generations" {
 			t.Fatalf("path = %s", r.URL.Path)
 		}
 		if r.Header.Get("Authorization") != "Bearer sk-fake" {
 			t.Fatalf("authorization = %q", r.Header.Get("Authorization"))
 		}
 		var payload struct {
-			Model       string `json:"model"`
-			Prompt      string `json:"prompt"`
-			AspectRatio string `json:"aspect_ratio"`
-			N           int    `json:"n"`
+			Model  string `json:"model"`
+			Prompt string `json:"prompt"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode openrouter payload: %v", err)
+			t.Fatalf("decode quiver payload: %v", err)
 		}
-		if payload.Model != "recraft/recraft-v4.1-vector" || !strings.Contains(payload.Prompt, "green circle") || payload.AspectRatio != "1:1" || payload.N != 1 {
+		if payload.Model != "arrow-1.1" || !strings.Contains(payload.Prompt, "green circle") {
 			t.Fatalf("payload = %+v", payload)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		body := `{"data":[{"b64_json":"` + base64.StdEncoding.EncodeToString([]byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`)) + `","media_type":"image/svg+xml"}],"usage":{"cost":0.08}}`
+		w.Header().Set("X-Request-ID", "req-mcp")
+		body := `{"id":"resp_mcp","credits":20,"data":[{"mime_type":"image/svg+xml","svg":"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"}]}`
 		_, _ = w.Write([]byte(body))
 	}))
 	defer upstream.Close()
-	seedSystemCredential(t, h.db, kms, upstream.URL, "openrouter")
+	seedSystemCredential(t, h.db, kms, upstream.URL, "quiver")
 	h.publicAsset.WithImageGeneration(kms, registry.Global(), upstream.Client())
 
 	result := callImageGenerationMCPTool(t, ctx, h, "generate_vector_image", map[string]any{
@@ -182,7 +189,7 @@ func TestImageGenerationMCPToolUsesDefaultRecraftVectorModel(t *testing.T) {
 		"aspect_ratio": "1:1",
 		"count":        1,
 	})
-	assertImageGenerationMCPAsset(t, h, result, "vector", "openrouter", registry.DefaultVectorImageGenerationModelID, "recraft/recraft-v4.1-vector")
+	assertImageGenerationMCPAsset(t, h, result, "vector", "quiver", registry.DefaultVectorImageGenerationModelID, "arrow-1.1")
 }
 
 func imageGenerationMCPToken(orgID, agentID, sandboxID uuid.UUID) *model.Token {

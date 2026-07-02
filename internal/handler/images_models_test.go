@@ -41,7 +41,7 @@ func TestImageGenerationModels_ReturnsCatalogForAvailableSystemProviders(t *test
 	if resp.DefaultRasterModel != "reve-image" {
 		t.Fatalf("default raster = %q", resp.DefaultRasterModel)
 	}
-	if resp.DefaultVectorModel != "recraft-v4.1-vector" {
+	if resp.DefaultVectorModel != "arrow-1.1" {
 		t.Fatalf("default vector = %q", resp.DefaultVectorModel)
 	}
 

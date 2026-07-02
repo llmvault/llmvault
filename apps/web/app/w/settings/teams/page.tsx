@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
 import {
@@ -69,7 +69,7 @@ export default function TeamsSettingsPage() {
               size="sm"
               onPress={() => setInviteOpen(true)}
             >
-              <Icon icon="lucide:user-plus" className="h-4 w-4" />
+              <AppIcon icon="user-plus" className="h-4 w-4" />
               Invite member
             </Button>
             <Button
@@ -77,7 +77,7 @@ export default function TeamsSettingsPage() {
               size="sm"
               onPress={() => setTeamFormOpen(true)}
             >
-              <Icon icon="lucide:plus" className="h-4 w-4" />
+              <AppIcon icon="plus" className="h-4 w-4" />
               New team
             </Button>
           </div>
@@ -111,7 +111,7 @@ export default function TeamsSettingsPage() {
         <section className="bg-surface rounded-2xl border border-border px-4 py-4">
           <div className="flex items-start gap-3">
             <div className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted">
-              <Icon icon="lucide:users-round" className="h-4 w-4" />
+              <AppIcon icon="users-round" className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-medium">Team management</h2>

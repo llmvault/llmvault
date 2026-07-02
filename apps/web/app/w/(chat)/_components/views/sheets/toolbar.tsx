@@ -20,7 +20,7 @@ import {
   Toolbar,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import {
   exportCsvUrl,
@@ -185,7 +185,7 @@ export function SheetToolbar({
 
       {selectedRowIds.length > 0 ? (
         <Button variant="ghost" size="sm" onPress={onDeleteSelected}>
-          <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
+          <AppIcon icon="trash-2" className="h-3.5 w-3.5" />
           Delete {selectedRowIds.length}
         </Button>
       ) : null}
@@ -193,7 +193,7 @@ export function SheetToolbar({
       <AddFieldPopover pages={pages} onAddField={onAddField} />
 
       <Button variant="ghost" size="sm" onPress={onOpenImport}>
-        <Icon icon="lucide:file-up" className="h-3.5 w-3.5" />
+        <AppIcon icon="file-up" className="h-3.5 w-3.5" />
         Import
       </Button>
 
@@ -204,7 +204,7 @@ export function SheetToolbar({
           window.open(exportCsvUrl(sheetId, pageId), "_blank")
         }}
       >
-        <Icon icon="lucide:file-down" className="h-3.5 w-3.5" />
+        <AppIcon icon="file-down" className="h-3.5 w-3.5" />
         Export
       </Button>
 
@@ -263,7 +263,7 @@ function ViewSwitcher({
             className="min-w-0"
           >
             <Select.Trigger className="flex h-8 max-w-44 items-center gap-1.5 rounded-l-lg rounded-r-none border border-r-0 border-border px-2 text-xs text-muted transition-colors hover:bg-default">
-              <Icon icon="lucide:layout-grid" className="h-3.5 w-3.5" />
+              <AppIcon icon="layout-grid" className="h-3.5 w-3.5" />
               <span className="truncate text-foreground">
                 {activeView?.name ?? "View"}
               </span>
@@ -278,8 +278,8 @@ function ViewSwitcher({
                     textValue={view.name ?? ""}
                   >
                     <span className="flex items-center gap-2 text-xs">
-                      <Icon
-                        icon="lucide:layout-grid"
+                      <AppIcon
+                        icon="layout-grid"
                         className="h-3.5 w-3.5 text-muted"
                       />
                       {view.name}
@@ -298,10 +298,10 @@ function ViewSwitcher({
             }`}
           >
             {views.length > 0 ? (
-              <Icon icon="lucide:ellipsis" className="h-3.5 w-3.5" />
+              <AppIcon icon="ellipsis" className="h-3.5 w-3.5" />
             ) : (
               <>
-                <Icon icon="lucide:layout-grid" className="h-3.5 w-3.5" />
+                <AppIcon icon="layout-grid" className="h-3.5 w-3.5" />
                 Views
               </>
             )}
@@ -316,7 +316,7 @@ function ViewSwitcher({
               }}
             >
               <Dropdown.Item id="save" textValue="Save as view">
-                <Icon icon="lucide:plus" className="h-3.5 w-3.5 text-muted" />
+                <AppIcon icon="plus" className="h-3.5 w-3.5 text-muted" />
                 Save as new view
               </Dropdown.Item>
               <Dropdown.Item
@@ -324,7 +324,7 @@ function ViewSwitcher({
                 textValue="Rename view"
                 isDisabled={!activeView}
               >
-                <Icon icon="lucide:pencil" className="h-3.5 w-3.5 text-muted" />
+                <AppIcon icon="pencil" className="h-3.5 w-3.5 text-muted" />
                 Rename view
               </Dropdown.Item>
               <Dropdown.Item
@@ -333,7 +333,7 @@ function ViewSwitcher({
                 variant="danger"
                 isDisabled={!activeView}
               >
-                <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
+                <AppIcon icon="trash-2" className="h-3.5 w-3.5" />
                 Delete view
               </Dropdown.Item>
             </Dropdown.Menu>
@@ -373,7 +373,7 @@ function ViewSwitcher({
               <AlertDialog.Dialog className="p-8">
                 <AlertDialog.Header>
                   <AlertDialog.Icon status="danger">
-                    <Icon icon="lucide:trash-2" className="h-6 w-6" />
+                    <AppIcon icon="trash-2" className="h-6 w-6" />
                   </AlertDialog.Icon>
                   <div className="flex flex-col gap-1">
                     <AlertDialog.Heading>
@@ -502,7 +502,7 @@ function HiddenColumnsPopover({
   return (
     <Popover>
       <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
-        <Icon icon="lucide:eye-off" className="h-3.5 w-3.5" />
+        <AppIcon icon="eye-off" className="h-3.5 w-3.5" />
         Hidden
         <span className="rounded-full bg-accent px-1.5 text-[10px] text-accent-foreground">
           {hiddenFields.length}
@@ -517,12 +517,12 @@ function HiddenColumnsPopover({
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-default"
               onClick={() => field.id && onUnhideField(field.id)}
             >
-              <Icon
+              <AppIcon
                 icon={fieldTypeIcon(field.type)}
                 className="h-3.5 w-3.5 shrink-0 text-muted"
               />
               <span className="min-w-0 flex-1 truncate">{field.name}</span>
-              <Icon icon="lucide:eye" className="h-3.5 w-3.5 text-muted" />
+              <AppIcon icon="eye" className="h-3.5 w-3.5 text-muted" />
             </button>
           ))}
         </Popover.Dialog>
@@ -623,7 +623,7 @@ function FilterPopover({
   return (
     <Popover>
       <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
-        <Icon icon="lucide:list-filter" className="h-3.5 w-3.5" />
+        <AppIcon icon="list-filter" className="h-3.5 w-3.5" />
         Filter
         {activeCount > 0 ? (
           <span className="rounded-full bg-accent px-1.5 text-[10px] text-accent-foreground">
@@ -708,7 +708,7 @@ function FilterPopover({
                       onChange(rules.filter((entry) => entry.id !== rule.id))
                     }
                   >
-                    <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+                    <AppIcon icon="x" className="h-3.5 w-3.5" />
                   </button>
                 </div>
               )
@@ -733,7 +733,7 @@ function FilterPopover({
                 ])
               }}
             >
-              <Icon icon="lucide:plus" className="h-3.5 w-3.5" />
+              <AppIcon icon="plus" className="h-3.5 w-3.5" />
               Add filter
             </Button>
             {rules.length > 0 ? (
@@ -788,7 +788,7 @@ function SortPopover({
   return (
     <Popover>
       <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
-        <Icon icon="lucide:arrow-up-down" className="h-3.5 w-3.5" />
+        <AppIcon icon="arrow-up-down" className="h-3.5 w-3.5" />
         Sort
         {sorts.length > 0 ? (
           <span className="rounded-full bg-accent px-1.5 text-[10px] text-accent-foreground">
@@ -824,9 +824,9 @@ function SortPopover({
                   size="sm"
                   onPress={() => updateSort(index, { desc: !sort.desc })}
                 >
-                  <Icon
+                  <AppIcon
                     icon={
-                      sort.desc ? "lucide:arrow-down-a-z" : "lucide:arrow-up-a-z"
+                      sort.desc ? "arrow-down-a-z" : "arrow-up-a-z"
                     }
                     className="h-3.5 w-3.5"
                   />
@@ -839,7 +839,7 @@ function SortPopover({
                   className="rounded p-1 text-muted transition-colors hover:bg-default hover:text-foreground disabled:opacity-40"
                   onClick={() => moveSort(index, -1)}
                 >
-                  <Icon icon="lucide:chevron-up" className="h-3.5 w-3.5" />
+                  <AppIcon icon="chevron-up" className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
@@ -848,7 +848,7 @@ function SortPopover({
                   className="rounded p-1 text-muted transition-colors hover:bg-default hover:text-foreground disabled:opacity-40"
                   onClick={() => moveSort(index, 1)}
                 >
-                  <Icon icon="lucide:chevron-down" className="h-3.5 w-3.5" />
+                  <AppIcon icon="chevron-down" className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
@@ -858,7 +858,7 @@ function SortPopover({
                     onChange(sorts.filter((_, i) => i !== index))
                   }
                 >
-                  <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+                  <AppIcon icon="x" className="h-3.5 w-3.5" />
                 </button>
               </div>
             ))
@@ -873,7 +873,7 @@ function SortPopover({
                 onChange([...sorts, { field: firstUnused.value }])
               }}
             >
-              <Icon icon="lucide:plus" className="h-3.5 w-3.5" />
+              <AppIcon icon="plus" className="h-3.5 w-3.5" />
               Add sort
             </Button>
             {sorts.length > 0 ? (
@@ -945,7 +945,7 @@ function AddFieldPopover({
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
-        <Icon icon="lucide:columns-3" className="h-3.5 w-3.5" />
+        <AppIcon icon="columns-3" className="h-3.5 w-3.5" />
         Add column
       </Popover.Trigger>
       <Popover.Content className="w-72 rounded-2xl border border-border p-3">
@@ -958,7 +958,7 @@ function AddFieldPopover({
             autoFocus
           />
           <div className="flex items-center gap-1.5">
-            <Icon
+            <AppIcon
               icon={fieldTypeIcon(type)}
               className="h-3.5 w-3.5 shrink-0 text-muted"
             />

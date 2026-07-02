@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { ChatHeaderAgent } from "./chat-header-types"
 
 export function ChatHeaderAgentLogo({ agent }: { agent: ChatHeaderAgent }) {
@@ -20,5 +20,5 @@ export function ChatHeaderAgentLogo({ agent }: { agent: ChatHeaderAgent }) {
     )
   }
 
-  return <Icon icon={agent.icon} className="h-3.5 w-3.5 shrink-0" />
+  return <AppIcon icon={agent.icon} className="h-3.5 w-3.5 shrink-0" />
 }

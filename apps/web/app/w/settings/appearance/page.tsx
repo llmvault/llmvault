@@ -2,16 +2,16 @@
 
 import { useState } from "react"
 import { Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useTheme } from "next-themes"
 import { usePreset } from "@/lib/theme/preset-provider"
 import { THEME_PRESETS } from "@/lib/theme/presets"
 import { IconSegmented, SettingRow } from "../_components/controls"
 
 const THEME_MODES = [
-  { id: "light", label: "Light", icon: "lucide:sun" },
-  { id: "dark", label: "Dark", icon: "lucide:moon" },
-  { id: "system", label: "System", icon: "lucide:monitor" },
+  { id: "light", label: "Light", icon: "sun" },
+  { id: "dark", label: "Dark", icon: "moon" },
+  { id: "system", label: "System", icon: "monitor" },
 ]
 
 export default function AppearanceSettingsPage() {
@@ -58,7 +58,7 @@ function ThemeSelect() {
       >
         <AaSwatch swatch={current.swatch} />
         {current.label}
-        <Icon icon="lucide:chevron-down" className="h-3.5 w-3.5 text-muted" />
+        <AppIcon icon="chevron-down" className="h-3.5 w-3.5 text-muted" />
       </Popover.Trigger>
       <Popover.Content className="w-56 rounded-2xl border border-border p-1.5">
         <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
@@ -75,7 +75,7 @@ function ThemeSelect() {
               <AaSwatch swatch={option.swatch} />
               <span className="min-w-0 flex-1">{option.label}</span>
               {option.id === preset ? (
-                <Icon icon="lucide:check" className="h-4 w-4 shrink-0" />
+                <AppIcon icon="check" className="h-4 w-4 shrink-0" />
               ) : null}
             </button>
           ))}

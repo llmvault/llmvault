@@ -12,7 +12,7 @@ import {
   Spinner,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import {
@@ -113,7 +113,7 @@ export function InviteMemberModal({
 
             <Modal.Header>
               <Modal.Icon className="bg-default size-12 text-foreground">
-                <Icon icon="lucide:user-plus" className="h-6 w-6" />
+                <AppIcon icon="user-plus" className="h-6 w-6" />
               </Modal.Icon>
               <div className="flex flex-col gap-1">
                 <Modal.Heading>Invite a member</Modal.Heading>
@@ -263,7 +263,7 @@ export function TeamFormModal({
             <Modal.CloseTrigger />
             <Modal.Header>
               <Modal.Icon className="bg-default size-12 text-foreground">
-                <Icon icon="lucide:users-round" className="h-6 w-6" />
+                <AppIcon icon="users-round" className="h-6 w-6" />
               </Modal.Icon>
               <div className="flex flex-col gap-1">
                 <Modal.Heading>
@@ -406,7 +406,7 @@ function TeamPicker({
               }
             >
               {selected ? (
-                <Icon icon="lucide:check" className="h-3 w-3" />
+                <AppIcon icon="check" className="h-3 w-3" />
               ) : null}
             </span>
             <span className="min-w-0 flex-1 truncate">{teamLabel(team)}</span>

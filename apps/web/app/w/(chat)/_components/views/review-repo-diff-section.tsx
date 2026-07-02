@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { CommentablePatchDiff } from "@/app/w/(chat)/_components/diff-line-comments"
 import { REVIEW_DIFF_STYLE } from "./review-diff-config"
 import { formatPatchCount } from "./review-format"
@@ -25,8 +25,8 @@ export const RepoDiffSection = memo(function RepoDiffSection({
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3">
-        <Icon
-          icon="lucide:git-branch"
+        <AppIcon
+          icon="git-branch"
           className="h-3.5 w-3.5 shrink-0 text-muted"
         />
         <span className="min-w-0 truncate text-sm font-medium">
@@ -48,8 +48,8 @@ export const RepoDiffSection = memo(function RepoDiffSection({
                 index > 0 ? "border-t border-border" : ""
               }`}
             >
-              <Icon
-                icon="lucide:triangle-alert"
+              <AppIcon
+                icon="triangle-alert"
                 className="h-4 w-4 shrink-0 text-warning"
               />
               <span className="w-20 shrink-0 text-xs tracking-normal uppercase">

@@ -58,7 +58,7 @@ export const AGENTS: Agent[] = [
     name: "Software Engineer",
     description:
       "Codes in a cloud sandbox with full repository access. Runs commands, browses the web, and opens pull requests.",
-    icon: "lucide:code-xml",
+    icon: "code-xml",
     tools: ["Terminal", "Browser", "Git", "Code editor"],
     modelIds: ["claude-opus", "claude-sonnet", "gemini-pro", "grok-4"],
     defaultModelId: "claude-opus",
@@ -69,7 +69,7 @@ export const AGENTS: Agent[] = [
     name: "Research Analyst",
     description:
       "Searches the web, reads sources end to end, and writes cited reports and briefs into your workspace drive.",
-    icon: "lucide:telescope",
+    icon: "telescope",
     tools: ["Web search", "Browser", "Drive"],
     modelIds: ["claude-opus", "gemini-pro", "deepseek-v3"],
     defaultModelId: "claude-opus",
@@ -80,7 +80,7 @@ export const AGENTS: Agent[] = [
     name: "Data Analyst",
     description:
       "Queries your connected databases and warehouses, explores datasets, and produces charts and summaries.",
-    icon: "lucide:chart-spline",
+    icon: "chart-spline",
     tools: ["SQL", "Notebooks", "Charts", "Drive"],
     modelIds: ["claude-sonnet", "gemini-pro", "qwen-max"],
     defaultModelId: "claude-sonnet",
@@ -91,7 +91,7 @@ export const AGENTS: Agent[] = [
     name: "Content Writer",
     description:
       "Drafts docs, posts, and announcements in your voice. Works from briefs, research notes, and past writing.",
-    icon: "lucide:pen-line",
+    icon: "pen-line",
     tools: ["Drive", "Web search"],
     modelIds: ["claude-sonnet", "kimi-k2", "deepseek-v3"],
     defaultModelId: "claude-sonnet",
@@ -102,7 +102,7 @@ export const AGENTS: Agent[] = [
     name: "Support Engineer",
     description:
       "Investigates customer issues across your tools — reads tickets, checks logs and dashboards, and drafts replies.",
-    icon: "lucide:headset",
+    icon: "headset",
     tools: ["Integrations", "Logs", "Browser"],
     modelIds: ["claude-sonnet", "qwen-max", "gemini-pro"],
     defaultModelId: "claude-sonnet",

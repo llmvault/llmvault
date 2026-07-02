@@ -8,6 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -59,15 +60,22 @@ func addListChannelsTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 			"properties": map[string]any{},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleListChannels(ctx, db, agent)
+		return handleListChannels(ctx, db, agent, actorUserIDFromRequest(req))
 	})
 }
 
-func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent) (*mcp.CallToolResult, error) {
+func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent, actorRaw string) (*mcp.CallToolResult, error) {
 	if agent == nil || agent.OrgID == nil {
 		return cronToolError("agent context is missing an organization"), nil
 	}
 	orgID := *agent.OrgID
+	// When a human is behind the turn, only surface channels they can use; a
+	// non-manager must not learn the names/keys of channels they aren't in.
+	// Automated runs (no actor) keep the agent-scoped view.
+	actor, err := access.Resolve(ctx, db, orgID, actorRaw)
+	if err != nil {
+		return cronToolError(err.Error()), nil
+	}
 	restricted, err := agentschedule.RestrictedChannelIDs(ctx, db, orgID, agent.ID)
 	if err != nil {
 		return cronToolError(err.Error()), nil
@@ -85,6 +93,9 @@ func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent) (*
 			if _, ok := restricted[channel.ID]; !ok {
 				continue
 			}
+		}
+		if actor != nil && !actor.CanUseChannel(ctx, db, channel) {
+			continue
 		}
 		entry := map[string]any{
 			"id":         channel.ID.String(),

@@ -2,13 +2,13 @@
 
 import { memo, useCallback, useRef, useState, type ComponentProps } from "react"
 import { Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 
 const SESSION_ACTIONS = [
-  { id: "rename", label: "Rename chat", icon: "lucide:pencil" },
-  { id: "share", label: "Share", icon: "lucide:share" },
-  { id: "archive", label: "Archive", icon: "lucide:archive" },
+  { id: "rename", label: "Rename chat", icon: "pencil" },
+  { id: "share", label: "Share", icon: "share" },
+  { id: "archive", label: "Archive", icon: "archive" },
 ] as const
 
 export const SessionActionsMenu = memo(function SessionActionsMenu({
@@ -62,7 +62,7 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
           triggerClassName
         )}
       >
-        <Icon icon="lucide:ellipsis" className="h-4 w-4" />
+        <AppIcon icon="ellipsis" className="h-4 w-4" />
       </Popover.Trigger>
       {open ? (
         <Popover.Content
@@ -84,7 +84,7 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
                   onClick={() => selectAction(action.id)}
                   className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
                 >
-                  <Icon icon={action.icon} className="h-4 w-4 shrink-0" />
+                  <AppIcon icon={action.icon} className="h-4 w-4 shrink-0" />
                   {action.label}
                 </button>
               )

@@ -4,7 +4,7 @@
   "name": "Slack",
   "description": "Bring your ai team mates directly to your slack workspace.",
   "category": "Communication",
-  "icon": "simple-icons:slack",
+  "icon": "slack",
   "icon_color": "#4A154B",
   "developer": "Hivy",
   "official": true,

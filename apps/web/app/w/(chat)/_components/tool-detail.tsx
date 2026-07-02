@@ -1,5 +1,5 @@
 import { Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   FileMutationDetail,
   ReadFileDetail,
@@ -45,8 +45,8 @@ export function ToolDetail({
         {running ? (
           <Spinner color="current" size="sm" />
         ) : (
-          <Icon
-            icon={toolFailed(detail) ? "lucide:triangle-alert" : "lucide:check"}
+          <AppIcon
+            icon={toolFailed(detail) ? "triangle-alert" : "check"}
             className="h-4 w-4"
           />
         )}

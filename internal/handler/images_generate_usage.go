@@ -34,10 +34,12 @@ func (h *UploadsHandler) trackImageGenerationUsage(ctx context.Context, agent *m
 	if agent == nil || agent.OrgID == nil || sandbox == nil || cred == nil {
 		return
 	}
-	vector := req.mode() == "vector"
 	toolName := imageGenerationRasterToolName
-	if vector {
+	switch req.mode() {
+	case "vector":
 		toolName = imageGenerationVectorToolName
+	case "remix":
+		toolName = imageGenerationRemixToolName
 	}
 	metadata := model.JSON{
 		"mode":                req.mode(),

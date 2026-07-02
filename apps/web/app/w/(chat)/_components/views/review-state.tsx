@@ -1,5 +1,5 @@
 import { Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function ReviewLoadingState({ label }: { label: string }) {
   return (
@@ -46,7 +46,7 @@ export function ReviewEmptyState({
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background">
-          <Icon icon={icon} className="h-5 w-5 text-muted" />
+          <AppIcon icon={icon} className="h-5 w-5 text-muted" />
         </div>
         <div className="text-sm font-medium">{title}</div>
         <p className="text-sm leading-6 text-muted">{message}</p>

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Modal, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { ADMIN_QUERY_KEYS, adminSecretHeader, errorMessage } from "./admin-api"
 import { Field, Meta } from "./admin-field"
@@ -103,7 +103,7 @@ export function IntegrationDialog({
                     aria-label="Close"
                     onPress={() => onOpenChange(false)}
                   >
-                    <Icon icon="lucide:x" className="size-4" />
+                    <AppIcon icon="x" className="size-4" />
                   </Button>
                 </div>
 
@@ -151,7 +151,7 @@ export function IntegrationDialog({
                   <div className="min-h-9">
                     {definition.existing ? (
                       <span className="inline-flex items-center gap-1.5 text-xs text-muted">
-                        <Icon icon="lucide:check-circle" className="size-3.5" />
+                        <AppIcon icon="check-circle" className="size-3.5" />
                         Already configured
                       </span>
                     ) : null}

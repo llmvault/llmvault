@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function FilesEmptyState({
   icon,
@@ -16,7 +16,7 @@ export function FilesEmptyState({
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
-          <Icon icon={icon} className="h-5 w-5 text-muted" />
+          <AppIcon icon={icon} className="h-5 w-5 text-muted" />
         </div>
         <div className="text-sm font-medium">{title}</div>
         <p className="text-sm leading-6 text-muted">{message}</p>
@@ -36,7 +36,7 @@ export function FilesErrorState({
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
-          <Icon icon="lucide:circle-alert" className="h-5 w-5 text-muted" />
+          <AppIcon icon="circle-alert" className="h-5 w-5 text-muted" />
         </div>
         <div className="text-sm font-medium">Files are not available</div>
         <p className="text-sm leading-6 text-muted">{message}</p>

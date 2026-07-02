@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Tooltip } from "@heroui/react"
 import type { ToolGroup, ToolSelection } from "./_lib"
 
@@ -87,8 +87,8 @@ export function ToolsField({
                     locked || disabled ? "cursor-not-allowed opacity-80" : "",
                   ].join(" ")}
                 >
-                  <Icon
-                    icon={on ? "lucide:check" : "lucide:plus"}
+                  <AppIcon
+                    icon={on ? "check" : "plus"}
                     className="h-3 w-3"
                   />
                   {tool.label}

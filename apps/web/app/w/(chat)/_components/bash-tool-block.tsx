@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Collapse } from "@/app/w/(chat)/_components/conversation-collapse"
 import {
   hasExpandableDetail,
@@ -22,7 +22,7 @@ export function BashToolBlock({
   if (!block.detail) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted">
-        <Icon icon="lucide:square-terminal" className="h-3.5 w-3.5 shrink-0" />
+        <AppIcon icon="square-terminal" className="h-3.5 w-3.5 shrink-0" />
         <span
           className={`min-w-0 flex-1 truncate font-mono text-sm ${
             block.running ? "hivy-shimmer" : ""
@@ -53,11 +53,11 @@ export function BashToolBlock({
           {block.label}
         </span>
         {actionIcon ? (
-          <Icon icon={actionIcon} className="h-3.5 w-3.5 shrink-0 text-muted" />
+          <AppIcon icon={actionIcon} className="h-3.5 w-3.5 shrink-0 text-muted" />
         ) : null}
         {expandable ? (
-          <Icon
-            icon="lucide:chevron-down"
+          <AppIcon
+            icon="chevron-down"
             className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
           />
         ) : null}
@@ -79,13 +79,13 @@ function BashToolIcon({
 }: {
   block: Extract<ConversationBlock, { type: "tool" }>
 }) {
-  const icon = block.detail ? toolIcon(block.detail) : "lucide:square-terminal"
+  const icon = block.detail ? toolIcon(block.detail) : "square-terminal"
 
   return (
-    <Icon
+    <AppIcon
       icon={icon}
       className={`h-4 w-4 shrink-0 ${
-        icon === "logos:chrome" ? "" : "text-muted"
+        icon === "chrome" ? "" : "text-muted"
       }`}
     />
   )

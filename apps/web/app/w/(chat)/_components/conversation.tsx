@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Lightbox } from "@/app/w/(chat)/_components/lightbox"
 import {
   ToolBlock,
@@ -95,8 +95,8 @@ function Block({
     case "error":
       return (
         <div className="flex items-start gap-2 rounded-lg border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
-          <Icon
-            icon="lucide:circle-alert"
+          <AppIcon
+            icon="circle-alert"
             className="mt-0.5 h-4 w-4 shrink-0"
           />
           <span className="min-w-0">{block.text}</span>

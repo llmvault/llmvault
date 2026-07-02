@@ -4,7 +4,7 @@
   "name": "Railway",
   "description": "Manage Railway projects, services, environments, domains, and databases.",
   "category": "Developer Tools",
-  "icon": "simple-icons:railway",
+  "icon": "railway",
   "icon_color": "#6B46C1",
   "developer": "Hivy",
   "official": true,

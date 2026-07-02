@@ -4,7 +4,7 @@
   "name": "Design",
   "description": "Canvas artifact workflows for brands, prototypes, pages, and decks.",
   "category": "Design",
-  "icon": "lucide:palette",
+  "icon": "palette",
   "icon_color": "#14B8A6",
   "developer": "Hivy",
   "official": true,
@@ -17,7 +17,9 @@
     "Design a persuasive business slide deck as Canvas presentation artifacts",
     "Turn this investor pitch outline into a validated Canvas deck",
     "Preview this Canvas artifact in Agent Browser and test the interactions",
-    "Generate prototype images and use them in a Canvas artifact"
+    "Generate prototype images and use them in a Canvas artifact",
+    "Design an on-brand Instagram carousel with generated backdrops and HTML type",
+    "Make a birthday card for a teammate in our brand style"
   ],
   "links": {
     "website": "https://www.usehivy.com/"

@@ -1,457 +1,271 @@
 # Sample prompts
 
-These provider-neutral prompt recipes are starting points for image generation and image editing. They are intentionally complete examples, not the default amount of detail to add to every user request.
+Copy/paste prompt recipes for generation and edits, written in the house prompt
+format: **one flowing paragraph** in the clause order from `references/prompting.md`
+(medium/style → subject and action → environment → composition/framing →
+lighting/mood → palette/materials → constraints → negatives) — the same format as
+the example prompts in `references/hero-patterns/`. They are complete,
+fully-authored examples — not the default amount of detail to add to every request
+(see the specificity policy in `references/prompting.md`).
 
-When adapting a user's prompt:
+When adapting a recipe:
 
-- Keep user-provided requirements.
-- Only add detail according to the specificity policy in `SKILL.md`.
-- Do not treat examples below as permission to invent extra story elements.
+- Keep all user-provided requirements; adapt the recipe around them.
+- Do not invent extra story elements, brands, or palettes.
 - Keep exact text, constraints, and reference-image roles explicit.
+- Drop clauses that don't apply; never pad a prompt with quality words.
 
-The labeled lines are prompt scaffolding, not a closed schema.
-
-For prompting principles, see `references/prompting.md`.
+**Landing-page and marketing-site visuals do not belong here** — route them through
+the hero pattern tables in `SKILL.md` and use the example prompts inside
+`references/hero-patterns/<slug>.md`. This file covers everything else.
 
 ## Generate
 
 ### photorealistic-natural
 
-```text
-Use case: photorealistic-natural
-Primary request: candid photo of an elderly sailor on a small fishing boat adjusting a net
-Scene/backdrop: coastal water with soft haze
-Subject: weathered skin with wrinkles and sun texture
-Style/medium: photorealistic candid photo
-Composition/framing: medium close-up, eye-level
-Lighting/mood: soft coastal daylight, shallow depth of field, subtle film grain
-Materials/textures: real skin texture, worn fabric, salt-worn wood
-Constraints: natural color balance; no heavy retouching; no glamorization; no watermark
-Avoid: studio polish; staged look
-```
+> Photorealistic candid photograph of an elderly sailor on a small fishing boat,
+> hands mid-pull adjusting a net — weathered skin with deep wrinkles and sun
+> texture, worn oilskin jacket. Coastal water with soft haze behind him. Medium
+> close-up at eye level, the sailor in the right two thirds of the frame facing
+> into it. Soft coastal daylight, shallow depth of field, subtle film grain; real
+> skin texture, worn fabric, salt-worn wood. Natural color balance with no heavy
+> retouching, no glamorization, no staged studio look. No text, no letters, no
+> logos, no watermark.
 
 ### product-mockup
 
-```text
-Use case: product-mockup
-Primary request: premium product photo of a matte black shampoo bottle with a minimal label
-Scene/backdrop: clean studio gradient from light gray to white
-Subject: single bottle centered with subtle reflection
-Style/medium: premium product photography
-Composition/framing: centered, slight three-quarter angle, generous padding
-Lighting/mood: softbox lighting, clean highlights, controlled shadows
-Materials/textures: matte plastic, crisp label printing
-Constraints: no logos or trademarks; no watermark
-```
+> Premium studio product photograph of a single matte black shampoo bottle with a
+> satin cap and a blank label area, centered at a slight three-quarter angle on a
+> clean studio gradient from light gray to white. Softbox lighting with clean
+> highlights and controlled shadows, a soft contact shadow grounding the bottle
+> and a subtle reflection beneath it, generous empty margin on all sides. Blank
+> packaging with no logos or trademarks. No text, no letters, no watermark.
 
 ### ui-mockup
 
-```text
-Use case: ui-mockup
-Primary request: mobile app home screen for a local farmers market with vendors and daily specials
-Asset type: mobile app screen
-Style/medium: realistic product UI, not concept art
-Composition/framing: clean vertical mobile layout with clear hierarchy
-Constraints: practical layout, clear typography, no logos or trademarks, no watermark
-```
+> Realistic mobile app home screen for a local farmers market — a practical
+> product UI, not concept art. Clean vertical mobile layout with blocks in
+> reading order: a search bar at the top, a featured vendor card, a scrolling
+> list of daily specials, and a bottom tab bar. Practical spacing and clear
+> typography with minimal visible text. No logos or trademarks, no watermark.
 
 ### infographic-diagram
 
-```text
-Use case: infographic-diagram
-Primary request: detailed infographic of an automatic coffee machine flow
-Scene/backdrop: clean, light neutral background
-Subject: bean hopper -> grinder -> brew group -> boiler -> water tank -> drip tray
-Style/medium: clean vector-like infographic with clear callouts and arrows
-Composition/framing: vertical poster layout, top-to-bottom flow
-Text (verbatim): "Bean Hopper", "Grinder", "Brew Group", "Boiler", "Water Tank", "Drip Tray"
-Constraints: clear labels, strong contrast, no logos or trademarks, no watermark
-```
+> Clean vector-style infographic of an automatic coffee machine's flow on a light
+> neutral background, vertical poster layout reading top to bottom: bean hopper,
+> grinder, brew group, boiler, water tank, and drip tray connected by clear
+> arrows with simple callouts. Render each label exactly once, spelled exactly:
+> "Bean Hopper", "Grinder", "Brew Group", "Boiler", "Water Tank", "Drip Tray".
+> Clear hierarchy and strong contrast, no extra words, no logos, no watermark.
 
 ### scientific-educational
 
-```text
-Use case: scientific-educational
-Primary request: biology diagram titled "Cellular Respiration at a Glance" for high school students
-Scene/backdrop: clean white classroom handout background
-Subject: glucose turns into energy inside a cell; include glycolysis, Krebs cycle, and electron transport chain
-Style/medium: flat scientific diagram with consistent icons, arrows, and readable labels
-Composition/framing: landscape slide-style layout with clear hierarchy and generous whitespace
-Text (verbatim): "Cellular Respiration at a Glance", "Glucose", "Pyruvate", "ATP", "NADH", "FADH2", "CO2", "O2", "H2O"
-Constraints: scientifically plausible; avoid tiny text; no extra decoration; no watermark
-```
+> Flat scientific diagram for a high school classroom handout on a clean white
+> background: glucose turning into energy inside a cell, showing glycolysis, the
+> Krebs cycle, and the electron transport chain with consistent icons, arrows,
+> and readable labels. Landscape slide-style layout with clear hierarchy and
+> generous whitespace. Render these labels exactly, spelled exactly: "Cellular
+> Respiration at a Glance", "Glucose", "Pyruvate", "ATP", "NADH", "FADH2", "CO2",
+> "O2", "H2O". Scientifically plausible, no tiny text, no extra decoration, no
+> watermark.
 
 ### logo-brand
 
-```text
-Use case: logo-brand
-Primary request: original logo for "Field & Flour", a local bakery
-Style/medium: vector logo mark; flat colors; minimal
-Composition/framing: single centered logo on a plain background with generous padding
-Constraints: strong silhouette, balanced negative space; original design only; no gradients unless essential; no trademarks; no watermark
-```
+Real logo work does not use these raster recipes — load the `logo-design` skill
+instead. It generates the mark as a native SVG (`generate_vector_image`) with
+constructive-geometry prompts and composes every variant (lockups, app icon,
+monochrome, reverse, favicon) deterministically from the same geometry, so the
+mark stays byte-identical across the whole pack. A raster logo generated here
+would need vectorizing and re-deriving by remix, with drift at every step.
 
 ### illustration-story
 
-```text
-Use case: illustration-story
-Primary request: 4-panel comic about a pet left alone at home
-Scene/backdrop: cozy living room across panels
-Subject: pet reacting to the owner leaving, then relaxing, then returning to a composed pose
-Style/medium: comic illustration with clear panels
-Composition/framing: 4 equal-sized vertical panels, readable actions per panel
-Constraints: no text; no logos or trademarks; no watermark
-```
+> Comic illustration in four equal vertical panels with clear borders, one
+> readable action per panel: a pet reacting to its owner leaving, sulking alone,
+> relaxing, then returning to a composed pose as the owner comes home — the same
+> cozy living room and the identical character design repeated in every panel.
+> No text, no letters, no logos, no watermark.
 
 ### stylized-concept
 
-```text
-Use case: stylized-concept
-Primary request: cavernous hangar interior with tall support beams and drifting fog
-Scene/backdrop: industrial hangar interior, deep scale, light haze
-Subject: compact shuttle parked near the center
-Style/medium: cinematic concept art, industrial realism
-Composition/framing: wide-angle, low-angle
-Lighting/mood: volumetric light rays cutting through fog
-Constraints: no logos or trademarks; no watermark
-```
+> Cinematic concept art of a cavernous industrial hangar interior with tall
+> support beams and drifting fog, a compact shuttle parked near the center.
+> Wide-angle, low-angle composition with the scene filling the frame to every
+> edge and a deep sense of scale. Volumetric light rays cutting through the fog,
+> industrial realism. No text, no letters, no logos, no watermark.
 
 ### ads-marketing
 
-```text
-Use case: ads-marketing
-Primary request: campaign image for a streetwear brand called Thread
-Subject: group of friends hanging out together in a stylish urban setting
-Style/medium: polished youth streetwear campaign photography
-Composition/framing: vertical ad layout with natural poses and integrated headline space
-Lighting/mood: contemporary, energetic, tasteful
-Text (verbatim): "Yours to Create."
-Constraints: render the tagline exactly once; clean legible typography; no extra text; no watermarks; no unrelated logos
-```
+> Polished youth streetwear campaign photograph with a 35mm editorial look: a
+> group of friends hanging out in a stylish urban setting, natural poses and
+> genuine expressions. Vertical composition; the upper quarter of the frame is a
+> plain sunlit concrete wall above the group. Tasteful golden-hour warmth,
+> contemporary and energetic. Render the tagline "Yours to Create." exactly once
+> in clean legible typography in the upper plain area, spelled exactly — no
+> extra text, no unrelated logos, no watermark.
 
 ### productivity-visual
 
-```text
-Use case: productivity-visual
-Primary request: one pitch-deck slide titled "Market Opportunity"
-Asset type: fundraising slide image
-Style/medium: clean modern deck slide, white background, crisp sans-serif typography
-Subject: TAM/SAM/SOM concentric-circle diagram plus a small growth bar chart from 2021 to 2026
-Composition/framing: 16:9 landscape slide, clear data hierarchy, polished spacing
-Text (verbatim): "Market Opportunity", "TAM: $42B", "SAM: $8.7B", "SOM: $340M", "AGI Research, 2024", "Internal analysis"
-Constraints: readable labels, no clip art, no stock photography, no decorative clutter, no watermark
-```
+> One clean modern pitch-deck slide in 16:9 with a white background and crisp
+> sans-serif typography: a TAM/SAM/SOM concentric-circle diagram beside a small
+> growth bar chart spanning 2021 to 2026, with clear data hierarchy and polished
+> spacing. Render these strings exactly, spelled exactly: "Market Opportunity",
+> "TAM: $42B", "SAM: $8.7B", "SOM: $340M", "AGI Research, 2024", "Internal
+> analysis". Readable sizes throughout — no clip art, no stock photography, no
+> decorative clutter, no watermark.
 
 ### historical-scene
 
-```text
-Use case: historical-scene
-Primary request: outdoor crowd scene in Bethel, New York on August 16, 1969
-Scene/backdrop: open field with period-appropriate staging
-Subject: crowd in period-accurate clothing, authentic environment
-Style/medium: photorealistic photo
-Composition/framing: wide shot, eye-level
-Constraints: period-accurate details; no modern objects; no logos or trademarks; no watermark
-```
+> Photorealistic wide shot at eye level of an outdoor crowd scene in Bethel, New
+> York on August 16, 1969: an open field filled with a crowd in period-accurate
+> clothing and authentic staging throughout, rendered with era-appropriate film
+> grain and color. Period-accurate details only, no modern objects. No text, no
+> logos, no watermark.
 
-## Asset type templates
+## Website assets (non-hero)
 
-### Website assets template
+Hero images: use `references/hero-patterns/` — not this section.
 
-```text
-Use case: <photorealistic-natural|stylized-concept|product-mockup|infographic-diagram|ui-mockup>
-Asset type: <hero image / section illustration / blog header>
-Primary request: <short description>
-Scene/backdrop: <environment or abstract backdrop>
-Subject: <main subject>
-Style/medium: <photo/illustration/3D>
-Composition/framing: <wide/centered; note usable negative space only if needed>
-Lighting/mood: <soft/bright/neutral>
-Color palette: <brand colors or neutral>
-Constraints: <no text; no logos; no watermark; leave room for UI if needed>
-```
+### Section illustration
 
-### Website assets example: minimal hero background
+> Flat illustration for a feature section: a loose cluster of rounded translucent
+> shapes linked by thin flowing lines, slightly off-center on a soft light-gray
+> field with a faint paper texture filling the frame to every edge. Muted neutral
+> palette with one soft blue accent, soft shadows, restrained contrast. The scene
+> reaches every edge of the canvas. No text, no letters, no logos, no watermark.
 
-```text
-Use case: stylized-concept
-Asset type: landing page hero background
-Primary request: minimal abstract background with a soft gradient and subtle texture
-Style/medium: matte illustration / soft-rendered abstract background
-Composition/framing: wide composition with usable negative space for page copy
-Lighting/mood: gentle studio glow
-Color palette: restrained neutral palette
-Constraints: no text; no logos; no watermark
-```
+### Blog header image
 
-### Website assets example: feature section illustration
+> Photorealistic top-down photograph of a warm wooden tabletop filling the entire
+> frame: an open blank notebook and a ceramic coffee cup arranged in the right
+> two thirds, the left third plain empty tabletop in even light. Soft morning
+> window light. Blank notebook pages. No text, no letters, no logos, no
+> watermark.
 
-```text
-Use case: stylized-concept
-Asset type: feature section illustration
-Primary request: simple abstract shapes suggesting connection and flow
-Scene/backdrop: subtle light-gray backdrop with faint texture
-Style/medium: flat illustration; soft shadows; restrained contrast
-Composition/framing: centered cluster; open margins for UI
-Color palette: muted neutral palette
-Constraints: no text; no logos; no watermark
-```
+## Game assets
 
-### Website assets example: blog header image
+Prompt recipe: [realistic/stylized] + [concept art / character render / UI icon /
+tileable texture] + [subject with material specificity] + [backdrop or set
+dressing] + [framing and focal point] + [time of day / mood / atmosphere] + [no
+text, no letters, no logos, no watermark].
 
-```text
-Use case: photorealistic-natural
-Asset type: blog header image
-Primary request: overhead desk scene with notebook, pen, and coffee cup
-Scene/backdrop: warm wooden tabletop
-Style/medium: photorealistic photo
-Composition/framing: wide crop with clean room for page copy
-Lighting/mood: soft morning light
-Constraints: no text; no logos; no watermark
-```
+### Character concept
 
-### Game assets template
+> Stylized-realism game character render of a desert scout in a neutral hero
+> pose, full body visible: long weathered coat, leather satchel, practical
+> layered travel clothing with visible fabric wear. Simple flat backdrop with
+> generous padding around the figure. No text, no letters, no logos, no
+> watermark.
 
-```text
-Use case: stylized-concept
-Asset type: <game environment concept art / game character concept / game UI icon / tileable game texture>
-Primary request: <biome/scene/character/icon/material>
-Scene/backdrop: <location + set dressing> (if applicable)
-Subject: <main focal element(s)>
-Style/medium: <realistic/stylized>; <concept art / character render / UI icon / texture>
-Composition/framing: <wide/establishing/top-down>; <camera angle>; <focal point placement>
-Lighting/mood: <time of day>; <mood>; <volumetric/fog/etc>
-Constraints: no logos or trademarks; no watermark
-```
+### UI icon
 
-### Game assets example: environment concept art
+> Painted game UI icon of a round shield with a subtle rune pattern, centered
+> with generous padding and a clear silhouette, no background scene elements.
+> No text, no letters, no logos, no watermark.
 
-```text
-Use case: stylized-concept
-Asset type: game environment concept art
-Primary request: cavernous hangar interior with tall support beams and drifting fog
-Scene/backdrop: industrial hangar interior, deep scale, light haze
-Subject: compact shuttle parked near the center
-Style/medium: cinematic concept art, industrial realism
-Composition/framing: wide-angle, low-angle
-Lighting/mood: volumetric light rays cutting through fog
-Constraints: no logos or trademarks; no watermark
-```
+### Tileable texture
 
-### Game assets example: character concept
+> Seamless tileable game texture of worn sandstone blocks under neutral even
+> lighting, PBR-style surface detail, edges matching perfectly for tiling, no
+> obvious focal elements. No text, no logos, no watermark.
 
-```text
-Use case: stylized-concept
-Asset type: game character concept
-Primary request: desert scout character with layered travel gear
-Subject: long coat, satchel, practical travel clothing
-Style/medium: character render; stylized realism
-Composition/framing: neutral hero pose on a simple backdrop
-Constraints: no logos or trademarks; no watermark
-```
+## Wireframes
 
-### Game assets example: UI icon
+Wireframes are the sanctioned exception to the no-layout-vocabulary rule — see
+`references/prompting.md`.
 
-```text
-Use case: stylized-concept
-Asset type: game UI icon
-Primary request: round shield icon with a subtle rune pattern
-Style/medium: painted game UI icon
-Composition/framing: centered icon; generous padding; clear silhouette
-Constraints: no text; no background scene elements; no logos or trademarks; no watermark
-```
+### Homepage desktop
 
-### Game assets example: tileable texture
+> Low-fi grayscale website wireframe of a SaaS homepage in a landscape desktop
+> layout, blocks in reading order: top nav, hero block with a heading and button,
+> three feature cards, a testimonial strip, a pricing preview, and a footer.
+> Label major blocks only. No color, no logos, no real photos, no watermark.
 
-```text
-Use case: stylized-concept
-Asset type: tileable game texture
-Primary request: worn sandstone blocks
-Style/medium: seamless tileable texture; PBR-ish look
-Scene/backdrop: neutral lighting reference only
-Constraints: seamless edges; no obvious focal elements; no text; no logos or trademarks; no watermark
-```
+### Mobile onboarding flow
 
-### Wireframe template
+> Low-fi grayscale wireframe of a three-screen mobile onboarding flow, portrait
+> screens side by side: screen one a heading and a button, screen two feature
+> bullets, screen three form fields and a button. Label screens and major blocks
+> only. No color, no logos, no real photos, no watermark.
 
-```text
-Use case: ui-mockup
-Asset type: website wireframe
-Primary request: <page or flow to sketch>
-Style/medium: low-fi grayscale wireframe
-Composition/framing: <landscape or portrait to match expected device>
-Subject: <sections in order; grid/columns; key labels>
-Constraints: no color; no logos; no real photos; no watermark
-```
+## Logos
 
-### Wireframe example: homepage desktop
-
-```text
-Use case: ui-mockup
-Asset type: website wireframe
-Primary request: SaaS homepage layout with clear hierarchy
-Style/medium: low-fi grayscale wireframe
-Subject: top nav; hero with headline and CTA; three feature cards; testimonial strip; pricing preview; footer
-Composition/framing: landscape desktop layout
-Constraints: label major blocks; no color; no logos; no real photos; no watermark
-```
-
-### Wireframe example: pricing page
-
-```text
-Use case: ui-mockup
-Asset type: website wireframe
-Primary request: pricing page layout with comparison table
-Style/medium: low-fi grayscale wireframe
-Subject: header; plan toggle; 3 pricing cards; comparison table; FAQ accordion; footer
-Composition/framing: desktop or tablet layout
-Constraints: label key areas; no color; no logos; no real photos; no watermark
-```
-
-### Wireframe example: mobile onboarding flow
-
-```text
-Use case: ui-mockup
-Asset type: mobile onboarding wireframe
-Primary request: three-screen mobile onboarding flow
-Style/medium: low-fi grayscale wireframe
-Subject: screen 1 headline and CTA; screen 2 feature bullets; screen 3 form fields and CTA
-Composition/framing: portrait mobile layout
-Constraints: label screens and blocks; no color; no logos; no real photos; no watermark
-```
-
-### Logo template
-
-```text
-Use case: logo-brand
-Asset type: logo concept
-Primary request: <brand idea or symbol concept>
-Style/medium: vector logo mark; flat colors; minimal
-Composition/framing: centered mark; clear silhouette; generous margin
-Color palette: <1-2 colors; high contrast>
-Text (verbatim): "<exact name>" (only if needed)
-Constraints: no gradients; no mockups; no 3D; no watermark
-```
-
-### Logo example: abstract symbol mark
-
-```text
-Use case: logo-brand
-Asset type: logo concept
-Primary request: geometric leaf symbol suggesting sustainability and growth
-Style/medium: vector logo mark; flat colors; minimal
-Composition/framing: centered mark; clear silhouette
-Color palette: deep green and off-white
-Constraints: no text unless requested; no gradients; no mockups; no 3D; no watermark
-```
-
-### Logo example: monogram mark
-
-```text
-Use case: logo-brand
-Asset type: logo concept
-Primary request: interlocking monogram of the letters "AV"
-Style/medium: vector logo mark; flat colors; minimal
-Composition/framing: centered mark; balanced spacing
-Color palette: black on white
-Constraints: no gradients; no mockups; no 3D; no watermark
-```
-
-### Logo example: wordmark
-
-```text
-Use case: logo-brand
-Asset type: logo concept
-Primary request: clean wordmark for a modern studio
-Style/medium: vector wordmark; flat colors; minimal
-Text (verbatim): "Studio North"
-Composition/framing: centered text; even letter spacing
-Constraints: no gradients; no mockups; no 3D; no watermark
-```
+Logo work is owned by the `logo-design` skill — do not prompt logos with the
+raster recipes in this file. That skill generates marks as native SVG via
+`generate_vector_image`, prompts by *construction* (strokes, arcs, ratios,
+terminals, negative space — see its `references/mark-prompts.md`), covers custom
+letterforms and monograms (`references/type-and-color-prompts.md`), and builds the
+full production pack (lockups, app icon, monochrome, reverse, favicon, transparent
+PNGs) with a byte-identical mark. Vibe-level prompts like "geometric leaf symbol
+suggesting growth" are exactly what it exists to replace.
 
 ## Edit
 
+Edit prompts name each input image's role inline, state the single change, and
+enumerate what must not change (see the invariant language in
+`references/consistent-assets.md`).
+
 ### text-localization
 
-```text
-Use case: text-localization
-Input images: Image 1: original infographic
-Primary request: replace "Bean Hopper", "Grinder", "Brew Group", "Boiler", "Water Tank", and "Drip Tray" with "Tolva", "Molino", "Grupo de infusion", "Caldera", "Deposito de agua", and "Bandeja de goteo"
-Constraints: change only the text; preserve layout, typography, spacing, and hierarchy; no extra words; do not alter logos or imagery
-```
+> Image 1 is the original infographic. Replace only the label text: "Bean Hopper"
+> with "Tolva", "Grinder" with "Molino", "Brew Group" with "Grupo de infusion",
+> "Boiler" with "Caldera", "Water Tank" with "Deposito de agua", and "Drip Tray"
+> with "Bandeja de goteo". Change only the text; preserve the layout, typography,
+> spacing, and hierarchy exactly; no extra words; do not alter logos or imagery.
 
 ### identity-preserve
 
-```text
-Use case: identity-preserve
-Input images: Image 1: person photo; Image 2..N: clothing references
-Primary request: replace only the clothing with the provided garments
-Constraints: preserve face, body shape, pose, hair, expression, and identity; match lighting and shadows; keep the background unchanged; no accessories or text
-```
+> Image 1 is a photo of a person; Images 2 onward are clothing references.
+> Replace only the clothing with the provided garments. Preserve the face, body
+> shape, pose, hair, expression, and identity completely; match the original
+> lighting and shadows; keep the background unchanged; add no accessories and no
+> text.
 
 ### precise-object-edit
 
-```text
-Use case: precise-object-edit
-Input images: Image 1: room photo
-Primary request: replace only the white chairs with wooden chairs
-Constraints: preserve camera angle, room lighting, floor shadows, and surrounding objects; keep all other aspects unchanged
-```
+> Image 1 is a room photo. Replace only the white chairs with wooden chairs.
+> Preserve the camera angle, room lighting, floor shadows, and every surrounding
+> object; keep all other aspects unchanged.
 
 ### lighting-weather
 
-```text
-Use case: lighting-weather
-Input images: Image 1: original photo
-Primary request: make it look like a winter evening with gentle snowfall
-Constraints: preserve subject identity, geometry, camera angle, and composition; change only lighting, atmosphere, and weather
-```
+> Image 1 is the original photo. Make the scene look like a winter evening with
+> gentle snowfall. Preserve the subject's identity, the geometry, the camera
+> angle, and the composition; change only the lighting, atmosphere, and weather.
 
 ### background-extraction
 
-```text
-Use case: background-extraction
-Input images: Image 1: product photo
-Primary request: isolate the product on a clean transparent background
-Scene/backdrop: transparent background; if true transparency is not available, use a perfectly flat high-contrast solid background color that does not appear in the subject
-Constraints: crisp silhouette; generous padding; no shadows, gradients, texture, reflections, floor plane, or lighting variation in the background; no halos or fringing; preserve label text exactly; no restyling
-```
+> Image 1 is a product photo. Isolate the product on a clean transparent
+> background — if true transparency is not available, use a perfectly flat
+> high-contrast solid background color that does not appear in the subject.
+> Crisp silhouette with generous padding; no shadows, gradients, texture,
+> reflections, floor plane, or lighting variation in the background; no halos or
+> fringing; preserve any label text exactly; no restyling.
 
 ### style-transfer
 
-```text
-Use case: style-transfer
-Input images: Image 1: style reference
-Primary request: apply Image 1's visual style to a man riding a motorcycle on a plain white backdrop
-Constraints: preserve palette, texture, and brushwork; no extra elements
-```
+> Image 1 is the style reference. Apply Image 1's visual style — its palette,
+> texture, and brushwork — to a man riding a motorcycle on a plain white
+> backdrop. Add no extra elements.
 
 ### compositing
 
-```text
-Use case: compositing
-Input images: Image 1: base scene; Image 2: subject to insert
-Primary request: place the subject from Image 2 next to the person in Image 1
-Constraints: match lighting, perspective, and scale; keep the base framing unchanged; no extra elements
-```
+> Image 1 is the base scene; Image 2 is the subject to insert. Place the subject
+> from Image 2 next to the person in Image 1, matching lighting, perspective,
+> and scale, with a soft contact shadow. Keep the base framing unchanged; add no
+> extra elements.
 
 ### character consistency workflow
 
-```text
-Use case: identity-preserve
-Input images: Image 1: previous character anchor illustration
-Primary request: continue the story with the same character in a new scene and action
-Scene/backdrop: snowy forest after a winter storm
-Subject: same young forest hero gently helping a frightened squirrel out of a fallen tree
-Style/medium: same children's book watercolor illustration style as Image 1
-Constraints: do not redesign the character; preserve facial features, proportions, outfit, color palette, and personality; no text; no watermark
-```
+> Image 1 is the previous character anchor illustration. Continue the story with
+> the same character in the same children's book watercolor style as Image 1:
+> the same young forest hero gently helping a frightened squirrel out of a
+> fallen tree in a snowy forest after a winter storm. Do not redesign the
+> character; preserve facial features, proportions, outfit, color palette, and
+> personality. No text, no watermark.
 
 ### sketch-to-render
 
-```text
-Use case: sketch-to-render
-Input images: Image 1: drawing
-Primary request: turn the drawing into a photorealistic image
-Constraints: preserve layout, proportions, and perspective; choose realistic materials and lighting; do not add new elements or text
-```
+> Image 1 is a drawing. Turn it into a photorealistic image, preserving the
+> layout, proportions, and perspective exactly and choosing realistic materials
+> and lighting. Do not add new elements or text.

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Conversation } from "@/app/w/(chat)/_components/conversation"
 import { sessionEventsToConversationBlocks } from "@/app/w/(chat)/_lib/session-history"
 import type { SessionSubagentRun } from "@/app/w/(chat)/_lib/session-subagent-runs"
@@ -41,7 +41,7 @@ export function SubagentView({ sessionId }: { sessionId?: string }) {
       <div className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-default">
-            <Icon icon={statusIcon(run)} className="h-4 w-4 text-muted" />
+            <AppIcon icon={statusIcon(run)} className="h-4 w-4 text-muted" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-foreground">
@@ -82,7 +82,7 @@ function SubagentEmptyState({
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="max-w-sm">
         <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-default">
-          <Icon icon="lucide:bot" className="h-5 w-5 text-muted" />
+          <AppIcon icon="bot" className="h-5 w-5 text-muted" />
         </div>
         <h3 className="mt-3 text-sm font-medium text-foreground">{title}</h3>
         <p className="mt-1 text-sm leading-6 text-muted">{message}</p>
@@ -103,9 +103,9 @@ function statusLabel(run: SessionSubagentRun) {
 }
 
 function statusIcon(run: SessionSubagentRun) {
-  if (run.status === "completed") return "lucide:check"
-  if (run.status === "failed") return "lucide:triangle-alert"
-  return "lucide:loader-circle"
+  if (run.status === "completed") return "check"
+  if (run.status === "failed") return "triangle-alert"
+  return "loader-circle"
 }
 
 function emptyRunMessage(run: SessionSubagentRun) {

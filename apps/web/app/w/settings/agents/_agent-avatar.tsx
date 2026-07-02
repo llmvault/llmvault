@@ -1,7 +1,7 @@
 "use client"
 
 import { Avatar } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import {
   agentAvatarURL,
@@ -32,7 +32,7 @@ export function AgentAvatar({
       : size === "md"
         ? "h-[18px] w-[18px]"
         : "h-6 w-6"
-  const icon = "icon" in agent && agent.icon ? agent.icon : "lucide:bot"
+  const icon = "icon" in agent && agent.icon ? agent.icon : "bot"
 
   if (avatarURL) {
     return (
@@ -50,7 +50,7 @@ export function AgentAvatar({
         dimension
       )}
     >
-      <Icon icon={icon} className={iconSize} />
+      <AppIcon icon={icon} className={iconSize} />
     </div>
   )
 }

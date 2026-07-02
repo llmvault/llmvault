@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function LauncherRow({
   icon,
@@ -23,7 +23,7 @@ export function LauncherRow({
         compact ? "px-2.5 py-1.5" : "bg-background px-3 py-2.5"
       }`}
     >
-      <Icon icon={icon} className="h-4 w-4 shrink-0 text-muted" />
+      <AppIcon icon={icon} className="h-4 w-4 shrink-0 text-muted" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className="shrink-0 font-sans text-xs text-muted">{shortcut}</span>
     </button>

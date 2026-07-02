@@ -178,7 +178,7 @@ func TestListChannelsReturnsOrgChannelsWithSlackLinkage(t *testing.T) {
 	fx := seedChannelToolFixture(t, db)
 	other := seedChannelToolFixture(t, db)
 
-	result, err := handleListChannels(t.Context(), db, &fx.agent)
+	result, err := handleListChannels(t.Context(), db, &fx.agent, "")
 	if err != nil {
 		t.Fatalf("handleListChannels: %v", err)
 	}
@@ -223,7 +223,7 @@ func TestListChannelsRespectsAgentChannelRestrictions(t *testing.T) {
 		t.Fatalf("restrict agent channel: %v", err)
 	}
 
-	result, err := handleListChannels(t.Context(), db, &fx.agent)
+	result, err := handleListChannels(t.Context(), db, &fx.agent, "")
 	if err != nil {
 		t.Fatalf("handleListChannels: %v", err)
 	}

@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { modelById } from "@/app/w/(chat)/_lib/agents"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { modelLogoURL } from "@/lib/model-logos"
@@ -84,5 +84,5 @@ export function ModelIcon({
       </span>
     )
   }
-  return <Icon icon="lucide:brain" className={`${className} text-muted`} />
+  return <AppIcon icon="brain" className={`${className} text-muted`} />
 }

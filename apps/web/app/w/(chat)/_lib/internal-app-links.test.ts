@@ -15,7 +15,7 @@ describe("internal app links", () => {
       key: agentHref,
       href: agentHref,
       label: "Edit agent details",
-      icon: "lucide:bot",
+      icon: "bot",
     })
   })
 

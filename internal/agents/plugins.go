@@ -60,7 +60,9 @@ func unknownPluginError(ctx context.Context, db *gorm.DB, orgID uuid.UUID, slug 
 	// Distinguish "exists but not installed" from "does not exist" so the caller
 	// gets actionable guidance, including missing connection requirements.
 	var plugin model.Plugin
-	err := db.WithContext(ctx).Where("slug = ? AND status = ?", slug, model.PluginStatusActive).First(&plugin).Error
+	err := db.WithContext(ctx).
+		Where("slug = ? AND status = ? AND (org_id IS NULL OR org_id = ?)", slug, model.PluginStatusActive, orgID).
+		First(&plugin).Error
 	if err == nil {
 		missing, mErr := missingRequirements(ctx, db, orgID, plugin.ID)
 		if mErr == nil && len(missing) > 0 {

@@ -4,7 +4,7 @@
   "name": "Linear",
   "description": "Plan and track Linear issues, projects, and teams.",
   "category": "Productivity",
-  "icon": "simple-icons:linear",
+  "icon": "linear",
   "icon_color": "#5E6AD2",
   "developer": "Hivy",
   "official": true,

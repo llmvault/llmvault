@@ -78,11 +78,11 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 		t.Fatalf("compile kara runtime definition: %v", err)
 	}
 
-	imageTools := []string{"generate_image", "generate_vector_image"}
+	imageTools := []string{"generate_image", "generate_vector_image", "remix_image"}
 	// Non-empty allow lists gain the read-only MCP floor at compile time so
 	// allow-listed (sub-)agents keep skill/channel access.
 	imageToolsWithFloor := []string{
-		"generate_image", "generate_vector_image", "list_channels", "skill_view", "skills_list",
+		"generate_image", "generate_vector_image", "list_channels", "remix_image", "skill_view", "skills_list",
 	}
 
 	assertToolFilter(t, "kara", def.McpToolFilter, nil, imageTools)

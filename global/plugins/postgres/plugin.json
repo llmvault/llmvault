@@ -4,7 +4,7 @@
   "name": "Postgres",
   "description": "Explore and query connected PostgreSQL databases safely.",
   "category": "Data & Analytics",
-  "icon": "simple-icons:postgresql",
+  "icon": "postgresql",
   "icon_color": "#336791",
   "developer": "Hivy",
   "official": true,

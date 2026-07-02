@@ -146,6 +146,7 @@ impl AgentRunner for RigAgentRunner {
         let session_stream_id = user_input.session_stream_id.clone();
         let provided_trace_id = user_input.trace_id.clone();
         let provided_turn_id = user_input.turn_id.clone();
+        let actor_user_id = user_input.actor_user_id.clone();
         let ModelClientConfig {
             client,
             model_id,
@@ -188,6 +189,7 @@ impl AgentRunner for RigAgentRunner {
         let mut available_tools = build_all_tools(
             &tool_specs,
             session_id,
+            actor_user_id.clone(),
             &tool_context,
             &ToolContext {
                 subagent_task_repo: subagent_task_repo.clone(),
@@ -1965,6 +1967,7 @@ fn build_model_client(
 fn build_all_tools(
     specs: &[domain::ToolSpec],
     session_id: &SessionId,
+    actor_user_id: Option<String>,
     context: &ToolBuildContext,
     tool_context: &ToolContext,
     mcp_registry: Option<Arc<McpRegistry>>,
@@ -1977,6 +1980,7 @@ fn build_all_tools(
             let registry = registry.clone();
             let prefixed = def.prefixed_name.clone();
             let session_id = session_id.clone();
+            let actor_user_id = actor_user_id.clone();
             let definition = tools::ToolDefinition {
                 name: prefixed.clone(),
                 description: def.description,
@@ -1986,9 +1990,15 @@ fn build_all_tools(
                 let registry = registry.clone();
                 let prefixed = prefixed.clone();
                 let session_id = session_id.clone();
+                let actor_user_id = actor_user_id.clone();
                 Box::pin(async move {
                     registry
-                        .call_tool_for_session(session_id.as_str(), &prefixed, args)
+                        .call_tool_for_session(
+                            session_id.as_str(),
+                            actor_user_id.as_deref(),
+                            &prefixed,
+                            args,
+                        )
                         .await
                 })
             })));

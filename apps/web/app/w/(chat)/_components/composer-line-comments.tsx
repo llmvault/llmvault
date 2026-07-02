@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   formatCodeLineCommentLine,
   type CodeLineComment,
@@ -25,7 +25,7 @@ export function ComposerLineComments({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <Icon icon="lucide:message-square" className="h-4 w-4 text-muted" />
+        <AppIcon icon="message-square" className="h-4 w-4 text-muted" />
         {comments.length} {comments.length === 1 ? "comment" : "comments"}
       </button>
       <div
@@ -74,7 +74,7 @@ export function ComposerLineComments({
                     onRemove(comment.id)
                   }}
                 >
-                  <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+                  <AppIcon icon="x" className="h-3.5 w-3.5" />
                 </button>
               </div>
               <p className="mt-2 line-clamp-4 text-sm leading-5 whitespace-pre-wrap">

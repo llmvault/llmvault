@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQuery } from "@tanstack/react-query"
 import { Virtualizer } from "@pierre/diffs/react"
 import {
@@ -83,7 +83,7 @@ export function ReviewView({
   if (!sessionId) {
     return (
       <ReviewEmptyState
-        icon="lucide:file-diff"
+        icon="file-diff"
         title="No active session"
         message="Open a session to review sandbox changes."
       />
@@ -127,7 +127,7 @@ export function ReviewView({
   if (reviewQuery.data?.repos.length === 0) {
     return (
       <ReviewEmptyState
-        icon="lucide:folder-search"
+        icon="folder-search"
         title="No repositories found"
         message="The sandbox has no Git repositories under its workspace repos directory."
       />
@@ -138,8 +138,8 @@ export function ReviewView({
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Icon
-            icon="lucide:file-diff"
+          <AppIcon
+            icon="file-diff"
             className="h-4 w-4 shrink-0 text-muted"
           />
           <span className="truncate text-sm font-medium">Changes</span>
@@ -159,8 +159,8 @@ export function ReviewView({
           isDisabled={reviewQuery.isFetching}
           onPress={() => void reviewQuery.refetch()}
         >
-          <Icon
-            icon="lucide:refresh-cw"
+          <AppIcon
+            icon="refresh-cw"
             className={`h-4 w-4 text-muted ${
               reviewQuery.isFetching ? "animate-spin" : ""
             }`}
@@ -184,7 +184,7 @@ export function ReviewView({
       ) : (
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface">
           <ReviewEmptyState
-            icon="lucide:check-circle-2"
+            icon="check-circle-2"
             title="No changes to review"
             message="Sandbox repositories currently match their base commits."
           />

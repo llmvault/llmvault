@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Chip, Input, Modal, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
@@ -171,7 +171,7 @@ function ChannelDetailsModalContent({
               <div className="px-6 pt-6 pb-4">
                 <div className="flex min-w-0 items-start gap-3 pr-10">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-default text-foreground">
-                    <Icon icon="lucide:hash" className="h-5 w-5" />
+                    <AppIcon icon="hash" className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <Modal.Heading>#{channelName}</Modal.Heading>
@@ -190,8 +190,8 @@ function ChannelDetailsModalContent({
                     isDisabled={!channelID}
                     onPress={copyChannelID}
                   >
-                    <Icon
-                      icon={copied ? "lucide:check" : "lucide:copy"}
+                    <AppIcon
+                      icon={copied ? "check" : "copy"}
                       className="h-4 w-4"
                     />
                     Copy ID
@@ -351,8 +351,8 @@ function AboutPanel({
           isDisabled={!channel?.id}
           onPress={onCopyID}
         >
-          <Icon
-            icon={copied ? "lucide:check" : "lucide:copy"}
+          <AppIcon
+            icon={copied ? "check" : "copy"}
             className="h-4 w-4 text-muted"
           />
         </Button>

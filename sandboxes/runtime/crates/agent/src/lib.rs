@@ -28,6 +28,9 @@ pub struct TurnInput {
     pub session_stream_id: Option<String>,
     pub trace_id: Option<String>,
     pub turn_id: Option<String>,
+    /// Hivy user id of the human behind this turn, injected into agent tool
+    /// calls as `_hivy_actor_user_id`. None for automated runs.
+    pub actor_user_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,7 +57,13 @@ impl TurnInput {
             session_stream_id: None,
             trace_id: None,
             turn_id: None,
+            actor_user_id: None,
         }
+    }
+
+    pub fn with_actor_user(mut self, actor_user_id: Option<String>) -> Self {
+        self.actor_user_id = actor_user_id.filter(|id| !id.trim().is_empty());
+        self
     }
 
     pub fn with_history(mut self, history: Vec<HistoryEntry>) -> Self {

@@ -30,29 +30,29 @@ export function usesCustomEditor(type: string | undefined): boolean {
 export function fieldTypeIcon(type: string | undefined): string {
   switch (type) {
     case "long_text":
-      return "lucide:text"
+      return "text"
     case "number":
-      return "lucide:hash"
+      return "hash"
     case "checkbox":
-      return "lucide:square-check"
+      return "square-check"
     case "select":
-      return "lucide:circle-chevron-down"
+      return "circle-chevron-down"
     case "multi_select":
-      return "lucide:list-checks"
+      return "list-checks"
     case "date":
-      return "lucide:calendar"
+      return "calendar"
     case "url":
-      return "lucide:link"
+      return "link"
     case "email":
-      return "lucide:mail"
+      return "mail"
     case "phone":
-      return "lucide:phone"
+      return "phone"
     case "attachment":
-      return "lucide:paperclip"
+      return "paperclip"
     case "relation":
-      return "lucide:git-fork"
+      return "git-fork"
     default:
-      return "lucide:type"
+      return "type"
   }
 }
 

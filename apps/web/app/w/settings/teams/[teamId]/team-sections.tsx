@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Chip, ListBox, Select, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
@@ -103,7 +103,7 @@ export function TeamMembersSection({
           Members{members.length ? ` (${members.length})` : ""}
         </h2>
         <Button variant="tertiary" size="sm" onPress={onInvite}>
-          <Icon icon="lucide:user-plus" className="h-4 w-4" />
+          <AppIcon icon="user-plus" className="h-4 w-4" />
           Invite to team
         </Button>
       </div>
@@ -389,7 +389,7 @@ function ChannelRow({
       )}
     >
       <span className="bg-default flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted">
-        <Icon icon="lucide:hash" className="h-4 w-4" />
+        <AppIcon icon="hash" className="h-4 w-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium">

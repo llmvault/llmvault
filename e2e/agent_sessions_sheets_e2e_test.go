@@ -418,7 +418,7 @@ func sheetsE2EConnectMCP(t *testing.T, ctx context.Context, db *gorm.DB, svc *sh
 			model.TokenMetaAgentID: agentID.String(),
 		},
 	}
-	server, err := mcpserver.BuildServer(ctx, token, db, nil, nil, nil, nil, nil, skills.NewToolsFunc(db), nil, sheets.NewToolsFunc(svc))
+	server, err := mcpserver.BuildServer(ctx, token, db, nil, nil, nil, nil, nil, skills.NewToolsFunc(db, "http://localhost:3000"), nil, sheets.NewToolsFunc(svc))
 	if err != nil {
 		t.Fatalf("build MCP server: %v", err)
 	}

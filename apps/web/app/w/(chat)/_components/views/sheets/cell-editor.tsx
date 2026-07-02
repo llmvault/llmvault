@@ -14,7 +14,7 @@ import {
   TagGroup,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { parseDate, type DateValue } from "@internationalized/date"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -151,7 +151,7 @@ function ChoiceRow({
         }`}
       >
         {selected ? (
-          <Icon icon="lucide:check" className="h-3 w-3 text-accent-foreground" />
+          <AppIcon icon="check" className="h-3 w-3 text-accent-foreground" />
         ) : null}
       </span>
       <span className="truncate">{label}</span>
@@ -287,7 +287,7 @@ function DateEditor({
           isDisabled={draft === null}
           onPress={() => commit(null, true)}
         >
-          <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+          <AppIcon icon="x" className="h-3.5 w-3.5" />
         </Button>
       </div>
       <Calendar
@@ -297,11 +297,11 @@ function DateEditor({
       >
         <Calendar.Header>
           <Calendar.NavButton slot="previous">
-            <Icon icon="lucide:chevron-left" className="h-4 w-4" />
+            <AppIcon icon="chevron-left" className="h-4 w-4" />
           </Calendar.NavButton>
           <Calendar.Heading />
           <Calendar.NavButton slot="next">
-            <Icon icon="lucide:chevron-right" className="h-4 w-4" />
+            <AppIcon icon="chevron-right" className="h-4 w-4" />
           </Calendar.NavButton>
         </Calendar.Header>
         <Calendar.Grid>
@@ -503,8 +503,8 @@ function RelationEditor({
               <ListBox.Item id={item.id} textValue={item.label}>
                 <span className="flex min-w-0 items-center gap-2">
                   {linked.includes(item.id) ? (
-                    <Icon
-                      icon="lucide:check"
+                    <AppIcon
+                      icon="check"
                       className="h-3.5 w-3.5 shrink-0 text-accent"
                     />
                   ) : (
@@ -598,11 +598,11 @@ function AttachmentEditor({
                   className="h-8 w-8 shrink-0 rounded-md border border-border object-cover"
                 />
               ) : (
-                <Icon
+                <AppIcon
                   icon={
                     isImageAttachmentKey(key)
-                      ? "lucide:image"
-                      : "lucide:paperclip"
+                      ? "image"
+                      : "paperclip"
                   }
                   className="h-3.5 w-3.5 shrink-0 text-muted"
                 />
@@ -621,7 +621,7 @@ function AttachmentEditor({
                 {downloadingKey === key ? (
                   <Spinner size="sm" />
                 ) : (
-                  <Icon icon="lucide:download" className="h-3.5 w-3.5" />
+                  <AppIcon icon="download" className="h-3.5 w-3.5" />
                 )}
               </Button>
               <Button
@@ -631,7 +631,7 @@ function AttachmentEditor({
                 aria-label="Remove attachment"
                 onPress={() => onCommit(keys.filter((entry) => entry !== key))}
               >
-                <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
+                <AppIcon icon="trash-2" className="h-3.5 w-3.5" />
               </Button>
             </div>
           )
@@ -656,7 +656,7 @@ function AttachmentEditor({
         {uploading ? (
           <Spinner size="sm" />
         ) : (
-          <Icon icon="lucide:upload" className="h-3.5 w-3.5" />
+          <AppIcon icon="upload" className="h-3.5 w-3.5" />
         )}
         Upload file
       </Button>

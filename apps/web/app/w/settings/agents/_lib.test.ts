@@ -136,7 +136,7 @@ describe("agent catalog helpers", () => {
       id: "plugin-1",
       slug: "github",
       name: "GitHub",
-      icon: "simple-icons:github",
+      icon: "github",
       icon_color: "#181717",
       required_connections: [
         { provider: "github-app", kind: "integration", required: true },

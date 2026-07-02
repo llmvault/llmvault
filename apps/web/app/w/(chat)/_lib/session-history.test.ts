@@ -375,8 +375,8 @@ Primary category: Product UI
             label: "Took a screenshot",
             detail: {
               kind: "Chrome browser",
-              icon: "logos:chrome",
-              actionIcon: "lucide:camera",
+              icon: "chrome",
+              actionIcon: "camera",
             },
           },
         ],

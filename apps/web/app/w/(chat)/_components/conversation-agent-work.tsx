@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Collapse } from "@/app/w/(chat)/_components/conversation-collapse"
 import type { ConversationBlock } from "@/app/w/(chat)/_lib/static-data"
 
@@ -38,8 +38,8 @@ export function AgentWorkBlock({
         aria-expanded={expanded}
       >
         <span>{label}</span>
-        <Icon
-          icon="lucide:chevron-right"
+        <AppIcon
+          icon="chevron-right"
           className={`h-5 w-5 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
         />
       </button>

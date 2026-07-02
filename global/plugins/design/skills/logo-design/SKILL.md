@@ -1,210 +1,233 @@
 ---
 name: logo-design
-description: Use when designing, redesigning, refining, critiquing, or exploring logos, wordmarks, monograms, brand marks, lockups, favicon marks, app marks, or logo variants. This is a design-direction skill for logo taste and judgment: mark architecture, typographic register, symbol approach, restraint, small-size discipline, application context, critique, and decision-ready presentation. In Hivy, use this skill with the canvas skill: think with logo-design, then create and verify the actual logo exploration artifact in Hivy Canvas.
+description: Use when a user asks to design, create, generate, redesign, refine, or explore a logo, wordmark, monogram, brand mark, symbol, lockup, app icon, favicon, or logo variants — or to turn a raster logo into a clean SVG. This skill produces a complete, production-ready logo pack: one generated vector symbol becomes a full set of lockups, app icon, monochrome, reverse, and favicon assets, delivered as scalable SVGs and transparent PNGs at every size. It also teaches logo judgment (mark architecture, typography, restraint, small-size discipline) for exploring and presenting directions.
 ---
 
-# Logo Design For Hivy Canvas
+# Logo design: generate one mark, deliver a whole logo pack
 
-Use this skill to make logo work more tasteful, disciplined, and decision-ready. It tells Kara how to think, critique, narrow, and present logo directions, then routes execution through a Canvas artifact.
+This skill turns a brand into a **complete logo pack** the user can actually use:
+a symbol, horizontal and stacked lockups, an app icon, monochrome and reverse
+versions, and a favicon — each as an infinitely scalable **SVG** and a set of
+transparent **PNGs**. The heavy lifting is done by two bundled scripts, so you
+mostly gather inputs, generate a mark, and run commands.
 
-The Canvas artifact is the source of truth. Markdown notes are supporting documentation only.
+## The one principle that makes this work
 
-## Core Model
+**Generate the symbol ONCE. Build everything else from it — never regenerate it.**
 
-A logo is a system of marks, not a single drawing. Good logo work explores architectures, tests application contexts, removes weak ideas, and presents a small number of meaningfully different directions with clear rationale.
+Image generation is creative: every call redraws from scratch and drifts, so
+generating "the mark", then "the mark inside a lockup", then "the mark as an app
+icon" would give you three *different* marks. That is unacceptable for a logo.
 
-Work in this order:
+Because the output is SVG (editable vector), the `logo_pack.mjs` script reuses the
+**exact same `<path>` geometry** everywhere — recoloring or repositioning it, never
+redrawing — so the mark is byte-identical across the whole pack. The script prints
+`GEOMETRY IDENTITY: PASS` to prove it. This is the only way to guarantee a
+consistent mark.
 
-1. Clarify the brand and application context.
-2. Select the mark architectures worth exploring.
-3. Establish typographic and symbol direction.
-4. Create distinct Canvas artifact variants, not minor style tweaks.
-5. Test each variant in real logo contexts.
-6. Present the strongest directions with rationale, rejects, and next-step recommendations.
+You only ever make a fresh generation call to explore *different mark concepts*
+before one is chosen. Once chosen, the mark is frozen.
 
-## Required Canvas Coupling
+---
 
-When the user asks to create, draw, mock up, iterate, export, or present logo work:
+## Procedure (follow exactly)
 
-1. Load the `canvas` skill before making or editing the logo artifact.
-2. Run `canvas doctor`, then list or create the target project.
-3. Run `canvas brands list` before choosing colors, typography, logo constraints, or voice. Use the default org brand when present; otherwise inspect the relevant brand with `canvas brands view <brand-id>`. If the list is empty and color direction is needed, choose a defensible starting palette from the brief or product context, create it with `canvas brands create`, and tell the user what was saved.
-4. Create or open a `web_page` artifact for the logo exploration.
-5. Build logo exploration sections in semantic HTML: brief, territories, variants, application tests, shortlist, and export-ready direction.
-6. Use `article` elements for individual variants and `figure` elements for marks, lockups, and mockups. Add stable `data-canvas-id` anchors to every major section and variant.
-7. Run `canvas artifact validate` after each structural batch and fix error-level issues.
-8. Use Agent Browser to inspect desktop and mobile renderings, test any variant filters or tabs, and capture screenshots.
-9. Run `canvas artifact verify`, then `canvas artifact sync` when the exploration is ready.
+### 1. Gather the brand inputs
 
-Use Canvas for the actual work: variant sections, lockups, favicon tests, monochrome tests, reverse-on-dark tests, application mockups, and final selected direction.
+You need three things. If any are missing and would change the design, ask **one**
+`request_user_input` with concrete options; otherwise proceed and state assumptions.
 
-Do not produce final logo work only as prose, SVG snippets, or local image files unless the user explicitly asks for non-Canvas output. If a local SVG or PNG is useful, use it as a temporary construction aid or generated asset, then include it in the Canvas artifact.
+- **Brand name** — exact spelling and casing (e.g. `Meadowlark`, `blip`).
+- **Brand color** — a hex value (e.g. `#3F7D4E`). If none given, pick a defensible
+  one from the category/tone and say what you chose.
+- **Vibe / category** — a few words (e.g. "organic farm", "Gen-Z chat app",
+  "enterprise SaaS"). Drives the symbol idea and typographic register.
 
-## Brand Source Rule
+### 1b. Choose the right direction for the brand
 
-Org brands are the source of truth for existing brand values. Always run `canvas brands list` before selecting colors, typography, logo usage, or brand voice. Use the default brand when one exists. If there are multiple brands and no default, use `request_user_input` to choose which brand to design against.
+Before writing any prompt, decide what *kind* of logo fits this brand — do not
+default to one look. Read `references/brand-logo-playbook.md` and pick, for the
+brand's category: the **architecture** (symbol+lockup, wordmark, lettermark, or
+monogram), the **symbol approach**, the **typographic register**, and the **color
+direction**. A dev tool, a farm, and a kids' app should not get the same treatment.
 
-If no org brand exists, choose a starter palette only when the brief, audience, category, or desired tone gives enough direction; then create a brand record with `canvas brands create` before treating that palette as the brand. Tell the user what brand and palette you saved. If context is too thin, use `request_user_input` for one focused direction question.
+### 2. Generate 2–3 mark options
 
-## When To Use
+Call `hivy_generate_vector_image` **once per option** (2–3 calls), varying the idea
+and/or style so the user has a real choice. Each call returns JSON with a
+`public_url` and `drive_asset_id` — keep them. Set `type: logo`.
 
-Use this skill when:
+Choose the mark type from step 1b and prompt it precisely:
 
-- The user asks for a logo, wordmark, brand mark, app icon, favicon mark, monogram, lockup, or logo refresh.
-- The user wants tasteful logo directions rather than a quick icon.
-- A brand identity task has a logo-specific phase.
-- The user asks for logo critique, logo variants, or production refinement.
-- The user wants a mark to work across web header, social avatar, favicon, app icon, merch, print, signage, or motion.
+- **Pictorial symbol** — the default. Symbol only, **no text, no letters**. Use the
+  template and validated examples in `references/mark-prompts.md`.
+- **Lettermark / monogram / custom wordmark** — when the brand is best carried by
+  type (short/distinctive name, premium, institutional). Describe the letterforms
+  *specifically* — construction, weight, terminals, corners, one distinctive detail —
+  and give exact hex colors. Vague prompts produce generic type; precise ones produce
+  a designed mark. Full vocabulary, templates, and worked examples are in
+  `references/type-and-color-prompts.md`.
 
-Do not use it for one-off illustration, generic UI design, full brand strategy, or broad product creative direction unless the task includes concrete logo work.
+Whatever the type, enforce: one subject, flat vector, one brand color (exact hex),
+transparent background, centered, no background shapes.
 
-## Inputs To Gather
+### 3. Let the user choose the mark
 
-Ask only for missing inputs that would materially change the design. When input is needed, use the `request_user_input` tool instead of asking a plain-text questionnaire. Keep it to one to three focused questions, with concrete options when selection is useful. If the user gives enough context, proceed and state assumptions in the Canvas presentation notes.
+You cannot reliably judge a mark visually — the **user** is the judge. Post each
+option's `public_url` in your reply (the chat renders them inline), then use
+`request_user_input` to ask which mark to build the pack from. (Only skip this if
+the user explicitly wants a single fast result.)
 
-Collect:
+If the user likes a candidate but wants a change ("this one, but thicker"), refine
+it by calling the tool again with that mark's `drive_asset_id` in
+`reference_asset_ids` plus a revised prompt — see "Refining a near-miss" in
+`references/mark-prompts.md`. Repeat until they approve; only then is the mark
+frozen and the pack built.
 
-- Brand name: exact spelling, casing, punctuation, and whether a descriptor travels with it.
-- Category: SaaS, finance, legal, education, creator tools, hospitality, consumer goods, etc.
-- Audience: who sees the logo and what they need to feel or understand quickly.
-- Tone: formal/casual, restrained/expressive, heritage/modern, premium/accessible.
-- Org brand: selected from `canvas brands list` when available, including existing colors, typography, logos, and voice; if none exists, the newly created Canvas brand after choosing a starter palette.
-- Applications: web header, favicon, app icon, social avatar, business card, signage, print, merch, motion.
-- References liked: what specifically resonates, not just the brand name.
-- References disliked: what to avoid.
-- Hard constraints: org brand values, colors, symbols, legal restrictions, existing type, one-color requirement, embroidery, small-size requirement.
+### 4. Download the chosen mark into the workspace
 
-## Logo Judgment Framework
+Use the chosen option's `public_url`. The URL redirects, so `-L` is required:
 
-### 1. Mark Architecture
+```bash
+mkdir -p /workspace/logo
+curl -fL --retry 3 --retry-all-errors --connect-timeout 10 --max-time 120 \
+  -o /workspace/logo/mark.svg "<PUBLIC_URL_OF_CHOSEN_MARK>"
+test -s /workspace/logo/mark.svg || { echo "download failed"; exit 1; }
+```
 
-Choose the structure before drawing details:
+### 5. Build the complete pack (one command)
 
-- Wordmark: the name is the logo. Best when the name is distinctive and typography can carry the brand.
-- Lockup: wordmark plus symbol. Best default for new brands because it supports recognition and fallback marks.
-- Symbol-only: rarely primary for new brands; useful as a secondary mark after recognition exists.
-- Letterform-as-symbol: a letter becomes the mark. Strong for favicons, app icons, and constrained square contexts.
-- Monogram: multiple letters become a mark. Strong for longer names, institutional categories, hospitality, legal, finance, and premium services.
+```bash
+node .skills/logo-design/scripts/logo_pack.mjs \
+  --mark /workspace/logo/mark.svg \
+  --name "BrandName" \
+  --color "#3F7D4E" \
+  --out /workspace/logo/pack
+```
 
-Default for most new brands: primary lockup, plus a square symbol or letterform fallback, plus monochrome and reverse versions.
+Optional flags: `--font "Georgia, serif"` (wordmark typeface; default is a clean
+sans), `--weight 600`, `--wordmark /workspace/logo/wordmark.svg` (use a generated
+custom wordmark instead of typeset text), `--recolor true` (force every non-white
+fill to the exact `--color` hex — use whenever the brand color must be exact, and
+always when combining a generated mark with a generated wordmark, since separate
+generations never match hues), `--sizes 1024,512,256,128,64` (PNG ladder for
+square assets).
 
-### 2. Typographic Register
+The script automatically repairs two common generation defects: it **recrops the
+viewBox** to the content bounding box (generated marks often arrive cropped or
+off-center — never discard a mark for bad framing) and **flattens CSS class styles
+to inline fills** (generated SVGs reuse the same class names; composing two without
+flattening silently recolors or hides one).
 
-Pick type for category, longevity, and signal:
+**Confirm the script prints `GEOMETRY IDENTITY: PASS ✅`.** If it prints `FAIL`, the
+mark SVG was malformed — regenerate the mark and retry. The pack lands in
+`/workspace/logo/pack/` and contains, for each asset, an `.svg` plus transparent
+`.png`s at multiple sizes:
 
-- Geometric sans: modern, optimistic, clean; risks generic startup polish.
-- Humanist sans: professional, warm, readable; good default when trust and approachability both matter.
-- Neo-grotesque sans: competent and current; needs a strong mark or custom detail to avoid anonymity.
-- Transitional serif: editorial, considered, intellectual; useful for premium, legal, publishing, finance.
-- Old-style serif: heritage, institutional, warm; can feel conservative if unchallenged.
-- Slab serif: sturdy, declarative, journalistic; useful for strong editorial or maker brands.
-- Custom display: distinctive but easy to overdo; justify each custom letterform.
+- `mark` — the symbol alone
+- `lockup-horizontal`, `lockup-stacked` — symbol + typeset wordmark
+- `app-icon` — white mark on the brand-color rounded square
+- `mono-black` — single-ink version
+- `reverse-white` — for dark backgrounds
+- `favicon` — square mark at 16–128px
+- `manifest.json` — the asset list + mark id
 
-Do not choose a trendy typeface just because it feels current. Choose the register that matches the audience-side perception.
+### 6. Deliver the pack to the user (one command)
 
-### 3. Symbol Approach
+```bash
+bash .skills/logo-design/scripts/deliver.sh /workspace/logo/pack logos/brandname
+```
 
-Choose one primary symbolic idea:
+This uploads every file to the org drive and prints `"<relative-path>  <asset_url>"`
+for each. (It uses the sandbox-injected `HIVY_DRIVE_UPLOAD_URL` /
+`HIVY_DRIVE_UPLOAD_BEARER` — no setup needed.)
 
-- Literal: recognizable but prone to cliche unless drawn with specificity.
-- Abstract gesture: expressive but must have clear formal logic.
-- Geometric reduction: confident and scalable but often generic.
-- Letterform-derived: coherent because it comes from the name.
-- Monogram: compact and institutional; best when initials matter.
+### 7. Present the result — link EVERY asset
 
-A logo can hold one idea well, sometimes two. Three ideas usually become committee work.
+Files are only visible to the user if their URL is in your reply. **You must provide
+a link to every single asset in the pack — never a subset, never "and the rest."**
+`deliver.sh` prints one `asset_url` per file; every one of those URLs goes in your
+reply.
 
-### 4. Application Discipline
+Structure the reply so it stays readable:
 
-Every serious candidate must be tested in Canvas:
+- **Show the hero previews inline** by pasting these three `asset_url`s on their own
+  lines so the chat renders them: `lockup-horizontal-1000.png`, `app-icon-512.png`,
+  `mark-512.png`.
+- **Then list every remaining file** as a labeled link, grouped by asset (mark,
+  lockups, app icon, monochrome, reverse, favicon), including each size and each
+  `.svg`. Do not omit any — a logo pack is only useful if the user can reach the
+  whole stock. If the list is long, group it under short headings; still include
+  all URLs.
+- Tell the user: **SVGs are the master files** (infinitely scalable, editable);
+  **PNGs are transparent** and provided at each size for direct use.
 
-- Primary lockup on a web header.
-- Square avatar/app icon.
-- Favicon at 32px and 16px.
-- Single-color black on white.
-- Reverse white on dark.
-- Business card or small print context.
-- Optional based on brief: embroidery patch, signage, motion frame, merch.
+Never describe a file you did not link. If a file was delivered, its URL is in the
+reply.
 
-Eliminate candidates that fail small-size legibility, single-color reproduction, or silhouette recognition unless they are explicitly display-only marks.
+---
 
-### 5. Restraint
+## Bonus: turn an existing raster logo into an SVG
 
-Most logo failure is over-design. Use these tests:
+If the user uploads a PNG/JPEG logo (a drive asset), vectorize it instead of
+generating:
 
-- Silhouette: the mark still reads when reduced to shape.
-- Sketchability: someone can redraw the core idea from memory.
-- Single-color: color is not doing the recognition work.
-- Small-size: details survive at 16px and 32px.
-- Distinctiveness: it does not look like three category competitors.
-- Two-second memory: people remember one clear feature, not a bundle of decorative details.
+1. Call `hivy_vectorize_image` with `reference_asset_ids: ["<the raster asset id>"]`.
+   It returns a clean SVG (`public_url`).
+2. `curl -fL` it to `/workspace/logo/mark.svg`, then run `logo_pack.mjs` from step 5
+   to produce the full pack, or use the converter below for just PNGs.
 
-If an element does not help at the smallest important size, remove it or reserve it for a larger application.
+## Bonus: convert any SVG to transparent PNGs
 
-## Canvas Artifact Structure
+```bash
+node .skills/logo-design/scripts/svg_to_png.mjs input.svg --out /workspace/logo/png \
+  --sizes 1024,512,256,128,64
+```
 
-Create a dedicated `web_page` artifact named `Logo Exploration` unless the existing project already has a suitable artifact.
+Transparent by default. Add `--background "#ffffff"` for a solid background.
 
-Use these semantic sections:
+## The scripts
 
-- `logo-brief`: brand name, audience, category, constraints, references, rejection list.
-- `logo-territories`: 3-5 concept territories, each with a short rationale and visual rules.
-- `logo-variants`: 6-12 distinct variants across architectures. Fewer is better if each is strong.
-- `logo-application-tests`: favicon, avatar, monochrome, reverse, web header, business card, and any brief-specific contexts.
-- `logo-shortlist`: top 2-4 candidates with recommendation, risks, and next iteration notes.
-- `logo-export`: final selected direction and export-ready arrangements, only after the user chooses a direction.
+All under `.skills/logo-design/scripts/` (materialized automatically):
 
-Use semantic `data-canvas-id` names such as `variant-03-symbol`, `variant-03-wordmark`, `test-favicon-16`, and `lockup-horizontal`. Avoid appearance-only names like `blue-shape`.
+- `logo_pack.mjs` — builds the full pack from one mark, reusing exact geometry, and
+  self-verifies consistency. Rasterizes with `rsvg-convert` if present, else
+  auto-installs `@resvg/resvg-js`. No setup required.
+- `svg_to_png.mjs` — standalone SVG→PNG converter (same rasterizer).
+- `deliver.sh` — uploads a directory to the org drive and prints each file's URL.
 
-## Variant Standard
+---
 
-Each variant in the Canvas artifact should include:
+## Logo judgment (for good marks and confident presentation)
 
-- Variant name and index.
-- Architecture: wordmark, lockup, symbol, letterform, or monogram.
-- Typographic register and any custom letterform notes.
-- Symbol approach and what it signals.
-- What it rejects.
-- Application notes: where it works and where it needs fallback.
-- Small-size test strip: 64px, 32px, 16px.
-- Single-color and reverse versions.
+The pack pipeline handles production; these principles make the *mark itself* good.
+Load the reference files only as needed.
 
-Make variants meaningfully different. Do not present six near-identical geometric sans wordmarks.
+- **Pick the right direction per brand** — architecture, symbol, register, and color
+  by category, with exemplars. → `references/brand-logo-playbook.md`
+- **Prompt precise type & color** — custom letterforms, monograms, wordmarks, and
+  exact hex color. → `references/type-and-color-prompts.md`
+- **Architecture** — most new brands want a **primary lockup** (symbol + wordmark)
+  plus a square symbol/letterform fallback, monochrome, and reverse. Symbol-only is
+  a secondary mark, earned after recognition. → `references/architectures-explained.md`
+- **Typography** — choose the register for audience-side perception, not trend:
+  humanist sans for trust+warmth, geometric sans for modern optimism, transitional
+  serif for premium/editorial, monogram/slab for institutional. → `references/typographic-registers.md`
+- **Symbol** — one primary idea (literal drawn with specificity, abstract gesture
+  with formal logic, geometric reduction, or letterform-derived). Two can coexist;
+  three become committee work. → `references/symbol-approaches.md`, `references/mark-prompts.md`
+- **Restraint & small-size** — it must pass silhouette, sketchability, single-color,
+  and 16px/32px legibility. Most logo failure is over-design. → `references/application-contexts.md`
+- **Category fit** — avoid the clichés of the category (globes, swooshes, three
+  circles) unless subverting them deliberately. → `references/category-conventions.md`
+- **Variant rationale** — when writing up why a direction works. → `references/example-variant-spec.md`
 
-## Presentation Standard
+## Optional: a presentation board in Canvas
 
-When presenting back to the user:
-
-1. State the Canvas project, artifact, and artifact path.
-2. Summarize the strongest directions, not every operation performed.
-3. For each shortlisted direction, explain:
-   - what it communicates,
-   - where it works best,
-   - what it intentionally avoids,
-   - what risk remains.
-4. Recommend one direction when the evidence supports it.
-5. Use `request_user_input` to ask for selection or targeted feedback, not broad open-ended taste reactions.
-
-Ask "Which direction best fits the brand's audience and use cases?" rather than "Which one do you like?"
-
-## Critique Standard
-
-When critiquing an existing logo:
-
-1. Inspect the actual asset, Canvas artifact, or supplied screenshot when available.
-2. Score it against architecture, type, symbol logic, small-size legibility, single-color reproduction, distinctiveness, and category fit.
-3. Separate fixable production issues from deeper strategic issues.
-4. Recommend whether to refine, refresh, or redesign.
-5. If redesigning, create the exploration in Canvas.
-
-## Reference Files
-
-Load only what the task needs:
-
-- `references/architectures-explained.md`: use when choosing or explaining mark architecture.
-- `references/typographic-registers.md`: use for wordmarks, typography, and category-fit decisions.
-- `references/symbol-approaches.md`: use when exploring symbol, monogram, or letterform concepts.
-- `references/application-contexts.md`: use for favicon, app icon, print, embroidery, signage, motion, and production tests.
-- `references/category-conventions.md`: use when the category has strong logo conventions or cliches.
-- `references/example-variant-spec.md`: use when writing detailed rationale for variants.
-Treat the reference files as design judgment references; translate any non-Hivy output expectations into Canvas artifact sections and verified previews.
+The steps above deliver real files directly, which is usually what the user wants.
+If the user asks for an **exploration board or a presentation** of directions, use
+the `canvas` skill to build a `web_page` artifact (brief → territories → variants →
+application tests → shortlist), embedding the delivered asset URLs, then
+`canvas artifact verify` and `canvas artifact sync`. Run `canvas brands list` first
+and design against the org's default brand when one exists. Canvas is for
+presentation; the logo pack is the deliverable.

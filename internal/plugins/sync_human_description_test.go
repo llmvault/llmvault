@@ -23,7 +23,7 @@ func TestSyncLocalStoresSkillHumanDescription(t *testing.T) {
 		"name": "Human Description Demo",
 		"description": "Demo plugin.",
 		"category": "Testing",
-		"icon": "lucide:test-tube",
+		"icon": "test-tube",
 		"icon_color": "#111827",
 		"developer": "Hivy",
 		"plugin_version": "1",

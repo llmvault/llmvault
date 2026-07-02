@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button, Popover, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { components } from "@/lib/api/schema"
 import {
   RequirementLogo,
@@ -69,7 +69,7 @@ export function RequiredConnectionsSection({
       {missing.length > 0 ? (
         <div className="flex gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
-            <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
+            <AppIcon icon="triangle-alert" className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-medium text-foreground">
@@ -149,7 +149,7 @@ export function RequiredConnectionsSection({
                     aria-label="Connected"
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
                   >
-                    <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+                    <AppIcon icon="check" className="h-3.5 w-3.5" />
                   </span>
                   {disconnectTarget ? (
                     <RequiredConnectionOptionsMenu
@@ -209,7 +209,7 @@ function RequiredConnectionOptionsMenu({
         data-open={open ? "true" : undefined}
         className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default aria-disabled:pointer-events-none aria-disabled:opacity-45 data-[open=true]:bg-default"
       >
-        <Icon icon="lucide:ellipsis" className="h-4 w-4" />
+        <AppIcon icon="ellipsis" className="h-4 w-4" />
       </Popover.Trigger>
       {open ? (
         <Popover.Content
@@ -225,7 +225,7 @@ function RequiredConnectionOptionsMenu({
                 onClick={reconnect}
                 className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
               >
-                <Icon icon="lucide:refresh-cw" className="h-4 w-4 shrink-0" />
+                <AppIcon icon="refresh-cw" className="h-4 w-4 shrink-0" />
                 Reconnect
               </button>
             ) : null}
@@ -241,7 +241,7 @@ function RequiredConnectionOptionsMenu({
                 onClick={disconnect}
                 className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-danger transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
               >
-                <Icon icon="lucide:unlink" className="h-4 w-4 shrink-0" />
+                <AppIcon icon="unlink" className="h-4 w-4 shrink-0" />
                 Disconnect
               </button>
             ) : null}

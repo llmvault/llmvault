@@ -41,7 +41,8 @@
   "mcp_tool_filter": {
     "deny": [
       "generate_image",
-      "generate_vector_image"
+      "generate_vector_image",
+      "remix_image"
     ]
   },
   "skill_filter": {
@@ -72,7 +73,8 @@
       "mcp_tool_filter": {
         "deny": [
           "generate_image",
-          "generate_vector_image"
+          "generate_vector_image",
+          "remix_image"
         ]
       },
       "skill_filter": {
@@ -90,7 +92,8 @@
       "mcp_tool_filter": {
         "allow": [
           "generate_image",
-          "generate_vector_image"
+          "generate_vector_image",
+          "remix_image"
         ]
       },
       "skill_filter": {
@@ -120,7 +123,8 @@
       "mcp_tool_filter": {
         "deny": [
           "generate_image",
-          "generate_vector_image"
+          "generate_vector_image",
+          "remix_image"
         ]
       },
       "skill_filter": {

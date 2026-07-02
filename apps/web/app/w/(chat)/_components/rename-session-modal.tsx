@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Modal, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { patchSessionInChatCaches } from "@/app/w/(chat)/_lib/chat-cache"
@@ -76,7 +76,7 @@ export function RenameSessionModal({
             <form onSubmit={submit}>
               <Modal.Header>
                 <Modal.Icon className="bg-default size-12 text-foreground">
-                  <Icon icon="lucide:pencil" className="h-6 w-6" />
+                  <AppIcon icon="pencil" className="h-6 w-6" />
                 </Modal.Icon>
                 <div className="flex flex-col gap-1">
                   <Modal.Heading>Rename chat</Modal.Heading>

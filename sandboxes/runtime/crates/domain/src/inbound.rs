@@ -9,6 +9,11 @@ pub struct InboundEvent {
     pub session_id: SessionId,
     pub user: String,
     pub user_display_name: Option<String>,
+    /// Hivy user id of the human on whose behalf this turn runs, when known.
+    /// Injected into agent tool calls as `_hivy_actor_user_id` so tools can
+    /// authorize on the requesting user. None for automated (trigger/cron/
+    /// system) runs that have no human actor.
+    pub actor_user_id: Option<String>,
     pub text: String,
     pub attachments: Vec<Attachment>,
     pub session_context: Vec<String>,

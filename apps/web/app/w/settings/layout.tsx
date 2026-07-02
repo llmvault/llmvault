@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import { AuthProvider } from "@/lib/auth/auth-context"
 import { NAV_SECTIONS, settingsHref } from "./_components/nav"
@@ -39,11 +39,11 @@ function SettingsChrome({ children }: { children: React.ReactNode }) {
             href="/w"
             className="flex items-center gap-2 text-sm text-muted transition-colors hover:text-foreground"
           >
-            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+            <AppIcon icon="arrow-left" className="h-4 w-4" />
             Back to app
           </Link>
           <div className="flex items-center gap-2 rounded-xl border border-border bg-field-background px-3 py-1.5">
-            <Icon icon="lucide:search" className="h-4 w-4 shrink-0 text-muted" />
+            <AppIcon icon="search" className="h-4 w-4 shrink-0 text-muted" />
             <input
               type="text"
               value={query}
@@ -74,7 +74,7 @@ function SettingsChrome({ children }: { children: React.ReactNode }) {
                       active ? "bg-default" : "hover:bg-default"
                     )}
                   >
-                    <Icon icon={item.icon} className="h-4 w-4 shrink-0 text-muted" />
+                    <AppIcon icon={item.icon} className="h-4 w-4 shrink-0 text-muted" />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   </Link>
                 )

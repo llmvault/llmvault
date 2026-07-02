@@ -22,7 +22,13 @@ const skillViewDescription = "Load a skill's full content and materialize its bu
 // for agent proxy MCP servers. Skills are DB-backed and scoped to the token's
 // agent/org; skill_view returns a materialize payload the runtime writes to
 // the sandbox workspace.
-func NewToolsFunc(db *gorm.DB) func(server *mcp.Server, token *model.Token) {
+//
+// It also registers the privileged skill-manager tools (create_org_plugin,
+// create_skill, update_skill, archive_skill) ONLY when the calling agent is
+// permitted: the org's default Hivy agent, or an agent whose
+// McpToolFilter.Allow explicitly names one of them. frontendURL builds the
+// environment-settings link in manager tool responses.
+func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || db == nil || !skillToolAgentProxy(token) {
 			return
@@ -33,6 +39,12 @@ func NewToolsFunc(db *gorm.DB) func(server *mcp.Server, token *model.Token) {
 		}
 		registerSkillsListTool(server, db, token, agentID)
 		registerSkillViewTool(server, db, token, agentID)
+
+		agent, err := loadActiveAgent(context.Background(), db, token.OrgID, agentID)
+		if err != nil || !skillManagerEnabled(agent) {
+			return
+		}
+		registerSkillManagerTools(server, db, token, frontendURL)
 	}
 }
 

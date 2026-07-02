@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useEffect, useState } from "react"
 
 // TODO: replace with the real demo video ID (the part after `v=` in a YouTube URL)
@@ -28,7 +28,7 @@ export function WatchDemo() {
   return (
     <>
       <Button size="lg" variant="secondary" onPress={() => setOpen(true)}>
-        <Icon icon="lucide:play" className="h-5 w-5" />
+        <AppIcon icon="play" className="h-5 w-5" />
         Watch the 2min demo
       </Button>
 
@@ -46,7 +46,7 @@ export function WatchDemo() {
             onClick={() => setOpen(false)}
             className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:top-6 sm:right-6"
           >
-            <Icon icon="lucide:x" className="h-6 w-6" />
+            <AppIcon icon="x" className="h-6 w-6" />
           </button>
 
           <div

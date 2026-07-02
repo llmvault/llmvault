@@ -4,7 +4,7 @@
   "name": "Redis",
   "description": "Explore and query connected Redis databases safely.",
   "category": "Data & Analytics",
-  "icon": "simple-icons:redis",
+  "icon": "redis",
   "icon_color": "#DC382D",
   "developer": "Hivy",
   "official": true,

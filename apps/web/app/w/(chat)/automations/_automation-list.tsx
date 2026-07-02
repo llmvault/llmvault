@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { Button, Input, ListBox, Select } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import {
   automationCategories,
@@ -95,7 +95,7 @@ export function AutomationsListView({
                 className="shrink-0"
                 onPress={() => router.push(action.href)}
               >
-                <Icon icon={action.icon ?? "lucide:plus"} className="h-4 w-4" />
+                <AppIcon icon={action.icon ?? "plus"} className="h-4 w-4" />
                 {action.label}
               </Button>
             ) : null}
@@ -103,8 +103,8 @@ export function AutomationsListView({
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
-              <Icon
-                icon="lucide:search"
+              <AppIcon
+                icon="search"
                 className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
               />
               <Input
@@ -198,7 +198,7 @@ function AutomationRow({ automation }: { automation: AutomationItem }) {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
             style={{ backgroundColor: automation.iconColor }}
           >
-            <Icon
+            <AppIcon
               icon={automation.icon}
               className="h-[18px] w-[18px] shrink-0 text-white"
             />
@@ -213,8 +213,8 @@ function AutomationRow({ automation }: { automation: AutomationItem }) {
             </p>
           </div>
 
-          <Icon
-            icon="lucide:chevron-right"
+          <AppIcon
+            icon="chevron-right"
             className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
             aria-hidden="true"
           />
@@ -256,15 +256,15 @@ function ErrorState({
 }) {
   return (
     <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-      <Icon
-        icon="lucide:triangle-alert"
+      <AppIcon
+        icon="triangle-alert"
         className="text-muted-foreground h-7 w-7"
       />
       <p className="mt-3 text-sm font-medium text-foreground">
         Could not load {tab.toLowerCase()}
       </p>
       <Button variant="ghost" size="sm" className="mt-3" onPress={onRetry}>
-        <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+        <AppIcon icon="refresh-cw" className="h-4 w-4" />
         Retry
       </Button>
     </div>
@@ -274,7 +274,7 @@ function ErrorState({
 function EmptyState({ query, tab }: { query: string; tab: AutomationTab }) {
   return (
     <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-      <Icon icon="lucide:clock" className="text-muted-foreground h-7 w-7" />
+      <AppIcon icon="clock" className="text-muted-foreground h-7 w-7" />
       <p className="mt-3 text-sm font-medium text-foreground">
         {query ? `No matching ${tab.toLowerCase()}` : `No ${tab.toLowerCase()}`}
       </p>

@@ -1,5 +1,5 @@
 import { ListBox, Select } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { components } from "@/lib/api/schema"
 
 type Connection = components["schemas"]["connectionResponse"]
@@ -27,7 +27,7 @@ export function SlackConnectionSelect({
     >
       <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
         <span className="flex min-w-0 items-center gap-2">
-          <Icon icon="simple-icons:slack" className="h-4 w-4 shrink-0" />
+          <AppIcon icon="slack" className="h-4 w-4 shrink-0" />
           <span className="truncate">
             {selected ? connectionLabel(selected) : "Select workspace"}
           </span>
@@ -80,7 +80,7 @@ export function SlackResourceSelect({
     >
       <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
         <span className="flex min-w-0 items-center gap-2">
-          <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
+          <AppIcon icon="hash" className="h-4 w-4 shrink-0 text-muted" />
           <span className="truncate">
             {selected ? resourceName(selected) : "Select channel"}
           </span>
@@ -96,8 +96,8 @@ export function SlackResourceSelect({
               textValue={resourceName(resource)}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <Icon
-                  icon="lucide:hash"
+                <AppIcon
+                  icon="hash"
                   className="h-4 w-4 shrink-0 text-muted"
                 />
                 <span className="truncate text-sm font-medium">

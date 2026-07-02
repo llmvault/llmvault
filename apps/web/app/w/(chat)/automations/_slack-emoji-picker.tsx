@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import emojiData from "@emoji-mart/data/sets/15/native.json"
 import type { Emoji as EmojiMartEmoji, EmojiMartData } from "@emoji-mart/data"
 import { Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 type SlackEmojiOption = {
   id: string
@@ -67,14 +67,14 @@ export function SlackEmojiPicker({
           </span>
           <span className="truncate font-medium">:{emojiName}:</span>
         </span>
-        <Icon icon="lucide:chevron-down" className="h-4 w-4 text-muted" />
+        <AppIcon icon="chevron-down" className="h-4 w-4 text-muted" />
       </Popover.Trigger>
       <Popover.Content className="w-[22rem] overflow-hidden rounded-2xl border border-border p-0">
         <Popover.Dialog className="flex max-h-[26rem] w-[22rem] flex-col p-0">
           <div className="border-b border-border p-2">
             <label className="flex h-8 items-center gap-2 rounded-md border border-border px-2 text-sm">
-              <Icon
-                icon="lucide:search"
+              <AppIcon
+                icon="search"
                 className="h-4 w-4 shrink-0 text-muted"
               />
               <input

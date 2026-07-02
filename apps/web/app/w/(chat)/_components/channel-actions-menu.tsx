@@ -2,12 +2,12 @@
 
 import { memo, useCallback, useRef, useState, type ComponentProps } from "react"
 import { Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 
 const CHANNEL_ACTIONS = [
-  { id: "rename", label: "Rename channel", icon: "lucide:pencil" },
-  { id: "details", label: "Channel details", icon: "lucide:info" },
+  { id: "rename", label: "Rename channel", icon: "pencil" },
+  { id: "details", label: "Channel details", icon: "info" },
 ] as const
 
 export const ChannelActionsMenu = memo(function ChannelActionsMenu({
@@ -57,7 +57,7 @@ export const ChannelActionsMenu = memo(function ChannelActionsMenu({
           triggerClassName
         )}
       >
-        <Icon icon="lucide:ellipsis" className="h-3.5 w-3.5" />
+        <AppIcon icon="ellipsis" className="h-3.5 w-3.5" />
       </Popover.Trigger>
       {open ? (
         <Popover.Content
@@ -78,7 +78,7 @@ export const ChannelActionsMenu = memo(function ChannelActionsMenu({
                   onClick={() => selectAction(action.id)}
                   className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors disabled:pointer-events-none disabled:opacity-45"
                 >
-                  <Icon icon={action.icon} className="h-4 w-4 shrink-0" />
+                  <AppIcon icon={action.icon} className="h-4 w-4 shrink-0" />
                   {action.label}
                 </button>
               )

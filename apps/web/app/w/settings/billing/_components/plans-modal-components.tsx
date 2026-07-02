@@ -1,5 +1,5 @@
 import { Button, Slider, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import type { components } from "@/lib/api/schema"
 
@@ -183,7 +183,7 @@ export function PlanCard({
                 className="flex items-center gap-2.5 text-sm text-muted"
               >
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Icon icon="lucide:check" className="h-3 w-3" />
+                  <AppIcon icon="check" className="h-3 w-3" />
                 </span>
                 <span>{feature}</span>
               </li>

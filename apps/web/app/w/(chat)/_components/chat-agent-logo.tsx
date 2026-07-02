@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   agentAvatarURL,
   agentIcon,
@@ -36,7 +36,7 @@ export function AgentLogo({
 
   return (
     <span className={frameClassName}>
-      <Icon icon={fallbackIcon} className="h-3.5 w-3.5" />
+      <AppIcon icon={fallbackIcon} className="h-3.5 w-3.5" />
     </span>
   )
 }

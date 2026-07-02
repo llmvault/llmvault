@@ -13,22 +13,22 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
   {
     label: "Personal",
     items: [
-      { id: "general", label: "General", icon: "lucide:settings" },
-      { id: "appearance", label: "Appearance", icon: "lucide:sun" },
-      { id: "billing", label: "Usage & billing", icon: "lucide:gauge" },
+      { id: "general", label: "General", icon: "settings" },
+      { id: "appearance", label: "Appearance", icon: "sun" },
+      { id: "billing", label: "Usage & billing", icon: "gauge" },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { id: "agents", label: "Agents", icon: "lucide:bot" },
-      { id: "teams", label: "Teams", icon: "lucide:users" },
+      { id: "agents", label: "Agents", icon: "bot" },
+      { id: "teams", label: "Teams", icon: "users" },
     ],
   },
   {
     label: "Coding",
     items: [
-      { id: "environments", label: "Environments", icon: "lucide:monitor" },
+      { id: "environments", label: "Environments", icon: "monitor" },
     ],
   },
 ]

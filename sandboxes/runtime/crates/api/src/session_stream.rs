@@ -733,6 +733,11 @@ pub struct SessionMessageRequest {
     pub user: String,
     #[serde(default)]
     pub user_display_name: Option<String>,
+    /// Hivy user id of the human sending this message, set by the backend. Flows
+    /// through to agent tool calls as `_hivy_actor_user_id`. Absent for
+    /// automated (trigger/cron/system) posts.
+    #[serde(default)]
+    pub actor_user_id: Option<String>,
     #[serde(default)]
     pub attachments: Vec<Attachment>,
     #[serde(default)]
@@ -807,6 +812,7 @@ impl SessionMessageState {
             session_id: session_id.clone(),
             user: request.user,
             user_display_name: request.user_display_name,
+            actor_user_id: request.actor_user_id,
             text: request.text,
             attachments: request.attachments,
             session_context: request.session_context,
@@ -890,6 +896,7 @@ mod tests {
                     text: "hello".to_string(),
                     user: "user-1".to_string(),
                     user_display_name: Some("User One".to_string()),
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: vec!["## Recent sessions\n- prior context".to_string()],
                     model_definition: None,
@@ -955,6 +962,7 @@ mod tests {
                     text: "hello from trigger".to_string(),
                     user: "hivy-trigger".to_string(),
                     user_display_name: Some("Hivy Trigger".to_string()),
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
@@ -984,6 +992,7 @@ mod tests {
                     text: "first".to_string(),
                     user: "user-1".to_string(),
                     user_display_name: None,
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: Some(test_model("qwen-3.7-plus")),
@@ -998,6 +1007,7 @@ mod tests {
                     text: "second".to_string(),
                     user: "user-1".to_string(),
                     user_display_name: None,
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
@@ -1034,6 +1044,7 @@ mod tests {
                     text: "first".to_string(),
                     user: "user-1".to_string(),
                     user_display_name: None,
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
@@ -1048,6 +1059,7 @@ mod tests {
                     text: "second".to_string(),
                     user: "user-1".to_string(),
                     user_display_name: None,
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
@@ -1143,6 +1155,7 @@ mod tests {
                     text: "hello".to_string(),
                     user: "user-1".to_string(),
                     user_display_name: None,
+                    actor_user_id: None,
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,

@@ -752,6 +752,7 @@ async fn process_single_turn(
     let annotated_text = compose_annotated_text(inbound, &media);
 
     let mut turn_input = TurnInput::text(annotated_text);
+    turn_input = turn_input.with_actor_user(inbound.actor_user_id.clone());
     if let Some(model) = inbound.model_definition.clone() {
         turn_input = turn_input.with_model_override(model);
     }
@@ -2375,6 +2376,7 @@ mod scheduled_run_tests {
             session_id: SessionId::from("C123-cron-1"),
             user: "cron".to_string(),
             user_display_name: Some("Scheduler".to_string()),
+            actor_user_id: None,
             text: "do work".to_string(),
             attachments: Vec::new(),
             session_context: Vec::new(),

@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useState } from "react"
 import type { MediaAttachment } from "@/app/w/(chat)/_lib/static-data"
 
@@ -66,7 +66,7 @@ function AttachmentThumb({
       />
       {failed ? (
         <span className="bg-default absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-muted">
-          <Icon icon="lucide:image-off" className="h-5 w-5" />
+          <AppIcon icon="image-off" className="h-5 w-5" />
           <span>Preview unavailable</span>
         </span>
       ) : null}
@@ -74,7 +74,7 @@ function AttachmentThumb({
         <>
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80 shadow-sm backdrop-blur-sm">
-              <Icon icon="lucide:play" className="h-4 w-4 translate-x-px" />
+              <AppIcon icon="play" className="h-4 w-4 translate-x-px" />
             </span>
           </span>
           {item.duration ? (

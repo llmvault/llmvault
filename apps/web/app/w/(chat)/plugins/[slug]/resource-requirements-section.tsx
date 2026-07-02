@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Button, Modal, Spinner, toast, useOverlayState } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { components } from "@/lib/api/schema"
@@ -40,7 +40,7 @@ export function ResourceRequirementsSection({
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-                  <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
+                  <AppIcon icon="triangle-alert" className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-medium text-foreground">
@@ -183,7 +183,7 @@ function ResourceSelectionModalContent({
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
             onClick={onCancel}
           >
-            <Icon icon="lucide:x" className="h-4 w-4" />
+            <AppIcon icon="x" className="h-4 w-4" />
           </button>
         </div>
 
@@ -228,7 +228,7 @@ function ResourceSelectionModalContent({
                       }
                     >
                       {selected ? (
-                        <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+                        <AppIcon icon="check" className="h-3.5 w-3.5" />
                       ) : null}
                     </span>
                   </button>

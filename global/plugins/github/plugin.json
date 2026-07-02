@@ -4,7 +4,7 @@
   "name": "GitHub",
   "description": "Manage GitHub repos, pull requests, issues, and releases.",
   "category": "Developer Tools",
-  "icon": "simple-icons:github",
+  "icon": "github",
   "icon_color": "#181717",
   "developer": "Hivy",
   "official": true,

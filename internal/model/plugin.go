@@ -6,10 +6,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// Plugin is an installable group of skills. A plugin with OrgID=nil is a
+// global catalog plugin synced from global/plugins; otherwise it is an
+// org-owned plugin (created via the skill-manager tools) visible only to that
+// org. Slugs are unique per scope: globally among global plugins, per org
+// among org plugins.
 type Plugin struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	Slug        string    `gorm:"not null;uniqueIndex"`
-	Name        string    `gorm:"not null"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID       *uuid.UUID `gorm:"type:uuid;index"`
+	Org         *Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	Slug        string     `gorm:"not null;index"`
+	Name        string     `gorm:"not null"`
 	Description string    `gorm:"type:text;not null;default:''"`
 	Category    string    `gorm:"not null;default:'';size:64;index"`
 	Icon        string    `gorm:"not null;default:''"`

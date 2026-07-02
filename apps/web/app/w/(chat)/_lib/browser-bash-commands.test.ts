@@ -18,8 +18,8 @@ describe("detectBrowserBashCommand", () => {
       `)
     ).toMatchObject({
       id: "open",
-      icon: "logos:chrome",
-      actionIcon: "lucide:external-link",
+      icon: "chrome",
+      actionIcon: "external-link",
       label: "Opened Chrome browser",
       runningLabel: "Opening Chrome browser",
     })
@@ -31,13 +31,13 @@ describe("detectBrowserBashCommand", () => {
     ).toMatchObject({
       id: "screenshot",
       label: "Took a screenshot",
-      actionIcon: "lucide:camera",
+      actionIcon: "camera",
     })
 
     expect(detectBrowserBashCommand("browser snapshot -i")).toMatchObject({
       id: "snapshot",
       label: "Took a page snapshot",
-      actionIcon: "lucide:scan-search",
+      actionIcon: "scan-search",
     })
   })
 
@@ -46,7 +46,7 @@ describe("detectBrowserBashCommand", () => {
       id: "install",
       label: "Installed Chrome browser",
       runningLabel: "Installing Chrome browser",
-      actionIcon: "lucide:download",
+      actionIcon: "download",
     })
   })
 
@@ -65,7 +65,7 @@ describe("detectBrowserBashCommand", () => {
       id: "semantic_locator_action",
       label: "Filled matching label",
       runningLabel: "Filling matching label",
-      actionIcon: "lucide:text-cursor-input",
+      actionIcon: "text-cursor-input",
     })
   })
 
@@ -75,7 +75,7 @@ describe("detectBrowserBashCommand", () => {
     ).toMatchObject({
       id: "eval",
       label: "Ran JavaScript in the page",
-      actionIcon: "lucide:braces",
+      actionIcon: "braces",
     })
   })
 

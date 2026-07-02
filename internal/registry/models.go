@@ -244,6 +244,24 @@ var curatedProviders = []Provider{
 			},
 		},
 	},
+	{ // quiver — Quiver AI
+		ID:   "quiver",
+		Name: "Quiver AI",
+		API:  "https://api.quiver.ai",
+		Doc:  "https://docs.quiver.ai/api-reference/introduction",
+		Models: map[string]Model{
+			"arrow-1.1": {
+				ID:     "arrow-1.1",
+				Name:   "Quiver Arrow 1.1",
+				Family: "quiver-vector",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"image"},
+				},
+				Description: "Default SVG/vector image model through the Quiver AI text-to-svg API.",
+			},
+		},
+	},
 	{ // fireworks-ai — Fireworks AI
 		ID:   "fireworks-ai",
 		Name: "Fireworks AI",

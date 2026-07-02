@@ -5,11 +5,11 @@ describe("sessionRowAccessoryDisplay", () => {
   it("shows active and failed runtime status in the timestamp slot", () => {
     expect(sessionRowAccessoryDisplay("streaming", "now")).toMatchObject({
       kind: "status",
-      indicator: { icon: "lucide:loader-2" },
+      indicator: { icon: "loader-2" },
     })
     expect(sessionRowAccessoryDisplay("failed", "20m")).toMatchObject({
       kind: "status",
-      indicator: { icon: "lucide:triangle-alert" },
+      indicator: { icon: "triangle-alert" },
     })
   })
 

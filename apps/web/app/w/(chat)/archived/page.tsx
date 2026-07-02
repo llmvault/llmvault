@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
@@ -135,7 +135,7 @@ export default function ArchivedPage() {
           ) : groups.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-border px-6 py-16 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface">
-                <Icon icon="lucide:archive" className="h-5 w-5 text-muted" />
+                <AppIcon icon="archive" className="h-5 w-5 text-muted" />
               </div>
               <p className="text-sm text-muted">No archived chats</p>
             </div>
@@ -187,8 +187,8 @@ function ArchivedChannelGroup({
   return (
     <section className="flex flex-col gap-1">
       <h2 className="flex items-center gap-2 px-3 text-xs font-medium text-muted uppercase select-none">
-        <Icon
-          icon={group.channel ? "lucide:hash" : "lucide:message-circle"}
+        <AppIcon
+          icon={group.channel ? "hash" : "message-circle"}
           className="h-3.5 w-3.5 shrink-0"
         />
         {group.channel ? channelDisplayName(group.channel) : "Direct"}

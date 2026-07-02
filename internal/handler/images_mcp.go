@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	imageGenerationRasterToolName = "generate_image"
-	imageGenerationVectorToolName = "generate_vector_image"
+	imageGenerationRasterToolName    = "generate_image"
+	imageGenerationVectorToolName    = "generate_vector_image"
+	imageGenerationRemixToolName     = "remix_image"
+	imageGenerationVectorizeToolName = "vectorize_image"
 )
 
 // RegisterImageGenerationMCPTools registers image generation tools for agent proxy MCP servers.
@@ -34,46 +36,15 @@ func (h *UploadsHandler) RegisterImageGenerationMCPTools(server *mcp.Server, tok
 	}
 	registerImageGenerationMCPTool(server, h, token, agentID, sandboxID, imageGenerationRasterToolName, "raster", "Generate or revise raster images and save results to the organization drive.")
 	registerImageGenerationMCPTool(server, h, token, agentID, sandboxID, imageGenerationVectorToolName, "vector", "Generate or revise SVG/vector images and save results to the organization drive.")
+	registerImageGenerationMCPTool(server, h, token, agentID, sandboxID, imageGenerationRemixToolName, "remix", "Generate new images guided by reference images from the organization drive, preserving the identity of what the references show (logos, characters, products). Requires reference_asset_ids. Saves results to the organization drive.")
+	registerImageGenerationMCPTool(server, h, token, agentID, sandboxID, imageGenerationVectorizeToolName, "vectorize", "Convert an existing raster image (PNG/JPEG/WebP) from the organization drive into a clean, scalable SVG vector image. Requires exactly one reference_asset_id pointing at the raster image to trace. Saves the SVG result to the organization drive.")
 }
 
 func registerImageGenerationMCPTool(server *mcp.Server, h *UploadsHandler, token *model.Token, agentID, sandboxID uuid.UUID, name, mode, description string) {
 	server.AddTool(&mcp.Tool{
 		Name:        name,
 		Description: description,
-		InputSchema: map[string]any{
-			"type":                 "object",
-			"additionalProperties": false,
-			"properties": map[string]any{
-				"prompt": map[string]any{
-					"type":        "string",
-					"description": "Image generation prompt. Required unless description is provided.",
-				},
-				"description": map[string]any{
-					"type":        "string",
-					"description": "Alternative prompt field for describing the requested image.",
-				},
-				"reference_asset_ids": map[string]any{
-					"type":        "array",
-					"description": "Optional drive asset IDs to use as image references, max 10.",
-					"items":       map[string]any{"type": "string"},
-					"maxItems":    10,
-				},
-				"aspect_ratio": map[string]any{
-					"type":        "string",
-					"description": "Optional aspect ratio such as 1:1, 16:9, or 9:16.",
-				},
-				"type": map[string]any{
-					"type":        "string",
-					"description": "Optional image type hint, for example logo, icon, illustration, or photo.",
-				},
-				"count": map[string]any{
-					"type":        "integer",
-					"description": "Number of images to generate, 1 to 4.",
-					"minimum":     1,
-					"maximum":     imageGenerationMaxCount,
-				},
-			},
-		},
+		InputSchema: imageGenerationMCPInputSchema(mode),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, err := decodeImageGenerationMCPArgs(req, mode)
 		if err != nil {
@@ -91,6 +62,71 @@ func registerImageGenerationMCPTool(server *mcp.Server, h *UploadsHandler, token
 	})
 }
 
+func imageGenerationMCPInputSchema(mode string) map[string]any {
+	properties := map[string]any{
+		"prompt": map[string]any{
+			"type":        "string",
+			"description": "Image generation prompt. Required unless description is provided.",
+		},
+		"description": map[string]any{
+			"type":        "string",
+			"description": "Alternative prompt field for describing the requested image.",
+		},
+		"reference_asset_ids": map[string]any{
+			"type":        "array",
+			"description": "Optional drive asset IDs to use as image references, max 10.",
+			"items":       map[string]any{"type": "string"},
+			"maxItems":    10,
+		},
+		"aspect_ratio": map[string]any{
+			"type":        "string",
+			"description": "Optional aspect ratio such as 1:1, 16:9, or 9:16.",
+		},
+		"type": map[string]any{
+			"type":        "string",
+			"description": "Optional image type hint, for example logo, icon, illustration, or photo.",
+		},
+		"count": map[string]any{
+			"type":        "integer",
+			"description": "Number of images to generate, 1 to 4.",
+			"minimum":     1,
+			"maximum":     imageGenerationMaxCount,
+		},
+	}
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties":           properties,
+	}
+	if mode == "remix" {
+		delete(properties, "type")
+		properties["reference_asset_ids"] = map[string]any{
+			"type":        "array",
+			"description": "Drive asset IDs of the reference images to remix, 1 to 10.",
+			"items":       map[string]any{"type": "string"},
+			"minItems":    1,
+			"maxItems":    10,
+		}
+		schema["required"] = []string{"reference_asset_ids"}
+	}
+	if mode == "vectorize" {
+		delete(properties, "prompt")
+		delete(properties, "description")
+		delete(properties, "type")
+		delete(properties, "aspect_ratio")
+		delete(properties, "count")
+		properties["reference_asset_ids"] = map[string]any{
+			"type":        "array",
+			"description": "Drive asset ID of the single raster image to vectorize into an SVG.",
+			"items":       map[string]any{"type": "string"},
+			"minItems":    1,
+			"maxItems":    1,
+		}
+		schema["required"] = []string{"reference_asset_ids"}
+	}
+	return schema
+}
+
 func decodeImageGenerationMCPArgs(req *mcp.CallToolRequest, mode string) (imageGenerationRequest, error) {
 	if req == nil || req.Params.Arguments == nil {
 		return imageGenerationRequest{}, fmt.Errorf("arguments are required")
@@ -100,7 +136,17 @@ func decodeImageGenerationMCPArgs(req *mcp.CallToolRequest, mode string) (imageG
 		return imageGenerationRequest{}, fmt.Errorf("invalid arguments")
 	}
 	args.Mode = mode
-	return normalizeImageGenerationRequest(args)
+	normalized, err := normalizeImageGenerationRequest(args)
+	if err != nil {
+		return imageGenerationRequest{}, err
+	}
+	if mode == "remix" && len(cleanReferenceAssetIDs(normalized.ReferenceAssetIDs)) == 0 {
+		return imageGenerationRequest{}, fmt.Errorf("remix_image requires at least one reference_asset_id")
+	}
+	if mode == "vectorize" && len(cleanReferenceAssetIDs(normalized.ReferenceAssetIDs)) == 0 {
+		return imageGenerationRequest{}, fmt.Errorf("vectorize_image requires exactly one reference_asset_id")
+	}
+	return normalized, nil
 }
 
 func (h *UploadsHandler) imageGenerationToolContext(ctx context.Context, token *model.Token, agentID, sandboxID uuid.UUID) (*model.Agent, *model.Sandbox, error) {

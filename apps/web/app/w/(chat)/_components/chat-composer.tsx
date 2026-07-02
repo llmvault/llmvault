@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Button, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   agentDisplayName,
   channelDisplayName,
@@ -129,14 +129,14 @@ export function ChatComposer({
 
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="sm" isIconOnly aria-label="Attach">
-          <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
+          <AppIcon icon="plus" className="h-4 w-4 text-muted" />
         </Button>
 
         <Picker
           open={channelOpen}
           setOpen={setChannelOpen}
           label="Select channel"
-          icon="lucide:hash"
+          icon="hash"
           value={
             channelsLoading
               ? "Loading channels"
@@ -154,7 +154,7 @@ export function ChatComposer({
             channels.map((entry) => (
               <PickerButton
                 key={entry.id ?? channelDisplayName(entry)}
-                icon="lucide:hash"
+                icon="hash"
                 selected={entry.id === channel?.id}
                 onPress={() => {
                   onChannelChange(entry)
@@ -267,7 +267,7 @@ export function ChatComposer({
           {submitting ? (
             <Spinner color="current" size="sm" />
           ) : (
-            <Icon icon="lucide:arrow-up" className="h-4 w-4" />
+            <AppIcon icon="arrow-up" className="h-4 w-4" />
           )}
         </Button>
       </div>

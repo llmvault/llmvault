@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import NextLink from "next/link"
 import type { InternalAppLinkTarget } from "@/app/w/(chat)/_lib/internal-app-links"
 
@@ -20,7 +20,7 @@ export function InternalAppLinkCards({
           }`}
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background">
-            <Icon icon={target.icon} className="h-5 w-5 text-muted" />
+            <AppIcon icon={target.icon} className="h-5 w-5 text-muted" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">{target.label}</div>
@@ -30,8 +30,8 @@ export function InternalAppLinkCards({
               </div>
             ) : null}
           </div>
-          <Icon
-            icon="lucide:chevron-right"
+          <AppIcon
+            icon="chevron-right"
             className="h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-foreground"
             aria-hidden="true"
           />

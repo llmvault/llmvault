@@ -2,7 +2,7 @@
 
 import type { FormEvent, PointerEvent as ReactPointerEvent } from "react"
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type {
   CommentTarget,
   LineCommentAnnotation,
@@ -25,7 +25,7 @@ export function LineCommentAddButton({ onAdd }: { onAdd: () => void }) {
         event.stopPropagation()
       }}
     >
-      <Icon icon="lucide:plus" className="h-4 w-4" />
+      <AppIcon icon="plus" className="h-4 w-4" />
     </button>
   )
 }
@@ -49,7 +49,7 @@ export function LineCommentPanel({
         onPointerDown={stopPointerPropagation}
       >
         <LineCommentHeader
-          icon="lucide:message-square"
+          icon="message-square"
           lineLabel={lineLabel}
           title="Local comment"
         />
@@ -74,7 +74,7 @@ export function LineCommentPanel({
       onPointerDown={stopPointerPropagation}
     >
       <LineCommentHeader
-        icon="lucide:message-square-plus"
+        icon="message-square-plus"
         lineLabel={lineLabel}
         title="Local comment"
       />

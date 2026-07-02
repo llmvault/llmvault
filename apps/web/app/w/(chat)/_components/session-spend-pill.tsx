@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import {
@@ -19,7 +19,7 @@ export function SessionSpendPill({ usage }: { usage?: SessionUsageSummary }) {
       aria-label={`Session spend: ${formattedCredits} credits, ${formattedCost}`}
       className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 text-xs text-muted"
     >
-      <Icon icon="lucide:coins" className="h-3.5 w-3.5" />
+      <AppIcon icon="coins" className="h-3.5 w-3.5" />
       <AnimatedSpendNumber value={formattedCredits} />
       <AnimatedSpendNumber
         value={formattedCost}

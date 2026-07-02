@@ -13,7 +13,7 @@ import {
   Spinner,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
@@ -157,7 +157,7 @@ export function ShareSessionModal({
             <Modal.CloseTrigger />
             <Modal.Header>
               <Modal.Icon className="bg-default size-12 text-foreground">
-                <Icon icon="lucide:share" className="h-6 w-6" />
+                <AppIcon icon="share" className="h-6 w-6" />
               </Modal.Icon>
               <div className="flex flex-col gap-1">
                 <Modal.Heading>Share chat</Modal.Heading>
@@ -253,7 +253,7 @@ function MemberComboBox({
       onSelectionChange={onSelect}
     >
       <ComboBox.InputGroup className="flex h-10 items-center gap-2 rounded-xl border border-border px-3">
-        <Icon icon="lucide:search" className="h-4 w-4 shrink-0 text-muted" />
+        <AppIcon icon="search" className="h-4 w-4 shrink-0 text-muted" />
         <Input
           aria-label="Search organization members"
           placeholder="Search members"
@@ -336,7 +336,7 @@ function SelectedMemberChip({
         className="hover:bg-default flex h-4 w-4 items-center justify-center rounded-full text-muted transition-colors hover:text-foreground"
         onClick={onRemove}
       >
-        <Icon icon="lucide:x" className="h-3 w-3" />
+        <AppIcon icon="x" className="h-3 w-3" />
       </button>
     </Chip>
   )

@@ -149,7 +149,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	memorySearchService := buildMemorySearchService(cfg, database, cacheManager)
 	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
 	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))
-	mcpHandler.SetSkillTools(skills.NewToolsFunc(database))
+	mcpHandler.SetSkillTools(skills.NewToolsFunc(database, cfg.FrontendURL))
 	// Assignable agent models: the full text-output catalog minus the scribe
 	// transcription model. Used verbatim as the strict `model` enum in the
 	// agent-builder tools; per-org credential availability is enforced at call

@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { AttachmentThumbs } from "@/app/w/(chat)/_components/conversation-attachments"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import { PersonAvatar } from "@/app/w/(chat)/_components/person-avatar"
@@ -45,7 +45,7 @@ export function UserMessageBlock({
               href={block.link}
               className="flex min-w-0 items-center gap-1.5 text-sm text-danger underline-offset-2 hover:underline"
             >
-              <Icon icon="mdi:github" className="h-4 w-4 shrink-0" />
+              <AppIcon icon="github" className="h-4 w-4 shrink-0" />
               <span className="truncate">{block.link}</span>
             </a>
           ) : null}

@@ -45,6 +45,11 @@ type HTTPMessageRequest struct {
 	SessionContext  []string     `json:"session_context,omitempty"`
 	User            string       `json:"user,omitempty"`
 	UserDisplayName string       `json:"user_display_name,omitempty"`
+	// ActorUserID is the Hivy user id of the human on whose behalf this turn
+	// runs. The runtime injects it into agent tool calls as `_hivy_actor_user_id`
+	// so tools can authorize on the requesting user. Empty for automated
+	// (trigger/cron/system) runs that have no human actor.
+	ActorUserID     string       `json:"actor_user_id,omitempty"`
 	ModelDefinition *ModelConfig `json:"model_definition,omitempty"`
 	Attachments     []any        `json:"attachments,omitempty"`
 }

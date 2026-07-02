@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import { PreviewBrowserCards } from "@/app/w/(chat)/_components/conversation-preview-card"
 import { InternalAppLinkCards } from "@/app/w/(chat)/_components/conversation-internal-link-card"
@@ -74,9 +74,9 @@ function AssistantMessageFooter({
 
   return (
     <div className="flex h-6 items-center gap-1.5 text-muted">
-      <AssistantFooterButton label="Good response" icon="lucide:thumbs-up" />
-      <AssistantFooterButton label="Bad response" icon="lucide:thumbs-down" />
-      <AssistantFooterButton label="Fork chat" icon="lucide:git-fork" />
+      <AssistantFooterButton label="Good response" icon="thumbs-up" />
+      <AssistantFooterButton label="Bad response" icon="thumbs-down" />
+      <AssistantFooterButton label="Fork chat" icon="git-fork" />
       {time ? (
         <time
           dateTime={block.completedAt}
@@ -103,7 +103,7 @@ function AssistantFooterButton({
       aria-label={label}
       className="focus-visible:ring-ring flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
     >
-      <Icon icon={icon} className="h-3.5 w-3.5" />
+      <AppIcon icon={icon} className="h-3.5 w-3.5" />
     </button>
   )
 }

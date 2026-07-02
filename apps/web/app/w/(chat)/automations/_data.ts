@@ -32,22 +32,22 @@ type ProviderMeta = {
 const PROVIDER_META: Record<string, ProviderMeta> = {
   "github-app": {
     label: "GitHub",
-    icon: "simple-icons:github",
+    icon: "github",
     color: "#181717",
   },
   linear: {
     label: "Linear",
-    icon: "simple-icons:linear",
+    icon: "linear",
     color: "#5E6AD2",
   },
   railway: {
     label: "Railway",
-    icon: "simple-icons:railway",
+    icon: "railway",
     color: "#0B0D0E",
   },
   slack: {
     label: "Slack",
-    icon: "simple-icons:slack",
+    icon: "slack",
     color: "#4A154B",
   },
 }
@@ -67,7 +67,7 @@ export function automationFromCatalog(
     name: item.name || humanizeSlug(slug) || "Automation",
     description: item.description || "No description available.",
     category: item.category || "Other",
-    icon: providerMeta?.icon ?? "lucide:workflow",
+    icon: providerMeta?.icon ?? "workflow",
     iconColor: providerMeta?.color ?? "#64748B",
     provider,
     href,
@@ -99,7 +99,7 @@ export function automationFromInstalledTrigger(
         ? `${statusPrefix}${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
         : trigger.instructions || "Installed trigger.",
     category: provider === "slack" ? "Communication" : "Other",
-    icon: providerMeta?.icon ?? "lucide:workflow",
+    icon: providerMeta?.icon ?? "workflow",
     iconColor: providerMeta?.color ?? "#64748B",
     provider,
     href: trigger.id ? `/w/automations/triggers/${trigger.id}` : undefined,

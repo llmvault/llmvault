@@ -197,8 +197,20 @@ func (h *PluginHandler) loadPluginBySlug(w http.ResponseWriter, r *http.Request,
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plugin slug required"})
 		return model.Plugin{}, false
 	}
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		return model.Plugin{}, false
+	}
+	// Org-owned plugins resolve only for their own org; other orgs get 404,
+	// same as a nonexistent slug. Own-org plugins shadow nothing: the partial
+	// unique indexes keep global and per-org slug spaces separate, so prefer
+	// the org's plugin when both exist.
 	var plugin model.Plugin
-	if err := h.db.Where("slug = ? AND status = ?", slug, model.PluginStatusActive).First(&plugin).Error; err != nil {
+	if err := h.db.
+		Where("slug = ? AND status = ? AND (org_id IS NULL OR org_id = ?)", slug, model.PluginStatusActive, org.ID).
+		Order("org_id ASC NULLS LAST").
+		First(&plugin).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "plugin not found"})
 			return model.Plugin{}, false

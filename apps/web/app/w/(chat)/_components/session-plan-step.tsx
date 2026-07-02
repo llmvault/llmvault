@@ -1,5 +1,5 @@
 import { Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import type {
   SessionPlanStep,
@@ -33,8 +33,8 @@ export function PlanStepRow({
 export function PlanStatusIcon({ status }: { status: SessionPlanStepStatus }) {
   if (status === "completed") {
     return (
-      <Icon
-        icon="lucide:circle-check"
+      <AppIcon
+        icon="circle-check"
         className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
       />
     )

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   useWorkspace,
   type ChatSession,
@@ -149,7 +149,7 @@ export function ChannelGroup({
           onClick={() => setManualOpen(!open)}
           className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-1.5 text-left"
         >
-          <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
+          <AppIcon icon="hash" className="h-4 w-4 shrink-0 text-muted" />
           <span className="min-w-0 flex-1 truncate">{name}</span>
         </button>
         <ChannelActionsMenu

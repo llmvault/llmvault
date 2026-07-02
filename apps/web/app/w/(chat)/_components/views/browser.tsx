@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
@@ -41,10 +41,10 @@ export function BrowserView({
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
         <Button variant="ghost" size="sm" isIconOnly aria-label="Back">
-          <Icon icon="lucide:arrow-left" className="h-4 w-4 text-muted" />
+          <AppIcon icon="arrow-left" className="h-4 w-4 text-muted" />
         </Button>
         <Button variant="ghost" size="sm" isIconOnly aria-label="Forward">
-          <Icon icon="lucide:arrow-right" className="h-4 w-4 text-muted/50" />
+          <AppIcon icon="arrow-right" className="h-4 w-4 text-muted/50" />
         </Button>
         <Button
           variant="ghost"
@@ -53,7 +53,7 @@ export function BrowserView({
           aria-label="Reload"
           onPress={() => reloadBrowser(sessionId)}
         >
-          <Icon icon="lucide:rotate-cw" className="h-4 w-4 text-muted" />
+          <AppIcon icon="rotate-cw" className="h-4 w-4 text-muted" />
         </Button>
 
         <div className="mx-1 flex h-8 min-w-0 flex-1 items-center rounded-lg bg-default px-3">
@@ -71,14 +71,14 @@ export function BrowserView({
         </div>
 
         <Button variant="ghost" size="sm" isIconOnly aria-label="Screenshot">
-          <Icon icon="lucide:scan" className="h-4 w-4 text-muted" />
+          <AppIcon icon="scan" className="h-4 w-4 text-muted" />
         </Button>
         <Button variant="ghost" size="sm" isIconOnly aria-label="Annotate">
-          <Icon icon="lucide:circle-plus" className="h-4 w-4 text-muted" />
+          <AppIcon icon="circle-plus" className="h-4 w-4 text-muted" />
         </Button>
         <Button variant="ghost" size="sm" isIconOnly aria-label="More">
-          <Icon
-            icon="lucide:ellipsis-vertical"
+          <AppIcon
+            icon="ellipsis-vertical"
             className="h-4 w-4 text-muted"
           />
         </Button>

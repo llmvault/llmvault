@@ -1,7 +1,7 @@
 "use client"
 
 import { ListBox, Select, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { components } from "@/lib/api/schema"
 import { AgentAvatar } from "@/app/w/settings/agents/_agent-avatar"
 import {
@@ -51,7 +51,7 @@ export function AgentSelect({
           <AgentSelectRow agent={selected} compact />
         ) : (
           <span className="text-muted-foreground flex min-w-0 items-center gap-2">
-            <Icon icon="lucide:bot" className="h-4 w-4 shrink-0" />
+            <AppIcon icon="bot" className="h-4 w-4 shrink-0" />
             <span>Select agent</span>
           </span>
         )}

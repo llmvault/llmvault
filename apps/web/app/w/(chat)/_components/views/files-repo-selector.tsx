@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { RuntimeRepoInfo } from "@/app/w/(chat)/_lib/runtime-repos"
 
 export interface FilesRepoSelectorProps {
@@ -29,7 +29,7 @@ export function FilesRepoSelector({
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Popover.Trigger className="hover:bg-surface-secondary flex max-w-32 min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted transition-colors">
         <span className="truncate">{selectedRepo.name}</span>
-        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0" />
+        <AppIcon icon="chevron-down" className="h-3 w-3 shrink-0" />
       </Popover.Trigger>
       <Popover.Content className="bg-surface w-64 rounded-2xl border border-border p-1.5">
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
@@ -45,7 +45,7 @@ export function FilesRepoSelector({
                 setOpen(false)
               }}
             >
-              <Icon icon="lucide:git-branch" className="h-4 w-4 shrink-0" />
+              <AppIcon icon="git-branch" className="h-4 w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{repo.name}</span>
             </button>
           ))}

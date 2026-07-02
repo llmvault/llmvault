@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Modal, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
@@ -148,7 +148,7 @@ function ChannelCreateModalContent({
               <div className="border-b border-border px-6 pt-6 pb-4">
                 <div className="flex items-start gap-3 pr-10">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-default text-foreground">
-                    <Icon icon="lucide:hash" className="h-5 w-5" />
+                    <AppIcon icon="hash" className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <Modal.Heading>Create channel</Modal.Heading>
@@ -169,15 +169,15 @@ function ChannelCreateModalContent({
                     aria-pressed="true"
                     className="border-primary/40 bg-primary/10 flex items-center gap-3 rounded-lg border px-3 py-2 text-left"
                   >
-                    <Icon
-                      icon="lucide:message-square"
+                    <AppIcon
+                      icon="message-square"
                       className="h-5 w-5 shrink-0"
                     />
                     <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
                       Slack
                     </span>
-                    <Icon
-                      icon="lucide:check"
+                    <AppIcon
+                      icon="check"
                       className="text-primary h-4 w-4"
                     />
                   </button>
@@ -227,8 +227,8 @@ function ChannelCreateModalContent({
                       ) : null}
 
                       <div className="bg-field-background flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-                        <Icon
-                          icon="lucide:search"
+                        <AppIcon
+                          icon="search"
                           className="h-4 w-4 shrink-0 text-muted"
                         />
                         <input
@@ -321,12 +321,12 @@ function ResourceRow({
       )}
       onClick={onSelect}
     >
-      <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
+      <AppIcon icon="hash" className="h-4 w-4 shrink-0 text-muted" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{name}</p>
       </div>
       {selected ? (
-        <Icon icon="lucide:check" className="text-primary h-4 w-4 shrink-0" />
+        <AppIcon icon="check" className="text-primary h-4 w-4 shrink-0" />
       ) : null}
     </button>
   )

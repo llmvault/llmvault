@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react"
 import { Button, Label, Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Field } from "./admin-field"
 import {
   type CredentialForm,
@@ -148,7 +148,7 @@ function ProviderPicker({
           <span className={selected ? "text-foreground" : "text-muted"}>
             {selected?.name || selected?.id || "Select a provider"}
           </span>
-          <Icon icon="lucide:chevron-down" className="size-4 text-muted" />
+          <AppIcon icon="chevron-down" className="size-4 text-muted" />
         </Popover.Trigger>
         <Popover.Content className="w-72 rounded-2xl border border-border bg-background p-1.5 shadow-xl">
           <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
@@ -171,7 +171,7 @@ function ProviderPicker({
                   </span>
                 </span>
                 {provider.id === value ? (
-                  <Icon icon="lucide:check" className="size-4 shrink-0" />
+                  <AppIcon icon="check" className="size-4 shrink-0" />
                 ) : null}
               </button>
             ))}

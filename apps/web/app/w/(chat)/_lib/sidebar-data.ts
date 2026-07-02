@@ -87,7 +87,7 @@ export function agentDisplayName(agent: SidebarAgentResponse): string {
 }
 
 export function agentIcon(agent?: SidebarAgentResponse): string {
-  return agent?.icon?.trim() || "lucide:bot"
+  return agent?.icon?.trim() || "bot"
 }
 
 export function agentAvatarURL(

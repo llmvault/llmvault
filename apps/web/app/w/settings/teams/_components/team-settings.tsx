@@ -12,7 +12,7 @@ import {
   Spinner,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
@@ -80,7 +80,7 @@ export function TeamRow({ team, last }: { team: Team; last?: boolean }) {
       )}
     >
       <span className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground">
-        <Icon icon="lucide:users-round" className="h-4 w-4" />
+        <AppIcon icon="users-round" className="h-4 w-4" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium text-foreground">
@@ -94,8 +94,8 @@ export function TeamRow({ team, last }: { team: Team; last?: boolean }) {
         <span>{team.member_count ?? 0} members</span>
         <span>{team.channel_count ?? 0} channels</span>
       </span>
-      <Icon
-        icon="lucide:chevron-right"
+      <AppIcon
+        icon="chevron-right"
         className="h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-foreground"
       />
     </NextLink>
@@ -189,7 +189,7 @@ export function InviteRow({
     >
       <Avatar size="sm" className="shrink-0">
         <Avatar.Fallback>
-          <Icon icon="lucide:mail" className="h-4 w-4" />
+          <AppIcon icon="mail" className="h-4 w-4" />
         </Avatar.Fallback>
       </Avatar>
       <div className="flex min-w-0 flex-1 flex-col gap-1">

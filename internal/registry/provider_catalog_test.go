@@ -17,3 +17,23 @@ func TestReveProviderCatalog(t *testing.T) {
 		t.Fatalf("reve docs = %q", provider.Doc)
 	}
 }
+
+func TestQuiverProviderCatalog(t *testing.T) {
+	provider, ok := Global().GetProvider("quiver")
+	if !ok {
+		t.Fatal("quiver provider not found")
+	}
+	if provider.Name != "Quiver AI" {
+		t.Fatalf("quiver name = %q, want Quiver AI", provider.Name)
+	}
+	if provider.API != "https://api.quiver.ai" {
+		t.Fatalf("quiver API = %q, want https://api.quiver.ai", provider.API)
+	}
+	model, ok := provider.Models["arrow-1.1"]
+	if !ok {
+		t.Fatal("quiver arrow-1.1 model not found")
+	}
+	if !ModelSupportsVectorImageOutput(model) {
+		t.Fatalf("quiver arrow-1.1 should support vector output, family=%q", model.Family)
+	}
+}

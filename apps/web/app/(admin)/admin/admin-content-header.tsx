@@ -1,7 +1,7 @@
 "use client"
 
 import { Input } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { AdminTab } from "./types"
 
 export function AdminContentHeader({
@@ -26,8 +26,8 @@ export function AdminContentHeader({
         </p>
       </div>
       <div className="relative w-full md:max-w-xs">
-        <Icon
-          icon="lucide:search"
+        <AppIcon
+          icon="search"
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
         />
         <Input

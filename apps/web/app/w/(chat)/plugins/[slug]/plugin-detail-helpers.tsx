@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { IntegrationLogo, integrationLogoURL } from "@/components/integration-logo"
 import { cn } from "@/lib/utils"
 import { isDatabaseProvider } from "@/app/w/(chat)/plugins/database-connection-modal-content"
@@ -23,7 +23,7 @@ export function RequirementLogo({
   if (!provider) {
     return (
       <div className="bg-default flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
-        <Icon icon="lucide:plug" className="h-4 w-4 text-muted-foreground" />
+        <AppIcon icon="plug" className="h-4 w-4 text-muted-foreground" />
       </div>
     )
   }
@@ -33,7 +33,7 @@ export function RequirementLogo({
   )
 }
 
-function AppIcon({
+function PluginColoredIcon({
   icon,
   color,
   size = 20,
@@ -43,7 +43,7 @@ function AppIcon({
   size?: number
 }) {
   return (
-    <Icon
+    <AppIcon
       icon={icon}
       className="shrink-0"
       style={{ color, width: size, height: size }}
@@ -76,7 +76,7 @@ export function PluginLogo({
     )
   }
   return (
-    <AppIcon
+    <PluginColoredIcon
       icon={pluginIcon(plugin)}
       color={forceIconWhite ? "#FFFFFF" : pluginIconColor(plugin)}
       size={iconSize}

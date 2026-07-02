@@ -40,7 +40,7 @@ func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var plugins []model.Plugin
-	if err := h.db.Where("status = ?", model.PluginStatusActive).Order("name ASC").Find(&plugins).Error; err != nil {
+	if err := h.db.Where("status = ? AND (org_id IS NULL OR org_id = ?)", model.PluginStatusActive, org.ID).Order("name ASC").Find(&plugins).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list plugins"})
 		return
 	}

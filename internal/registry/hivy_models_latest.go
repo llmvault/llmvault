@@ -37,6 +37,12 @@ var latestHivyModels = []HivyModel{
 	{
 		ID: DefaultVectorImageGenerationModelID,
 		Routes: []ModelRoute{
+			{ProviderID: "quiver", ModelID: "arrow-1.1"},
+		},
+	},
+	{
+		ID: "recraft-v4.1-vector",
+		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-vector"},
 		},
 	},

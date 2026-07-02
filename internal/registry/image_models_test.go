@@ -16,22 +16,23 @@ func TestImageGenerationModelCatalog(t *testing.T) {
 		t.Fatalf("reve modalities = %#v", reve.Model.Modalities)
 	}
 
-	vector, ok := reg.ResolveModel("openrouter", DefaultVectorImageGenerationModelID)
+	vector, ok := reg.ResolveModel("quiver", DefaultVectorImageGenerationModelID)
 	if !ok {
 		t.Fatal("default vector image model route not found")
 	}
-	if vector.UpstreamID != "recraft/recraft-v4.1-vector" {
+	if vector.UpstreamID != "arrow-1.1" {
 		t.Fatalf("vector upstream = %q", vector.UpstreamID)
 	}
-	if !ModelSupportsImageOutput(vector.Model) || ModelSupportsTextOutput(vector.Model) {
+	if !ModelSupportsVectorImageOutput(vector.Model) || ModelSupportsTextOutput(vector.Model) {
 		t.Fatalf("vector modalities = %#v", vector.Model.Modalities)
 	}
 }
 
 func TestImageGenerationModelsForProviders(t *testing.T) {
-	models := Global().ImageGenerationModelsForProviders([]string{"reve", "openrouter"})
+	models := Global().ImageGenerationModelsForProviders([]string{"reve", "quiver", "openrouter"})
 	want := map[string]bool{
 		"reve-image":              false,
+		"arrow-1.1":               false,
 		"flux.2-klein-4b":         false,
 		"riverflow-v2.5-fast":     false,
 		"riverflow-v2.5-pro":      false,

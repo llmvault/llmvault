@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button, EmptyState, Skeleton, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   CompactSelection,
@@ -418,7 +418,7 @@ function WorkbenchInner({
 
       {fields.length === 0 ? (
         <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-          <Icon icon="lucide:columns-3" className="h-6 w-6 text-muted" />
+          <AppIcon icon="columns-3" className="h-6 w-6 text-muted" />
           <p className="text-sm text-muted">
             This page has no columns yet. Add one to start entering data.
           </p>
@@ -441,7 +441,7 @@ function WorkbenchInner({
       ) : controller.rows.length === 0 ? (
         filterRules.length > 0 || debouncedSearch ? (
           <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-            <Icon icon="lucide:list-filter" className="h-6 w-6 text-muted" />
+            <AppIcon icon="list-filter" className="h-6 w-6 text-muted" />
             <p className="text-sm font-medium text-foreground">
               No rows match
             </p>
@@ -462,7 +462,7 @@ function WorkbenchInner({
           </EmptyState>
         ) : (
           <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-            <Icon icon="lucide:rows-3" className="h-6 w-6 text-muted" />
+            <AppIcon icon="rows-3" className="h-6 w-6 text-muted" />
             <p className="text-sm font-medium text-foreground">No rows yet</p>
             <p className="max-w-sm text-xs text-muted">
               Add a first row or import a CSV to fill this page.
@@ -473,7 +473,7 @@ function WorkbenchInner({
                 variant="secondary"
                 onPress={() => void controller.appendRow()}
               >
-                <Icon icon="lucide:plus" className="h-3.5 w-3.5" />
+                <AppIcon icon="plus" className="h-3.5 w-3.5" />
                 Add row
               </Button>
               <Button
@@ -481,7 +481,7 @@ function WorkbenchInner({
                 variant="ghost"
                 onPress={() => setImportOpen(true)}
               >
-                <Icon icon="lucide:file-up" className="h-3.5 w-3.5" />
+                <AppIcon icon="file-up" className="h-3.5 w-3.5" />
                 Import CSV
               </Button>
             </div>

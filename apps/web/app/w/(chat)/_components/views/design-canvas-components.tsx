@@ -4,7 +4,7 @@ import { useState } from "react"
 import type { ReactNode } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { useMutation } from "@tanstack/react-query"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   canvasArtifactCommentPayload,
   sendCanvasArtifactComment,
@@ -38,7 +38,7 @@ export function CanvasArtifactHeader({
     <div className="shrink-0 border-b border-border bg-surface">
       <div className="flex h-12 items-center justify-between gap-3 px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Icon icon="lucide:panels-top-left" className="h-4 w-4 text-muted" />
+          <AppIcon icon="panels-top-left" className="h-4 w-4 text-muted" />
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">Canvas</div>
             <div className="truncate text-xs text-muted">
@@ -54,7 +54,7 @@ export function CanvasArtifactHeader({
           aria-label="Refresh Canvas"
           onPress={onRefresh}
         >
-          <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+          <AppIcon icon="refresh-cw" className="h-4 w-4" />
         </Button>
       </div>
       <div className="flex gap-1 overflow-x-auto px-3 pb-2">
@@ -62,7 +62,7 @@ export function CanvasArtifactHeader({
           <SelectorTab
             key={project.id}
             selected={project.id === selectedProject?.id}
-            icon="lucide:folder"
+            icon="folder"
             label={project.name}
             meta={project.artifactCount}
             onClick={() => onSelectProject(project.id)}
@@ -122,7 +122,7 @@ function SelectorTab({
           : "border-transparent text-muted hover:bg-default hover:text-foreground"
       }`}
     >
-      <Icon icon={icon} className="h-3.5 w-3.5 shrink-0" />
+      <AppIcon icon={icon} className="h-3.5 w-3.5 shrink-0" />
       <span className="max-w-40 truncate">{label}</span>
       {caption ? <span className="text-xs text-muted">{caption}</span> : null}
       {meta !== undefined ? (
@@ -146,7 +146,7 @@ export function CanvasPreviewToolbar({
   return (
     <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-3">
       <div className="flex min-w-0 items-center gap-2">
-        <Icon
+        <AppIcon
           icon={artifactIcon(artifact?.type)}
           className="h-4 w-4 shrink-0 text-muted"
         />
@@ -174,7 +174,7 @@ export function CanvasPreviewToolbar({
                 : "text-muted hover:text-foreground"
             }`}
           >
-            <Icon icon={item.icon} className="h-3.5 w-3.5" />
+            <AppIcon icon={item.icon} className="h-3.5 w-3.5" />
           </button>
         ))}
       </div>
@@ -202,7 +202,7 @@ export function CanvasPreviewPane({
   if (!artifact) {
     return (
       <DesignState
-        icon="lucide:file-search"
+        icon="file-search"
         title="Select an artifact"
         message="Choose a project and artifact to preview."
       />
@@ -212,7 +212,7 @@ export function CanvasPreviewPane({
   if (!sessionReady) {
     return (
       <DesignState
-        icon="lucide:message-square"
+        icon="message-square"
         title="Open a session to preview"
         message="Canvas previews load from the active sandbox."
       />
@@ -222,7 +222,7 @@ export function CanvasPreviewPane({
   if (error && !previewUrl) {
     return (
       <DesignState
-        icon="lucide:circle-alert"
+        icon="circle-alert"
         title="Preview is not available"
         message={errorMessage(error, "Could not load the Canvas preview.")}
         action={
@@ -317,7 +317,7 @@ export function CanvasCommentComposer({
     <aside className="flex shrink-0 flex-col border-t border-border bg-surface xl:w-80 xl:border-t-0 xl:border-l">
       <div className="border-b border-border px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Icon icon="lucide:message-square-plus" className="h-4 w-4" />
+          <AppIcon icon="message-square-plus" className="h-4 w-4" />
           Comment
         </div>
       </div>
@@ -361,12 +361,12 @@ export function CanvasCommentComposer({
             onPress={() => void submit()}
           >
             {commentMutation.isPending ? (
-              <Icon
-                icon="lucide:loader-circle"
+              <AppIcon
+                icon="loader-circle"
                 className="h-4 w-4 animate-spin"
               />
             ) : (
-              <Icon icon="lucide:send" className="h-4 w-4" />
+              <AppIcon icon="send" className="h-4 w-4" />
             )}
             Send
           </Button>
@@ -413,7 +413,7 @@ export function DesignState({
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background">
-          <Icon icon={icon} className="h-5 w-5 text-muted" />
+          <AppIcon icon={icon} className="h-5 w-5 text-muted" />
         </div>
         <div className="text-sm font-medium">{title}</div>
         {message ? (
@@ -430,9 +430,9 @@ const VIEWPORTS: {
   label: string
   icon: string
 }[] = [
-  { id: "desktop", label: "Desktop", icon: "lucide:monitor" },
-  { id: "tablet", label: "Tablet", icon: "lucide:tablet" },
-  { id: "mobile", label: "Mobile", icon: "lucide:smartphone" },
+  { id: "desktop", label: "Desktop", icon: "monitor" },
+  { id: "tablet", label: "Tablet", icon: "tablet" },
+  { id: "mobile", label: "Mobile", icon: "smartphone" },
 ]
 
 function viewportWidth(viewport: CanvasViewportMode) {
@@ -447,7 +447,7 @@ function viewportWidth(viewport: CanvasViewportMode) {
 }
 
 function artifactIcon(type?: CanvasArtifactType) {
-  return type === "presentation" ? "lucide:presentation" : "lucide:layout"
+  return type === "presentation" ? "presentation" : "layout"
 }
 
 function artifactTypeLabel(type: CanvasArtifactType) {

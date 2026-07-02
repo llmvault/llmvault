@@ -113,6 +113,9 @@ impl SubagentWorker {
             session_id: SessionId::from(task.child_session_id.as_str()),
             user: "subagent".to_string(),
             user_display_name: Some(task.agent_name.clone()),
+            // Sub-agent delegations run without a human actor; agent-facing tool
+            // authorization falls back to agent scope (see agent-user-scoping-plan).
+            actor_user_id: None,
             text: task.goal.clone(),
             attachments: Vec::new(),
             session_context: Vec::new(),

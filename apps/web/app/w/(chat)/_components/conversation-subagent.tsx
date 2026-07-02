@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { ConversationBlock } from "@/app/w/(chat)/_lib/static-data"
 
 type SubagentConversationBlock = Extract<
@@ -25,7 +25,7 @@ export function SubagentBlock({
       }`}
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
-        <Icon
+        <AppIcon
           icon={statusIcon(block.status)}
           className={`h-4 w-4 text-muted ${
             block.status === "running" ? "animate-spin" : ""
@@ -57,7 +57,7 @@ export function SubagentBlock({
 }
 
 function statusIcon(status: "running" | "completed" | "failed") {
-  if (status === "completed") return "lucide:check"
-  if (status === "failed") return "lucide:triangle-alert"
-  return "lucide:loader-circle"
+  if (status === "completed") return "check"
+  if (status === "failed") return "triangle-alert"
+  return "loader-circle"
 }

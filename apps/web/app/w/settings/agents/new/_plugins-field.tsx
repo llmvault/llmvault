@@ -2,7 +2,7 @@
 
 import NextLink from "next/link"
 import { Description, Switch, Tooltip } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 import {
   pluginCanInstall,
@@ -78,7 +78,7 @@ export function PluginsField({
                 className="flex shrink-0 items-center gap-1 text-xs text-primary transition-colors hover:underline"
               >
                 Connect
-                <Icon icon="lucide:arrow-up-right" className="h-3.5 w-3.5" />
+                <AppIcon icon="arrow-up-right" className="h-3.5 w-3.5" />
               </NextLink>
             ) : (
               <PluginSwitch
@@ -149,7 +149,7 @@ function PluginLogo({ plugin }: { plugin: ApiPlugin }) {
       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
       style={{ backgroundColor: pluginIconColor(plugin) }}
     >
-      <Icon icon={pluginIcon(plugin)} className="h-4 w-4" />
+      <AppIcon icon={pluginIcon(plugin)} className="h-4 w-4" />
     </div>
   )
 }

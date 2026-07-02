@@ -83,7 +83,7 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   if (projectsQuery.isError) {
     return (
       <DesignState
-        icon="lucide:circle-alert"
+        icon="circle-alert"
         title="Canvas is not available"
         message={errorMessage(
           projectsQuery.error,
@@ -105,7 +105,7 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   if (!projects.length) {
     return (
       <DesignState
-        icon="lucide:panels-top-left"
+        icon="panels-top-left"
         title="No Canvas projects"
         action={
           <Button

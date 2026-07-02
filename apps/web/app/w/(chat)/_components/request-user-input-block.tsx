@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import type {
@@ -184,7 +184,7 @@ export function RequestUserInputBlock({
                 }}
                 className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Icon icon="lucide:arrow-left" className="h-3.5 w-3.5" />
+                <AppIcon icon="arrow-left" className="h-3.5 w-3.5" />
                 Back
               </button>
             ) : null}
@@ -195,8 +195,8 @@ export function RequestUserInputBlock({
               className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
             >
               {pendingAction === "dismiss" ? (
-                <Icon
-                  icon="lucide:loader-circle"
+                <AppIcon
+                  icon="loader-circle"
                   className="h-3.5 w-3.5 animate-spin"
                 />
               ) : null}
@@ -213,13 +213,13 @@ export function RequestUserInputBlock({
                 className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {pendingAction === "submit" ? (
-                  <Icon
-                    icon="lucide:loader-circle"
+                  <AppIcon
+                    icon="loader-circle"
                     className="h-3.5 w-3.5 animate-spin"
                   />
                 ) : null}
                 Submit
-                <Icon icon="lucide:corner-down-left" className="h-3.5 w-3.5" />
+                <AppIcon icon="corner-down-left" className="h-3.5 w-3.5" />
               </button>
             ) : (
               <button
@@ -229,7 +229,7 @@ export function RequestUserInputBlock({
                 className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-medium text-background transition-colors hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
-                <Icon icon="lucide:arrow-right" className="h-3.5 w-3.5" />
+                <AppIcon icon="arrow-right" className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -277,7 +277,7 @@ function OptionRow({
       <span className="min-w-0 truncate text-sm">{label}</span>
       {description ? (
         <span title={description} className="text-muted">
-          <Icon icon="lucide:info" className="h-3.5 w-3.5" />
+          <AppIcon icon="info" className="h-3.5 w-3.5" />
         </span>
       ) : null}
     </button>
@@ -337,7 +337,7 @@ function NumberBadge({
           : "border border-border bg-background text-muted"
       }`}
     >
-      {pencil ? <Icon icon="lucide:pencil" className="h-3 w-3" /> : index}
+      {pencil ? <AppIcon icon="pencil" className="h-3 w-3" /> : index}
     </span>
   )
 }

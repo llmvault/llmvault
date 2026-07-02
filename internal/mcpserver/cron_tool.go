@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -87,6 +88,7 @@ type cronToolArgs struct {
 	RepeatCount     *int64  `json:"repeat_count"`
 	ChannelID       string  `json:"channel_id"`
 	HivySessionID   string  `json:"_hivy_session_id"`
+	HivyActorUserID string  `json:"_hivy_actor_user_id"`
 }
 
 func decodeCronToolArgs(req *mcp.CallToolRequest) (cronToolArgs, error) {
@@ -112,8 +114,21 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		}
 		agent = target
 	}
+	// Resolve the human on whose behalf this turn runs, so an explicit
+	// channel_id can't bind a run to a channel they aren't in.
+	orgID := uuid.Nil
+	if callingAgent != nil && callingAgent.OrgID != nil {
+		orgID = *callingAgent.OrgID
+	}
+	actor, err := access.Resolve(ctx, db, orgID, args.HivyActorUserID)
+	if err != nil {
+		return cronToolError(err.Error()), nil
+	}
 	switch args.Action {
 	case "create":
+		if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
+			return errResult, nil
+		}
 		expr := ""
 		if args.CronExpression != nil {
 			expr = strings.TrimSpace(*args.CronExpression)
@@ -155,6 +170,9 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 	case "update":
 		if strings.TrimSpace(args.JobID) == "" {
 			return cronToolError("job_id is required"), nil
+		}
+		if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
+			return errResult, nil
 		}
 		update := agentschedule.UpdateInput{
 			IntervalSeconds: args.IntervalSeconds,

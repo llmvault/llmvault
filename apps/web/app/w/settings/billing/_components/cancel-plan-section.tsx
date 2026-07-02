@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Modal, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
@@ -146,7 +146,7 @@ export function CancelPlanSection() {
 
               <Modal.Header>
                 <Modal.Icon className="bg-default size-12 text-foreground">
-                  <Icon icon="lucide:circle-slash" className="h-6 w-6" />
+                  <AppIcon icon="circle-slash" className="h-6 w-6" />
                 </Modal.Icon>
                 <div className="flex flex-col gap-1">
                   <Modal.Heading>Cancel your plan?</Modal.Heading>

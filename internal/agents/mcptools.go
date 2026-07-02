@@ -99,7 +99,9 @@ func registerListOrgPlugins(server *mcp.Server, db *gorm.DB, token *model.Token,
 
 func handleListOrgPlugins(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string) (*mcp.CallToolResult, error) {
 	var plugins []model.Plugin
-	if err := db.WithContext(ctx).Where("status = ?", model.PluginStatusActive).Order("name ASC").Find(&plugins).Error; err != nil {
+	if err := db.WithContext(ctx).
+		Where("status = ? AND (org_id IS NULL OR org_id = ?)", model.PluginStatusActive, token.OrgID).
+		Order("name ASC").Find(&plugins).Error; err != nil {
 		return toolError("failed to list plugins: " + err.Error()), nil
 	}
 	installedIDs, err := installedPluginIDSet(ctx, db, token.OrgID)
@@ -364,6 +366,9 @@ func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. Use list_org_plugins to discover valid plugin_slugs and skills.",
 		InputSchema: createAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if errResult := requireOrgManager(ctx, deps.DB, token.OrgID, req, "creating an agent"); errResult != nil {
+			return errResult, nil
+		}
 		var args createAgentArgs
 		if errResult := decodeArgs(req, &args); errResult != nil {
 			return errResult, nil
@@ -441,6 +446,9 @@ func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (plugin_slugs, skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Use list_org_plugins to discover valid plugin_slugs and skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if errResult := requireOrgManager(ctx, deps.DB, token.OrgID, req, "changing an agent"); errResult != nil {
+			return errResult, nil
+		}
 		var args updateAgentArgs
 		if errResult := decodeArgs(req, &args); errResult != nil {
 			return errResult, nil

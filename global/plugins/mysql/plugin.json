@@ -4,7 +4,7 @@
   "name": "MySQL",
   "description": "Explore and query connected MySQL databases safely.",
   "category": "Data & Analytics",
-  "icon": "simple-icons:mysql",
+  "icon": "mysql",
   "icon_color": "#00758F",
   "developer": "Hivy",
   "official": true,

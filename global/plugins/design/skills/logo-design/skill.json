@@ -1,17 +1,37 @@
 {
   "name": "logo-design",
-  "description": "Use this skill when the user asks a design agent to design, redesign, refine, critique, or explore a logo, wordmark, monogram, brand mark, lockup, favicon mark, or logo variants. It teaches logo design judgment, mark architecture, typographic register, small-size discipline, and presentation standards, then directs the agent to create and verify the actual logo exploration as a Hivy Canvas artifact with the canvas skill.",
-  "human_description": "Teach agents tasteful logo direction and Canvas artifact logo exploration.",
+  "description": "Use this skill when the user asks a design agent to design, create, generate, redesign, refine, critique, or explore a logo, wordmark, monogram, brand mark, symbol, lockup, favicon, or app icon — or to turn a raster logo into an SVG. It generates one vector symbol and builds a complete production logo pack from it (lockups, app icon, monochrome, reverse, favicon) as scalable SVGs and transparent PNGs, using bundled scripts that guarantee a byte-identical mark across every asset. It also teaches logo judgment: mark architecture, typographic register, small-size discipline, and presentation.",
+  "human_description": "Generate a consistent, production-ready logo pack (SVG + transparent PNG) from one vector mark.",
   "category": "Design",
   "root": "./SKILL.md",
   "tags": [
     "logo",
     "brand",
-    "canvas",
+    "svg",
+    "vector",
+    "logo-pack",
     "visual-identity",
     "design-direction"
   ],
   "files": [
+    {
+      "path": "scripts/logo_pack.mjs"
+    },
+    {
+      "path": "scripts/svg_to_png.mjs"
+    },
+    {
+      "path": "scripts/deliver.sh"
+    },
+    {
+      "path": "references/mark-prompts.md"
+    },
+    {
+      "path": "references/type-and-color-prompts.md"
+    },
+    {
+      "path": "references/brand-logo-playbook.md"
+    },
     {
       "path": "references/architectures-explained.md"
     },

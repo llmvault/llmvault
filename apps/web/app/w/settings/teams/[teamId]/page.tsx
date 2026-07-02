@@ -5,7 +5,7 @@ import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Chip, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -126,7 +126,7 @@ export default function TeamDetailPage({
         <section className="bg-surface rounded-2xl border border-border px-4 py-4">
           <div className="flex items-start gap-3">
             <div className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted">
-              <Icon icon="lucide:users-round" className="h-4 w-4" />
+              <AppIcon icon="users-round" className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <h1 className="text-sm font-medium">Team management</h1>
@@ -194,7 +194,7 @@ export default function TeamDetailPage({
             size="sm"
             onPress={() => setEditOpen(true)}
           >
-            <Icon icon="lucide:pencil" className="h-4 w-4" />
+            <AppIcon icon="pencil" className="h-4 w-4" />
             Edit
           </Button>
           <Button
@@ -206,7 +206,7 @@ export default function TeamDetailPage({
             {archiveTeam.isPending ? (
               <Spinner color="current" size="sm" />
             ) : (
-              <Icon icon="lucide:archive" className="h-4 w-4" />
+              <AppIcon icon="archive" className="h-4 w-4" />
             )}
             Archive
           </Button>
@@ -256,7 +256,7 @@ function BackLink() {
       href="/w/settings/teams"
       className="inline-flex w-fit items-center gap-2 text-sm text-muted transition-colors hover:text-foreground"
     >
-      <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+      <AppIcon icon="arrow-left" className="h-4 w-4" />
       Teams
     </NextLink>
   )

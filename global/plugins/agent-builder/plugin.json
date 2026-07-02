@@ -4,7 +4,7 @@
   "name": "Agent Builder",
   "description": "Create, configure, and improve agents in your organization through conversation.",
   "category": "Hivy",
-  "icon": "lucide:bot",
+  "icon": "bot",
   "icon_color": "#7C3AED",
   "developer": "Hivy",
   "official": true,

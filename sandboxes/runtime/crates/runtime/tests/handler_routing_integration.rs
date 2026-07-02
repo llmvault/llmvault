@@ -6,6 +6,7 @@ fn make_event(session_id: &str, user: &str) -> InboundEvent {
         session_id: SessionId::from(session_id),
         user: user.into(),
         user_display_name: None,
+        actor_user_id: None,
         text: "test".into(),
         attachments: vec![],
         session_context: vec![],

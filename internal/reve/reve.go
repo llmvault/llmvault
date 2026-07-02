@@ -18,15 +18,27 @@ import (
 const (
 	defaultBaseURL = "https://api.reve.com"
 	createPath     = "/v1/image/create"
+	remixPath      = "/v1/image/remix"
 	maxInstruction = 4000
 )
 
 func (c *Client) GenerateImage(ctx context.Context, req GenerateRequest) (ImageResult, error) {
-	payload, format, err := buildCreatePayload(req)
+	var (
+		payload any
+		format  ImageFormat
+		err     error
+	)
+	path := createPath
+	if len(req.References) > 0 {
+		path = remixPath
+		payload, format, err = buildRemixPayload(req)
+	} else {
+		payload, format, err = buildCreatePayload(req)
+	}
 	if err != nil {
 		return ImageResult{}, err
 	}
-	endpoint, err := createURL(req.BaseURL)
+	endpoint, err := endpointURL(req.BaseURL, path)
 	if err != nil {
 		return ImageResult{}, err
 	}
@@ -65,7 +77,7 @@ func (c *Client) GenerateImage(ctx context.Context, req GenerateRequest) (ImageR
 	return decodeImageResult(resp, format)
 }
 
-func createURL(baseURL string) (string, error) {
+func endpointURL(baseURL, path string) (string, error) {
 	raw := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if raw == "" {
 		raw = defaultBaseURL
@@ -74,7 +86,7 @@ func createURL(baseURL string) (string, error) {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return "", errors.New("invalid reve base_url")
 	}
-	parsed.Path = strings.TrimRight(parsed.Path, "/") + createPath
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + path
 	return parsed.String(), nil
 }
 

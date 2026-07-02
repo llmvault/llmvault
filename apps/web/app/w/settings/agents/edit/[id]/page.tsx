@@ -5,7 +5,7 @@ import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { pluginSlug, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
@@ -93,7 +93,7 @@ export default function EditAgentPage({
   if (!agent) {
     return (
       <StatusState
-        icon="lucide:bot"
+        icon="bot"
         title="Agent not found"
         detail="This agent may have been removed."
       />
@@ -102,7 +102,7 @@ export default function EditAgentPage({
   if (agent.catalog) {
     return (
       <StatusState
-        icon="lucide:package"
+        icon="package"
         title="Catalog agent"
         detail="Catalog agents are managed from their catalog page."
         href={`/w/settings/agents/${agent.catalog.slug}`}
@@ -146,7 +146,7 @@ function StatusState({
 }) {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <Icon icon={icon} className="h-7 w-7 text-muted-foreground" />
+      <AppIcon icon={icon} className="h-7 w-7 text-muted-foreground" />
       <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
       <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
       <NextLink

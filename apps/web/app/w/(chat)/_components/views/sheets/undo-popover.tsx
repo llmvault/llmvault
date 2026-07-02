@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button, Popover, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { extractErrorMessage } from "@/lib/api/error"
 import {
@@ -32,17 +32,17 @@ function operationLabel(type: string | undefined): string {
 function operationIcon(type: string | undefined): string {
   switch (type) {
     case "rows_insert":
-      return "lucide:plus"
+      return "plus"
     case "rows_update":
-      return "lucide:pencil"
+      return "pencil"
     case "rows_delete":
-      return "lucide:trash-2"
+      return "trash-2"
     case "csv_import":
-      return "lucide:file-up"
+      return "file-up"
     case "field_change":
-      return "lucide:columns-3"
+      return "columns-3"
     default:
-      return "lucide:history"
+      return "history"
   }
 }
 
@@ -108,7 +108,7 @@ export function UndoPopover({
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
-        <Icon icon="lucide:undo-2" className="h-3.5 w-3.5" />
+        <AppIcon icon="undo-2" className="h-3.5 w-3.5" />
         Undo
       </Popover.Trigger>
       <Popover.Content className="w-80 rounded-2xl border border-border p-2">
@@ -134,7 +134,7 @@ export function UndoPopover({
                 key={operation.id}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-default"
               >
-                <Icon
+                <AppIcon
                   icon={operationIcon(operation.type)}
                   className="h-3.5 w-3.5 shrink-0 text-muted"
                 />

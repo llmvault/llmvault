@@ -111,12 +111,20 @@ impl McpRegistry {
         prefixed_name: &str,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
-        self.call_tool_for_session("", prefixed_name, args).await
+        self.call_tool_for_session("", None, prefixed_name, args)
+            .await
     }
 
+    /// Invoke an MCP tool. For the trusted "hivy" server, the runtime injects
+    /// the current `_hivy_session_id` and, when a human is behind the turn, the
+    /// `_hivy_actor_user_id`. Both are injected server-side (overwriting any
+    /// model-supplied value) and are never part of the advertised tool schema,
+    /// so the model can neither read nor forge the requesting-user identity that
+    /// the Hivy control plane authorizes on.
     pub async fn call_tool_for_session(
         &self,
         session_id: &str,
+        actor_user_id: Option<&str>,
         prefixed_name: &str,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
@@ -141,6 +149,19 @@ impl McpRegistry {
                         "_hivy_session_id".to_string(),
                         serde_json::Value::String(session_id.to_string()),
                     );
+                    match actor_user_id {
+                        Some(actor) if !actor.is_empty() => {
+                            arguments.insert(
+                                "_hivy_actor_user_id".to_string(),
+                                serde_json::Value::String(actor.to_string()),
+                            );
+                        }
+                        _ => {
+                            // No human actor (automated run): ensure the model
+                            // cannot smuggle one in via tool arguments.
+                            arguments.remove("_hivy_actor_user_id");
+                        }
+                    }
                 }
                 let result = entry
                     .peer

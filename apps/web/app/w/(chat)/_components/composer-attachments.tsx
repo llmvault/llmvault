@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import type { OrgDriveUploadItem } from "@/hooks/use-org-drive-file-uploads"
 import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
@@ -92,15 +92,15 @@ function AttachmentPreviewTile({
       />
       {pending ? (
         <div className="absolute inset-0 flex items-center justify-center rounded-[7px] bg-background/50">
-          <Icon
-            icon="lucide:loader-2"
+          <AppIcon
+            icon="loader-2"
             className="h-4 w-4 animate-spin text-muted"
           />
         </div>
       ) : null}
       {attachment.status === "ready" ? (
         <span className="absolute bottom-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 text-muted shadow-sm">
-          <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+          <AppIcon icon="check" className="h-3.5 w-3.5" />
         </span>
       ) : null}
       {error ? (
@@ -112,7 +112,7 @@ function AttachmentPreviewTile({
           onPress={onRetry}
           className="bg-danger text-danger-foreground absolute bottom-1.5 left-1.5 z-10 h-5 w-5 min-w-5 rounded-full p-0 shadow-sm"
         >
-          <Icon icon="lucide:rotate-ccw" className="h-3.5 w-3.5" />
+          <AppIcon icon="rotate-ccw" className="h-3.5 w-3.5" />
         </Button>
       ) : null}
       <Button
@@ -123,7 +123,7 @@ function AttachmentPreviewTile({
         onPress={onRemove}
         className="absolute top-1 right-1 z-20 h-5 w-5 min-w-5 rounded-full bg-foreground p-0 text-background shadow-sm hover:bg-foreground/90"
       >
-        <Icon icon="lucide:x" className="h-3 w-3" />
+        <AppIcon icon="x" className="h-3 w-3" />
       </Button>
     </div>
   )

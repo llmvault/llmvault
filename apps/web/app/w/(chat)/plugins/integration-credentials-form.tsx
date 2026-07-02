@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Button, Input, Label, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 import {
   type AvailableIntegration,
@@ -104,7 +104,7 @@ export function IntegrationCredentialsForm({
             onPress={onBack}
             aria-label="Back"
           >
-            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+            <AppIcon icon="arrow-left" className="h-4 w-4" />
           </Button>
         ) : null}
         <IntegrationLogo provider={integration.provider ?? ""} size={28} />

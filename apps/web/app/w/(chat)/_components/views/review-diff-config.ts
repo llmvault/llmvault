@@ -18,6 +18,6 @@ export const DIFF_STYLE_OPTIONS: {
   label: string
   icon: string
 }[] = [
-  { id: "unified", label: "Unified", icon: "lucide:rows-3" },
-  { id: "split", label: "Split", icon: "lucide:columns-2" },
+  { id: "unified", label: "Unified", icon: "rows-3" },
+  { id: "split", label: "Split", icon: "columns-2" },
 ]

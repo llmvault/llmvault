@@ -1,13 +1,13 @@
 "use client"
 
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import type { AdminTab } from "./types"
 
 const adminSections: Array<{ id: AdminTab; label: string; icon: string }> = [
-  { id: "integrations", label: "Integrations", icon: "lucide:plug" },
-  { id: "credentials", label: "System credentials", icon: "lucide:key-round" },
+  { id: "integrations", label: "Integrations", icon: "plug" },
+  { id: "credentials", label: "System credentials", icon: "key-round" },
 ]
 
 export function AdminSidebar({
@@ -30,7 +30,7 @@ export function AdminSidebar({
       <div className="flex flex-col gap-4 px-4 py-5">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-background">
-            <Icon icon="lucide:shield-check" className="size-4" />
+            <AppIcon icon="shield-check" className="size-4" />
           </div>
           <div className="min-w-0">
             <p className="text-xs tracking-[0.14em] text-muted uppercase">
@@ -50,7 +50,7 @@ export function AdminSidebar({
               isPending={fetching}
               onPress={onRefresh}
             >
-              <Icon icon="lucide:refresh-cw" className="size-4" />
+              <AppIcon icon="refresh-cw" className="size-4" />
             </Button>
             <Button
               size="sm"
@@ -77,7 +77,7 @@ export function AdminSidebar({
                 item.id === activeTab ? "bg-default" : "hover:bg-default"
               )}
             >
-              <Icon icon={item.icon} className="size-4 shrink-0 text-muted" />
+              <AppIcon icon={item.icon} className="size-4 shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
             </button>
           ))}

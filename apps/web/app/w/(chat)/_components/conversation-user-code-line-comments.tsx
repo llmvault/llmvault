@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   formatCodeLineCommentLine,
   formatCodeLineCommentLocation,
@@ -13,10 +13,10 @@ export function UserCodeLineComments({
   return (
     <details className="group/comments min-w-0">
       <summary className="hover:bg-surface-secondary bg-surface flex h-7 cursor-pointer list-none items-center gap-2 rounded-full border border-border px-2.5 text-xs font-medium text-foreground transition-colors marker:hidden">
-        <Icon icon="lucide:message-square" className="h-3.5 w-3.5 text-muted" />
+        <AppIcon icon="message-square" className="h-3.5 w-3.5 text-muted" />
         {comments.length} {comments.length === 1 ? "comment" : "comments"}
-        <Icon
-          icon="lucide:chevron-down"
+        <AppIcon
+          icon="chevron-down"
           className="ml-auto h-3.5 w-3.5 text-muted transition-transform group-open/comments:rotate-180"
         />
       </summary>

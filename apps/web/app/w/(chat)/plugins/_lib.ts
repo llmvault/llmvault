@@ -25,7 +25,7 @@ export function pluginDetailCategory(plugin: ApiPlugin): string {
 }
 
 export function pluginIcon(plugin: ApiPlugin): string {
-  return plugin.icon || "lucide:plug"
+  return plugin.icon || "plug"
 }
 
 export function pluginIconColor(plugin: ApiPlugin): string {

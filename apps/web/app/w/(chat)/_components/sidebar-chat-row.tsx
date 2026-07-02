@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Tooltip } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import {
   useSessionRuntimeStatus,
   type SessionRuntimeStatus,
@@ -126,7 +126,7 @@ function SessionRuntimeIndicator({
   return (
     <Tooltip delay={250} closeDelay={0}>
       <Tooltip.Trigger className="flex h-4 w-4 shrink-0 items-center justify-center">
-        <Icon
+        <AppIcon
           icon={indicator.icon}
           className={`h-3.5 w-3.5 ${indicator.className}`}
         />
@@ -164,31 +164,31 @@ function runtimeIndicator(
   switch (status) {
     case "queued":
       return {
-        icon: "lucide:loader-2",
+        icon: "loader-2",
         label: "Agent turn queued",
         className: "animate-spin text-muted",
       }
     case "streaming":
       return {
-        icon: "lucide:loader-2",
+        icon: "loader-2",
         label: "Agent turn in progress",
         className: "animate-spin text-primary",
       }
     case "waiting_for_user":
       return {
-        icon: "lucide:message-circle-question",
+        icon: "message-circle-question",
         label: "Waiting for your response",
         className: "text-warning",
       }
     case "stopped":
       return {
-        icon: "lucide:square",
+        icon: "square",
         label: "Last turn stopped",
         className: "text-muted",
       }
     case "failed":
       return {
-        icon: "lucide:triangle-alert",
+        icon: "triangle-alert",
         label: "Last turn failed",
         className: "text-danger",
       }
@@ -215,7 +215,7 @@ function SessionAgentAvatar({ agent }: { agent: SidebarSessionAgent }) {
               />
             </>
           ) : (
-            <Icon icon={agent.icon} className="h-2 w-2" />
+            <AppIcon icon={agent.icon} className="h-2 w-2" />
           )}
         </span>
       </Tooltip.Trigger>

@@ -2,7 +2,7 @@
 
 import { memo, useMemo } from "react"
 import { Avatar, Button, Tooltip } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
@@ -47,7 +47,7 @@ export const ChatHeader = memo(function ChatHeader({
           aria-label="Expand sidebar"
           onPress={onExpandSidebar}
         >
-          <Icon icon="lucide:panel-left-open" className="h-4 w-4" />
+          <AppIcon icon="panel-left-open" className="h-4 w-4" />
         </Button>
       ) : null}
 
@@ -81,8 +81,8 @@ export const ChatHeader = memo(function ChatHeader({
           aria-label="Toggle side panel"
           onPress={onToggleRight}
         >
-          <Icon
-            icon={rightOpen ? "lucide:panel-right-close" : "lucide:panel-right"}
+          <AppIcon
+            icon={rightOpen ? "panel-right-close" : "panel-right"}
             className="h-4 w-4 text-muted"
           />
         </Button>

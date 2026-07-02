@@ -50,7 +50,7 @@ func manifestBool(raw model.RawJSON, key string) bool {
 func autoInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugin, error) {
 	var rows []model.Plugin
 	if err := tx.WithContext(ctx).
-		Where("status = ?", model.PluginStatusActive).
+		Where("status = ? AND org_id IS NULL", model.PluginStatusActive).
 		Order("slug ASC").
 		Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("load auto-install plugins: %w", err)
@@ -162,7 +162,7 @@ func PluginDefaultAgentInstall(plugin model.Plugin) bool {
 func defaultAgentInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugin, error) {
 	var rows []model.Plugin
 	if err := tx.WithContext(ctx).
-		Where("status = ?", model.PluginStatusActive).
+		Where("status = ? AND org_id IS NULL", model.PluginStatusActive).
 		Order("slug ASC").
 		Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("load default-agent plugins: %w", err)
@@ -286,7 +286,7 @@ func reconcileCatalogRequiredPlugins(ctx context.Context, tx *gorm.DB) error {
 		SELECT agents.org_id, agents.id, plugins.id, NOW()
 		FROM agents
 		JOIN agent_catalog catalog ON catalog.id = agents.agent_catalog_id
-		JOIN plugins ON plugins.status = ? AND plugins.slug = ANY(catalog.required_plugins)
+		JOIN plugins ON plugins.status = ? AND plugins.org_id IS NULL AND plugins.slug = ANY(catalog.required_plugins)
 		JOIN org_plugin_installs installs
 			ON installs.org_id = agents.org_id
 			AND installs.plugin_id = plugins.id
@@ -302,7 +302,7 @@ func reconcileCatalogRequiredPlugins(ctx context.Context, tx *gorm.DB) error {
 	var pluginIDs []uuid.UUID
 	if err := tx.WithContext(ctx).Table("plugins").
 		Joins("JOIN agent_catalog catalog ON plugins.slug = ANY(catalog.required_plugins)").
-		Where("plugins.status = ?", model.PluginStatusActive).
+		Where("plugins.status = ? AND plugins.org_id IS NULL", model.PluginStatusActive).
 		Distinct("plugins.id").
 		Pluck("plugins.id", &pluginIDs).Error; err != nil {
 		return fmt.Errorf("list catalog-required plugins for count refresh: %w", err)

@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { DIFF_STYLE_OPTIONS } from "./review-diff-config"
 import type { ReviewDiffStyle } from "./review-types"
 
@@ -25,7 +25,7 @@ export function DiffStyleToggle({
               : "text-muted hover:text-foreground"
           }`}
         >
-          <Icon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
+          <AppIcon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
           <span>{option.label}</span>
         </button>
       ))}

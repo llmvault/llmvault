@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -65,10 +66,11 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 }
 
 type httpTriggerArgs struct {
-	AgentID      string `json:"agent_id"`
-	Instructions string `json:"instructions"`
-	ChannelID    string `json:"channel_id"`
-	Secret       string `json:"secret"`
+	AgentID         string `json:"agent_id"`
+	Instructions    string `json:"instructions"`
+	ChannelID       string `json:"channel_id"`
+	Secret          string `json:"secret"`
+	HivyActorUserID string `json:"_hivy_actor_user_id"`
 }
 
 func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Token, callingAgent *model.Agent, args httpTriggerArgs) (*mcp.CallToolResult, error) {
@@ -83,6 +85,15 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 			return errResult, nil
 		}
 		agent = target
+	}
+
+	// Block binding the trigger to a channel the acting human isn't a member of.
+	actor, err := access.Resolve(ctx, db, token.OrgID, args.HivyActorUserID)
+	if err != nil {
+		return cronToolError(err.Error()), nil
+	}
+	if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
+		return errResult, nil
 	}
 
 	// Resolve the channel exactly like cron schedules do: empty falls back to

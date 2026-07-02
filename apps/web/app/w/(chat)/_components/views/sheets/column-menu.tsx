@@ -16,7 +16,7 @@ import {
   TextField,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQueryClient } from "@tanstack/react-query"
 import { extractErrorMessage } from "@/lib/api/error"
 import {
@@ -122,22 +122,22 @@ export function ColumnHeaderMenu({
             }}
           >
             <Dropdown.Item id="rename" textValue="Rename column">
-              <Icon icon="lucide:pencil" className="h-3.5 w-3.5 text-muted" />
+              <AppIcon icon="pencil" className="h-3.5 w-3.5 text-muted" />
               Rename
             </Dropdown.Item>
             <Dropdown.Item id="type" textValue="Change type">
-              <Icon
+              <AppIcon
                 icon={fieldTypeIcon(field.type)}
                 className="h-3.5 w-3.5 text-muted"
               />
               Change type
             </Dropdown.Item>
             <Dropdown.Item id="hide" textValue="Hide column">
-              <Icon icon="lucide:eye-off" className="h-3.5 w-3.5 text-muted" />
+              <AppIcon icon="eye-off" className="h-3.5 w-3.5 text-muted" />
               Hide in view
             </Dropdown.Item>
             <Dropdown.Item id="delete" textValue="Delete column" variant="danger">
-              <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
+              <AppIcon icon="trash-2" className="h-3.5 w-3.5" />
               Delete column
             </Dropdown.Item>
           </Dropdown.Menu>
@@ -300,7 +300,7 @@ function ChangeTypeModal({
               >
                 <Select.Trigger className="h-9 w-full justify-between rounded-lg px-3 text-sm">
                   <span className="flex min-w-0 items-center gap-2">
-                    <Icon
+                    <AppIcon
                       icon={fieldTypeIcon(type)}
                       className="h-3.5 w-3.5 shrink-0 text-muted"
                     />
@@ -317,7 +317,7 @@ function ChangeTypeModal({
                         textValue={entry.replace("_", " ")}
                       >
                         <span className="flex items-center gap-2">
-                          <Icon
+                          <AppIcon
                             icon={fieldTypeIcon(entry)}
                             className="h-3.5 w-3.5 text-muted"
                           />
@@ -381,7 +381,7 @@ function DeleteColumnDialog({
           <AlertDialog.Dialog className="p-8">
             <AlertDialog.Header>
               <AlertDialog.Icon status="danger">
-                <Icon icon="lucide:trash-2" className="h-6 w-6" />
+                <AppIcon icon="trash-2" className="h-6 w-6" />
               </AlertDialog.Icon>
               <div className="flex flex-col gap-1">
                 <AlertDialog.Heading>

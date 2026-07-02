@@ -4,7 +4,7 @@
   "name": "Runtime",
   "description": "Core runtime capabilities available to every agent.",
   "category": "Runtime",
-  "icon": "lucide:cpu",
+  "icon": "cpu",
   "icon_color": "#0F766E",
   "developer": "Hivy",
   "official": true,

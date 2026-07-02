@@ -46,6 +46,17 @@ func agentSessionsEnsureSystemReveCredential(t *testing.T) {
 	})
 }
 
+func agentSessionsEnsureSystemQuiverCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_QUIVER_API_KEY",
+		label:      "E2E System Quiver",
+		providerID: "quiver",
+		baseURL:    "https://api.quiver.ai",
+		authScheme: "bearer",
+	})
+}
+
 func agentSessionsEnsureSystemElevenLabsCredential(t *testing.T) {
 	t.Helper()
 	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{

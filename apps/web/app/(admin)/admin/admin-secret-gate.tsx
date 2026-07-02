@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react"
 import { Button, Input, Label } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function SecretGate({
   value,
@@ -21,7 +21,7 @@ export function SecretGate({
       >
         <div className="flex flex-col gap-2">
           <div className="flex size-10 items-center justify-center rounded-2xl border border-border bg-background">
-            <Icon icon="lucide:key-round" className="size-4" />
+            <AppIcon icon="key-round" className="size-4" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Admin secret required</h2>

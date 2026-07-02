@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function FormSection({
   title,
@@ -36,7 +36,7 @@ export function InlineNotice({
   return (
     <div className="flex gap-3 rounded-xl border border-border p-3">
       <div className="text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
-        <Icon icon={icon} className="h-4 w-4" />
+        <AppIcon icon={icon} className="h-4 w-4" />
       </div>
       <div>
         <p className="text-sm font-medium text-foreground">{title}</p>

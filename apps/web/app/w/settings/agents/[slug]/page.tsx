@@ -4,7 +4,7 @@ import { use, useCallback, useMemo } from "react"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import {
@@ -253,7 +253,7 @@ export default function AgentDetailPage({
         href="/w/settings/agents"
         className="text-muted-foreground flex w-fit items-center gap-2 text-sm transition-colors hover:text-foreground"
       >
-        <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+        <AppIcon icon="arrow-left" className="h-4 w-4" />
         Agents
       </NextLink>
 
@@ -332,7 +332,7 @@ function MissingPluginsWarning({ count }: { count: number }) {
   return (
     <div className="flex gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
-        <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
+        <AppIcon icon="triangle-alert" className="h-5 w-5" />
       </div>
       <div className="min-w-0">
         <h2 className="text-sm font-medium text-foreground">
@@ -370,7 +370,7 @@ function DetailSkeleton() {
 function NotFoundState() {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <Icon icon="lucide:bot" className="h-7 w-7 text-muted" />
+      <AppIcon icon="bot" className="h-7 w-7 text-muted" />
       <p className="mt-3 text-sm font-medium text-foreground">
         Agent not found
       </p>

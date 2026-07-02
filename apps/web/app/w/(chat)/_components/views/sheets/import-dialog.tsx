@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Button, Modal, ProgressBar, Spinner, Switch, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Papa from "papaparse"
 import { useDropzone } from "react-dropzone"
@@ -174,8 +174,8 @@ export function ImportDialog({
               <div className="flex flex-col gap-3 py-4">
                 {jobStatus === "failed" ? (
                   <div className="flex items-start gap-2 rounded-lg border border-border bg-default p-3">
-                    <Icon
-                      icon="lucide:circle-alert"
+                    <AppIcon
+                      icon="circle-alert"
                       className="mt-0.5 h-4 w-4 shrink-0 text-danger"
                     />
                     <p className="text-sm text-foreground">
@@ -184,8 +184,8 @@ export function ImportDialog({
                   </div>
                 ) : jobStatus === "completed" ? (
                   <div className="flex items-center gap-2">
-                    <Icon
-                      icon="lucide:circle-check"
+                    <AppIcon
+                      icon="circle-check"
                       className="h-4 w-4 text-success"
                     />
                     <p className="text-sm text-foreground">
@@ -230,8 +230,8 @@ export function ImportDialog({
                     }`}
                   >
                     <input {...dropzone.getInputProps()} />
-                    <Icon
-                      icon="lucide:file-up"
+                    <AppIcon
+                      icon="file-up"
                       className="h-6 w-6 text-muted"
                     />
                     <p className="text-sm text-foreground">
@@ -242,8 +242,8 @@ export function ImportDialog({
                 ) : (
                   <>
                     <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-                      <Icon
-                        icon="lucide:file-text"
+                      <AppIcon
+                        icon="file-text"
                         className="h-4 w-4 shrink-0 text-muted"
                       />
                       <span className="min-w-0 flex-1 truncate text-sm text-foreground">
@@ -260,7 +260,7 @@ export function ImportDialog({
                           setMapping({})
                         }}
                       >
-                        <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+                        <AppIcon icon="x" className="h-3.5 w-3.5" />
                       </Button>
                     </div>
 
@@ -303,8 +303,8 @@ export function ImportDialog({
                               <span className="w-40 truncate text-xs text-foreground">
                                 {column}
                               </span>
-                              <Icon
-                                icon="lucide:arrow-right"
+                              <AppIcon
+                                icon="arrow-right"
                                 className="h-3 w-3 shrink-0 text-muted"
                               />
                               <select
@@ -376,8 +376,8 @@ export function ImportDialog({
 
                 {error ? (
                   <div className="flex items-start gap-2 rounded-lg border border-border bg-default p-3">
-                    <Icon
-                      icon="lucide:circle-alert"
+                    <AppIcon
+                      icon="circle-alert"
                       className="mt-0.5 h-4 w-4 shrink-0 text-danger"
                     />
                     <p className="text-sm text-foreground">{error}</p>

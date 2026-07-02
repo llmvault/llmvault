@@ -1,7 +1,7 @@
 "use client"
 
 import { AlertDialog, Button, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { providerLabel } from "@/app/w/(chat)/plugins/[slug]/plugin-detail-helpers"
 import type { ConnectionDisconnectTarget } from "@/app/w/(chat)/plugins/[slug]/required-connections-section"
 
@@ -37,7 +37,7 @@ export function DisconnectConnectionConfirmDialog({
           <AlertDialog.Dialog className="p-8">
             <AlertDialog.Header>
               <AlertDialog.Icon status="danger">
-                <Icon icon="lucide:unlink" className="h-6 w-6" />
+                <AppIcon icon="unlink" className="h-6 w-6" />
               </AlertDialog.Icon>
               <div className="flex flex-col gap-1">
                 <AlertDialog.Heading>Disconnect {provider}</AlertDialog.Heading>

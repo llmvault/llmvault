@@ -137,6 +137,7 @@ mod tests {
             session_id: SessionId::from(session.to_string()),
             user: "U123".to_string(),
             user_display_name: Some("Ada".to_string()),
+            actor_user_id: None,
             text: text.to_string(),
             attachments: vec![Attachment {
                 url: "https://example.test/log.txt".to_string(),

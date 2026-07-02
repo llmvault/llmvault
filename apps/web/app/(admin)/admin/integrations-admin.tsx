@@ -1,7 +1,7 @@
 "use client"
 
 import { Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 import type { AdminIntegrationDefinition } from "./types"
 
@@ -63,7 +63,7 @@ function IntegrationRow({
           />
         ) : (
           <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-background">
-            <Icon icon="lucide:plug" className="size-4 text-muted" />
+            <AppIcon icon="plug" className="size-4 text-muted" />
           </div>
         )}
         <div className="min-w-0">

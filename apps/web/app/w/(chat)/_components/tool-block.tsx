@@ -1,6 +1,6 @@
 "use client"
 
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useState } from "react"
 import { BashToolBlock } from "@/app/w/(chat)/_components/bash-tool-block"
 import { Collapse } from "@/app/w/(chat)/_components/conversation-collapse"
@@ -30,8 +30,8 @@ export function ToolBlock({
   if (!block.detail) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted">
-        <Icon
-          icon="lucide:square-chevron-right"
+        <AppIcon
+          icon="square-chevron-right"
           className="h-3.5 w-3.5 shrink-0"
         />
         <span
@@ -64,8 +64,8 @@ export function ToolBlock({
           {block.label}
         </span>
         {expandable ? (
-          <Icon
-            icon="lucide:chevron-down"
+          <AppIcon
+            icon="chevron-down"
             className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
           />
         ) : null}
@@ -100,7 +100,7 @@ export function ToolChainBlock({
         className="focus-visible:outline-warning flex w-full min-w-0 items-center gap-2 text-left text-sm text-muted transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
         aria-expanded={expanded}
       >
-        <Icon icon="lucide:workflow" className="h-4 w-4 shrink-0 text-muted" />
+        <AppIcon icon="workflow" className="h-4 w-4 shrink-0 text-muted" />
         <span className={`shrink-0 ${block.running ? "hivy-shimmer" : ""}`}>
           {block.tools.length} tool calls
         </span>
@@ -110,8 +110,8 @@ export function ToolChainBlock({
             {overflow}
           </span>
         ) : null}
-        <Icon
-          icon="lucide:chevron-down"
+        <AppIcon
+          icon="chevron-down"
           className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
         />
       </button>
@@ -133,10 +133,10 @@ export function ToolChainBlock({
 function ToolIcon({ detail }: { detail: ToolCallDetail }) {
   const icon = toolIcon(detail)
   return (
-    <Icon
+    <AppIcon
       icon={icon}
       className={`h-4 w-4 shrink-0 ${
-        icon === "logos:chrome" ? "" : "text-muted"
+        icon === "chrome" ? "" : "text-muted"
       }`}
     />
   )

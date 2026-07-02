@@ -35,7 +35,7 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 		t.Fatal("missing kara global agent manifest")
 	}
 
-	imageTools := []string{"generate_image", "generate_vector_image"}
+	imageTools := []string{"generate_image", "generate_vector_image", "remix_image"}
 	if kara.McpToolFilter == nil || !reflect.DeepEqual(kara.McpToolFilter.Deny, imageTools) {
 		t.Fatalf("kara mcp tool filter = %#v", kara.McpToolFilter)
 	}

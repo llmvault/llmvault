@@ -35,7 +35,7 @@ const LINK_TEMPLATES: LinkTemplate[] = [
     test: (pathname) =>
       /^\/w\/settings\/agents\/edit\/[^/]+\/?$/.test(pathname),
     label: "Edit agent details",
-    icon: "lucide:bot",
+    icon: "bot",
   },
 ]
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -369,7 +369,7 @@ export function BillingPlansPage() {
           onClick={closePage}
           className="hover:bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:text-foreground"
         >
-          <Icon icon="lucide:x" className="h-5 w-5" />
+          <AppIcon icon="x" className="h-5 w-5" />
         </button>
       </header>
 
@@ -477,7 +477,7 @@ export function BillingPlansPage() {
                 href="mailto:hello@usehivy.com"
                 className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                <Icon icon="lucide:mail" className="h-4 w-4" />
+                <AppIcon icon="mail" className="h-4 w-4" />
                 Contact support
               </a>
             </div>

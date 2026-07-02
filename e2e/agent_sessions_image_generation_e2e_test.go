@@ -30,6 +30,7 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
 	agentSessionsEnsureSystemReveCredential(t)
+	agentSessionsEnsureSystemQuiverCredential(t)
 	agentSessionsEnsureSystemOpenRouterCredential(t)
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
@@ -59,7 +60,7 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "raster", "reve", registry.DefaultRasterImageGenerationModelID, imageResults)
 
 	vectorResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "hivy_generate_vector_image", 8*time.Minute)
-	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "vector", "openrouter", registry.DefaultVectorImageGenerationModelID, vectorResults)
+	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "vector", "quiver", registry.DefaultVectorImageGenerationModelID, vectorResults)
 	artifactDir := filepath.Join(os.TempDir(), "hivy-agent-image-generation-e2e-"+runID)
 	imagePaths := saveAgentSessionsImageArtifacts(t, ctx, artifactDir, "raster", imageResults)
 	vectorPaths := saveAgentSessionsImageArtifacts(t, ctx, artifactDir, "vector", vectorResults)

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Spinner, Switch, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
@@ -365,13 +365,13 @@ function SlackReactionInstallForm({
             <FieldSkeleton />
           ) : connectionsQuery.isError ? (
             <InlineNotice
-              icon="lucide:hash"
+              icon="hash"
               title="Could not load Slack workspaces"
               body="Refresh the page and try again."
             />
           ) : connections.length === 0 ? (
             <InlineNotice
-              icon="lucide:hash"
+              icon="hash"
               title="No Slack connections"
               body="Connect Slack before installing this trigger."
             />
@@ -379,13 +379,13 @@ function SlackReactionInstallForm({
             <FieldSkeleton />
           ) : resourcesQuery.isError ? (
             <InlineNotice
-              icon="lucide:hash"
+              icon="hash"
               title="Could not load Slack channels"
               body="Refresh the channel list and try again."
             />
           ) : resources.length === 0 ? (
             <InlineNotice
-              icon="lucide:hash"
+              icon="hash"
               title="No Slack channels"
               body="No Slack channels were returned for this workspace."
             />
@@ -404,7 +404,7 @@ function SlackReactionInstallForm({
         >
           {agents.length === 0 && !isLoading ? (
             <InlineNotice
-              icon="lucide:bot"
+              icon="bot"
               title="No active agents"
               body="Create or activate an agent before installing this trigger."
             />
@@ -488,7 +488,7 @@ function SlackReactionInstallForm({
               {deleteTrigger.isPending ? (
                 <Spinner color="current" size="sm" />
               ) : (
-                <Icon icon="lucide:trash-2" className="h-4 w-4" />
+                <AppIcon icon="trash-2" className="h-4 w-4" />
               )}
               Delete trigger
             </Button>
@@ -508,8 +508,8 @@ function SlackReactionInstallForm({
             {isSaving ? (
               <Spinner color="current" size="sm" />
             ) : (
-              <Icon
-                icon={triggerID ? "lucide:save" : "lucide:plus"}
+              <AppIcon
+                icon={triggerID ? "save" : "plus"}
                 className="h-4 w-4"
               />
             )}

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Typography } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 
 export function SectionLabel({ children }: { children: ReactNode }) {
@@ -39,7 +39,7 @@ export function NavRow({
         className
       )}
     >
-      <Icon
+      <AppIcon
         icon={icon}
         className={cn(
           "h-4 w-4 shrink-0",

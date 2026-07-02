@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, Modal } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { MediaAttachment } from "@/app/w/(chat)/_lib/static-data"
 
 const CHROME_TRANSITION = { duration: 0.16, ease: [0.16, 1, 0.3, 1] as const }
@@ -130,8 +130,8 @@ export function Lightbox({
                             link.click()
                           }}
                         >
-                          <Icon
-                            icon="lucide:download"
+                          <AppIcon
+                            icon="download"
                             className="h-4 w-4 text-muted"
                           />
                         </Button>
@@ -142,8 +142,8 @@ export function Lightbox({
                           aria-label="Copy URL"
                           onPress={copyUrl}
                         >
-                          <Icon
-                            icon={copied ? "lucide:check" : "lucide:copy"}
+                          <AppIcon
+                            icon={copied ? "check" : "copy"}
                             className="h-4 w-4 text-muted"
                           />
                         </Button>
@@ -154,8 +154,8 @@ export function Lightbox({
                           aria-label="Close preview"
                           onPress={onClose}
                         >
-                          <Icon
-                            icon="lucide:x"
+                          <AppIcon
+                            icon="x"
                             className="h-4 w-4 text-muted"
                           />
                         </Button>
@@ -186,8 +186,8 @@ export function Lightbox({
                               onPress={() => onIndexChange((index ?? 0) - 1)}
                               className="rounded-full shadow-sm"
                             >
-                              <Icon
-                                icon="lucide:arrow-left"
+                              <AppIcon
+                                icon="arrow-left"
                                 className="h-4 w-4"
                               />
                             </Button>
@@ -209,8 +209,8 @@ export function Lightbox({
                               onPress={() => onIndexChange((index ?? 0) + 1)}
                               className="rounded-full shadow-sm"
                             >
-                              <Icon
-                                icon="lucide:arrow-right"
+                              <AppIcon
+                                icon="arrow-right"
                                 className="h-4 w-4"
                               />
                             </Button>

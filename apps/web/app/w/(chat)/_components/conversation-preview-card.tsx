@@ -1,5 +1,5 @@
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 
 export function PreviewBrowserCards({
@@ -21,7 +21,7 @@ export function PreviewBrowserCards({
           }`}
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-default">
-            <Icon icon="lucide:globe" className="h-5 w-5 text-muted" />
+            <AppIcon icon="globe" className="h-5 w-5 text-muted" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">Preview app</div>

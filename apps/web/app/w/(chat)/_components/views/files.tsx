@@ -8,7 +8,7 @@ import {
 } from "react"
 import { Button } from "@heroui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { Group, Panel, Separator } from "react-resizable-panels"
 import {
   CommentableFile,
@@ -302,7 +302,7 @@ export function FilesView({
   if (!sessionId) {
     return (
       <FilesEmptyState
-        icon="lucide:folder-x"
+        icon="folder-x"
         title="No active session"
         message="Open a session to browse sandbox files."
       />
@@ -346,7 +346,7 @@ export function FilesView({
   if (repos.length === 0) {
     return (
       <FilesEmptyState
-        icon="lucide:folder-search"
+        icon="folder-search"
         title="No repositories found"
         message="The sandbox has no Git repositories under its workspace repos directory."
       />
@@ -407,8 +407,8 @@ export function FilesView({
               <TreeSkeleton />
             ) : rootTreeQuery.isError ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
-                <Icon
-                  icon="lucide:circle-alert"
+                <AppIcon
+                  icon="circle-alert"
                   className="h-5 w-5 text-muted"
                 />
                 <p className="text-sm text-muted">

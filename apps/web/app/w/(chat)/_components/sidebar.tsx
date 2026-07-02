@@ -4,7 +4,7 @@ import { memo, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
 import { ChannelGroup } from "@/app/w/(chat)/_components/sidebar-channel-group"
@@ -152,7 +152,7 @@ export const Sidebar = memo(function Sidebar({
           aria-label="Collapse sidebar"
           onPress={onCollapse}
         >
-          <Icon icon="lucide:panel-left" className="h-4 w-4 text-muted" />
+          <AppIcon icon="panel-left" className="h-4 w-4 text-muted" />
         </Button>
         <Button
           variant="ghost"
@@ -161,7 +161,7 @@ export const Sidebar = memo(function Sidebar({
           aria-label="Back"
           onPress={() => router.back()}
         >
-          <Icon icon="lucide:arrow-left" className="h-4 w-4 text-muted" />
+          <AppIcon icon="arrow-left" className="h-4 w-4 text-muted" />
         </Button>
         <Button
           variant="ghost"
@@ -170,31 +170,31 @@ export const Sidebar = memo(function Sidebar({
           aria-label="Forward"
           onPress={() => router.forward()}
         >
-          <Icon icon="lucide:arrow-right" className="h-4 w-4 text-muted" />
+          <AppIcon icon="arrow-right" className="h-4 w-4 text-muted" />
         </Button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 pb-4">
         <div className="flex flex-col gap-0.5">
           <NavRow
-            icon="lucide:square-pen"
+            icon="square-pen"
             label="New chat"
             onClick={startNewChat}
           />
           <NavRow
-            icon="lucide:toy-brick"
+            icon="toy-brick"
             label="Plugins"
             active={pluginsActive}
             onClick={() => router.push("/w/plugins")}
           />
           <NavRow
-            icon="lucide:clock"
+            icon="clock"
             label="Automations"
             active={automationsActive}
             onClick={() => router.push("/w/automations")}
           />
           <NavRow
-            icon="lucide:archive"
+            icon="archive"
             label="Archived"
             active={archivedActive}
             onClick={() => router.push("/w/archived")}
@@ -211,7 +211,7 @@ export const Sidebar = memo(function Sidebar({
               aria-label="Create channel"
               onPress={() => setCreateChannelOpen(true)}
             >
-              <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
+              <AppIcon icon="plus" className="h-4 w-4 text-muted" />
             </Button>
           </div>
           {channelsQuery.isLoading ? (

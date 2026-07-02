@@ -12,7 +12,7 @@ import {
   Spinner,
   toast,
 } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { extractErrorMessage } from "@/lib/api/error"
 import {
@@ -100,7 +100,7 @@ export function SheetsView() {
   if (sheetsQuery.isError) {
     return (
       <SheetsState
-        icon="lucide:circle-alert"
+        icon="circle-alert"
         title="Sheets are not available"
         message={extractErrorMessage(
           sheetsQuery.error,
@@ -122,7 +122,7 @@ export function SheetsView() {
   if (sheets.length === 0) {
     return (
       <SheetsState
-        icon="lucide:table"
+        icon="table"
         title="No sheets yet"
         message="Create a sheet, or ask an agent with the Sheets plugin to build one for you."
         action={<NamePopover label="New sheet" onSubmit={createNewSheet} />}
@@ -144,8 +144,8 @@ export function SheetsView() {
           className="min-w-0"
         >
           <Select.Trigger className="flex h-8 max-w-64 items-center gap-1.5 rounded-lg px-2 text-sm">
-            <Icon
-              icon="lucide:table"
+            <AppIcon
+              icon="table"
               className="h-3.5 w-3.5 shrink-0 text-muted"
             />
             <span className="truncate text-foreground">
@@ -162,8 +162,8 @@ export function SheetsView() {
                   textValue={sheet.name ?? ""}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <Icon
-                      icon="lucide:table"
+                    <AppIcon
+                      icon="table"
                       className="h-3.5 w-3.5 shrink-0 text-muted"
                     />
                     <span className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ export function SheetsView() {
             void structureQuery.refetch()
           }}
         >
-          <Icon icon="lucide:refresh-cw" className="h-3.5 w-3.5 text-muted" />
+          <AppIcon icon="refresh-cw" className="h-3.5 w-3.5 text-muted" />
         </Button>
       </div>
 
@@ -223,7 +223,7 @@ export function SheetsView() {
         </div>
       ) : structureQuery.isError ? (
         <SheetsState
-          icon="lucide:circle-alert"
+          icon="circle-alert"
           title="Could not load this sheet"
           message={extractErrorMessage(
             structureQuery.error,
@@ -248,7 +248,7 @@ export function SheetsView() {
         />
       ) : (
         <SheetsState
-          icon="lucide:table"
+          icon="table"
           title="No pages"
           message="Add a page to start entering data, or import a CSV once one exists."
           action={<NamePopover label="New page" onSubmit={createNewPage} />}
@@ -271,7 +271,7 @@ function SheetsState({
 }) {
   return (
     <EmptyState className="flex h-full flex-1 flex-col items-center justify-center gap-2 bg-background p-6 text-center">
-      <Icon icon={icon} className="h-6 w-6 text-muted" />
+      <AppIcon icon={icon} className="h-6 w-6 text-muted" />
       <p className="text-sm font-medium text-foreground">{title}</p>
       {message ? <p className="max-w-sm text-xs text-muted">{message}</p> : null}
       {action ? <div className="mt-1">{action}</div> : null}
@@ -315,7 +315,7 @@ function NamePopover({
           iconOnly ? "p-1.5" : "border border-border px-2.5 py-1.5 text-sm"
         }`}
       >
-        <Icon icon="lucide:plus" className="h-3.5 w-3.5" />
+        <AppIcon icon="plus" className="h-3.5 w-3.5" />
         {iconOnly ? null : label}
       </Popover.Trigger>
       <Popover.Content className="w-64 rounded-2xl border border-border p-3">

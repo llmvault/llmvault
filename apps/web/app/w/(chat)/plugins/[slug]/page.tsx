@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Modal, toast, useOverlayState } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { components } from "@/lib/api/schema"
@@ -327,7 +327,7 @@ export default function PluginDetailPage({
       <PluginDetailShell
         content={
           <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-            <Icon icon="lucide:plug-zap" className="h-7 w-7 text-muted" />
+            <AppIcon icon="plug-zap" className="h-7 w-7 text-muted" />
             <p className="mt-3 text-sm font-medium text-foreground">
               Plugin not found
             </p>
@@ -426,8 +426,8 @@ export default function PluginDetailPage({
                           {example}
                         </span>
                       </div>
-                      <Icon
-                        icon="lucide:arrow-right"
+                      <AppIcon
+                        icon="arrow-right"
                         className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
                       />
                     </button>

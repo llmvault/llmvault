@@ -2,7 +2,7 @@
 
 import NextLink from "next/link"
 import { Switch, Tooltip } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 import {
   pluginDescription,
@@ -106,7 +106,7 @@ export function NoRequirementsSection() {
       </h2>
       <div className="bg-card flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
         <div className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-default">
-          <Icon icon="lucide:check" className="h-4 w-4" />
+          <AppIcon icon="check" className="h-4 w-4" />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">
@@ -255,8 +255,8 @@ function RequiredPluginRow({
           {installed ? "Installed" : "Missing"}
         </span>
         {slug ? (
-          <Icon
-            icon="lucide:chevron-right"
+          <AppIcon
+            icon="chevron-right"
             className="text-muted-foreground h-4 w-4"
           />
         ) : null}
@@ -287,7 +287,7 @@ function PluginLogoMark({ plugin }: { plugin?: ApiPlugin }) {
   if (!plugin) {
     return (
       <div className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-default">
-        <Icon icon="lucide:plug" className="h-4 w-4" />
+        <AppIcon icon="plug" className="h-4 w-4" />
       </div>
     )
   }
@@ -297,7 +297,7 @@ function PluginLogoMark({ plugin }: { plugin?: ApiPlugin }) {
       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
       style={{ backgroundColor: pluginIconColor(plugin) }}
     >
-      <Icon icon={pluginIcon(plugin)} className="h-4 w-4" />
+      <AppIcon icon={pluginIcon(plugin)} className="h-4 w-4" />
     </div>
   )
 }
@@ -328,7 +328,7 @@ function AgentPluginsEmptyState() {
   return (
     <div className="bg-card flex items-center gap-3 rounded-lg border border-border px-3 py-2.5">
       <div className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-default">
-        <Icon icon="lucide:package-open" className="h-4 w-4" />
+        <AppIcon icon="package-open" className="h-4 w-4" />
       </div>
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">

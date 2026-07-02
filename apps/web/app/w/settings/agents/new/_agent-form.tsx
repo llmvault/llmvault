@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { Button, Input, ListBox, Select, Spinner, toast } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import type { ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import {
@@ -97,7 +97,7 @@ export function AgentFormView({
           href="/w/settings/agents"
           className="flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+          <AppIcon icon="arrow-left" className="h-4 w-4" />
           Agents
         </NextLink>
         <h1 className="mt-4 text-2xl font-semibold text-foreground">{heading}</h1>

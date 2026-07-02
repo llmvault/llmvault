@@ -1,5 +1,5 @@
 import { Button, Link } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import Image from "next/image"
 import { AuthLogo } from "@/app/auth/_components/shared"
 import { WatchDemo } from "@/components/watch-demo"
@@ -9,14 +9,14 @@ const GITHUB_URL = "https://github.com/usehivy/hivy"
 const WAITLIST_URL = "#"
 
 const integrations = [
-  { icon: "mdi:github", name: "GitHub" },
-  { icon: "mdi:slack", name: "Slack" },
-  { icon: "simple-icons:linear", name: "Linear" },
-  { icon: "simple-icons:notion", name: "Notion" },
-  { icon: "simple-icons:vercel", name: "Vercel" },
-  { icon: "simple-icons:railway", name: "Railway" },
-  { icon: "simple-icons:postgresql", name: "Postgres" },
-  { icon: "simple-icons:redis", name: "Redis" },
+  { icon: "github", name: "GitHub" },
+  { icon: "slack", name: "Slack" },
+  { icon: "linear", name: "Linear" },
+  { icon: "notion", name: "Notion" },
+  { icon: "vercel", name: "Vercel" },
+  { icon: "railway", name: "Railway" },
+  { icon: "postgresql", name: "Postgres" },
+  { icon: "redis", name: "Redis" },
 ]
 
 export default function RootPage() {
@@ -44,7 +44,7 @@ export default function RootPage() {
           rel="noreferrer"
           className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/70 px-4 py-2 text-sm font-medium text-foreground backdrop-blur transition-colors hover:bg-surface-secondary"
         >
-          <Icon icon="mdi:github" className="h-4 w-4" />
+          <AppIcon icon="github" className="h-4 w-4" />
           <span className="hidden sm:inline">Star on GitHub</span>
         </Link>
       </header>
@@ -82,7 +82,7 @@ export default function RootPage() {
                 key={tool.name}
                 className="inline-flex items-center gap-2 text-foreground/55 transition-colors hover:text-foreground"
               >
-                <Icon icon={tool.icon} className="h-6 w-6" />
+                <AppIcon icon={tool.icon} className="h-6 w-6" />
                 <span className="text-sm font-medium">{tool.name}</span>
               </span>
             ))}

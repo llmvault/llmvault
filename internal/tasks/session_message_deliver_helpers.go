@@ -39,11 +39,17 @@ func runtimeMessageFromCommand(session model.Session, command SessionMessageComm
 		text, _ = payload["text"].(string)
 	}
 	payload["text"] = text
-	return agentruntime.HTTPMessageRequest{
+	req := agentruntime.HTTPMessageRequest{
 		Text:           runtimeTextFromPayload(text, payload),
 		SessionID:      session.ID.String(),
 		SessionContext: append([]string(nil), command.SessionContext...),
 	}
+	// Carry the authenticated sender through to the runtime so it can inject the
+	// requesting-user identity into agent tool calls (`_hivy_actor_user_id`).
+	if command.ActorUserID != nil && *command.ActorUserID != uuid.Nil {
+		req.ActorUserID = command.ActorUserID.String()
+	}
+	return req
 }
 
 func runtimeTextFromPayload(text string, payload map[string]any) string {

@@ -1,7 +1,7 @@
 "use client"
 
 import { Button, Link, Separator, Typography } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import Image from "next/image"
 import NextLink from "next/link"
 import { apiUrl } from "@/lib/api/client"
@@ -79,7 +79,7 @@ export function OAuthButtons({ nextPath = "/w" }: { nextPath?: string }) {
         size="lg"
         onPress={() => window.location.assign(withNext("/oauth/google"))}
       >
-        <Icon icon="devicon:google" />
+        <AppIcon icon="google" />
         Continue with Google
       </Button>
       <Button
@@ -88,7 +88,7 @@ export function OAuthButtons({ nextPath = "/w" }: { nextPath?: string }) {
         size="lg"
         onPress={() => window.location.assign(withNext("/oauth/github"))}
       >
-        <Icon icon="mdi:github" />
+        <AppIcon icon="github" />
         Continue with GitHub
       </Button>
       <Button
@@ -97,7 +97,7 @@ export function OAuthButtons({ nextPath = "/w" }: { nextPath?: string }) {
         size="lg"
         onPress={() => window.location.assign(withNext("/oauth/x"))}
       >
-        <Icon icon="ri:twitter-x-fill" />
+        <AppIcon icon="twitter-x" />
         Continue with X
       </Button>
     </div>
@@ -108,9 +108,7 @@ export function AuthNavHome() {
   return (
     <div className="fixed top-5 right-0 left-0 z-50 mx-auto flex max-w-5xl items-center px-4 md:px-0">
       <NextLink href="/" className="inline-flex items-center gap-1.5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
+        <AppIcon icon="arrow-left" size={14} />
         Home
       </NextLink>
     </div>

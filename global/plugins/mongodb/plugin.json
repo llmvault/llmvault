@@ -4,7 +4,7 @@
   "name": "MongoDB",
   "description": "Explore and query connected MongoDB databases safely.",
   "category": "Data & Analytics",
-  "icon": "simple-icons:mongodb",
+  "icon": "mongodb",
   "icon_color": "#13AA52",
   "developer": "Hivy",
   "official": true,

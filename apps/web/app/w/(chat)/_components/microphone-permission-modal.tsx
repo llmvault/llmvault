@@ -1,7 +1,7 @@
 "use client"
 
 import { Button, Modal } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function MicrophonePermissionModal({
   open,
@@ -20,7 +20,7 @@ export function MicrophonePermissionModal({
             <Modal.CloseTrigger />
             <Modal.Header>
               <Modal.Icon className="bg-default size-12 text-foreground">
-                <Icon icon="lucide:mic" className="h-6 w-6" />
+                <AppIcon icon="mic" className="h-6 w-6" />
               </Modal.Icon>
               <div className="flex flex-col gap-1">
                 <Modal.Heading>Enable microphone</Modal.Heading>

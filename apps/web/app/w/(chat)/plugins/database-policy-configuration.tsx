@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Button, Label, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import type { components } from "@/lib/api/schema"
 
@@ -380,8 +380,8 @@ function ExpandablePolicyRow({
           onPress={onToggleExpanded}
           aria-label={expanded ? "Collapse fields" : "Expand fields"}
         >
-          <Icon
-            icon={expanded ? "lucide:chevron-down" : "lucide:chevron-right"}
+          <AppIcon
+            icon={expanded ? "chevron-down" : "chevron-right"}
             className="h-4 w-4"
           />
         </Button>

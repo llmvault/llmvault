@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 import { Popover } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import type { SidebarAgentResponse } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AgentLogo } from "./chat-agent-logo"
 import { ModelIcon, type DisplayModel } from "./model-display"
@@ -41,12 +41,12 @@ export function Picker({
         ) : model ? (
           <ModelIcon model={model} />
         ) : (
-          <Icon icon={icon ?? "lucide:circle"} className="h-4 w-4 text-muted" />
+          <AppIcon icon={icon ?? "circle"} className="h-4 w-4 text-muted" />
         )}
         <span className="min-w-0 truncate font-medium">{value}</span>
         {suffix ? <span className="shrink-0 text-muted">{suffix}</span> : null}
-        <Icon
-          icon="lucide:chevron-down"
+        <AppIcon
+          icon="chevron-down"
           className="h-3.5 w-3.5 shrink-0 text-muted"
         />
       </Popover.Trigger>
@@ -89,7 +89,7 @@ export function PickerButton({
       ) : model ? (
         <ModelIcon model={model} />
       ) : icon ? (
-        <Icon icon={icon} className="h-4 w-4 text-muted" />
+        <AppIcon icon={icon} className="h-4 w-4 text-muted" />
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{children}</span>
@@ -97,7 +97,7 @@ export function PickerButton({
           <span className="text-xs text-muted">{description}</span>
         ) : null}
       </span>
-      {selected ? <Icon icon="lucide:check" className="h-4 w-4" /> : null}
+      {selected ? <AppIcon icon="check" className="h-4 w-4" /> : null}
     </button>
   )
 }

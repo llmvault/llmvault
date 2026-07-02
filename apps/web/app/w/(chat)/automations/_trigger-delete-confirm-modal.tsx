@@ -1,7 +1,7 @@
 "use client"
 
 import { AlertDialog, Button, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 
 export function TriggerDeleteConfirmModal({
   open,
@@ -27,7 +27,7 @@ export function TriggerDeleteConfirmModal({
           <AlertDialog.Dialog className="p-8">
             <AlertDialog.Header>
               <AlertDialog.Icon status="danger">
-                <Icon icon="lucide:trash-2" className="h-6 w-6" />
+                <AppIcon icon="trash-2" className="h-6 w-6" />
               </AlertDialog.Icon>
               <div className="flex flex-col gap-1">
                 <AlertDialog.Heading>Delete trigger</AlertDialog.Heading>

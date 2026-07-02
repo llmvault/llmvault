@@ -3,7 +3,7 @@
 import { use, useMemo } from "react"
 import NextLink from "next/link"
 import { Button } from "@heroui/react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import {
@@ -66,7 +66,7 @@ export default function AutomationDetailPage({
       <AutomationDetailShell
         content={
           <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-            <Icon icon="lucide:clock-alert" className="h-7 w-7 text-muted" />
+            <AppIcon icon="clock-alert" className="h-7 w-7 text-muted" />
             <p className="mt-3 text-sm font-medium text-foreground">
               Automation not found
             </p>
@@ -93,7 +93,7 @@ export default function AutomationDetailPage({
             href="/w/automations"
             className="text-muted-foreground inline-flex w-fit items-center gap-1.5 text-sm font-medium transition-colors hover:text-foreground"
           >
-            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+            <AppIcon icon="arrow-left" className="h-4 w-4" />
             Automations
           </NextLink>
 
@@ -115,7 +115,7 @@ export default function AutomationDetailPage({
                 href={`/w/automations/${automation.id}/install`}
                 className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-secondary"
               >
-                <Icon icon="lucide:plus" className="h-4 w-4" />
+                <AppIcon icon="plus" className="h-4 w-4" />
                 Install trigger
               </NextLink>
             ) : null}
@@ -196,7 +196,7 @@ function AutomationLogo({
       }
       style={{ backgroundColor: automation.iconColor }}
     >
-      <Icon
+      <AppIcon
         icon={automation.icon}
         className={size === "lg" ? "h-6 w-6 text-white" : "h-4 w-4 text-white"}
       />
@@ -274,15 +274,15 @@ function AutomationDetailSkeleton() {
 function AutomationCatalogError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <Icon
-        icon="lucide:triangle-alert"
+      <AppIcon
+        icon="triangle-alert"
         className="text-muted-foreground h-7 w-7"
       />
       <p className="mt-3 text-sm font-medium text-foreground">
         Could not load automation
       </p>
       <Button variant="ghost" size="sm" className="mt-3" onPress={onRetry}>
-        <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+        <AppIcon icon="refresh-cw" className="h-4 w-4" />
         Retry
       </Button>
     </div>

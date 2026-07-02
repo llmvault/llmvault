@@ -282,7 +282,7 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
     browserCommand?.kind ??
     (subagentTask ? "Subagent" : toolKind(category, normalizedTool))
   const icon =
-    browserCommand?.icon ?? (subagentTask ? "lucide:bot" : toolIcon(category))
+    browserCommand?.icon ?? (subagentTask ? "bot" : toolIcon(category))
   const subagentAgent = subagentTask
     ? firstSummaryString(args, ["agent"]) ||
       firstSummaryString(result, ["agent"])
@@ -657,25 +657,25 @@ function toolKind(category: ToolCategory, tool: string): string {
 function toolIcon(category: ToolCategory): string {
   switch (category) {
     case "shell":
-      return "lucide:square-terminal"
+      return "square-terminal"
     case "web_search":
     case "web_fetch":
-      return "logos:chrome"
+      return "chrome"
     case "file_read":
-      return "lucide:file-text"
+      return "file-text"
     case "file_write":
-      return "lucide:file-plus"
+      return "file-plus"
     case "file_edit":
-      return "lucide:pencil"
+      return "pencil"
     case "skill_list":
     case "skill":
-      return "lucide:sparkles"
+      return "sparkles"
     case "session_search":
-      return "lucide:messages-square"
+      return "messages-square"
     case "search":
-      return "lucide:search"
+      return "search"
     default:
-      return "lucide:square-chevron-right"
+      return "square-chevron-right"
   }
 }
 

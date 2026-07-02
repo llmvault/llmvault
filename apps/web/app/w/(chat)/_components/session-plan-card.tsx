@@ -1,7 +1,7 @@
 "use client"
 
 import { useId, useState } from "react"
-import { Icon } from "@iconify/react"
+import { AppIcon } from "@/components/icon"
 import { AnimatePresence, motion } from "motion/react"
 import {
   PlanStatusIcon,
@@ -99,7 +99,7 @@ export function SessionPlanCard({
           transition={popoverTransition}
           className="text-muted-foreground flex h-4 w-4 shrink-0 items-center justify-center"
         >
-          <Icon icon="lucide:chevron-up" className="h-4 w-4" />
+          <AppIcon icon="chevron-up" className="h-4 w-4" />
         </motion.span>
       </motion.button>
     </div>
