@@ -153,6 +153,21 @@ func TestScheduleChannelMustBelongToOrgAndBeActive(t *testing.T) {
 	}
 }
 
+func TestScheduleChannelRejectsProviderChannelID(t *testing.T) {
+	db := connectScheduleTestDB(t)
+	fx := seedScheduleChannelFixture(t, db)
+	interval := int64(60)
+	_, err := CreateFromSession(t.Context(), db, &fx.agent, fx.session.ID.String(), CreateInput{
+		JobID:           "job-" + uuid.NewString(),
+		TaskPrompt:      "summarize",
+		ChannelID:       "C0123ABCD",
+		IntervalSeconds: &interval,
+	})
+	if err == nil || !strings.Contains(err.Error(), "channel_id must be a uuid") {
+		t.Fatalf("create with slack channel id error = %v, want channel_id must be a uuid", err)
+	}
+}
+
 func TestUpdateCanSelectScheduleChannel(t *testing.T) {
 	db := connectScheduleTestDB(t)
 	fx := seedScheduleChannelFixture(t, db)

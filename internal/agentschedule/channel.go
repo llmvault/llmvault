@@ -14,7 +14,13 @@ import (
 
 const systemChannelName = "system"
 
-func resolveScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, raw string) (string, error) {
+// ResolveScheduleChannel resolves a raw channel_id argument to a Hivy channel
+// UUID string. An empty value falls back to the org's private "system"
+// channel (created lazily if missing); a non-empty value must be a UUID of a
+// non-archived channel in the org that the agent is allowed to use. Exported
+// so other agent-facing tools (e.g. the HTTP trigger tool) share the exact
+// same channel semantics as cron schedules.
+func ResolveScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, raw string) (string, error) {
 	if strings.TrimSpace(raw) != "" {
 		return validateScheduleChannel(ctx, db, orgID, agentID, raw)
 	}
@@ -50,25 +56,39 @@ func validateScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID uu
 	return channel.ID.String(), nil
 }
 
-func agentAllowedInScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID, channelID uuid.UUID) (bool, error) {
-	var total int64
+// RestrictedChannelIDs returns the set of channel ids the agent is limited to
+// via agent_channels rows, or nil when the agent has no restrictions and may
+// be used in any org channel. This is the single access rule shared by
+// schedule/trigger channel validation and the list_channels MCP tool so the
+// two cannot drift.
+func RestrictedChannelIDs(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	var rows []model.AgentChannel
 	if err := db.WithContext(ctx).
-		Model(&model.AgentChannel{}).
+		Select("channel_id").
 		Where("org_id = ? AND agent_id = ?", orgID, agentID).
-		Count(&total).Error; err != nil {
-		return false, fmt.Errorf("validate agent channel access: %w", err)
+		Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("validate agent channel access: %w", err)
 	}
-	if total == 0 {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	out := make(map[uuid.UUID]struct{}, len(rows))
+	for _, row := range rows {
+		out[row.ChannelID] = struct{}{}
+	}
+	return out, nil
+}
+
+func agentAllowedInScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID, channelID uuid.UUID) (bool, error) {
+	restricted, err := RestrictedChannelIDs(ctx, db, orgID, agentID)
+	if err != nil {
+		return false, err
+	}
+	if restricted == nil {
 		return true, nil
 	}
-	var allowed int64
-	if err := db.WithContext(ctx).
-		Model(&model.AgentChannel{}).
-		Where("org_id = ? AND agent_id = ? AND channel_id = ?", orgID, agentID, channelID).
-		Count(&allowed).Error; err != nil {
-		return false, fmt.Errorf("validate agent channel access: %w", err)
-	}
-	return allowed > 0, nil
+	_, ok := restricted[channelID]
+	return ok, nil
 }
 
 func ensureSystemChannel(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (*model.Channel, error) {

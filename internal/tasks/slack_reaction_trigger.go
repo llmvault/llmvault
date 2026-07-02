@@ -142,7 +142,7 @@ func slackReactionAutomationText(trigger model.AgentTrigger, row model.SlackThre
 	b.WriteString(":\n")
 	writeAutomationLine(&b, "reacted_by", slackUserTag(row.SenderID))
 	writeAutomationLine(&b, "item_user", slackUserTag(rawSlackItemUser(row.Raw)))
-	writeAutomationLine(&b, "channel_id", row.SlackChannelID)
+	writeAutomationLine(&b, "slack_channel_id", row.SlackChannelID)
 	writeAutomationLine(&b, "message_ts", row.MessageTS)
 	writeAutomationLine(&b, "thread_ts", context.ThreadTS)
 	b.WriteString("\nReacted message:\n")

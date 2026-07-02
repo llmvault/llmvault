@@ -53,7 +53,7 @@ func slackInboundContextText(row model.SlackThreadEvent, context slackapp.Reacti
 	writeAutomationLine(&b, "sender_tag", slackUserTag(row.SenderID))
 	writeAutomationLine(&b, "user_name", slackInboundRawString(row.Raw, "user_name"))
 	writeAutomationLine(&b, "display_name", slackInboundRawString(row.Raw, "display_name"))
-	writeAutomationLine(&b, "channel_id", row.SlackChannelID)
+	writeAutomationLine(&b, "slack_channel_id", row.SlackChannelID)
 	writeAutomationLine(&b, "message_ts", row.MessageTS)
 	writeAutomationLine(&b, "thread_ts", context.ThreadTS)
 	writeAutomationLine(&b, "clean_text", row.Text)

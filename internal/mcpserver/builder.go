@@ -89,6 +89,7 @@ func BuildServer(
 
 	addCronTool(server, token, db)
 	addHTTPTriggerTool(server, token, db)
+	addListChannelsTool(server, token, db)
 
 	return server, nil
 }

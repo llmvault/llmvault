@@ -86,7 +86,7 @@ func Create(ctx context.Context, db *gorm.DB, agent *model.Agent, input CreateIn
 }
 
 func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySession string, input CreateInput) (*model.AgentSchedule, error) {
-	channelID, err := resolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, input.ChannelID)
+	channelID, err := ResolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, input.ChannelID)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func Update(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID string, 
 		updates["task_prompt"] = taskPrompt
 	}
 	if input.ChannelID != nil {
-		channelID, err := resolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, *input.ChannelID)
+		channelID, err := ResolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, *input.ChannelID)
 		if err != nil {
 			return nil, err
 		}

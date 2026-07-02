@@ -15,19 +15,11 @@ import (
 )
 
 func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
-	if server == nil || token == nil || db == nil || token.Meta == nil {
+	if server == nil {
 		return
 	}
-	if tokenType, _ := token.Meta[model.TokenMetaType].(string); tokenType != model.TokenTypeAgentProxy {
-		return
-	}
-	agentIDText, _ := token.Meta[model.TokenMetaAgentID].(string)
-	agentID, err := uuid.Parse(strings.TrimSpace(agentIDText))
-	if err != nil || agentID == uuid.Nil {
-		return
-	}
-	var agent model.Agent
-	if err := db.Where("id = ? AND org_id = ? AND status <> ?", agentID, token.OrgID, "archived").First(&agent).Error; err != nil {
+	agent := callingProxyAgent(token, db)
+	if agent == nil {
 		return
 	}
 	server.AddTool(&mcp.Tool{
@@ -70,7 +62,7 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 				},
 				"channel_id": map[string]any{
 					"type":        "string",
-					"description": "Optional channel UUID for the scheduled run. Defaults to the org system channel.",
+					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) for the scheduled run's session. Use list_channels to find valid ids. Defaults to the org's system channel.",
 				},
 			},
 			"required": []string{"action"},
@@ -80,7 +72,7 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 		if err != nil {
 			return cronToolError(err.Error()), nil
 		}
-		return handleCronTool(ctx, db, &agent, args)
+		return handleCronTool(ctx, db, agent, args)
 	})
 }
 
