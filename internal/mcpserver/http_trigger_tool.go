@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -18,19 +19,11 @@ import (
 // trigger runs an agent whenever its returned URL is POSTed to. By default it
 // targets the calling agent; agent_id targets another agent in the same org.
 func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
-	if server == nil || token == nil || db == nil || token.Meta == nil {
+	if server == nil {
 		return
 	}
-	if tokenType, _ := token.Meta[model.TokenMetaType].(string); tokenType != model.TokenTypeAgentProxy {
-		return
-	}
-	agentIDText, _ := token.Meta[model.TokenMetaAgentID].(string)
-	agentID, err := uuid.Parse(strings.TrimSpace(agentIDText))
-	if err != nil || agentID == uuid.Nil {
-		return
-	}
-	var callingAgent model.Agent
-	if err := db.Where("id = ? AND org_id = ? AND status <> ?", agentID, token.OrgID, "archived").First(&callingAgent).Error; err != nil {
+	callingAgent := callingProxyAgent(token, db)
+	if callingAgent == nil {
 		return
 	}
 	server.AddTool(&mcp.Tool{
@@ -51,7 +44,7 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 				},
 				"channel_id": map[string]any{
 					"type":        "string",
-					"description": "Optional channel UUID the run's conversation lives in.",
+					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) the run's conversation lives in. Use list_channels to find valid ids. Defaults to the org's system channel.",
 				},
 				"secret": map[string]any{
 					"type":        "string",
@@ -67,7 +60,7 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
 			return cronToolError("invalid arguments"), nil
 		}
-		return handleCreateHTTPTrigger(ctx, db, token, &callingAgent, args)
+		return handleCreateHTTPTrigger(ctx, db, token, callingAgent, args)
 	})
 }
 
@@ -92,20 +85,20 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 		agent = target
 	}
 
-	var channelID *uuid.UUID
-	if raw := strings.TrimSpace(args.ChannelID); raw != "" {
-		parsed, err := uuid.Parse(raw)
-		if err != nil || parsed == uuid.Nil {
-			return cronToolError("channel_id must be a valid UUID"), nil
-		}
-		var channel model.Channel
-		if err := db.WithContext(ctx).
-			Where("id = ? AND org_id = ? AND archived_at IS NULL", parsed, token.OrgID).
-			First(&channel).Error; err != nil {
-			return cronToolError("channel_id not found in this organization"), nil
-		}
-		channelID = &parsed
+	// Resolve the channel exactly like cron schedules do: empty falls back to
+	// the org's system channel; explicit values get org-scoped validation plus
+	// the agent-access check. The trigger fire path still tolerates a NULL
+	// channel (it lazily resolves the system channel then), but new triggers
+	// always store an explicit channel.
+	channelText, err := agentschedule.ResolveScheduleChannel(ctx, db, token.OrgID, agent.ID, args.ChannelID)
+	if err != nil {
+		return cronToolError(err.Error()), nil
 	}
+	resolved, err := uuid.Parse(channelText)
+	if err != nil || resolved == uuid.Nil {
+		return cronToolError("resolve channel: invalid channel id"), nil
+	}
+	channelID := &resolved
 
 	trigger := model.AgentTrigger{
 		OrgID:        token.OrgID,
