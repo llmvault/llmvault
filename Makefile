@@ -231,7 +231,7 @@ test-agent-runtime-e2e:
 # This registers a real org, uses the default #general channel, and requires
 # the worker to provision a Docker-backed agent sandbox and persist a response.
 test-agent-sessions-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
-	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run 'Test(AgentSessions(DefaultGeneralChannel|Memory|Reflection|SandboxUpgradeDrain|SleepWakeCronLifecycle|ImageGenerationTools|ReadFileImageDescribe|CanvasBrandsCLI|CanvasArtifactsCLI)|MicrosandboxPreviewCacheWake)E2E' -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
+	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run 'Test(AgentSessions(DefaultGeneralChannel|Memory|Reflection|SandboxUpgradeDrain|SleepWakeCronLifecycle|ImageGenerationTools|ReadFileImageDescribe|CanvasBrandsCLI|CanvasArtifactsCLI|Sheets)|MicrosandboxPreviewCacheWake)E2E' -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
 
 # Run the Redis-backed runtime sequencing E2E against a live compose stack.
 test-agent-streaming-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
