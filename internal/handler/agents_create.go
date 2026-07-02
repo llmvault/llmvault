@@ -121,6 +121,11 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
 		return nil, err
 	}
+	// The default Hivy agent also gets plugins flagged "default_agent_install"
+	// (e.g. the agent-builder capability), which are not installed on other agents.
+	if err := pluginstore.EnsureDefaultAgentPluginsForAgent(ctx, tx, orgID, agent.ID); err != nil {
+		return nil, err
+	}
 
 	return &agent, nil
 }

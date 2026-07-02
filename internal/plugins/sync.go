@@ -75,6 +75,9 @@ func SyncLocal(ctx context.Context, db *gorm.DB, dir string) (*SyncResult, error
 		if err := ReconcileAutoInstalled(ctx, tx); err != nil {
 			return err
 		}
+		if err := ReconcileDefaultAgentInstalled(ctx, tx); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
