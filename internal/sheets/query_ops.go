@@ -51,14 +51,37 @@ func emptyExpr(def *model.SheetField, spec fieldTypeSpec, negate bool) string {
 	return expr
 }
 
+// Cast-guard patterns. Field re-types are lazily coerced by design, so a
+// filter/sort can hit cells written under a previous type (e.g. text junk in
+// a now-number column). The guards turn those cells into NULL instead of
+// letting an invalid ::numeric/::timestamptz cast fail the whole query:
+// NULLs drop out of range filters and sort NULLS LAST (compileOrder pins
+// that explicitly).
+//
+// Both patterns deliberately avoid the regex `?` quantifier ({0,1} instead)
+// because these fragments are spliced into GORM SQL strings, where every `?`
+// is a bind placeholder — even inside quotes.
+const (
+	// numericGuardPattern accepts every textual form a number cell can hold
+	// after CoerceValue: Go's JSON encoding of float64 (optional -, digits,
+	// optional fraction, optional e-notation for very large/small magnitudes)
+	// plus the leading + that coerceNumber's ParseFloat tolerates on string
+	// input. Anything else (pre-re-type leftovers) becomes NULL.
+	numericGuardPattern = `^[+-]{0,1}[0-9]+(\.[0-9]+){0,1}([eE][+-]{0,1}[0-9]+){0,1}$`
+	// timestampGuardPattern accepts exactly the normalized RFC3339 UTC form
+	// coerceDate stores ("2026-07-02T09:30:00Z"). Cells written through the
+	// service always match; pre-re-type leftovers become NULL.
+	timestampGuardPattern = `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`
+)
+
 func castExpr(def *model.SheetField, spec fieldTypeSpec, textExpr string) string {
 	switch spec.cast {
 	case castNumeric:
-		return "(" + textExpr + ")::numeric"
+		return "CASE WHEN " + textExpr + " ~ '" + numericGuardPattern + "' THEN (" + textExpr + ")::numeric END"
 	case castBoolean:
 		return "COALESCE((" + textExpr + ")::boolean, false)"
 	case castTimestamp:
-		return "(" + textExpr + ")::timestamptz"
+		return "CASE WHEN " + textExpr + " ~ '" + timestampGuardPattern + "' THEN (" + textExpr + ")::timestamptz END"
 	default:
 		return textExpr
 	}

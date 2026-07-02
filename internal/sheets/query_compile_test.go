@@ -41,6 +41,17 @@ func testFieldDefs() map[string]*model.SheetField {
 	return out
 }
 
+// guardedNumeric / guardedTimestamp mirror the cast-guard shapes castExpr
+// must emit: invalid (pre-re-type) cells become NULL instead of failing the
+// ::numeric / ::timestamptz cast.
+func guardedNumeric(id string) string {
+	return "CASE WHEN data->>'" + id + "' ~ '" + numericGuardPattern + "' THEN (data->>'" + id + "')::numeric END"
+}
+
+func guardedTimestamp(id string) string {
+	return "CASE WHEN data->>'" + id + "' ~ '" + timestampGuardPattern + "' THEN (data->>'" + id + "')::timestamptz END"
+}
+
 func mustCompile(t *testing.T, q Query) *Compiled {
 	t.Helper()
 	compiled, err := Compile(testPageID, testOrgID, testFieldDefs(), q, QueryLimitMCP)
@@ -69,12 +80,12 @@ func TestCompileConditionsPerOp(t *testing.T) {
 		{"text in", Filter{Field: "fld_txt0000001", Op: "in", Value: []any{"a", "b"}}, "data->>'fld_txt0000001' IN (?, ?)", []any{"a", "b"}},
 		{"text is_empty", Filter{Field: "fld_txt0000001", Op: "is_empty"}, "(data->'fld_txt0000001' IS NULL OR data->'fld_txt0000001' = 'null'::jsonb OR data->>'fld_txt0000001' = '')", nil},
 		{"text is_not_empty", Filter{Field: "fld_txt0000001", Op: "is_not_empty"}, "NOT (data->'fld_txt0000001' IS NULL OR data->'fld_txt0000001' = 'null'::jsonb OR data->>'fld_txt0000001' = '')", nil},
-		{"number eq casts", Filter{Field: "fld_num0000001", Op: "eq", Value: 7}, "(data->>'fld_num0000001')::numeric = ?", []any{7.0}},
-		{"number gt", Filter{Field: "fld_num0000001", Op: "gt", Value: 5.5}, "(data->>'fld_num0000001')::numeric > ?", []any{5.5}},
-		{"number gte", Filter{Field: "fld_num0000001", Op: "gte", Value: "5"}, "(data->>'fld_num0000001')::numeric >= ?", []any{5.0}},
-		{"number lt", Filter{Field: "fld_num0000001", Op: "lt", Value: 1}, "(data->>'fld_num0000001')::numeric < ?", []any{1.0}},
-		{"number lte", Filter{Field: "fld_num0000001", Op: "lte", Value: 1}, "(data->>'fld_num0000001')::numeric <= ?", []any{1.0}},
-		{"number in casts", Filter{Field: "fld_num0000001", Op: "in", Value: []any{1, "2"}}, "(data->>'fld_num0000001')::numeric IN (?, ?)", []any{1.0, 2.0}},
+		{"number eq casts", Filter{Field: "fld_num0000001", Op: "eq", Value: 7}, guardedNumeric("fld_num0000001") + " = ?", []any{7.0}},
+		{"number gt", Filter{Field: "fld_num0000001", Op: "gt", Value: 5.5}, guardedNumeric("fld_num0000001") + " > ?", []any{5.5}},
+		{"number gte", Filter{Field: "fld_num0000001", Op: "gte", Value: "5"}, guardedNumeric("fld_num0000001") + " >= ?", []any{5.0}},
+		{"number lt", Filter{Field: "fld_num0000001", Op: "lt", Value: 1}, guardedNumeric("fld_num0000001") + " < ?", []any{1.0}},
+		{"number lte", Filter{Field: "fld_num0000001", Op: "lte", Value: 1}, guardedNumeric("fld_num0000001") + " <= ?", []any{1.0}},
+		{"number in casts", Filter{Field: "fld_num0000001", Op: "in", Value: []any{1, "2"}}, guardedNumeric("fld_num0000001") + " IN (?, ?)", []any{1.0, 2.0}},
 		{"checkbox eq coalesces", Filter{Field: "fld_chk0000001", Op: "eq", Value: true}, "COALESCE((data->>'fld_chk0000001')::boolean, false) = ?", []any{true}},
 		{"checkbox neq", Filter{Field: "fld_chk0000001", Op: "neq", Value: false}, "COALESCE((data->>'fld_chk0000001')::boolean, false) IS DISTINCT FROM ?", []any{false}},
 		{"select eq checks choices", Filter{Field: "fld_sel0000001", Op: "eq", Value: "new"}, "data->>'fld_sel0000001' = ?", []any{"new"}},
@@ -82,8 +93,8 @@ func TestCompileConditionsPerOp(t *testing.T) {
 		{"multi_select contains", Filter{Field: "fld_mse0000001", Op: "contains", Value: "a"}, "data->'fld_mse0000001' @> ?::jsonb", []any{`["a"]`}},
 		{"multi_select not_contains", Filter{Field: "fld_mse0000001", Op: "not_contains", Value: "a"}, "NOT (COALESCE(data->'fld_mse0000001', '[]'::jsonb) @> ?::jsonb)", []any{`["a"]`}},
 		{"multi_select is_empty array form", Filter{Field: "fld_mse0000001", Op: "is_empty"}, "(data->'fld_mse0000001' IS NULL OR data->'fld_mse0000001' = 'null'::jsonb OR data->'fld_mse0000001' = '[]'::jsonb)", nil},
-		{"date gte casts both sides", Filter{Field: "fld_dat0000001", Op: "gte", Value: "2026-01-01"}, "(data->>'fld_dat0000001')::timestamptz >= ?::timestamptz", []any{"2026-01-01T00:00:00Z"}},
-		{"date eq", Filter{Field: "fld_dat0000001", Op: "eq", Value: "2026-07-02T10:00:00Z"}, "(data->>'fld_dat0000001')::timestamptz = ?::timestamptz", []any{"2026-07-02T10:00:00Z"}},
+		{"date gte casts both sides", Filter{Field: "fld_dat0000001", Op: "gte", Value: "2026-01-01"}, guardedTimestamp("fld_dat0000001") + " >= ?::timestamptz", []any{"2026-01-01T00:00:00Z"}},
+		{"date eq", Filter{Field: "fld_dat0000001", Op: "eq", Value: "2026-07-02T10:00:00Z"}, guardedTimestamp("fld_dat0000001") + " = ?::timestamptz", []any{"2026-07-02T10:00:00Z"}},
 		{"url starts_with", Filter{Field: "fld_url0000001", Op: "starts_with", Value: "https://a"}, "data->>'fld_url0000001' ILIKE ?", []any{"https://a%"}},
 		{"email eq", Filter{Field: "fld_eml0000001", Op: "eq", Value: "kim@example.com"}, "data->>'fld_eml0000001' = ?", []any{"kim@example.com"}},
 		{"phone contains", Filter{Field: "fld_phn0000001", Op: "contains", Value: "555"}, "data->>'fld_phn0000001' ILIKE ?", []any{"%555%"}},
@@ -123,7 +134,7 @@ func TestCompileNestingAndSearch(t *testing.T) {
 		Search: `ac_me%`,
 	}
 	compiled := mustCompile(t, q)
-	want := whereBase + " AND ((data->>'fld_sel0000001' = ? AND ((data->>'fld_num0000001')::numeric > ? OR COALESCE((data->>'fld_chk0000001')::boolean, false) = ?))) AND data::text ILIKE ?"
+	want := whereBase + " AND ((data->>'fld_sel0000001' = ? AND (" + guardedNumeric("fld_num0000001") + " > ? OR COALESCE((data->>'fld_chk0000001')::boolean, false) = ?))) AND data::text ILIKE ?"
 	if compiled.Where != want {
 		t.Fatalf("where:\n got %s\nwant %s", compiled.Where, want)
 	}

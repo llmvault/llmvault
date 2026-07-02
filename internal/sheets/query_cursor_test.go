@@ -41,7 +41,7 @@ func TestCompileOrdering(t *testing.T) {
 		t.Fatalf("created_at ordering = %q keyset (%q, %v)", compiled.OrderBy, compiled.KeyField, compiled.KeyDesc)
 	}
 	compiled = mustCompile(t, Query{Sorts: []Sort{{Field: "fld_num0000001", Desc: true}}})
-	want := "(data->>'fld_num0000001')::numeric DESC NULLS LAST, id DESC"
+	want := guardedNumeric("fld_num0000001") + " DESC NULLS LAST, id DESC"
 	if compiled.OrderBy != want {
 		t.Fatalf("field ordering = %q, want %q", compiled.OrderBy, want)
 	}
