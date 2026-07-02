@@ -68,6 +68,8 @@ export function SheetToolbar({
   onDeleteSelected,
   onOpenImport,
   onAddField,
+  hiddenFields,
+  onUnhideField,
 }: {
   sheetId: string
   pageId: string
@@ -83,6 +85,8 @@ export function SheetToolbar({
   onDeleteSelected: () => void
   onOpenImport: () => void
   onAddField: (spec: SheetFieldSpec) => Promise<void>
+  hiddenFields: SheetField[]
+  onUnhideField: (fieldId: string) => void
 }) {
   const activeFilterCount = filterRules.length
 
@@ -109,6 +113,12 @@ export function SheetToolbar({
         activeCount={activeFilterCount}
       />
       <SortPopover fields={fields} sort={sort} onChange={onSortChange} />
+      {hiddenFields.length > 0 ? (
+        <HiddenColumnsPopover
+          hiddenFields={hiddenFields}
+          onUnhideField={onUnhideField}
+        />
+      ) : null}
 
       <div className="min-w-2 flex-1" />
 
@@ -139,6 +149,45 @@ export function SheetToolbar({
 
       <UndoPopover sheetId={sheetId} pageId={pageId} />
     </div>
+  )
+}
+
+function HiddenColumnsPopover({
+  hiddenFields,
+  onUnhideField,
+}: {
+  hiddenFields: SheetField[]
+  onUnhideField: (fieldId: string) => void
+}) {
+  return (
+    <Popover>
+      <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
+        <Icon icon="lucide:eye-off" className="h-3.5 w-3.5" />
+        Hidden
+        <span className="rounded-full bg-accent px-1.5 text-[10px] text-accent-foreground">
+          {hiddenFields.length}
+        </span>
+      </Popover.Trigger>
+      <Popover.Content className="w-64 rounded-2xl border border-border p-3">
+        <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
+          {hiddenFields.map((field) => (
+            <button
+              key={field.id}
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-default"
+              onClick={() => field.id && onUnhideField(field.id)}
+            >
+              <Icon
+                icon={fieldTypeIcon(field.type)}
+                className="h-3.5 w-3.5 shrink-0 text-muted"
+              />
+              <span className="min-w-0 flex-1 truncate">{field.name}</span>
+              <Icon icon="lucide:eye" className="h-3.5 w-3.5 text-muted" />
+            </button>
+          ))}
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
   )
 }
 

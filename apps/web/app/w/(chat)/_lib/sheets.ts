@@ -141,6 +141,27 @@ export function createSheetPage(sheetID: string, name: string) {
   )
 }
 
+export function updateSheetPage(
+  sheetID: string,
+  pageID: string,
+  body: { name?: string; position?: number; display_field_id?: string }
+) {
+  return unwrap(
+    api.PATCH("/v1/sheets/{sheetID}/pages/{pageID}", {
+      params: { path: { sheetID, pageID } },
+      body: { ...body, mutation_id: newMutationId() },
+    })
+  )
+}
+
+export function deleteSheetPage(sheetID: string, pageID: string) {
+  return unwrap(
+    api.DELETE("/v1/sheets/{sheetID}/pages/{pageID}", {
+      params: { path: { sheetID, pageID } },
+    })
+  )
+}
+
 export function createSheetField(
   sheetID: string,
   pageID: string,
@@ -150,6 +171,37 @@ export function createSheetField(
     api.POST("/v1/sheets/{sheetID}/pages/{pageID}/fields", {
       params: { path: { sheetID, pageID } },
       body: { ...spec, mutation_id: newMutationId() },
+    })
+  )
+}
+
+export function updateSheetField(
+  sheetID: string,
+  pageID: string,
+  fieldID: string,
+  body: {
+    name?: string
+    type?: string
+    options?: Record<string, unknown>
+    position?: number
+  }
+) {
+  return unwrap(
+    api.PATCH("/v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}", {
+      params: { path: { sheetID, pageID, fieldID } },
+      body: { ...body, mutation_id: newMutationId() },
+    })
+  )
+}
+
+export function deleteSheetField(
+  sheetID: string,
+  pageID: string,
+  fieldID: string
+) {
+  return unwrap(
+    api.DELETE("/v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}", {
+      params: { path: { sheetID, pageID, fieldID } },
     })
   )
 }
@@ -254,6 +306,14 @@ export function updateView(
     api.PATCH("/v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}", {
       params: { path: { sheetID, pageID, viewID } },
       body,
+    })
+  )
+}
+
+export function deleteView(sheetID: string, pageID: string, viewID: string) {
+  return unwrap(
+    api.DELETE("/v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}", {
+      params: { path: { sheetID, pageID, viewID } },
     })
   )
 }

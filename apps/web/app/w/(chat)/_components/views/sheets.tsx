@@ -13,6 +13,7 @@ import {
   fetchSheetStructure,
   sheetKeys,
 } from "@/app/w/(chat)/_lib/sheets"
+import { PageTab } from "./sheets/page-tab"
 import { useSheetLive } from "./sheets/use-sheet-live"
 
 /**
@@ -192,28 +193,18 @@ export function SheetsView() {
       </div>
 
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1">
-        {pages.map((page) => {
-          const isActive = page.id === activePage?.id
-          return (
-            <button
+        {pages.map((page) =>
+          activeSheetId ? (
+            <PageTab
               key={page.id}
-              type="button"
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-colors ${
-                isActive
-                  ? "bg-default text-foreground"
-                  : "text-muted hover:bg-default"
-              }`}
-              onClick={() => setSelectedPageId(page.id ?? null)}
-            >
-              <span className="max-w-40 truncate">{page.name}</span>
-              {typeof page.row_count === "number" ? (
-                <span className="text-[10px] text-muted">
-                  {page.row_count}
-                </span>
-              ) : null}
-            </button>
-          )
-        })}
+              sheetId={activeSheetId}
+              page={page}
+              pages={pages}
+              isActive={page.id === activePage?.id}
+              onSelect={() => setSelectedPageId(page.id ?? null)}
+            />
+          ) : null
+        )}
         <NamePopover label="New page" iconOnly onSubmit={createNewPage} />
       </div>
 

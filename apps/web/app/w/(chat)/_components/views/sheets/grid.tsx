@@ -11,11 +11,13 @@ import {
   type GridCell,
   type GridColumn,
   type GridSelection,
+  type HeaderClickedEventArgs,
   type Item,
   type Rectangle,
 } from "@glideapps/glide-data-grid"
 import type { SheetField } from "@/app/w/(chat)/_lib/sheets"
 import { CellEditorOverlay, type CellEditorTarget } from "./cell-editor"
+import { ColumnHeaderMenu, type ColumnMenuTarget } from "./column-menu"
 import { cellForValue, fieldHeaderIcon, usesCustomEditor, valueFromEditedCell } from "./cells"
 import { useAttachmentImageUrls } from "./use-attachment-urls"
 import { useGlideTheme } from "./use-glide-theme"
@@ -60,6 +62,7 @@ export function SheetGrid({
   onColumnWidthChange,
   selection,
   onSelectionChange,
+  onHideField,
 }: {
   sheetId: string
   pageId: string
@@ -69,10 +72,12 @@ export function SheetGrid({
   onColumnWidthChange: (fieldId: string, width: number) => void
   selection: GridSelection
   onSelectionChange: (selection: GridSelection) => void
+  onHideField: (fieldId: string) => void
 }) {
   const theme = useGlideTheme()
   const gridRef = useRef<DataEditorRef | null>(null)
   const [editor, setEditor] = useState<CellEditorTarget | null>(null)
+  const [headerMenu, setHeaderMenu] = useState<ColumnMenuTarget | null>(null)
 
   const columns = useMemo<GridColumn[]>(
     () =>
@@ -153,6 +158,16 @@ export function SheetGrid({
     [controller]
   )
 
+  const openHeaderMenu = useCallback(
+    (colIndex: number, event: HeaderClickedEventArgs) => {
+      const field = fields[colIndex]
+      if (!field?.id) return
+      event.preventDefault()
+      setHeaderMenu({ field, bounds: event.bounds })
+    },
+    [fields]
+  )
+
   const editingValue = useMemo(() => {
     if (!editor?.field.id) return undefined
     const row = controller.rows.find((entry) => entry.id === editor.rowId)
@@ -168,6 +183,8 @@ export function SheetGrid({
         getCellContent={getCellContent}
         onCellEdited={onCellEdited}
         onCellActivated={onCellActivated}
+        onHeaderClicked={openHeaderMenu}
+        onHeaderContextMenu={openHeaderMenu}
         onVisibleRegionChanged={onVisibleRegionChanged}
         onColumnResize={onColumnResize}
         onRowAppended={onRowAppended}
@@ -195,6 +212,15 @@ export function SheetGrid({
             }
           }}
           onClose={() => setEditor(null)}
+        />
+      ) : null}
+      {headerMenu ? (
+        <ColumnHeaderMenu
+          sheetId={sheetId}
+          pageId={pageId}
+          target={headerMenu}
+          onClose={() => setHeaderMenu(null)}
+          onHideField={onHideField}
         />
       ) : null}
       {/* Glide renders its built-in overlay editors into this portal. */}

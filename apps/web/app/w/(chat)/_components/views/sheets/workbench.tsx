@@ -38,6 +38,7 @@ interface PersistedConfig {
   column_widths?: Record<string, number>
   filters?: FilterRuleState[]
   sort?: SheetSort | null
+  hidden_fields?: string[]
 }
 
 function parsePersistedConfig(raw: unknown): PersistedConfig {
@@ -70,6 +71,11 @@ function parsePersistedConfig(raw: unknown): PersistedConfig {
     typeof (sort as SheetSort).field === "string"
   ) {
     config.sort = sort as SheetSort
+  }
+  if (Array.isArray(record.hidden_fields)) {
+    config.hidden_fields = record.hidden_fields.filter(
+      (entry): entry is string => typeof entry === "string"
+    )
   }
   return config
 }
@@ -140,6 +146,9 @@ function WorkbenchInner({
   const [sort, setSort] = useState<SheetSort | null>(
     () => initialConfig.sort ?? null
   )
+  const [hiddenFieldIds, setHiddenFieldIds] = useState<string[]>(
+    () => initialConfig.hidden_fields ?? []
+  )
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [selection, setSelection] = useState<GridSelection>(EMPTY_SELECTION)
@@ -156,9 +165,21 @@ function WorkbenchInner({
   /* ---------------- view config: debounce persist -------------------- */
 
   const creatingViewRef = useRef(false)
-  const latestRef = useRef({ columnWidths, filterRules, sort, defaultViewId })
+  const latestRef = useRef({
+    columnWidths,
+    filterRules,
+    sort,
+    hiddenFieldIds,
+    defaultViewId,
+  })
   useEffect(() => {
-    latestRef.current = { columnWidths, filterRules, sort, defaultViewId }
+    latestRef.current = {
+      columnWidths,
+      filterRules,
+      sort,
+      hiddenFieldIds,
+      defaultViewId,
+    }
   })
 
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -170,6 +191,7 @@ function WorkbenchInner({
         column_widths: latest.columnWidths,
         filters: latest.filterRules,
         sort: latest.sort,
+        hidden_fields: latest.hiddenFieldIds,
       }
       if (latest.defaultViewId) {
         updateView(sheetId, pageId, latest.defaultViewId, { config }).catch(
@@ -253,6 +275,33 @@ function WorkbenchInner({
     [schedulePersist]
   )
 
+  const onHideField = useCallback(
+    (fieldId: string) => {
+      setHiddenFieldIds((prev) =>
+        prev.includes(fieldId) ? prev : [...prev, fieldId]
+      )
+      schedulePersist()
+    },
+    [schedulePersist]
+  )
+
+  const onUnhideField = useCallback(
+    (fieldId: string) => {
+      setHiddenFieldIds((prev) => prev.filter((entry) => entry !== fieldId))
+      schedulePersist()
+    },
+    [schedulePersist]
+  )
+
+  const visibleFields = useMemo(
+    () => fields.filter((field) => !hiddenFieldIds.includes(field.id ?? "")),
+    [fields, hiddenFieldIds]
+  )
+  const hiddenFields = useMemo(
+    () => fields.filter((field) => hiddenFieldIds.includes(field.id ?? "")),
+    [fields, hiddenFieldIds]
+  )
+
   const onDeleteSelected = useCallback(() => {
     if (selectedRowIds.length === 0) return
     void controller.deleteRowIds(selectedRowIds)
@@ -288,6 +337,8 @@ function WorkbenchInner({
         onDeleteSelected={onDeleteSelected}
         onOpenImport={() => setImportOpen(true)}
         onAddField={onAddField}
+        hiddenFields={hiddenFields}
+        onUnhideField={onUnhideField}
       />
 
       {fields.length === 0 ? (
@@ -318,12 +369,13 @@ function WorkbenchInner({
         <SheetGrid
           sheetId={sheetId}
           pageId={pageId}
-          fields={fields}
+          fields={visibleFields}
           controller={controller}
           columnWidths={columnWidths}
           onColumnWidthChange={onColumnWidthChange}
           selection={selection}
           onSelectionChange={setSelection}
+          onHideField={onHideField}
         />
       )}
 
