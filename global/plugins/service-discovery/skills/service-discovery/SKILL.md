@@ -68,12 +68,18 @@ When the discovered IDs belong in a *different* agent's head — you are coordin
 }
 ```
 
+**Resolve the target agent BEFORE you persist anything:**
+
+1. If you have the `list_agents` tool (the org's default assistant typically does), call it first and match the intended agent by name from the response. If more than one agent could be the target, show the candidates and ask the user which one — never pick silently.
+2. If you don't have `list_agents`, ask the user for the agent and use the ID they provide.
+3. Never guess or reconstruct an agent ID from memory of past sessions — resolve it fresh, in this session, from a tool result or the user.
+
 Hard rules for seeding:
 
 - `agent_id` and `visibility` are **mutually exclusive** — sending both is rejected. Pick one.
 - `agent_id` requires `owner: "org"` and must be an active agent in this org.
 - **Only the receiving agent can forget a seeded memory.** You cannot retract it afterward — seed accurate, atomic facts or don't seed.
-- Get the agent's UUID from a tool result (e.g. the agent-builder `list_agents` tool, if you have it) or from the user. Never guess an agent ID.
+- **Seeding is blind.** You cannot search or list another agent's memories, so you cannot check whether it already carries this inventory. Seed only right after a fresh discovery or when the user explicitly asks, tell the user exactly what you seeded, and note that duplicates can only be cleaned up by the receiving agent (or from the dashboard).
 
 ## Step 2 — per-service discovery
 
@@ -114,7 +120,7 @@ Discover one provider at a time, and only the providers the user asked about (or
 - Never persist secrets, env values, connection strings, statuses, or message contents.
 - Refresh = forget stale, then retain fresh. Never both-alive.
 - A 404 "no connection" means stop and tell the user — never invent services.
-- IDs come from tool results only — including the `agent_id` when seeding another agent.
+- IDs come from tool results only — and the seeding `agent_id` is resolved fresh via `list_agents` (or the user) in the current session, never from recollection.
 - Don't broadcast (`all_agents`) unless the user explicitly wants org-wide memory.
 
 ## Final response checklist
