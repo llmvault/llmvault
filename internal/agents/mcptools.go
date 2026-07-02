@@ -49,7 +49,7 @@ func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token 
 		if !agentBuilderEnabled(agent) {
 			return
 		}
-		registerListOrgPlugins(server, deps.DB, token)
+		registerListOrgPlugins(server, deps.DB, token, frontendURL)
 		registerListAgents(server, deps.DB, token)
 		registerGetAgent(server, deps.DB, token, frontendURL)
 		registerCreateAgent(server, deps, token, frontendURL)
@@ -83,21 +83,21 @@ func agentBuilderEnabled(agent *model.Agent) bool {
 
 // --- list_org_plugins --------------------------------------------------------
 
-func registerListOrgPlugins(server *mcp.Server, db *gorm.DB, token *model.Token) {
+func registerListOrgPlugins(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolListOrgPlugins,
-		Description: "List the plugins available to this organization, split into installed and available. Each plugin lists its skills and required connections; available plugins also list missing_requirements. Use this to discover which plugin_slugs and skills you can pass to create_agent / update_agent.",
+		Description: "List the plugins available to this organization, split into installed and available. Each plugin lists its skills, required connections, and an install_url (the page to send the user to install/connect it); available plugins also list missing_requirements. Use this to discover which plugin_slugs and skills you can pass to create_agent / update_agent.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 			"properties":           map[string]any{},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleListOrgPlugins(ctx, db, token)
+		return handleListOrgPlugins(ctx, db, token, frontendURL)
 	})
 }
 
-func handleListOrgPlugins(ctx context.Context, db *gorm.DB, token *model.Token) (*mcp.CallToolResult, error) {
+func handleListOrgPlugins(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string) (*mcp.CallToolResult, error) {
 	var plugins []model.Plugin
 	if err := db.WithContext(ctx).Where("status = ?", model.PluginStatusActive).Order("name ASC").Find(&plugins).Error; err != nil {
 		return toolError("failed to list plugins: " + err.Error()), nil
@@ -109,7 +109,7 @@ func handleListOrgPlugins(ctx context.Context, db *gorm.DB, token *model.Token) 
 	installed := make([]map[string]any, 0)
 	available := make([]map[string]any, 0)
 	for _, plugin := range plugins {
-		obj, err := pluginObject(ctx, db, token.OrgID, plugin, !installedIDs[plugin.ID])
+		obj, err := pluginObject(ctx, db, token.OrgID, plugin, !installedIDs[plugin.ID], frontendURL)
 		if err != nil {
 			return toolError(err.Error()), nil
 		}
@@ -140,7 +140,7 @@ func installedPluginIDSet(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (ma
 	return out, nil
 }
 
-func pluginObject(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin model.Plugin, includeMissing bool) (map[string]any, error) {
+func pluginObject(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin model.Plugin, includeMissing bool, frontendURL string) (map[string]any, error) {
 	var skills []model.Skill
 	if err := db.WithContext(ctx).
 		Where("plugin_id = ? AND status = ?", plugin.ID, model.SkillStatusPublished).
@@ -180,6 +180,7 @@ func pluginObject(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin mode
 		"category":             plugin.Category,
 		"skills":               skillObjs,
 		"required_connections": reqObjs,
+		"install_url":          pluginInstallURL(frontendURL, plugin.Slug),
 	}
 	if includeMissing {
 		missing, err := missingRequirements(ctx, db, orgID, plugin.ID)
@@ -766,7 +767,13 @@ func allowListFromAny(raw any) []string {
 
 func agentURL(frontendURL string, agentID uuid.UUID) string {
 	base := strings.TrimRight(strings.TrimSpace(frontendURL), "/")
-	return base + "/agents/" + agentID.String()
+	return base + "/w/settings/agents/edit/" + agentID.String()
+}
+
+// pluginInstallURL is the app page where a user installs/connects a plugin.
+func pluginInstallURL(frontendURL, slug string) string {
+	base := strings.TrimRight(strings.TrimSpace(frontendURL), "/")
+	return base + "/w/plugins/" + slug
 }
 
 // --- helpers -----------------------------------------------------------------
