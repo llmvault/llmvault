@@ -51,9 +51,7 @@
   --field-radius: 0.5rem;
 
   /* Font Family */
-  /* Make sure to load Inter font in your app */
-  /* --font-sans: var(--font-inter); */
-  --font-sans: var(--font-geist-sans), sans-serif;
+  --font-sans: var(--font-bricolage-sans), sans-serif;
   --font-mono:
     var(--font-geist-mono), ui-monospace, "SFMono-Regular", "SF Mono", Menlo,
     Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
