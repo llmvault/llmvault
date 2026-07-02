@@ -15,7 +15,9 @@ import (
 	"github.com/usehivy/hivy/internal/rag/scheduler"
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
 	"github.com/usehivy/hivy/internal/sandbox"
+	"github.com/usehivy/hivy/internal/sheets"
 	"github.com/usehivy/hivy/internal/skills"
+	"github.com/usehivy/hivy/internal/storage"
 )
 
 // WorkerDeps holds the dependencies needed by task handlers.
@@ -36,6 +38,8 @@ type WorkerDeps struct {
 	AgentCompile       agentruntime.CompileDeps
 	OrgAgentEnsurer    OrgHivyAgentEnsurer
 	SlackMediaEnricher SlackMediaEnricher
+	Storage            storage.Reader        // nil disables the sheet CSV import worker
+	SheetEvents        sheets.EventPublisher // nil disables sheet realtime events from workers
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -142,6 +146,11 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	mux.HandleFunc(TypeAgentTriggerStoreDelivery, NewAgentTriggerStoreDeliveryHandler(deps.DB).Handle)
 	if deps.Enqueuer != nil && deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
 		mux.HandleFunc(TypeAgentScheduleScan, NewAgentScheduleScanHandler(deps.DB, deps.Enqueuer).Handle)
+	}
+
+	// CSV import needs S3 read access to stream the uploaded object.
+	if deps.Storage != nil {
+		mux.HandleFunc(TypeSheetCSVImport, NewSheetCSVImportHandler(deps.DB, deps.Storage, deps.SheetEvents).Handle)
 	}
 
 	if deps.Rag != nil {

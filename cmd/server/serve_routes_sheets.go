@@ -6,9 +6,11 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/config"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/sheets"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 // buildSheetsHandler wires the sheets service with its Redis event publisher
@@ -17,6 +19,11 @@ func buildSheetsHandler(cfg *config.Config, database *gorm.DB, redisClient *redi
 	svc := sheets.NewService(database)
 	if redisClient != nil {
 		svc.WithPublisher(sheets.NewRedisEventPublisher(redisClient))
+	}
+	// Phase 4: schedule the CSV import worker for created jobs. Without a
+	// queue connection, jobs persist as pending and never run.
+	if redisOpt, err := cfg.AsynqRedisOpt(); err == nil {
+		svc.WithImportEnqueuer(tasks.NewSheetImportEnqueuer(enqueue.NewClient(redisOpt)))
 	}
 	sheetsHandler := handler.NewSheetsHandler(database, svc, signingKey).
 		WithRedis(redisClient)

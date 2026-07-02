@@ -28,6 +28,7 @@ import (
 	_ "github.com/usehivy/hivy/internal/rag/connectors"
 	ragscheduler "github.com/usehivy/hivy/internal/rag/scheduler"
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
+	"github.com/usehivy/hivy/internal/sheets"
 	"github.com/usehivy/hivy/internal/skills"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -117,8 +118,12 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		OrgAgentEnsurer:    orgAgentEnsurer,
 		AgentCompile:       agentCompile,
 		SlackMediaEnricher: buildWorkerSlackMediaEnricher(deps),
+		Storage:            buildWorkerStorageReader(cfg),
 		Rag:                ragDeps,
 		RagScheduler:       ragSched,
+	}
+	if deps.Redis != nil {
+		workerDeps.SheetEvents = sheets.NewRedisEventPublisher(deps.Redis)
 	}
 	if deps.Orchestrator != nil && workerDeps.AgentCompile.EncKey != nil {
 		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandbox.AgentRuntimeConfigPush) error {
