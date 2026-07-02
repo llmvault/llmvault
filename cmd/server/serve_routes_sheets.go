@@ -13,18 +13,24 @@ import (
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-// buildSheetsHandler wires the sheets service with its Redis event publisher
-// and the attachment presigner. Phase 4 plugs the import enqueuer in here.
-func buildSheetsHandler(cfg *config.Config, database *gorm.DB, redisClient *redis.Client, signingKey []byte) *handler.SheetsHandler {
+// buildSheetsService constructs the single sheets service shared by the REST
+// handlers and the MCP tool group, so both surfaces emit realtime events and
+// enqueue the CSV import worker. Without the enqueuer, import jobs persist as
+// pending and never run.
+func buildSheetsService(database *gorm.DB, redisClient *redis.Client, enqueuer enqueue.TaskEnqueuer) *sheets.Service {
 	svc := sheets.NewService(database)
 	if redisClient != nil {
 		svc.WithPublisher(sheets.NewRedisEventPublisher(redisClient))
 	}
-	// Phase 4: schedule the CSV import worker for created jobs. Without a
-	// queue connection, jobs persist as pending and never run.
-	if redisOpt, err := cfg.AsynqRedisOpt(); err == nil {
-		svc.WithImportEnqueuer(tasks.NewSheetImportEnqueuer(enqueue.NewClient(redisOpt)))
+	if enqueuer != nil {
+		svc.WithImportEnqueuer(tasks.NewSheetImportEnqueuer(enqueuer))
 	}
+	return svc
+}
+
+// buildSheetsHandler wires the shared sheets service with the REST handler,
+// its Redis live-stream support, and the attachment presigner.
+func buildSheetsHandler(cfg *config.Config, database *gorm.DB, redisClient *redis.Client, signingKey []byte, svc *sheets.Service) *handler.SheetsHandler {
 	sheetsHandler := handler.NewSheetsHandler(database, svc, signingKey).
 		WithRedis(redisClient)
 	if presigner := buildSheetsPresigner(cfg); presigner != nil {

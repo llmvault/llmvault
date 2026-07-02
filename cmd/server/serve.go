@@ -69,7 +69,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	})
 
 	auditWriter := middleware.NewAuditWriter(ctx, database, 10000)
-	sheetsHandler := buildSheetsHandler(cfg, database, redisClient, signingKey)
+	// One sheets service (publisher + import enqueuer) shared by the REST
+	// handlers and the sheets MCP tool group.
+	sheetsService := buildSheetsService(database, redisClient, enqueuer)
+	sheetsHandler := buildSheetsHandler(cfg, database, redisClient, signingKey, sheetsService)
 	canvasArtifactStore := buildCanvasArtifactStore(cfg)
 	canvasArtifactService := canvasartifact.NewService(database, canvasArtifactStore)
 	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey).WithArtifactService(canvasArtifactService)
@@ -191,15 +194,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		},
 	}
 	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL))
-	// The sheets MCP tool group runs on its own service instance wired with the
-	// same Redis event publisher as the REST surface (buildSheetsHandler), so
-	// agent edits emit realtime events too. A later cleanup consolidates the
-	// two instances (and wires the Phase 4 import enqueuer into this one).
-	sheetToolsService := sheets.NewService(database)
-	if redisClient != nil {
-		sheetToolsService.WithPublisher(sheets.NewRedisEventPublisher(redisClient))
-	}
-	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetToolsService))
+	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetsService))
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,
