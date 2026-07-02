@@ -32,7 +32,9 @@ Call `cron` with `action:"create"`:
   deliver the output** (see "Delivering output").
 - `cron_expression` — a standard 5-field cron string, **or** `interval_seconds`
   for a simple repeating interval (use one, not both).
-- `channel_id` *(optional)* — the channel the run's conversation lives in.
+- `channel_id` *(optional)* — the **Hivy channel UUID** the run's conversation
+  lives in. This is never a Slack/provider channel id — see "Channels" below.
+  Omit it and the run lands in the org's private **system** channel.
 - `repeat_count` *(optional)* — stop after N runs.
 
 Manage existing jobs with the same tool: `action:"list" | "update" | "pause" |
@@ -67,12 +69,41 @@ Use this when an external system should run the agent on demand:
 
 - `agent_id` — the agent to run.
 - `instructions` — what the agent should do each time it's called.
-- `channel_id` *(optional)* — the run's conversation channel.
+- `channel_id` *(optional)* — the run's conversation channel: a **Hivy channel
+  UUID** (see "Channels" below). Omitted → the org's system channel.
 - `secret` *(optional, recommended)* — a shared secret the caller must send.
 
 It returns a **`url`** — give it to the user. They (or their system) POST to it
 to fire the agent. If you set a secret, share it too and tell them to send it as
 `Authorization: Bearer <secret>`.
+
+## Channels — Hivy IDs, never Slack IDs
+
+Two different things share the word "channel". Do not mix them up:
+
+- A **Hivy channel** is where an automation's conversation lives. Its id is a
+  **UUID** (`3f2a…`). This — and only this — is what `channel_id` accepts.
+- A **Slack channel id** looks like `C0XXXXXXX`. It is never a valid
+  `channel_id`. In Slack-triggered sessions your inbound context contains a
+  `slack_channel_id:` line — that is the Slack id, not a Hivy channel id.
+
+To find the right Hivy channel UUID, call **`list_channels`** (no arguments):
+
+```json
+{}
+```
+
+It returns every channel you can schedule into: `id` (the UUID to use), `name`,
+`kind`, `is_default` (the org's #general), `is_system`, and — for channels
+linked to an external app — `external_provider`, `external_resource_name`, and
+`external_resource_key` (the provider's own id, e.g. the Slack `C0XXXXXXX`).
+That last field is how you translate: when the user says "this channel" in a
+Slack conversation, match your context's `slack_channel_id` against
+`external_resource_key` and use that channel's `id`.
+
+When the user names no channel, **omit `channel_id`** — the run lands in the
+org's private **system** channel (auto-created for every org). Say so in your
+recap so the user knows where to find the run history.
 
 ## Delivering output (e.g. posting to Slack)
 
@@ -118,7 +149,11 @@ the user it's done:
 - Forgetting the timezone — always confirm and convert to UTC.
 - Writing a task that produces a result but never delivers it (there is no
   automatic output — the task must post/send it).
-- Guessing an `agent_id`, `channel_id`, or cron syntax — confirm them first.
+- Guessing an `agent_id`, `channel_id`, or cron syntax — `list_agents` and
+  `list_channels` exist so you never have to.
+- Passing a Slack `C0XXXXXXX` id (or anything from a `slack_channel_id:` context
+  line) as `channel_id` — it will be rejected; translate it via `list_channels`
+  (`external_resource_key`) first.
 - Sharing an HTTP trigger URL with no secret when it should be protected.
 
 ## When something goes wrong
@@ -126,6 +161,12 @@ the user it's done:
 - **`cron` rejects the cron_expression** — it's malformed; fix the 5-field
   syntax and retry.
 - **"agent not found"** — wrong `agent_id`; call `list_agents` to find it.
+- **"channel_id must be a uuid"** — you passed a Slack/provider id. Call
+  `list_channels` and use the channel's `id` (match Slack ids against
+  `external_resource_key`).
+- **"channel_id not found" / "agent is not available in this channel"** — the
+  UUID is from another org, archived, or the agent isn't allowed there;
+  `list_channels` shows only valid choices.
 - **The scheduled run happens but nothing shows up in Slack** — the task didn't
   instruct the agent to post, or the agent lacks the Slack plugin. Update the
   job's `task_prompt` (`cron` `action:"update"`) and/or get the Slack plugin
