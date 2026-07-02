@@ -17,6 +17,7 @@ import {
 import type { SheetField } from "@/app/w/(chat)/_lib/sheets"
 import { CellEditorOverlay, type CellEditorTarget } from "./cell-editor"
 import { cellForValue, fieldHeaderIcon, usesCustomEditor, valueFromEditedCell } from "./cells"
+import { useAttachmentImageUrls } from "./use-attachment-urls"
 import { useGlideTheme } from "./use-glide-theme"
 import type { SheetRowsController } from "./use-sheet-rows"
 
@@ -85,6 +86,13 @@ export function SheetGrid({
     [fields, columnWidths]
   )
 
+  const attachmentImageUrls = useAttachmentImageUrls(
+    sheetId,
+    pageId,
+    fields,
+    controller.rows
+  )
+
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
       const field = fields[col]
@@ -93,10 +101,11 @@ export function SheetGrid({
       return cellForValue(
         field,
         sheetRow.data?.[field.id],
-        controller.relations
+        controller.relations,
+        attachmentImageUrls
       )
     },
-    [fields, controller.rows, controller.relations]
+    [fields, controller.rows, controller.relations, attachmentImageUrls]
   )
 
   const onCellEdited = useCallback(

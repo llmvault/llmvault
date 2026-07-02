@@ -128,11 +128,16 @@ function bubbleCell(values: string[]): GridCell {
   }
 }
 
-/** Maps a stored cell value to a Glide display cell for its field type. */
+/**
+ * Maps a stored cell value to a Glide display cell for its field type.
+ * `imageUrls` maps attachment keys to presigned URLs; attachment cells whose
+ * keys are all images with resolved URLs render as thumbnails.
+ */
 export function cellForValue(
   field: SheetField,
   value: unknown,
-  relations: Record<string, SheetRelationRef>
+  relations: Record<string, SheetRelationRef>,
+  imageUrls?: Record<string, string>
 ): GridCell {
   switch (field.type) {
     case "number": {
@@ -171,8 +176,21 @@ export function cellForValue(
     }
     case "multi_select":
       return bubbleCell(stringArrayValue(value))
-    case "attachment":
-      return bubbleCell(stringArrayValue(value).map(attachmentFileName))
+    case "attachment": {
+      const keys = stringArrayValue(value)
+      const urls = keys.map((key) =>
+        isImageAttachmentKey(key) ? (imageUrls?.[key] ?? "") : ""
+      )
+      if (keys.length > 0 && urls.every((url) => url !== "")) {
+        return {
+          kind: GridCellKind.Image,
+          data: urls,
+          allowOverlay: false,
+          rounding: 4,
+        }
+      }
+      return bubbleCell(keys.map(attachmentFileName))
+    }
     case "relation":
       return bubbleCell(
         stringArrayValue(value).map(
