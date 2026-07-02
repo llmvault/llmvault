@@ -228,23 +228,36 @@ func TestSheetsOperationsRevertEndpoint(t *testing.T) {
 
 func TestSheetsAttachmentDownloadURL(t *testing.T) {
 	h := newSheetsHarness(t)
+	// Accepted: any org-owned pub/o/{orgID}/ key — the same predicate cell
+	// validation applies (sheets.ValidAttachmentKey), so whatever a cell can
+	// hold, download-url can sign.
 	ownKey := "pub/o/" + h.org.ID.String() + "/sheets/attachments/file.png"
+	brandKey := "pub/o/" + h.org.ID.String() + "/brand-assets/logo.png"
 	resp := h.do(t, &h.org, http.MethodPost, h.pagePath("/attachments/download-url"), map[string]any{
-		"keys": []string{ownKey},
+		"keys": []string{ownKey, brandKey},
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("download-url status=%d body=%s", resp.Code, resp.Body.String())
 	}
-	if !strings.Contains(resp.Body.String(), "https://storage.test/"+ownKey) {
-		t.Fatalf("missing presigned url: %s", resp.Body.String())
+	for _, key := range []string{ownKey, brandKey} {
+		if !strings.Contains(resp.Body.String(), "https://storage.test/"+key) {
+			t.Fatalf("missing presigned url for %s: %s", key, resp.Body.String())
+		}
 	}
 
-	foreignKey := "pub/o/" + h.other.ID.String() + "/sheets/attachments/secret.png"
-	resp = h.do(t, &h.org, http.MethodPost, h.pagePath("/attachments/download-url"), map[string]any{
-		"keys": []string{foreignKey},
-	})
-	if resp.Code != http.StatusForbidden {
-		t.Fatalf("foreign key status=%d body=%s", resp.Code, resp.Body.String())
+	// Rejected: foreign-org keys, agent drive keys (pub/e/…), traversal.
+	rejected := []string{
+		"pub/o/" + h.other.ID.String() + "/sheets/attachments/secret.png",
+		"pub/e/" + h.user.ID.String() + "/report.pdf",
+		"pub/o/" + h.org.ID.String() + "/sheets/attachments/../../escape.png",
+	}
+	for _, key := range rejected {
+		resp = h.do(t, &h.org, http.MethodPost, h.pagePath("/attachments/download-url"), map[string]any{
+			"keys": []string{key},
+		})
+		if resp.Code != http.StatusForbidden {
+			t.Fatalf("key %q status=%d body=%s, want 403", key, resp.Code, resp.Body.String())
+		}
 	}
 }
 

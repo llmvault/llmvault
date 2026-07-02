@@ -204,7 +204,7 @@ All 12 field types, the value shape to send in `data`, and how the service coerc
 | `url` | string | `{}` | Validated as a URL |
 | `email` | string | `{}` | Validated as an email address |
 | `phone` | string | `{}` | Stored as text; keep a consistent format like E.164 |
-| `attachment` | array of object keys | `{}` | Org-owned drive object keys only; ≤10 per cell, ≤25 MB per file |
+| `attachment` | array of object keys | `{}` | Org-owned object keys only (`pub/o/{orgID}/…`); agent-drive keys (`pub/e/…`) are rejected; ≤10 per cell, ≤25 MB per file |
 | `relation` | array of row UUIDs | `{"target_page_id": "…"}` | Every ID must be a live row on the target page in the same org; ≤100 links per cell |
 
 ### Relations — worked example
@@ -231,7 +231,7 @@ When reading, pass `resolve_relations: true` to `rows_query` and relation cells 
 
 ### Attachments — worked example
 
-Upload the file to the agent drive first, then reference the returned object `key` in the cell:
+Attachment cells only accept org-owned object keys (`pub/o/{orgID}/…`). Agent drive uploads land under `pub/e/{agentID}/…` and are rejected — do not put drive keys in attachment cells. Files must be uploaded through the platform's `sign(sheet_attachment)` flow (which stores them under `pub/o/{orgID}/sheets/attachments/`); you may also reference other existing org-owned assets by key:
 
 ```json
 {

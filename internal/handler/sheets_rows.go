@@ -193,11 +193,12 @@ func (h *SheetsHandler) AttachmentDownloadURL(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "keys must contain between 1 and 50 entries"})
 		return
 	}
-	prefix := sheets.OrgAttachmentPrefix(org.ID)
 	urls := make(map[string]string, len(req.Keys))
 	for _, key := range req.Keys {
 		key = strings.TrimSpace(key)
-		if !strings.HasPrefix(key, prefix) || len(key) <= len(prefix) || strings.Contains(key, "..") {
+		// Same predicate that admitted the key into the cell — the two
+		// checks must stay identical (sheets.ValidAttachmentKey).
+		if !sheets.ValidAttachmentKey(org.ID, key) {
 			writeJSON(w, http.StatusForbidden, errorResponse{Error: "object key is not owned by this org"})
 			return
 		}

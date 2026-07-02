@@ -182,16 +182,21 @@ func TestRelationAndAttachmentValidation(t *testing.T) {
 		t.Fatalf("tampered-field link error = %v, want RelationError", err)
 	}
 
-	// Attachments: org-owned prefix required.
+	// Attachments: org-owned prefix required. Any pub/o/{orgID}/ key is
+	// accepted (not just sheets/attachments/ uploads) — the same predicate
+	// the download-url endpoint applies (ValidAttachmentKey).
 	ownKey := OrgAttachmentPrefix(f.org.ID) + "sheets/attachments/file.png"
+	brandKey := OrgAttachmentPrefix(f.org.ID) + "brand-assets/logo.png"
 	if _, err := f.svc.InsertRows(ctx, f.org.ID, f.leads.Page.ID, []RowInsert{
-		{Data: map[string]any{filesID: []any{ownKey}}},
+		{Data: map[string]any{filesID: []any{ownKey, brandKey}}},
 	}, MaxRowsPerWriteMCP, f.actor); err != nil {
 		t.Fatalf("org-owned attachment rejected: %v", err)
 	}
 	var attErr *AttachmentError
 	foreignKey := OrgAttachmentPrefix(f.otherOrg.ID) + "sheets/attachments/file.png"
-	for _, key := range []string{foreignKey, "pub/o/file.png", "other/prefix.png", OrgAttachmentPrefix(f.org.ID)} {
+	agentDriveKey := "pub/e/" + f.agent.ID.String() + "/report.pdf"
+	traversalKey := OrgAttachmentPrefix(f.org.ID) + "sheets/attachments/../../escape.png"
+	for _, key := range []string{foreignKey, agentDriveKey, traversalKey, "pub/o/file.png", "other/prefix.png", OrgAttachmentPrefix(f.org.ID)} {
 		if _, err := f.svc.InsertRows(ctx, f.org.ID, f.leads.Page.ID, []RowInsert{
 			{Data: map[string]any{filesID: []any{key}}},
 		}, MaxRowsPerWriteMCP, f.actor); !errors.As(err, &attErr) {

@@ -108,11 +108,25 @@ func OrgAttachmentPrefix(orgID uuid.UUID) string {
 	return fmt.Sprintf("pub/o/%s/", orgID)
 }
 
+// ValidAttachmentKey is the single acceptance predicate for attachment
+// object keys, shared by cell-value validation and the download-url
+// endpoint so the two contracts can never drift: a key must be a non-empty
+// object under the org's pub/o/{orgID}/ prefix with no path traversal. Any
+// org-owned asset qualifies (sign(sheet_attachment) uploads land under
+// pub/o/{orgID}/sheets/attachments/, but other org assets are referenceable
+// too). Agent drive objects live under pub/e/{agentID}/ and are therefore
+// never attachable.
+func ValidAttachmentKey(orgID uuid.UUID, key string) bool {
+	prefix := OrgAttachmentPrefix(orgID)
+	return strings.HasPrefix(key, prefix) &&
+		len(key) > len(prefix) &&
+		!strings.Contains(key, "..")
+}
+
 // validateAttachmentKeys enforces org ownership of attachment object keys.
 func validateAttachmentKeys(orgID uuid.UUID, fieldID string, keys []string) error {
-	prefix := OrgAttachmentPrefix(orgID)
 	for _, key := range keys {
-		if !strings.HasPrefix(key, prefix) || len(key) <= len(prefix) {
+		if !ValidAttachmentKey(orgID, key) {
 			return &AttachmentError{FieldID: fieldID, Key: key, Message: "object key is not owned by this org"}
 		}
 	}
