@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { fetchEventSource } from "@microsoft/fetch-event-source"
 import { useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
@@ -36,8 +36,16 @@ function parseEventData(raw: string): Record<string, unknown> | null {
   }
 }
 
-/** Invalidate structure + every cached rows window for the sheet's pages. */
-function refetchSheet(queryClient: QueryClient, sheetId: string) {
+/**
+ * Heals after a reconnect/resync: refetches structure and the ACTIVE page's
+ * cached row windows; other pages' windows are only marked stale
+ * (refetchType "none") so they refetch lazily when next viewed.
+ */
+function refetchSheet(
+  queryClient: QueryClient,
+  sheetId: string,
+  activePageId: string | null | undefined
+) {
   void queryClient.invalidateQueries({
     queryKey: sheetKeys.structure(sheetId),
   })
@@ -48,6 +56,7 @@ function refetchSheet(queryClient: QueryClient, sheetId: string) {
     if (!page.id) continue
     void queryClient.invalidateQueries({
       queryKey: sheetKeys.rowsPrefix(page.id),
+      refetchType: page.id === activePageId ? "active" : "none",
     })
   }
 }
@@ -55,7 +64,8 @@ function refetchSheet(queryClient: QueryClient, sheetId: string) {
 function handleSheetEvent(
   queryClient: QueryClient,
   sheetId: string,
-  event: SheetLiveEvent
+  event: SheetLiveEvent,
+  activePageId: string | null | undefined
 ) {
   switch (event.type) {
     case "rows_changed":
@@ -97,7 +107,7 @@ function handleSheetEvent(
             queryKey: sheetKeys.structure(sheetId),
           })
         } else {
-          refetchSheet(queryClient, sheetId)
+          refetchSheet(queryClient, sheetId, activePageId)
         }
       }
       break
@@ -127,8 +137,16 @@ function handleSheetEvent(
  * the proxy. Reconnects with a fresh token on expiry, close, or error, and
  * heals missed events by refetching the sheet's cached windows on reconnect.
  */
-export function useSheetLive(sheetId: string | null | undefined) {
+export function useSheetLive(
+  sheetId: string | null | undefined,
+  activePageId?: string | null
+) {
   const queryClient = useQueryClient()
+  // Read through a ref so page switches don't tear down the SSE connection.
+  const activePageRef = useRef<string | null | undefined>(activePageId)
+  useEffect(() => {
+    activePageRef.current = activePageId
+  })
 
   useEffect(() => {
     if (!sheetId) return
@@ -159,7 +177,9 @@ export function useSheetLive(sheetId: string | null | undefined) {
                 `Sheet live stream failed with HTTP ${response.status}`
               )
             }
-            if (connectedBefore) refetchSheet(queryClient, sheetId)
+            if (connectedBefore) {
+              refetchSheet(queryClient, sheetId, activePageRef.current)
+            }
             connectedBefore = true
           },
           onmessage(message) {
@@ -167,7 +187,9 @@ export function useSheetLive(sheetId: string | null | undefined) {
               const data = parseEventData(message.data)
               const kind = typeof data?.type === "string" ? data.type : ""
               if (kind === "token_expired") throw new StreamClosedError(true)
-              if (kind === "resync") refetchSheet(queryClient, sheetId)
+              if (kind === "resync") {
+                refetchSheet(queryClient, sheetId, activePageRef.current)
+              }
               return
             }
             if (message.event === "sheet.event") {
@@ -176,7 +198,8 @@ export function useSheetLive(sheetId: string | null | undefined) {
                 handleSheetEvent(
                   queryClient,
                   sheetId,
-                  data as unknown as SheetLiveEvent
+                  data as unknown as SheetLiveEvent,
+                  activePageRef.current
                 )
               }
             }

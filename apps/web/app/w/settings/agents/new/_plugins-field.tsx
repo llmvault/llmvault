@@ -1,7 +1,7 @@
 "use client"
 
 import NextLink from "next/link"
-import { Switch, Tooltip } from "@heroui/react"
+import { Description, Switch, Tooltip } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { IntegrationLogo } from "@/components/integration-logo"
 import {
@@ -92,6 +92,10 @@ export function PluginsField({
           </div>
         )
       })}
+      <Description className="text-xs text-muted-foreground">
+        Plugin tools and skills take effect on the agent&apos;s next session —
+        running sessions keep their current set.
+      </Description>
     </div>
   )
 }

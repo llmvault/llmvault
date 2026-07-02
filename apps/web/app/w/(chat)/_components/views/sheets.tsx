@@ -2,7 +2,16 @@
 
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import { Button, Input, ListBox, Popover, Select, Spinner, toast } from "@heroui/react"
+import {
+  Button,
+  EmptyState,
+  Input,
+  ListBox,
+  Popover,
+  Select,
+  Spinner,
+  toast,
+} from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -51,8 +60,6 @@ export function SheetsView() {
     null
   const activeSheet = sheets.find((sheet) => sheet.id === activeSheetId) ?? null
 
-  useSheetLive(activeSheetId)
-
   const structureQuery = useQuery({
     enabled: Boolean(activeSheetId),
     queryKey: sheetKeys.structure(activeSheetId ?? ""),
@@ -61,6 +68,8 @@ export function SheetsView() {
   const pages = structureQuery.data?.pages ?? []
   const activePage =
     pages.find((page) => page.id === selectedPageId) ?? pages[0] ?? null
+
+  useSheetLive(activeSheetId, activePage?.id ?? null)
 
   const createNewSheet = async (name: string) => {
     const created = await createSheet(name)
@@ -241,7 +250,8 @@ export function SheetsView() {
         <SheetsState
           icon="lucide:table"
           title="No pages"
-          message="Add a page to start entering data."
+          message="Add a page to start entering data, or import a CSV once one exists."
+          action={<NamePopover label="New page" onSubmit={createNewPage} />}
         />
       )}
     </div>
@@ -260,12 +270,12 @@ function SheetsState({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 bg-background p-6 text-center">
+    <EmptyState className="flex h-full flex-1 flex-col items-center justify-center gap-2 bg-background p-6 text-center">
       <Icon icon={icon} className="h-6 w-6 text-muted" />
       <p className="text-sm font-medium text-foreground">{title}</p>
       {message ? <p className="max-w-sm text-xs text-muted">{message}</p> : null}
       {action ? <div className="mt-1">{action}</div> : null}
-    </div>
+    </EmptyState>
   )
 }
 

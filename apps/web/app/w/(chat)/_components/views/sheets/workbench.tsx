@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Button, Spinner } from "@heroui/react"
+import { Button, EmptyState, Skeleton, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -83,6 +83,22 @@ function parsePersistedConfig(raw: unknown): PersistedConfig {
     )
   }
   return config
+}
+
+/** Placeholder rows shown while the first window of rows loads. */
+function SkeletonRows() {
+  return (
+    <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
+      <Skeleton className="h-7 w-full rounded-md" />
+      {Array.from({ length: 12 }).map((_, index) => (
+        <Skeleton
+          key={index}
+          className="h-6 w-full rounded-md"
+          style={{ opacity: Math.max(0.25, 1 - index * 0.07) }}
+        />
+      ))}
+    </div>
+  )
 }
 
 /**
@@ -401,16 +417,14 @@ function WorkbenchInner({
       />
 
       {fields.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
+        <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
           <Icon icon="lucide:columns-3" className="h-6 w-6 text-muted" />
           <p className="text-sm text-muted">
             This page has no columns yet. Add one to start entering data.
           </p>
-        </div>
+        </EmptyState>
       ) : controller.isPending ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Spinner size="sm" />
-        </div>
+        <SkeletonRows />
       ) : controller.isError ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
           <p className="text-sm text-muted">
@@ -424,6 +438,55 @@ function WorkbenchInner({
             Retry
           </Button>
         </div>
+      ) : controller.rows.length === 0 ? (
+        filterRules.length > 0 || debouncedSearch ? (
+          <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <Icon icon="lucide:list-filter" className="h-6 w-6 text-muted" />
+            <p className="text-sm font-medium text-foreground">
+              No rows match
+            </p>
+            <p className="max-w-sm text-xs text-muted">
+              Adjust or clear the filters and search to see rows again.
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-1"
+              onPress={() => {
+                onFilterRulesChange([])
+                setSearch("")
+              }}
+            >
+              Clear filters
+            </Button>
+          </EmptyState>
+        ) : (
+          <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <Icon icon="lucide:rows-3" className="h-6 w-6 text-muted" />
+            <p className="text-sm font-medium text-foreground">No rows yet</p>
+            <p className="max-w-sm text-xs text-muted">
+              Add a first row or import a CSV to fill this page.
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => void controller.appendRow()}
+              >
+                <Icon icon="lucide:plus" className="h-3.5 w-3.5" />
+                Add row
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onPress={() => setImportOpen(true)}
+              >
+                <Icon icon="lucide:file-up" className="h-3.5 w-3.5" />
+                Import CSV
+              </Button>
+            </div>
+          </EmptyState>
+        )
       ) : (
         <SheetGrid
           sheetId={sheetId}
