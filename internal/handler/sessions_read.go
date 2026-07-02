@@ -24,6 +24,7 @@ const sessionSortActivity = "activity"
 // @Param limit query int false "Page size"
 // @Param cursor query string false "Pagination cursor"
 // @Param sort query string false "Sort order: created_at or activity"
+// @Param status query string false "Filter by status: active, archived, or ended (defaults to non-archived)"
 // @Success 200 {object} paginatedResponse[sessionResponse]
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -106,8 +107,16 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 	}
 	userID, _ := currentSessionUserID(r)
 	query := h.db.WithContext(r.Context()).
-		Model(&model.Session{}).
-		Where("org_id = ? AND status <> ?", org.ID, "archived")
+		Model(&model.Session{})
+	switch status := strings.TrimSpace(r.URL.Query().Get("status")); status {
+	case "":
+		query = query.Where("org_id = ? AND status <> ?", org.ID, "archived")
+	case "active", "archived", "ended":
+		query = query.Where("org_id = ? AND status = ?", org.ID, status)
+	default:
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "status must be active, archived, or ended"})
+		return
+	}
 	channelScoped := false
 	if forcedChannelID != uuid.Nil {
 		if !h.canListChannelSessions(w, r, org.ID, forcedChannelID, userID) {

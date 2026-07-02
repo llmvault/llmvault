@@ -40,7 +40,6 @@ func setupV1Routes(
 	credHandler *handler.CredentialHandler,
 	tokenHandler *handler.TokenHandler,
 	sandboxTemplateHandler *handler.SandboxTemplateHandler,
-	skillHandler *handler.SkillHandler,
 	pluginHandler *handler.PluginHandler,
 	databaseIntegrationHandler *handler.DatabaseIntegrationHandler,
 	ragSourceHandler *handler.RAGSourceHandler,

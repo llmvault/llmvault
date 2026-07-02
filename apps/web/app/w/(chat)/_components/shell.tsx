@@ -21,6 +21,8 @@ import {
   type PanelSize,
 } from "react-resizable-panels"
 import { animate, type AnimationPlaybackControls } from "motion/react"
+import { toast } from "@heroui/react"
+import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -50,7 +52,11 @@ import {
   sessionDisplayName,
   sessionRouteFromPathname,
 } from "@/app/w/(chat)/_lib/sidebar-data"
-import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
+import {
+  CHAT_QUERY_STALE_TIME_MS,
+  invalidateSessionListQueries,
+  removeSessionFromChannelCache,
+} from "@/app/w/(chat)/_lib/chat-cache"
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_COLLAPSED_THRESHOLD,
@@ -809,6 +815,35 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     if (!sessionID || sessionID.startsWith("tmp_")) return
     setShareSessionID(sessionID)
   }, [])
+  const { mutate: archiveSessionMutate } = $api.useMutation(
+    "delete",
+    "/v1/sessions/{id}"
+  )
+  const archiveSession = useCallback(
+    (sessionID: string) => {
+      if (!sessionID || sessionID.startsWith("tmp_")) return
+      archiveSessionMutate(
+        { params: { path: { id: sessionID } } },
+        {
+          onSuccess: (response) => {
+            removeSessionFromChannelCache(
+              queryClient,
+              response.session?.channel_id,
+              sessionID
+            )
+            invalidateSessionListQueries(queryClient)
+            toast.success("Chat archived")
+            if (routeSessionID === sessionID) {
+              router.push("/w")
+            }
+          },
+          onError: (error) =>
+            toast.danger(extractErrorMessage(error, "Could not archive chat")),
+        }
+      )
+    },
+    [archiveSessionMutate, queryClient, routeSessionID, router]
+  )
 
   return (
     <WorkspaceContext.Provider value={workspace}>
@@ -833,6 +868,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                   onCollapse={toggleSidebar}
                   onRenameSession={openRenameSession}
                   onShareSession={openShareSession}
+                  onArchiveSession={archiveSession}
                 />
               </div>
             </Panel>
@@ -847,6 +883,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                 <ChatHeader
                   title={session?.title ?? "New chat"}
                   agent={headerAgent}
+                  sessionId={
+                    routeSessionID && !routeIsTemporarySession
+                      ? routeSessionID
+                      : undefined
+                  }
                   sidebarOpen={sidebarOpen}
                   onExpandSidebar={toggleSidebar}
                   onRename={
@@ -857,6 +898,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                   onShare={
                     routeSessionID && !routeIsTemporarySession
                       ? () => openShareSession(routeSessionID)
+                      : undefined
+                  }
+                  onArchive={
+                    routeSessionID && !routeIsTemporarySession
+                      ? () => archiveSession(routeSessionID)
                       : undefined
                   }
                   rightOpen={rightPanelOpen || rightOpen}

@@ -52,6 +52,7 @@ export function ChannelGroup({
   onRenameChannel,
   onRenameSession,
   onShareSession,
+  onArchiveSession,
   onShowChannelDetails,
   slugAmbiguous,
 }: {
@@ -61,6 +62,7 @@ export function ChannelGroup({
   onRenameChannel: (channel: SidebarChannelResponse) => void
   onRenameSession: (sessionId: string, name: string) => void
   onShareSession: (sessionId: string) => void
+  onArchiveSession: (sessionId: string) => void
   onShowChannelDetails: (channel: SidebarChannelResponse) => void
   slugAmbiguous: boolean
 }) {
@@ -197,6 +199,7 @@ export function ChannelGroup({
                           : undefined
                       }
                       onShare={id ? () => onShareSession(id) : undefined}
+                      onArchive={id ? () => onArchiveSession(id) : undefined}
                       onSelect={() => {
                         openChat(
                           slug,

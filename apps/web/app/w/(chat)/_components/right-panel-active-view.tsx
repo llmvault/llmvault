@@ -9,7 +9,6 @@ import {
 import { ReviewView } from "@/app/w/(chat)/_components/views/review"
 import { SheetsView } from "@/app/w/(chat)/_components/views/sheets"
 import { SubagentView } from "@/app/w/(chat)/_components/views/side-chat"
-import { TerminalView } from "@/app/w/(chat)/_components/views/terminal"
 import type { PanelViewID, SessionSandboxAccessResponse } from "./right-panel"
 
 export function ActiveView({
@@ -40,8 +39,6 @@ export function ActiveView({
           onRefreshSandboxAccess={onRefreshSandboxAccess}
         />
       )
-    case "terminal":
-      return <TerminalView />
     case "browser":
       return <BrowserView sessionId={sessionId} />
     case "design":

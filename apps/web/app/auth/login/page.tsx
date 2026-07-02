@@ -97,7 +97,15 @@ function LoginPageContent() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="password">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <NextLink
+                      href="/auth/forgot-password"
+                      className="link text-sm"
+                    >
+                      Forgot password?
+                    </NextLink>
+                  </div>
                   <Input
                     id="password"
                     name="password"

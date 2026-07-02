@@ -37,10 +37,12 @@ export const Sidebar = memo(function Sidebar({
   onCollapse,
   onRenameSession,
   onShareSession,
+  onArchiveSession,
 }: {
   onCollapse: () => void
   onRenameSession: (sessionId: string, name: string) => void
   onShareSession: (sessionId: string) => void
+  onArchiveSession: (sessionId: string) => void
 }) {
   const { startNewChat } = useWorkspace()
   const router = useRouter()
@@ -137,9 +139,11 @@ export const Sidebar = memo(function Sidebar({
     pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
   const automationsActive =
     pathname === "/w/automations" || pathname.startsWith("/w/automations/")
+  const archivedActive =
+    pathname === "/w/archived" || pathname.startsWith("/w/archived/")
 
   return (
-    <div className="bg-surface flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       <div className="flex h-12 shrink-0 items-center gap-1 px-3">
         <Button
           variant="ghost"
@@ -150,11 +154,23 @@ export const Sidebar = memo(function Sidebar({
         >
           <Icon icon="lucide:panel-left" className="h-4 w-4 text-muted" />
         </Button>
-        <Button variant="ghost" size="sm" isIconOnly aria-label="Back">
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          aria-label="Back"
+          onPress={() => router.back()}
+        >
           <Icon icon="lucide:arrow-left" className="h-4 w-4 text-muted" />
         </Button>
-        <Button variant="ghost" size="sm" isIconOnly aria-label="Forward">
-          <Icon icon="lucide:arrow-right" className="h-4 w-4 text-muted/50" />
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          aria-label="Forward"
+          onPress={() => router.forward()}
+        >
+          <Icon icon="lucide:arrow-right" className="h-4 w-4 text-muted" />
         </Button>
       </div>
 
@@ -165,7 +181,6 @@ export const Sidebar = memo(function Sidebar({
             label="New chat"
             onClick={startNewChat}
           />
-          <NavRow icon="lucide:search" label="Search" />
           <NavRow
             icon="lucide:toy-brick"
             label="Plugins"
@@ -177,6 +192,12 @@ export const Sidebar = memo(function Sidebar({
             label="Automations"
             active={automationsActive}
             onClick={() => router.push("/w/automations")}
+          />
+          <NavRow
+            icon="lucide:archive"
+            label="Archived"
+            active={archivedActive}
+            onClick={() => router.push("/w/archived")}
           />
         </div>
 
@@ -211,6 +232,7 @@ export const Sidebar = memo(function Sidebar({
                 onRenameChannel={openRenameChannel}
                 onRenameSession={onRenameSession}
                 onShareSession={onShareSession}
+                onArchiveSession={onArchiveSession}
                 onShowChannelDetails={openChannelDetails}
                 slugAmbiguous={
                   (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
@@ -225,7 +247,7 @@ export const Sidebar = memo(function Sidebar({
               type="button"
               disabled={channelsQuery.isFetchingNextPage}
               onClick={() => void channelsQuery.fetchNextPage()}
-              className="hover:bg-default rounded-lg px-3 py-1.5 text-left text-sm text-muted transition-colors"
+              className="rounded-lg px-3 py-1.5 text-left text-sm text-muted transition-colors hover:bg-default"
             >
               {channelsQuery.isFetchingNextPage
                 ? "Loading channels..."
@@ -238,9 +260,6 @@ export const Sidebar = memo(function Sidebar({
       <div className="shrink-0 border-t border-border px-3 py-2">
         <div className="flex items-center">
           <AccountMenu />
-          <Button variant="ghost" size="sm" isIconOnly aria-label="Mobile app">
-            <Icon icon="lucide:smartphone" className="h-4 w-4 text-muted" />
-          </Button>
         </div>
       </div>
       <ChannelDetailsModal

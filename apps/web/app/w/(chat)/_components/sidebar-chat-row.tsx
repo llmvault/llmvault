@@ -26,6 +26,7 @@ export function ChatRow({
   onSelect,
   onRename,
   onShare,
+  onArchive,
 }: {
   sessionId?: string
   title: string
@@ -36,6 +37,7 @@ export function ChatRow({
   onSelect: () => void
   onRename?: () => void
   onShare?: () => void
+  onArchive?: () => void
 }) {
   return (
     <div
@@ -62,6 +64,7 @@ export function ChatRow({
         meta={meta}
         onRename={onRename}
         onShare={onShare}
+        onArchive={onArchive}
       />
     </div>
   )
@@ -72,11 +75,13 @@ function SessionRowAccessory({
   meta,
   onRename,
   onShare,
+  onArchive,
 }: {
   sessionId?: string
   meta?: string
   onRename?: () => void
   onShare?: () => void
+  onArchive?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = useSessionRuntimeStatus(sessionId)
@@ -105,6 +110,7 @@ function SessionRowAccessory({
         onOpenChange={setMenuOpen}
         onRename={onRename}
         onShare={onShare}
+        onArchive={onArchive}
         placement="bottom end"
         triggerClassName="absolute right-0 top-1/2 -translate-y-1/2 rounded-md p-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto data-[open=true]:opacity-100 data-[open=true]:pointer-events-auto hover:bg-surface"
       />
@@ -197,7 +203,7 @@ function SessionAgentAvatar({ agent }: { agent: SidebarSessionAgent }) {
   return (
     <Tooltip delay={250} closeDelay={0}>
       <Tooltip.Trigger className="flex h-3 w-3 shrink-0 items-center justify-center">
-        <span className="bg-default flex h-3 w-3 items-center justify-center overflow-hidden rounded-full text-muted ring-1 ring-border/70">
+        <span className="flex h-3 w-3 items-center justify-center overflow-hidden rounded-full bg-default text-muted ring-1 ring-border/70">
           {agent.avatarURL && !failed ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- agent avatars can come from arbitrary workspace-configured URLs */}

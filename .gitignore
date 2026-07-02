@@ -96,3 +96,9 @@ dump.rdb
 
 # Scratch/triage files inside nested packages.
 sandboxes/runtime/db-todos.txt
+
+# Local Python virtualenvs
+venv/
+
+# pnpm store cache inside the web app
+apps/web/.pnpm-store/

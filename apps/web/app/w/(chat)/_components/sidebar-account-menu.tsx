@@ -12,9 +12,9 @@ export function AccountMenu() {
   const router = useRouter()
   const { user, activeOrg, logout } = useAuth()
 
-  const go = (path?: string) => {
+  const go = (path: string) => {
     setOpen(false)
-    if (path) router.push(path)
+    router.push(path)
   }
 
   const handleLogout = async () => {
@@ -27,7 +27,7 @@ export function AccountMenu() {
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label="Account and settings"
-        className="hover:bg-default flex flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm transition-colors"
+        className="flex flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm transition-colors hover:bg-default"
       >
         <Icon icon="lucide:settings" className="h-4 w-4 shrink-0 text-muted" />
         <span className="min-w-0 flex-1 truncate">Settings</span>
@@ -53,21 +53,9 @@ export function AccountMenu() {
           <AccountItem
             icon="lucide:settings"
             label="Settings"
-            shortcut="⌘,"
             onPress={() => go("/w/settings")}
           />
           <div className="mx-1 border-t border-border" />
-          <AccountItem
-            icon="lucide:gauge"
-            label="Usage remaining"
-            chevron
-            onPress={() => go()}
-          />
-          <AccountItem
-            icon="lucide:mail"
-            label="Invite a friend"
-            onPress={() => go()}
-          />
           <AccountItem
             icon="lucide:log-out"
             label={loggingOut ? "Logging out..." : "Log out"}
@@ -83,15 +71,11 @@ export function AccountMenu() {
 function AccountItem({
   icon,
   label,
-  shortcut,
-  chevron,
   disabled,
   onPress,
 }: {
   icon: string
   label: string
-  shortcut?: string
-  chevron?: boolean
   disabled?: boolean
   onPress: () => void | Promise<void>
 }) {
@@ -100,14 +84,10 @@ function AccountItem({
       type="button"
       disabled={disabled}
       onClick={onPress}
-      className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors disabled:cursor-progress disabled:opacity-60"
+      className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:cursor-progress disabled:opacity-60"
     >
       <Icon icon={icon} className="h-4 w-4 shrink-0 text-muted" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {shortcut ? <span className="text-xs text-muted">{shortcut}</span> : null}
-      {chevron ? (
-        <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5 text-muted" />
-      ) : null}
     </button>
   )
 }

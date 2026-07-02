@@ -31,22 +31,8 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "environments", label: "Environments", icon: "lucide:monitor" },
     ],
   },
-  {
-    label: "Archived",
-    items: [
-      { id: "archived-chats", label: "Archived chats", icon: "lucide:archive" },
-    ],
-  },
 ]
-
-export const NAV_ITEMS: SettingsNavItem[] = NAV_SECTIONS.flatMap(
-  (section) => section.items
-)
 
 export function settingsHref(id: string) {
   return `/w/settings/${id}`
-}
-
-export function findNavItem(id: string) {
-  return NAV_ITEMS.find((item) => item.id === id)
 }

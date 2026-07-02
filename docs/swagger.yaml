@@ -121,36 +121,6 @@ definitions:
       type:
         type: string
     type: object
-  Bundle:
-    properties:
-      content:
-        type: string
-      description:
-        type: string
-      files:
-        additionalProperties:
-          type: string
-        type: object
-      id:
-        type: string
-      manifest:
-        additionalProperties: {}
-        type: object
-      parameters_schema:
-        items:
-          type: integer
-        type: array
-      references:
-        items:
-          $ref: '#/definitions/Reference'
-        type: array
-      required_environment_variables:
-        items:
-          type: string
-        type: array
-      title:
-        type: string
-    type: object
   CatalogItem:
     properties:
       category:
@@ -408,13 +378,6 @@ definitions:
       project_id:
         type: string
       slug:
-        type: string
-    type: object
-  Reference:
-    properties:
-      body:
-        type: string
-      path:
         type: string
     type: object
   ScheduleSpec:
@@ -1537,38 +1500,6 @@ definitions:
       text:
         type: string
     type: object
-  createSkillRequest:
-    properties:
-      bundle:
-        $ref: '#/definitions/Bundle'
-      category:
-        type: string
-      description:
-        type: string
-      hidden:
-        type: boolean
-      human_description:
-        type: string
-      integration_ids:
-        items:
-          type: string
-        type: array
-      name:
-        type: string
-      repo_ref:
-        type: string
-      repo_subpath:
-        type: string
-      repo_url:
-        type: string
-      source_type:
-        description: '"inline" | "git"'
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
-    type: object
   createTriggerRequest:
     properties:
       agent_id:
@@ -2336,17 +2267,6 @@ definitions:
       data:
         items:
           $ref: '#/definitions/sessionResponse'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
-  paginatedResponse-skillResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/skillResponse'
         type: array
       has_more:
         type: boolean
@@ -3316,112 +3236,6 @@ definitions:
       upload_url:
         type: string
     type: object
-  skillDetailResponse:
-    properties:
-      bundle:
-        $ref: '#/definitions/Bundle'
-      category:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      featured:
-        type: boolean
-      hidden:
-        type: boolean
-      human_description:
-        type: string
-      hydration_error:
-        type: string
-      hydration_status:
-        description: pending, ready, error
-        type: string
-      id:
-        type: string
-      install_count:
-        type: integer
-      integration_ids:
-        items:
-          type: string
-        type: array
-      name:
-        type: string
-      org_id:
-        type: string
-      public_skill_id:
-        type: string
-      repo_ref:
-        type: string
-      repo_subpath:
-        type: string
-      repo_url:
-        type: string
-      slug:
-        type: string
-      source_type:
-        type: string
-      status:
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
-      updated_at:
-        type: string
-    type: object
-  skillResponse:
-    properties:
-      category:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      featured:
-        type: boolean
-      hidden:
-        type: boolean
-      human_description:
-        type: string
-      hydration_error:
-        type: string
-      hydration_status:
-        description: pending, ready, error
-        type: string
-      id:
-        type: string
-      install_count:
-        type: integer
-      integration_ids:
-        items:
-          type: string
-        type: array
-      name:
-        type: string
-      org_id:
-        type: string
-      public_skill_id:
-        type: string
-      repo_ref:
-        type: string
-      repo_subpath:
-        type: string
-      repo_url:
-        type: string
-      slug:
-        type: string
-      source_type:
-        type: string
-      status:
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
-      updated_at:
-        type: string
-    type: object
   slackChannelResponse:
     properties:
       id:
@@ -3491,6 +3305,8 @@ definitions:
         type: string
       name:
         type: string
+      skills:
+        $ref: '#/definitions/JSON'
       tools:
         $ref: '#/definitions/JSON'
     type: object
@@ -3512,6 +3328,8 @@ definitions:
         type: string
       parent_agent_id:
         type: string
+      skills:
+        $ref: '#/definitions/JSON'
       status:
         type: string
       tools:
@@ -3868,11 +3686,6 @@ definitions:
       resources:
         $ref: '#/definitions/JSON'
     type: object
-  updateContentRequest:
-    properties:
-      bundle:
-        $ref: '#/definitions/Bundle'
-    type: object
   updateOrgEnvironmentVariableRequest:
     properties:
       name:
@@ -3948,31 +3761,6 @@ definitions:
         type: string
       vector_image_model:
         type: string
-    type: object
-  updateSkillRequest:
-    properties:
-      category:
-        type: string
-      description:
-        type: string
-      hidden:
-        type: boolean
-      human_description:
-        type: string
-      integration_ids:
-        items:
-          type: string
-        type: array
-      name:
-        type: string
-      repo_ref:
-        type: string
-      status:
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
     type: object
   updateTriggerRequest:
     properties:
@@ -10340,241 +10128,6 @@ paths:
       summary: Get session usage
       tags:
       - sessions
-  /v1/skills:
-    get:
-      description: Lists skills visible to the current org. Use scope=public to browse
-        the global library, scope=own for org skills, scope=all for both. Pass q to
-        search by name/description.
-      parameters:
-      - description: 'Filter: public, own, all (default all)'
-        in: query
-        name: scope
-        type: string
-      - description: Free-text search over name and description
-        in: query
-        name: q
-        type: string
-      - description: Page size (default 50, max 100)
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination cursor
-        in: query
-        name: cursor
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-skillResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List skills
-      tags:
-      - skills
-    post:
-      consumes:
-      - application/json
-      description: Creates an inline-authored skill or registers a git-sourced skill
-        for hydration.
-      parameters:
-      - description: Skill details
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/createSkillRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/skillDetailResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a skill
-      tags:
-      - skills
-  /v1/skills/{id}:
-    delete:
-      description: Marks an org-owned skill as archived. Public skills cannot be deleted
-        via this endpoint.
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Archive a skill
-      tags:
-      - skills
-    get:
-      description: Returns a skill with its latest hydrated bundle.
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/skillDetailResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get a skill
-      tags:
-      - skills
-    patch:
-      consumes:
-      - application/json
-      description: Updates metadata on an org-owned skill. Public skills are read-only.
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Fields to update
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateSkillRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/skillResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a skill
-      tags:
-      - skills
-  /v1/skills/{id}/content:
-    put:
-      consumes:
-      - application/json
-      description: Replaces the current bundle for an org-owned skill.
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Bundle content
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateContentRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/skillDetailResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update skill content
-      tags:
-      - skills
-  /v1/skills/{id}/hydrate:
-    post:
-      description: Enqueues a fresh git pull at the tracked ref. Only valid for git-sourced
-        skills.
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "202":
-          description: Accepted
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Re-hydrate a git-sourced skill
-      tags:
-      - skills
   /v1/slack/channels:
     get:
       description: Returns public Slack channels plus private channels where Hivy

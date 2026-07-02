@@ -13,7 +13,6 @@ import { LauncherRow } from "./right-panel-launcher"
 
 export type PanelViewID =
   | "review"
-  | "terminal"
   | "browser"
   | "files"
   | "design"
@@ -27,12 +26,6 @@ const PANEL_VIEWS: {
   shortcut: string
 }[] = [
   { id: "review", label: "Review", icon: "lucide:file-diff", shortcut: "⌃⇧G" },
-  {
-    id: "terminal",
-    label: "Terminal",
-    icon: "lucide:square-terminal",
-    shortcut: "⌃`",
-  },
   { id: "browser", label: "Browser", icon: "lucide:globe", shortcut: "⌘T" },
   { id: "files", label: "Files", icon: "lucide:folder", shortcut: "⌘P" },
   {

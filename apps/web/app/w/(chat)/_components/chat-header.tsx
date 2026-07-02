@@ -1,48 +1,42 @@
 "use client"
 
-import { memo, useState } from "react"
-import { Button, Popover } from "@heroui/react"
+import { memo, useMemo } from "react"
+import { Avatar, Button, Tooltip } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { $api } from "@/lib/api/hooks"
+import type { components } from "@/lib/api/schema"
+import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
 import { ChatHeaderAgentLogo } from "./chat-header-agent-logo"
 import type { ChatHeaderAgent } from "./chat-header-types"
 import { SessionActionsMenu } from "./session-actions-menu"
 
-const EDITORS = [
-  {
-    id: "vscode",
-    label: "Open in VS Code",
-    icon: "vscode-icons:file-type-vscode",
-  },
-  {
-    id: "cursor",
-    label: "Open in Cursor",
-    icon: "lucide:square-mouse-pointer",
-  },
-  { id: "zed", label: "Open in Zed", icon: "lucide:zap" },
-  { id: "copy", label: "Copy worktree path", icon: "lucide:copy" },
-]
+type OrgMember = components["schemas"]["orgMemberResponse"]
+
+const PRESENCE_MAX_AVATARS = 4
 
 export const ChatHeader = memo(function ChatHeader({
   title,
   agent,
+  sessionId,
   sidebarOpen,
   onExpandSidebar,
   onRename,
   onShare,
+  onArchive,
   rightOpen,
   onToggleRight,
 }: {
   title: string
   agent: ChatHeaderAgent | null
+  sessionId?: string
   sidebarOpen: boolean
   onExpandSidebar: () => void
   onRename?: () => void
   onShare?: () => void
+  onArchive?: () => void
   rightOpen: boolean
   onToggleRight: () => void
 }) {
-  const [editorOpen, setEditorOpen] = useState(false)
-
   return (
     <div className="flex h-12 shrink-0 items-center gap-1 px-3">
       {!sidebarOpen ? (
@@ -69,40 +63,17 @@ export const ChatHeader = memo(function ChatHeader({
           {agent.name}
         </span>
       ) : null}
-      <SessionActionsMenu onRename={onRename} onShare={onShare} />
+      <SessionActionsMenu
+        onRename={onRename}
+        onShare={onShare}
+        onArchive={onArchive}
+      />
 
       <div className="flex-1" />
 
-      <PresenceStack />
+      <PresenceStack sessionId={sessionId} />
 
       <div className="flex items-center gap-0.5">
-        <Popover isOpen={editorOpen} onOpenChange={setEditorOpen}>
-          <Popover.Trigger
-            aria-label="Open in editor"
-            className="hover:bg-default flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors"
-          >
-            <Icon icon="vscode-icons:file-type-vscode" className="h-4 w-4" />
-            <Icon icon="lucide:chevron-down" className="h-3 w-3 text-muted" />
-          </Popover.Trigger>
-          <Popover.Content className="w-56 rounded-2xl border border-border p-1.5">
-            <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-              {EDITORS.map((editor) => (
-                <button
-                  key={editor.id}
-                  type="button"
-                  onClick={() => setEditorOpen(false)}
-                  className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-                >
-                  <Icon icon={editor.icon} className="h-4 w-4 shrink-0" />
-                  {editor.label}
-                </button>
-              ))}
-            </Popover.Dialog>
-          </Popover.Content>
-        </Popover>
-        <Button variant="ghost" size="sm" isIconOnly aria-label="Tasks">
-          <Icon icon="lucide:list-todo" className="h-4 w-4 text-muted" />
-        </Button>
         <Button
           variant="ghost"
           size="sm"
@@ -120,6 +91,73 @@ export const ChatHeader = memo(function ChatHeader({
   )
 })
 
-function PresenceStack() {
-  return null
+function PresenceStack({ sessionId }: { sessionId?: string }) {
+  const enabled = Boolean(sessionId)
+  const sessionQuery = $api.useQuery(
+    "get",
+    "/v1/sessions/{id}",
+    { params: { path: { id: sessionId ?? "" } } },
+    { enabled, retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
+  const membersQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current/members",
+    {},
+    { enabled, retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
+  const participants = sessionQuery.data?.participants
+  const people = useMemo(() => {
+    const membersByID = new Map(
+      (membersQuery.data?.data ?? []).flatMap((member) =>
+        member.user_id ? ([[member.user_id, member]] as const) : []
+      )
+    )
+    return (participants ?? []).flatMap((participant) => {
+      if (!participant.user_id) return []
+      const member = membersByID.get(participant.user_id)
+      const label = member ? memberLabel(member) : "Unknown member"
+      return [{ id: participant.user_id, label, initials: initials(label) }]
+    })
+  }, [membersQuery.data?.data, participants])
+
+  if (!sessionId || people.length === 0) return null
+
+  const visible = people.slice(0, PRESENCE_MAX_AVATARS)
+  const overflow = people.length - visible.length
+
+  return (
+    <div className="flex shrink-0 items-center px-1.5">
+      <div className="flex items-center -space-x-1.5">
+        {visible.map((person) => (
+          <Tooltip key={person.id} delay={250} closeDelay={0}>
+            <Tooltip.Trigger className="flex shrink-0 items-center">
+              <Avatar size="sm" className="h-6 w-6 ring-2 ring-surface">
+                <Avatar.Fallback className="text-[10px]">
+                  {person.initials}
+                </Avatar.Fallback>
+              </Avatar>
+            </Tooltip.Trigger>
+            <Tooltip.Content placement="bottom" offset={8} className="text-xs">
+              {person.label}
+            </Tooltip.Content>
+          </Tooltip>
+        ))}
+        {overflow > 0 ? (
+          <span className="z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-default text-[10px] font-medium text-muted ring-2 ring-surface">
+            +{overflow}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function memberLabel(member: OrgMember) {
+  return member.name?.trim() || member.email?.trim() || "Unknown member"
+}
+
+function initials(label: string) {
+  const parts = label.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return label.slice(0, 2).toUpperCase()
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,7 +11,6 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -49,17 +47,4 @@ func setupProxyAndAuxRoutes(
 		r.Use(middleware.Generation(generationWriter, database))
 		r.Handle("/*", proxyHandler)
 	})
-
-	if deps.SpiderClient != nil {
-		spiderHandler := handler.NewSpiderHandler(deps.SpiderClient, deps.ToolUsageWriter, database)
-		r.Route("/spider", func(r chi.Router) {
-			r.Use(middleware.TokenAuth(signingKey, database))
-			r.Post("/crawl", spiderHandler.Crawl)
-			r.Post("/search", spiderHandler.Search)
-			r.Post("/links", spiderHandler.Links)
-			r.Post("/screenshot", spiderHandler.Screenshot)
-			r.Post("/transform", spiderHandler.Transform)
-		})
-		slog.Info("spider routes registered", "path", "/spider")
-	}
 }

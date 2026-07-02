@@ -1,12 +1,6 @@
 "use client"
 
-import {
-  memo,
-  useCallback,
-  useRef,
-  useState,
-  type ComponentProps,
-} from "react"
+import { memo, useCallback, useRef, useState, type ComponentProps } from "react"
 import { Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
@@ -14,9 +8,7 @@ import { cn } from "@/lib/utils"
 const SESSION_ACTIONS = [
   { id: "rename", label: "Rename chat", icon: "lucide:pencil" },
   { id: "share", label: "Share", icon: "lucide:share" },
-  { id: "move", label: "Move to project", icon: "lucide:folder-input" },
   { id: "archive", label: "Archive", icon: "lucide:archive" },
-  { id: "delete", label: "Delete", icon: "lucide:trash-2", danger: true },
 ] as const
 
 export const SessionActionsMenu = memo(function SessionActionsMenu({
@@ -24,6 +16,7 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
   onOpenChange,
   onRename,
   onShare,
+  onArchive,
   placement = "bottom start",
   triggerClassName,
 }: {
@@ -31,6 +24,7 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
   onOpenChange?: (open: boolean) => void
   onRename?: () => void
   onShare?: () => void
+  onArchive?: () => void
   placement?: ComponentProps<typeof Popover.Content>["placement"]
   triggerClassName?: string
 }) {
@@ -52,6 +46,8 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
       onRename?.()
     } else if (actionID === "share") {
       onShare?.()
+    } else if (actionID === "archive") {
+      onArchive?.()
     }
     updateOpen(false)
   }
@@ -62,7 +58,7 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
         aria-label={ariaLabel}
         data-open={open ? "true" : undefined}
         className={cn(
-          "hover:bg-default flex items-center rounded-lg p-1.5 text-muted transition-colors",
+          "flex items-center rounded-lg p-1.5 text-muted transition-colors hover:bg-default",
           triggerClassName
         )}
       >
@@ -78,17 +74,15 @@ export const SessionActionsMenu = memo(function SessionActionsMenu({
             {SESSION_ACTIONS.map((action) => {
               const disabled =
                 (action.id === "rename" && !onRename) ||
-                (action.id === "share" && !onShare)
+                (action.id === "share" && !onShare) ||
+                (action.id === "archive" && !onArchive)
               return (
                 <button
                   key={action.id}
                   type="button"
                   disabled={disabled}
                   onClick={() => selectAction(action.id)}
-                  className={cn(
-                    "hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors disabled:pointer-events-none disabled:opacity-45",
-                    "danger" in action && action.danger ? "text-danger" : ""
-                  )}
+                  className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
                 >
                   <Icon icon={action.icon} className="h-4 w-4 shrink-0" />
                   {action.label}
