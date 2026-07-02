@@ -75,6 +75,7 @@ func (s *Service) CreatePage(ctx context.Context, orgID, sheetID uuid.UUID, spec
 	if err != nil {
 		return nil, err
 	}
+	s.publishPagesChanged(ctx, sheet.ID, structure.Page.ID, "create")
 	return structure, nil
 }
 
@@ -123,10 +124,15 @@ func (s *Service) UpdatePage(ctx context.Context, orgID, pageID uuid.UUID, req U
 		Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("update sheet page: %w", err)
 	}
+	s.publishPagesChanged(ctx, page.SheetID, page.ID, "update")
 	return page, nil
 }
 
 func (s *Service) ArchivePage(ctx context.Context, orgID, pageID uuid.UUID) error {
+	page, err := s.loadPage(ctx, orgID, pageID)
+	if err != nil {
+		return err
+	}
 	result := s.db.WithContext(ctx).Model(&model.SheetPage{}).
 		Where("id = ? AND org_id = ? AND archived_at IS NULL", pageID, orgID).
 		Update("archived_at", time.Now().UTC())
@@ -136,6 +142,7 @@ func (s *Service) ArchivePage(ctx context.Context, orgID, pageID uuid.UUID) erro
 	if result.RowsAffected == 0 {
 		return ErrNotFound
 	}
+	s.publishPagesChanged(ctx, page.SheetID, page.ID, "delete")
 	return nil
 }
 
@@ -162,6 +169,31 @@ func (s *Service) loadPageFields(ctx context.Context, orgID, pageID uuid.UUID) (
 		return nil, fmt.Errorf("list sheet fields: %w", err)
 	}
 	return fields, nil
+}
+
+// PageRowCounts returns active-row counts per page for a sheet's bootstrap
+// response, in one grouped query.
+func (s *Service) PageRowCounts(ctx context.Context, orgID uuid.UUID, pageIDs []uuid.UUID) (map[uuid.UUID]int64, error) {
+	out := make(map[uuid.UUID]int64, len(pageIDs))
+	if len(pageIDs) == 0 {
+		return out, nil
+	}
+	type pageCount struct {
+		PageID uuid.UUID
+		Count  int64
+	}
+	var counts []pageCount
+	err := s.db.WithContext(ctx).Model(&model.SheetRow{}).
+		Select("page_id, COUNT(*) AS count").
+		Where("page_id IN ? AND org_id = ? AND archived_at IS NULL", pageIDs, orgID).
+		Group("page_id").Scan(&counts).Error
+	if err != nil {
+		return nil, fmt.Errorf("count page rows: %w", err)
+	}
+	for _, c := range counts {
+		out[c.PageID] = c.Count
+	}
+	return out, nil
 }
 
 // nextPosition returns an appended fractional-index position for the scope.

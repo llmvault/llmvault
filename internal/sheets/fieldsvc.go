@@ -103,6 +103,7 @@ func (s *Service) CreateField(ctx context.Context, orgID, pageID uuid.UUID, spec
 	if err != nil {
 		return nil, err
 	}
+	s.publishFieldsChanged(ctx, orgID, page.ID, field.ID, "create", actor)
 	return field, nil
 }
 
@@ -173,6 +174,7 @@ func (s *Service) UpdateField(ctx context.Context, orgID uuid.UUID, fieldID stri
 	if err != nil {
 		return nil, err
 	}
+	s.publishFieldsChanged(ctx, orgID, field.PageID, field.ID, "update", actor)
 	return field, nil
 }
 
@@ -184,7 +186,7 @@ func (s *Service) ArchiveField(ctx context.Context, orgID uuid.UUID, fieldID str
 		return err
 	}
 	prior := fieldSnapshot(field)
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.SheetField{}).
 			Where("id = ? AND org_id = ? AND archived_at IS NULL", field.ID, orgID).
 			Update("archived_at", time.Now().UTC()).Error; err != nil {
@@ -202,6 +204,11 @@ func (s *Service) ArchiveField(ctx context.Context, orgID uuid.UUID, fieldID str
 			Inverse: model.JSON{"field_id": field.ID, "action": "restore", "prior": prior},
 		}, actor)
 	})
+	if err != nil {
+		return err
+	}
+	s.publishFieldsChanged(ctx, orgID, field.PageID, field.ID, "delete", actor)
+	return nil
 }
 
 func (s *Service) loadField(ctx context.Context, orgID uuid.UUID, fieldID string) (*model.SheetField, error) {

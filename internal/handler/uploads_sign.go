@@ -120,7 +120,13 @@ func resolveOrgScopedUploadOrg(assetType storage.AssetType, reqOrgID *string, ct
 }
 
 func uploadAssetTypeRequiresOrg(assetType storage.AssetType) bool {
-	return assetType == storage.AssetTypeOrgLogo || assetType == storage.AssetTypeBrandAsset
+	switch assetType {
+	case storage.AssetTypeOrgLogo, storage.AssetTypeBrandAsset,
+		storage.AssetTypeSheetAttachment, storage.AssetTypeSheetImport:
+		return true
+	default:
+		return false
+	}
 }
 
 // requireOrgMembership asserts the user belongs to the target org. Any

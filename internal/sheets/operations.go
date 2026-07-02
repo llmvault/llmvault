@@ -54,8 +54,12 @@ func (s *Service) recordOperationTx(tx *gorm.DB, op *model.SheetOperation, actor
 	return nil
 }
 
-// ListOperations returns a page's recent operations, newest first.
+// ListOperations returns a page's recent operations, newest first. The page
+// must exist within the caller's org (cross-org probes get ErrNotFound).
 func (s *Service) ListOperations(ctx context.Context, orgID, pageID uuid.UUID, limit int) ([]model.SheetOperation, error) {
+	if _, err := s.loadPage(ctx, orgID, pageID); err != nil {
+		return nil, err
+	}
 	var ops []model.SheetOperation
 	err := s.db.WithContext(ctx).
 		Where("page_id = ? AND org_id = ?", pageID, orgID).
@@ -72,7 +76,8 @@ func (s *Service) ListOperations(ctx context.Context, orgID, pageID uuid.UUID, l
 // marks it reverted. Reverts are single-level: a revert is not itself
 // re-undoable in v1.
 func (s *Service) RevertOperation(ctx context.Context, orgID, operationID uuid.UUID, actor Actor) error {
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	var reverted model.SheetOperation
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var op model.SheetOperation
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("id = ? AND org_id = ?", operationID, orgID).
@@ -99,8 +104,14 @@ func (s *Service) RevertOperation(ctx context.Context, orgID, operationID uuid.U
 			Updates(updates).Error; err != nil {
 			return fmt.Errorf("mark operation reverted: %w", err)
 		}
+		reverted = op
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	s.publishOperationReverted(ctx, orgID, &reverted, actor)
+	return nil
 }
 
 func (s *Service) applyInverse(tx *gorm.DB, op *model.SheetOperation) error {

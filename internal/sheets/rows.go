@@ -18,10 +18,12 @@ type RowInsert struct {
 }
 
 // RowUpdate is a partial update: only the keys present in Data are touched;
-// a nil value clears that cell.
+// a nil value clears that cell. Position moves the row (drag-reorder); it is
+// not captured in the operation inverse — undo restores cells only.
 type RowUpdate struct {
-	ID   uuid.UUID
-	Data map[string]any
+	ID       uuid.UUID
+	Data     map[string]any
+	Position *float64
 }
 
 // InsertRows validates, coerces, and inserts a batch of rows, recording one
@@ -99,6 +101,13 @@ func (s *Service) InsertRows(ctx context.Context, orgID, pageID uuid.UUID, inser
 	if err != nil {
 		return nil, err
 	}
+	ids := make([]string, 0, len(rows))
+	patches := make(map[string]map[string]any, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID.String())
+		patches[row.ID.String()] = map[string]any(row.Data)
+	}
+	s.publishRowsChanged(ctx, page, "insert", ids, patches, actor)
 	return rows, nil
 }
 
@@ -127,6 +136,7 @@ func (s *Service) UpdateRows(ctx context.Context, orgID, pageID uuid.UUID, updat
 	}
 
 	var out []model.SheetRow
+	forward := make(map[string]map[string]any, len(updates))
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []model.SheetRow
 		if err := tx.
@@ -155,15 +165,21 @@ func (s *Service) UpdateRows(ctx context.Context, orgID, pageID uuid.UUID, updat
 			}
 			row.Data = model.JSON(merged)
 			patches[row.ID.String()] = inverse
+			forward[row.ID.String()] = incoming
 		}
 		if err := batch.validate(tx, orgID); err != nil {
 			return err
 		}
 		for _, update := range updates {
 			row := byID[update.ID]
+			changes := map[string]any{"data": row.Data}
+			if update.Position != nil {
+				changes["position"] = *update.Position
+				row.Position = *update.Position
+			}
 			if err := tx.Model(&model.SheetRow{}).
 				Where("id = ? AND org_id = ?", row.ID, orgID).
-				Update("data", row.Data).Error; err != nil {
+				Updates(changes).Error; err != nil {
 				return fmt.Errorf("update sheet row: %w", err)
 			}
 			out = append(out, *row)
@@ -179,6 +195,11 @@ func (s *Service) UpdateRows(ctx context.Context, orgID, pageID uuid.UUID, updat
 	if err != nil {
 		return nil, err
 	}
+	updatedIDs := make([]string, 0, len(out))
+	for _, row := range out {
+		updatedIDs = append(updatedIDs, row.ID.String())
+	}
+	s.publishRowsChanged(ctx, page, "update", updatedIDs, forward, actor)
 	return out, nil
 }
 
@@ -196,8 +217,8 @@ func (s *Service) DeleteRows(ctx context.Context, orgID, pageID uuid.UUID, ids [
 		return 0, err
 	}
 	archived := 0
+	var matched []string
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var matched []string
 		if err := tx.Model(&model.SheetRow{}).
 			Where("id IN ? AND page_id = ? AND org_id = ? AND archived_at IS NULL", ids, page.ID, orgID).
 			Pluck("id", &matched).Error; err != nil {
@@ -227,6 +248,7 @@ func (s *Service) DeleteRows(ctx context.Context, orgID, pageID uuid.UUID, ids [
 	if err != nil {
 		return 0, err
 	}
+	s.publishRowsChanged(ctx, page, "delete", matched, nil, actor)
 	return archived, nil
 }
 

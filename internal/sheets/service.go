@@ -21,11 +21,26 @@ const positionStep = 1024
 // tools, and the CSV import worker all go through it, so validation, org
 // scoping, and operation capture happen exactly once.
 type Service struct {
-	db *gorm.DB
+	db             *gorm.DB
+	publisher      EventPublisher
+	importEnqueuer ImportEnqueuer
 }
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+// WithPublisher injects the realtime event publisher. Nil disables publishing.
+func (s *Service) WithPublisher(p EventPublisher) *Service {
+	s.publisher = p
+	return s
+}
+
+// WithImportEnqueuer injects the CSV import task enqueuer (Phase 4 plugs the
+// Asynq implementation in). Nil means jobs persist but nothing runs them yet.
+func (s *Service) WithImportEnqueuer(e ImportEnqueuer) *Service {
+	s.importEnqueuer = e
+	return s
 }
 
 // Actor identifies who performed a mutation for provenance and the
@@ -218,6 +233,11 @@ func (s *Service) ArchiveSheet(ctx context.Context, orgID, sheetID uuid.UUID) er
 		return ErrNotFound
 	}
 	return nil
+}
+
+// SheetByID loads one active sheet org-scoped, without pages or fields.
+func (s *Service) SheetByID(ctx context.Context, orgID, sheetID uuid.UUID) (*model.Sheet, error) {
+	return s.loadSheet(ctx, orgID, sheetID)
 }
 
 func (s *Service) loadSheet(ctx context.Context, orgID, sheetID uuid.UUID) (*model.Sheet, error) {

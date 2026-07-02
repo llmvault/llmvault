@@ -50,6 +50,7 @@ func setupV1Routes(
 	systemTaskHandler *handler.SystemTaskHandler,
 	agentHandler *handler.AgentHandler,
 	canvasHandler *handler.CanvasHandler,
+	sheetsHandler *handler.SheetsHandler,
 	transcriptionHandler *handler.TranscriptionHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
@@ -111,6 +112,7 @@ func setupV1Routes(
 			if databaseIntegrationHandler != nil {
 				r.Get("/database-integrations", databaseIntegrationHandler.List)
 			}
+			mountSheetRoutes(r, database, sheetsHandler)
 
 			r.Get("/api-keys", apiKeyHandler.List)
 			// Escalation-sensitive: JWT callers must be org admins; API-key callers

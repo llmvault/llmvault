@@ -38,6 +38,27 @@ func buildUploadsHandler(cfg *config.Config, database *gorm.DB, sandboxEncKey *c
 	return uploadsHandler
 }
 
+// buildSheetsPresigner returns the presigner backing sheet attachment
+// download URLs, or nil when the shared bucket is not configured.
+func buildSheetsPresigner(cfg *config.Config) storage.Presigner {
+	if cfg.S3Bucket == "" {
+		return nil
+	}
+	presigner, err := storage.NewS3Presigner(storage.PublicAssetsConfig{
+		Bucket:          cfg.S3Bucket,
+		Region:          cfg.S3Region,
+		Endpoint:        cfg.S3Endpoint,
+		PresignEndpoint: cfg.S3PresignEndpoint,
+		AccessKey:       cfg.S3AccessKey,
+		SecretKey:       cfg.S3SecretKey,
+	})
+	if err != nil {
+		slog.Error("s3 sheets presigner init failed; attachment downloads disabled", "error", err)
+		return nil
+	}
+	return presigner
+}
+
 func buildCanvasArtifactStore(cfg *config.Config) canvasartifact.FileStore {
 	if cfg.S3Bucket == "" {
 		return nil

@@ -18,11 +18,13 @@ import (
 type AssetType string
 
 const (
-	AssetTypeAvatar       AssetType = "avatar"
-	AssetTypeOrgLogo      AssetType = "org_logo"
-	AssetTypeBrandAsset   AssetType = "brand_asset"
-	AssetTypeGeneric      AssetType = "generic"
-	AssetTypeConversation AssetType = "conversation_asset"
+	AssetTypeAvatar          AssetType = "avatar"
+	AssetTypeOrgLogo         AssetType = "org_logo"
+	AssetTypeBrandAsset      AssetType = "brand_asset"
+	AssetTypeGeneric         AssetType = "generic"
+	AssetTypeConversation    AssetType = "conversation_asset"
+	AssetTypeSheetAttachment AssetType = "sheet_attachment"
+	AssetTypeSheetImport     AssetType = "sheet_import"
 )
 
 type SignRequest struct {
@@ -100,7 +102,7 @@ func defaultPolicies() map[AssetType]AssetPolicy {
 		"application/font-woff":  "woff",
 		"application/font-woff2": "woff2",
 	}
-	return map[AssetType]AssetPolicy{
+	policies := map[AssetType]AssetPolicy{
 		AssetTypeAvatar: {
 			MaxBytes:     5 * 1024 * 1024,
 			AllowedTypes: imageTypes,
@@ -136,6 +138,8 @@ func defaultPolicies() map[AssetType]AssetPolicy {
 			},
 		},
 	}
+	addSheetPolicies(policies)
+	return policies
 }
 
 type PublicAssetsConfig struct {
