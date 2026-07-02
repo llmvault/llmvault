@@ -24,7 +24,11 @@ export function InternalAppLinkCards({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">{target.label}</div>
-            <div className="truncate text-sm text-muted">{target.subtitle}</div>
+            {target.subtitle ? (
+              <div className="truncate text-sm text-muted">
+                {target.subtitle}
+              </div>
+            ) : null}
           </div>
           <Icon
             icon="lucide:chevron-right"

@@ -7,14 +7,14 @@ import {
 
 const agentUrl =
   "https://usehivy.com/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
+const agentHref = "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
 
 describe("internal app links", () => {
-  it("strips our origin and returns a client-side href + label", () => {
+  it("strips our origin and titles the edit-agent link", () => {
     expect(internalAppLinkFromURL(agentUrl)).toEqual({
-      key: "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73",
-      href: "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73",
-      subtitle: "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73",
-      label: "Agent",
+      key: agentHref,
+      href: agentHref,
+      label: "Edit agent details",
       icon: "lucide:bot",
     })
   })
@@ -23,29 +23,25 @@ describe("internal app links", () => {
     const targets = internalAppLinkTargets(
       `Here it is [the agent](${agentUrl}) and again ${agentUrl}.`
     )
-    expect(targets.map((t) => t.href)).toEqual([
-      "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73",
-    ])
+    expect(targets.map((t) => t.href)).toEqual([agentHref])
   })
 
-  it("keeps distinct internal paths separate and labels them", () => {
+  it("only cards curated agent-facing links, not every /w/ URL", () => {
+    // A mix: the templated edit-agent link + non-templated app links.
     const targets = internalAppLinkTargets(
-      "https://usehivy.com/w/plugins/github and https://www.usehivy.com/w/automations/triggers/new"
+      `${agentUrl} https://usehivy.com/w/plugins/github https://usehivy.com/w/settings/general`
     )
-    expect(targets.map((t) => ({ href: t.href, label: t.label }))).toEqual([
-      { href: "/w/plugins/github", label: "Plugin" },
-      { href: "/w/automations/triggers/new", label: "Automation" },
-    ])
+    expect(targets.map((t) => t.href)).toEqual([agentHref])
   })
 
-  it("only matches app hosts and only /w/ paths", () => {
+  it("matches only app hosts and only templated paths", () => {
     // Non-app host
-    expect(isInternalAppURL("https://example.com/w/plugins")).toBe(false)
-    // App host but marketing/home path (not /w/)
+    expect(isInternalAppURL(`https://example.com${agentHref}`)).toBe(false)
+    // App host but no template for this path
+    expect(isInternalAppURL("https://usehivy.com/w/plugins/github")).toBe(false)
     expect(isInternalAppURL("https://usehivy.com/pricing")).toBe(false)
-    expect(isInternalAppURL("https://usehivy.com/")).toBe(false)
-    // App host + /w/ path
-    expect(isInternalAppURL("https://usehivy.com/w/plugins/github")).toBe(true)
+    // App host + templated edit-agent path
+    expect(isInternalAppURL(agentUrl)).toBe(true)
   })
 
   it("ignores non-hivy links entirely", () => {

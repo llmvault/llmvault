@@ -3,8 +3,8 @@ export interface InternalAppLinkTarget {
   /** Path (+ search + hash) for client-side next/link navigation. */
   href: string
   label: string
-  /** The origin-stripped path, shown as the card subtitle. */
-  subtitle: string
+  /** Optional secondary line under the label. */
+  subtitle?: string
   icon: string
 }
 
@@ -18,6 +18,26 @@ const APP_HOSTS = new Set([
 ])
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/g
+
+// Curated templates for the app links agents actually share. Only links that
+// match a template render a card — we intentionally do NOT card every /w/ URL.
+// Add a template here to support a new agent-facing destination.
+interface LinkTemplate {
+  test: (pathname: string) => boolean
+  label: string
+  icon: string
+  subtitle?: string
+}
+
+const LINK_TEMPLATES: LinkTemplate[] = [
+  {
+    // /w/settings/agents/edit/<id>
+    test: (pathname) =>
+      /^\/w\/settings\/agents\/edit\/[^/]+\/?$/.test(pathname),
+    label: "Edit agent details",
+    icon: "lucide:bot",
+  },
+]
 
 export function internalAppLinkTargets(text: string): InternalAppLinkTarget[] {
   const seen = new Set<string>()
@@ -39,13 +59,19 @@ export function internalAppLinkFromURL(
   try {
     const url = new URL(rawUrl)
     if (!isAppOrigin(url)) return null
-    // Only link into the authenticated workspace, so marketing/home URLs don't
-    // turn into navigation cards.
-    if (!url.pathname.startsWith("/w/")) return null
+
+    const template = LINK_TEMPLATES.find((t) => t.test(url.pathname))
+    if (!template) return null
 
     const href = url.pathname + url.search + url.hash
-    const { label, icon } = describeInternalPath(url.pathname)
-    return { key: href, href, label, subtitle: href, icon }
+    const target: InternalAppLinkTarget = {
+      key: href,
+      href,
+      label: template.label,
+      icon: template.icon,
+    }
+    if (template.subtitle) target.subtitle = template.subtitle
+    return target
   } catch {
     return null
   }
@@ -62,34 +88,6 @@ function isAppOrigin(url: URL) {
     return true
   }
   return false
-}
-
-function describeInternalPath(pathname: string): {
-  label: string
-  icon: string
-} {
-  if (pathname.startsWith("/w/settings/agents")) {
-    return { label: "Agent", icon: "lucide:bot" }
-  }
-  if (pathname.startsWith("/w/plugins")) {
-    return { label: "Plugin", icon: "lucide:blocks" }
-  }
-  if (pathname.startsWith("/w/automations")) {
-    return { label: "Automation", icon: "lucide:workflow" }
-  }
-  if (pathname.startsWith("/w/channels")) {
-    return { label: "Channel", icon: "lucide:hash" }
-  }
-  if (
-    pathname.startsWith("/w/billing") ||
-    pathname.startsWith("/w/settings/billing")
-  ) {
-    return { label: "Billing", icon: "lucide:credit-card" }
-  }
-  if (pathname.startsWith("/w/settings")) {
-    return { label: "Settings", icon: "lucide:settings" }
-  }
-  return { label: "Open in Hivy", icon: "lucide:arrow-up-right" }
 }
 
 function cleanUrl(url: string) {
