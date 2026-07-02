@@ -230,6 +230,13 @@ var migratedTables = []string{
 	"sandbox_templates",
 	"sandbox_warm_slots",
 	"sandboxes",
+	"sheet_fields",
+	"sheet_import_jobs",
+	"sheet_operations",
+	"sheet_pages",
+	"sheet_rows",
+	"sheet_views",
+	"sheets",
 	"slack_thread_events",
 	"session_events",
 	"session_message_queue",
@@ -247,4 +254,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 54
+const latestMigrationVersion = 55
