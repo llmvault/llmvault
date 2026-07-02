@@ -14,7 +14,7 @@ import {
   type Item,
   type Rectangle,
 } from "@glideapps/glide-data-grid"
-import type { SheetField, SheetPage } from "@/app/w/(chat)/_lib/sheets"
+import type { SheetField } from "@/app/w/(chat)/_lib/sheets"
 import { CellEditorOverlay, type CellEditorTarget } from "./cell-editor"
 import { cellForValue, fieldHeaderIcon, usesCustomEditor, valueFromEditedCell } from "./cells"
 import { useGlideTheme } from "./use-glide-theme"
@@ -53,7 +53,6 @@ function defaultWidthForType(type: string | undefined): number {
 export function SheetGrid({
   sheetId,
   pageId,
-  pages,
   fields,
   controller,
   columnWidths,
@@ -63,7 +62,6 @@ export function SheetGrid({
 }: {
   sheetId: string
   pageId: string
-  pages: SheetPage[]
   fields: SheetField[]
   controller: SheetRowsController
   columnWidths: Record<string, number>
@@ -179,7 +177,6 @@ export function SheetGrid({
         <CellEditorOverlay
           sheetId={sheetId}
           pageId={pageId}
-          pages={pages}
           target={editor}
           value={editingValue}
           relations={controller.relations}

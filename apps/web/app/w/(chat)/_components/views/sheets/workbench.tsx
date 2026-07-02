@@ -318,7 +318,6 @@ function WorkbenchInner({
         <SheetGrid
           sheetId={sheetId}
           pageId={pageId}
-          pages={pages}
           fields={fields}
           controller={controller}
           columnWidths={columnWidths}

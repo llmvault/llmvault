@@ -44,6 +44,9 @@ importers:
       '@iconify/react':
         specifier: ^6.0.2
         version: 6.0.2(react@19.2.4)
+      '@internationalized/date':
+        specifier: 3.12.2
+        version: 3.12.2
       '@microsoft/fetch-event-source':
         specifier: ^2.0.1
         version: 2.0.1

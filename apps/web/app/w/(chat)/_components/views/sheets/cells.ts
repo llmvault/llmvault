@@ -18,6 +18,8 @@ const CUSTOM_EDITOR_TYPES = new Set([
   "multi_select",
   "attachment",
   "relation",
+  "date",
+  "number",
 ])
 
 export function usesCustomEditor(type: string | undefined): boolean {
@@ -84,6 +86,24 @@ export function fieldHeaderIcon(type: string | undefined): GridColumnIcon {
   }
 }
 
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "avif",
+  "bmp",
+  "svg",
+])
+
+/** Heuristic: attachment keys keep their filename, so sniff the extension. */
+export function isImageAttachmentKey(key: string): boolean {
+  const dot = key.lastIndexOf(".")
+  if (dot < 0) return false
+  return IMAGE_EXTENSIONS.has(key.slice(dot + 1).toLowerCase())
+}
+
 export function attachmentFileName(key: string): string {
   const base = key.split("/").pop() ?? key
   // Strip a leading random prefix like "a1b2c3d4-" when present.
@@ -117,12 +137,18 @@ export function cellForValue(
   switch (field.type) {
     case "number": {
       const num = typeof value === "number" ? value : undefined
+      // Edited through the custom NumberField overlay, not Glide's.
       return {
         kind: GridCellKind.Number,
         data: num,
         displayData: num === undefined ? "" : String(num),
-        allowOverlay: true,
+        allowOverlay: false,
       }
+    }
+    case "date": {
+      // ISO "YYYY-MM-DD"; edited through the custom DatePicker overlay.
+      const iso = typeof value === "string" ? value : ""
+      return textCell(iso, true)
     }
     case "checkbox":
       return {
@@ -164,7 +190,7 @@ export function cellForValue(
       }
     }
     default: {
-      // text, date, email, phone — plain text display + overlay editing.
+      // text, email, phone — plain text display + overlay editing.
       const text =
         typeof value === "string"
           ? value

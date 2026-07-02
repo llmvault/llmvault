@@ -70,10 +70,13 @@ export function isOwnMutation(id: string | null | undefined): boolean {
 export const sheetKeys = {
   list: ["sheets"] as const,
   structure: (sheetId: string) => ["sheet-structure", sheetId] as const,
+  structurePrefix: ["sheet-structure"] as const,
+  pageRef: (pageId: string) => ["sheet-page-ref", pageId] as const,
   views: (pageId: string) => ["sheet-views", pageId] as const,
   rows: (pageId: string, querySig: string) =>
     ["sheet-rows", pageId, querySig] as const,
   rowsPrefix: (pageId: string) => ["sheet-rows", pageId] as const,
+  attachmentUrls: (pageId: string) => ["sheet-attachment-urls", pageId] as const,
   operations: (pageId: string) => ["sheet-operations", pageId] as const,
   importJob: (jobId: string) => ["sheet-import", jobId] as const,
 }
@@ -367,6 +370,82 @@ export async function uploadSheetObject(
   })
   if (!putRes.ok) throw new Error(`Upload failed with HTTP ${putRes.status}`)
   return signed.key
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-sheet page resolver                                           */
+/*                                                                     */
+/* Relation fields target a page by ID, which may live in a different  */
+/* sheet than the one currently open. Rows can only be queried through */
+/* the page's OWNING sheet path, so this resolver maps any org page ID */
+/* to its owning sheet — lazily, reusing the TanStack caches for the   */
+/* sheets list and per-sheet structures.                               */
+/* ------------------------------------------------------------------ */
+
+export interface SheetPageRef {
+  sheetId: string
+  sheetName: string
+  page: SheetPage
+}
+
+function pageRefFromStructure(
+  structure: SheetStructure | null | undefined,
+  pageId: string
+): SheetPageRef | null {
+  for (const page of structure?.pages ?? []) {
+    if (page.id !== pageId) continue
+    const sheetId = structure?.sheet?.id ?? page.sheet_id ?? ""
+    if (!sheetId) return null
+    return { sheetId, sheetName: structure?.sheet?.name ?? "", page }
+  }
+  return null
+}
+
+/**
+ * Resolves a page ID to its owning sheet + page structure. Checks every
+ * cached sheet structure first, then falls back to fetching the sheets
+ * list and the structures that are not cached yet. Results flow through
+ * `ensureQueryData`, so every fetch also warms the regular caches.
+ */
+export async function resolvePageRef(
+  queryClient: QueryClient,
+  pageId: string
+): Promise<SheetPageRef | null> {
+  if (!pageId) return null
+
+  const cachedStructures = queryClient.getQueriesData<SheetStructure>({
+    queryKey: sheetKeys.structurePrefix,
+  })
+  const cachedSheetIds = new Set<string>()
+  for (const [, structure] of cachedStructures) {
+    const ref = pageRefFromStructure(structure, pageId)
+    if (ref) return ref
+    if (structure?.sheet?.id) cachedSheetIds.add(structure.sheet.id)
+  }
+
+  const list = await queryClient.ensureQueryData({
+    queryKey: sheetKeys.list,
+    queryFn: ({ signal }) => fetchSheets(signal),
+  })
+  const candidates = (list.sheets ?? [])
+    .map((sheet) => sheet.id)
+    .filter((id): id is string => Boolean(id) && !cachedSheetIds.has(id ?? ""))
+
+  const structures = await Promise.all(
+    candidates.map((sheetId) =>
+      queryClient
+        .ensureQueryData({
+          queryKey: sheetKeys.structure(sheetId),
+          queryFn: ({ signal }) => fetchSheetStructure(sheetId, signal),
+        })
+        .catch(() => null)
+    )
+  )
+  for (const structure of structures) {
+    const ref = pageRefFromStructure(structure, pageId)
+    if (ref) return ref
+  }
+  return null
 }
 
 /* ------------------------------------------------------------------ */
