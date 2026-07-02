@@ -32,6 +32,7 @@ import (
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
+	"github.com/usehivy/hivy/internal/sheets"
 	"github.com/usehivy/hivy/internal/skills"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -190,6 +191,15 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		},
 	}
 	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL))
+	// The sheets MCP tool group runs on its own service instance wired with the
+	// same Redis event publisher as the REST surface (buildSheetsHandler), so
+	// agent edits emit realtime events too. A later cleanup consolidates the
+	// two instances (and wires the Phase 4 import enqueuer into this one).
+	sheetToolsService := sheets.NewService(database)
+	if redisClient != nil {
+		sheetToolsService.WithPublisher(sheets.NewRedisEventPublisher(redisClient))
+	}
+	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetToolsService))
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,

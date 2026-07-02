@@ -180,7 +180,13 @@ object_key=$(
 }
 ```
 
-The tool returns a job ID and the import runs asynchronously (statuses: `pending → running → completed | failed`). To confirm completion, check `sheet_operations` with `action: "list"` on the page — a finished import appears as a `csv_import` operation with its row count — and verify row counts with `sheet_describe`. Do not report the import as done until you have confirmed it. CSV uploads are capped at 50 MB; pages are soft-capped at 200,000 rows, and an import beyond that fails fast with a clear error.
+The tool returns a `job_id` and the import runs asynchronously (statuses: `pending → running → completed | failed`). Poll `sheet_import_csv` with `action: "status"` until it finishes:
+
+```json
+{ "action": "status", "job_id": "b3f8c2d1-…" }
+```
+
+The status response carries `status`, `processed_rows`, `total_rows`, and `error`. Do not report the import as done until status is `completed`; if it is `failed`, surface the `error` to the user. As a secondary check, a finished import also appears in `sheet_operations` `action: "list"` as a `csv_import` operation with its row count, and `sheet_describe` shows the updated row counts. CSV uploads are capped at 50 MB; pages are soft-capped at 200,000 rows, and an import beyond that fails fast with a clear error.
 
 ## Field Types Reference
 
