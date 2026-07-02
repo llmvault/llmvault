@@ -18,6 +18,7 @@ import (
 type memoryToolTarget struct {
 	Owner      string `json:"owner"`
 	Visibility string `json:"visibility"`
+	AgentID    string `json:"agent_id"`
 }
 
 type memorySearchArgs struct {
@@ -134,11 +135,18 @@ func normalizeMemorySearchTarget(target memoryToolTarget, toolCtx memoryToolCont
 	return out, nil
 }
 
-func normalizeMemoryRetainTarget(target memoryToolTarget, toolCtx memoryToolContext) (resolvedMemoryTarget, error) {
+func (s *Service) normalizeMemoryRetainTarget(ctx context.Context, target memoryToolTarget, toolCtx memoryToolContext) (resolvedMemoryTarget, error) {
 	owner := strings.ToLower(strings.TrimSpace(target.Owner))
 	visibility := normalizeMemoryVisibility(target.Visibility, "")
+	agentIDText := strings.TrimSpace(target.AgentID)
 	if owner != memoryToolOwnerOrg && owner != memoryToolOwnerUser {
 		return resolvedMemoryTarget{}, fmt.Errorf("target.owner must be org or user")
+	}
+	if visibility != "" && agentIDText != "" {
+		return resolvedMemoryTarget{}, fmt.Errorf("the target cannot include both visibility and agent_id (pick one)")
+	}
+	if agentIDText != "" {
+		return s.normalizeMemoryRetainAgentTarget(ctx, owner, agentIDText, toolCtx)
 	}
 	if visibility != AgentVisibilityAllAgents && visibility != AgentVisibilityThisAgent {
 		return resolvedMemoryTarget{}, fmt.Errorf("target.visibility must be all_agents or this_agent")
@@ -160,6 +168,33 @@ func normalizeMemoryRetainTarget(target memoryToolTarget, toolCtx memoryToolCont
 		out.AgentID = &toolCtx.AgentID
 	}
 	return out, nil
+}
+
+func (s *Service) normalizeMemoryRetainAgentTarget(ctx context.Context, owner, agentIDText string, toolCtx memoryToolContext) (resolvedMemoryTarget, error) {
+	if owner != memoryToolOwnerOrg {
+		return resolvedMemoryTarget{}, fmt.Errorf("target.agent_id requires target.owner org")
+	}
+	targetAgentID, err := uuid.Parse(agentIDText)
+	if err != nil || targetAgentID == uuid.Nil {
+		return resolvedMemoryTarget{}, fmt.Errorf("target.agent_id must be a valid UUID")
+	}
+	var count int64
+	if err := s.cfg.DB.WithContext(ctx).Model(&model.Agent{}).
+		Where("id = ? AND org_id = ? AND status <> ?", targetAgentID, toolCtx.OrgID, "archived").
+		Count(&count).Error; err != nil {
+		return resolvedMemoryTarget{}, fmt.Errorf("validate target agent: %w", err)
+	}
+	if count == 0 {
+		return resolvedMemoryTarget{}, fmt.Errorf("target.agent_id must be an active agent in this org")
+	}
+	response := memoryToolTargetResponse(memoryToolOwnerOrg, AgentVisibilityThisAgent)
+	response["agent_id"] = targetAgentID.String()
+	return resolvedMemoryTarget{
+		Scope:      model.AgentMemoryScopeOrg,
+		AgentID:    &targetAgentID,
+		Visibility: AgentVisibilityThisAgent,
+		Response:   response,
+	}, nil
 }
 
 func normalizeMemoryVisibility(raw, fallback string) string {

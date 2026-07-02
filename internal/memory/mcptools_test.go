@@ -133,6 +133,102 @@ func TestMemoryMCPToolsForgetAgentIsolation(t *testing.T) {
 	assertMemoryArchived(t, db, privateID)
 }
 
+func TestMemoryMCPToolsRetainForOtherAgent(t *testing.T) {
+	ctx := context.Background()
+	db := connectMemoryToolTestDB(t)
+	fixture := seedMemoryToolFixture(t, db)
+	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
+	clientA := connectMemoryToolClient(t, ctx, service, fixture.token)
+
+	agentB := model.Agent{ID: uuid.New(), OrgID: &fixture.org.ID, Name: "Memory MCP Agent B " + uuid.NewString(), Model: "test", Status: "active"}
+	archivedAgent := model.Agent{ID: uuid.New(), OrgID: &fixture.org.ID, Name: "Memory MCP Archived " + uuid.NewString(), Model: "test", Status: "archived"}
+	otherOrg := model.Org{ID: uuid.New(), Name: "memory-mcp-other-org-" + uuid.NewString(), Active: true, RateLimit: 1000}
+	otherOrgAgent := model.Agent{ID: uuid.New(), OrgID: &otherOrg.ID, Name: "Memory MCP Foreign " + uuid.NewString(), Model: "test", Status: "active"}
+	for _, row := range []any{&agentB, &archivedAgent, &otherOrg, &otherOrgAgent} {
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("create seed row %T: %v", row, err)
+		}
+	}
+	t.Cleanup(func() {
+		db.Where("org_id = ?", otherOrg.ID).Delete(&model.Agent{})
+		db.Delete(&model.Org{}, "id = ?", otherOrg.ID)
+	})
+	tokenB := &model.Token{
+		OrgID: fixture.org.ID,
+		Meta: model.JSON{
+			model.TokenMetaType:    model.TokenTypeAgentProxy,
+			model.TokenMetaAgentID: agentB.ID.String(),
+		},
+	}
+	clientB := connectMemoryToolClient(t, ctx, service, tokenB)
+
+	seeded := callMemoryTool(t, ctx, clientA, "retain_memory", map[string]any{
+		"content": "The deploy agent must use service id svc-12345 for production deploys.",
+		"target":  map[string]any{"owner": "org", "agent_id": agentB.ID.String()},
+	})
+	seededMemory := seeded["memory"].(map[string]any)
+	seededID := uuid.MustParse(seededMemory["id"].(string))
+	var mem model.AgentMemory
+	if err := db.First(&mem, "id = ?", seededID).Error; err != nil {
+		t.Fatalf("load seeded memory: %v", err)
+	}
+	if mem.Scope != model.AgentMemoryScopeOrg || mem.AgentID == nil || *mem.AgentID != agentB.ID {
+		t.Fatalf("seeded memory target mismatch: %#v", mem)
+	}
+
+	rows, err := service.List(ctx, ListRequest{OrgID: fixture.org.ID, AgentID: &agentB.ID, AgentVisibility: AgentVisibilityThisAgent})
+	if err != nil {
+		t.Fatalf("list agent B memories: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != seededID {
+		t.Fatalf("agent B this_agent list = %#v, want only seeded memory", rows)
+	}
+
+	ok, err := service.MarkEmbeddingReady(ctx, seededID, 1, testMemoryVector())
+	if err != nil || !ok {
+		t.Fatalf("mark seeded memory ready: ok=%v err=%v", ok, err)
+	}
+	searchA := callMemoryTool(t, ctx, clientA, "search_memories", map[string]any{"query": "production deploy service id"})
+	if got := len(searchA["results"].([]any)); got != 0 {
+		t.Fatalf("agent A search returned %d results, want 0: %#v", got, searchA)
+	}
+	searchB := callMemoryTool(t, ctx, clientB, "search_memories", map[string]any{"query": "production deploy service id"})
+	resultsB := searchB["results"].([]any)
+	if len(resultsB) != 1 || resultsB[0].(map[string]any)["id"].(string) != seededID.String() {
+		t.Fatalf("agent B search = %#v, want seeded memory", searchB)
+	}
+
+	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
+		"content": "The target cannot carry both a visibility and an agent binding.",
+		"target":  map[string]any{"owner": "org", "visibility": "all_agents", "agent_id": agentB.ID.String()},
+	}, "cannot include both visibility and agent_id")
+	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
+		"content": "Unknown agents must be rejected before the memory is stored.",
+		"target":  map[string]any{"owner": "org", "agent_id": uuid.NewString()},
+	}, "must be an active agent in this org")
+	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
+		"content": "Archived agents must be rejected before the memory is stored.",
+		"target":  map[string]any{"owner": "org", "agent_id": archivedAgent.ID.String()},
+	}, "must be an active agent in this org")
+	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
+		"content": "Agents from other orgs must be rejected before the memory is stored.",
+		"target":  map[string]any{"owner": "org", "agent_id": otherOrgAgent.ID.String()},
+	}, "must be an active agent in this org")
+	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
+		"content": "User-owned memories cannot be bound to a specific agent.",
+		"target":  map[string]any{"owner": "user", "agent_id": agentB.ID.String()},
+	}, "target.agent_id requires target.owner org")
+
+	assertMemoryToolError(t, ctx, clientA, "forget_memory", map[string]any{
+		"memory_id": seededID.String(),
+	}, "another agent's memory")
+	assertMemoryNotArchived(t, db, seededID)
+	callMemoryTool(t, ctx, clientB, "forget_memory", map[string]any{
+		"memory_id": seededID.String(),
+	})
+	assertMemoryArchived(t, db, seededID)
+}
+
 func assertMemoryToolError(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any, want string) {
 	t.Helper()
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{

@@ -6,7 +6,7 @@ Use query as a 2-6 word phrase, not a sentence. target.owner selects org, user, 
 
 const retainMemoryDescription = `Store one stable memory for future work.
 
-Use content for one durable fact, preference, rule, or decision. target.owner chooses user or org. target.visibility chooses this_agent or all_agents; prefer this_agent unless other agents should use it. tags are optional lowercase slugs. Do not store secrets, raw logs, guesses, or transient status.`
+Use content for one durable fact, preference, rule, or decision. target.owner chooses user or org. target.visibility chooses this_agent or all_agents; prefer this_agent unless other agents should use it. To seed a memory for another agent in your org, set target.agent_id to that agent's UUID with owner org instead of visibility; only that agent can later forget it. tags are optional lowercase slugs. Do not store secrets, raw logs, guesses, or transient status.`
 
 const forgetMemoryDescription = `Archive a memory that is wrong, stale, duplicated, unsafe, or no longer useful.
 
@@ -35,7 +35,7 @@ func memorySearchTargetSchema() map[string]any {
 func memoryRetainTargetSchema() map[string]any {
 	return map[string]any{
 		"type":                 "object",
-		"description":          "Required write target. Pick the narrowest durable audience that should remember this.",
+		"description":          "Required write target. Pick the narrowest durable audience that should remember this. Provide exactly one of visibility or agent_id.",
 		"additionalProperties": false,
 		"properties": map[string]any{
 			"owner": map[string]any{
@@ -46,10 +46,14 @@ func memoryRetainTargetSchema() map[string]any {
 			"visibility": map[string]any{
 				"type":        "string",
 				"enum":        []string{AgentVisibilityAllAgents, AgentVisibilityThisAgent},
-				"description": "this_agent keeps the memory private to this agent; all_agents makes it shared across agents for the selected owner.",
+				"description": "this_agent keeps the memory private to this agent; all_agents makes it shared across agents for the selected owner. Mutually exclusive with agent_id.",
+			},
+			"agent_id": map[string]any{
+				"type":        "string",
+				"description": "Optional UUID of another agent in this org; binds the memory to that specific agent. Requires owner org, is mutually exclusive with visibility, and the target agent alone can later forget it.",
 			},
 		},
-		"required": []string{"owner", "visibility"},
+		"required": []string{"owner"},
 	}
 }
 

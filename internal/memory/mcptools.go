@@ -168,7 +168,7 @@ func handleRetainMemory(ctx context.Context, service *Service, token *model.Toke
 	if err != nil {
 		return memoryToolError(err.Error()), nil
 	}
-	target, err := normalizeMemoryRetainTarget(args.Target, toolCtx)
+	target, err := service.normalizeMemoryRetainTarget(ctx, args.Target, toolCtx)
 	if err != nil {
 		return memoryToolError(err.Error()), nil
 	}
