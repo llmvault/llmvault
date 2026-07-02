@@ -58,7 +58,7 @@ func (h *SheetsHandler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -83,7 +83,7 @@ func (h *SheetsHandler) ArchivePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -106,7 +106,7 @@ func (h *SheetsHandler) CreateField(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -139,6 +139,9 @@ func (h *SheetsHandler) UpdateField(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
+		return
+	}
 	fieldID := chi.URLParam(r, "fieldID")
 	if !sheets.ValidFieldID(fieldID) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "fieldID must be a field id"})
@@ -168,6 +171,9 @@ func (h *SheetsHandler) UpdateField(w http.ResponseWriter, r *http.Request) {
 func (h *SheetsHandler) ArchiveField(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
+		return
+	}
+	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
 		return
 	}
 	fieldID := chi.URLParam(r, "fieldID")

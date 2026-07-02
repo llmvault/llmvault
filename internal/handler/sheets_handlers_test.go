@@ -1,10 +1,13 @@
 package handler_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/usehivy/hivy/internal/sheets"
 )
 
 func TestSheetsOrgIsolation(t *testing.T) {
@@ -276,5 +279,51 @@ func TestSheetsImportEndpoints(t *testing.T) {
 	})
 	if foreign.Code != http.StatusBadRequest {
 		t.Fatalf("foreign import key status=%d body=%s", foreign.Code, foreign.Body.String())
+	}
+}
+
+// TestSheetsNestedRoutesRejectWrongSheet pins the §2b nested-route contract:
+// a page addressed under a different same-org sheet's ID is a 404, even
+// though both resources belong to the caller's org.
+func TestSheetsNestedRoutesRejectWrongSheet(t *testing.T) {
+	h := newSheetsHarness(t)
+	rowID := h.insertRows(t, map[string]any{h.fields["Name"]: "keep me"})[0]
+
+	// A second sheet in the SAME org; its ID must not grant access to h.page.
+	second, err := h.svc.CreateSheet(context.Background(), h.org.ID, sheets.CreateSheetRequest{
+		Name:  "Second Sheet",
+		Pages: []sheets.PageSpec{{Name: "Other Page"}},
+	}, sheets.Actor{UserID: &h.user.ID})
+	if err != nil {
+		t.Fatalf("create second sheet: %v", err)
+	}
+	wrongBase := "/v1/sheets/" + second.Sheet.ID.String() + "/pages/" + h.page.Page.ID.String()
+
+	cases := []struct {
+		name, method, path string
+		body               any
+	}{
+		{"rows query", http.MethodPost, wrongBase + "/rows/query", map[string]any{}},
+		{"rows patch", http.MethodPatch, wrongBase + "/rows", map[string]any{
+			"rows": []map[string]any{{"id": rowID, "data": map[string]any{h.fields["Name"]: "stolen"}}},
+		}},
+		{"operations list", http.MethodGet, wrongBase + "/operations", nil},
+		{"imports create", http.MethodPost, wrongBase + "/imports", map[string]any{
+			"object_key": "pub/o/" + h.org.ID.String() + "/sheetimports/x.csv",
+		}},
+	}
+	for _, tc := range cases {
+		resp := h.do(t, &h.org, tc.method, tc.path, tc.body)
+		if resp.Code != http.StatusNotFound {
+			t.Fatalf("%s under wrong sheet: status=%d body=%s, want 404", tc.name, resp.Code, resp.Body.String())
+		}
+	}
+
+	// The same operations under the correct sheet ID still work.
+	if resp := h.do(t, &h.org, http.MethodPost, h.pagePath("/rows/query"), map[string]any{}); resp.Code != http.StatusOK {
+		t.Fatalf("rows query under correct sheet: status=%d body=%s", resp.Code, resp.Body.String())
+	}
+	if resp := h.do(t, &h.org, http.MethodGet, h.pagePath("/operations"), nil); resp.Code != http.StatusOK {
+		t.Fatalf("operations under correct sheet: status=%d body=%s", resp.Code, resp.Body.String())
 	}
 }

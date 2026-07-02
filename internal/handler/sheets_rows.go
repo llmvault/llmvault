@@ -18,7 +18,7 @@ func (h *SheetsHandler) QueryRows(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -59,7 +59,7 @@ func (h *SheetsHandler) InsertRows(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -104,7 +104,7 @@ func (h *SheetsHandler) UpdateRows(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -144,7 +144,7 @@ func (h *SheetsHandler) DeleteRows(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -181,7 +181,7 @@ func (h *SheetsHandler) AttachmentDownloadURL(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "attachment downloads are not configured"})
 		return
 	}
-	if _, ok := sheetsPathUUID(w, r, "pageID"); !ok {
+	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
 		return
 	}
 	var req attachmentDownloadURLRequest

@@ -160,6 +160,21 @@ func (s *Service) loadPage(ctx context.Context, orgID, pageID uuid.UUID) (*model
 	return &page, nil
 }
 
+// RequirePageInSheet verifies that an active page belongs to the given
+// sheet. Nested REST routes (/sheets/{sheetID}/pages/{pageID}/...) resolve
+// pages through this so a same-org page addressed under the wrong sheet ID
+// is a 404 instead of silently working.
+func (s *Service) RequirePageInSheet(ctx context.Context, orgID, sheetID, pageID uuid.UUID) error {
+	page, err := s.loadPage(ctx, orgID, pageID)
+	if err != nil {
+		return err
+	}
+	if page.SheetID != sheetID {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Service) loadPageFields(ctx context.Context, orgID, pageID uuid.UUID) ([]model.SheetField, error) {
 	var fields []model.SheetField
 	err := s.db.WithContext(ctx).

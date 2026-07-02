@@ -187,6 +187,26 @@ func sheetsPathUUID(w http.ResponseWriter, r *http.Request, name string) (uuid.U
 	return id, true
 }
 
+// sheetsNestedPageID is the single choke point for every nested
+// /sheets/{sheetID}/pages/{pageID}/... route: it parses both path IDs and
+// enforces that the page belongs to the sheet, writing a 404 on mismatch so
+// a same-org page can never be addressed under the wrong sheet.
+func (h *SheetsHandler) sheetsNestedPageID(w http.ResponseWriter, r *http.Request, org *model.Org) (uuid.UUID, bool) {
+	sheetID, ok := sheetsPathUUID(w, r, "sheetID")
+	if !ok {
+		return uuid.Nil, false
+	}
+	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	if !ok {
+		return uuid.Nil, false
+	}
+	if err := h.svc.RequirePageInSheet(r.Context(), org.ID, sheetID, pageID); err != nil {
+		writeSheetsError(w, r, err)
+		return uuid.Nil, false
+	}
+	return pageID, true
+}
+
 // writeSheetsError maps service errors onto HTTP statuses: unknown scope →
 // 404, limit breaches → 422, validation → 400, double revert → 409.
 func writeSheetsError(w http.ResponseWriter, r *http.Request, err error) {

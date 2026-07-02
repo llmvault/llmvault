@@ -13,7 +13,7 @@ func (h *SheetsHandler) ListViews(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -40,7 +40,7 @@ func (h *SheetsHandler) CreateView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -70,6 +70,9 @@ func (h *SheetsHandler) UpdateView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
+		return
+	}
 	viewID, ok := sheetsPathUUID(w, r, "viewID")
 	if !ok {
 		return
@@ -95,6 +98,9 @@ func (h *SheetsHandler) UpdateView(w http.ResponseWriter, r *http.Request) {
 func (h *SheetsHandler) ArchiveView(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
+		return
+	}
+	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
 		return
 	}
 	viewID, ok := sheetsPathUUID(w, r, "viewID")

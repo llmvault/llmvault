@@ -22,7 +22,7 @@ func (h *SheetsHandler) CreateImport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -70,7 +70,7 @@ func (h *SheetsHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -141,7 +141,7 @@ func (h *SheetsHandler) ListOperations(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageID, ok := sheetsPathUUID(w, r, "pageID")
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
 	if !ok {
 		return
 	}
@@ -165,6 +165,9 @@ type revertOperationRequest struct {
 func (h *SheetsHandler) RevertOperation(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
+		return
+	}
+	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
 		return
 	}
 	operationID, ok := sheetsPathUUID(w, r, "operationID")
