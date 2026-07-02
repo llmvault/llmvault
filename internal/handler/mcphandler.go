@@ -20,17 +20,18 @@ import (
 
 // MCPHandler handles MCP protocol requests for scoped proxy tokens.
 type MCPHandler struct {
-	db             *gorm.DB
-	signingKey     []byte
-	catalog        *catalog.Catalog
-	nango          *nango.Client
-	counter        *counter.Counter
-	webTools       mcpserver.WebToolsFunc
-	knowledgeTools mcpserver.KnowledgeToolsFunc
-	memoryTools    mcpserver.MemoryToolsFunc
-	imageTools     mcpserver.ImageGenerationToolsFunc
-	skillTools     mcpserver.SkillToolsFunc
-	ServerCache    *mcpserver.ServerCache
+	db                *gorm.DB
+	signingKey        []byte
+	catalog           *catalog.Catalog
+	nango             *nango.Client
+	counter           *counter.Counter
+	webTools          mcpserver.WebToolsFunc
+	knowledgeTools    mcpserver.KnowledgeToolsFunc
+	memoryTools       mcpserver.MemoryToolsFunc
+	imageTools        mcpserver.ImageGenerationToolsFunc
+	skillTools        mcpserver.SkillToolsFunc
+	agentBuilderTools mcpserver.AgentBuilderToolsFunc
+	ServerCache       *mcpserver.ServerCache
 }
 
 // NewMCPHandler creates a new MCP handler.
@@ -71,6 +72,12 @@ func (h *MCPHandler) SetSkillTools(fn mcpserver.SkillToolsFunc) {
 	h.skillTools = fn
 }
 
+// SetAgentBuilderTools sets the callback for registering the agent-builder
+// tools (list_org_plugins, create_agent, update_agent).
+func (h *MCPHandler) SetAgentBuilderTools(fn mcpserver.AgentBuilderToolsFunc) {
+	h.agentBuilderTools = fn
+}
+
 // StreamableHTTPHandler returns an HTTP handler for the MCP Streamable HTTP transport.
 func (h *MCPHandler) StreamableHTTPHandler() http.Handler {
 	return mcp.NewStreamableHTTPHandler(h.serverFactory, &mcp.StreamableHTTPOptions{
@@ -101,7 +108,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools)
 		if err != nil {
 			return nil, time.Time{}, err
 		}

@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/agents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -23,6 +24,7 @@ type subAgentInput struct {
 	Model         *string           `json:"model,omitempty"`
 	Tools         *model.JSON       `json:"tools,omitempty"`
 	McpToolFilter *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
+	Skills        *model.JSON       `json:"skills,omitempty"`
 }
 
 // subAgentResponse is one sub-agent as returned inside an agent payload.
@@ -35,6 +37,7 @@ type subAgentResponse struct {
 	Model         string            `json:"model"`
 	Tools         model.JSON        `json:"tools"`
 	McpToolFilter *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
+	Skills        model.JSON        `json:"skills"`
 	Status        string            `json:"status"`
 	CreatedAt     string            `json:"created_at"`
 	UpdatedAt     string            `json:"updated_at"`
@@ -63,6 +66,7 @@ func toSubAgentResponse(a model.Agent) subAgentResponse {
 		Model:         a.Model,
 		Tools:         nonNilJSON(a.Tools),
 		McpToolFilter: a.McpToolFilter,
+		Skills:        nonNilJSON(a.Skills),
 		Status:        a.Status,
 		CreatedAt:     a.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     a.UpdatedAt.Format(time.RFC3339),
@@ -102,62 +106,60 @@ func resolveAgentToolSelection(w http.ResponseWriter, requested *model.JSON) (mo
 // buildSubAgentRows validates sub-agent inputs and returns unsaved agent rows.
 // ParentAgentID is left nil; the caller assigns it once the parent row exists.
 // On validation failure it writes the error response and returns ok=false.
+//
+// Tool selection is validated here (runtime built-in ids only, matching the
+// HTTP contract), then the shared agents.BuildSubAgentRows service constructs
+// the rows so the sub-agent build stays in one place.
 func (h *AgentHandler) buildSubAgentRows(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, parentModel string, inputs *[]subAgentInput) ([]model.Agent, bool) {
 	if inputs == nil || len(*inputs) == 0 {
 		return nil, true
 	}
-	orgIDCopy := orgID
-	rows := make([]model.Agent, 0, len(*inputs))
-	seen := map[string]bool{}
+	serviceInputs := make([]agents.SubAgentInput, 0, len(*inputs))
 	for _, in := range *inputs {
 		name := strings.TrimSpace(in.Name)
 		if name == "" {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sub-agent name is required"})
 			return nil, false
 		}
-		if seen[name] {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("duplicate sub-agent name %q", name)})
-			return nil, false
-		}
-		seen[name] = true
-
-		subModel := cleanStringPtr(in.Model)
-		if subModel == "" {
-			subModel = parentModel
-		} else if err := h.validateAgentSelectableModel(ctx, orgID, subModel); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("sub-agent %q: %s", name, err.Error())})
-			return nil, false
-		}
-
 		tools := normalizeJSONPtr(in.Tools)
 		if bad := validateToolSelectionKeys(tools); bad != "" {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("sub-agent %q: invalid tool %q", name, bad)})
 			return nil, false
 		}
-
-		desc := cleanStringPtr(in.Description)
-		instructions := cleanStringPtr(in.Instructions)
-		rows = append(rows, model.Agent{
-			OrgID:           &orgIDCopy,
-			Type:            model.AgentTypeSubAgent,
-			Name:            name,
-			Description:     &desc,
-			Instructions:    &instructions,
-			Model:           subModel,
-			AvailableModels: pq.StringArray{subModel},
-			Tools:           tools,
-			McpServers:      model.RawJSON("[]"),
-			McpToolFilter:   normalizeMcpToolFilter(in.McpToolFilter),
-			Skills:          model.JSON{},
-			Permissions:     model.JSON{},
-			Resources:       model.JSON{},
-			RuntimeConfig:   model.JSON{},
-			SandboxImage:    model.SandboxImageDefault,
-			SandboxSize:     model.DefaultAgentSandboxSize,
-			Status:          "active",
+		var allow, deny []string
+		if filter := normalizeMcpToolFilter(in.McpToolFilter); filter != nil {
+			allow, deny = filter.Allow, filter.Deny
+		}
+		serviceInputs = append(serviceInputs, agents.SubAgentInput{
+			Name:         name,
+			Description:  cleanStringPtr(in.Description),
+			Instructions: cleanStringPtr(in.Instructions),
+			Model:        cleanStringPtr(in.Model),
+			Tools:        tools,
+			McpAllow:     allow,
+			McpDeny:      deny,
+			Skills:       normalizeJSONPtr(in.Skills),
 		})
 	}
+	rows, err := agents.BuildSubAgentRows(ctx, h.agentBuilderDeps(), orgID, parentModel, serviceInputs)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return nil, false
+	}
 	return rows, true
+}
+
+// agentBuilderDeps builds the agents service Deps backed by this handler's
+// model validation, so the shared create/update/sub-agent logic validates
+// models exactly as the HTTP handlers do.
+func (h *AgentHandler) agentBuilderDeps() agents.Deps {
+	return agents.Deps{
+		DB:           h.db,
+		DefaultModel: agentruntime.DefaultAgentModel,
+		ValidateModel: func(ctx context.Context, orgID uuid.UUID, modelID string) error {
+			return h.validateAgentSelectableModel(ctx, orgID, modelID)
+		},
+	}
 }
 
 // normalizeMcpToolFilter trims and de-dupes an MCP tool filter, returning nil

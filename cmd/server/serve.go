@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/agents"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/credentials"
@@ -25,6 +28,7 @@ import (
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
+	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/skills"
@@ -140,6 +144,21 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
 	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))
 	mcpHandler.SetSkillTools(skills.NewToolsFunc(database))
+	agentBuilderDeps := agents.Deps{
+		DB:           database,
+		DefaultModel: agentruntime.DefaultAgentModel,
+		ValidateModel: func(ctx context.Context, orgID uuid.UUID, modelID string) error {
+			if strings.TrimSpace(modelID) == "" {
+				return fmt.Errorf("model is required")
+			}
+			if m, ok := reg.CanonicalModel(modelID); ok && !registry.ModelSupportsTextOutput(m.Model) {
+				return fmt.Errorf("model %q does not support text output", modelID)
+			}
+			_, err := credentials.ResolveForModel(ctx, database, reg, orgID, modelID)
+			return err
+		},
+	}
+	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL))
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,
