@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
@@ -32,6 +33,7 @@ type AppsInternalHandler struct {
 	svc       *sheets.Service
 	encKey    *crypto.SymmetricKey
 	presigner SheetsPresigner
+	redis     *redis.Client
 }
 
 func NewAppsInternalHandler(db *gorm.DB, svc *sheets.Service, encKey *crypto.SymmetricKey) *AppsInternalHandler {
@@ -41,6 +43,13 @@ func NewAppsInternalHandler(db *gorm.DB, svc *sheets.Service, encKey *crypto.Sym
 // WithPresigner enables attachment download URLs.
 func (h *AppsInternalHandler) WithPresigner(p SheetsPresigner) *AppsInternalHandler {
 	h.presigner = p
+	return h
+}
+
+// WithRedis enables the live sheet-event stream (GET .../v1/live). Nil leaves
+// the endpoint answering 503 "not configured".
+func (h *AppsInternalHandler) WithRedis(client *redis.Client) *AppsInternalHandler {
+	h.redis = client
 	return h
 }
 

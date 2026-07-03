@@ -141,13 +141,13 @@ The template ships with routing, data fetching, and error handling pre-wired. Bu
 
 ```bash
 make deps    # cd web && npm ci — ONCE per sandbox; node_modules is cached after
-make test    # go test ./... — hivycore + your handler tests
 make all     # bundle + source → dist/bundle.zip + dist/source.zip
+make test    # go test ./... — a compile-level check; the template ships without tests
 ```
 
 `make all` runs the Vite build plus a 1–2 s Go compile — that is your whole iteration cost after the first `make deps`. App sandboxes are **linux/amd64**; builder sandboxes are already linux/amd64, so the default native build produces the right `server` binary. Building anywhere else, cross-compile: `GOOS=linux GOARCH=amd64 make all`.
 
-Fix every build and test failure before previewing or publishing.
+Fix every build failure before previewing or publishing. Do **not** write tests for the app unless it has grown genuinely complex — multi-page flows, tricky server logic; the template's own machinery is already tested by the platform. Your verification is the running app: preview it and drive it in the headless browser (step 7).
 
 ### 7. Preview with the user
 
@@ -160,6 +160,7 @@ make preview APP_ID=<app_id> PORT=3000
 `make preview` rebuilds the server, fetches the app's runtime env over an authenticated side channel, writes it to a 0600 file, (re)starts the preview supervised (a systemd unit when systemd is booted, a background process otherwise), waits for `/healthz`, and prints the public preview URL as the **last line of stdout**. All progress goes to stderr.
 
 - **Read only that final URL line.** Never print, read, or inspect the env file (under `/workspace/.hivy/`), the preview-env response, or the process environment — they contain the app secret and the channel's secrets.
+- Verify before you share: drive the preview in the sandbox's headless browser with the `browser` CLI (the browser skill documents it) — `browser open <preview-url>`, `browser snapshot -i` to confirm the page renders, `browser click`/`browser fill` through the key interactions, `browser console` to check for errors. This, not a test suite, is how an app gets verified.
 - Share the preview URL with the user and ask them to test it. Preview URLs authenticate through the Hivy frontend exactly like the live app; opened raw they show the 401 page.
 - Iterate: edit code → `make web` (only if `web/` changed; preview rebuilds the Go server itself) → `make preview APP_ID=<app_id> PORT=3000` again → share the URL. Reruns replace the previous preview.
 
@@ -238,14 +239,15 @@ These are requirements for every screen you ship — the template already wires 
 - All data access through `app.Sheets()`; all browser traffic through `/api/*` same-origin. No secrets in the SPA, no third-party calls from the browser. No login UI, tokens, or session handling of your own — hivycore owns auth.
 - The app reads sheet structure and CRUDs rows; it never modifies schema. Schema changes are sheets-plugin work (`sheet_manage`), done outside the app.
 - `make deps` once per sandbox, then `make all` per iteration; deploy target is linux/amd64.
-- Verify before reporting: `app_status`, `/healthz`, and a clean `app_logs` read after every publish. Never hand the user a URL you have not checked.
+- Verify before reporting: `app_status`, `/healthz`, and a clean `app_logs` read after every publish. Never hand the user a URL you have not checked — previews included: drive them in the headless `browser` first.
+- No test suites for the app unless it has grown genuinely complex (multi-page flows, tricky server logic) — verify in the headless browser on the preview instead; `make test` is a compile check, not your quality gate.
 - Rows in mutations cap at 100 per call; queries clamp to 100 with cursor paging — handle `NextCursor` in handlers that need full data.
 - Env: the channel's custom env vars are injected into the app (read with `os.Getenv`); `HIVY_*` names are platform-reserved. Never echo or log secret values.
 - Do not shadow `/healthz` or `/auth/callback`.
 
 ## Final response checklist
 
-When handing over a preview, state: the preview URL, what the app does (routes/views), what you want the user to try, and that you will deploy once they give the go-ahead.
+When handing over a preview, state: the preview URL, what the app does (routes/views), what you want the user to try, that you already drove it in the headless browser (pages render, key interactions work, `browser console` clean), and that you will deploy once they give the go-ahead.
 
 After a deploy, state:
 

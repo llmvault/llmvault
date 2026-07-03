@@ -147,7 +147,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		agentHandler = handler.NewAgentHandler(database, orchestrator, runtimeCompileDeps, reg)
 		agentHandler.SetEnqueuer(enqueuer)
 	}
-	appsInternalHandler := buildAppsInternalHandler(cfg, database, sheetsService, sandboxEncKey)
+	appsInternalHandler := buildAppsInternalHandler(cfg, database, sheetsService, sandboxEncKey, redisClient)
 	var appsHandler *handler.AppsHandler
 	appsService := buildAppsService(cfg, database, sandboxEncKey, orchestrator, sheetsService, deps.RSAKey)
 	if appsService != nil {

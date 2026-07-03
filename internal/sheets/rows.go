@@ -107,7 +107,7 @@ func (s *Service) InsertRows(ctx context.Context, orgID, pageID uuid.UUID, inser
 		ids = append(ids, row.ID.String())
 		patches[row.ID.String()] = map[string]any(row.Data)
 	}
-	s.publishRowsChanged(ctx, page, "insert", ids, patches, actor)
+	s.publishRowsChanged(ctx, page, "insert", ids, patches, rows, actor)
 	return rows, nil
 }
 
@@ -170,9 +170,10 @@ func (s *Service) UpdateRows(ctx context.Context, orgID, pageID uuid.UUID, updat
 		if err := batch.validate(tx, orgID); err != nil {
 			return err
 		}
+		now := time.Now().UTC()
 		for _, update := range updates {
 			row := byID[update.ID]
-			changes := map[string]any{"data": row.Data}
+			changes := map[string]any{"data": row.Data, "updated_at": now}
 			if update.Position != nil {
 				changes["position"] = *update.Position
 				row.Position = *update.Position
@@ -182,6 +183,9 @@ func (s *Service) UpdateRows(ctx context.Context, orgID, pageID uuid.UUID, updat
 				Updates(changes).Error; err != nil {
 				return fmt.Errorf("update sheet row: %w", err)
 			}
+			// Keep the returned snapshot's timestamp consistent with the row
+			// the DB now holds (the live event carries these snapshots).
+			row.UpdatedAt = now
 			out = append(out, *row)
 		}
 		return s.recordOperationTx(tx, &model.SheetOperation{
@@ -199,7 +203,7 @@ func (s *Service) UpdateRows(ctx context.Context, orgID, pageID uuid.UUID, updat
 	for _, row := range out {
 		updatedIDs = append(updatedIDs, row.ID.String())
 	}
-	s.publishRowsChanged(ctx, page, "update", updatedIDs, forward, actor)
+	s.publishRowsChanged(ctx, page, "update", updatedIDs, forward, out, actor)
 	return out, nil
 }
 
@@ -248,7 +252,7 @@ func (s *Service) DeleteRows(ctx context.Context, orgID, pageID uuid.UUID, ids [
 	if err != nil {
 		return 0, err
 	}
-	s.publishRowsChanged(ctx, page, "delete", matched, nil, actor)
+	s.publishRowsChanged(ctx, page, "delete", matched, nil, nil, actor)
 	return archived, nil
 }
 

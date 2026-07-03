@@ -238,3 +238,38 @@ defaults casually.
 the root (`src/main.tsx`) so a render crash shows a friendly panel instead
 of white-screening the iframe. Leave it in place; add feature-level
 boundaries only if a screen needs to fail independently.
+
+**Data is live by default — never poll, never build refresh buttons.** The
+template streams sheet changes over a single SSE connection (`/api/_live`,
+served by hivycore) and applies them straight to the TanStack Query cache:
+edits patch the affected cells, deletes drop the rows, inserts append where
+provably safe, and anything ambiguous triggers a coalesced background
+refetch. Screens re-render the instant data changes with no code from you —
+so do not add `refetchInterval`, polling loops, manual refresh buttons, or
+`window.setInterval` refetches.
+
+Reading rows through the canonical **`useRows(pageID, query?)`** hook is what
+opts a screen into this. Its query key is `["rows", pageID, hash(query)]`
+(via `rowsKey`), and the realtime engine keys off exactly that shape to find
+and update your cached rows:
+
+```tsx
+import { useRows } from "../hooks/queries"
+
+function RowsTable({ pageID }: { pageID: string }) {
+  const rows = useRows(pageID)                        // whole page (live)
+  // const rows = useRows(pageID, { filter, sorts })  // filtered/sorted (live)
+  if (rows.isPending) return <Loading />
+  if (rows.isError) return <ErrorNotice error={rows.error} />
+  return <ul>{rows.data.rows.map((r) => <li key={r.id}>{/* … */}</li>)}</ul>
+}
+```
+
+Always read rows through `useRows` (never a hand-rolled `useQuery` with a
+different key) or live updates won't reach that screen. `useRows` is backed
+by `POST /api/pages/{pageID}/rows/query` (see `api/api.go`).
+
+The whole mechanism — `src/lib/realtime.ts`, its `startRealtime` call in
+`src/main.tsx`, and the `/api/_live` relay in hivycore — is **template
+infrastructure. Do not modify or remove it.** It works automatically; your
+only job is to read rows through `useRows`.

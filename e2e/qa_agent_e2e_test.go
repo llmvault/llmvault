@@ -15,7 +15,7 @@ import (
 )
 
 // TestAgentSessionsQAAgentE2E exercises the PRODUCTION QA agent shipped in the
-// catalog (global/agents/qa-engineer/) against the live compose stack. Nothing
+// catalog (global/agents/anna-qa-engineer/) against the live compose stack. Nothing
 // is hand-built: the org installs the sheets + qa plugins, installs the catalog
 // agent (which carries its own instructions, skills, and sub-agents), and asks
 // it to author and run browser test cases against the real login page, then
@@ -65,10 +65,10 @@ func TestAgentSessionsQAAgentE2E(t *testing.T) {
 	// --- Install the catalog agent. A 409 here means the required plugins are
 	// not installed; agentSessionsInstallCatalogAgent fatals with the body
 	// dumped when the status is not 201.
-	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "qa-engineer")
+	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "anna-qa-engineer")
 	t.Logf("installed catalog agent id=%s name=%s model=%s sandbox_image=%s", agent.ID, agent.Name, agent.Model, agent.SandboxImage)
 	if agent.Model != "glm-5.2" {
-		t.Fatalf("installed QA agent model=%q want deepseek-v4-flash", agent.Model)
+		t.Fatalf("installed QA agent model=%q want glm-5.2", agent.Model)
 	}
 
 	// default_reasoning_effort is exposed on the full agent response

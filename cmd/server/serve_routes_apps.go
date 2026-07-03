@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/apps"
@@ -20,10 +21,13 @@ import (
 // buildAppsInternalHandler wires the internal app API handler over the shared
 // sheets service. Built even without the sandbox encryption key so the routes
 // answer 503 "not configured" instead of 404, mirroring the drive endpoints.
-func buildAppsInternalHandler(cfg *config.Config, database *gorm.DB, svc *sheets.Service, encKey *crypto.SymmetricKey) *handler.AppsInternalHandler {
+func buildAppsInternalHandler(cfg *config.Config, database *gorm.DB, svc *sheets.Service, encKey *crypto.SymmetricKey, redisClient *redis.Client) *handler.AppsInternalHandler {
 	appsHandler := handler.NewAppsInternalHandler(database, svc, encKey)
 	if presigner := buildSheetsPresigner(cfg); presigner != nil {
 		appsHandler.WithPresigner(presigner)
+	}
+	if redisClient != nil {
+		appsHandler.WithRedis(redisClient)
 	}
 	return appsHandler
 }
@@ -39,6 +43,7 @@ func mountInternalAppRoutes(r chi.Router, appsHandler *handler.AppsInternalHandl
 	}
 	r.Route("/internal/apps/{appID}/v1", func(r chi.Router) {
 		r.Get("/sheet", appsHandler.SheetStructure)
+		r.Get("/live", appsHandler.Live)
 		r.Route("/pages/{pageID}", func(r chi.Router) {
 			r.Post("/rows/query", appsHandler.QueryRows)
 			r.Post("/rows", appsHandler.InsertRows)
@@ -99,6 +104,7 @@ func mountAppRoutes(r chi.Router, database *gorm.DB, appsRESTHandler *handler.Ap
 			r.Get("/", appsRESTHandler.Get)
 			r.Delete("/", appsRESTHandler.Archive)
 			r.Get("/launch", appsRESTHandler.Launch)
+			r.Post("/versions", appsRESTHandler.Versions)
 		})
 	})
 }

@@ -23,9 +23,10 @@ import (
 // to one sheet, plus a second sheet in the SAME org and channel so tests can
 // prove the app cannot reach beyond its bound sheet.
 type appsHarness struct {
-	db     *gorm.DB
-	svc    *sheets.Service
-	router *chi.Mux
+	db      *gorm.DB
+	svc     *sheets.Service
+	router  *chi.Mux
+	handler *handler.AppsInternalHandler
 
 	org     model.Org
 	user    model.User
@@ -132,6 +133,7 @@ func newAppsHarness(t *testing.T) *appsHarness {
 
 	appsHandler := handler.NewAppsInternalHandler(db, h.svc, encKey).
 		WithPresigner(fakeSheetsPresigner{})
+	h.handler = appsHandler
 	h.router = newAppsInternalRouter(appsHandler)
 	return h
 }
@@ -141,6 +143,7 @@ func newAppsInternalRouter(appsHandler *handler.AppsInternalHandler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Route("/internal/apps/{appID}/v1", func(r chi.Router) {
 		r.Get("/sheet", appsHandler.SheetStructure)
+		r.Get("/live", appsHandler.Live)
 		r.Route("/pages/{pageID}", func(r chi.Router) {
 			r.Post("/rows/query", appsHandler.QueryRows)
 			r.Post("/rows", appsHandler.InsertRows)

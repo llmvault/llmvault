@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -42,6 +43,36 @@ type EventActor struct {
 	UserID  string `json:"user_id,omitempty"`
 }
 
+// EventRow is a full row snapshot carried by a rows_changed event for insert
+// and update actions (apps live-stream contract). Apps consume these directly
+// without a refetch; the web grid ignores the field. Snapshots ride only when
+// the batch is within maxEventPatchRows — larger batches ship IDs only.
+type EventRow struct {
+	ID        string         `json:"id"`
+	Data      map[string]any `json:"data"`
+	Position  float64        `json:"position"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+// eventRowsFrom builds row snapshots for a rows_changed event.
+func eventRowsFrom(rows []model.SheetRow) []EventRow {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make([]EventRow, 0, len(rows))
+	for i := range rows {
+		out = append(out, EventRow{
+			ID:        rows[i].ID.String(),
+			Data:      map[string]any(rows[i].Data),
+			Position:  rows[i].Position,
+			CreatedAt: rows[i].CreatedAt,
+			UpdatedAt: rows[i].UpdatedAt,
+		})
+	}
+	return out
+}
+
 // Event is the compact JSON payload published after a committed mutation.
 // Events are hints — REST remains the source of truth (plan §2c).
 type Event struct {
@@ -59,6 +90,7 @@ type Event struct {
 	Status        string                    `json:"status,omitempty"`
 	Actor         *EventActor               `json:"actor,omitempty"`
 	MutationID    string                    `json:"mutation_id,omitempty"`
+	Rows          []EventRow                `json:"rows,omitempty"`
 }
 
 // EventPublisher delivers committed-mutation events. Implementations must be
@@ -140,12 +172,19 @@ func (s *Service) emit(ctx context.Context, event Event) {
 	s.publisher.PublishSheetEvent(ctx, event)
 }
 
-func (s *Service) publishRowsChanged(ctx context.Context, page *model.SheetPage, action string, rowIDs []string, patches map[string]map[string]any, actor Actor) {
+// publishRowsChanged emits a rows_changed event. For insert and update actions
+// it carries full row snapshots (rows) alongside the cell patches, under the
+// same maxEventPatchRows cap: batches larger than the cap ship IDs only, both
+// patches and snapshots dropped. Deletes pass rows=nil and stay IDs-only.
+func (s *Service) publishRowsChanged(ctx context.Context, page *model.SheetPage, action string, rowIDs []string, patches map[string]map[string]any, rows []model.SheetRow, actor Actor) {
 	if s.publisher == nil {
 		return
 	}
+	var snapshots []EventRow
 	if len(patches) > maxEventPatchRows {
 		patches = nil
+	} else {
+		snapshots = eventRowsFrom(rows)
 	}
 	s.emit(ctx, Event{
 		Type:    EventRowsChanged,
@@ -154,6 +193,7 @@ func (s *Service) publishRowsChanged(ctx context.Context, page *model.SheetPage,
 		Action:  action,
 		RowIDs:  rowIDs,
 		Patches: patches,
+		Rows:    snapshots,
 		Actor:   eventActor(actor),
 	})
 }

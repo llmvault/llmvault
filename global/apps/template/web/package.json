@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "check": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@tanstack/react-query": "5.101.2",
@@ -19,6 +20,7 @@
     "@types/react-dom": "19.1.6",
     "@vitejs/plugin-react": "4.5.2",
     "typescript": "5.8.3",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vitest": "2.1.9"
   }
 }

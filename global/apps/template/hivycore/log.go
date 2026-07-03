@@ -28,6 +28,12 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// Unwrap exposes the wrapped ResponseWriter so http.ResponseController can
+// reach its Flusher and deadline support through this recorder — required for
+// streaming responses (the live SSE relay flushes per event and clears the
+// write deadline for the long-lived connection).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 // requestLogger emits one JSON access-log line per request.
 func (a *App) requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

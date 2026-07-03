@@ -96,6 +96,14 @@ func (s *appsFakeStore) PresignGet(_ context.Context, key string) (string, error
 	return "https://s3.test/" + key, nil
 }
 
+// get returns a stored object's bytes for assertions.
+func (s *appsFakeStore) get(key string) ([]byte, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, ok := s.objects[key]
+	return data, ok
+}
+
 type appsAllowAllKeys struct{}
 
 func (appsAllowAllKeys) AuthorizeObjectKeys(context.Context, uuid.UUID, []string) error { return nil }
@@ -107,6 +115,7 @@ type appsRESTHarness struct {
 	svc      *apps.Service
 	router   *chi.Mux
 	provider *appsStubProvider
+	store    *appsFakeStore
 	encKey   *crypto.SymmetricKey
 	rsaKey   *rsa.PrivateKey
 
@@ -141,6 +150,7 @@ func newAppsRESTHarness(t *testing.T) *appsRESTHarness {
 		encKey:   encKey,
 		rsaKey:   rsaKey,
 		provider: &appsStubProvider{endpoints: map[int]string{}},
+		store:    &appsFakeStore{},
 	}
 	h.org = createTestOrg(t, db)
 	h.user = model.User{ID: uuid.New(), Email: "apps-rest-" + uuid.NewString() + "@example.com", Name: "Apps Rest User", AvatarURL: "https://cdn.test/a.png"}
@@ -179,7 +189,7 @@ func newAppsRESTHarness(t *testing.T) *appsRESTHarness {
 		t.Fatalf("encode auth pem: %v", err)
 	}
 	cfg := &config.Config{FrontendURL: "https://web.test", APIWebhookBaseURL: "https://api.test"}
-	h.svc = apps.NewService(db, cfg, encKey, h.provider, &appsFakeStore{}, appsAllowAllKeys{}, authPEM)
+	h.svc = apps.NewService(db, cfg, encKey, h.provider, h.store, appsAllowAllKeys{}, authPEM)
 
 	appsHandler := handler.NewAppsHandler(db, h.svc, rsaKey)
 	// Mirrors production registration (mountAppRoutes).
@@ -191,6 +201,7 @@ func newAppsRESTHarness(t *testing.T) *appsRESTHarness {
 			r.Get("/", appsHandler.Get)
 			r.Delete("/", appsHandler.Archive)
 			r.Get("/launch", appsHandler.Launch)
+			r.Post("/versions", appsHandler.Versions)
 		})
 	})
 	h.router = router

@@ -4,7 +4,7 @@
 #   make bundle  — vite build + go build, assemble dist/bundle/, zip dist/bundle.zip
 #   make source  — zip tracked sources into dist/source.zip
 #   make all     — bundle + source (what app_publish consumes)
-#   make test    — go test ./...
+#   make test    — go test ./... AND the web vitest suite (needs `make deps`)
 #   make preview — run the app in THIS sandbox with real platform env and
 #                  print the public preview URL (last line of output):
 #                  make preview APP_ID=<uuid> [PORT=3000]
@@ -50,6 +50,7 @@ source:
 
 test:
 	go test ./...
+	cd web && npm test
 
 # Preview loop (see README "Preview loop"): rebuilds the server, fetches the
 # app's real env over the authenticated side channel, restarts the preview

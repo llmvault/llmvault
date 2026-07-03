@@ -20,6 +20,55 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// templateZipKeptFiles is a buildable-looking template tree that must ship
+// to builders exactly as on disk.
+var templateZipKeptFiles = []string{
+	"README.md",
+	"Makefile",
+	"app.json",
+	"go.mod",
+	"go.sum",
+	"main.go",
+	"api/api.go",
+	"hivycore/config.go",
+	"scripts/preview.sh",
+	"web/index.html",
+	"web/package.json",
+	"web/package-lock.json",
+	"web/vite.config.ts",
+	"web/src/App.tsx",
+}
+
+// templateZipStrippedFiles exist on disk but must never appear in the zip:
+// build outputs, dependency caches, repo metadata, and the template's own
+// test machinery (Go tests, Vitest tests + config, fixture dirs).
+var templateZipStrippedFiles = []string{
+	"node_modules/x/index.js",
+	"dist/server",
+	"public/index.html",
+	".git/config",
+	".gitignore",
+	"web/.gitignore",
+	"hivycore/auth_test.go",
+	"hivycore/session_test.go",
+	"api/api_test.go",
+	"web/src/App.test.tsx",
+	"web/src/lib/realtime.test.ts",
+	"web/vitest.config.ts",
+	"hivycore/testdata/fixture.json",
+	"web/src/fixtures/rows.json",
+	"api/__tests__/api.spec.ts",
+}
+
+// templateZipContent gives each kept file plausible content so the archive
+// round-trip check has something real to compare.
+func templateZipContent(name string) string {
+	if name == "app.json" {
+		return "{\"name\":\"template\"}"
+	}
+	return "content of " + name
+}
+
 // templateZipHarness wires the template-zip endpoint with a synthetic
 // template dir and a real agent+sandbox for the runtime-secret auth.
 type templateZipHarness struct {
@@ -71,16 +120,16 @@ func newTemplateZipHarness(t *testing.T) *templateZipHarness {
 		db.Delete(&model.Agent{}, "id = ?", h.agent.ID)
 	})
 
-	// Synthetic template with excluded directories that must never ship.
+	// Synthetic template mirroring the real layout: a buildable tree that
+	// must ship, plus build outputs, repo metadata, and the template's own
+	// CI tests that must never reach a builder agent.
 	dir := t.TempDir()
-	files := map[string]string{
-		"app.json":                "{\"name\":\"template\"}",
-		"hivycore/config.go":      "package hivycore",
-		"web/src/App.tsx":         "export default function App() {}",
-		"node_modules/x/index.js": "module.exports = 1",
-		"dist/server":             "binary",
-		"public/index.html":       "<html></html>",
-		".git/config":             "[core]",
+	files := map[string]string{}
+	for _, name := range templateZipKeptFiles {
+		files[name] = templateZipContent(name)
+	}
+	for _, name := range templateZipStrippedFiles {
+		files[name] = "must-not-ship"
 	}
 	for name, content := range files {
 		path := filepath.Join(dir, filepath.FromSlash(name))
@@ -143,15 +192,22 @@ func TestAppsTemplateZipContent(t *testing.T) {
 	for _, file := range reader.File {
 		names[file.Name] = true
 	}
-	for _, want := range []string{"app.json", "hivycore/config.go", "web/src/App.tsx"} {
+	// The kept set ships in full — spot-checking the paths a build needs
+	// (go.mod, main.go, Makefile, web/package.json, web/vite.config.ts, …).
+	for _, want := range templateZipKeptFiles {
 		if !names[want] {
 			t.Fatalf("zip is missing %q (has %v)", want, names)
 		}
 	}
-	for _, excluded := range []string{"node_modules/x/index.js", "dist/server", "public/index.html", ".git/config"} {
+	// Files present on disk but excluded — tests, fixtures, build outputs,
+	// repo metadata — never appear.
+	for _, excluded := range templateZipStrippedFiles {
 		if names[excluded] {
 			t.Fatalf("zip must not contain %q", excluded)
 		}
+	}
+	if len(names) != len(templateZipKeptFiles) {
+		t.Fatalf("zip has %d entries, want exactly the %d kept files: %v", len(names), len(templateZipKeptFiles), names)
 	}
 
 	// Content round-trips.

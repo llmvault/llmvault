@@ -5,6 +5,9 @@
 package api
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 
 	"hivyapp/hivycore"
@@ -15,6 +18,7 @@ import (
 func Register(app *hivycore.App) {
 	app.HandleAPI("GET /me", handleMe(app))
 	app.HandleAPI("GET /pages", handlePages(app))
+	app.HandleAPI("POST /pages/{pageID}/rows/query", handleQueryRows(app))
 }
 
 // handleMe returns the signed-in user from the session — the canonical
@@ -42,5 +46,28 @@ func handlePages(app *hivycore.App) http.HandlerFunc {
 			return
 		}
 		hivycore.WriteJSON(w, http.StatusOK, structure)
+	}
+}
+
+// handleQueryRows runs a filtered, sorted, paged rows query for one page. It
+// backs the SPA's canonical useRows hook (web/src/hooks/queries.ts): an empty
+// body means the default (unfiltered, default-sorted) query. Copy this shape
+// when you expose more row reads.
+func handleQueryRows(app *hivycore.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var query hivycore.Query
+		if r.Body != nil {
+			defer r.Body.Close()
+			if err := json.NewDecoder(r.Body).Decode(&query); err != nil && !errors.Is(err, io.EOF) {
+				hivycore.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid query body"})
+				return
+			}
+		}
+		result, err := app.Sheets().QueryRows(r.Context(), r.PathValue("pageID"), query)
+		if err != nil {
+			app.WriteError(w, r, err)
+			return
+		}
+		hivycore.WriteJSON(w, http.StatusOK, result)
 	}
 }

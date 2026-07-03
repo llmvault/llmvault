@@ -5,6 +5,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { Me, SheetStructure } from "../api"
 import { fetchJSON } from "../lib/query"
+import { rowsKey, type RowsQuery, type RowsResult } from "../lib/realtime"
 
 /** The signed-in user (GET /api/me). */
 export function useMe() {
@@ -19,6 +20,31 @@ export function usePages() {
   return useQuery({
     queryKey: ["pages"],
     queryFn: () => fetchJSON<SheetStructure>("/api/pages"),
+  })
+}
+
+// Canonical rows hook. Its query key — ["rows", pageID, hash(query)] via
+// rowsKey — is a CONTRACT the realtime engine (src/lib/realtime.ts) depends
+// on: it patches and invalidates cached row data by matching this key shape.
+// Read rows only through this hook so live updates reach your screens; never
+// invent a different rows key. Call with no query for the default
+// (unfiltered, default-sorted) view — the one shape the engine can safely
+// patch inserts into.
+//
+//   const rows = useRows(pageID)                          // whole page
+//   const rows = useRows(pageID, { filter, sorts })       // filtered/sorted
+//
+// Backed by POST /api/pages/{pageID}/rows/query (api/api.go). Render
+// rows.isPending / rows.isError before rows.data, like every other hook.
+export function useRows(pageID: string, query?: RowsQuery) {
+  return useQuery({
+    queryKey: rowsKey(pageID, query),
+    queryFn: () =>
+      fetchJSON<RowsResult>(`/api/pages/${pageID}/rows/query`, {
+        method: "POST",
+        body: query ?? {},
+      }),
+    enabled: pageID !== "",
   })
 }
 

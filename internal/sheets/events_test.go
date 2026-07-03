@@ -91,6 +91,93 @@ func TestServicePublishesMutationEvents(t *testing.T) {
 	}
 }
 
+// TestRowsChangedCarriesRowSnapshots verifies the enriched rows_changed event:
+// insert and update carry full row snapshots, delete stays IDs-only, and
+// batches above maxEventPatchRows drop both patches and snapshots.
+func TestRowsChangedCarriesRowSnapshots(t *testing.T) {
+	db := connectSheetsTestDB(t)
+	f := seedSheetsFixture(t, db)
+	pub := &recordingPublisher{}
+	f.svc.WithPublisher(pub)
+	ctx := context.Background()
+	nameField := f.fieldByName(t, f.leads, "Name")
+	scoreField := f.fieldByName(t, f.leads, "Score")
+
+	// Insert: snapshot present, matching the returned row.
+	rows, err := f.svc.InsertRows(ctx, f.org.ID, f.leads.Page.ID, []RowInsert{
+		{Data: map[string]any{nameField.ID: "Acme", scoreField.ID: 10}},
+	}, MaxRowsPerWriteREST, f.actor)
+	if err != nil {
+		t.Fatalf("insert rows: %v", err)
+	}
+	insertEvent := pub.last(t)
+	if len(insertEvent.Rows) != 1 {
+		t.Fatalf("insert snapshots = %d, want 1", len(insertEvent.Rows))
+	}
+	snap := insertEvent.Rows[0]
+	if snap.ID != rows[0].ID.String() {
+		t.Fatalf("snapshot id = %q, want %q", snap.ID, rows[0].ID.String())
+	}
+	if snap.Data[nameField.ID] != "Acme" {
+		t.Fatalf("snapshot data = %v", snap.Data)
+	}
+	if snap.Position != rows[0].Position {
+		t.Fatalf("snapshot position = %v, want %v", snap.Position, rows[0].Position)
+	}
+	if snap.CreatedAt.IsZero() || snap.UpdatedAt.IsZero() {
+		t.Fatalf("snapshot timestamps unset: %+v", snap)
+	}
+
+	// Update: snapshot carries the merged data with a fresh updated_at.
+	if _, err := f.svc.UpdateRows(ctx, f.org.ID, f.leads.Page.ID, []RowUpdate{
+		{ID: rows[0].ID, Data: map[string]any{scoreField.ID: 42}},
+	}, MaxRowsPerWriteREST, f.actor); err != nil {
+		t.Fatalf("update rows: %v", err)
+	}
+	updateEvent := pub.last(t)
+	if len(updateEvent.Rows) != 1 {
+		t.Fatalf("update snapshots = %d, want 1", len(updateEvent.Rows))
+	}
+	if updateEvent.Rows[0].Data[scoreField.ID] != float64(42) {
+		t.Fatalf("update snapshot data = %v", updateEvent.Rows[0].Data)
+	}
+	if !updateEvent.Rows[0].UpdatedAt.After(snap.CreatedAt) && !updateEvent.Rows[0].UpdatedAt.Equal(snap.CreatedAt) {
+		// updated_at must be a real timestamp; it should not be zero.
+		if updateEvent.Rows[0].UpdatedAt.IsZero() {
+			t.Fatalf("update snapshot updated_at unset")
+		}
+	}
+
+	// Delete: IDs only, never snapshots.
+	if _, err := f.svc.DeleteRows(ctx, f.org.ID, f.leads.Page.ID, []uuid.UUID{rows[0].ID}, MaxRowsPerWriteREST, f.actor); err != nil {
+		t.Fatalf("delete rows: %v", err)
+	}
+	deleteEvent := pub.last(t)
+	if len(deleteEvent.Rows) != 0 {
+		t.Fatalf("delete carried %d snapshots, want 0", len(deleteEvent.Rows))
+	}
+	if len(deleteEvent.RowIDs) != 1 {
+		t.Fatalf("delete row_ids = %v", deleteEvent.RowIDs)
+	}
+
+	// Cap: a batch above maxEventPatchRows ships IDs only (no patches, no rows).
+	big := make([]RowInsert, maxEventPatchRows+1)
+	for i := range big {
+		big[i] = RowInsert{Data: map[string]any{nameField.ID: "row"}}
+	}
+	inserted, err := f.svc.InsertRows(ctx, f.org.ID, f.leads.Page.ID, big, MaxRowsPerWriteREST, f.actor)
+	if err != nil {
+		t.Fatalf("insert big batch: %v", err)
+	}
+	capEvent := pub.last(t)
+	if len(capEvent.RowIDs) != len(inserted) {
+		t.Fatalf("cap event row_ids = %d, want %d", len(capEvent.RowIDs), len(inserted))
+	}
+	if len(capEvent.Rows) != 0 || len(capEvent.Patches) != 0 {
+		t.Fatalf("over-cap batch leaked snapshots/patches: rows=%d patches=%d", len(capEvent.Rows), len(capEvent.Patches))
+	}
+}
+
 func TestServicePublishesSchemaAndRevertEvents(t *testing.T) {
 	db := connectSheetsTestDB(t)
 	f := seedSheetsFixture(t, db)

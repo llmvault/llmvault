@@ -22,6 +22,7 @@ type App struct {
 	codec  *sessionCodec
 	jti    *jtiGuard
 	sheets *SheetsClient
+	live   *liveManager
 	api    *http.ServeMux
 	// frameAncestors is the Content-Security-Policy for every HTML response,
 	// derived once from the launch URL (see frameAncestorsFrom).
@@ -53,15 +54,22 @@ func newApp(cfg *Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &App{
+	log := newLogger()
+	app := &App{
 		cfg:            cfg,
-		log:            newLogger(),
+		log:            log,
 		codec:          codec,
 		jti:            newJTIGuard(jtiRetention, jtiCapacity),
 		sheets:         newSheetsClient(cfg.APIBaseURL, cfg.AppSecret),
+		live:           newLiveManager(cfg.APIBaseURL, cfg.AppSecret, log),
 		api:            http.NewServeMux(),
 		frameAncestors: frameAncestorsFrom(cfg.LaunchURL),
-	}, nil
+	}
+	// The realtime relay is mounted inside the authed /api router, so the
+	// session cookie gates it just like every other app endpoint. Agent code
+	// never sees it — the SPA's realtime engine is the only client.
+	app.api.HandleFunc("GET /_live", app.handleLive)
+	return app, nil
 }
 
 // HandleAPI registers an agent handler under /api with authentication
@@ -127,6 +135,9 @@ func (a *App) Run() error {
 		}
 		return nil
 	case <-ctx.Done():
+		// Tear the live relay down first so in-flight SSE writers return and
+		// their long-lived connections don't stall graceful shutdown.
+		a.live.Close()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
