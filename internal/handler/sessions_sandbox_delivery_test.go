@@ -101,7 +101,7 @@ func TestIntegration_SessionsCreate_SessionConfigUsesSelectedModel(t *testing.T)
 	if runtime.lastConfigReasoningEffort != "medium" {
 		t.Fatalf("runtime config reasoning_effort=%q, want medium", runtime.lastConfigReasoningEffort)
 	}
-	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text")
+	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text", "actor_user_id")
 }
 
 func TestIntegration_SessionsCreate_SessionSandboxFailureLeavesNoSessionRows(t *testing.T) {

@@ -26,6 +26,7 @@ export const MODEL_LOGO_PROVIDERS = {
   "riverflow-v2.5-pro": "sourceful",
   "recraft-v4.1-vector": "recraft",
   "recraft-v4.1-pro-vector": "recraft",
+  "arrow-1.1": "quiver",
   "gemini-3.5-flash": "google",
   "gemini-3.1-flash-lite": "google",
   "gemini-3.1-pro-preview": "google",

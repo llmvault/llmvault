@@ -46,6 +46,7 @@ export const PROVIDER_LOGOS = {
   perplexity: "/logos/perplexity.svg",
   poolside: "/logos/poolside.svg",
   "prime-intellect": "/logos/prime-intellect.png",
+  quiver: "/logos/quiver.svg",
   qwen: "/logos/qwen.png",
   recraft: "/logos/recraft.svg",
   reve: "/logos/reve.svg",

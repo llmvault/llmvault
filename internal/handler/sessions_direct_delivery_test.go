@@ -42,7 +42,7 @@ func TestIntegration_SessionsCreate_SessionSendsFirstMessageWithContext(t *testi
 	if got := runtime.lastSessionContext; len(got) != 1 || got[0] != "## Relevant memories\n- Initial context" {
 		t.Fatalf("runtime session_context=%#v", got)
 	}
-	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text", "session_context")
+	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text", "session_context", "actor_user_id")
 	if _, ok := out.Event.Payload["dynamic_context"]; ok {
 		t.Fatalf("backend event payload should not include dynamic_context: %#v", out.Event.Payload)
 	}
@@ -117,7 +117,7 @@ func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *
 	if contextBuilder.calls != 1 {
 		t.Fatalf("precontext calls=%d, want only initial session build", contextBuilder.calls)
 	}
-	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text")
+	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text", "actor_user_id")
 	if runtime.configCalls != 1 {
 		t.Fatalf("runtime config calls=%d, want only the initial sandbox-create config push", runtime.configCalls)
 	}
