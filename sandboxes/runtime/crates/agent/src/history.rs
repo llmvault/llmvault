@@ -697,9 +697,11 @@ mod tests {
         append_model_history_redaction(Some(repo.as_ref()), &session_id, "call_1", "repeat")
             .await
             .unwrap();
-        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-            .await
-            .unwrap());
+        assert!(
+            !auto_load_skills_completed(Some(repo.as_ref()), &session_id)
+                .await
+                .unwrap()
+        );
     }
 
     #[test]

@@ -1979,7 +1979,9 @@ mod tests {
 
         let requests = requests.lock().await;
         assert!(
-            !requests.iter().any(|request| request.to_string().contains("user-facing summary")),
+            !requests
+                .iter()
+                .any(|request| request.to_string().contains("user-facing summary")),
             "no model request should carry the progress nudge for a sub-agent"
         );
     }

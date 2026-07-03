@@ -300,12 +300,14 @@ mod auto_load_skills_tests {
 
     #[test]
     fn auto_load_skills_round_trips_through_serde() {
-        let definition = parse(
-            r#","auto_load_skills":[{"name":"browser","files":["references/commands.md"]}]"#,
-        );
+        let definition =
+            parse(r#","auto_load_skills":[{"name":"browser","files":["references/commands.md"]}]"#);
         let serialized = serde_json::to_string(&definition).expect("serialize");
         let reparsed: AgentDefinition = serde_json::from_str(&serialized).expect("reparse");
         assert_eq!(reparsed.auto_load_skills[0].name, "browser");
-        assert_eq!(reparsed.auto_load_skills[0].files, vec!["references/commands.md"]);
+        assert_eq!(
+            reparsed.auto_load_skills[0].files,
+            vec!["references/commands.md"]
+        );
     }
 }

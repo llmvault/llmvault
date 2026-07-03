@@ -564,7 +564,9 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = result["output"].as_str().expect("output should be a string");
+        let output = result["output"]
+            .as_str()
+            .expect("output should be a string");
         assert!(
             output.contains("\"DATABASE_URL\": \"postgres://x\""),
             "expected clean DATABASE_URL in env, got: {output}"
@@ -648,7 +650,9 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = result["output"].as_str().expect("output should be a string");
+        let output = result["output"]
+            .as_str()
+            .expect("output should be a string");
         assert!(
             output.contains("\"LOGIN_EMAIL\": \"qa@example.com\""),
             "expected user channel var under clean name, got: {output}"

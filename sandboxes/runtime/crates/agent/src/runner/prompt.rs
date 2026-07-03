@@ -452,7 +452,10 @@ mod auto_load_tests {
             }
             if self.events.lock().await.iter().any(|event| {
                 event.session_id == *session_id
-                    && event.payload.get("_idempotency_key").and_then(|v| v.as_str())
+                    && event
+                        .payload
+                        .get("_idempotency_key")
+                        .and_then(|v| v.as_str())
                         == Some(idempotency_key)
             }) {
                 return Ok(None);
@@ -559,9 +562,8 @@ mod auto_load_tests {
         let repo = Arc::new(MemoryEventRepo::default());
         let caller = FakeSkillViewCaller::ok();
         let session_id = SessionId::from("s-autoload-first");
-        let definition = definition_with_auto_load(
-            r#"[{"name":"browser","files":["references/commands.md"]}]"#,
-        );
+        let definition =
+            definition_with_auto_load(r#"[{"name":"browser","files":["references/commands.md"]}]"#);
 
         let synthetic = inject_auto_load_skills(
             &definition,
@@ -621,7 +623,11 @@ mod auto_load_tests {
         )
         .await;
         assert!(second.is_empty());
-        assert_eq!(caller.calls.lock().await.len(), 2, "must not re-call skill_view");
+        assert_eq!(
+            caller.calls.lock().await.len(),
+            2,
+            "must not re-call skill_view"
+        );
     }
 
     #[tokio::test]
@@ -689,14 +695,17 @@ mod auto_load_tests {
         let definition = definition_with_auto_load(r#"[{"name":"browser"}]"#);
 
         let synthetic =
-            inject_auto_load_skills(&definition, &session_id, Some(repo.as_ref()), None, None).await;
+            inject_auto_load_skills(&definition, &session_id, Some(repo.as_ref()), None, None)
+                .await;
 
         assert!(synthetic.is_empty());
         // No registry is environmental; leave the marker unset so a later,
         // correctly-provisioned turn can still bootstrap.
-        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-            .await
-            .unwrap());
+        assert!(
+            !auto_load_skills_completed(Some(repo.as_ref()), &session_id)
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -717,8 +726,10 @@ mod auto_load_tests {
 
         assert!(synthetic.is_empty());
         assert_eq!(caller.calls.lock().await.len(), 0);
-        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-            .await
-            .unwrap());
+        assert!(
+            !auto_load_skills_completed(Some(repo.as_ref()), &session_id)
+                .await
+                .unwrap()
+        );
     }
 }

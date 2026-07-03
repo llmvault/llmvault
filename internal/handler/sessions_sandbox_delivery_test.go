@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/lib/pq"
-
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -78,11 +76,6 @@ func TestIntegration_SessionsCreate_SessionConfigUsesSelectedModel(t *testing.T)
 	runtime := newSessionRuntimeStub(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
-	if err := h.db.Model(&model.Agent{}).
-		Where("id = ?", fx.agent.ID).
-		Update("available_models", pq.StringArray{"deepseek-v4-flash", "minimax-m3"}).Error; err != nil {
-		t.Fatalf("update available models: %v", err)
-	}
 
 	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
 		"channel_id": fx.channel.ID.String(),

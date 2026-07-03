@@ -243,12 +243,6 @@ var coreHivyModels = []HivyModel{
 		},
 	},
 	{
-		ID: "glm-5.2",
-		Routes: []ModelRoute{
-			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
-		},
-	},
-	{
 		ID: "glm-5.1",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.1"},
