@@ -237,6 +237,22 @@ definitions:
           $ref: '#/definitions/AvailableResource'
         type: array
     type: object
+  Filter:
+    properties:
+      and:
+        items:
+          $ref: '#/definitions/Filter'
+        type: array
+      field:
+        type: string
+      op:
+        type: string
+      or:
+        items:
+          $ref: '#/definitions/Filter'
+        type: array
+      value: {}
+    type: object
   InstallSpec:
     properties:
       default_agent:
@@ -380,6 +396,23 @@ definitions:
       slug:
         type: string
     type: object
+  Query:
+    properties:
+      cursor:
+        type: string
+      filter:
+        $ref: '#/definitions/Filter'
+      limit:
+        type: integer
+      resolve_relations:
+        type: boolean
+      search:
+        type: string
+      sorts:
+        items:
+          $ref: '#/definitions/Sort'
+        type: array
+    type: object
   ScheduleSpec:
     properties:
       cron:
@@ -419,6 +452,13 @@ definitions:
   SchemaRef:
     properties:
       $ref:
+        type: string
+    type: object
+  Sort:
+    properties:
+      desc:
+        type: boolean
+      field:
         type: string
     type: object
   ToolFilter:
@@ -930,6 +970,13 @@ definitions:
       updated_at:
         type: string
     type: object
+  attachmentDownloadURLRequest:
+    properties:
+      keys:
+        items:
+          type: string
+        type: array
+    type: object
   auditEntryResponse:
     properties:
       action:
@@ -1094,6 +1141,18 @@ definitions:
       members:
         items:
           $ref: '#/definitions/channelMemberResponse'
+        type: array
+    type: object
+  channelEnvironmentVariableResponse:
+    properties:
+      name:
+        type: string
+    type: object
+  channelEnvironmentVariablesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/channelEnvironmentVariableResponse'
         type: array
     type: object
   channelMemberRequest:
@@ -1357,6 +1416,13 @@ definitions:
           type: integer
         type: array
     type: object
+  createChannelEnvironmentVariableRequest:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    type: object
   createCheckoutRequest:
     properties:
       cancel_url:
@@ -1414,12 +1480,27 @@ definitions:
       remaining:
         type: integer
     type: object
-  createOrgEnvironmentVariableRequest:
+  createFieldRequest:
     properties:
+      mutation_id:
+        type: string
       name:
         type: string
-      value:
+      options:
+        additionalProperties: {}
+        type: object
+      type:
         type: string
+    type: object
+  createImportRequest:
+    properties:
+      mutation_id:
+        type: string
+      object_key:
+        type: string
+      options:
+        additionalProperties: {}
+        type: object
     type: object
   createOrgInviteRequest:
     properties:
@@ -1434,6 +1515,17 @@ definitions:
     type: object
   createOrgRequest:
     properties:
+      name:
+        type: string
+    type: object
+  createPageRequest:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/sheetFieldSpecRequest'
+        type: array
+      mutation_id:
+        type: string
       name:
         type: string
     type: object
@@ -1488,6 +1580,23 @@ definitions:
       text:
         type: string
     type: object
+  createSheetRequest:
+    properties:
+      channel_id:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+      pages:
+        items:
+          $ref: '#/definitions/sheetPageSpecRequest'
+        type: array
+      slug:
+        type: string
+    type: object
   createTriggerRequest:
     properties:
       agent_id:
@@ -1511,6 +1620,16 @@ definitions:
     properties:
       trigger:
         $ref: '#/definitions/agentTriggerResponse'
+    type: object
+  createViewRequest:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      type:
+        type: string
     type: object
   credentialResponse:
     properties:
@@ -1618,6 +1737,15 @@ definitions:
         type: string
       schema_snapshot: {}
       updated_at:
+        type: string
+    type: object
+  deleteRowsRequest:
+    properties:
+      ids:
+        items:
+          type: string
+        type: array
+      mutation_id:
         type: string
     type: object
   errorRate:
@@ -1766,6 +1894,23 @@ definitions:
         type: string
       reference:
         type: string
+    type: object
+  insertRowRequest:
+    properties:
+      data:
+        additionalProperties: {}
+        type: object
+      position:
+        type: number
+    type: object
+  insertRowsRequest:
+    properties:
+      mutation_id:
+        type: string
+      rows:
+        items:
+          $ref: '#/definitions/insertRowRequest'
+        type: array
     type: object
   integrationAvailableResponse:
     properties:
@@ -1961,20 +2106,6 @@ definitions:
         type: boolean
       tool_call:
         type: boolean
-    type: object
-  orgEnvironmentVariableResponse:
-    properties:
-      env_key:
-        type: string
-      name:
-        type: string
-    type: object
-  orgEnvironmentVariablesResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/orgEnvironmentVariableResponse'
-        type: array
     type: object
   orgInviteAcceptResponse:
     properties:
@@ -3192,6 +3323,234 @@ definitions:
       credits:
         type: integer
     type: object
+  sheetArchivedRowsResponse:
+    properties:
+      archived:
+        type: integer
+    type: object
+  sheetAttachmentURLsResponse:
+    properties:
+      urls:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  sheetFieldSpecRequest:
+    properties:
+      name:
+        type: string
+      options:
+        additionalProperties: {}
+        type: object
+      type:
+        type: string
+    type: object
+  sheetFieldView:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      options:
+        additionalProperties: {}
+        type: object
+      position:
+        type: number
+      type:
+        type: string
+    type: object
+  sheetImportJobView:
+    properties:
+      created_at:
+        type: string
+      error:
+        type: string
+      id:
+        type: string
+      object_key:
+        type: string
+      page_id:
+        type: string
+      processed_rows:
+        type: integer
+      status:
+        type: string
+      total_rows:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  sheetListResponse:
+    properties:
+      next_cursor:
+        type: string
+      sheets:
+        items:
+          $ref: '#/definitions/sheetSummary'
+        type: array
+    type: object
+  sheetLiveTokenResponse:
+    properties:
+      expires_at:
+        type: string
+      token:
+        type: string
+    type: object
+  sheetOperationView:
+    properties:
+      actor_agent_id:
+        type: string
+      actor_user_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      page_id:
+        type: string
+      reverted_at:
+        type: string
+      row_count:
+        type: integer
+      source_session_id:
+        type: string
+      type:
+        type: string
+    type: object
+  sheetOperationsResponse:
+    properties:
+      operations:
+        items:
+          $ref: '#/definitions/sheetOperationView'
+        type: array
+    type: object
+  sheetPageSpecRequest:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/sheetFieldSpecRequest'
+        type: array
+      name:
+        type: string
+    type: object
+  sheetPageView:
+    properties:
+      display_field_id:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/sheetFieldView'
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+      position:
+        type: number
+      row_count:
+        type: integer
+      sheet_id:
+        type: string
+    type: object
+  sheetRelationRef:
+    properties:
+      id:
+        type: string
+      label:
+        type: string
+    type: object
+  sheetRowView:
+    properties:
+      created_at:
+        type: string
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      position:
+        type: number
+      updated_at:
+        type: string
+    type: object
+  sheetRowsQueryResponse:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/sheetFieldView'
+        type: array
+      next_cursor:
+        type: string
+      relations:
+        additionalProperties:
+          $ref: '#/definitions/sheetRelationRef'
+        type: object
+      rows:
+        items:
+          $ref: '#/definitions/sheetRowView'
+        type: array
+    type: object
+  sheetRowsResponse:
+    properties:
+      rows:
+        items:
+          $ref: '#/definitions/sheetRowView'
+        type: array
+    type: object
+  sheetStatusResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  sheetStructureResponse:
+    properties:
+      pages:
+        items:
+          $ref: '#/definitions/sheetPageView'
+        type: array
+      sheet:
+        $ref: '#/definitions/sheetSummary'
+    type: object
+  sheetSummary:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  sheetViewSummary:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      name:
+        type: string
+      page_id:
+        type: string
+      position:
+        type: number
+      type:
+        type: string
+    type: object
+  sheetViewsResponse:
+    properties:
+      views:
+        items:
+          $ref: '#/definitions/sheetViewSummary'
+        type: array
+    type: object
   signUploadRequest:
     properties:
       asset_type:
@@ -3656,6 +4015,13 @@ definitions:
       agent:
         $ref: '#/definitions/agentResponse'
     type: object
+  updateChannelEnvironmentVariableRequest:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    type: object
   updateConnectionResourcesRequest:
     properties:
       resources:
@@ -3674,11 +4040,18 @@ definitions:
       resources:
         $ref: '#/definitions/JSON'
     type: object
-  updateOrgEnvironmentVariableRequest:
+  updateFieldRequest:
     properties:
+      mutation_id:
+        type: string
       name:
         type: string
-      value:
+      options:
+        additionalProperties: {}
+        type: object
+      position:
+        type: number
+      type:
         type: string
     type: object
   updateOrgRequest:
@@ -3695,6 +4068,17 @@ definitions:
         type: array
       website:
         type: string
+    type: object
+  updatePageRequest:
+    properties:
+      display_field_id:
+        type: string
+      mutation_id:
+        type: string
+      name:
+        type: string
+      position:
+        type: number
     type: object
   updateProfileRequest:
     properties:
@@ -3724,6 +4108,25 @@ definitions:
       status:
         type: string
     type: object
+  updateRowRequest:
+    properties:
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      position:
+        type: number
+    type: object
+  updateRowsRequest:
+    properties:
+      mutation_id:
+        type: string
+      rows:
+        items:
+          $ref: '#/definitions/updateRowRequest'
+        type: array
+    type: object
   updateSandboxTemplateRequest:
     properties:
       build_commands:
@@ -3750,6 +4153,15 @@ definitions:
       vector_image_model:
         type: string
     type: object
+  updateSheetRequest:
+    properties:
+      description:
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+    type: object
   updateTriggerRequest:
     properties:
       agent_id:
@@ -3770,6 +4182,16 @@ definitions:
         type: string
       trigger_value:
         type: string
+    type: object
+  updateViewRequest:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      position:
+        type: number
     type: object
   upsertAdminIntegrationRequest:
     properties:
@@ -6375,6 +6797,185 @@ paths:
       summary: Update a channel
       tags:
       - channels
+  /v1/channels/{id}/environment-variables:
+    get:
+      description: Lists environment variables scoped to a channel. Values are not
+        returned.
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/channelEnvironmentVariablesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List channel environment variables
+      tags:
+      - channels
+    post:
+      consumes:
+      - application/json
+      description: Stores an environment variable scoped to a channel. It is injected
+        into sessions on that channel as __ENV__<NAME> and exposed to the workload
+        as <NAME>.
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createChannelEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/channelEnvironmentVariableResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a channel environment variable
+      tags:
+      - channels
+  /v1/channels/{id}/environment-variables/{name}:
+    delete:
+      description: Removes an environment variable scoped to a channel.
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a channel environment variable
+      tags:
+      - channels
+    patch:
+      consumes:
+      - application/json
+      description: Renames and/or updates the value of a channel environment variable.
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Fields to patch
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateChannelEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/channelEnvironmentVariableResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a channel environment variable
+      tags:
+      - channels
   /v1/channels/{id}/join:
     post:
       description: Adds the authenticated user to a public channel.
@@ -7871,152 +8472,6 @@ paths:
       summary: Set default brand
       tags:
       - brands
-  /v1/orgs/current/environment-variables:
-    get:
-      description: Lists custom environment variables stored on the Hivy agent. Values
-        are not returned.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/orgEnvironmentVariablesResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List organization environment variables
-      tags:
-      - orgs
-    post:
-      consumes:
-      - application/json
-      description: Stores a custom environment variable on the Hivy agent. It is pushed
-        to runtime sandboxes as HIVY_ORG_<NAME>.
-      parameters:
-      - description: Environment variable
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/createOrgEnvironmentVariableRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/orgEnvironmentVariableResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create an organization environment variable
-      tags:
-      - orgs
-  /v1/orgs/current/environment-variables/{name}:
-    delete:
-      description: Removes a custom environment variable from the Hivy agent.
-      parameters:
-      - description: Environment variable name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/statusResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete an organization environment variable
-      tags:
-      - orgs
-    patch:
-      consumes:
-      - application/json
-      description: Renames and/or updates a custom environment variable stored on
-        the Hivy agent.
-      parameters:
-      - description: Environment variable name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: Fields to patch
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateOrgEnvironmentVariableRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/orgEnvironmentVariableResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update an organization environment variable
-      tags:
-      - orgs
   /v1/orgs/current/invites:
     get:
       description: Returns non-expired, non-accepted, non-revoked invites for the
@@ -9466,6 +9921,10 @@ paths:
         in: query
         name: sort
         type: string
+      - description: 'Filter by status: active, archived, or ended (defaults to non-archived)'
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -10115,6 +10574,984 @@ paths:
       summary: Get session usage
       tags:
       - sessions
+  /v1/sheets:
+    get:
+      description: Lists a channel's sheets, newest-updated first. Sheets are channel-scoped;
+        the caller must be able to use the channel.
+      parameters:
+      - description: Channel ID to list sheets for
+        in: query
+        name: channel_id
+        required: true
+        type: string
+      - description: Case-insensitive name substring filter
+        in: query
+        name: search
+        type: string
+      - description: Page size (max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List sheets in a channel
+      tags:
+      - sheets
+    post:
+      consumes:
+      - application/json
+      description: Creates a sheet in a channel with optional inline pages and typed
+        fields. The caller must be able to use the channel.
+      parameters:
+      - description: Sheet to create (channel_id required)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createSheetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sheetStructureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a sheet
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}:
+    delete:
+      description: Archives a sheet (soft delete). The caller must be able to use
+        the sheet's channel.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetStatusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a sheet
+      tags:
+      - sheets
+    get:
+      description: Returns a sheet's full structure (pages, fields, row counts). The
+        caller must be able to use the sheet's channel.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetStructureResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a sheet
+      tags:
+      - sheets
+    patch:
+      consumes:
+      - application/json
+      description: Renames a sheet or updates its description/icon. The caller must
+        be able to use the sheet's channel.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateSheetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a sheet
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/live-token:
+    post:
+      description: Returns a short-lived JWT for the direct SSE stream. The caller
+        must be able to use the sheet's channel.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetLiveTokenResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mint a sheet live-stream token
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createPageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sheetPageView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a page
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}:
+    delete:
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetStatusResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a page
+      tags:
+      - sheets
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updatePageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetPageView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a page
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/attachments/download-url:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Object keys to presign (1-50)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/attachmentDownloadURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetAttachmentURLsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Presign attachment downloads
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/export.csv:
+    get:
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV stream
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Export a page as CSV
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/fields:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Field to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createFieldRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sheetFieldView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a field
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}:
+    delete:
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Field ID
+        in: path
+        name: fieldID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetStatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a field
+      tags:
+      - sheets
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Field ID
+        in: path
+        name: fieldID
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateFieldRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetFieldView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a field
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/imports:
+    post:
+      consumes:
+      - application/json
+      description: Starts an asynchronous CSV import from a drive object key into
+        a page.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Import to start
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createImportRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sheetImportJobView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start a CSV import
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/operations:
+    get:
+      description: Returns a page's recent revertible operations, newest first.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Max operations to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetOperationsResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List page operations
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/operations/{operationID}/revert:
+    post:
+      consumes:
+      - application/json
+      description: Applies one operation's exact inverse. Single-level undo — a revert
+        is not itself re-undoable.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Operation ID
+        in: path
+        name: operationID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetStatusResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revert an operation
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/rows:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Row IDs to archive
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/deleteRowsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetArchivedRowsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete rows
+      tags:
+      - sheets
+    patch:
+      consumes:
+      - application/json
+      description: Partial-merges each row's data by field key. A single cell edit
+        is a batch of one.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Rows to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateRowsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetRowsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update rows
+      tags:
+      - sheets
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Rows to insert
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/insertRowsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sheetRowsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Insert rows
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/rows/query:
+    post:
+      consumes:
+      - application/json
+      description: Query a page's rows with a filter AST, sorts, search, and cursor
+        paging.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: Query
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/Query'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetRowsQueryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Query rows
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/views:
+    get:
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetViewsResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List views
+      tags:
+      - sheets
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: View to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createViewRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sheetViewSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a view
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}:
+    delete:
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: View ID
+        in: path
+        name: viewID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetStatusResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a view
+      tags:
+      - sheets
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Page ID
+        in: path
+        name: pageID
+        required: true
+        type: string
+      - description: View ID
+        in: path
+        name: viewID
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateViewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetViewSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a view
+      tags:
+      - sheets
+  /v1/sheets/imports/{jobID}:
+    get:
+      description: Returns import job status. The caller must be able to use the job's
+        sheet's channel.
+      parameters:
+      - description: Import job ID
+        in: path
+        name: jobID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sheetImportJobView'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a CSV import job
+      tags:
+      - sheets
   /v1/slack/channels:
     get:
       description: Returns public Slack channels plus private channels where Hivy

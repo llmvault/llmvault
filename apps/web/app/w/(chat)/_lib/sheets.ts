@@ -3,20 +3,21 @@ import { api } from "@/lib/api/client"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { components } from "@/lib/api/schema"
 
-export type SheetSummary = components["schemas"]["SheetSummary"]
-export type SheetPage = components["schemas"]["SheetPage"]
-export type SheetField = components["schemas"]["SheetField"]
-export type SheetRow = components["schemas"]["SheetRow"]
-export type SheetView = components["schemas"]["SheetView"]
-export type SheetOperation = components["schemas"]["SheetOperation"]
-export type SheetImportJob = components["schemas"]["SheetImportJob"]
-export type SheetRelationRef = components["schemas"]["SheetRelationRef"]
-export type SheetStructure = components["schemas"]["SheetStructureResponse"]
+export type SheetSummary = components["schemas"]["sheetSummary"]
+export type SheetPage = components["schemas"]["sheetPageView"]
+export type SheetField = components["schemas"]["sheetFieldView"]
+export type SheetRow = components["schemas"]["sheetRowView"]
+export type SheetView = components["schemas"]["sheetViewSummary"]
+export type SheetOperation = components["schemas"]["sheetOperationView"]
+export type SheetImportJob = components["schemas"]["sheetImportJobView"]
+export type SheetStructure = components["schemas"]["sheetStructureResponse"]
 export type SheetRowsQueryResponse =
-  components["schemas"]["SheetRowsQueryResponse"]
-export type SheetFilterNode = components["schemas"]["sheetFilterNode"]
-export type SheetSort = components["schemas"]["sheetSort"]
-export type SheetFieldSpec = components["schemas"]["sheetFieldSpec"]
+  components["schemas"]["sheetRowsQueryResponse"]
+export type SheetRelationRef = components["schemas"]["sheetRelationRef"]
+/** Filter AST node. The REST endpoints share the Go `sheets.Filter` shape. */
+export type SheetFilterNode = components["schemas"]["Filter"]
+export type SheetSort = components["schemas"]["Sort"]
+export type SheetFieldSpec = components["schemas"]["sheetFieldSpecRequest"]
 
 export const ROWS_PAGE_SIZE = 200
 
@@ -68,7 +69,7 @@ export function isOwnMutation(id: string | null | undefined): boolean {
 /* ------------------------------------------------------------------ */
 
 export const sheetKeys = {
-  list: ["sheets"] as const,
+  list: (channelId: string) => ["sheets", channelId] as const,
   structure: (sheetId: string) => ["sheet-structure", sheetId] as const,
   structurePrefix: ["sheet-structure"] as const,
   pageRef: (pageId: string) => ["sheet-page-ref", pageId] as const,
@@ -116,14 +117,19 @@ async function unwrap<T>(
   return data as T
 }
 
-export function fetchSheets(signal?: AbortSignal) {
+export function fetchSheets(channelId: string, signal?: AbortSignal) {
   return unwrap(
-    api.GET("/v1/sheets", { params: { query: { limit: 200 } }, signal })
+    api.GET("/v1/sheets", {
+      params: { query: { channel_id: channelId, limit: 200 } },
+      signal,
+    })
   )
 }
 
-export function createSheet(name: string) {
-  return unwrap(api.POST("/v1/sheets", { body: { name } }))
+export function createSheet(channelId: string, name: string) {
+  return unwrap(
+    api.POST("/v1/sheets", { body: { channel_id: channelId, name } })
+  )
 }
 
 export function fetchSheetStructure(sheetID: string, signal?: AbortSignal) {
@@ -341,7 +347,6 @@ export function revertOperation(
       "/v1/sheets/{sheetID}/pages/{pageID}/operations/{operationID}/revert",
       {
         params: { path: { sheetID, pageID, operationID } },
-        body: { mutation_id: newMutationId() },
       }
     )
   )
@@ -464,11 +469,14 @@ function pageRefFromStructure(
 /**
  * Resolves a page ID to its owning sheet + page structure. Checks every
  * cached sheet structure first, then falls back to fetching the sheets
- * list and the structures that are not cached yet. Results flow through
- * `ensureQueryData`, so every fetch also warms the regular caches.
+ * list for the given channel and the structures that are not cached yet.
+ * Results flow through `ensureQueryData`, so every fetch also warms the
+ * regular caches. Sheets are channel-scoped, so this can only resolve pages
+ * belonging to sheets in `channelId`.
  */
 export async function resolvePageRef(
   queryClient: QueryClient,
+  channelId: string,
   pageId: string
 ): Promise<SheetPageRef | null> {
   if (!pageId) return null
@@ -483,9 +491,11 @@ export async function resolvePageRef(
     if (structure?.sheet?.id) cachedSheetIds.add(structure.sheet.id)
   }
 
+  if (!channelId) return null
+
   const list = await queryClient.ensureQueryData({
-    queryKey: sheetKeys.list,
-    queryFn: ({ signal }) => fetchSheets(signal),
+    queryKey: sheetKeys.list(channelId),
+    queryFn: ({ signal }) => fetchSheets(channelId, signal),
   })
   const candidates = (list.sheets ?? [])
     .map((sheet) => sheet.id)

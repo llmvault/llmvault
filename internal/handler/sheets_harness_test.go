@@ -62,13 +62,16 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 	if err := db.Create(&membership).Error; err != nil {
 		t.Fatalf("create org membership: %v", err)
 	}
-	agent := h.createAgent(t, h.org.ID)
-	otherAgent := h.createAgent(t, h.other.ID)
+	// Default agents for the channels are created without their own cleanup so
+	// the org cascade removes them together with the channels that reference
+	// them (fk_channels_default_agent is RESTRICT).
+	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	otherAgent := model.Agent{ID: uuid.New(), OrgID: &h.other.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	h.otherChannel = model.Channel{ID: uuid.New(), OrgID: h.other.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: otherAgent.ID}
-	for _, ch := range []*model.Channel{&h.channel, &h.otherChannel} {
-		if err := db.Create(ch).Error; err != nil {
-			t.Fatalf("create channel: %v", err)
+	for _, seed := range []any{&agent, &otherAgent, &h.channel, &h.otherChannel} {
+		if err := db.Create(seed).Error; err != nil {
+			t.Fatalf("create channel seed: %v", err)
 		}
 	}
 	t.Cleanup(func() {

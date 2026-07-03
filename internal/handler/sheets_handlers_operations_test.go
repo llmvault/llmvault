@@ -7,8 +7,38 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sheets"
 )
+
+// TestSheetsChannelVisibilityDenied proves a sheet's visibility follows its
+// channel: an org member who cannot use the sheet's (team-scoped) channel gets
+// a 404 on both the sheet and the channel listing, never the data.
+func TestSheetsChannelVisibilityDenied(t *testing.T) {
+	h := newSheetsHarness(t)
+	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Team Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	team := model.Team{ID: uuid.New(), OrgID: h.org.ID, Name: "team-" + uuid.NewString()}
+	teamCh := model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "team-ch-" + uuid.NewString(), DefaultAgentID: agent.ID, TeamID: &team.ID}
+	for _, seed := range []any{&agent, &team, &teamCh} {
+		if err := h.db.Create(seed).Error; err != nil {
+			t.Fatalf("create team-channel seed: %v", err)
+		}
+	}
+	// The harness user is an org member but not on this team, so cannot use the
+	// channel. A sheet created in it must be invisible to them.
+	secret, err := h.svc.CreateSheet(context.Background(), h.org.ID, sheets.CreateSheetRequest{Name: "Secret"}, sheets.Actor{ChannelID: teamCh.ID})
+	if err != nil {
+		t.Fatalf("create team-channel sheet: %v", err)
+	}
+	if resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets/"+secret.Sheet.ID.String(), nil); resp.Code != http.StatusNotFound {
+		t.Fatalf("team-channel sheet visible to non-member: status=%d body=%s", resp.Code, resp.Body.String())
+	}
+	if resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets?channel_id="+teamCh.ID.String(), nil); resp.Code != http.StatusNotFound {
+		t.Fatalf("team-channel list visible to non-member: status=%d body=%s", resp.Code, resp.Body.String())
+	}
+}
 
 func TestSheetsOperationsRevertEndpoint(t *testing.T) {
 	h := newSheetsHarness(t)

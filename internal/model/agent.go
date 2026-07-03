@@ -46,9 +46,8 @@ type Agent struct {
 	Permissions   JSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	Resources     JSON        `gorm:"type:jsonb;not null;default:'{}'"`
 
-	SandboxTools     pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
-	SetupCommands    pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run during sandbox creation
-	EncryptedEnvVars []byte         `gorm:"type:bytea"`               // AES-256-GCM encrypted JSON map of env vars
+	SandboxTools  pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
+	SetupCommands pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run during sandbox creation
 
 	Status        string `gorm:"not null;default:'active'"` // draft, active, archived
 	IsSystem      bool   `gorm:"-"`

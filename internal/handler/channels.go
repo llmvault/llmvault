@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -17,6 +18,7 @@ import (
 type ChannelHandler struct {
 	db                  *gorm.DB
 	externalProvisioner ChannelExternalProvisioner
+	envEncKey           *crypto.SymmetricKey
 }
 
 func NewChannelHandler(db *gorm.DB, opts ...ChannelHandlerOption) *ChannelHandler {

@@ -4742,6 +4742,309 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/channels/{id}/environment-variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List channel environment variables
+         * @description Lists environment variables scoped to a channel. Values are not returned.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelEnvironmentVariablesResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a channel environment variable
+         * @description Stores an environment variable scoped to a channel. It is injected into sessions on that channel as __ENV__<NAME> and exposed to the workload as <NAME>.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Environment variable */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createChannelEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelEnvironmentVariableResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/channels/{id}/environment-variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a channel environment variable
+         * @description Removes an environment variable scoped to a channel.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a channel environment variable
+         * @description Renames and/or updates the value of a channel environment variable.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to patch */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateChannelEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelEnvironmentVariableResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/channels/{id}/join": {
         parameters: {
             query?: never;
@@ -7526,272 +7829,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/v1/orgs/current/environment-variables": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List organization environment variables
-         * @description Lists custom environment variables stored on the Hivy agent. Values are not returned.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["orgEnvironmentVariablesResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create an organization environment variable
-         * @description Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Environment variable */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["createOrgEnvironmentVariableRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["orgEnvironmentVariableResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/orgs/current/environment-variables/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete an organization environment variable
-         * @description Removes a custom environment variable from the Hivy agent.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Environment variable name */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Update an organization environment variable
-         * @description Renames and/or updates a custom environment variable stored on the Hivy agent.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Environment variable name */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            /** @description Fields to patch */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["updateOrgEnvironmentVariableRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["orgEnvironmentVariableResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
         trace?: never;
     };
     "/v1/orgs/current/invites": {
@@ -11563,17 +11600,19 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List sheets
-         * @description Returns the organization's active sheets, newest-updated first.
+         * List sheets in a channel
+         * @description Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.
          */
         get: {
             parameters: {
-                query?: {
-                    /** @description Filter by name substring */
+                query: {
+                    /** @description Channel ID to list sheets for */
+                    channel_id: string;
+                    /** @description Case-insensitive name substring filter */
                     search?: string;
-                    /** @description Max sheets to return (clamped to 200) */
+                    /** @description Page size (max 100) */
                     limit?: number;
-                    /** @description Opaque cursor from a previous response's next_cursor; continues the walk */
+                    /** @description Pagination cursor */
                     cursor?: string;
                 };
                 header?: never;
@@ -11588,149 +11627,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetListResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create a sheet
-         * @description Creates a sheet with optional inline pages and fields. A default page is created when none are given.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Sheet definition */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["sheetCreateRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SheetStructureResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/sheets/imports/{jobID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get import job status
-         * @description Poll fallback for CSV import progress.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Import job ID */
-                    jobID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SheetImportJob"];
+                        "application/json": components["schemas"]["sheetListResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -11760,8 +11657,38 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
+            };
+        };
+        put?: never;
+        /**
+         * Create a sheet
+         * @description Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Sheet to create (channel_id required) */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createSheetRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sheetStructureResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -11769,8 +11696,75 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Service Unavailable */
-                503: {
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sheets/imports/{jobID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a CSV import job
+         * @description Returns import job status. The caller must be able to use the job's sheet's channel.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Import job ID */
+                    jobID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sheetImportJobView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -11796,8 +11790,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get sheet structure
-         * @description Returns the sheet with all active pages, their fields, and row counts — the UI bootstrap call.
+         * Get a sheet
+         * @description Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.
          */
         get: {
             parameters: {
@@ -11817,16 +11811,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetStructureResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetStructureResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -11847,31 +11832,13 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
         put?: never;
         post?: never;
         /**
          * Archive a sheet
-         * @description Soft-archives a sheet.
+         * @description Archives a sheet (soft delete). The caller must be able to use the sheet's channel.
          */
         delete: {
             parameters: {
@@ -11891,16 +11858,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetStatusResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -11921,31 +11879,13 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
         options?: never;
         head?: never;
         /**
          * Update a sheet
-         * @description Renames a sheet or updates its description or icon.
+         * @description Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.
          */
         patch: {
             parameters: {
@@ -11960,7 +11900,7 @@ export interface paths {
             /** @description Fields to update */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetUpdateRequest"];
+                    "application/json": components["schemas"]["updateSheetRequest"];
                 };
             };
             responses: {
@@ -11970,7 +11910,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetSummary"];
+                        "application/json": components["schemas"]["sheetSummary"];
                     };
                 };
                 /** @description Bad Request */
@@ -12000,116 +11940,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
-        trace?: never;
-    };
-    "/v1/sheets/{sheetID}/live": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Sheet live event stream
-         * @description Server-sent events stream of sheet mutations (rows_changed, fields_changed, pages_changed, import_progress, operation_reverted). Authenticated with the live token (Bearer header or token query param), not the normal session auth.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Live token (alternative to the Authorization header) */
-                    token?: string;
-                };
-                header?: never;
-                path: {
-                    /** @description Sheet ID */
-                    sheetID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description SSE stream */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/event-stream": string;
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/v1/sheets/{sheetID}/live-token": {
@@ -12122,8 +11954,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Mint a sheet live token
-         * @description Mints a short-lived (10 minute) sheets:read JWT the browser presents when connecting directly to the sheet's SSE stream.
+         * Mint a sheet live-stream token
+         * @description Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.
          */
         post: {
             parameters: {
@@ -12143,16 +11975,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetLiveTokenResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetLiveTokenResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -12166,24 +11989,6 @@ export interface paths {
                 };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12208,10 +12013,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Add a page
-         * @description Adds a page (tab) with optional inline fields.
-         */
+        /** Create a page */
         post: {
             parameters: {
                 query?: never;
@@ -12222,10 +12024,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Page definition */
+            /** @description Page to create */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetPageCreateRequest"];
+                    "application/json": components["schemas"]["createPageRequest"];
                 };
             };
             responses: {
@@ -12235,7 +12037,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetPage"];
+                        "application/json": components["schemas"]["sheetPageView"];
                     };
                 };
                 /** @description Bad Request */
@@ -12247,44 +12049,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12310,10 +12076,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Archive a page
-         * @description Soft-archives a page.
-         */
+        /** Archive a page */
         delete: {
             parameters: {
                 query?: never;
@@ -12334,25 +12097,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetStatusResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -12364,32 +12109,11 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
         options?: never;
         head?: never;
-        /**
-         * Update a page
-         * @description Renames a page, moves it (position), or sets its display field.
-         */
+        /** Update a page */
         patch: {
             parameters: {
                 query?: never;
@@ -12405,7 +12129,7 @@ export interface paths {
             /** @description Fields to update */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetPageUpdateRequest"];
+                    "application/json": components["schemas"]["updatePageRequest"];
                 };
             };
             responses: {
@@ -12415,7 +12139,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetPage"];
+                        "application/json": components["schemas"]["sheetPageView"];
                     };
                 };
                 /** @description Bad Request */
@@ -12427,35 +12151,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12476,10 +12173,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Mint attachment download URLs
-         * @description Returns presigned GET URLs for attachment object keys. Every key is re-checked for org ownership.
-         */
+        /** Presign attachment downloads */
         post: {
             parameters: {
                 query?: never;
@@ -12492,10 +12186,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Object keys */
+            /** @description Object keys to presign (1-50) */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetAttachmentDownloadURLRequest"];
+                    "application/json": components["schemas"]["attachmentDownloadURLRequest"];
                 };
             };
             responses: {
@@ -12505,20 +12199,11 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetAttachmentDownloadURLResponse"];
+                        "application/json": components["schemas"]["sheetAttachmentURLsResponse"];
                     };
                 };
                 /** @description Bad Request */
                 400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12544,24 +12229,6 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
         delete?: never;
@@ -12577,10 +12244,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Export page as CSV
-         * @description Streams the page's rows as CSV.
-         */
+        /** Export a page as CSV */
         get: {
             parameters: {
                 query?: never;
@@ -12604,49 +12268,13 @@ export interface paths {
                         "text/csv": string;
                     };
                 };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "text/csv": components["schemas"]["errorResponse"];
                     };
                 };
             };
@@ -12668,10 +12296,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Add a field
-         * @description Adds a column to a page.
-         */
+        /** Create a field */
         post: {
             parameters: {
                 query?: never;
@@ -12684,10 +12309,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Field definition */
+            /** @description Field to create */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetFieldCreateRequest"];
+                    "application/json": components["schemas"]["createFieldRequest"];
                 };
             };
             responses: {
@@ -12697,7 +12322,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetField"];
+                        "application/json": components["schemas"]["sheetFieldView"];
                     };
                 };
                 /** @description Bad Request */
@@ -12709,44 +12334,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12772,10 +12361,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Archive a field
-         * @description Soft-archives a column. Rows are untouched — cells key by field ID.
-         */
+        /** Archive a field */
         delete: {
             parameters: {
                 query?: never;
@@ -12785,7 +12371,7 @@ export interface paths {
                     sheetID: string;
                     /** @description Page ID */
                     pageID: string;
-                    /** @description Field ID (fld_ prefixed) */
+                    /** @description Field ID */
                     fieldID: string;
                 };
                 cookie?: never;
@@ -12798,7 +12384,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["statusResponse"];
+                        "application/json": components["schemas"]["sheetStatusResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -12810,35 +12396,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12850,10 +12409,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /**
-         * Update a field
-         * @description Renames, retypes, repositions, or reconfigures a column.
-         */
+        /** Update a field */
         patch: {
             parameters: {
                 query?: never;
@@ -12863,7 +12419,7 @@ export interface paths {
                     sheetID: string;
                     /** @description Page ID */
                     pageID: string;
-                    /** @description Field ID (fld_ prefixed) */
+                    /** @description Field ID */
                     fieldID: string;
                 };
                 cookie?: never;
@@ -12871,7 +12427,7 @@ export interface paths {
             /** @description Fields to update */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetFieldUpdateRequest"];
+                    "application/json": components["schemas"]["updateFieldRequest"];
                 };
             };
             responses: {
@@ -12881,7 +12437,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetField"];
+                        "application/json": components["schemas"]["sheetFieldView"];
                     };
                 };
                 /** @description Bad Request */
@@ -12893,44 +12449,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12953,7 +12473,7 @@ export interface paths {
         put?: never;
         /**
          * Start a CSV import
-         * @description Creates a CSV import job for an uploaded object (sheet_import asset) and schedules the import worker.
+         * @description Starts an asynchronous CSV import from a drive object key into a page.
          */
         post: {
             parameters: {
@@ -12967,10 +12487,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Import definition */
+            /** @description Import to start */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetImportCreateRequest"];
+                    "application/json": components["schemas"]["createImportRequest"];
                 };
             };
             responses: {
@@ -12980,7 +12500,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetImportJob"];
+                        "application/json": components["schemas"]["sheetImportJobView"];
                     };
                 };
                 /** @description Bad Request */
@@ -12992,44 +12512,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13053,8 +12537,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List operations
-         * @description Returns the page's recent operations (undo log + audit trail), newest first.
+         * List page operations
+         * @description Returns a page's recent revertible operations, newest first.
          */
         get: {
             parameters: {
@@ -13079,47 +12563,11 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetOperationListResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetOperationsResponse"];
                     };
                 };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13148,7 +12596,7 @@ export interface paths {
         put?: never;
         /**
          * Revert an operation
-         * @description Applies the operation's inverse (undo). Reverts are single-level and cannot be repeated.
+         * @description Applies one operation's exact inverse. Single-level undo — a revert is not itself re-undoable.
          */
         post: {
             parameters: {
@@ -13164,12 +12612,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Optional mutation ID echo */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["sheetOperationRevertRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -13177,25 +12620,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetStatusResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -13209,24 +12634,6 @@ export interface paths {
                 };
                 /** @description Conflict */
                 409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13251,10 +12658,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Insert rows
-         * @description Inserts a batch of rows (max 500). Cell data is keyed by field ID.
-         */
+        /** Insert rows */
         post: {
             parameters: {
                 query?: never;
@@ -13270,7 +12674,7 @@ export interface paths {
             /** @description Rows to insert */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetRowsInsertRequest"];
+                    "application/json": components["schemas"]["insertRowsRequest"];
                 };
             };
             responses: {
@@ -13280,20 +12684,11 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetRowsResponse"];
+                        "application/json": components["schemas"]["sheetRowsResponse"];
                     };
                 };
                 /** @description Bad Request */
                 400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13310,39 +12705,9 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
-        /**
-         * Delete rows
-         * @description Soft-archives a batch of rows (max 500).
-         */
+        /** Delete rows */
         delete: {
             parameters: {
                 query?: never;
@@ -13355,10 +12720,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Row IDs */
+            /** @description Row IDs to archive */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetRowsDeleteRequest"];
+                    "application/json": components["schemas"]["deleteRowsRequest"];
                 };
             };
             responses: {
@@ -13368,7 +12733,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetRowsDeleteResponse"];
+                        "application/json": components["schemas"]["sheetArchivedRowsResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -13380,44 +12745,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13431,7 +12760,7 @@ export interface paths {
         head?: never;
         /**
          * Update rows
-         * @description Partial-merges cell data per field key for a batch of rows (max 500); a single cell edit is a batch of one row with one key. Setting position moves a row.
+         * @description Partial-merges each row's data by field key. A single cell edit is a batch of one.
          */
         patch: {
             parameters: {
@@ -13445,10 +12774,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Row patches */
+            /** @description Rows to update */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetRowsUpdateRequest"];
+                    "application/json": components["schemas"]["updateRowsRequest"];
                 };
             };
             responses: {
@@ -13458,7 +12787,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetRowsResponse"];
+                        "application/json": components["schemas"]["sheetRowsResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -13470,44 +12799,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13530,7 +12823,7 @@ export interface paths {
         put?: never;
         /**
          * Query rows
-         * @description Runs a filter-AST query with sorts, free-text search, keyset cursor, and optional relation hydration. Limit clamps at 200.
+         * @description Query a page's rows with a filter AST, sorts, search, and cursor paging.
          */
         post: {
             parameters: {
@@ -13547,7 +12840,7 @@ export interface paths {
             /** @description Query */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetRowsQueryRequest"];
+                    "application/json": components["schemas"]["Query"];
                 };
             };
             responses: {
@@ -13557,7 +12850,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetRowsQueryResponse"];
+                        "application/json": components["schemas"]["sheetRowsQueryResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -13569,35 +12862,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13620,10 +12886,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List views
-         * @description Returns the page's saved views.
-         */
+        /** List views */
         get: {
             parameters: {
                 query?: never;
@@ -13644,25 +12907,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetViewListResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetViewsResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -13674,31 +12919,10 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
         put?: never;
-        /**
-         * Create a view
-         * @description Saves a view (filters, sorts, hidden fields, column widths).
-         */
+        /** Create a view */
         post: {
             parameters: {
                 query?: never;
@@ -13711,10 +12935,10 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description View definition */
+            /** @description View to create */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetViewCreateRequest"];
+                    "application/json": components["schemas"]["createViewRequest"];
                 };
             };
             responses: {
@@ -13724,7 +12948,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetView"];
+                        "application/json": components["schemas"]["sheetViewSummary"];
                     };
                 };
                 /** @description Bad Request */
@@ -13736,35 +12960,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -13790,10 +12987,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Archive a view
-         * @description Soft-archives a saved view.
-         */
+        /** Archive a view */
         delete: {
             parameters: {
                 query?: never;
@@ -13816,25 +13010,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sheetStatusResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -13846,32 +13022,11 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
             };
         };
         options?: never;
         head?: never;
-        /**
-         * Update a view
-         * @description Updates a saved view's name, config, or position.
-         */
+        /** Update a view */
         patch: {
             parameters: {
                 query?: never;
@@ -13889,7 +13044,7 @@ export interface paths {
             /** @description Fields to update */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["sheetViewUpdateRequest"];
+                    "application/json": components["schemas"]["updateViewRequest"];
                 };
             };
             responses: {
@@ -13899,7 +13054,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SheetView"];
+                        "application/json": components["schemas"]["sheetViewSummary"];
                     };
                 };
                 /** @description Bad Request */
@@ -13911,35 +13066,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -15126,6 +14254,13 @@ export interface components {
         DiscoveryResult: {
             resources?: components["schemas"]["AvailableResource"][];
         };
+        Filter: {
+            and?: components["schemas"]["Filter"][];
+            field?: string;
+            op?: string;
+            or?: components["schemas"]["Filter"][];
+            value?: unknown;
+        };
         InstallSpec: {
             default_agent?: string;
             default_channel?: string;
@@ -15194,6 +14329,14 @@ export interface components {
             project_id?: string;
             slug?: string;
         };
+        Query: {
+            cursor?: string;
+            filter?: components["schemas"]["Filter"];
+            limit?: number;
+            resolve_relations?: boolean;
+            search?: string;
+            sorts?: components["schemas"]["Sort"][];
+        };
         ScheduleSpec: {
             cron?: string;
             kind?: string;
@@ -15218,115 +14361,9 @@ export interface components {
         SchemaRef: {
             $ref?: string;
         };
-        SheetAttachmentDownloadURLResponse: {
-            urls?: {
-                [key: string]: string;
-            };
-        };
-        SheetField: {
-            id?: string;
-            name?: string;
-            type?: string;
-            options?: {
-                [key: string]: unknown;
-            };
-            position?: number;
-        };
-        SheetImportJob: {
-            id?: string;
-            page_id?: string;
-            object_key?: string;
-            status?: string;
-            total_rows?: number;
-            processed_rows?: number;
-            error?: string;
-            created_at?: string;
-            updated_at?: string;
-        };
-        SheetListResponse: {
-            sheets?: components["schemas"]["SheetSummary"][];
-            /** @description Non-empty when more sheets follow; pass back as ?cursor= to continue */
-            next_cursor?: string;
-        };
-        SheetLiveTokenResponse: {
-            token?: string;
-            expires_at?: string;
-        };
-        SheetOperation: {
-            id?: string;
-            page_id?: string;
-            type?: string;
-            row_count?: number;
-            actor_agent_id?: string;
-            actor_user_id?: string;
-            source_session_id?: string;
-            reverted_at?: string;
-            created_at?: string;
-        };
-        SheetOperationListResponse: {
-            operations?: components["schemas"]["SheetOperation"][];
-        };
-        SheetPage: {
-            id?: string;
-            sheet_id?: string;
-            name?: string;
-            position?: number;
-            display_field_id?: string;
-            fields?: components["schemas"]["SheetField"][];
-            row_count?: number;
-        };
-        SheetRelationRef: {
-            id?: string;
-            label?: string;
-        };
-        SheetRow: {
-            id?: string;
-            data?: {
-                [key: string]: unknown;
-            };
-            position?: number;
-            created_at?: string;
-            updated_at?: string;
-        };
-        SheetRowsDeleteResponse: {
-            archived?: number;
-        };
-        SheetRowsQueryResponse: {
-            rows?: components["schemas"]["SheetRow"][];
-            fields?: components["schemas"]["SheetField"][];
-            next_cursor?: string;
-            relations?: {
-                [key: string]: components["schemas"]["SheetRelationRef"];
-            };
-        };
-        SheetRowsResponse: {
-            rows?: components["schemas"]["SheetRow"][];
-        };
-        SheetStructureResponse: {
-            sheet?: components["schemas"]["SheetSummary"];
-            pages?: components["schemas"]["SheetPage"][];
-        };
-        SheetSummary: {
-            id?: string;
-            slug?: string;
-            name?: string;
-            description?: string;
-            icon?: string;
-            created_at?: string;
-            updated_at?: string;
-        };
-        SheetView: {
-            id?: string;
-            page_id?: string;
-            name?: string;
-            type?: string;
-            config?: {
-                [key: string]: unknown;
-            };
-            position?: number;
-        };
-        SheetViewListResponse: {
-            views?: components["schemas"]["SheetView"][];
+        Sort: {
+            desc?: boolean;
+            field?: string;
         };
         ToolFilter: {
             allow?: string[];
@@ -15574,6 +14611,9 @@ export interface components {
             path?: string;
             updated_at?: string;
         };
+        attachmentDownloadURLRequest: {
+            keys?: string[];
+        };
         auditEntryResponse: {
             action?: string;
             created_at?: string;
@@ -15653,6 +14693,12 @@ export interface components {
         channelDetailResponse: {
             channel?: components["schemas"]["channelResponse"];
             members?: components["schemas"]["channelMemberResponse"][];
+        };
+        channelEnvironmentVariableResponse: {
+            name?: string;
+        };
+        channelEnvironmentVariablesResponse: {
+            data?: components["schemas"]["channelEnvironmentVariableResponse"][];
         };
         channelMemberRequest: {
             role?: string;
@@ -15781,6 +14827,10 @@ export interface components {
             typography?: number[];
             voice?: number[];
         };
+        createChannelEnvironmentVariableRequest: {
+            name?: string;
+            value?: string;
+        };
         createCheckoutRequest: {
             cancel_url?: string;
             /** @description e.g. "USD", "NGN" */
@@ -15813,9 +14863,20 @@ export interface components {
             refill_interval?: string;
             remaining?: number;
         };
-        createOrgEnvironmentVariableRequest: {
+        createFieldRequest: {
+            mutation_id?: string;
             name?: string;
-            value?: string;
+            options?: {
+                [key: string]: unknown;
+            };
+            type?: string;
+        };
+        createImportRequest: {
+            mutation_id?: string;
+            object_key?: string;
+            options?: {
+                [key: string]: unknown;
+            };
         };
         createOrgInviteRequest: {
             email?: string;
@@ -15823,6 +14884,11 @@ export interface components {
             team_ids?: string[];
         };
         createOrgRequest: {
+            name?: string;
+        };
+        createPageRequest: {
+            fields?: components["schemas"]["sheetFieldSpecRequest"][];
+            mutation_id?: string;
             name?: string;
         };
         createRAGSourceRequest: {
@@ -15845,10 +14911,18 @@ export interface components {
         };
         createSessionRequest: {
             agent_id?: string;
+            attachment_ids?: string[];
             channel_id?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             text?: string;
-            attachment_ids?: string[];
+        };
+        createSheetRequest: {
+            channel_id?: string;
+            description?: string;
+            icon?: string;
+            name?: string;
+            pages?: components["schemas"]["sheetPageSpecRequest"][];
+            slug?: string;
         };
         createTriggerRequest: {
             agent_id?: string;
@@ -15862,6 +14936,13 @@ export interface components {
         };
         createTriggerResponse: {
             trigger?: components["schemas"]["agentTriggerResponse"];
+        };
+        createViewRequest: {
+            config?: {
+                [key: string]: unknown;
+            };
+            name?: string;
+            type?: string;
         };
         credentialResponse: {
             auth_scheme?: string;
@@ -15921,6 +15002,10 @@ export interface components {
             revoked_at?: string;
             schema_snapshot?: unknown;
             updated_at?: string;
+        };
+        deleteRowsRequest: {
+            ids?: string[];
+            mutation_id?: string;
         };
         errorRate: {
             date?: string;
@@ -15999,6 +15084,16 @@ export interface components {
             amount_minor?: number;
             currency?: string;
             reference?: string;
+        };
+        insertRowRequest: {
+            data?: {
+                [key: string]: unknown;
+            };
+            position?: number;
+        };
+        insertRowsRequest: {
+            mutation_id?: string;
+            rows?: components["schemas"]["insertRowRequest"][];
         };
         integrationAvailableResponse: {
             created_at?: string;
@@ -16099,13 +15194,6 @@ export interface components {
             status?: string;
             structured_output?: boolean;
             tool_call?: boolean;
-        };
-        orgEnvironmentVariableResponse: {
-            env_key?: string;
-            name?: string;
-        };
-        orgEnvironmentVariablesResponse: {
-            data?: components["schemas"]["orgEnvironmentVariableResponse"][];
         };
         orgInviteAcceptResponse: {
             org_id?: string;
@@ -16711,131 +15799,128 @@ export interface components {
             cost_usd?: number;
             credits?: number;
         };
-        sheetAttachmentDownloadURLRequest: {
-            keys: string[];
+        sheetArchivedRowsResponse: {
+            archived?: number;
         };
-        sheetCreateRequest: {
-            name: string;
-            description?: string;
-            icon?: string;
-            slug?: string;
-            pages?: components["schemas"]["sheetPageSpec"][];
-        };
-        sheetFieldCreateRequest: {
-            name: string;
-            type: string;
-            options?: {
-                [key: string]: unknown;
-            };
-            mutation_id?: string;
-        };
-        sheetFieldSpec: {
-            name: string;
-            type: string;
-            options?: {
-                [key: string]: unknown;
+        sheetAttachmentURLsResponse: {
+            urls?: {
+                [key: string]: string;
             };
         };
-        sheetFieldUpdateRequest: {
+        sheetFieldSpecRequest: {
             name?: string;
+            options?: {
+                [key: string]: unknown;
+            };
             type?: string;
+        };
+        sheetFieldView: {
+            id?: string;
+            name?: string;
             options?: {
                 [key: string]: unknown;
             };
             position?: number;
-            mutation_id?: string;
+            type?: string;
         };
-        sheetFilterNode: {
-            and?: {
-                [key: string]: unknown;
-            }[];
-            or?: {
-                [key: string]: unknown;
-            }[];
-            field?: string;
-            op?: string;
-            value?: unknown;
+        sheetImportJobView: {
+            created_at?: string;
+            error?: string;
+            id?: string;
+            object_key?: string;
+            page_id?: string;
+            processed_rows?: number;
+            status?: string;
+            total_rows?: number;
+            updated_at?: string;
         };
-        sheetImportCreateRequest: {
-            object_key: string;
-            options?: {
-                [key: string]: unknown;
-            };
-            mutation_id?: string;
+        sheetListResponse: {
+            next_cursor?: string;
+            sheets?: components["schemas"]["sheetSummary"][];
         };
-        sheetOperationRevertRequest: {
-            mutation_id?: string;
+        sheetLiveTokenResponse: {
+            expires_at?: string;
+            token?: string;
         };
-        sheetPageCreateRequest: {
-            name: string;
-            fields?: components["schemas"]["sheetFieldSpec"][];
-            mutation_id?: string;
+        sheetOperationView: {
+            actor_agent_id?: string;
+            actor_user_id?: string;
+            created_at?: string;
+            id?: string;
+            page_id?: string;
+            reverted_at?: string;
+            row_count?: number;
+            source_session_id?: string;
+            type?: string;
         };
-        sheetPageSpec: {
-            name: string;
-            fields?: components["schemas"]["sheetFieldSpec"][];
+        sheetOperationsResponse: {
+            operations?: components["schemas"]["sheetOperationView"][];
         };
-        sheetPageUpdateRequest: {
+        sheetPageSpecRequest: {
+            fields?: components["schemas"]["sheetFieldSpecRequest"][];
+            name?: string;
+        };
+        sheetPageView: {
+            display_field_id?: string;
+            fields?: components["schemas"]["sheetFieldView"][];
+            id?: string;
             name?: string;
             position?: number;
-            display_field_id?: string;
-            mutation_id?: string;
+            row_count?: number;
+            sheet_id?: string;
         };
-        sheetRowInsert: {
-            data: {
-                [key: string]: unknown;
-            };
-            position?: number;
+        sheetRelationRef: {
+            id?: string;
+            label?: string;
         };
-        sheetRowUpdate: {
-            id: string;
+        sheetRowView: {
+            created_at?: string;
             data?: {
                 [key: string]: unknown;
             };
+            id?: string;
             position?: number;
+            updated_at?: string;
         };
-        sheetRowsDeleteRequest: {
-            ids: string[];
-            mutation_id?: string;
+        sheetRowsQueryResponse: {
+            fields?: components["schemas"]["sheetFieldView"][];
+            next_cursor?: string;
+            relations?: {
+                [key: string]: components["schemas"]["sheetRelationRef"];
+            };
+            rows?: components["schemas"]["sheetRowView"][];
         };
-        sheetRowsInsertRequest: {
-            rows: components["schemas"]["sheetRowInsert"][];
-            mutation_id?: string;
+        sheetRowsResponse: {
+            rows?: components["schemas"]["sheetRowView"][];
         };
-        sheetRowsQueryRequest: {
-            filter?: components["schemas"]["sheetFilterNode"];
-            search?: string;
-            sorts?: components["schemas"]["sheetSort"][];
-            cursor?: string;
-            limit?: number;
-            resolve_relations?: boolean;
+        sheetStatusResponse: {
+            status?: string;
         };
-        sheetRowsUpdateRequest: {
-            rows: components["schemas"]["sheetRowUpdate"][];
-            mutation_id?: string;
+        sheetStructureResponse: {
+            pages?: components["schemas"]["sheetPageView"][];
+            sheet?: components["schemas"]["sheetSummary"];
         };
-        sheetSort: {
-            field: string;
-            desc?: boolean;
-        };
-        sheetUpdateRequest: {
-            name?: string;
+        sheetSummary: {
+            created_at?: string;
             description?: string;
             icon?: string;
-        };
-        sheetViewCreateRequest: {
-            name: string;
-            type?: string;
-            config?: {
-                [key: string]: unknown;
-            };
-        };
-        sheetViewUpdateRequest: {
+            id?: string;
             name?: string;
+            slug?: string;
+            updated_at?: string;
+        };
+        sheetViewSummary: {
             config?: {
                 [key: string]: unknown;
             };
+            id?: string;
+            name?: string;
+            page_id?: string;
             position?: number;
+            type?: string;
+        };
+        sheetViewsResponse: {
+            views?: components["schemas"]["sheetViewSummary"][];
         };
         signUploadRequest: {
             asset_type?: string;
@@ -17088,6 +16173,10 @@ export interface components {
         updateAgentModelResponse: {
             agent?: components["schemas"]["agentResponse"];
         };
+        updateChannelEnvironmentVariableRequest: {
+            name?: string;
+            value?: string;
+        };
         updateConnectionResourcesRequest: {
             resources?: {
                 [key: string]: components["schemas"]["agentConnectionResourceSelection"][];
@@ -17098,9 +16187,14 @@ export interface components {
             connection_id?: string;
             resources?: components["schemas"]["JSON"];
         };
-        updateOrgEnvironmentVariableRequest: {
+        updateFieldRequest: {
+            mutation_id?: string;
             name?: string;
-            value?: string;
+            options?: {
+                [key: string]: unknown;
+            };
+            position?: number;
+            type?: string;
         };
         updateOrgRequest: {
             logo_url?: string;
@@ -17108,6 +16202,12 @@ export interface components {
             prompt_company?: string;
             sandbox_exposed_ports?: number[];
             website?: string;
+        };
+        updatePageRequest: {
+            display_field_id?: string;
+            mutation_id?: string;
+            name?: string;
+            position?: number;
         };
         updateProfileRequest: {
             avatar_url?: string;
@@ -17124,6 +16224,17 @@ export interface components {
             refresh_freq_seconds?: number;
             status?: string;
         };
+        updateRowRequest: {
+            data?: {
+                [key: string]: unknown;
+            };
+            id?: string;
+            position?: number;
+        };
+        updateRowsRequest: {
+            mutation_id?: string;
+            rows?: components["schemas"]["updateRowRequest"][];
+        };
         updateSandboxTemplateRequest: {
             build_commands?: string[];
             config?: components["schemas"]["JSON"];
@@ -17137,6 +16248,11 @@ export interface components {
             status?: string;
             vector_image_model?: string;
         };
+        updateSheetRequest: {
+            description?: string;
+            icon?: string;
+            name?: string;
+        };
         updateTriggerRequest: {
             agent_id?: string;
             connection_id?: string;
@@ -17147,6 +16263,13 @@ export interface components {
             provider?: string;
             trigger_key?: string;
             trigger_value?: string;
+        };
+        updateViewRequest: {
+            config?: {
+                [key: string]: unknown;
+            };
+            name?: string;
+            position?: number;
         };
         upsertAdminIntegrationRequest: {
             credentials?: components["schemas"]["Credentials"];

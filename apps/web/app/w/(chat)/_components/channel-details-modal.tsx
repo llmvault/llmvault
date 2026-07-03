@@ -19,11 +19,12 @@ import {
   channelRouteSlug,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AgentSelect } from "@/components/agent-select"
+import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
 
 type ChannelMember = components["schemas"]["channelMemberResponse"]
 type OrgMember = components["schemas"]["orgMemberResponse"]
 type AgentListItem = components["schemas"]["agentListItem"]
-type DetailTab = "about" | "members"
+type DetailTab = "about" | "members" | "env"
 
 export function ChannelDetailsModal({
   channel,
@@ -263,6 +264,11 @@ function ChannelDetailsModalContent({
                   label={memberCount ? `Members ${memberCount}` : "Members"}
                   onClick={() => setTab("members")}
                 />
+                <TabButton
+                  active={tab === "env"}
+                  label="Env vars"
+                  onClick={() => setTab("env")}
+                />
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto bg-surface-secondary/40 px-6 py-6">
@@ -295,12 +301,14 @@ function ChannelDetailsModalContent({
                     onSaveName={saveName}
                     copied={copied}
                   />
-                ) : (
+                ) : tab === "members" ? (
                   <MembersPanel
                     members={members}
                     membersByID={membersByID}
                     loading={channelQuery.isLoading}
                   />
+                ) : (
+                  <ChannelEnvironmentVariablesPanel channelId={channelID} />
                 )}
               </div>
             </div>

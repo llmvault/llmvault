@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -18,17 +17,12 @@ import (
 )
 
 type OrgHandler struct {
-	db        *gorm.DB
-	enq       enqueue.TaskEnqueuer
-	envEncKey *crypto.SymmetricKey
+	db  *gorm.DB
+	enq enqueue.TaskEnqueuer
 }
 
 func NewOrgHandler(db *gorm.DB, enq enqueue.TaskEnqueuer) *OrgHandler {
 	return &OrgHandler{db: db, enq: enq}
-}
-
-func (h *OrgHandler) SetEnvironmentEncryptionKey(key *crypto.SymmetricKey) {
-	h.envEncKey = key
 }
 
 // planFor looks up the full plan by slug. Returns nil if the slug has no

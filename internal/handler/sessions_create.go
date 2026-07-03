@@ -98,7 +98,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		logPhase("hydrate initial message attachments", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
-	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, session.Model, session.ReasoningEffort)
+	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, session.ChannelID, session.Model, session.ReasoningEffort)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
 		logging.Capture(ctx, err)

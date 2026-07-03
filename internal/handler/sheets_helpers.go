@@ -48,6 +48,56 @@ type sheetStructureResponse struct {
 	Pages []sheetPageView `json:"pages"`
 }
 
+// Response DTOs below exist for OpenAPI generation (swaggo); the handlers write
+// the same shapes as map literals.
+type sheetListResponse struct {
+	Sheets     []sheetSummary `json:"sheets"`
+	NextCursor string         `json:"next_cursor"`
+}
+
+type sheetRowsResponse struct {
+	Rows []sheetRowView `json:"rows"`
+}
+
+type sheetRowsQueryResponse struct {
+	Rows       []sheetRowView              `json:"rows"`
+	Fields     []sheetFieldView            `json:"fields"`
+	NextCursor string                      `json:"next_cursor"`
+	Relations  map[string]sheetRelationRef `json:"relations"`
+}
+
+// sheetRelationRef is a hydrated relation chip: a linked row id and its display
+// label, returned by QueryRows when the query asks to resolve relations.
+type sheetRelationRef struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+type sheetViewsResponse struct {
+	Views []sheetViewSummary `json:"views"`
+}
+
+type sheetOperationsResponse struct {
+	Operations []sheetOperationView `json:"operations"`
+}
+
+type sheetStatusResponse struct {
+	Status string `json:"status"`
+}
+
+type sheetAttachmentURLsResponse struct {
+	URLs map[string]string `json:"urls"`
+}
+
+type sheetArchivedRowsResponse struct {
+	Archived int64 `json:"archived"`
+}
+
+type sheetLiveTokenResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expires_at"`
+}
+
 type sheetRowView struct {
 	ID        string         `json:"id"`
 	Data      map[string]any `json:"data"`

@@ -177,8 +177,8 @@ export function SessionView({
   }
 
   return (
-    <div className="grid h-full min-w-0 grid-rows-[minmax(0,0.8fr)_auto_minmax(0,1.2fr)] px-2">
-      <div />
+    <div className="flex h-full min-w-0 flex-col px-2">
+      <div className="h-48 shrink-0" />
       <div className="flex w-full flex-col gap-8">
         <div className="flex flex-col items-center gap-4 text-center">
           <LogoMark className="h-12 w-12" />
@@ -242,7 +242,7 @@ export function SessionView({
           }
         />
       </div>
-      <div className="min-h-0 overflow-y-auto pt-6 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-6 pb-4">
         <PluginExamplePrompts
           agentId={selectedAgent?.id}
           onSelect={(prompt) => setComposerText(draftKey, prompt)}

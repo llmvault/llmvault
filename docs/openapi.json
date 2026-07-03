@@ -4731,6 +4731,360 @@
         }
       }
     },
+    "/v1/channels/{id}/environment-variables": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists environment variables scoped to a channel. Values are not returned.",
+        "tags": [
+          "channels"
+        ],
+        "summary": "List channel environment variables",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/channelEnvironmentVariablesResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Stores an environment variable scoped to a channel. It is injected into sessions on that channel as __ENV__<NAME> and exposed to the workload as <NAME>.",
+        "tags": [
+          "channels"
+        ],
+        "summary": "Create a channel environment variable",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createChannelEnvironmentVariableRequest"
+              }
+            }
+          },
+          "description": "Environment variable",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/channelEnvironmentVariableResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/channels/{id}/environment-variables/{name}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Removes an environment variable scoped to a channel.",
+        "tags": [
+          "channels"
+        ],
+        "summary": "Delete a channel environment variable",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Environment variable name",
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Renames and/or updates the value of a channel environment variable.",
+        "tags": [
+          "channels"
+        ],
+        "summary": "Update a channel environment variable",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Environment variable name",
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateChannelEnvironmentVariableRequest"
+              }
+            }
+          },
+          "description": "Fields to patch",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/channelEnvironmentVariableResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/channels/{id}/join": {
       "post": {
         "security": [
@@ -7622,290 +7976,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/orgs/current/environment-variables": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists custom environment variables stored on the Hivy agent. Values are not returned.",
-        "tags": [
-          "orgs"
-        ],
-        "summary": "List organization environment variables",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/orgEnvironmentVariablesResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.",
-        "tags": [
-          "orgs"
-        ],
-        "summary": "Create an organization environment variable",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/createOrgEnvironmentVariableRequest"
-              }
-            }
-          },
-          "description": "Environment variable",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/orgEnvironmentVariableResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/orgs/current/environment-variables/{name}": {
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Removes a custom environment variable from the Hivy agent.",
-        "tags": [
-          "orgs"
-        ],
-        "summary": "Delete an organization environment variable",
-        "parameters": [
-          {
-            "description": "Environment variable name",
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Renames and/or updates a custom environment variable stored on the Hivy agent.",
-        "tags": [
-          "orgs"
-        ],
-        "summary": "Update an organization environment variable",
-        "parameters": [
-          {
-            "description": "Environment variable name",
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/updateOrgEnvironmentVariableRequest"
-              }
-            }
-          },
-          "description": "Fields to patch",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/orgEnvironmentVariableResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -11929,35 +11999,41 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns the organization's active sheets, newest-updated first.",
+        "description": "Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.",
         "tags": [
           "sheets"
         ],
-        "summary": "List sheets",
+        "summary": "List sheets in a channel",
         "parameters": [
           {
-            "description": "Filter by name substring",
-            "name": "search",
+            "description": "Channel ID to list sheets for",
+            "name": "channel_id",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
           },
           {
-            "description": "Max sheets to return (clamped to 200)",
+            "description": "Case-insensitive name substring filter",
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size (max 100)",
             "name": "limit",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "integer"
             }
           },
           {
-            "description": "Opaque cursor from a previous response's next_cursor; continues the walk",
+            "description": "Pagination cursor",
             "name": "cursor",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "string"
             }
@@ -11969,72 +12045,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetListResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Creates a sheet with optional inline pages and fields. A default page is created when none are given.",
-        "tags": [
-          "sheets"
-        ],
-        "summary": "Create a sheet",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetCreateRequest"
-              }
-            }
-          },
-          "description": "Sheet definition",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SheetStructureResponse"
+                  "$ref": "#/components/schemas/sheetListResponse"
                 }
               }
             }
@@ -12059,8 +12070,53 @@
               }
             }
           },
-          "422": {
-            "description": "Unprocessable Entity",
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.",
+        "tags": [
+          "sheets"
+        ],
+        "summary": "Create a sheet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createSheetRequest"
+              }
+            }
+          },
+          "description": "Sheet to create (channel_id required)",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sheetStructureResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -12069,8 +12125,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -12079,8 +12135,8 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -12099,11 +12155,11 @@
             "BearerAuth": []
           }
         ],
-        "description": "Poll fallback for CSV import progress.",
+        "description": "Returns import job status. The caller must be able to use the job's sheet's channel.",
         "tags": [
           "sheets"
         ],
-        "summary": "Get import job status",
+        "summary": "Get a CSV import job",
         "parameters": [
           {
             "description": "Import job ID",
@@ -12121,17 +12177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetImportJob"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetImportJobView"
                 }
               }
             }
@@ -12148,26 +12194,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -12186,11 +12212,11 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns the sheet with all active pages, their fields, and row counts \u2014 the UI bootstrap call.",
+        "description": "Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.",
         "tags": [
           "sheets"
         ],
-        "summary": "Get sheet structure",
+        "summary": "Get a sheet",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -12208,17 +12234,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetStructureResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetStructureResponse"
                 }
               }
             }
@@ -12235,122 +12251,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Renames a sheet or updates its description or icon.",
-        "tags": [
-          "sheets"
-        ],
-        "summary": "Update a sheet",
-        "parameters": [
-          {
-            "description": "Sheet ID",
-            "name": "sheetID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetUpdateRequest"
-              }
-            }
-          },
-          "description": "Fields to update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SheetSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -12367,7 +12267,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Soft-archives a sheet.",
+        "description": "Archives a sheet (soft delete). The caller must be able to use the sheet's channel.",
         "tags": [
           "sheets"
         ],
@@ -12389,17 +12289,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetStatusResponse"
                 }
               }
             }
@@ -12416,26 +12306,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -12445,20 +12315,18 @@
             }
           }
         }
-      }
-    },
-    "/v1/sheets/{sheetID}/live": {
-      "get": {
+      },
+      "patch": {
         "security": [
           {
             "BearerAuth": []
           }
         ],
-        "description": "Server-sent events stream of sheet mutations (rows_changed, fields_changed, pages_changed, import_progress, operation_reverted). Authenticated with the live token (Bearer header or token query param), not the normal session auth.",
+        "description": "Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.",
         "tags": [
           "sheets"
         ],
-        "summary": "Sheet live event stream",
+        "summary": "Update a sheet",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -12468,24 +12336,26 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "description": "Live token (alternative to the Authorization header)",
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateSheetRequest"
+              }
+            }
+          },
+          "description": "Fields to update",
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "SSE stream",
+            "description": "OK",
             "content": {
-              "text/event-stream": {
+              "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/sheetSummary"
                 }
               }
             }
@@ -12510,28 +12380,8 @@
               }
             }
           },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -12550,11 +12400,11 @@
             "BearerAuth": []
           }
         ],
-        "description": "Mints a short-lived (10 minute) sheets:read JWT the browser presents when connecting directly to the sheet's SSE stream.",
+        "description": "Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.",
         "tags": [
           "sheets"
         ],
-        "summary": "Mint a sheet live token",
+        "summary": "Mint a sheet live-stream token",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -12572,17 +12422,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetLiveTokenResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetLiveTokenResponse"
                 }
               }
             }
@@ -12599,26 +12439,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -12637,11 +12457,10 @@
             "BearerAuth": []
           }
         ],
-        "description": "Adds a page (tab) with optional inline fields.",
         "tags": [
           "sheets"
         ],
-        "summary": "Add a page",
+        "summary": "Create a page",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -12657,11 +12476,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetPageCreateRequest"
+                "$ref": "#/components/schemas/createPageRequest"
               }
             }
           },
-          "description": "Page definition",
+          "description": "Page to create",
           "required": true
         },
         "responses": {
@@ -12670,7 +12489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetPage"
+                  "$ref": "#/components/schemas/sheetPageView"
                 }
               }
             }
@@ -12685,48 +12504,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -12739,118 +12518,12 @@
       }
     },
     "/v1/sheets/{sheetID}/pages/{pageID}": {
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Renames a page, moves it (position), or sets its display field.",
-        "tags": [
-          "sheets"
-        ],
-        "summary": "Update a page",
-        "parameters": [
-          {
-            "description": "Sheet ID",
-            "name": "sheetID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Page ID",
-            "name": "pageID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetPageUpdateRequest"
-              }
-            }
-          },
-          "description": "Fields to update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SheetPage"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "delete": {
         "security": [
           {
             "BearerAuth": []
           }
         ],
-        "description": "Soft-archives a page.",
         "tags": [
           "sheets"
         ],
@@ -12881,27 +12554,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetStatusResponse"
                 }
               }
             }
@@ -12915,42 +12568,19 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
           }
         }
-      }
-    },
-    "/v1/sheets/{sheetID}/pages/{pageID}/attachments/download-url": {
-      "post": {
+      },
+      "patch": {
         "security": [
           {
             "BearerAuth": []
           }
         ],
-        "description": "Returns presigned GET URLs for attachment object keys. Every key is re-checked for org ownership.",
         "tags": [
           "sheets"
         ],
-        "summary": "Mint attachment download URLs",
+        "summary": "Update a page",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -12975,11 +12605,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetAttachmentDownloadURLRequest"
+                "$ref": "#/components/schemas/updatePageRequest"
               }
             }
           },
-          "description": "Object keys",
+          "description": "Fields to update",
           "required": true
         },
         "responses": {
@@ -12988,7 +12618,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetAttachmentDownloadURLResponse"
+                  "$ref": "#/components/schemas/sheetPageView"
                 }
               }
             }
@@ -13003,8 +12633,74 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sheets/{sheetID}/pages/{pageID}/attachments/download-url": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "sheets"
+        ],
+        "summary": "Presign attachment downloads",
+        "parameters": [
+          {
+            "description": "Sheet ID",
+            "name": "sheetID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page ID",
+            "name": "pageID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/attachmentDownloadURLRequest"
+              }
+            }
+          },
+          "description": "Object keys to presign (1-50)",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sheetAttachmentURLsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -13032,26 +12728,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -13063,11 +12739,10 @@
             "BearerAuth": []
           }
         ],
-        "description": "Streams the page's rows as CSV.",
         "tags": [
           "sheets"
         ],
-        "summary": "Export page as CSV",
+        "summary": "Export a page as CSV",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -13099,50 +12774,10 @@
               }
             }
           },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
             "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
+              "text/csv": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
                 }
@@ -13159,11 +12794,10 @@
             "BearerAuth": []
           }
         ],
-        "description": "Adds a column to a page.",
         "tags": [
           "sheets"
         ],
-        "summary": "Add a field",
+        "summary": "Create a field",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -13188,11 +12822,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetFieldCreateRequest"
+                "$ref": "#/components/schemas/createFieldRequest"
               }
             }
           },
-          "description": "Field definition",
+          "description": "Field to create",
           "required": true
         },
         "responses": {
@@ -13201,7 +12835,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetField"
+                  "$ref": "#/components/schemas/sheetFieldView"
                 }
               }
             }
@@ -13216,48 +12850,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -13270,137 +12864,12 @@
       }
     },
     "/v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}": {
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Renames, retypes, repositions, or reconfigures a column.",
-        "tags": [
-          "sheets"
-        ],
-        "summary": "Update a field",
-        "parameters": [
-          {
-            "description": "Sheet ID",
-            "name": "sheetID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Page ID",
-            "name": "pageID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Field ID (fld_ prefixed)",
-            "name": "fieldID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetFieldUpdateRequest"
-              }
-            }
-          },
-          "description": "Fields to update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SheetField"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "delete": {
         "security": [
           {
             "BearerAuth": []
           }
         ],
-        "description": "Soft-archives a column. Rows are untouched \u2014 cells key by field ID.",
         "tags": [
           "sheets"
         ],
@@ -13425,7 +12894,7 @@
             }
           },
           {
-            "description": "Field ID (fld_ prefixed)",
+            "description": "Field ID",
             "name": "fieldID",
             "in": "path",
             "required": true,
@@ -13440,23 +12909,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
+                  "$ref": "#/components/schemas/sheetStatusResponse"
                 }
               }
             }
           },
           "400": {
             "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -13474,9 +12933,72 @@
                 }
               }
             }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "sheets"
+        ],
+        "summary": "Update a field",
+        "parameters": [
+          {
+            "description": "Sheet ID",
+            "name": "sheetID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           },
-          "500": {
-            "description": "Internal Server Error",
+          {
+            "description": "Page ID",
+            "name": "pageID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Field ID",
+            "name": "fieldID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateFieldRequest"
+              }
+            }
+          },
+          "description": "Fields to update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sheetFieldView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -13485,8 +13007,8 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -13505,7 +13027,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Creates a CSV import job for an uploaded object (sheet_import asset) and schedules the import worker.",
+        "description": "Starts an asynchronous CSV import from a drive object key into a page.",
         "tags": [
           "sheets"
         ],
@@ -13534,11 +13056,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetImportCreateRequest"
+                "$ref": "#/components/schemas/createImportRequest"
               }
             }
           },
-          "description": "Import definition",
+          "description": "Import to start",
           "required": true
         },
         "responses": {
@@ -13547,7 +13069,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetImportJob"
+                  "$ref": "#/components/schemas/sheetImportJobView"
                 }
               }
             }
@@ -13562,48 +13084,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -13622,11 +13104,11 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns the page's recent operations (undo log + audit trail), newest first.",
+        "description": "Returns a page's recent revertible operations, newest first.",
         "tags": [
           "sheets"
         ],
-        "summary": "List operations",
+        "summary": "List page operations",
         "parameters": [
           {
             "description": "Sheet ID",
@@ -13650,7 +13132,6 @@
             "description": "Max operations to return",
             "name": "limit",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "integer"
             }
@@ -13662,53 +13143,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetOperationListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetOperationsResponse"
                 }
               }
             }
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -13727,7 +13168,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Applies the operation's inverse (undo). Reverts are single-level and cannot be repeated.",
+        "description": "Applies one operation's exact inverse. Single-level undo \u2014 a revert is not itself re-undoable.",
         "tags": [
           "sheets"
         ],
@@ -13761,44 +13202,13 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetOperationRevertRequest"
-              }
-            }
-          },
-          "description": "Optional mutation ID echo",
-          "required": false
-        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetStatusResponse"
                 }
               }
             }
@@ -13822,26 +13232,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -13853,7 +13243,6 @@
             "BearerAuth": []
           }
         ],
-        "description": "Inserts a batch of rows (max 500). Cell data is keyed by field ID.",
         "tags": [
           "sheets"
         ],
@@ -13882,7 +13271,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetRowsInsertRequest"
+                "$ref": "#/components/schemas/insertRowsRequest"
               }
             }
           },
@@ -13895,7 +13284,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetRowsResponse"
+                  "$ref": "#/components/schemas/sheetRowsResponse"
                 }
               }
             }
@@ -13910,163 +13299,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Partial-merges cell data per field key for a batch of rows (max 500); a single cell edit is a batch of one row with one key. Setting position moves a row.",
-        "tags": [
-          "sheets"
-        ],
-        "summary": "Update rows",
-        "parameters": [
-          {
-            "description": "Sheet ID",
-            "name": "sheetID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Page ID",
-            "name": "pageID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetRowsUpdateRequest"
-              }
-            }
-          },
-          "description": "Row patches",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SheetRowsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -14083,7 +13317,6 @@
             "BearerAuth": []
           }
         ],
-        "description": "Soft-archives a batch of rows (max 500).",
         "tags": [
           "sheets"
         ],
@@ -14112,11 +13345,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetRowsDeleteRequest"
+                "$ref": "#/components/schemas/deleteRowsRequest"
               }
             }
           },
-          "description": "Row IDs",
+          "description": "Row IDs to archive",
           "required": true
         },
         "responses": {
@@ -14125,23 +13358,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetRowsDeleteResponse"
+                  "$ref": "#/components/schemas/sheetArchivedRowsResponse"
                 }
               }
             }
           },
           "400": {
             "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -14159,9 +13382,64 @@
                 }
               }
             }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Partial-merges each row's data by field key. A single cell edit is a batch of one.",
+        "tags": [
+          "sheets"
+        ],
+        "summary": "Update rows",
+        "parameters": [
+          {
+            "description": "Sheet ID",
+            "name": "sheetID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           },
-          "422": {
-            "description": "Unprocessable Entity",
+          {
+            "description": "Page ID",
+            "name": "pageID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateRowsRequest"
+              }
+            }
+          },
+          "description": "Rows to update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sheetRowsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -14170,18 +13448,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -14200,7 +13468,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Runs a filter-AST query with sorts, free-text search, keyset cursor, and optional relation hydration. Limit clamps at 200.",
+        "description": "Query a page's rows with a filter AST, sorts, search, and cursor paging.",
         "tags": [
           "sheets"
         ],
@@ -14229,7 +13497,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetRowsQueryRequest"
+                "$ref": "#/components/schemas/Query"
               }
             }
           },
@@ -14242,7 +13510,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetRowsQueryResponse"
+                  "$ref": "#/components/schemas/sheetRowsQueryResponse"
                 }
               }
             }
@@ -14257,38 +13525,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -14307,7 +13545,6 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns the page's saved views.",
         "tags": [
           "sheets"
         ],
@@ -14338,53 +13575,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetViewListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sheetViewsResponse"
                 }
               }
             }
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -14401,7 +13598,6 @@
             "BearerAuth": []
           }
         ],
-        "description": "Saves a view (filters, sorts, hidden fields, column widths).",
         "tags": [
           "sheets"
         ],
@@ -14430,11 +13626,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/sheetViewCreateRequest"
+                "$ref": "#/components/schemas/createViewRequest"
               }
             }
           },
-          "description": "View definition",
+          "description": "View to create",
           "required": true
         },
         "responses": {
@@ -14443,7 +13639,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetView"
+                  "$ref": "#/components/schemas/sheetViewSummary"
                 }
               }
             }
@@ -14458,38 +13654,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -14502,127 +13668,12 @@
       }
     },
     "/v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}": {
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Updates a saved view's name, config, or position.",
-        "tags": [
-          "sheets"
-        ],
-        "summary": "Update a view",
-        "parameters": [
-          {
-            "description": "Sheet ID",
-            "name": "sheetID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Page ID",
-            "name": "pageID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "View ID",
-            "name": "viewID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sheetViewUpdateRequest"
-              }
-            }
-          },
-          "description": "Fields to update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SheetView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "delete": {
         "security": [
           {
             "BearerAuth": []
           }
         ],
-        "description": "Soft-archives a saved view.",
         "tags": [
           "sheets"
         ],
@@ -14662,7 +13713,80 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
+                  "$ref": "#/components/schemas/sheetStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "sheets"
+        ],
+        "summary": "Update a view",
+        "parameters": [
+          {
+            "description": "Sheet ID",
+            "name": "sheetID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page ID",
+            "name": "pageID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "View ID",
+            "name": "viewID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateViewRequest"
+              }
+            }
+          },
+          "description": "Fields to update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sheetViewSummary"
                 }
               }
             }
@@ -14677,38 +13801,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -16241,6 +15335,30 @@
           }
         }
       },
+      "Filter": {
+        "type": "object",
+        "properties": {
+          "and": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "field": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string"
+          },
+          "or": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "value": {}
+        }
+      },
       "InstallSpec": {
         "type": "object",
         "properties": {
@@ -16459,6 +15577,32 @@
           }
         }
       },
+      "Query": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/Filter"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "resolve_relations": {
+            "type": "boolean"
+          },
+          "search": {
+            "type": "string"
+          },
+          "sorts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sort"
+            }
+          }
+        }
+      },
       "ScheduleSpec": {
         "type": "object",
         "properties": {
@@ -16524,317 +15668,14 @@
           }
         }
       },
-      "SheetAttachmentDownloadURLResponse": {
+      "Sort": {
         "type": "object",
         "properties": {
-          "urls": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "SheetField": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "desc": {
+            "type": "boolean"
+          },
+          "field": {
             "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "options": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "position": {
-            "type": "number"
-          }
-        }
-      },
-      "SheetImportJob": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "page_id": {
-            "type": "string"
-          },
-          "object_key": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "total_rows": {
-            "type": "integer"
-          },
-          "processed_rows": {
-            "type": "integer"
-          },
-          "error": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        }
-      },
-      "SheetListResponse": {
-        "type": "object",
-        "properties": {
-          "sheets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetSummary"
-            }
-          },
-          "next_cursor": {
-            "type": "string",
-            "description": "Non-empty when more sheets follow; pass back as ?cursor= to continue"
-          }
-        }
-      },
-      "SheetLiveTokenResponse": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "expires_at": {
-            "type": "string"
-          }
-        }
-      },
-      "SheetOperation": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "page_id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "row_count": {
-            "type": "integer"
-          },
-          "actor_agent_id": {
-            "type": "string"
-          },
-          "actor_user_id": {
-            "type": "string"
-          },
-          "source_session_id": {
-            "type": "string"
-          },
-          "reverted_at": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          }
-        }
-      },
-      "SheetOperationListResponse": {
-        "type": "object",
-        "properties": {
-          "operations": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetOperation"
-            }
-          }
-        }
-      },
-      "SheetPage": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sheet_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "position": {
-            "type": "number"
-          },
-          "display_field_id": {
-            "type": "string"
-          },
-          "fields": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetField"
-            }
-          },
-          "row_count": {
-            "type": "integer"
-          }
-        }
-      },
-      "SheetRelationRef": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          }
-        }
-      },
-      "SheetRow": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "position": {
-            "type": "number"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        }
-      },
-      "SheetRowsDeleteResponse": {
-        "type": "object",
-        "properties": {
-          "archived": {
-            "type": "integer"
-          }
-        }
-      },
-      "SheetRowsQueryResponse": {
-        "type": "object",
-        "properties": {
-          "rows": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetRow"
-            }
-          },
-          "fields": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetField"
-            }
-          },
-          "next_cursor": {
-            "type": "string"
-          },
-          "relations": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/SheetRelationRef"
-            }
-          }
-        }
-      },
-      "SheetRowsResponse": {
-        "type": "object",
-        "properties": {
-          "rows": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetRow"
-            }
-          }
-        }
-      },
-      "SheetStructureResponse": {
-        "type": "object",
-        "properties": {
-          "sheet": {
-            "$ref": "#/components/schemas/SheetSummary"
-          },
-          "pages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetPage"
-            }
-          }
-        }
-      },
-      "SheetSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "icon": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        }
-      },
-      "SheetView": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "page_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "config": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "position": {
-            "type": "number"
-          }
-        }
-      },
-      "SheetViewListResponse": {
-        "type": "object",
-        "properties": {
-          "views": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetView"
-            }
           }
         }
       },
@@ -17601,6 +16442,17 @@
           }
         }
       },
+      "attachmentDownloadURLRequest": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "auditEntryResponse": {
         "type": "object",
         "properties": {
@@ -17851,6 +16703,25 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/channelMemberResponse"
+            }
+          }
+        }
+      },
+      "channelEnvironmentVariableResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "channelEnvironmentVariablesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/channelEnvironmentVariableResponse"
             }
           }
         }
@@ -18253,6 +17124,17 @@
           }
         }
       },
+      "createChannelEnvironmentVariableRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "createCheckoutRequest": {
         "type": "object",
         "properties": {
@@ -18339,14 +17221,36 @@
           }
         }
       },
-      "createOrgEnvironmentVariableRequest": {
+      "createFieldRequest": {
         "type": "object",
         "properties": {
+          "mutation_id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
-          "value": {
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "type": {
             "type": "string"
+          }
+        }
+      },
+      "createImportRequest": {
+        "type": "object",
+        "properties": {
+          "mutation_id": {
+            "type": "string"
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
           }
         }
       },
@@ -18370,6 +17274,23 @@
       "createOrgRequest": {
         "type": "object",
         "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "createPageRequest": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetFieldSpecRequest"
+            }
+          },
+          "mutation_id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           }
@@ -18436,6 +17357,12 @@
           "agent_id": {
             "type": "string"
           },
+          "attachment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "channel_id": {
             "type": "string"
           },
@@ -18444,12 +17371,32 @@
           },
           "text": {
             "type": "string"
+          }
+        }
+      },
+      "createSheetRequest": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
           },
-          "attachment_ids": {
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pages": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/sheetPageSpecRequest"
             }
+          },
+          "slug": {
+            "type": "string"
           }
         }
       },
@@ -18487,6 +17434,21 @@
         "properties": {
           "trigger": {
             "$ref": "#/components/schemas/agentTriggerResponse"
+          }
+        }
+      },
+      "createViewRequest": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
           }
         }
       },
@@ -18652,6 +17614,20 @@
           },
           "schema_snapshot": {},
           "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "deleteRowsRequest": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mutation_id": {
             "type": "string"
           }
         }
@@ -18879,6 +17855,32 @@
           },
           "reference": {
             "type": "string"
+          }
+        }
+      },
+      "insertRowRequest": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "position": {
+            "type": "number"
+          }
+        }
+      },
+      "insertRowsRequest": {
+        "type": "object",
+        "properties": {
+          "mutation_id": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/insertRowRequest"
+            }
           }
         }
       },
@@ -19178,28 +18180,6 @@
           },
           "tool_call": {
             "type": "boolean"
-          }
-        }
-      },
-      "orgEnvironmentVariableResponse": {
-        "type": "object",
-        "properties": {
-          "env_key": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "orgEnvironmentVariablesResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/orgEnvironmentVariableResponse"
-            }
           }
         }
       },
@@ -21064,342 +20044,299 @@
           }
         }
       },
-      "sheetAttachmentDownloadURLRequest": {
+      "sheetArchivedRowsResponse": {
         "type": "object",
         "properties": {
-          "keys": {
-            "type": "array",
-            "items": {
+          "archived": {
+            "type": "integer"
+          }
+        }
+      },
+      "sheetAttachmentURLsResponse": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "type": "object",
+            "additionalProperties": {
               "type": "string"
             }
           }
-        },
-        "required": [
-          "keys"
-        ]
+        }
       },
-      "sheetCreateRequest": {
+      "sheetFieldSpecRequest": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string"
           },
-          "description": {
-            "type": "string"
-          },
-          "icon": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "pages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/sheetPageSpec"
-            }
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "sheetFieldCreateRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
           },
           "type": {
             "type": "string"
-          },
-          "options": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "mutation_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "type"
-        ]
-      },
-      "sheetFieldSpec": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "options": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "name",
-          "type"
-        ]
-      },
-      "sheetFieldUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "options": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "position": {
-            "type": "number"
-          },
-          "mutation_id": {
-            "type": "string"
           }
         }
       },
-      "sheetFilterNode": {
-        "type": "object",
-        "properties": {
-          "and": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          },
-          "or": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          },
-          "field": {
-            "type": "string"
-          },
-          "op": {
-            "type": "string"
-          },
-          "value": {}
-        }
-      },
-      "sheetImportCreateRequest": {
-        "type": "object",
-        "properties": {
-          "object_key": {
-            "type": "string"
-          },
-          "options": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "mutation_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "object_key"
-        ]
-      },
-      "sheetOperationRevertRequest": {
-        "type": "object",
-        "properties": {
-          "mutation_id": {
-            "type": "string"
-          }
-        }
-      },
-      "sheetPageCreateRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "fields": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/sheetFieldSpec"
-            }
-          },
-          "mutation_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "sheetPageSpec": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "fields": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/sheetFieldSpec"
-            }
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "sheetPageUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "position": {
-            "type": "number"
-          },
-          "display_field_id": {
-            "type": "string"
-          },
-          "mutation_id": {
-            "type": "string"
-          }
-        }
-      },
-      "sheetRowInsert": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "position": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "sheetRowUpdate": {
+      "sheetFieldView": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
-          "data": {
+          "name": {
+            "type": "string"
+          },
+          "options": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "position": {
             "type": "number"
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "sheetRowsDeleteRequest": {
-        "type": "object",
-        "properties": {
-          "ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           },
-          "mutation_id": {
+          "type": {
             "type": "string"
-          }
-        },
-        "required": [
-          "ids"
-        ]
-      },
-      "sheetRowsInsertRequest": {
-        "type": "object",
-        "properties": {
-          "rows": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/sheetRowInsert"
-            }
-          },
-          "mutation_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "rows"
-        ]
-      },
-      "sheetRowsQueryRequest": {
-        "type": "object",
-        "properties": {
-          "filter": {
-            "$ref": "#/components/schemas/sheetFilterNode"
-          },
-          "search": {
-            "type": "string"
-          },
-          "sorts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/sheetSort"
-            }
-          },
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer"
-          },
-          "resolve_relations": {
-            "type": "boolean"
           }
         }
       },
-      "sheetRowsUpdateRequest": {
+      "sheetImportJobView": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "processed_rows": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total_rows": {
+            "type": "integer"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetListResponse": {
+        "type": "object",
+        "properties": {
+          "next_cursor": {
+            "type": "string"
+          },
+          "sheets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetSummary"
+            }
+          }
+        }
+      },
+      "sheetLiveTokenResponse": {
+        "type": "object",
+        "properties": {
+          "expires_at": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetOperationView": {
+        "type": "object",
+        "properties": {
+          "actor_agent_id": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "reverted_at": {
+            "type": "string"
+          },
+          "row_count": {
+            "type": "integer"
+          },
+          "source_session_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetOperationsResponse": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetOperationView"
+            }
+          }
+        }
+      },
+      "sheetPageSpecRequest": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetFieldSpecRequest"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetPageView": {
+        "type": "object",
+        "properties": {
+          "display_field_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetFieldView"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "number"
+          },
+          "row_count": {
+            "type": "integer"
+          },
+          "sheet_id": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetRelationRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetRowView": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "id": {
+            "type": "string"
+          },
+          "position": {
+            "type": "number"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetRowsQueryResponse": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetFieldView"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "relations": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/sheetRelationRef"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetRowView"
+            }
+          }
+        }
+      },
+      "sheetRowsResponse": {
         "type": "object",
         "properties": {
           "rows": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/sheetRowUpdate"
+              "$ref": "#/components/schemas/sheetRowView"
+            }
+          }
+        }
+      },
+      "sheetStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetStructureResponse": {
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetPageView"
             }
           },
-          "mutation_id": {
-            "type": "string"
+          "sheet": {
+            "$ref": "#/components/schemas/sheetSummary"
           }
-        },
-        "required": [
-          "rows"
-        ]
+        }
       },
-      "sheetSort": {
+      "sheetSummary": {
         "type": "object",
         "properties": {
-          "field": {
-            "type": "string"
-          },
-          "desc": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "field"
-        ]
-      },
-      "sheetUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
+          "created_at": {
             "type": "string"
           },
           "description": {
@@ -21407,39 +20344,53 @@
           },
           "icon": {
             "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
           }
         }
       },
-      "sheetViewCreateRequest": {
+      "sheetViewSummary": {
         "type": "object",
         "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
-          "type": {
+          "page_id": {
             "type": "string"
-          },
-          "config": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "sheetViewUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "config": {
-            "type": "object",
-            "additionalProperties": true
           },
           "position": {
             "type": "number"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "sheetViewsResponse": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sheetViewSummary"
+            }
           }
         }
       },
@@ -22156,6 +21107,17 @@
           }
         }
       },
+      "updateChannelEnvironmentVariableRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "updateConnectionResourcesRequest": {
         "type": "object",
         "properties": {
@@ -22184,13 +21146,23 @@
           }
         }
       },
-      "updateOrgEnvironmentVariableRequest": {
+      "updateFieldRequest": {
         "type": "object",
         "properties": {
+          "mutation_id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
-          "value": {
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "position": {
+            "type": "number"
+          },
+          "type": {
             "type": "string"
           }
         }
@@ -22215,6 +21187,23 @@
           },
           "website": {
             "type": "string"
+          }
+        }
+      },
+      "updatePageRequest": {
+        "type": "object",
+        "properties": {
+          "display_field_id": {
+            "type": "string"
+          },
+          "mutation_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "number"
           }
         }
       },
@@ -22261,6 +21250,35 @@
           }
         }
       },
+      "updateRowRequest": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "id": {
+            "type": "string"
+          },
+          "position": {
+            "type": "number"
+          }
+        }
+      },
+      "updateRowsRequest": {
+        "type": "object",
+        "properties": {
+          "mutation_id": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/updateRowRequest"
+            }
+          }
+        }
+      },
       "updateSandboxTemplateRequest": {
         "type": "object",
         "properties": {
@@ -22301,6 +21319,20 @@
           }
         }
       },
+      "updateSheetRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "updateTriggerRequest": {
         "type": "object",
         "properties": {
@@ -22330,6 +21362,21 @@
           },
           "trigger_value": {
             "type": "string"
+          }
+        }
+      },
+      "updateViewRequest": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "number"
           }
         }
       },

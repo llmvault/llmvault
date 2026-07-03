@@ -56,6 +56,7 @@ function defaultWidthForType(type: string | undefined): number {
 export function SheetGrid({
   sheetId,
   pageId,
+  channelId,
   fields,
   controller,
   columnWidths,
@@ -66,6 +67,7 @@ export function SheetGrid({
 }: {
   sheetId: string
   pageId: string
+  channelId: string
   fields: SheetField[]
   controller: SheetRowsController
   columnWidths: Record<string, number>
@@ -203,6 +205,7 @@ export function SheetGrid({
         <CellEditorOverlay
           sheetId={sheetId}
           pageId={pageId}
+          channelId={channelId}
           target={editor}
           value={editingValue}
           relations={controller.relations}

@@ -121,7 +121,6 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	integrationHandler := handler.NewIntegrationHandler(database, nangoClient, actionsCatalog)
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
-	orgHandler.SetEnvironmentEncryptionKey(sandboxEncKey)
 	brandHandler := handler.NewBrandHandler(database)
 	plansHandler := handler.NewPlansHandler(database)
 	var emailSender email.Sender = &email.LogSender{}

@@ -3817,6 +3817,278 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/channels/{id}/environment-variables": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists environment variables scoped to a channel. Values are not returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "channels"
+                ],
+                "summary": "List channel environment variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Channel ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/channelEnvironmentVariablesResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stores an environment variable scoped to a channel. It is injected into sessions on that channel as __ENV__\u003cNAME\u003e and exposed to the workload as \u003cNAME\u003e.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "channels"
+                ],
+                "summary": "Create a channel environment variable",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Channel ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Environment variable",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createChannelEnvironmentVariableRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/channelEnvironmentVariableResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/channels/{id}/environment-variables/{name}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes an environment variable scoped to a channel.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "channels"
+                ],
+                "summary": "Delete a channel environment variable",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Channel ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Environment variable name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Renames and/or updates the value of a channel environment variable.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "channels"
+                ],
+                "summary": "Update a channel environment variable",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Channel ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Environment variable name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to patch",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateChannelEnvironmentVariableRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/channelEnvironmentVariableResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/channels/{id}/join": {
             "post": {
                 "security": [
@@ -6135,230 +6407,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/orgs/current/environment-variables": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Lists custom environment variables stored on the Hivy agent. Values are not returned.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orgs"
-                ],
-                "summary": "List organization environment variables",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/orgEnvironmentVariablesResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_\u003cNAME\u003e.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orgs"
-                ],
-                "summary": "Create an organization environment variable",
-                "parameters": [
-                    {
-                        "description": "Environment variable",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/createOrgEnvironmentVariableRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/orgEnvironmentVariableResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/orgs/current/environment-variables/{name}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Removes a custom environment variable from the Hivy agent.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orgs"
-                ],
-                "summary": "Delete an organization environment variable",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Environment variable name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/statusResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Renames and/or updates a custom environment variable stored on the Hivy agent.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orgs"
-                ],
-                "summary": "Update an organization environment variable",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Environment variable name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Fields to patch",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/updateOrgEnvironmentVariableRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/orgEnvironmentVariableResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/orgs/current/invites": {
             "get": {
                 "security": [
@@ -8593,6 +8641,12 @@ const docTemplate = `{
                         "description": "Sort order: created_at or activity",
                         "name": "sort",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status: active, archived, or ended (defaults to non-archived)",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9579,6 +9633,1513 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "List sheets in a channel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Channel ID to list sheets for",
+                        "name": "channel_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Create a sheet",
+                "parameters": [
+                    {
+                        "description": "Sheet to create (channel_id required)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createSheetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStructureResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/imports/{jobID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns import job status. The caller must be able to use the job's sheet's channel.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Get a CSV import job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Import job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetImportJobView"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Get a sheet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStructureResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Archives a sheet (soft delete). The caller must be able to use the sheet's channel.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Archive a sheet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStatusResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Update a sheet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateSheetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/live-token": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Mint a sheet live-stream token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetLiveTokenResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Create a page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Page to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createPageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/sheetPageView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Archive a page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStatusResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Update a page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updatePageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetPageView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/attachments/download-url": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Presign attachment downloads",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Object keys to presign (1-50)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/attachmentDownloadURLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetAttachmentURLsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/export.csv": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Export a page as CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/fields": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Create a field",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Field to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createFieldRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/sheetFieldView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Archive a field",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field ID",
+                        "name": "fieldID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStatusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Update a field",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field ID",
+                        "name": "fieldID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateFieldRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetFieldView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/imports": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Starts an asynchronous CSV import from a drive object key into a page.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Start a CSV import",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Import to start",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/sheetImportJobView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/operations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a page's recent revertible operations, newest first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "List page operations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max operations to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetOperationsResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/operations/{operationID}/revert": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Applies one operation's exact inverse. Single-level undo — a revert is not itself re-undoable.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Revert an operation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Operation ID",
+                        "name": "operationID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStatusResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/rows": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Insert rows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rows to insert",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/insertRowsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/sheetRowsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Delete rows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Row IDs to archive",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/deleteRowsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetArchivedRowsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Partial-merges each row's data by field key. A single cell edit is a batch of one.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Update rows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rows to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateRowsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetRowsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/rows/query": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Query a page's rows with a filter AST, sorts, search, and cursor paging.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Query rows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Query",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Query"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetRowsQueryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/views": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "List views",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetViewsResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Create a view",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "View to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createViewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/sheetViewSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Archive a view",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "View ID",
+                        "name": "viewID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetStatusResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Update a view",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page ID",
+                        "name": "pageID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "View ID",
+                        "name": "viewID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateViewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sheetViewSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -10798,6 +12359,30 @@ const docTemplate = `{
                 }
             }
         },
+        "Filter": {
+            "type": "object",
+            "properties": {
+                "and": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Filter"
+                    }
+                },
+                "field": {
+                    "type": "string"
+                },
+                "op": {
+                    "type": "string"
+                },
+                "or": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Filter"
+                    }
+                },
+                "value": {}
+            }
+        },
         "InstallSpec": {
             "type": "object",
             "properties": {
@@ -11016,6 +12601,32 @@ const docTemplate = `{
                 }
             }
         },
+        "Query": {
+            "type": "object",
+            "properties": {
+                "cursor": {
+                    "type": "string"
+                },
+                "filter": {
+                    "$ref": "#/definitions/Filter"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "resolve_relations": {
+                    "type": "boolean"
+                },
+                "search": {
+                    "type": "string"
+                },
+                "sorts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Sort"
+                    }
+                }
+            }
+        },
         "ScheduleSpec": {
             "type": "object",
             "properties": {
@@ -11077,6 +12688,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "$ref": {
+                    "type": "string"
+                }
+            }
+        },
+        "Sort": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "boolean"
+                },
+                "field": {
                     "type": "string"
                 }
             }
@@ -11844,6 +13466,17 @@ const docTemplate = `{
                 }
             }
         },
+        "attachmentDownloadURLRequest": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "auditEntryResponse": {
             "type": "object",
             "properties": {
@@ -12094,6 +13727,25 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/channelMemberResponse"
+                    }
+                }
+            }
+        },
+        "channelEnvironmentVariableResponse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "channelEnvironmentVariablesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/channelEnvironmentVariableResponse"
                     }
                 }
             }
@@ -12496,6 +14148,17 @@ const docTemplate = `{
                 }
             }
         },
+        "createChannelEnvironmentVariableRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "createCheckoutRequest": {
             "type": "object",
             "properties": {
@@ -12582,14 +14245,36 @@ const docTemplate = `{
                 }
             }
         },
-        "createOrgEnvironmentVariableRequest": {
+        "createFieldRequest": {
             "type": "object",
             "properties": {
+                "mutation_id": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
-                "value": {
+                "options": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "type": {
                     "type": "string"
+                }
+            }
+        },
+        "createImportRequest": {
+            "type": "object",
+            "properties": {
+                "mutation_id": {
+                    "type": "string"
+                },
+                "object_key": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "object",
+                    "additionalProperties": {}
                 }
             }
         },
@@ -12613,6 +14298,23 @@ const docTemplate = `{
         "createOrgRequest": {
             "type": "object",
             "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "createPageRequest": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetFieldSpecRequest"
+                    }
+                },
+                "mutation_id": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }
@@ -12696,6 +14398,32 @@ const docTemplate = `{
                 }
             }
         },
+        "createSheetRequest": {
+            "type": "object",
+            "properties": {
+                "channel_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetPageSpecRequest"
+                    }
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
         "createTriggerRequest": {
             "type": "object",
             "properties": {
@@ -12730,6 +14458,21 @@ const docTemplate = `{
             "properties": {
                 "trigger": {
                     "$ref": "#/definitions/agentTriggerResponse"
+                }
+            }
+        },
+        "createViewRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -12895,6 +14638,20 @@ const docTemplate = `{
                 },
                 "schema_snapshot": {},
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "deleteRowsRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mutation_id": {
                     "type": "string"
                 }
             }
@@ -13122,6 +14879,32 @@ const docTemplate = `{
                 },
                 "reference": {
                     "type": "string"
+                }
+            }
+        },
+        "insertRowRequest": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "position": {
+                    "type": "number"
+                }
+            }
+        },
+        "insertRowsRequest": {
+            "type": "object",
+            "properties": {
+                "mutation_id": {
+                    "type": "string"
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/insertRowRequest"
+                    }
                 }
             }
         },
@@ -13421,28 +15204,6 @@ const docTemplate = `{
                 },
                 "tool_call": {
                     "type": "boolean"
-                }
-            }
-        },
-        "orgEnvironmentVariableResponse": {
-            "type": "object",
-            "properties": {
-                "env_key": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "orgEnvironmentVariablesResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/orgEnvironmentVariableResponse"
-                    }
                 }
             }
         },
@@ -15307,6 +17068,356 @@ const docTemplate = `{
                 }
             }
         },
+        "sheetArchivedRowsResponse": {
+            "type": "object",
+            "properties": {
+                "archived": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sheetAttachmentURLsResponse": {
+            "type": "object",
+            "properties": {
+                "urls": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "sheetFieldSpecRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetFieldView": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "position": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetImportJobView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "object_key": {
+                    "type": "string"
+                },
+                "page_id": {
+                    "type": "string"
+                },
+                "processed_rows": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_rows": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetListResponse": {
+            "type": "object",
+            "properties": {
+                "next_cursor": {
+                    "type": "string"
+                },
+                "sheets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetSummary"
+                    }
+                }
+            }
+        },
+        "sheetLiveTokenResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetOperationView": {
+            "type": "object",
+            "properties": {
+                "actor_agent_id": {
+                    "type": "string"
+                },
+                "actor_user_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "page_id": {
+                    "type": "string"
+                },
+                "reverted_at": {
+                    "type": "string"
+                },
+                "row_count": {
+                    "type": "integer"
+                },
+                "source_session_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetOperationsResponse": {
+            "type": "object",
+            "properties": {
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetOperationView"
+                    }
+                }
+            }
+        },
+        "sheetPageSpecRequest": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetFieldSpecRequest"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetPageView": {
+            "type": "object",
+            "properties": {
+                "display_field_id": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetFieldView"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
+                },
+                "row_count": {
+                    "type": "integer"
+                },
+                "sheet_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetRelationRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetRowView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetRowsQueryResponse": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetFieldView"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                },
+                "relations": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/sheetRelationRef"
+                    }
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetRowView"
+                    }
+                }
+            }
+        },
+        "sheetRowsResponse": {
+            "type": "object",
+            "properties": {
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetRowView"
+                    }
+                }
+            }
+        },
+        "sheetStatusResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetStructureResponse": {
+            "type": "object",
+            "properties": {
+                "pages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetPageView"
+                    }
+                },
+                "sheet": {
+                    "$ref": "#/definitions/sheetSummary"
+                }
+            }
+        },
+        "sheetSummary": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetViewSummary": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "page_id": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "sheetViewsResponse": {
+            "type": "object",
+            "properties": {
+                "views": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sheetViewSummary"
+                    }
+                }
+            }
+        },
         "signUploadRequest": {
             "type": "object",
             "properties": {
@@ -16020,6 +18131,17 @@ const docTemplate = `{
                 }
             }
         },
+        "updateChannelEnvironmentVariableRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "updateConnectionResourcesRequest": {
             "type": "object",
             "properties": {
@@ -16048,13 +18170,23 @@ const docTemplate = `{
                 }
             }
         },
-        "updateOrgEnvironmentVariableRequest": {
+        "updateFieldRequest": {
             "type": "object",
             "properties": {
+                "mutation_id": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
-                "value": {
+                "options": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "position": {
+                    "type": "number"
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -16079,6 +18211,23 @@ const docTemplate = `{
                 },
                 "website": {
                     "type": "string"
+                }
+            }
+        },
+        "updatePageRequest": {
+            "type": "object",
+            "properties": {
+                "display_field_id": {
+                    "type": "string"
+                },
+                "mutation_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
                 }
             }
         },
@@ -16125,6 +18274,35 @@ const docTemplate = `{
                 }
             }
         },
+        "updateRowRequest": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
+                }
+            }
+        },
+        "updateRowsRequest": {
+            "type": "object",
+            "properties": {
+                "mutation_id": {
+                    "type": "string"
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/updateRowRequest"
+                    }
+                }
+            }
+        },
         "updateSandboxTemplateRequest": {
             "type": "object",
             "properties": {
@@ -16165,6 +18343,20 @@ const docTemplate = `{
                 }
             }
         },
+        "updateSheetRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "updateTriggerRequest": {
             "type": "object",
             "properties": {
@@ -16194,6 +18386,21 @@ const docTemplate = `{
                 },
                 "trigger_value": {
                     "type": "string"
+                }
+            }
+        },
+        "updateViewRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
                 }
             }
         },

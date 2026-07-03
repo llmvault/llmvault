@@ -76,10 +76,6 @@ func setupV1Routes(
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdmin(database))
 				r.Patch("/orgs/current", orgHandler.Update)
-				r.Get("/orgs/current/environment-variables", orgHandler.ListEnvironmentVariables)
-				r.Post("/orgs/current/environment-variables", orgHandler.CreateEnvironmentVariable)
-				r.Patch("/orgs/current/environment-variables/{name}", orgHandler.UpdateEnvironmentVariable)
-				r.Delete("/orgs/current/environment-variables/{name}", orgHandler.DeleteEnvironmentVariable)
 				r.Post("/orgs/current/invites", orgInviteHandler.Create)
 				r.Get("/orgs/current/invites", orgInviteHandler.List)
 				r.Delete("/orgs/current/invites/{id}", orgInviteHandler.Revoke)
@@ -144,6 +140,10 @@ func setupV1Routes(
 					r.Post("/channels/{id}/join", channelHandler.Join)
 					r.Put("/channels/{id}/members/{userID}", channelHandler.PutMember)
 					r.Delete("/channels/{id}/members/{userID}", channelHandler.DeleteMember)
+					r.Get("/channels/{id}/environment-variables", channelHandler.ListChannelEnvironmentVariables)
+					r.Post("/channels/{id}/environment-variables", channelHandler.CreateChannelEnvironmentVariable)
+					r.Patch("/channels/{id}/environment-variables/{name}", channelHandler.UpdateChannelEnvironmentVariable)
+					r.Delete("/channels/{id}/environment-variables/{name}", channelHandler.DeleteChannelEnvironmentVariable)
 					if sessionHandler != nil {
 						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
 					}

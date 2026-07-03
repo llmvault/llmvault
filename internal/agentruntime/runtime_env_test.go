@@ -3,7 +3,6 @@ package agentruntime
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -20,19 +19,6 @@ func testSymmetricKey(t *testing.T) *crypto.SymmetricKey {
 		t.Fatalf("create enc key: %v", err)
 	}
 	return key
-}
-
-func testEncryptJSON(t *testing.T, key *crypto.SymmetricKey, obj map[string]string) []byte {
-	t.Helper()
-	data, err := json.Marshal(obj)
-	if err != nil {
-		t.Fatalf("marshal env vars: %v", err)
-	}
-	enc, err := key.EncryptString(string(data))
-	if err != nil {
-		t.Fatalf("encrypt env vars: %v", err)
-	}
-	return enc
 }
 
 func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
@@ -56,7 +42,7 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 	}
 	token := &ProxyTokenResult{Token: "ptok_test", JTI: "jti_test"}
 
-	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sandbox, "runtime-secret", token)
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sandbox, "runtime-secret", token, uuid.Nil)
 	if err != nil {
 		t.Fatalf("build env: %v", err)
 	}
@@ -124,7 +110,7 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	}
 	token := &ProxyTokenResult{Token: "ptok_test", JTI: "jti_test"}
 
-	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sandbox, "runtime-secret", token)
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sandbox, "runtime-secret", token, uuid.Nil)
 	if err != nil {
 		t.Fatalf("build env: %v", err)
 	}
@@ -134,22 +120,95 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	}
 }
 
-// Reserved HIVY_ runtime keys (proxy key, runtime secret, drive bearer) must not
-// be clobbered by org-supplied env vars that share the same name.
-func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testing.T) {
+// Channel env vars are injected as __ENV__<NAME>, both when the channel is
+// passed explicitly (session-create path) and when it must be resolved from the
+// sandbox's session (lifecycle / token-refresh paths). Reserved keys stay intact.
+func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
+	db := connectCompileTestDB(t)
+	encKey := testSymmetricKey(t)
+
+	orgID := uuid.New()
+	if err := db.Create(&model.Org{ID: orgID, Name: "env-org-" + uuid.NewString()[:8], Active: true}).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	agent := &model.Agent{
+		ID: uuid.New(), OrgID: &orgID, Name: "Hivy", Model: "deepseek-v4-flash",
+		Tools: model.JSON{}, McpServers: model.RawJSON("[]"), Skills: model.JSON{},
+		RuntimeConfig: model.JSON{}, Permissions: model.JSON{}, Resources: model.JSON{}, Status: "active",
+	}
+	if err := db.Create(agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	channel := &model.Channel{ID: uuid.New(), OrgID: orgID, Name: "engineering", DefaultAgentID: agent.ID}
+	if err := db.Create(channel).Error; err != nil {
+		t.Fatalf("create channel: %v", err)
+	}
+	sbID := uuid.New()
+	if err := db.Create(&model.Sandbox{
+		ID: sbID, OrgID: &orgID, AgentID: &agent.ID,
+		ExternalID: "ext-" + sbID.String(), RuntimeURL: "https://runtime.test",
+		EncryptedRuntimeSecret: []byte("x"), Status: "running",
+	}).Error; err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+	if err := db.Create(&model.Session{
+		OrgID: orgID, ChannelID: channel.ID, AgentID: agent.ID, SandboxID: &sbID, Status: "active",
+	}).Error; err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	encValue, err := encKey.EncryptString("postgres://secret")
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	if err := db.Create(&model.ChannelEnvVar{
+		OrgID: orgID, ChannelID: channel.ID, Name: "DATABASE_URL", EncryptedValue: encValue,
+	}).Error; err != nil {
+		t.Fatalf("create channel env var: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("channel_id = ?", channel.ID).Delete(&model.ChannelEnvVar{})
+		db.Where("org_id = ?", orgID).Delete(&model.Session{})
+		db.Where("id = ?", sbID).Delete(&model.Sandbox{})
+		db.Where("org_id = ?", orgID).Delete(&model.Channel{})
+		db.Where("org_id = ?", orgID).Delete(&model.Agent{})
+		db.Where("id = ?", orgID).Delete(&model.Org{})
+	})
+
+	deps := CompileDeps{DB: db, EncKey: encKey, Cfg: &config.Config{APIWebhookBaseURL: "https://api.example.test"}}
+	sb := &model.Sandbox{ID: sbID, OrgID: &orgID, AgentID: &agent.ID}
+	token := &ProxyTokenResult{Token: "ptok_test", JTI: "jti_test"}
+
+	// Explicit channel (session-create path).
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, "runtime-secret", token, channel.ID)
+	if err != nil {
+		t.Fatalf("build env (explicit channel): %v", err)
+	}
+	if got := env["__ENV__DATABASE_URL"]; got != "postgres://secret" {
+		t.Fatalf("__ENV__DATABASE_URL = %q, want postgres://secret", got)
+	}
+	if env[AgentEnvRuntimeSecret] != "runtime-secret" {
+		t.Fatalf("reserved key clobbered: %s = %q", AgentEnvRuntimeSecret, env[AgentEnvRuntimeSecret])
+	}
+
+	// Nil channel resolves from the sandbox's session (lifecycle / token refresh).
+	env, err = BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, "runtime-secret", token, uuid.Nil)
+	if err != nil {
+		t.Fatalf("build env (resolved channel): %v", err)
+	}
+	if got := env["__ENV__DATABASE_URL"]; got != "postgres://secret" {
+		t.Fatalf("resolved __ENV__DATABASE_URL = %q, want postgres://secret", got)
+	}
+}
+
+// A nil channel injects no user env, and the reserved HIVY_ control-plane keys
+// are always populated with the authoritative values.
+func TestBuildRuntimeEnvWithProxyToken_ReservedKeysPopulated(t *testing.T) {
 	encKey := testSymmetricKey(t)
 
 	orgID := uuid.New()
 	agent := &model.Agent{
 		ID:    uuid.New(),
 		OrgID: &orgID,
-		// Org env vars smuggling reserved HIVY_ keys.
-		EncryptedEnvVars: testEncryptJSON(t, encKey, map[string]string{
-			AgentEnvRuntimeSecret:     "user-controlled-secret",
-			AgentEnvProxyAPIKey:       "user-controlled-proxy-key",
-			AgentEnvDriveUploadBearer: "user-controlled-bearer",
-			"MY_CUSTOM_VAR":           "custom-value",
-		}),
 	}
 
 	sb := &model.Sandbox{ID: uuid.New()}
@@ -167,26 +226,19 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 		},
 	}
 
-	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, runtimeSecret, proxyToken)
+	// Nil channel and nil DB: mergeChannelEnvVars is a no-op.
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, runtimeSecret, proxyToken, uuid.Nil)
 	if err != nil {
 		t.Fatalf("BuildRuntimeEnvWithProxyToken: %v", err)
 	}
 
-	// Control-plane values must always win over any user-supplied values.
 	if got := env[AgentEnvRuntimeSecret]; got != runtimeSecret {
-		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			AgentEnvRuntimeSecret, got, runtimeSecret)
+		t.Errorf("%s = %q, want control-plane value %q", AgentEnvRuntimeSecret, got, runtimeSecret)
 	}
 	if got := env[AgentEnvProxyAPIKey]; got != proxyToken.Token {
-		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			AgentEnvProxyAPIKey, got, proxyToken.Token)
+		t.Errorf("%s = %q, want control-plane value %q", AgentEnvProxyAPIKey, got, proxyToken.Token)
 	}
 	if got := env[AgentEnvDriveUploadBearer]; got != runtimeSecret {
-		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			AgentEnvDriveUploadBearer, got, runtimeSecret)
-	}
-
-	if got := env["MY_CUSTOM_VAR"]; got != "custom-value" {
-		t.Errorf("MY_CUSTOM_VAR = %q, want custom-value; non-reserved user env must be preserved", got)
+		t.Errorf("%s = %q, want control-plane value %q", AgentEnvDriveUploadBearer, got, runtimeSecret)
 	}
 }

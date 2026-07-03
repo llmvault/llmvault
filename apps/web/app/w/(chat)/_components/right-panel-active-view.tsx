@@ -14,6 +14,7 @@ import type { PanelViewID, SessionSandboxAccessResponse } from "./right-panel"
 export function ActiveView({
   id,
   sessionId,
+  channelId,
   sandboxAccess,
   sandboxAccessPending,
   sandboxAccessError,
@@ -22,6 +23,7 @@ export function ActiveView({
 }: {
   id: PanelViewID
   sessionId?: string
+  channelId?: string
   sandboxAccess?: SessionSandboxAccessResponse
   sandboxAccessPending: boolean
   sandboxAccessError: unknown
@@ -44,7 +46,7 @@ export function ActiveView({
     case "design":
       return <DesignView sessionId={sessionId} />
     case "sheets":
-      return <SheetsView />
+      return <SheetsView channelId={channelId} />
     case "files":
       return (
         <FilesView

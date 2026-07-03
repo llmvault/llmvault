@@ -14,6 +14,20 @@ import (
 // maxDownloadURLKeys caps one download-url request.
 const maxDownloadURLKeys = 50
 
+// QueryRows handles POST /v1/sheets/{sheetID}/pages/{pageID}/rows/query.
+// @Summary Query rows
+// @Description Query a page's rows with a filter AST, sorts, search, and cursor paging.
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body sheets.Query true "Query"
+// @Success 200 {object} sheetRowsQueryResponse
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/rows/query [post]
 func (h *SheetsHandler) QueryRows(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -55,6 +69,19 @@ type insertRowsRequest struct {
 	MutationID string             `json:"mutation_id,omitempty"`
 }
 
+// InsertRows handles POST /v1/sheets/{sheetID}/pages/{pageID}/rows.
+// @Summary Insert rows
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body insertRowsRequest true "Rows to insert"
+// @Success 201 {object} sheetRowsResponse
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/rows [post]
 func (h *SheetsHandler) InsertRows(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -100,6 +127,19 @@ type updateRowsRequest struct {
 // UpdateRows applies partial merges per field key; a single cell edit is a
 // batch of one row with one key. Row drag-reorder is the same endpoint with
 // position set.
+// @Summary Update rows
+// @Description Partial-merges each row's data by field key. A single cell edit is a batch of one.
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body updateRowsRequest true "Rows to update"
+// @Success 200 {object} sheetRowsResponse
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/rows [patch]
 func (h *SheetsHandler) UpdateRows(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -140,6 +180,19 @@ type deleteRowsRequest struct {
 	MutationID string      `json:"mutation_id,omitempty"`
 }
 
+// DeleteRows handles DELETE /v1/sheets/{sheetID}/pages/{pageID}/rows.
+// @Summary Delete rows
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body deleteRowsRequest true "Row IDs to archive"
+// @Success 200 {object} sheetArchivedRowsResponse
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/rows [delete]
 func (h *SheetsHandler) DeleteRows(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -173,6 +226,19 @@ type attachmentDownloadURLRequest struct {
 
 // AttachmentDownloadURL mints presigned GET URLs for attachment object keys,
 // re-checking org ownership of every key before signing.
+// @Summary Presign attachment downloads
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body attachmentDownloadURLRequest true "Object keys to presign (1-50)"
+// @Success 200 {object} sheetAttachmentURLsResponse
+// @Failure 400 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/attachments/download-url [post]
 func (h *SheetsHandler) AttachmentDownloadURL(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {

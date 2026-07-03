@@ -16,6 +16,11 @@ use crate::truncate::{truncate_tail, TruncationReason};
 use crate::{schema_for, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "bash";
+/// Sentinel prefix applied by the control plane to user-supplied environment
+/// variables inside `runtime_env`, to distinguish them from platform
+/// `HIVY_*` control-plane variables. The prefix must never leak into a
+/// spawned child process's environment.
+const USER_ENV_PREFIX: &str = "__ENV__";
 const TOOL_DESCRIPTION: &str =
     "Run a shell command in the workspace and return its combined stdout/stderr. \
      Output is truncated to the last 2000 lines or 50KB, whichever comes first. \
@@ -105,11 +110,13 @@ impl BashTool {
                     .iter()
                     .map(|(key, value)| (key.clone(), value.clone())),
             );
+            strip_user_env_prefix(&mut env);
         } else {
             for key in &self.config.env_passthrough {
                 if let Some(value) = self
                     .runtime_env
                     .get(key)
+                    .or_else(|| self.runtime_env.get(&format!("{USER_ENV_PREFIX}{key}")))
                     .cloned()
                     .or_else(|| std::env::var(key).ok())
                 {
@@ -190,6 +197,29 @@ impl JsonTool for BashTool {
 
     async fn call(&self, args: Value) -> Result<Value> {
         self.execute(args).await
+    }
+}
+
+/// Rewrites `env` in place: every key prefixed with [`USER_ENV_PREFIX`] is
+/// replaced by its stripped name (e.g. `__ENV__DATABASE_URL` becomes
+/// `DATABASE_URL`), and the prefixed key is removed so it never reaches the
+/// child process. A pre-existing entry under the clean name is overwritten,
+/// since the user-supplied value is authoritative for their own variable
+/// names. Platform `HIVY_*` keys are left untouched.
+fn strip_user_env_prefix(env: &mut HashMap<String, String>) {
+    let prefixed_keys: Vec<String> = env
+        .keys()
+        .filter(|key| key.starts_with(USER_ENV_PREFIX))
+        .cloned()
+        .collect();
+    for prefixed_key in prefixed_keys {
+        if let Some(value) = env.remove(&prefixed_key) {
+            let clean_key = prefixed_key
+                .strip_prefix(USER_ENV_PREFIX)
+                .unwrap_or(&prefixed_key)
+                .to_string();
+            env.insert(clean_key, value);
+        }
     }
 }
 
@@ -464,5 +494,104 @@ mod tests {
             .expect("command should succeed");
 
         assert_eq!(result["output"], "https://vercel.test");
+    }
+
+    struct DumpEnvOperations;
+
+    #[async_trait]
+    impl BashOperations for DumpEnvOperations {
+        async fn exec(
+            &self,
+            _command: &str,
+            options: BashExecOptions,
+        ) -> Result<BashExecResult, BashError> {
+            Ok(BashExecResult {
+                stdout_combined: format!("{:?}", options.env).into_bytes(),
+                exit_code: Some(0),
+                timed_out: false,
+                truncated: false,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_passthrough_strips_user_env_prefix() {
+        let runtime_env = Arc::new(HashMap::from([
+            (
+                "__ENV__DATABASE_URL".to_string(),
+                "postgres://x".to_string(),
+            ),
+            ("HIVY_ORG_ID".to_string(), "abc".to_string()),
+        ]));
+        let tool = super::BashTool::new(
+            BashConfig {
+                workdir: ".".to_string(),
+                timeout_seconds: 1,
+                max_output_bytes: 1024,
+                deny_patterns: Vec::new(),
+                env_passthrough: Vec::new(),
+                sandbox: "process_isolated".to_string(),
+            },
+            env::temp_dir(),
+            Arc::new(DumpEnvOperations),
+            runtime_env,
+        );
+
+        let result = tool
+            .execute(serde_json::json!({
+                "command": "irrelevant",
+                "timeout_seconds": 1,
+                "run_in_background": false,
+            }))
+            .await
+            .expect("command should succeed");
+
+        let output = result["output"].as_str().expect("output should be a string");
+        assert!(
+            output.contains("\"DATABASE_URL\": \"postgres://x\""),
+            "expected clean DATABASE_URL in env, got: {output}"
+        );
+        assert!(
+            !output.contains("__ENV__DATABASE_URL"),
+            "raw __ENV__ prefixed key leaked into env: {output}"
+        );
+        assert!(
+            output.contains("\"HIVY_ORG_ID\": \"abc\""),
+            "expected HIVY_ORG_ID to pass through unchanged, got: {output}"
+        );
+    }
+
+    #[tokio::test]
+    async fn explicit_passthrough_matches_user_env_prefixed_key() {
+        let runtime_env = Arc::new(HashMap::from([(
+            "__ENV__DATABASE_URL".to_string(),
+            "postgres://explicit".to_string(),
+        )]));
+        let tool = super::BashTool::new(
+            BashConfig {
+                workdir: ".".to_string(),
+                timeout_seconds: 1,
+                max_output_bytes: 1024,
+                deny_patterns: Vec::new(),
+                env_passthrough: vec!["DATABASE_URL".to_string()],
+                sandbox: "process_isolated".to_string(),
+            },
+            env::temp_dir(),
+            Arc::new(EchoEnvOperations {
+                key: "DATABASE_URL",
+            }),
+            runtime_env,
+        );
+
+        let result = tool
+            .execute(serde_json::json!({
+                "command": "printf \"$DATABASE_URL\"",
+                "timeout_seconds": 1,
+                "run_in_background": false,
+            }))
+            .await
+            .expect("command should succeed");
+
+        assert_eq!(result["output"], "postgres://explicit");
     }
 }

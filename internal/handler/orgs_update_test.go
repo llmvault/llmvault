@@ -41,10 +41,6 @@ func newOrgUpdateHarness(t *testing.T) *orgUpdateHarness {
 		r.Use(middleware.ResolveOrgFromHeader(db))
 		r.Use(middleware.RequireOrgAdmin(db))
 		r.Patch("/v1/orgs/current", orgHandler.Update)
-		r.Get("/v1/orgs/current/environment-variables", orgHandler.ListEnvironmentVariables)
-		r.Post("/v1/orgs/current/environment-variables", orgHandler.CreateEnvironmentVariable)
-		r.Patch("/v1/orgs/current/environment-variables/{name}", orgHandler.UpdateEnvironmentVariable)
-		r.Delete("/v1/orgs/current/environment-variables/{name}", orgHandler.DeleteEnvironmentVariable)
 	})
 
 	return &orgUpdateHarness{db: db, orgHandler: orgHandler, router: r, enqueuer: enq}

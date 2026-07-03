@@ -41,14 +41,15 @@ const SheetWorkbench = dynamic(
   }
 )
 
-export function SheetsView() {
+export function SheetsView({ channelId }: { channelId?: string }) {
   const queryClient = useQueryClient()
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null)
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
 
   const sheetsQuery = useQuery({
-    queryKey: sheetKeys.list,
-    queryFn: ({ signal }) => fetchSheets(signal),
+    enabled: Boolean(channelId),
+    queryKey: sheetKeys.list(channelId ?? ""),
+    queryFn: ({ signal }) => fetchSheets(channelId ?? "", signal),
   })
   // Newest-updated first from the API; default to the most recent sheet.
   const sheets = sheetsQuery.data?.sheets ?? []
@@ -72,8 +73,9 @@ export function SheetsView() {
   useSheetLive(activeSheetId, activePage?.id ?? null)
 
   const createNewSheet = async (name: string) => {
-    const created = await createSheet(name)
-    await queryClient.invalidateQueries({ queryKey: sheetKeys.list })
+    if (!channelId) return
+    const created = await createSheet(channelId, name)
+    await queryClient.invalidateQueries({ queryKey: sheetKeys.list(channelId) })
     if (created.sheet?.id) {
       setSelectedSheetId(created.sheet.id)
       setSelectedPageId(null)
@@ -87,6 +89,14 @@ export function SheetsView() {
       queryKey: sheetKeys.structure(activeSheetId),
     })
     if (created.id) setSelectedPageId(created.id)
+  }
+
+  if (!channelId) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Spinner size="sm" />
+      </div>
+    )
   }
 
   if (sheetsQuery.isPending) {
@@ -243,6 +253,7 @@ export function SheetsView() {
         <SheetWorkbench
           key={activePage.id}
           sheetId={activeSheetId}
+          channelId={channelId}
           page={activePage}
           pages={pages}
         />

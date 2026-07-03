@@ -48,6 +48,7 @@ export type SessionSandboxAccessResponse =
 
 export const RightPanel = memo(function RightPanel({
   sessionId,
+  channelId,
   sandboxAccess,
   sandboxAccessPending,
   sandboxAccessError,
@@ -62,6 +63,7 @@ export const RightPanel = memo(function RightPanel({
   onClosePanel,
 }: {
   sessionId?: string
+  channelId?: string
   sandboxAccess?: SessionSandboxAccessResponse
   sandboxAccessPending: boolean
   sandboxAccessError: unknown
@@ -197,6 +199,7 @@ export const RightPanel = memo(function RightPanel({
           <ActiveView
             id={activeView}
             sessionId={sessionId}
+            channelId={channelId}
             sandboxAccess={sandboxAccess}
             sandboxAccessPending={sandboxAccessPending}
             sandboxAccessError={sandboxAccessError}

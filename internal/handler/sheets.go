@@ -77,6 +77,21 @@ func fieldSpecsFrom(specs []sheetFieldSpecRequest) []sheets.FieldSpec {
 	return out
 }
 
+// ListSheets handles GET /v1/sheets.
+// @Summary List sheets in a channel
+// @Description Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.
+// @Tags sheets
+// @Produce json
+// @Param channel_id query string true "Channel ID to list sheets for"
+// @Param search query string false "Case-insensitive name substring filter"
+// @Param limit query int false "Page size (max 100)"
+// @Param cursor query string false "Pagination cursor"
+// @Success 200 {object} sheetListResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets [get]
 func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -104,6 +119,19 @@ func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"sheets": summaries, "next_cursor": nextCursor})
 }
 
+// CreateSheet handles POST /v1/sheets.
+// @Summary Create a sheet
+// @Description Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param body body createSheetRequest true "Sheet to create (channel_id required)"
+// @Success 201 {object} sheetStructureResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets [post]
 func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -146,6 +174,17 @@ func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, h.structureResponse(r, org.ID, structure))
 }
 
+// GetSheet handles GET /v1/sheets/{sheetID}.
+// @Summary Get a sheet
+// @Description Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Success 200 {object} sheetStructureResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID} [get]
 func (h *SheetsHandler) GetSheet(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -169,6 +208,20 @@ type updateSheetRequest struct {
 	Icon        *string `json:"icon,omitempty"`
 }
 
+// UpdateSheet handles PATCH /v1/sheets/{sheetID}.
+// @Summary Update a sheet
+// @Description Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param body body updateSheetRequest true "Fields to update"
+// @Success 200 {object} sheetSummary
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID} [patch]
 func (h *SheetsHandler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -193,6 +246,17 @@ func (h *SheetsHandler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sheetSummaryFrom(*sheet))
 }
 
+// ArchiveSheet handles DELETE /v1/sheets/{sheetID}.
+// @Summary Archive a sheet
+// @Description Archives a sheet (soft delete). The caller must be able to use the sheet's channel.
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Success 200 {object} sheetStatusResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID} [delete]
 func (h *SheetsHandler) ArchiveSheet(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {

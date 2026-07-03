@@ -810,7 +810,7 @@ function SortPopover({
               >
                 <ToolbarSelect
                   ariaLabel={`Sort ${index + 1} field`}
-                  value={sort.field}
+                  value={sort.field ?? ""}
                   onChange={(value) => updateSort(index, { field: value })}
                   options={fieldOptions.filter(
                     (option) =>

@@ -933,6 +933,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               <div className="h-full min-w-90">
                 <RightPanel
                   sessionId={routeSessionID}
+                  channelId={routeSessionQuery.data?.session?.channel_id}
                   sandboxAccess={sandboxAccess}
                   sandboxAccessPending={sandboxAccessPendingForSession}
                   sandboxAccessError={sandboxRuntimeError}

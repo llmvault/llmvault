@@ -17,6 +17,18 @@ type createPageRequest struct {
 	MutationID string                  `json:"mutation_id,omitempty"`
 }
 
+// CreatePage handles POST /v1/sheets/{sheetID}/pages.
+// @Summary Create a page
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param body body createPageRequest true "Page to create"
+// @Success 201 {object} sheetPageView
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages [post]
 func (h *SheetsHandler) CreatePage(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -53,6 +65,19 @@ type updatePageRequest struct {
 	MutationID     string   `json:"mutation_id,omitempty"`
 }
 
+// UpdatePage handles PATCH /v1/sheets/{sheetID}/pages/{pageID}.
+// @Summary Update a page
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body updatePageRequest true "Fields to update"
+// @Success 200 {object} sheetPageView
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID} [patch]
 func (h *SheetsHandler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -78,6 +103,16 @@ func (h *SheetsHandler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sheetPageViewFrom(*page, nil, 0))
 }
 
+// ArchivePage handles DELETE /v1/sheets/{sheetID}/pages/{pageID}.
+// @Summary Archive a page
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Success 200 {object} sheetStatusResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID} [delete]
 func (h *SheetsHandler) ArchivePage(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -101,6 +136,19 @@ type createFieldRequest struct {
 	MutationID string         `json:"mutation_id,omitempty"`
 }
 
+// CreateField handles POST /v1/sheets/{sheetID}/pages/{pageID}/fields.
+// @Summary Create a field
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body createFieldRequest true "Field to create"
+// @Success 201 {object} sheetFieldView
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/fields [post]
 func (h *SheetsHandler) CreateField(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -134,6 +182,20 @@ type updateFieldRequest struct {
 	MutationID string          `json:"mutation_id,omitempty"`
 }
 
+// UpdateField handles PATCH /v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}.
+// @Summary Update a field
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param fieldID path string true "Field ID"
+// @Param body body updateFieldRequest true "Fields to update"
+// @Success 200 {object} sheetFieldView
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID} [patch]
 func (h *SheetsHandler) UpdateField(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -168,6 +230,18 @@ func (h *SheetsHandler) UpdateField(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sheetFieldViewFrom(*field))
 }
 
+// ArchiveField handles DELETE /v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID}.
+// @Summary Archive a field
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param fieldID path string true "Field ID"
+// @Success 200 {object} sheetStatusResponse
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/fields/{fieldID} [delete]
 func (h *SheetsHandler) ArchiveField(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {

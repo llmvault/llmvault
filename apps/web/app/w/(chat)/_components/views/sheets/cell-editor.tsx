@@ -45,6 +45,7 @@ const RELATION_SEARCH_DEBOUNCE_MS = 250
 export function CellEditorOverlay({
   sheetId,
   pageId,
+  channelId,
   target,
   value,
   relations,
@@ -53,6 +54,7 @@ export function CellEditorOverlay({
 }: {
   sheetId: string
   pageId: string
+  channelId: string
   target: CellEditorTarget
   value: unknown
   relations: Record<string, SheetRelationRef>
@@ -113,6 +115,7 @@ export function CellEditorOverlay({
           <RelationEditor
             field={target.field}
             value={value}
+            channelId={channelId}
             relations={relations}
             onCommit={onCommit}
           />
@@ -361,11 +364,13 @@ function NumberEditor({
 function RelationEditor({
   field,
   value,
+  channelId,
   relations,
   onCommit,
 }: {
   field: SheetField
   value: unknown
+  channelId: string
   relations: Record<string, SheetRelationRef>
   onCommit: (value: unknown) => void
 }) {
@@ -376,7 +381,7 @@ function RelationEditor({
   const refQuery = useQuery({
     enabled: Boolean(targetPageId),
     queryKey: sheetKeys.pageRef(targetPageId ?? ""),
-    queryFn: () => resolvePageRef(queryClient, targetPageId ?? ""),
+    queryFn: () => resolvePageRef(queryClient, channelId, targetPageId ?? ""),
     staleTime: 5 * 60_000,
   })
   const pageRef = refQuery.data ?? null

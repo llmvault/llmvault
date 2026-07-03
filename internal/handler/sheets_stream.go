@@ -30,6 +30,16 @@ type sheetsLiveClaims struct {
 // LiveToken mints a short-lived, sheet-scoped JWT the browser presents when
 // connecting directly to /v1/sheets/{sheetID}/live (bypassing the Next proxy),
 // mirroring the canvas preview-token pattern.
+// @Summary Mint a sheet live-stream token
+// @Description Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Success 200 {object} sheetLiveTokenResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/live-token [post]
 func (h *SheetsHandler) LiveToken(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {

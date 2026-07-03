@@ -2,7 +2,6 @@ package agentruntime
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -28,7 +27,7 @@ func BuildRuntimeEnv(ctx context.Context, deps CompileDeps, agent *model.Agent, 
 	if err != nil {
 		return nil, err
 	}
-	return BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
+	return BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token, uuid.Nil)
 }
 
 func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string) (ConfigUpdateRequest, *ProxyTokenResult, error) {
@@ -38,6 +37,11 @@ func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent 
 type RuntimeConfigOptions struct {
 	ModelID         string
 	ReasoningEffort string
+	// ChannelID scopes which per-channel env vars are injected. When Nil, the
+	// builder resolves it from the sandbox's session. Session creation sets it
+	// explicitly because the session↔sandbox link is not yet persisted at the
+	// first push.
+	ChannelID uuid.UUID
 }
 
 func BuildAgentRuntimeConfigUpdateWithOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, opts RuntimeConfigOptions) (ConfigUpdateRequest, *ProxyTokenResult, error) {
@@ -66,7 +70,7 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 		modelID = strings.TrimSpace(runtimeAgent.Model)
 	}
 	phaseLog.log("start", "model", modelID, "has_reasoning_effort", strings.TrimSpace(opts.ReasoningEffort) != "")
-	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token)
+	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token, opts.ChannelID)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
@@ -102,7 +106,7 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	}, nil
 }
 
-func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {
+func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult, channelID uuid.UUID) (map[string]string, error) {
 	env := make(map[string]string)
 	if agent == nil {
 		return env, nil
@@ -112,7 +116,10 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	}
 
 	// Merge user env first so the reserved HIVY_ keys written below always win.
-	if err := mergeAgentEnvVars(deps, env, agent); err != nil {
+	if channelID == uuid.Nil {
+		channelID = resolveChannelIDForSandbox(ctx, deps, agent, sb)
+	}
+	if err := mergeChannelEnvVars(ctx, deps, env, channelID); err != nil {
 		return nil, err
 	}
 
@@ -149,32 +156,56 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	return env, nil
 }
 
-// mergeAgentEnvVars decrypts and merges org-supplied env vars into env. It must
-// run before the reserved control-plane keys are written so a user HIVY_* key is
-// overwritten by the authoritative value.
-func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Agent) error {
-	if len(agent.EncryptedEnvVars) == 0 {
+// mergeChannelEnvVars decrypts and merges the channel's user-supplied env vars
+// into env, each injected as __ENV__<NAME>. The sandbox runtime strips the
+// prefix before exposing the clean name to the workload. It must run before the
+// reserved control-plane keys are written so those keys stay authoritative.
+func mergeChannelEnvVars(ctx context.Context, deps CompileDeps, env map[string]string, channelID uuid.UUID) error {
+	if channelID == uuid.Nil {
+		return nil
+	}
+	if deps.DB == nil {
 		return nil
 	}
 	if deps.EncKey == nil {
 		return fmt.Errorf("runtime env decrypt: encryption key is required")
 	}
-	decrypted, err := deps.EncKey.DecryptString(agent.EncryptedEnvVars)
-	if err != nil {
-		return err
+	var vars []model.ChannelEnvVar
+	if err := deps.DB.WithContext(ctx).
+		Where("channel_id = ?", channelID).
+		Find(&vars).Error; err != nil {
+		return fmt.Errorf("load channel env vars: %w", err)
 	}
-	decrypted = strings.TrimSpace(decrypted)
-	if decrypted == "" {
-		return nil
-	}
-	rawEnv := map[string]string{}
-	if err := json.Unmarshal([]byte(decrypted), &rawEnv); err != nil {
-		return fmt.Errorf("decode env vars: %w", err)
-	}
-	for key, value := range rawEnv {
-		env[key] = value
+	for _, v := range vars {
+		value, err := deps.EncKey.DecryptString(v.EncryptedValue)
+		if err != nil {
+			return fmt.Errorf("decrypt channel env var %q: %w", v.Name, err)
+		}
+		env[channelEnvInjectPrefix+v.Name] = value
 	}
 	return nil
+}
+
+// channelEnvInjectPrefix marks user-supplied env vars in the runtime env. The
+// sandbox runtime strips it so the workload sees the clean name.
+const channelEnvInjectPrefix = "__ENV__"
+
+// resolveChannelIDForSandbox recovers the channel of the sandbox's session.
+// Used by every push path except session creation, where the session↔sandbox
+// link is not yet persisted and the channel is passed explicitly.
+func resolveChannelIDForSandbox(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox) uuid.UUID {
+	if deps.DB == nil || sb == nil || agent == nil || agent.OrgID == nil {
+		return uuid.Nil
+	}
+	var session model.Session
+	err := deps.DB.WithContext(ctx).
+		Where("sandbox_id = ? AND org_id = ? AND agent_id = ? AND status <> ?", sb.ID, *agent.OrgID, agent.ID, "archived").
+		Order("created_at DESC").
+		First(&session).Error
+	if err != nil {
+		return uuid.Nil
+	}
+	return session.ChannelID
 }
 
 func RuntimeEventWebSocketURL(cfg *config.Config, sandboxID uuid.UUID) string {

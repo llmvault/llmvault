@@ -17,6 +17,20 @@ type createImportRequest struct {
 	MutationID string         `json:"mutation_id,omitempty"`
 }
 
+// CreateImport handles POST /v1/sheets/{sheetID}/pages/{pageID}/imports.
+// @Summary Start a CSV import
+// @Description Starts an asynchronous CSV import from a drive object key into a page.
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body createImportRequest true "Import to start"
+// @Success 201 {object} sheetImportJobView
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/imports [post]
 func (h *SheetsHandler) CreateImport(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -46,6 +60,17 @@ func (h *SheetsHandler) CreateImport(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, sheetImportJobViewFrom(*job))
 }
 
+// GetImportJob handles GET /v1/sheets/imports/{jobID}.
+// @Summary Get a CSV import job
+// @Description Returns import job status. The caller must be able to use the job's sheet's channel.
+// @Tags sheets
+// @Produce json
+// @Param jobID path string true "Import job ID"
+// @Success 200 {object} sheetImportJobView
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/imports/{jobID} [get]
 func (h *SheetsHandler) GetImportJob(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -74,6 +99,15 @@ func (h *SheetsHandler) GetImportJob(w http.ResponseWriter, r *http.Request) {
 
 // ExportCSV streams a page's rows as CSV, cursor-walking the same query path
 // the grid uses so exports never load a whole page into memory.
+// @Summary Export a page as CSV
+// @Tags sheets
+// @Produce text/csv
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Success 200 {string} string "CSV stream"
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/export.csv [get]
 func (h *SheetsHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -145,6 +179,18 @@ func csvCellString(value any) string {
 	}
 }
 
+// ListOperations handles GET /v1/sheets/{sheetID}/pages/{pageID}/operations.
+// @Summary List page operations
+// @Description Returns a page's recent revertible operations, newest first.
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param limit query int false "Max operations to return"
+// @Success 200 {object} sheetOperationsResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/operations [get]
 func (h *SheetsHandler) ListOperations(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -171,6 +217,20 @@ type revertOperationRequest struct {
 	MutationID string `json:"mutation_id,omitempty"`
 }
 
+// RevertOperation handles POST /v1/sheets/{sheetID}/pages/{pageID}/operations/{operationID}/revert.
+// @Summary Revert an operation
+// @Description Applies one operation's exact inverse. Single-level undo — a revert is not itself re-undoable.
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param operationID path string true "Operation ID"
+// @Success 200 {object} sheetStatusResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/operations/{operationID}/revert [post]
 func (h *SheetsHandler) RevertOperation(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {

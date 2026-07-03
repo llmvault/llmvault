@@ -8,6 +8,16 @@ import (
 	"github.com/usehivy/hivy/internal/sheets"
 )
 
+// ListViews handles GET /v1/sheets/{sheetID}/pages/{pageID}/views.
+// @Summary List views
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Success 200 {object} sheetViewsResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/views [get]
 func (h *SheetsHandler) ListViews(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -35,6 +45,19 @@ type createViewRequest struct {
 	Config map[string]any `json:"config,omitempty"`
 }
 
+// CreateView handles POST /v1/sheets/{sheetID}/pages/{pageID}/views.
+// @Summary Create a view
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param body body createViewRequest true "View to create"
+// @Success 201 {object} sheetViewSummary
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/views [post]
 func (h *SheetsHandler) CreateView(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -65,6 +88,20 @@ type updateViewRequest struct {
 	Position *float64        `json:"position,omitempty"`
 }
 
+// UpdateView handles PATCH /v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}.
+// @Summary Update a view
+// @Tags sheets
+// @Accept json
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param viewID path string true "View ID"
+// @Param body body updateViewRequest true "Fields to update"
+// @Success 200 {object} sheetViewSummary
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/views/{viewID} [patch]
 func (h *SheetsHandler) UpdateView(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
@@ -95,6 +132,17 @@ func (h *SheetsHandler) UpdateView(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sheetViewSummaryFrom(*view))
 }
 
+// ArchiveView handles DELETE /v1/sheets/{sheetID}/pages/{pageID}/views/{viewID}.
+// @Summary Archive a view
+// @Tags sheets
+// @Produce json
+// @Param sheetID path string true "Sheet ID"
+// @Param pageID path string true "Page ID"
+// @Param viewID path string true "View ID"
+// @Success 200 {object} sheetStatusResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sheets/{sheetID}/pages/{pageID}/views/{viewID} [delete]
 func (h *SheetsHandler) ArchiveView(w http.ResponseWriter, r *http.Request) {
 	org, ok := h.requireSheetsOrg(w, r)
 	if !ok {
