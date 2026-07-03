@@ -1080,13 +1080,21 @@ mod tests {
     }
 
     fn unique_workspace() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // A per-call counter guarantees uniqueness across parallel test threads.
+        // The timestamp alone is not enough: two threads can observe the same
+        // nanosecond (the clock resolution is coarser than a nanosecond on many
+        // CI VMs), collide on the same path, and then delete each other's
+        // workspace mid-test.
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
-            "hivy-repos-test-{}-{}",
+            "hivy-repos-test-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            COUNTER.fetch_add(1, Ordering::Relaxed),
         ))
     }
 
