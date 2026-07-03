@@ -75,6 +75,14 @@ type SandboxPort struct {
 	UpdatedAt                 time.Time
 }
 
+type Alias struct {
+	Alias     string `gorm:"primaryKey"`
+	SandboxID string `gorm:"not null;index"`
+	Port      int    `gorm:"not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Template struct {
 	ID                  string `gorm:"primaryKey"`
 	OrgID               string `gorm:"not null;index"`
@@ -108,6 +116,8 @@ func (OrgPreviewSecret) TableName() string { return "microsandbox_org_preview_se
 func (Sandbox) TableName() string { return "microsandbox_sandboxes" }
 
 func (SandboxPort) TableName() string { return "microsandbox_sandbox_ports" }
+
+func (Alias) TableName() string { return "microsandbox_aliases" }
 
 func (Template) TableName() string { return "microsandbox_templates" }
 

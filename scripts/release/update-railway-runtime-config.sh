@@ -77,8 +77,14 @@ sandboxes_runtime_image_tag="$(
     bash "${script_dir}/runtime-image-tag.sh" "${manifest}"
 )"
 
+sandboxes_app_image_tag="$(
+  HIVY_SANDBOXES_APP_IMAGE_ARCH_SUFFIX="${runtime_arch_suffix}" \
+    bash "${script_dir}/app-image-tag.sh" "${manifest}"
+)"
+
 for value in \
-  "${sandboxes_runtime_image_tag}"
+  "${sandboxes_runtime_image_tag}" \
+  "${sandboxes_app_image_tag}"
 do
   if [[ -z "${value}" || "${value}" == "null" ]]; then
     echo "release manifest is missing a runtimeConfig value" >&2
@@ -96,6 +102,7 @@ for service in "${service_list[@]}"; do
   echo "Updating Railway runtime config on ${service}..."
   railway_with_retry variable set \
     "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG=${sandboxes_runtime_image_tag}" \
+    "HIVY_SANDBOXES_APP_IMAGE_TAG=${sandboxes_app_image_tag}" \
     --environment "${environment}" \
     --service "${service}"
 
@@ -106,7 +113,8 @@ for service in "${service_list[@]}"; do
       --json
   )"
   for key_and_expected in \
-    "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG=${sandboxes_runtime_image_tag}"
+    "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG=${sandboxes_runtime_image_tag}" \
+    "HIVY_SANDBOXES_APP_IMAGE_TAG=${sandboxes_app_image_tag}"
   do
     key="${key_and_expected%%=*}"
     expected="${key_and_expected#*=}"

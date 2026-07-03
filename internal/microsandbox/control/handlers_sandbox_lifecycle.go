@@ -92,6 +92,7 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	if err := s.db.Order("guest_port asc").Find(&ports, "sandbox_id = ?", sb.ID).Error; err == nil {
 		s.syncPreviewRoute(r.Context(), sb, runner, ports)
 	}
+	s.syncSandboxAliasRoutes(r.Context(), sb.ID)
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
 }
 
@@ -125,5 +126,6 @@ func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {
 		return tx.Delete(&sb).Error
 	})
 	s.deletePreviewRoute(r.Context(), sb.ID)
+	s.deleteSandboxAliasRoutes(r.Context(), sb.ID)
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }

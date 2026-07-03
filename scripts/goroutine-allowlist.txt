@@ -48,4 +48,4 @@ internal/evals/runner.go:79                    # fixed-size worker pool; wg.Done
 
 # --- App template (standalone hivyapp module; cannot import internal/goroutine) ---
 
-global/apps/template/hivycore/app.go:110       # bounded single-send producer to buffered errCh; Run() blocks on select until send or ctx cancel
+global/apps/template/hivycore/app.go:114       # bounded single-send producer to buffered errCh; Run() blocks on select until send or ctx cancel

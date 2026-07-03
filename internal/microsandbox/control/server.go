@@ -79,6 +79,9 @@ func (s *Server) Routes() http.Handler {
 		r.Post("/v1/templates", s.createTemplate)
 		r.Get("/v1/templates/{templateID}", s.getTemplate)
 		r.Delete("/v1/templates/{templateID}", s.deleteTemplate)
+		r.Put("/v1/aliases/{alias}", s.claimAlias)
+		r.Get("/v1/aliases/{alias}", s.getAlias)
+		r.Delete("/v1/aliases/{alias}", s.deleteAlias)
 	})
 
 	return r

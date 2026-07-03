@@ -15,12 +15,14 @@ command -v jq >/dev/null || {
 }
 
 runtime_tag="$(bash "${script_dir}/runtime-image-tag.sh" "${manifest}")"
+app_tag="$(bash "${script_dir}/app-image-tag.sh" "${manifest}")"
 runtime_repo="$(jq -r '.images.sandboxesRuntime | sub(":[^/:]+$"; "")' "${manifest}")"
 developers_repo="$(jq -r '.images.sandboxesRuntimeDevelopers | sub(":[^/:]+$"; "")' "${manifest}")"
+app_repo="$(jq -r '.images.sandboxesApp | sub(":[^/:]+$"; "")' "${manifest}")"
 
-for repo in "${runtime_repo}" "${developers_repo}"; do
+for repo in "${runtime_repo}" "${developers_repo}" "${app_repo}"; do
   if [[ -z "${repo}" || "${repo}" == "null" ]]; then
-    echo "release manifest is missing runtime image repositories" >&2
+    echo "release manifest is missing runtime/app image repositories" >&2
     exit 1
   fi
 done
@@ -28,6 +30,7 @@ done
 images=(
   "${runtime_repo}:${runtime_tag}"
   "${developers_repo}:${runtime_tag}"
+  "${app_repo}:${app_tag}"
 )
 
 runner_urls=("$@")

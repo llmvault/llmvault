@@ -117,7 +117,7 @@ func TestPublishFlow(t *testing.T) {
 		"HIVY_APP_ID":         app.ID.String(),
 		"HIVY_APP_SECRET":     secret,
 		"HIVY_APP_API_URL":    "https://api.test/internal/apps/" + app.ID.String(),
-		"HIVY_LAUNCH_URL":     "https://web.test/apps/" + app.ID.String() + "/launch",
+		"HIVY_LAUNCH_URL":     "https://web.test/",
 		"HIVY_SESSION_SECRET": sessionSecret,
 		"HIVY_SHEET_ID":       h.sheet.ID.String(),
 		"STRIPE_API_KEY":      "sk_test_123", // channel var, PLAIN name

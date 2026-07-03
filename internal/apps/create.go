@@ -93,10 +93,13 @@ func (s *Service) CreateApp(ctx context.Context, params CreateAppParams) (*model
 	}
 
 	app := model.App{
-		OrgID:              params.OrgID,
-		ChannelID:          channel.ID,
-		SheetID:            sheet.ID,
-		Slug:               slug,
+		OrgID:     params.OrgID,
+		ChannelID: channel.ID,
+		SheetID:   sheet.ID,
+		Slug:      slug,
+		// The alias stem defaults to the slug; the alias claim on deploy is the
+		// authority on collisions (last-write-wins repoint on the control plane).
+		Alias:              slug,
 		Name:               name,
 		Description:        strings.TrimSpace(params.Description),
 		Icon:               strings.TrimSpace(params.Icon),

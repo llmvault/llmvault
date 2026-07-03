@@ -351,6 +351,31 @@ Exit criterion for the whole plan: an agent, given a populated sheet and "build 
 manage this", ships a working authenticated CRUD app to a stable URL, then diagnoses a runtime
 error in it using only `app_logs` — no human touching the sandbox.
 
+## Release / production wiring
+
+The app sandbox image (`ghcr.io/usehivy/hivy-app`, `sandboxes/app/Dockerfile`,
+resolved by `internal/apps/image.go` via `HIVY_SANDBOXES_APP_IMAGE_TAG`) ships on
+the same `release` workflow path as the runtime images. It is built amd64-only,
+matching the runtime images and the amd64 microsandbox runner hosts. On every
+release (`.github/workflows/release.yml`, triggered by a published `vX.Y.Z` tag):
+
+1. **Build + push** — the `sandbox-app-image` job assembles the Docker build
+   context with `sandboxes/app/build_image.sh` (`HIVY_APP_CONTEXT_OUT` mode, so
+   context assembly is single-sourced with local builds) and pushes
+   `hivy-app:{tag}-amd64` / `hivy-app:{version}-amd64` via `build-push-action`.
+   `hivy-appd` is compiled inside the image (multi-stage), so no host toolchain
+   or make target is needed. The `release-manifest` job then stitches the
+   multi-arch `{tag}`, `{version}`, and `latest` tags from the `-amd64` image,
+   and `write-manifest.sh` records the image + `runtimeConfig.HIVY_SANDBOXES_APP_IMAGE_TAG`.
+2. **Runner warm** — `warm-microsandbox-runner-images.sh` (run by the
+   `warm-bare-metal-runner-caches` job) creates a throwaway sandbox from
+   `hivy-app:{tag}-amd64` on each runner, forcing an on-demand pull so the first
+   real app deploy after a release is warm. There is no ansible pre-pull; images
+   are pulled on demand, so the warm job is what avoids a cold-pull stall.
+3. **Railway env** — `update-railway-runtime-config.sh` sets
+   `HIVY_SANDBOXES_APP_IMAGE_TAG={tag}-amd64` (alongside the runtime tag) on the
+   `api.usehivy.com` and `asynq.usehivy.com` services and waits for the redeploys.
+
 ## Open items (decide during implementation, none block Phase 0/1)
 
 - Session-cookie TTL for apps (proposed 7d) and whether launch JWTs should also be redeemable

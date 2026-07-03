@@ -18,12 +18,16 @@ from .store import (
     RedisStore,
     Store,
     acquire_activity_report,
+    delete_alias,
     delete_route,
+    load_alias,
     load_route,
+    normalize_alias,
     normalize_route,
     route_activity_due,
     route_lease_valid,
     route_running,
+    store_alias,
     store_route,
     upstream_for,
     wake_lock_key,
@@ -154,6 +158,24 @@ def parse_preview_host(host: str, base_domain: str) -> tuple[int | None, str | N
     return port, match.group(2)
 
 
+def parse_alias_host(host: str, base_domain: str) -> str | None:
+    """Extract an alias label from an alias host `{alias}.{base_domain}`.
+
+    Returns None when the host is not on the base domain, is the bare domain,
+    carries extra labels, or looks like a `{port}-{sandbox}` preview host.
+    """
+    host = host.split(":", 1)[0].strip(".").lower()
+    suffix = "." + base_domain.strip(".").lower()
+    if not host.endswith(suffix):
+        return None
+    label = host[: -len(suffix)]
+    if not label or "." in label:
+        return None
+    if re.match(r"^[0-9]{1,5}-", label):
+        return None
+    return label
+
+
 async def health(request: web.Request) -> web.Response:
     state: AppState = request.app[STATE_KEY]
     try:
@@ -175,6 +197,16 @@ async def lookup(request: web.Request) -> web.Response:
     request_id = request.headers.get("X-Request-Id") or request.headers.get("X-Forwarded-Request-Id") or ""
     host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host") or ""
     port, sandbox_id = parse_preview_host(host, cfg.base_domain)
+    if not sandbox_id or not port:
+        # Not a {port}-{sandbox} preview host: try resolving it as an alias.
+        # An alias maps to (sandbox_id, port); from there the wake/lease/activity
+        # machinery is identical to the preview path (it keys on the sandbox).
+        alias = parse_alias_host(host, cfg.base_domain)
+        if alias:
+            mapping = await load_alias(state.store, alias)
+            if mapping:
+                sandbox_id = str(mapping.get("sandbox_id") or "")
+                port = int(mapping.get("port") or 0)
     if not sandbox_id or not port:
         state.metrics.inc("lookup_invalid_host")
         return json_response(404, {"error": "invalid preview host"})
@@ -364,6 +396,39 @@ async def delete_route_handler(request: web.Request) -> web.Response:
     return json_response(200, {"deleted": deleted})
 
 
+async def get_alias(request: web.Request) -> web.Response:
+    if not require_admin(request):
+        return json_response(401, {"error": "unauthorized"})
+    alias = request.match_info["alias"]
+    mapping = await load_alias(request.app[STATE_KEY].store, alias)
+    if not mapping:
+        return json_response(404, {"error": "alias not found"})
+    return json_response(200, mapping)
+
+
+async def put_alias(request: web.Request) -> web.Response:
+    if not require_admin(request):
+        return json_response(401, {"error": "unauthorized"})
+    body = await request.json()
+    state = request.app[STATE_KEY]
+    if request.path == "/v1/aliases/bulk":
+        mappings = [normalize_alias(item) for item in body.get("aliases", [])]
+        for mapping in mappings:
+            await store_alias(state.store, mapping)
+        return json_response(200, {"stored": len(mappings)})
+    mapping = normalize_alias(body, request.match_info.get("alias"))
+    await store_alias(state.store, mapping)
+    return json_response(200, mapping)
+
+
+async def delete_alias_handler(request: web.Request) -> web.Response:
+    if not require_admin(request):
+        return json_response(401, {"error": "unauthorized"})
+    alias = request.match_info["alias"]
+    deleted = await delete_alias(request.app[STATE_KEY].store, alias)
+    return json_response(200, {"deleted": deleted})
+
+
 async def cleanup_resources(app: web.Application) -> None:
     state: AppState = app[STATE_KEY]
     store_close = getattr(state.store, "close", None)
@@ -389,6 +454,11 @@ def create_app(cfg: Config, store: Store | None = None, control: ControlClient |
     app.router.add_post("/v1/routes/{sandbox_id}", put_route)
     app.router.add_post("/v1/routes/bulk", put_route)
     app.router.add_delete("/v1/routes/{sandbox_id}", delete_route_handler)
+    app.router.add_post("/v1/aliases/bulk", put_alias)
+    app.router.add_get("/v1/aliases/{alias}", get_alias)
+    app.router.add_put("/v1/aliases/{alias}", put_alias)
+    app.router.add_post("/v1/aliases/{alias}", put_alias)
+    app.router.add_delete("/v1/aliases/{alias}", delete_alias_handler)
     app.on_cleanup.append(cleanup_resources)
     return app
 

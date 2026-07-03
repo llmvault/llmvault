@@ -26,10 +26,13 @@ cat >"${out}" <<EOF
     "sandboxesRuntime": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_TAG}",
     "sandboxesRuntimeSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_VERSION}",
     "sandboxesRuntimeDevelopers": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_TAG}",
-    "sandboxesRuntimeDevelopersSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_VERSION}"
+    "sandboxesRuntimeDevelopersSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_VERSION}",
+    "sandboxesApp": "ghcr.io/usehivy/hivy-app:${RELEASE_TAG}",
+    "sandboxesAppSemver": "ghcr.io/usehivy/hivy-app:${RELEASE_VERSION}"
   },
   "runtimeConfig": {
-    "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG": "${RELEASE_TAG}"
+    "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG": "${RELEASE_TAG}",
+    "HIVY_SANDBOXES_APP_IMAGE_TAG": "${RELEASE_TAG}"
   }
 }
 EOF

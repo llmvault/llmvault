@@ -170,6 +170,7 @@ func (s *Service) ArchiveApp(ctx context.Context, orgID, appID uuid.UUID) error 
 		return ErrNotFound
 	}
 	s.stopSandboxBestEffort(ctx, app)
+	s.releaseAliasBestEffort(ctx, app)
 	return nil
 }
 
@@ -245,10 +246,15 @@ func (s *Service) SandboxEndpointURL(ctx context.Context, sb *model.Sandbox, por
 }
 
 // AppURL is the app's public 8080 endpoint (the SPA / auth callback origin).
+// The stable alias URL wins when set (microsandbox production); otherwise it
+// falls back to the plain sandbox endpoint (docker/local, and previews).
 // ErrNotDeployed when the app has no running deployment.
 func (s *Service) AppURL(ctx context.Context, app *model.App) (string, error) {
 	if app.Status != model.AppStatusRunning {
 		return "", ErrNotDeployed
+	}
+	if url := strings.TrimSpace(app.AliasURL); url != "" {
+		return url, nil
 	}
 	sb, err := s.appSandbox(ctx, app)
 	if err != nil {

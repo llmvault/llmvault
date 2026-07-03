@@ -147,6 +147,7 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.syncPreviewRoute(ctx, sb, runner, routePorts(ctx, s.db, sb.ID))
+	s.syncSandboxAliasRoutes(ctx, sb.ID)
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"status": out.Status,
 		"route":  route,

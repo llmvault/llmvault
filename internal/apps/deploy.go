@@ -12,6 +12,11 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
+// appSandboxSize is the size app sandboxes request: the micro tier (small,
+// backend-plus-SPA workloads). Docker uses its own defaults when a dimension is
+// 0; microsandbox floors explicit resources to nano on the control plane.
+const appSandboxSize = "micro"
+
 // Deploy activates a published version: ensure the app sandbox exists
 // (created with the app image and the full env, secret included, so appd can
 // authenticate), presign the bundle, and drive appd POST /deploy — which
@@ -93,6 +98,12 @@ func (s *Service) deploySandbox(ctx context.Context, app *model.App, version *mo
 		}
 		return fmt.Errorf("appd deploy (sandbox %s): %w", sb.ID, err)
 	}
+
+	// Claim (or repoint) the app's stable production alias at this sandbox
+	// (silent no-op on providers without alias support; see claimAlias).
+	if err := s.claimAlias(ctx, app, sb); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -119,10 +130,14 @@ func (s *Service) ensureAppSandbox(ctx context.Context, app *model.App, env map[
 		return nil, false, fmt.Errorf("save app sandbox row: %w", err)
 	}
 
+	size, _ := model.TemplateSizeSpec(appSandboxSize)
 	info, err := s.provider.CreateSandbox(ctx, sandbox.CreateSandboxOpts{
 		Name:        appSandboxName(app),
 		TemplateRef: imageRef,
 		EnvVars:     env,
+		CPU:         size.CPU,
+		Memory:      size.Memory,
+		Disk:        size.Disk,
 		Labels: map[string]string{
 			"org_id":     app.OrgID.String(),
 			"sandbox_id": sb.ID.String(),

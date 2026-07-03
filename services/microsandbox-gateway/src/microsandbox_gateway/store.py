@@ -8,6 +8,7 @@ from typing import Any, Protocol
 import redis.asyncio as redis
 
 ROUTE_PREFIX = "microsandbox:preview-route:"
+ALIAS_PREFIX = "microsandbox:preview-alias:"
 ACTIVITY_DEBOUNCE_PREFIX = "microsandbox:preview-activity-debounce:"
 WAKE_LOCK_PREFIX = "microsandbox:preview-wake:"
 
@@ -61,6 +62,46 @@ def activity_debounce_key(sandbox_id: str) -> str:
 
 def wake_lock_key(sandbox_id: str) -> str:
     return WAKE_LOCK_PREFIX + sandbox_id
+
+
+def alias_key(alias: str) -> str:
+    return ALIAS_PREFIX + alias.strip().lower()
+
+
+def normalize_alias(raw: dict[str, Any], alias: str | None = None) -> dict[str, Any]:
+    mapping = dict(raw)
+    if alias:
+        mapping["alias"] = alias
+    name = str(mapping.get("alias", "")).strip().lower()
+    if not name:
+        raise ValueError("alias is required")
+    sandbox_id = str(mapping.get("sandbox_id", "")).strip()
+    if not sandbox_id:
+        raise ValueError("sandbox_id is required")
+    port = int(mapping.get("port") or 0)
+    if port <= 0 or port > 65535:
+        raise ValueError("valid port is required")
+    return {
+        "alias": name,
+        "sandbox_id": sandbox_id,
+        "port": port,
+        "updated_at": int(mapping.get("updated_at") or time.time()),
+    }
+
+
+async def load_alias(store: Store, alias: str) -> dict[str, Any] | None:
+    return await store.get_json(alias_key(alias))
+
+
+async def store_alias(store: Store, mapping: dict[str, Any]) -> None:
+    # Alias mappings are persistent (no TTL): the alias→sandbox binding only
+    # changes on repoint/delete, and a cold sandbox must remain wakeable via it.
+    mapping = normalize_alias(mapping)
+    await store.set_json(alias_key(mapping["alias"]), mapping)
+
+
+async def delete_alias(store: Store, alias: str) -> bool:
+    return bool(await store.delete(alias_key(alias)))
 
 
 async def load_route(store: Store, sandbox_id: str) -> dict[str, Any] | None:

@@ -25,19 +25,23 @@ const (
 // (AES-256-GCM with the sandbox encryption key, like
 // sandboxes.encrypted_runtime_secret) that authenticates the app backend.
 type App struct {
-	ID                 uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID              uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Org                *Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	ChannelID          uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Channel            *Channel   `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
-	SheetID            uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Sheet              *Sheet     `gorm:"foreignKey:SheetID;constraint:OnDelete:CASCADE"`
-	Slug               string     `gorm:"type:text;not null"`
-	Name               string     `gorm:"type:text;not null"`
-	Description        string     `gorm:"type:text;not null;default:''"`
-	Icon               string     `gorm:"type:text;not null;default:''"`
-	Alias              string     `gorm:"type:text;not null;default:''"` // microsandbox alias hostname stem; '' until claimed
-	SandboxID          *uuid.UUID `gorm:"type:uuid"`                     // current app sandbox; nil until deployed
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID       uuid.UUID `gorm:"type:uuid;not null;index"`
+	Org         *Org      `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	ChannelID   uuid.UUID `gorm:"type:uuid;not null;index"`
+	Channel     *Channel  `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	SheetID     uuid.UUID `gorm:"type:uuid;not null;index"`
+	Sheet       *Sheet    `gorm:"foreignKey:SheetID;constraint:OnDelete:CASCADE"`
+	Slug        string    `gorm:"type:text;not null"`
+	Name        string    `gorm:"type:text;not null"`
+	Description string    `gorm:"type:text;not null;default:''"`
+	Icon        string    `gorm:"type:text;not null;default:''"`
+	Alias       string    `gorm:"type:text;not null;default:''"` // microsandbox alias hostname stem; '' until claimed
+	// AliasURL is the alias's resolved public URL (microsandbox:
+	// https://{alias}.{previewBaseDomain}); '' for providers without alias
+	// support, which keep plain sandbox-endpoint URLs. AppURL prefers it.
+	AliasURL           string     `gorm:"type:text;not null;default:''"`
+	SandboxID          *uuid.UUID `gorm:"type:uuid"` // current app sandbox; nil until deployed
 	Sandbox            *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:SET NULL"`
 	EncryptedAppSecret []byte     `gorm:"type:bytea;not null"` // AES-256-GCM (SandboxEncKey) encrypted app runtime secret
 	ActiveVersionID    *uuid.UUID `gorm:"type:uuid"`

@@ -16,7 +16,15 @@ const (
 )
 
 // TemplateSizes maps size names to their resource allocations.
+//
+// micro is the app-tier minimum (1 CPU / 256 MB): its true memory is sub-GB, so
+// it cannot be expressed in this GB-granular table — Memory 0 records "below the
+// 1 GB granularity, take the provider minimum" and keeps micro distinct from
+// nano's {1,1,5} for TemplateSizeForResources. The authoritative 256 MB value
+// lives in the MB-granular microsandbox api.Sizes table. Agents never select
+// micro; only app sandboxes request it.
 var TemplateSizes = map[string]TemplateSize{
+	"micro":  {Name: "micro", CPU: 1, Memory: 0, Disk: 5},
 	"nano":   {Name: "nano", CPU: 1, Memory: 1, Disk: 5},
 	"small":  {Name: "small", CPU: 1, Memory: 2, Disk: 10},
 	"medium": {Name: "medium", CPU: 2, Memory: 4, Disk: 20},

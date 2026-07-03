@@ -9,9 +9,14 @@ from typing import Any
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from microsandbox_gateway.app import JsonLogFormatter, create_app, parse_preview_host
+from microsandbox_gateway.app import (
+    JsonLogFormatter,
+    create_app,
+    parse_alias_host,
+    parse_preview_host,
+)
 from microsandbox_gateway.config import Config
-from microsandbox_gateway.store import route_key
+from microsandbox_gateway.store import alias_key, route_key
 
 
 class MemoryStore:
@@ -123,6 +128,90 @@ async def client() -> tuple[TestClient, MemoryStore, FakeControl]:
 def test_parse_preview_host() -> None:
     assert parse_preview_host("3000-sbx_123.preview.test", "preview.test") == (3000, "sbx_123")
     assert parse_preview_host("preview.test", "preview.test") == (None, None)
+
+
+def test_parse_alias_host() -> None:
+    assert parse_alias_host("my-app.preview.test", "preview.test") == "my-app"
+    # bare domain is not an alias
+    assert parse_alias_host("preview.test", "preview.test") is None
+    # preview {port}-{sandbox} hosts must not be treated as aliases
+    assert parse_alias_host("3000-sbx_123.preview.test", "preview.test") is None
+    # extra labels are rejected
+    assert parse_alias_host("a.b.preview.test", "preview.test") is None
+    # off-domain host
+    assert parse_alias_host("my-app.other.test", "preview.test") is None
+
+
+async def test_lookup_resolves_alias_to_cached_route(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, store, control = client
+    await store.set_json(route_key("sbx_test"), control.route_payload)
+    await store.set_json(alias_key("my-app"), {"alias": "my-app", "sandbox_id": "sbx_test", "port": 3000})
+
+    resp = await test_client.get("/v1/lookup", headers={"Host": "my-app.preview.test"})
+
+    assert resp.status == 204
+    assert resp.headers["X-Microsandbox-Upstream"] == "10.0.0.2:43000"
+    assert control.ensure_calls == []
+
+
+async def test_lookup_alias_triggers_ensure_ready_on_cold_sandbox(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, store, control = client
+    await store.set_json(alias_key("my-app"), {"alias": "my-app", "sandbox_id": "sbx_test", "port": 7080})
+
+    resp = await test_client.get("/v1/lookup", headers={"Host": "my-app.preview.test"})
+
+    assert resp.status == 204
+    assert resp.headers["X-Microsandbox-Upstream"] == "10.0.0.2:47080"
+    assert control.ensure_calls == [("sbx_test", 7080)]
+
+
+async def test_lookup_unknown_alias_is_404(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, _store, control = client
+    resp = await test_client.get("/v1/lookup", headers={"Host": "ghost-app.preview.test"})
+    assert resp.status == 404
+    assert control.ensure_calls == []
+
+
+async def test_alias_admin_round_trip(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+    test_client, _store, _control = client
+    put = await test_client.put(
+        "/v1/aliases/my-app",
+        headers={"Authorization": "Bearer admin-token"},
+        json={"sandbox_id": "sbx_admin", "port": 8080},
+    )
+    assert put.status == 200
+    body = await put.json()
+    assert body == {
+        "alias": "my-app",
+        "sandbox_id": "sbx_admin",
+        "port": 8080,
+        "updated_at": body["updated_at"],
+    }
+
+    get = await test_client.get("/v1/aliases/my-app", headers={"Authorization": "Bearer admin-token"})
+    assert get.status == 200
+    assert (await get.json())["sandbox_id"] == "sbx_admin"
+
+    bulk = await test_client.post(
+        "/v1/aliases/bulk",
+        headers={"Authorization": "Bearer admin-token"},
+        json={"aliases": [{"alias": "app-b", "sandbox_id": "sbx_admin", "port": 3000}]},
+    )
+    assert bulk.status == 200
+    assert (await bulk.json()) == {"stored": 1}
+
+    deleted = await test_client.delete("/v1/aliases/my-app", headers={"Authorization": "Bearer admin-token"})
+    assert deleted.status == 200
+    assert (await deleted.json()) == {"deleted": True}
+
+    missing = await test_client.get("/v1/aliases/my-app", headers={"Authorization": "Bearer admin-token"})
+    assert missing.status == 404
 
 
 def test_json_log_formatter_includes_lookup_fields() -> None:

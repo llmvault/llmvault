@@ -267,8 +267,10 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 	for _, port := range allPorts {
 		portsBySandbox[port.SandboxID] = append(portsBySandbox[port.SandboxID], port)
 	}
+	existingSandboxes := make(map[string]bool, len(sandboxes))
 	routes := make([]previewCacheRoute, 0, len(sandboxes))
 	for _, sb := range sandboxes {
+		existingSandboxes[sb.ID] = true
 		runner, ok := runnerByID[sb.RunnerID]
 		if !ok {
 			logger.WarnContext(ctx, "preview route bulk sync skipped sandbox without runner", "sandbox_id", sb.ID, "runner_id", sb.RunnerID)
@@ -285,6 +287,7 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 		}
 		routes = append(routes, route)
 	}
+	s.bulkSyncAliasRoutes(ctx, existingSandboxes)
 	if len(routes) == 0 {
 		return
 	}

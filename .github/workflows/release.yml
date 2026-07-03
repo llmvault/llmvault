@@ -181,6 +181,55 @@ jobs:
             org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
 
+  sandbox-app-image:
+    name: sandbox app image (amd64)
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # hivy-appd is compiled inside the image (multi-stage), so no host
+      # cross-toolchain or make target is needed. build_image.sh assembles the
+      # minimal Docker build context (go.mod/go.sum + hivy-appd source tree +
+      # docker assets) so the pushed image matches local builds exactly.
+      - name: prepare app Docker build context
+        run: HIVY_APP_CONTEXT_OUT="${RUNNER_TEMP}/app-context" bash sandboxes/app/build_image.sh
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push app sandbox image
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ${{ runner.temp }}/app-context
+          file: ${{ runner.temp }}/app-context/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/usehivy/hivy-app:${{ needs.prepare.outputs.tag }}-amd64
+            ghcr.io/usehivy/hivy-app:${{ needs.prepare.outputs.version }}-amd64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.tag }}
+            COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/usehivy/hivy
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+
   release-manifest:
     name: release manifest
     runs-on: ubuntu-latest
@@ -188,6 +237,7 @@ jobs:
       - prepare
       - api-image
       - sandbox-runtime-images
+      - sandbox-app-image
     steps:
       - uses: actions/checkout@v6
         with:
@@ -208,7 +258,8 @@ jobs:
         run: |
           runtime="ghcr.io/usehivy/hivy-sandboxes-runtime"
           developers="ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
-          for image in "$runtime" "$developers"; do
+          app="ghcr.io/usehivy/hivy-app"
+          for image in "$runtime" "$developers" "$app"; do
             docker buildx imagetools create \
               -t "${image}:${{ needs.prepare.outputs.tag }}" \
               "${image}:${{ needs.prepare.outputs.tag }}-amd64"
