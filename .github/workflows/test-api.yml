@@ -454,22 +454,45 @@ jobs:
 
   runtime:
     name: sandbox runtime
-    # Pinned to 22.04: on ubuntu-latest (24.04) this job is cancelled unprompted
-    # ~3 min in ("The operation was canceled") during the heavy Rust build, a
-    # documented hosted-runner regression. See actions/runner-images#9959.
-    runs-on: ubuntu-22.04
-    timeout-minutes: 8
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    # The job was being OOM-killed mid `cargo test --workspace` (~3 min in:
+    # "The operation was canceled" + make ECHILD "wait: No child processes",
+    # the fingerprint of a cgroup-wide SIGKILL). Same on 22.04 and 24.04, so it
+    # is resource pressure, not the image. Trim peak memory/disk: drop debug
+    # symbols (the biggest codegen/link hog) and cap concurrent test processes.
+    env:
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+      RUST_TEST_THREADS: "2"
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - name: free disk space
+        run: |
+          echo "disk before:"; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/local/share/boost || true
+          echo "disk after:"; df -h /
+          echo "memory:"; free -h
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: sandboxes/runtime -> target
+          cache-on-failure: "true"
       - name: runtime checks
         run: make ci-test-runtime
-        timeout-minutes: 6
+        timeout-minutes: 15
+      - name: resource diagnostics
+        if: always()
+        run: |
+          echo "--- memory ---"; free -h
+          echo "--- disk ---"; df -h /
+          echo "--- OOM killer verdict ---"
+          sudo dmesg 2>/dev/null | grep -iE 'killed process|out of memory|oom-kill' | tail -20 \
+            || echo "no OOM lines found (or dmesg unavailable)"
 
   quality:
     name: quality
