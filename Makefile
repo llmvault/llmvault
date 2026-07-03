@@ -163,6 +163,14 @@ canvas-cli-linux-build-arm64:
 sandbox-runtime-test:
 	cd $(SANDBOX_RUNTIME_DIR) && cargo test --workspace --locked
 
+# Subprocess-spawning bash integration tests, isolated into their own CI job.
+# They are #[ignore]-d in the main suite (see bash_operations_integration.rs) so
+# that if spawning real bash processes trips the hosted runner it only fails this
+# job, not the whole Rust suite. Run serially to keep resource use minimal.
+.PHONY: sandbox-runtime-test-subprocess
+sandbox-runtime-test-subprocess:
+	cd $(SANDBOX_RUNTIME_DIR) && cargo test -p tools --test bash_operations_integration --locked -- --ignored --test-threads=1
+
 sandbox-runtime-fmt-check:
 	cd $(SANDBOX_RUNTIME_DIR) && cargo fmt --all --check
 

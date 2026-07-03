@@ -458,7 +458,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
@@ -467,6 +467,20 @@ jobs:
       - name: runtime checks
         run: make ci-test-runtime
         timeout-minutes: 6
+
+  runtime-subprocess:
+    name: sandbox runtime subprocess
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sandboxes/runtime -> target
+      - name: subprocess bash tests
+        run: make sandbox-runtime-test-subprocess
+        timeout-minutes: 10
 
   quality:
     name: quality
@@ -501,6 +515,7 @@ jobs:
       - web
       - web-unit
       - runtime
+      - runtime-subprocess
       - quality
     steps:
       - name: check result
@@ -518,6 +533,7 @@ jobs:
             "${{ needs.web.result }}" \
             "${{ needs.web-unit.result }}" \
             "${{ needs.runtime.result }}" \
+            "${{ needs.runtime-subprocess.result }}" \
             "${{ needs.quality.result }}"; do
             test "$result" = success
           done

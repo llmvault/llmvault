@@ -16,6 +16,7 @@ fn opts(timeout_secs: u64) -> BashExecOptions {
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn developer_runs_ls_and_sees_files() {
     let result = bash().exec("ls Cargo.toml", opts(5)).await.unwrap();
     assert_eq!(result.exit_code, Some(0));
@@ -23,12 +24,14 @@ async fn developer_runs_ls_and_sees_files() {
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn command_that_fails_returns_exit_code() {
     let result = bash().exec("exit 42", opts(5)).await.unwrap();
     assert_eq!(result.exit_code, Some(42));
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn piped_commands_work() {
     let result = bash()
         .exec("echo 'a\nb\nc' | wc -l", opts(5))
@@ -39,6 +42,7 @@ async fn piped_commands_work() {
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn stderr_is_captured_with_stdout() {
     let result = bash()
         .exec("echo ok && echo err >&2", opts(5))
@@ -50,12 +54,14 @@ async fn stderr_is_captured_with_stdout() {
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn timed_out_command_reports_timeout() {
     let result = bash().exec("sleep 10", opts(1)).await.unwrap();
     assert!(result.timed_out);
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn multiline_output_is_preserved() {
     let result = bash()
         .exec("printf 'line1\nline2\nline3\nline4\nline5\n'", opts(5))
@@ -67,6 +73,7 @@ async fn multiline_output_is_preserved() {
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn environment_variables_are_respected() {
     let mut o = opts(5);
     o.env.insert("MY_TEST_VAR".into(), "hello_test".into());
@@ -75,6 +82,7 @@ async fn environment_variables_are_respected() {
 }
 
 #[tokio::test]
+#[ignore = "spawns real bash subprocesses; runs in the isolated 'sandbox runtime subprocess' CI job (see .github/workflows/test-api.yml)"]
 async fn empty_command_produces_output() {
     let result = bash().exec("", opts(5)).await.unwrap();
     assert_eq!(result.exit_code, Some(0));
