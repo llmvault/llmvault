@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "slug": "github-mention",
+  "name": "Mentioned on GitHub",
+  "description": "Run an agent when someone @mentions Hivy on a GitHub issue or pull request.",
+  "category": "Development",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": [
+      "github"
+    ],
+    "recommended": []
+  },
+  "trigger": {
+    "key": "mention",
+    "defaults": {
+      "value": "",
+      "instructions": "./instructions.md"
+    }
+  },
+  "install": {
+    "enabled": true
+  }
+}

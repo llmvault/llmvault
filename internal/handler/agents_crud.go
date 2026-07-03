@@ -15,26 +15,27 @@ import (
 )
 
 type agentMutationRequest struct {
-	Name              *string           `json:"name,omitempty"`
-	Description       *string           `json:"description,omitempty"`
-	Instructions      *string           `json:"instructions,omitempty"`
-	AvatarURL         *string           `json:"avatar_url,omitempty"`
-	Icon              *string           `json:"icon,omitempty"`
-	SandboxImage      *string           `json:"sandbox_image,omitempty"`
-	SandboxSize       *string           `json:"sandbox_size,omitempty"`
-	SandboxTemplateID *string           `json:"sandbox_template_id,omitempty"`
-	Model             *string           `json:"model,omitempty"`
-	ImageModel        *string           `json:"image_model,omitempty"`
-	VectorImageModel  *string           `json:"vector_image_model,omitempty"`
-	Tools             *model.JSON       `json:"tools,omitempty"`
-	McpToolFilter     *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
-	McpServers        *json.RawMessage  `json:"mcp_servers,omitempty"`
-	Skills            *model.JSON       `json:"skills,omitempty"`
-	Permissions       *model.JSON       `json:"permissions,omitempty"`
-	Resources         *model.JSON       `json:"resources,omitempty"`
-	SandboxTools      *[]string         `json:"sandbox_tools,omitempty"`
-	ChannelIDs        *[]string         `json:"channel_ids,omitempty"`
-	SubAgents         *[]subAgentInput  `json:"sub_agents,omitempty"`
+	Name                   *string           `json:"name,omitempty"`
+	Description            *string           `json:"description,omitempty"`
+	Instructions           *string           `json:"instructions,omitempty"`
+	AvatarURL              *string           `json:"avatar_url,omitempty"`
+	Icon                   *string           `json:"icon,omitempty"`
+	SandboxImage           *string           `json:"sandbox_image,omitempty"`
+	SandboxSize            *string           `json:"sandbox_size,omitempty"`
+	SandboxTemplateID      *string           `json:"sandbox_template_id,omitempty"`
+	Model                  *string           `json:"model,omitempty"`
+	DefaultReasoningEffort *string           `json:"default_reasoning_effort,omitempty"`
+	ImageModel             *string           `json:"image_model,omitempty"`
+	VectorImageModel       *string           `json:"vector_image_model,omitempty"`
+	Tools                  *model.JSON       `json:"tools,omitempty"`
+	McpToolFilter          *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
+	McpServers             *json.RawMessage  `json:"mcp_servers,omitempty"`
+	Skills                 *model.JSON       `json:"skills,omitempty"`
+	Permissions            *model.JSON       `json:"permissions,omitempty"`
+	Resources              *model.JSON       `json:"resources,omitempty"`
+	SandboxTools           *[]string         `json:"sandbox_tools,omitempty"`
+	ChannelIDs             *[]string         `json:"channel_ids,omitempty"`
+	SubAgents              *[]subAgentInput  `json:"sub_agents,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -82,6 +83,10 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.validateAgentSelectableModel(ctx, org.ID, modelID); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	defaultReasoningEffort, ok := normalizeAgentDefaultReasoningEffortForRequest(w, req.DefaultReasoningEffort)
+	if !ok {
 		return
 	}
 	imageModel := cleanStringPtr(req.ImageModel)
@@ -141,27 +146,28 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	instructions := cleanStringPtr(req.Instructions)
 	avatarURL := cleanStringPtr(req.AvatarURL)
 	agent := model.Agent{
-		OrgID:             &org.ID,
-		Name:              name,
-		Description:       &desc,
-		Instructions:      &instructions,
-		AvatarURL:         optionalStringPtr(avatarURL),
-		Icon:              cleanStringPtr(req.Icon),
-		IsDefault:         false,
-		SandboxImage:      sandboxImage,
-		SandboxSize:       sandboxSize,
-		SandboxTemplateID: sandboxTemplateID,
-		Model:             modelID,
-		ImageModel:        imageModel,
-		VectorImageModel:  vectorImageModel,
-		Tools:             tools,
-		McpToolFilter:     normalizeMcpToolFilter(req.McpToolFilter),
-		McpServers:        mcpServers,
-		Skills:            normalizeJSONPtr(req.Skills),
-		Permissions:       permissions,
-		Resources:         normalizeJSONPtr(req.Resources),
-		SandboxTools:      pq.StringArray(sandboxTools),
-		Status:            "active",
+		OrgID:                  &org.ID,
+		Name:                   name,
+		Description:            &desc,
+		Instructions:           &instructions,
+		AvatarURL:              optionalStringPtr(avatarURL),
+		Icon:                   cleanStringPtr(req.Icon),
+		IsDefault:              false,
+		SandboxImage:           sandboxImage,
+		SandboxSize:            sandboxSize,
+		SandboxTemplateID:      sandboxTemplateID,
+		Model:                  modelID,
+		DefaultReasoningEffort: defaultReasoningEffort,
+		ImageModel:             imageModel,
+		VectorImageModel:       vectorImageModel,
+		Tools:                  tools,
+		McpToolFilter:          normalizeMcpToolFilter(req.McpToolFilter),
+		McpServers:             mcpServers,
+		Skills:                 normalizeJSONPtr(req.Skills),
+		Permissions:            permissions,
+		Resources:              normalizeJSONPtr(req.Resources),
+		SandboxTools:           pq.StringArray(sandboxTools),
+		Status:                 "active",
 	}
 	channelIDs, ok := h.normalizeAgentChannelIDs(ctx, w, org.ID, req.ChannelIDs)
 	if !ok {
@@ -197,4 +203,19 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		item.SubAgents = append(item.SubAgents, toSubAgentResponse(sub))
 	}
 	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: item})
+}
+
+// normalizeAgentDefaultReasoningEffortForRequest validates and normalizes an
+// optional default_reasoning_effort value. A nil pointer (field omitted) yields
+// an empty string; an unrecognized value writes a 400 and returns ok=false.
+func normalizeAgentDefaultReasoningEffortForRequest(w http.ResponseWriter, value *string) (string, bool) {
+	if value == nil {
+		return "", true
+	}
+	normalized, ok := model.NormalizeReasoningEffort(*value)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_reasoning_effort must be low, medium, or high"})
+		return "", false
+	}
+	return normalized, true
 }

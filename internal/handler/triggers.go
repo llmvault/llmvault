@@ -94,19 +94,13 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	if provider == "" {
 		provider = slackapp.Provider
 	}
-	if provider != slackapp.Provider {
+	if !triggerProviderSupported(provider) {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "provider is not supported", fmt.Errorf("unsupported provider")
 	}
-	triggerKey := strings.TrimSpace(req.TriggerKey)
-	if triggerKey == "" {
-		triggerKey = slackapp.EventReactionAdded
-	}
-	if triggerKey != slackapp.EventReactionAdded {
+	triggerKey := defaultTriggerKey(provider, strings.TrimSpace(req.TriggerKey))
+	template, ok := resolveTriggerTemplate(provider, triggerKey)
+	if !ok {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "trigger_key is not supported", fmt.Errorf("unsupported trigger key")
-	}
-	triggerValue := normalizeTriggerValue(req.TriggerValue)
-	if triggerValue == "" {
-		return model.AgentTrigger{}, "", http.StatusBadRequest, "trigger_value is required", fmt.Errorf("missing trigger value")
 	}
 	if strings.TrimSpace(req.Instructions) == "" {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "instructions are required", fmt.Errorf("missing instructions")
@@ -118,6 +112,10 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	resourceKey := strings.TrimSpace(req.ExternalResourceKey)
 	if resourceKey == "" {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "external_resource_key is required", fmt.Errorf("missing external resource key")
+	}
+	triggerValue := template.triggerValue(req.TriggerValue, resourceKey)
+	if triggerValue == "" {
+		return model.AgentTrigger{}, "", http.StatusBadRequest, "trigger_value is required", fmt.Errorf("missing trigger value")
 	}
 	resourceName := strings.TrimSpace(req.ExternalResourceName)
 	agentID, err := uuid.Parse(strings.TrimSpace(req.AgentID))
@@ -133,7 +131,7 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
 		Provider:       provider,
 		Connection:     conn,
-		ResourceType:   "slack_channel",
+		ResourceType:   template.resourceType,
 		ResourceKey:    resourceKey,
 		ResourceName:   resourceName,
 		DefaultAgentID: agentID,
@@ -154,7 +152,7 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 			TriggerType:  "webhook",
 			ChannelID:    &channel.ID,
 			ConnectionID: &conn.ID,
-			TriggerKeys:  pq.StringArray{triggerKey},
+			TriggerKeys:  pq.StringArray(template.triggerKeys),
 			TriggerKey:   triggerKey,
 			TriggerValue: triggerValue,
 			Enabled:      true,

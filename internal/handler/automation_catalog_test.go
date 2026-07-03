@@ -78,8 +78,30 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 			if len(resp.Data) < tc.wantMin {
 				t.Fatalf("items = %d, want at least %d", len(resp.Data), tc.wantMin)
 			}
-			if tc.kind == "trigger" && len(resp.Data) != 1 {
-				t.Fatalf("trigger items = %d, want 1", len(resp.Data))
+			if tc.kind == "trigger" {
+				wantTriggers := map[string]struct {
+					provider string
+					key      string
+				}{
+					"slack-reaction": {provider: "slack", key: "reaction_added"},
+					"github-mention": {provider: "github-app", key: "mention"},
+				}
+				if len(resp.Data) != len(wantTriggers) {
+					t.Fatalf("trigger items = %d, want %d", len(resp.Data), len(wantTriggers))
+				}
+				for _, item := range resp.Data {
+					want, ok := wantTriggers[item.Slug]
+					if !ok {
+						t.Fatalf("unexpected trigger template %q", item.Slug)
+					}
+					if item.Integration.Provider != want.provider || item.Trigger == nil || item.Trigger.Key != want.key {
+						t.Fatalf("trigger item %q = provider %q key %v, want provider %q key %q",
+							item.Slug, item.Integration.Provider, item.Trigger, want.provider, want.key)
+					}
+					if item.Trigger.Defaults.Instructions == "" {
+						t.Fatalf("trigger item %q missing default instructions", item.Slug)
+					}
+				}
 			}
 			for _, item := range resp.Data {
 				if item.Kind != tc.kind {
@@ -90,14 +112,6 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 				}
 				if !item.Enabled || item.Instructions == "" {
 					t.Fatalf("item %q should be enabled with instructions", item.Slug)
-				}
-				if tc.kind == "trigger" && (item.Trigger == nil || item.Trigger.Key == "" ||
-					item.Trigger.Defaults.Value == "" || item.Trigger.Defaults.Instructions == "") {
-					t.Fatalf("trigger item %q missing trigger defaults", item.Slug)
-				}
-				if tc.kind == "trigger" && (item.Slug != "slack-reaction" ||
-					item.Integration.Provider != "slack" || item.Trigger.Key != "reaction_added") {
-					t.Fatalf("trigger item %q did not match slack reaction template", item.Slug)
 				}
 				if tc.kind == "schedule" {
 					if item.Install.DefaultAgent == "" || item.Install.DefaultChannel == "" {

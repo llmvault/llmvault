@@ -1,0 +1,13 @@
+{
+  "name": "qa-execution",
+  "description": "Use this skill when running QA test cases: deterministic replay of cached commands, healing broken locators, judging failures, uploading artifacts, and the exact goal/result contracts for executor and triage subagents. Load it before starting any test run or writing a subagent goal.",
+  "human_description": "How the QA agent runs tests: replay first, heal locators (never assertions), fail loudly.",
+  "category": "Testing",
+  "root": "./SKILL.md",
+  "tags": ["qa", "testing", "browser", "replay", "subagents"],
+  "required_environment_variables": ["HIVY_DRIVE_UPLOAD_URL", "HIVY_DRIVE_UPLOAD_BEARER"],
+  "files": [
+    { "path": "scripts/replay.mjs" },
+    { "path": "scripts/upload-run.mjs" }
+  ]
+}

@@ -16,24 +16,26 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		developer = "Hivy"
 	}
 	sandboxImage := model.NormalizeSandboxImage(manifest.Runtime.SandboxImage)
+	reasoningEffort, _ := model.NormalizeReasoningEffort(manifest.Runtime.ReasoningEffort)
 	return map[string]any{
-		"name":                strings.TrimSpace(manifest.Name),
-		"description":         strings.TrimSpace(manifest.Description),
-		"category":            strings.TrimSpace(manifest.Category),
-		"avatar_url":          strings.TrimSpace(manifest.AvatarURL),
-		"developer":           developer,
-		"official":            boolValue(manifest.Official),
-		"is_default":          boolValue(manifest.Default),
-		"model":               strings.TrimSpace(manifest.Runtime.Model),
-		"sandbox_image":       sandboxImage,
-		"instructions":        strings.TrimSpace(manifest.instructions),
-		"tools":               normalizeToolSelection(manifest.Tools),
-		"sub_agents":          catalogSubAgentsJSON(manifest),
-		"required_plugins":    pq.StringArray(normalizeStrings(manifest.Plugins.Required)),
-		"recommended_plugins": pq.StringArray(normalizeStrings(manifest.Plugins.Recommended)),
-		"manifest":            raw,
-		"source_hash":         hash,
-		"status":              status,
+		"name":                     strings.TrimSpace(manifest.Name),
+		"description":              strings.TrimSpace(manifest.Description),
+		"category":                 strings.TrimSpace(manifest.Category),
+		"avatar_url":               strings.TrimSpace(manifest.AvatarURL),
+		"developer":                developer,
+		"official":                 boolValue(manifest.Official),
+		"is_default":               boolValue(manifest.Default),
+		"model":                    strings.TrimSpace(manifest.Runtime.Model),
+		"default_reasoning_effort": reasoningEffort,
+		"sandbox_image":            sandboxImage,
+		"instructions":             strings.TrimSpace(manifest.instructions),
+		"tools":                    normalizeToolSelection(manifest.Tools),
+		"sub_agents":               catalogSubAgentsJSON(manifest),
+		"required_plugins":         pq.StringArray(normalizeStrings(manifest.Plugins.Required)),
+		"recommended_plugins":      pq.StringArray(normalizeStrings(manifest.Plugins.Recommended)),
+		"manifest":                 raw,
+		"source_hash":              hash,
+		"status":                   status,
 	}
 }
 
@@ -46,6 +48,7 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.Official = updates["official"].(bool)
 	row.IsDefault = updates["is_default"].(bool)
 	row.Model = updates["model"].(string)
+	row.DefaultReasoningEffort = updates["default_reasoning_effort"].(string)
 	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)
 	row.Tools = updates["tools"].(model.JSON)

@@ -34,7 +34,14 @@ func dispatchWebhookEvent(
 		return
 	}
 
-	deliveryID := wh.ConnectionID + ":" + uuid.New().String()
+	// Prefer the provider's own delivery GUID so redelivered webhooks dedup
+	// against the (trigger_id, delivery_id) claim; fall back to a random id
+	// which only protects against asynq retries.
+	deliveryID := strings.TrimSpace(metadata.Headers["x-github-delivery"])
+	if deliveryID == "" {
+		deliveryID = uuid.New().String()
+	}
+	deliveryID = wh.ConnectionID + ":" + deliveryID
 
 	enqueueTriggerDispatch(ctx, enqueuer, providerName, metadata, deliveryID, wctx)
 }

@@ -1,0 +1,9 @@
+{
+  "name": "qa-registry",
+  "description": "Use this skill to find, create, or query the QA Test Registry sheet — the channel-scoped sheet holding test cases, test runs, and test results. Load it before any QA task: checking which test cases exist, recording a run, reading a case's history, or bootstrapping the registry in a new channel.",
+  "human_description": "The sheet schema and query recipes behind the QA agent's test registry.",
+  "category": "Testing",
+  "root": "./SKILL.md",
+  "tags": ["qa", "testing", "sheets", "registry"],
+  "files": []
+}

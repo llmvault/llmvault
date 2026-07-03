@@ -15,17 +15,28 @@ import (
 )
 
 func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, webhookPayload map[string]any) error {
+	agent, err := h.loadTriggerAgent(ctx, trigger)
+	if err != nil {
+		return err
+	}
+	compiled := h.compileMessage(payload, trigger, webhookPayload)
+	return h.deliverCompiled(ctx, payload, trigger, agent, compiled)
+}
+
+func (h *AgentTriggerDispatchHandler) loadTriggerAgent(ctx context.Context, trigger model.AgentTrigger) (model.Agent, error) {
 	agent := trigger.Agent
 	if agent.ID == uuid.Nil {
 		if err := h.db.WithContext(ctx).Where("id = ? AND status <> ?", trigger.AgentID, "archived").First(&agent).Error; err != nil {
-			return fmt.Errorf("load agent: %w", err)
+			return model.Agent{}, fmt.Errorf("load agent: %w", err)
 		}
 	}
 	if agent.OrgID == nil {
-		return fmt.Errorf("agent missing org")
+		return model.Agent{}, fmt.Errorf("agent missing org")
 	}
+	return agent, nil
+}
 
-	compiled := h.compileMessage(payload, trigger, webhookPayload)
+func (h *AgentTriggerDispatchHandler) deliverCompiled(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, agent model.Agent, compiled compiledTriggerMessage) error {
 	session, err := h.findOrCreateTriggerSession(ctx, &agent, trigger, compiled.ResourceKey)
 	if err != nil {
 		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)

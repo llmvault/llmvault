@@ -78,7 +78,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 		}
 		return model.AgentTrigger{}, http.StatusInternalServerError, "failed to load trigger", err
 	}
-	parsed, err := parseTriggerUpdate(current, req)
+	parsed, template, err := parseTriggerUpdate(current, req)
 	if err != nil {
 		return model.AgentTrigger{}, http.StatusBadRequest, err.Error(), err
 	}
@@ -90,7 +90,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
 		Provider:       parsed.provider,
 		Connection:     conn,
-		ResourceType:   "slack_channel",
+		ResourceType:   template.resourceType,
 		ResourceKey:    parsed.resourceKey,
 		ResourceName:   parsed.resourceName,
 		DefaultAgentID: parsed.agentID,
@@ -109,7 +109,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 				"agent_id":      parsed.agentID,
 				"channel_id":    channel.ID,
 				"connection_id": conn.ID,
-				"trigger_keys":  pq.StringArray{parsed.triggerKey},
+				"trigger_keys":  pq.StringArray(template.triggerKeys),
 				"trigger_key":   parsed.triggerKey,
 				"trigger_value": parsed.triggerValue,
 				"source_slug":   triggerSourceSlug(parsed.provider, parsed.triggerKey, channel.ExternalResourceKey, parsed.triggerValue),
@@ -143,7 +143,7 @@ type parsedTriggerUpdate struct {
 	instructions string
 }
 
-func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (parsedTriggerUpdate, error) {
+func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (parsedTriggerUpdate, triggerTemplate, error) {
 	parsed := parsedTriggerUpdate{
 		provider:     defaultString(triggerProvider(current), slackapp.Provider),
 		connectionID: uuid.Nil,
@@ -168,7 +168,7 @@ func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (p
 	if req.ConnectionID != nil {
 		id, err := uuid.Parse(strings.TrimSpace(*req.ConnectionID))
 		if err != nil || id == uuid.Nil {
-			return parsedTriggerUpdate{}, fmt.Errorf("connection_id must be a uuid")
+			return parsedTriggerUpdate{}, triggerTemplate{}, fmt.Errorf("connection_id must be a uuid")
 		}
 		parsed.connectionID = id
 	}
@@ -181,7 +181,7 @@ func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (p
 	if req.AgentID != nil {
 		id, err := uuid.Parse(strings.TrimSpace(*req.AgentID))
 		if err != nil || id == uuid.Nil {
-			return parsedTriggerUpdate{}, fmt.Errorf("agent_id must be a uuid")
+			return parsedTriggerUpdate{}, triggerTemplate{}, fmt.Errorf("agent_id must be a uuid")
 		}
 		parsed.agentID = id
 	}
@@ -200,27 +200,32 @@ func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (p
 	return validateParsedTriggerUpdate(parsed)
 }
 
-func validateParsedTriggerUpdate(parsed parsedTriggerUpdate) (parsedTriggerUpdate, error) {
-	if parsed.provider != slackapp.Provider {
-		return parsed, fmt.Errorf("provider is not supported")
+func validateParsedTriggerUpdate(parsed parsedTriggerUpdate) (parsedTriggerUpdate, triggerTemplate, error) {
+	if !triggerProviderSupported(parsed.provider) {
+		return parsed, triggerTemplate{}, fmt.Errorf("provider is not supported")
 	}
-	if parsed.triggerKey != slackapp.EventReactionAdded {
-		return parsed, fmt.Errorf("trigger_key is not supported")
+	template, ok := resolveTriggerTemplate(parsed.provider, defaultTriggerKey(parsed.provider, parsed.triggerKey))
+	if !ok {
+		return parsed, triggerTemplate{}, fmt.Errorf("trigger_key is not supported")
 	}
-	if parsed.triggerValue == "" {
-		return parsed, fmt.Errorf("trigger_value is required")
-	}
+	parsed.triggerKey = template.key
 	if parsed.connectionID == uuid.Nil {
-		return parsed, fmt.Errorf("connection_id must be a uuid")
+		return parsed, triggerTemplate{}, fmt.Errorf("connection_id must be a uuid")
 	}
 	if parsed.resourceKey == "" {
-		return parsed, fmt.Errorf("external_resource_key is required")
+		return parsed, triggerTemplate{}, fmt.Errorf("external_resource_key is required")
+	}
+	if template.valueFromResource {
+		parsed.triggerValue = template.triggerValue("", parsed.resourceKey)
+	}
+	if parsed.triggerValue == "" {
+		return parsed, triggerTemplate{}, fmt.Errorf("trigger_value is required")
 	}
 	if parsed.agentID == uuid.Nil {
-		return parsed, fmt.Errorf("agent_id must be a uuid")
+		return parsed, triggerTemplate{}, fmt.Errorf("agent_id must be a uuid")
 	}
 	if parsed.instructions == "" {
-		return parsed, fmt.Errorf("instructions are required")
+		return parsed, triggerTemplate{}, fmt.Errorf("instructions are required")
 	}
-	return parsed, nil
+	return parsed, template, nil
 }

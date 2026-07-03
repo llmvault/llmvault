@@ -34,6 +34,19 @@ type AgentTrigger struct {
 
 func (AgentTrigger) TableName() string { return "agent_triggers" }
 
+// TriggerKeyGitHubMention marks curated triggers that fire when the Hivy
+// GitHub App is @mentioned on an issue or pull request.
+const TriggerKeyGitHubMention = "mention"
+
+// GitHubMentionEventKeys are the webhook event keys a GitHub mention trigger
+// subscribes to: conversation comments (issues and PRs share issue_comment),
+// new issue bodies, and new pull request bodies.
+var GitHubMentionEventKeys = []string{
+	"issue_comment.created",
+	"issues.opened",
+	"pull_request.opened",
+}
+
 // TriggerMatch defines filtering conditions on the webhook payload.
 type TriggerMatch struct {
 	Mode       string             `json:"mode"` // "all" (AND) or "any" (OR)

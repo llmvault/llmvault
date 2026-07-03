@@ -69,34 +69,35 @@ type agentCatalogSummary struct {
 }
 
 type agentResponse struct {
-	ID                string                 `json:"id"`
-	Name              string                 `json:"name"`
-	Description       *string                `json:"description,omitempty"`
-	Instructions      string                 `json:"instructions"`
-	AvatarURL         *string                `json:"avatar_url,omitempty"`
-	Icon              string                 `json:"icon"`
-	IsDefault         bool                   `json:"is_default"`
-	SandboxImage      string                 `json:"sandbox_image"`
-	SandboxSize       string                 `json:"sandbox_size"`
-	SandboxTemplateID *string                `json:"sandbox_template_id,omitempty"`
-	Model             string                 `json:"model"`
-	ImageModel        string                 `json:"image_model"`
-	VectorImageModel  string                 `json:"vector_image_model"`
-	Tools             model.JSON             `json:"tools"`
-	McpToolFilter     *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
-	McpServers        json.RawMessage        `json:"mcp_servers"`
-	Skills            model.JSON             `json:"skills"`
-	Permissions       model.JSON             `json:"permissions"`
-	SandboxTools      []string               `json:"sandbox_tools"`
-	ChannelIDs        []string               `json:"channel_ids"`
-	Status            string                 `json:"status"`
-	Catalog           *agentCatalogSummary   `json:"catalog,omitempty"`
-	Resources         model.JSON             `json:"resources"`
-	Triggers          []agentTriggerResponse `json:"triggers"`
-	AttachedSkills    []agentSkillSummary    `json:"attached_skills"`
-	SubAgents         []subAgentResponse     `json:"sub_agents"`
-	CreatedAt         string                 `json:"created_at"`
-	UpdatedAt         string                 `json:"updated_at"`
+	ID                     string                 `json:"id"`
+	Name                   string                 `json:"name"`
+	Description            *string                `json:"description,omitempty"`
+	Instructions           string                 `json:"instructions"`
+	AvatarURL              *string                `json:"avatar_url,omitempty"`
+	Icon                   string                 `json:"icon"`
+	IsDefault              bool                   `json:"is_default"`
+	SandboxImage           string                 `json:"sandbox_image"`
+	SandboxSize            string                 `json:"sandbox_size"`
+	SandboxTemplateID      *string                `json:"sandbox_template_id,omitempty"`
+	Model                  string                 `json:"model"`
+	DefaultReasoningEffort string                 `json:"default_reasoning_effort"`
+	ImageModel             string                 `json:"image_model"`
+	VectorImageModel       string                 `json:"vector_image_model"`
+	Tools                  model.JSON             `json:"tools"`
+	McpToolFilter          *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
+	McpServers             json.RawMessage        `json:"mcp_servers"`
+	Skills                 model.JSON             `json:"skills"`
+	Permissions            model.JSON             `json:"permissions"`
+	SandboxTools           []string               `json:"sandbox_tools"`
+	ChannelIDs             []string               `json:"channel_ids"`
+	Status                 string                 `json:"status"`
+	Catalog                *agentCatalogSummary   `json:"catalog,omitempty"`
+	Resources              model.JSON             `json:"resources"`
+	Triggers               []agentTriggerResponse `json:"triggers"`
+	AttachedSkills         []agentSkillSummary    `json:"attached_skills"`
+	SubAgents              []subAgentResponse     `json:"sub_agents"`
+	CreatedAt              string                 `json:"created_at"`
+	UpdatedAt              string                 `json:"updated_at"`
 }
 
 func toAgentResponse(a model.Agent) agentResponse {
@@ -118,29 +119,30 @@ func toAgentResponse(a model.Agent) agentResponse {
 		mcpServers = json.RawMessage("[]")
 	}
 	resp := agentResponse{
-		ID:               a.ID.String(),
-		Name:             fallbackAgentName(a),
-		Description:      &description,
-		Instructions:     instructions,
-		AvatarURL:        &avatarURL,
-		Icon:             a.Icon,
-		IsDefault:        a.IsDefault,
-		SandboxImage:     model.NormalizeSandboxImage(a.SandboxImage),
-		SandboxSize:      sandboxSize,
-		Model:            a.Model,
-		ImageModel:       a.ImageModel,
-		VectorImageModel: a.VectorImageModel,
-		Tools:            nonNilJSON(a.Tools),
-		McpToolFilter:    a.McpToolFilter,
-		McpServers:       mcpServers,
-		Skills:           nonNilJSON(a.Skills),
-		Permissions:      nonNilJSON(a.Permissions),
-		SandboxTools:     append([]string(nil), a.SandboxTools...),
-		Status:           a.Status,
-		Resources:        nonNilJSON(a.Resources),
-		SubAgents:        []subAgentResponse{},
-		CreatedAt:        a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        a.UpdatedAt.Format(time.RFC3339),
+		ID:                     a.ID.String(),
+		Name:                   fallbackAgentName(a),
+		Description:            &description,
+		Instructions:           instructions,
+		AvatarURL:              &avatarURL,
+		Icon:                   a.Icon,
+		IsDefault:              a.IsDefault,
+		SandboxImage:           model.NormalizeSandboxImage(a.SandboxImage),
+		SandboxSize:            sandboxSize,
+		Model:                  a.Model,
+		DefaultReasoningEffort: a.DefaultReasoningEffort,
+		ImageModel:             a.ImageModel,
+		VectorImageModel:       a.VectorImageModel,
+		Tools:                  nonNilJSON(a.Tools),
+		McpToolFilter:          a.McpToolFilter,
+		McpServers:             mcpServers,
+		Skills:                 nonNilJSON(a.Skills),
+		Permissions:            nonNilJSON(a.Permissions),
+		SandboxTools:           append([]string(nil), a.SandboxTools...),
+		Status:                 a.Status,
+		Resources:              nonNilJSON(a.Resources),
+		SubAgents:              []subAgentResponse{},
+		CreatedAt:              a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:              a.UpdatedAt.Format(time.RFC3339),
 	}
 	if a.SandboxTemplateID != nil {
 		s := a.SandboxTemplateID.String()

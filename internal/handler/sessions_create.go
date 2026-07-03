@@ -239,7 +239,7 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 	if modelID == "" {
 		modelID = agent.Model
 	}
-	reasoningEffort, _ := normalizeSessionReasoningEffort(createSessionReasoningEffort(req))
+	reasoningEffort := resolveSessionReasoningEffort(req, agent)
 	session := model.Session{
 		ID:                sessionID,
 		OrgID:             orgID,

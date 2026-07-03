@@ -127,6 +127,9 @@ func validateManifests(manifests []Manifest) error {
 		if !model.ValidSandboxImage(manifest.Runtime.SandboxImage) {
 			return fmt.Errorf("agent %q has invalid runtime sandbox_image %q", manifest.Slug, manifest.Runtime.SandboxImage)
 		}
+		if _, ok := model.NormalizeReasoningEffort(manifest.Runtime.ReasoningEffort); !ok {
+			return fmt.Errorf("agent %q has invalid runtime reasoning_effort %q (want low, medium, or high)", manifest.Slug, manifest.Runtime.ReasoningEffort)
+		}
 		if err := validateToolSelection(manifest.Slug, "tools", manifest.Tools); err != nil {
 			return err
 		}

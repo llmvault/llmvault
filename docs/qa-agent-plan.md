@@ -1,27 +1,28 @@
 # QA Agent — Design Plan
 
-Status: exploration + research + concurrency experiment complete (2026-07-03). Composes **existing** platform capabilities — channel-scoped sheets, the `browser` CLI, subagents, drive uploads, skills, triggers — into a proactive QA agent. v1 needs zero platform changes; §8 lists small enhancements worth building, ranked.
+Status: **PRODUCTIONIZED 2026-07-03** — catalog agent at `global/agents/qa-engineer/` (instructions in `prompts/`, sub-agents `test-executor`/`test-triage`), plugins `sheets`+`qa` required, `runtime.reasoning_effort: "low"` (new agent-level default, plumbed through catalog→agents→sessions), skills hardened with browser-CLI discipline from the latency forensics. Temporary e2e (`e2e/qa_agent_e2e_test.go`, `make test-agent-qa-e2e`) deleted per direction — testing goes through the flagship e2e suite. Earlier history below. Composes **existing** platform capabilities — channel-scoped sheets, channel-scoped env vars, the `browser` CLI, subagents, drive uploads, skills, triggers — into a proactive QA agent. v1 needs zero platform changes; §8 lists small enhancements, ranked.
 
-Design philosophy (from industry research, §4): **deterministic cached replay is the product, the LLM is the exception handler, assertions are the immune system, and every heal is a logged proposal.** Green runs should cost almost nothing.
+Design philosophy (industry-validated, §4): **deterministic cached replay is the product, the LLM is the exception handler, assertions are the immune system, and every heal is a logged proposal.** Green runs cost almost nothing.
 
 ## 0. Verified ground truth
 
 | Topic | Reality |
 |---|---|
-| **Sheets channel scoping** | Exists (migration `000060_sheets_channel_scope.sql`; every sheets MCP tool derives channel from `_hivy_session_id`, `PageInChannel` guards). The QA registry lives natively in the `#qa` channel. The agent must operate from sessions in that channel. |
-| **Registry shape** | One sheet, three pages — NOT sheet-per-run: relation fields pin a fixed `options.target_page_id` (`internal/sheets/fields.go:180-194`), so dynamic sheets can't be relation-linked. |
-| **Subagent MCP** | Runtime keeps ONE process-global MCP registry gated only by each definition's `mcp_tool_filter` (`crates/runtime/src/main.rs:139-146`, `runner.rs` `build_all_tools`); the compiled `McpServers: []` is never consulted. **Empty filter = subagent inherits ALL parent MCP tools.** Sheets-scoped subagent = config-only. ⚠️ Security finding to raise beyond QA: unset filters currently leak everything. |
-| **Tool parallelism** | Non-subagent tool calls run strictly sequentially (`runner.rs` ~826-861); only contiguous `subagent_task` calls `join_all`. Moot for writes: `rows_write` batches ≤100 rows/call. Subagent fan-out: all calls in ONE turn, 15-min cap each, worker batch 10, one nesting level, freeform-text results. |
-| **Browser** | Chromium + `browser` CLI in every sandbox (`Dockerfile.runtime:139-153`), Bash-driven. First-class skill: `global/plugins/runtime/skills/browser/SKILL.md` (snapshots with `@eN` refs, auth vault, `state save/load`, `record`, network mocking, `batch --bail`). |
-| **Concurrency (EXPERIMENT, agent-browser 0.31.1, macOS)** | Each `--session` = its **own headless Chrome instance + profile** (not shared tabs). Cookie isolation between sessions: verified. `state save` → `state load` into another session carries auth: verified. 3 concurrent persona sessions × 15 interleaved ops: 0 failures, 0 cross-talk. 10 simultaneous sessions launch fine. **Limit is memory** (~hundreds of MB–1 GB RSS per instance) → ~3-5 concurrent sessions on small sandboxes. Re-verify once inside the runtime container (microVM memory limits). |
-| **Artifacts** | Fully built: sandbox `PUT $HIVY_DRIVE_UPLOAD_URL/<path>` (runtime-secret bearer, no size cap) → `{key, asset_url}`; `pub/e/{agentID}/…` keys are valid in sheet **attachment cells** (thumbnails in grid; documented in sheets SKILL.md:207,232-241); `asset_url` auto-renders in chat. Caution: `agent_assets.SandboxID` cascades on delete. ≤10 keys/cell. |
-| **Sheets surface** | 8 MCP tools; backlinks already efficient (`contains` on relation → GIN `@>`); no join-through/formulas (agent computes); `rows_query` returns `{id, data}` only — no timestamps, no fetch-by-id (§8). Same-row concurrent updates lose writes (§8). |
-| **Screenshots readable by subagents** | Builtin `read` on an image calls the control-plane describe API (`crates/tools/src/read.rs:131-140`); in subagent defaults; 5 MiB cap. Used sparingly (failure triage only — §3). |
+| **Sheets channel scoping** | Exists (migration `000060_sheets_channel_scope.sql`; MCP tools derive channel from `_hivy_session_id`, `PageInChannel` guards). The registry lives natively in `#qa`; the agent must operate from sessions in that channel. |
+| **Env vars (CHANGED 2026-07-03)** | **Channel-scoped** now (commit `bac14cc67`; plan `docs/channel-env-vars-plan.md`). Old org-wide `HIVY_ORG_*` store dropped. Per-channel vars via `/v1/channels/{id}/environment-variables` (write-only, AES-GCM), pushed into the runtime as `__ENV__<NAME>`. **The skill prescribes NO variable names**: users define whatever they like; the agent discovers what's available and follows the user's instructions. ⚠️ **BLOCKER found by verification (must fix before QA v1)**: channel vars never reach bash children. They live only in the config-pushed `runtime_env` map as `__ENV__NAME`; the bash tool overlays onto the inherited OS env only its `env_passthrough` whitelist, and the compiled whitelist is always the 7 fixed platform names (`ensureBashEnvPassthrough`, `internal/agentruntime/compile_tool_config.go:112` — so the strip-all empty-passthrough branch in `bash.rs:107-113` is dead code in practice). Platform `HIVY_*` vars are fine (inherited from the container OS env — that's how the drive skill works). **Fix (recommended, small)**: in `bash.rs`'s whitelist branch, additionally overlay every `__ENV__*` key from `runtime_env` as its stripped clean name (user names can't collide with `HIVY_*` — validation forbids the prefix) + test. Alternative: Go-side, append the channel's var names to every compiled bash `env_passthrough` (the `__ENV__` fallback lookup at `bash.rs:119` already resolves them). |
+| **Registry shape** | One sheet, three pages — NOT sheet-per-run: relation fields pin a fixed `options.target_page_id` (`internal/sheets/fields.go`), so dynamic sheets can't be relation-linked. |
+| **Subagent MCP** | One process-global MCP registry gated only by `mcp_tool_filter` (`crates/runtime/src/main.rs:139-146`); compiled `McpServers: []` is never consulted. **Empty filter = subagent inherits ALL parent MCP tools.** Sheets-scoped subagent = config-only. ⚠️ Security finding beyond QA: unset filters leak everything. |
+| **Tool parallelism** | Non-subagent tools run sequentially (`runner.rs` ~826-861); only contiguous `subagent_task` calls `join_all`. Moot for writes: `rows_write` batches ≤100 rows/call. Fan-out: all calls in ONE turn, 15-min cap, worker batch 10, one nesting level, freeform-text results. |
+| **Browser** | Chromium + `browser` CLI in every sandbox (`Dockerfile.runtime:139-153`), Bash-driven. Skill: `global/plugins/runtime/skills/browser/SKILL.md` (snapshots with `@eN` refs, auth vault, `state save/load`, `record`, `batch --bail`). |
+| **Concurrency (EXPERIMENT, agent-browser 0.31.1, macOS)** | Each `--session` = own headless Chrome instance/profile. Cookie isolation: verified. `state save`→`load` handoff: verified. 3 concurrent personas × 15 ops: 0 failures. 10 simultaneous sessions: fine. **Limit is memory** (~0.3–1 GB RSS/instance) → ~3-5 concurrent on small sandboxes. Container re-check pending. |
+| **Artifacts** | Fully built: `PUT $HIVY_DRIVE_UPLOAD_URL/<path>` (runtime-secret bearer, no size cap) → `{key, asset_url}`; `pub/e/{agentID}/…` keys valid in sheet **attachment cells** (grid thumbnails); `asset_url` auto-renders in chat. Cautions: `agent_assets.SandboxID` cascade; ≤10 keys/cell. |
+| **Sheets surface** | 8 MCP tools; backlinks efficient (`contains` → GIN `@>`); no join-through/formulas; `rows_query` returns `{id, data}` only (§8); same-row concurrent updates lose writes (§8). |
+| **Screenshots readable by subagents** | Builtin `read` on an image → control-plane describe API; in subagent defaults; 5 MiB cap. Failure triage only. |
 
 ## 1. Architecture
 
 ```
-        #qa channel (DefaultAgentID = QA agent; registry sheet lives here)
+        #qa channel (DefaultAgentID = QA agent; registry sheet + env vars live here)
                           │  chat / cron / deploy webhook
                           ▼
                ┌─────────────────────────┐
@@ -32,25 +33,19 @@ Design philosophy (from industry research, §4): **deterministic cached replay i
         ┌─────────────┬────┴────────────┐
         ▼             ▼                 ▼
    ┌─────────┐   ┌─────────┐      ┌─────────┐
-   │executor │   │executor │      │executor │     Tier 0: batch replay (no
-   │admin ×3 │   │editor ×2│      │viewer ×3│     reasoning) → Tier 1/2 only
-   └────┬────┘   └────┬────┘      └────┬────┘     on step failure
+   │executor │   │executor │      │executor │    replay (no reasoning) →
+   │admin ×3 │   │editor ×2│      │viewer ×3│    heal only on step failure
+   └────┬────┘   └────┬────┘      └────┬────┘
         └──── fenced-JSON results ─────┘
                           │
-                          ▼
-      failures only → triage subagent (classify: regression /
-      UI-change-healed / environment / flake; verify heals;
-      read screenshots only here)
+          failures only → triage subagent (classify + verify heals;
+          screenshots LLM-read only here)
                           │
                           ▼
       coordinator: batched rows_write, heal-review report in channel
 ```
 
-**Roles:**
-- **Coordinator** — plans, authors cases, bootstraps persona auth states, fans out, writes the registry (single writer), reports, manages quarantine.
-- **`test-executor`** (subagent; bash+read+write; deny-all MCP filter) — runs a batch of 1–3 cases in an isolated `--session`; Tier-0 replay first; heals within budget; uploads artifacts; returns structured results.
-- **`test-triage`** (subagent; read tools; deny-all MCP filter) — **failures only** (this replaces the every-run judge, which would be needlessly expensive and is not industry practice): classifies each failure (app regression / UI change / environment / flake), verifies any heal the executor performed actually serves the original intent, reads screenshots (image-description API) only here.
-- **`results-writer`** (optional, sheets-allow-listed, config-only) — only if runs outgrow the coordinator's batched writes. Not deployed v1.
+**Roles:** **Coordinator** (plans, authors, persona auth bootstrap, fan-out, single registry writer, reporting, quarantine). **`test-executor`** (bash+read+write; deny-all MCP filter; replay → heal ladder; uploads artifacts; JSON results). **`test-triage`** (read tools; deny-all filter; failures only: classify regression/ui-change/environment/flake, verify heals against intent). **`results-writer`** (optional, sheets-allow-listed; shelf until needed).
 
 ## 2. The registry: one sheet, three pages
 
@@ -60,134 +55,136 @@ Sheet **`QA Test Registry`** in `#qa` (bootstrap via `sheet_create` if absent).
 | Field | Type | Notes |
 |---|---|---|
 | Name | text | |
-| Suite | select | login, checkout, … |
+| Suite | select | |
 | Persona | select | admin / editor / viewer — which saved auth state to load |
 | Priority | select | P0/P1/P2 |
 | Status | select | draft → active → quarantined / deprecated |
 | Preconditions | long_text | |
-| Steps | long_text | **NL intent (source of truth) + cached command per step** (format §3) |
-| Expected | long_text | explicit, observable assertions — the immune system; never healed |
+| Steps | long_text → **array** when §8.1 ships | NL intents only, one per step — human-readable |
+| Commands | long_text | JSON array of argv step objects — the replay cache (format §3) |
+| Expected | long_text → array | explicit observable assertions — never healed |
 | Last Result | select | passed / flaky-pass / failed / blocked |
 | Last Run At | date | |
-| Heal Pending Review | checkbox | a heal was applied and awaits human ack (§3 heal policy) |
-| Consecutive Passes | number | for auto-unquarantine (10 = release, Testim convention) |
+| Heal Pending Review | checkbox | grid doubles as the heal-review queue |
+| Consecutive Passes | number | auto-unquarantine at 10 |
 
-**Page `Test Runs`**: Run (text, display), Started/Finished (date), Trigger (select: chat/cron/deploy-hook/manual), Target (url), Build (text), Status (select: running/passed/failed/partial), Passed/Failed/Flaky/Skipped (number), Summary (long_text — includes heal digest).
+**Page `Test Runs`**: Run (text, display), Started/Finished (date), Trigger (select), Target (url), Build (text), Status (select: running/passed/failed/partial), Passed/Failed/Flaky/Skipped (number), Summary (long_text incl. heal digest).
 
-**Page `Test Results`** — one row per (case × run)
-| Field | Type | Notes |
-|---|---|---|
-| Case / Run | relation | |
-| Status | select | passed / flaky-pass / failed / blocked |
-| Failure Class | select | regression / ui-change / environment / flake / none — triage verdict |
-| Duration (s) | number | |
-| Transcript | long_text | steps executed |
-| Failure | long_text | assertion diff, console errors, triage reasoning |
-| Heals | long_text | structured heal events: step, old cmd, new cmd, confidence, why |
-| Screenshots | attachment | drive keys; failure states + healed steps only |
-| Artifacts Index | url | run-folder `asset_url` for videos / >10 files |
+**Page `Test Results`**: Case/Run (relations), Status (select: passed/flaky-pass/failed/blocked), Failure Class (select: regression/ui-change/environment/flake/none), Duration s (number), Transcript (long_text → array), Failure (long_text), Heals (long_text — structured events: step, old cmd, new cmd, confidence, why), Screenshots (attachment — failure states + healed steps only), Artifacts Index (url).
 
-**Query recipes:** results of a run / history of a case = `contains` filter on the relation field (GIN-indexed); runnable cases = `and[Status eq active, Suite eq X]`.
+**Query recipes:** run results / case history = `contains` on the relation field (GIN-indexed); runnable = `and[Status eq active, Suite eq X]`.
 
-## 3. Execution policy — the tiered ladder
+## 3. Execution policy — the ladder (simplified: replay → heal → fail)
 
-**Step format** (in `Steps`): NL intent is authoritative; the cached command is a replay cache, one per step:
+**Test-case data — two fields, no prose parsing.** `Steps` holds the NL intents (human-readable, authoritative). `Commands` holds the replay cache as **structured JSON — argv arrays, schema-validated, nothing is ever parsed out of prose**:
 
-```
-1. Open the login page
-   → open $QA_BASE_URL/login
-2. Fill the email field with the QA admin email
-   → find label "Email" fill $HIVY_ORG_QA_EMAIL
-3. Submit
-   → find role button "Sign in" click
-4. ASSERT url contains /w
-   → get url   [expect: contains "/w"]
-5. ASSERT the workspace name is visible in the sidebar
-   → is visible [data-testid=workspace-name]   [expect: true]
+```json
+[
+  { "intent": "Open the login page",
+    "command": ["open", "${STAGING_URL}/login"] },
+  { "intent": "Fill the email field with the staging account email",
+    "command": ["find", "label", "Email", "fill", "${STAGING_EMAIL}"] },
+  { "intent": "Submit the login form",
+    "command": ["find", "role", "button", "Sign in", "click"] },
+  { "intent": "URL is the workspace shell",
+    "assert": true,
+    "command": ["get", "url"], "expect": { "op": "contains", "value": "/w" } },
+  { "intent": "Workspace name visible in the sidebar",
+    "assert": true,
+    "command": ["is", "visible", "[data-testid=workspace-name]"],
+    "expect": { "op": "equals", "value": "true" } }
+]
 ```
 
-**Tier 0 — deterministic replay (no reasoning, the default).** The executor materializes the cached commands into one `browser batch --bail` call (assertions become `get`/`is` commands checked by the wrapper script from the qa-execution skill). A green case = **1–2 bash tool calls, zero snapshots, zero screenshots, zero judge** — this is where ~95%+ of steady-state executions should land (Momentic reports ~99% cache-hit step rates; Stagehand's act-caching is the same pattern).
+`${NAME}` placeholders keep secrets out of the sheet; the names are **whatever the user configured** (here `STAGING_*` is the user's choice, not ours). Replay substitutes from the environment and treats an unset variable as a setup error — it never guesses. `"no_heal": true` pins a step; `"assert": true` marks verification steps.
 
-**Tier 1 — cheap non-LLM recovery.** On a failed step: bounded wait/reload (timing causes ~30% of failures per QA Wolf's taxonomy), dismiss known blockers (cookie banner, modal), retry the cached command once. Still no reasoning beyond orchestrating bash.
+**Tier 0 — deterministic replay (the default).** The executor runs `replay.mjs` (Node; executes each argv via `execFile` — no shell, no quoting, no eval; per-step expect checks; bail on first failure; JSON verdict + failure screenshot). A green case = **one bash tool call, zero snapshots/screenshots/judging** — where ~95%+ of steady-state executions land (Momentic ~99% cache-hit rates; Stagehand act-caching). The CLI's built-in auto-waiting covers ordinary timing; there is no separate recovery tier.
 
-**Tier 2 — heal (LLM engages).** Only now does the executor think: `snapshot -i`, re-resolve the step's **NL intent** against the accessibility tree (screenshot only if the tree is ambiguous). Heal rules:
-- The new target must semantically match the stored intent — not merely resemble the old element.
-- **Assertions are never healed.** A failed ASSERT is a failure, full stop (mabl/Applitools rule — this is what stops "healing over a real regression": the wrong-button heal fails the next assertion).
-- Heal budget: **max 3 heals per case run** (Momentic's number); budget exceeded → fail.
-- Every heal is recorded as a structured event (old cmd, new cmd, confidence, reasoning, screenshot) in the result's Heals field.
+**Tier 1 — heal (LLM engages).** On a failed step the executor thinks: `snapshot -i`, re-resolve the step's **NL intent** against the accessibility tree (screenshot only if the tree is ambiguous). Rules:
+- New target must semantically match the stored intent — not merely resemble the old element.
+- **Assertions are never healed.** A failed ASSERT = failure, full stop (this is what stops healing over a real regression — the wrong-button heal fails the next assertion).
+- Heal budget: **max 3 per case run**; exceeded → fail.
+- Every heal recorded as a structured event (old cmd, new cmd, confidence, reasoning, screenshot) in Heals.
+- After a heal, resume replay from the healed step.
 
-**Tier 3 — fail immediately, no healing**, when: 5xx / console exception / crash / CAPTCHA (Momentic's non-recoverable list); an assertion failed; the intent itself cannot be completed ("the Delete button is genuinely gone"); or the step is human-pinned (`[no-heal]` annotation).
+**Tier 2 — fail immediately, no healing**, when: 5xx / console exception / crash / CAPTCHA; an assertion failed; the intent itself cannot be completed; or the step is pinned (`"no_heal": true`).
 
-**Heal persistence — loud, never silent (Octomind's "Zero Silent Commits"):**
-- The Steps cache is patched **only if the whole case run passes after the heal** (mabl's rule — a heal followed by downstream failure was a wrong heal).
-- Patching sets `Heal Pending Review` on the case; the channel report includes a heal-review section (old → new, confidence, screenshot). Human ack clears the flag; rejection reverts the cache and marks the case broken. The registry grid doubles as the review queue.
+**Heal persistence — loud, never silent:** the Commands cache is patched **only if the whole case passes after the heal** (a heal followed by downstream failure was wrong); patching sets `Heal Pending Review`; the channel report shows old → new + confidence + screenshot; human ack clears, rejection reverts and marks broken.
 
-**Retry & flake policy:** one automatic retry of a failed case in a fresh session; pass-on-retry = `flaky-pass`, recorded as a flake event, never a clean pass (Testim's definition). Distinguish per mabl's two axes: inconsistent results = flaky → quarantine + investigate; consistent failure = broken → report as regression, never quarantine. Quarantined cases keep running but don't fail the run; auto-release after 10 consecutive passes.
+**Retry & flake:** one automatic retry in a fresh session; pass-on-retry = `flaky-pass` (a flake event, never a clean pass). Inconsistent results = flaky → quarantine + investigate; consistent failure = regression → report, never quarantine. Quarantined cases keep running without failing the run; release after 10 consecutive passes.
 
-**Triage (failures only):** the `test-triage` subagent gets the failed case's result JSON + transcript + screenshots and returns `{failure_class, reasoning, heal_verdicts[]}` — classifying regression vs ui-change vs environment vs flake, and double-checking each heal against the original intent (the "adjoint check"). This is the only place screenshots are LLM-analyzed. Coordinator diffs the failing transcript against the case's last passing one for the report ("step 3 previously landed on /w, now /login?error=…").
+**Triage (failures only):** `test-triage` gets result JSON + transcript + screenshots → `{failure_class, reasoning, heal_verdicts[]}`; the only place screenshots are LLM-analyzed. Coordinator diffs failing vs last-passing transcript for the report.
 
 ## 3b. Run protocol (coordinator)
 
-1. Intake → query registry (bootstrap if missing). No case? **Authoring mode**: announce, explore the flow live (`snapshot -i` to learn stable locators), codify NL steps + cached commands + **explicit assertions for every meaningful outcome** (an agentic run that merely "finished" is not a test — Momentic), insert as `draft`, run once through the real pipeline, promote to `active` on green.
-2. `rows_write` run row (`running`). Persona auth bootstrap: log in once per persona needed, `state save /workspace/qa/state-<persona>.json` (or auth vault).
-3. Fan out executors — all `subagent_task` calls in one turn; 1–3 cases each; ≤3-5 concurrent (session memory, per experiment); goals are self-contained (steps, expected, persona state file, `--session case-<id>`, artifact dir, JSON contract).
-4. Collect fenced-JSON results (unparseable → blocked, one serial retry). Failures → fan out `test-triage` calls.
-5. Record: batched `rows_write` results; run totals; case Last Result / Last Run At / Consecutive Passes; apply passing heals + set review flags; upload nothing itself (executors already ran `upload-run.sh`).
-6. Report in channel: pass/fail/flaky table, failures with triage class + transcript diff + inline screenshots, **heal-review section**, authored/promoted cases.
-7. `retain_memory` (org scope): environment quirks, flaky patterns, seed-data facts.
+1. Intake → query registry (bootstrap if missing). No case? **Authoring mode**: announce, explore live (`snapshot -i` for stable locators), codify NL steps + cached commands + explicit assertions per meaningful outcome, insert as `draft`, run through the real pipeline, promote on green.
+2. `rows_write` run row. Persona bootstrap: login per persona, `state save /workspace/qa/state-<persona>.json`.
+3. Fan out executors — one turn, 1–3 cases each, ≤3-5 concurrent (memory); self-contained goals (steps, expected, persona state file, `--session case-<id>`, artifact dir, JSON contract).
+4. Collect fenced JSON (unparseable → blocked, one serial retry). Failures → fan out `test-triage`.
+5. Record: batched `rows_write`; run totals; case Last Result / Last Run At / Consecutive Passes; apply passing heals + review flags.
+6. Report in channel: pass/fail/flaky table, failures with triage class + transcript diff + inline screenshots, heal-review section, authored/promoted cases.
+7. `retain_memory` (org): environment quirks, flaky patterns, seed data.
 
-Secrets only as env vars (`HIVY_ORG_QA_*`) — never in steps, transcripts, goals, or cells.
+Secrets only via channel env vars, referenced as `${NAME}` placeholders (user-chosen names) — values never appear in steps, transcripts, goals, or cells.
 
-## 4. Research grounding (2024–26 industry survey)
+## 4. Research grounding (2024–26 survey)
 
-Full survey in the research transcript; load-bearing conclusions:
-- **Heal/fail line**: universal convergence — element *location* may heal, the *verification layer* may not; intent-impossible = fail (testRigor: "succeed when and only when the intended action is possible from the end-user's perspective"). No serious tool heals silently; all keep review trails (Octomind zero-silent-commits, mabl insights, Testim AI-flagged revisions).
-- **Cost**: the LLM-native leaders (Momentic, Stagehand) cache resolved actions and replay with **zero LLM calls** until a locator misses; code-generating tools (QA Wolf, Octomind, Checkly) have zero steady-state LLM cost by construction. Vision is a fallback, not a default (a11y tree ≈ 10× cheaper than screenshots).
-- **Judge**: nobody runs a blanket LLM judge per green run. Deterministic assertions decide pass/fail; LLM appears only as failure-triage/root-cause and heal-verifier. LLM-judge research shows inconsistency and bias; capped scoped "AI-check" assertions exist but are opt-in and rare.
-- **Flake**: retries are 1–3 max industry-wide; quarantine on metrics with auto-release; "a suite known to lie green destroys trust in the whole system."
+- **Heal/fail line**: universal — element *location* may heal, the *verification layer* may not; intent-impossible = fail (testRigor: "succeed when and only when the intended action is possible from the end-user's perspective"). Nobody heals silently (Octomind zero-silent-commits, mabl insights, Testim flagged revisions).
+- **Cost**: LLM-native leaders (Momentic, Stagehand) cache resolved actions and replay with zero LLM calls until a miss; code-generating tools (QA Wolf, Octomind, Checkly) have zero steady-state LLM cost. Vision is fallback (a11y tree ≈ 10× cheaper).
+- **Judge**: nobody LLM-judges green runs. Deterministic assertions decide; LLM appears only as failure triage and heal verifier.
+- **Flake**: 1–3 retries max industry-wide; metric-based quarantine with auto-release; "a suite known to lie green destroys trust."
 
 ## 5. Agent + subagent definitions
 
-**Coordinator**: plugins `sheets` + `runtime` (browser/drive skills) + `qa-toolkit`; tools baseline + memory + `cron` + `create_http_trigger`; sandbox tool `chrome`; org env vars `QA_BASE_URL`, per-persona `QA_<P>_EMAIL/PASSWORD`; home = `#qa` channel (`default_agent_id`).
+**Coordinator**: plugins `sheets` + `runtime` + `qa-toolkit`; tools baseline + memory + `cron` + `create_http_trigger`; sandbox tool `chrome`; home = `#qa` (`default_agent_id`). Credentials/target URLs come from **user-defined channel env vars + the user's instructions** — the skill teaches discovery (`env` minus `HIVY_*`/shell vars) and `${NAME}` referencing, and prescribes no names.
 
-**Subagents** (all with explicit `McpToolFilter` — empty filter leaks everything, §0):
-| | builtin tools | MCP filter | notes |
-|---|---|---|---|
-| `test-executor` | bash + read + write (explicit; defaults are read-only) | deny-all | tiered ladder; JSON contract; `browser close` on exit |
-| `test-triage` | read (+ grep/glob) | deny-all | failures only; adversarial stance |
-| `results-writer` | read | `Allow: [rows_write, rows_query, sheet_describe]` | shelf until needed |
+**Subagents** (explicit `McpToolFilter` mandatory — empty filter leaks everything):
+| | builtin tools | MCP filter |
+|---|---|---|
+| `test-executor` | bash + read + write (explicit) | deny-all |
+| `test-triage` | read (+ grep/glob) | deny-all |
+| `results-writer` (shelf) | read | `Allow: [rows_write, rows_query, sheet_describe]` |
 
-## 6. Skills (`qa-toolkit` org plugin)
+## 6. Skills — WRITTEN (2026-07-03) as global plugin `global/plugins/qa/`
 
-- **`qa-registry`**: schema, bootstrap payload, query recipes (incl. backlink `contains`), write batching, "never update the same row concurrently".
-- **`qa-execution`**: the tiered ladder as executor playbook; **`scripts/replay.sh`** (turns a Steps cell into a `browser batch --bail` run with assertion checks, emits step-level exit info) and **`scripts/upload-run.sh`** (walks artifact dir, PUTs to `$HIVY_DRIVE_UPLOAD_URL`, prints key+asset_url pairs); goal templates; JSON contracts; heal policy + budget; retry/flake/quarantine rules.
-- **`qa-authoring`**: explore → codify (NL + cached command + assertions per outcome), locator-stability guidance (prefer roles/labels/testids), persona conventions.
+- **`qa-registry`**: schema + exact bootstrap payload (relations added post-create via `sheet_manage`), field semantics (Commands = sanctioned JSON-in-cell exception), query recipes, write rules.
+- **`qa-execution`**: Commands schema; replay verdict handling; the failure ladder; heal rules + budget; sessions/personas/artifacts; fan-out limits; executor + triage goal templates with fenced-JSON contracts; retry/flake/quarantine; reporting. Ships **`scripts/replay.mjs`** and **`scripts/upload-run.mjs`** (both tested; smoke-tested again from the plugin path).
+- **`qa-authoring`**: explore → stable locators (testid > label > role > text; never `@eN` refs) → assertions-first codify → validate via the real pipeline → promote; authored-edit vs heal distinction.
 
-Executor/triage goals inline everything (they can't `skill_view` under deny-all filters).
+Agent + subagent definitions live in the catalog: `global/agents/qa-engineer/`. Executor/triage goals inline everything except the `browser` skill, which executors load themselves (their skill_filter allows it; the read-only MCP floor grants `skill_view`).
 
 ## 7. Triggers
 
-Chat in `#qa`; nightly regression via `cron` (self-scheduled); deploy smoke via `create_http_trigger` from CI.
+Chat in `#qa`; nightly regression via `cron`; deploy smoke via `create_http_trigger` from CI.
 
 ## 8. Platform enhancements — ranked (v1 needs none)
 
-1. **Timestamps in `rows_query` results** (small, ~2 lines in `rowObjects`, `internal/sheets/mcptools.go:241-249` + SKILL/contract) — agent can't currently see when a result was written.
-2. **`rows_get` by row ID** (small) — no way to fetch a row by UUID today (filter AST is `fld_`-only).
-3. **`FOR UPDATE` on same-row updates** (small, `internal/sheets/rows.go:117-204`) — concurrent same-row updates lose writes.
-4. **Structured `subagent_task` output** (small: prompt-convention spec field in `compile_subagents.go`; medium: validated `output_schema` with retry through domain/storage/worker) — do small now, medium if fenced-JSON parse failures show up.
-5. **Subagent MCP defense-in-depth** (medium, Rust) — enforce declared `mcp_servers`/require explicit filter. Security fix beyond QA.
-6. **Docs**: backlink recipe + agent-attachment keys in sheets SKILL.md (tiny).
-7. **Upsert on `rows_write`** (medium) — idempotent re-runs; query-then-branch meanwhile.
-8. Skip: filter-through-relations, rollup/computed fields, unique cell constraints, parallel MCP dispatch in runner.
+1. **`array` field type for sheets** (small backend + small-medium web) — free-form ordered string lists. Backend: `fieldTypeSpecs` entry (`array: true, cast: castText`, ops contains/not_contains/is_empty/is_not_empty), a `coerceArray` (= `coerceMultiSelect` minus choice validation, `internal/sheets/coerce.go:129`), limits, SKILL.md + contract tests. Web: `case "array"` in `cells.ts`/`cell-editor.tsx` (reuse multi-select bubbles; editor = one item per line). Payoff: Steps/Expected/Transcript become human-readable ordered lists in the grid instead of markdown walls. QA uses long_text until this ships, then migrates.
+2. **Timestamps in `rows_query` results** (small, ~2 lines in `rowObjects`, `internal/sheets/mcptools.go:241-249`).
+3. **`rows_get` by row ID** (small) — filter AST is `fld_`-only today.
+4. **`FOR UPDATE` on same-row updates** (small, `internal/sheets/rows.go:117-204`) — lost-update race.
+5. **Structured `subagent_task` output** (small prompt-convention field; medium validated schema) — small now, medium if parse failures show up.
+6. **Subagent MCP defense-in-depth** (medium, Rust) — security fix beyond QA.
+7. **Docs**: backlink recipe + agent-attachment keys in sheets SKILL.md (tiny).
+8. Skip: upsert (query-then-branch works), filter-through-relations, rollups, unique cell constraints, parallel MCP dispatch.
 
-**Decision needed**: artifact durability — `agent_assets.SandboxID` cascade means QA artifacts die with sandbox cleanup; either accept, or small change to detach QA uploads (null `SandboxID`).
+**Decision needed**: artifact durability — `agent_assets.SandboxID` cascade; accept, or detach QA uploads (null `SandboxID`).
 
-## 9. Remaining verification + next steps
+## 9. Verification + next steps
 
-Done locally (agent-browser 0.31.1, macOS): session-per-Chrome process model, cookie isolation, state save/load handoff, 3-way parallel operation (45/45 ops), 10 simultaneous sessions. Remaining:
-1. Same checks inside the actual runtime container (microVM memory ceilings → confirm safe concurrency; Linux headless footprint).
-2. `record start/stop` output → `upload-run.sh` → working `asset_url` round-trip.
-3. `HIVY_ORG_*` visibility inside `subagent_task` child sessions (same process — should hold).
-4. Attachment key written via `rows_write` thumbnails in the grid.
+Done locally: session process model, cookie isolation, state handoff, 3-way parallel (45/45), 10 sessions; `replay.mjs`/`upload-run.mjs` written + tested (pass/fail/pinned/schema-violation/missing-env/auth-failure paths); `record` produces a well-formed WebM at the requested path; runtime image Node is `lts` (fetch available); code-verified that platform `HIVY_*` vars (incl. drive upload) reach bash via OS-env inheritance.
 
-Then: write coordinator Instructions, the three skills + two scripts, executor/triage instructions; acceptance = the login-page scenario end-to-end (author → replay → heal → report).
+**Blocker FIXED (2026-07-03, uncommitted)**: channel env vars now reach bash children — `overlay_user_env` in `bash.rs` overlays all `__ENV__*` keys as clean names in the whitelist branch; test `explicit_passthrough_still_overlays_user_env_prefix` added; all 10 bash tests pass.
+
+**E2E ACCEPTANCE PASSED (2026-07-03)** — `TestAgentSessionsQAAgentE2E` green in 46s on `gemini-3.1-flash-lite` against the full `make up` stack: registry sheet bootstrapped with all 3 pages, Login Test case authored from exploration, run + passing result rows recorded, marker emitted. **Channel env vars proven end-to-end**: the fixture only accepts the exact credentials, which existed solely as encrypted channel vars → config push → `__ENV__` → bash overlay → browser fill. Fixes landed on the way: migration 60/61 applied (60 assumes empty sheets table — dev e2e leftovers had to be cleared), api restart needed post-migration (Postgres cached-plan errors), `make sandbox-runtime-image` defaults to x86_64 on arm64 hosts (use `sandbox-runtime-image-arm64` + retag; Makefile papercut worth fixing).
+
+Observed cheap-model deviations (prompt/model-quality tuning, not design failures):
+- It **echoed `${LOGIN_EMAIL}`/`${LOGIN_PASSWORD}` values via bash `echo`** into the transcript — instructions forbid printing secrets but flash-lite ignored it. Harden instructions ("never echo/printenv secret values") and consider a runtime-side redaction of `__ENV__` values in tool results (platform enhancement).
+- It did everything **inline in the main loop** — no `test-executor` fan-out, no `replay.mjs` (authored, browsed with `@eN` refs, and wrote the sheet itself). Acceptable for a single-case authoring run; multi-case runs and replay discipline need a stronger model or firmer skill wording.
+
+Remaining (verify on a stronger model / real target):
+1. Executor fan-out + `replay.mjs` path actually exercised (give it an existing case to re-run).
+2. Concurrency + memory ceilings inside the runtime container.
+3. `record` → `upload-run.mjs` → `asset_url` round-trip; attachment keys thumbnailing in the grid.
+
+Then: coordinator Instructions, three skills, executor/triage instructions; acceptance = login-page scenario end-to-end (author → replay → heal → report).

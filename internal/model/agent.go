@@ -32,12 +32,15 @@ type Agent struct {
 	SandboxTemplateID   *uuid.UUID       `gorm:"type:uuid"`
 	SandboxTemplate     *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 
-	Instructions     *string        `gorm:"type:text"`
-	Model            string         `gorm:"not null"`
-	ImageModel       string         `gorm:"type:text;not null;default:''"`
-	VectorImageModel string         `gorm:"type:text;not null;default:''"`
-	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	McpServers       RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
+	Instructions *string `gorm:"type:text"`
+	Model        string  `gorm:"not null"`
+	// DefaultReasoningEffort seeds new sessions (low|medium|high) when the caller
+	// does not pass an explicit reasoning_effort. Empty means unset.
+	DefaultReasoningEffort string  `gorm:"column:default_reasoning_effort;type:text"`
+	ImageModel             string  `gorm:"type:text;not null;default:''"`
+	VectorImageModel       string  `gorm:"type:text;not null;default:''"`
+	Tools                  JSON    `gorm:"type:jsonb;not null;default:'{}'"`
+	McpServers             RawJSON `gorm:"type:jsonb;not null;default:'[]'"`
 	// McpToolFilter gates MCP tools (allow/deny). NULL = all MCP tools allowed.
 	McpToolFilter *ToolFilter `gorm:"type:jsonb;serializer:json"`
 	Skills        JSON        `gorm:"type:jsonb;not null;default:'{}'"`

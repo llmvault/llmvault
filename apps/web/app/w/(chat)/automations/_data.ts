@@ -81,24 +81,33 @@ export function automationFromInstalledTrigger(
   const provider = trigger.provider || "slack"
   const providerMeta = PROVIDER_META[provider]
   const triggerKey = trigger.trigger_key || ""
-  const name =
-    provider === "slack" && triggerKey === "reaction_added"
-      ? "React with emoji"
+  const isSlackReaction = provider === "slack" && triggerKey === "reaction_added"
+  const isGithubMention = provider === "github-app" && triggerKey === "mention"
+  const name = isSlackReaction
+    ? "React with emoji"
+    : isGithubMention
+      ? "Mentioned on GitHub"
       : humanizeSlug(triggerKey) || "Trigger"
   const channel = trigger.external_resource_name || trigger.channel_name || ""
   const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
   const agent = trigger.agent_name || "Agent"
   const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
+  const repo = trigger.external_resource_key || channel
 
   return {
     id: trigger.id || "",
     type: "Triggers",
     name,
-    description:
-      provider === "slack" && triggerKey === "reaction_added"
-        ? `${statusPrefix}${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
+    description: isSlackReaction
+      ? `${statusPrefix}${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
+      : isGithubMention
+        ? `${statusPrefix}${agent} runs when Hivy is @mentioned${repo ? ` in ${repo}` : ""}.`
         : trigger.instructions || "Installed trigger.",
-    category: provider === "slack" ? "Communication" : "Other",
+    category: isSlackReaction
+      ? "Communication"
+      : isGithubMention
+        ? "Development"
+        : "Other",
     icon: providerMeta?.icon ?? "workflow",
     iconColor: providerMeta?.color ?? "#64748B",
     provider,

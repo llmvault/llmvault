@@ -1,7 +1,6 @@
 ---
 name: browser
 description: Use when opening websites, inspecting pages, clicking, filling forms, extracting content, taking screenshots, logging in, testing web apps, or automating browser tasks.
-allowed-tools: Bash(browser:*)
 ---
 
 # browser core

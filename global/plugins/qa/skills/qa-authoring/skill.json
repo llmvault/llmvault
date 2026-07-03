@@ -1,0 +1,9 @@
+{
+  "name": "qa-authoring",
+  "description": "Use this skill when a requested test does not exist yet and you need to create it: exploring the flow in the browser, choosing stable locators, writing assertions, codifying Steps + Commands, and validating the new case before promoting it. Also covers updating an existing case after intentional product changes.",
+  "human_description": "How the QA agent turns one exploratory browser run into a durable, replayable test case.",
+  "category": "Testing",
+  "root": "./SKILL.md",
+  "tags": ["qa", "testing", "authoring", "browser"],
+  "files": []
+}

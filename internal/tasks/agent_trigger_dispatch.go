@@ -79,6 +79,21 @@ func (h *AgentTriggerDispatchHandler) Handle(ctx context.Context, task *asynq.Ta
 		return err
 	}
 	for _, trigger := range triggers {
+		// Curated triggers own their event handling end-to-end; the generic
+		// catalog filters/conditions/prompt below do not apply to them.
+		if isGitHubMentionTrigger(payload.Provider, trigger) {
+			if err := h.deliverGitHubMention(ctx, payload, trigger, webhookPayload); err != nil {
+				logging.CaptureWithFields(ctx, fmt.Errorf("deliver github mention trigger %s: %w", trigger.ID, err), map[string]any{
+					"org_id":      payload.OrgID.String(),
+					"agent_id":    trigger.AgentID.String(),
+					"trigger_id":  trigger.ID.String(),
+					"delivery_id": payload.DeliveryID,
+					"event_key":   eventKey(payload.EventType, payload.EventAction),
+				})
+				return err
+			}
+			continue
+		}
 		skip, reason, err := h.shouldSkipTriggerDelivery(ctx, payload, webhookPayload)
 		if err != nil {
 			logging.CaptureWithFields(ctx, fmt.Errorf("agent trigger filter failed: %w", err), map[string]any{

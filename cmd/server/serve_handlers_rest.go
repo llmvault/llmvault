@@ -172,7 +172,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
-	channelHandler := handler.NewChannelHandler(database, handler.WithChannelExternalProvisioner(slackChannelHandler))
+	channelHandler := handler.NewChannelHandler(database, handler.WithChannelExternalProvisioner(slackChannelHandler), handler.WithChannelEnvEncryptionKey(sandboxEncKey))
 	teamHandler := handler.NewTeamHandler(database)
 	runtimeStreamStore := runtimestream.NewStore(redisClient, cfg.RuntimeRedisStreamShardCount)
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).

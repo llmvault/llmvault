@@ -192,9 +192,8 @@ func (item CatalogItem) validateTrigger() error {
 	if strings.TrimSpace(item.Trigger.Key) == "" {
 		return fmt.Errorf("catalog trigger %q key is required", item.Slug)
 	}
-	if strings.TrimSpace(item.Trigger.Defaults.Value) == "" {
-		return fmt.Errorf("catalog trigger %q defaults.value is required", item.Slug)
-	}
+	// Defaults.Value is optional: some templates derive the trigger value at
+	// install time (e.g. github-mention uses the selected repository).
 	if strings.TrimSpace(item.Trigger.Defaults.Instructions) == "" {
 		return fmt.Errorf("catalog trigger %q defaults.instructions is required", item.Slug)
 	}

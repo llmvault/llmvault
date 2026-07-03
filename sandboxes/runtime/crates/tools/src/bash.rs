@@ -123,6 +123,11 @@ impl BashTool {
                     env.insert(key.clone(), value);
                 }
             }
+            // The passthrough whitelist only carries platform keys, so user
+            // channel variables (always `__ENV__`-prefixed in `runtime_env`)
+            // would otherwise never reach the child. Overlay them under their
+            // stripped clean names; the user-supplied value wins.
+            overlay_user_env(&mut env, &self.runtime_env);
         }
         env.entry("HOME".into())
             .or_insert_with(|| std::env::var("HOME").unwrap_or_default());
@@ -219,6 +224,19 @@ fn strip_user_env_prefix(env: &mut HashMap<String, String>) {
                 .unwrap_or(&prefixed_key)
                 .to_string();
             env.insert(clean_key, value);
+        }
+    }
+}
+
+/// Overlays every [`USER_ENV_PREFIX`]-prefixed entry from `source` into `dest`
+/// under its stripped clean name (e.g. `__ENV__LOGIN_EMAIL` becomes
+/// `LOGIN_EMAIL`). Used by the explicit-passthrough branch, where the whitelist
+/// carries only platform keys and would otherwise drop user channel variables.
+/// The stripped name wins (insert/overwrite), matching [`strip_user_env_prefix`].
+fn overlay_user_env(dest: &mut HashMap<String, String>, source: &HashMap<String, String>) {
+    for (key, value) in source {
+        if let Some(clean_key) = key.strip_prefix(USER_ENV_PREFIX) {
+            dest.insert(clean_key.to_string(), value.clone());
         }
     }
 }
@@ -593,5 +611,55 @@ mod tests {
             .expect("command should succeed");
 
         assert_eq!(result["output"], "postgres://explicit");
+    }
+
+    #[tokio::test]
+    async fn explicit_passthrough_still_overlays_user_env_prefix() {
+        let runtime_env = Arc::new(HashMap::from([
+            (
+                "__ENV__LOGIN_EMAIL".to_string(),
+                "qa@example.com".to_string(),
+            ),
+            (
+                "HIVY_CONTROL_PLANE_URL".to_string(),
+                "https://control.test".to_string(),
+            ),
+        ]));
+        let tool = super::BashTool::new(
+            BashConfig {
+                workdir: ".".to_string(),
+                timeout_seconds: 1,
+                max_output_bytes: 1024,
+                deny_patterns: Vec::new(),
+                env_passthrough: vec!["HIVY_CONTROL_PLANE_URL".to_string()],
+                sandbox: "process_isolated".to_string(),
+            },
+            env::temp_dir(),
+            Arc::new(DumpEnvOperations),
+            runtime_env,
+        );
+
+        let result = tool
+            .execute(serde_json::json!({
+                "command": "irrelevant",
+                "timeout_seconds": 1,
+                "run_in_background": false,
+            }))
+            .await
+            .expect("command should succeed");
+
+        let output = result["output"].as_str().expect("output should be a string");
+        assert!(
+            output.contains("\"LOGIN_EMAIL\": \"qa@example.com\""),
+            "expected user channel var under clean name, got: {output}"
+        );
+        assert!(
+            !output.contains("__ENV__LOGIN_EMAIL"),
+            "raw __ENV__ prefixed key leaked into env: {output}"
+        );
+        assert!(
+            output.contains("\"HIVY_CONTROL_PLANE_URL\": \"https://control.test\""),
+            "expected whitelisted platform key to remain, got: {output}"
+        );
     }
 }

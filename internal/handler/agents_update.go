@@ -199,6 +199,14 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["model"] = modelID
 		agent.Model = modelID
 	}
+	if req.DefaultReasoningEffort != nil {
+		value, ok := normalizeAgentDefaultReasoningEffortForRequest(w, req.DefaultReasoningEffort)
+		if !ok {
+			return false
+		}
+		updates["default_reasoning_effort"] = value
+		agent.DefaultReasoningEffort = value
+	}
 	if req.ImageModel != nil {
 		value := cleanStringPtr(req.ImageModel)
 		if err := validateImageModelPreference(value, false); err != nil {

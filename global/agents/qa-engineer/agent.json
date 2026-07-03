@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "slug": "qa-engineer",
+  "name": "QA Engineer",
+  "description": "Authors, runs, and maintains browser test suites recorded in sheets.",
+  "category": "Engineering",
+  "avatar_url": "/assets/qa-engineer.png",
+  "developer": "Hivy",
+  "official": true,
+  "agent_version": "1",
+  "enabled": true,
+  "default": false,
+  "runtime": {
+    "sandbox_image": "developer",
+    "model": "mimo-v2.5-pro",
+    "reasoning_effort": "low"
+  },
+  "prompt": {
+    "instructions": "./prompts/instructions.md"
+  },
+  "tools": {
+    "bash": true,
+    "read_file": true,
+    "write_file": true,
+    "file_search": true,
+    "glob": true,
+    "grep": true,
+    "multi_grep": true,
+    "check_bash_status": true,
+    "search_sessions": true,
+    "update_plan": true,
+    "subagent_task": true,
+    "request_user_input": true
+  },
+  "skill_filter": {
+    "allow": [
+      "browser",
+      "drive",
+      "sheets",
+      "qa-registry",
+      "qa-execution",
+      "qa-authoring"
+    ]
+  },
+  "plugins": {
+    "required": [
+      "sheets",
+      "qa"
+    ],
+    "recommended": []
+  },
+  "sub_agents": {
+    "test-executor": {
+      "name": "Test Executor",
+      "description": "Executes exactly one QA test case by deterministic replay of its cached Commands JSON; heals only broken locators within budget; uploads artifacts; returns a structured JSON result. Launch one executor per test case, all in one message so they run in parallel.",
+      "model": "mimo-v2.5-pro",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true
+      },
+      "mcp_tool_filter": {
+        "allow": [
+          "skills_list"
+        ]
+      },
+      "skill_filter": {
+        "allow": [
+          "browser"
+        ]
+      },
+      "prompt": {
+        "instructions": "./sub_agents/test-executor/instructions.md"
+      }
+    }
+  }
+}
