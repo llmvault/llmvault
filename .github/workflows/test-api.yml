@@ -454,7 +454,10 @@ jobs:
 
   runtime:
     name: sandbox runtime
-    runs-on: ubuntu-latest
+    # Pinned to 22.04: on ubuntu-latest (24.04) this job is cancelled unprompted
+    # ~3 min in ("The operation was canceled") during the heavy Rust build, a
+    # documented hosted-runner regression. See actions/runner-images#9959.
+    runs-on: ubuntu-22.04
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v6
