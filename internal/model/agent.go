@@ -34,7 +34,6 @@ type Agent struct {
 
 	Instructions     *string        `gorm:"type:text"`
 	Model            string         `gorm:"not null"`
-	AvailableModels  pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 	ImageModel       string         `gorm:"type:text;not null;default:''"`
 	VectorImageModel string         `gorm:"type:text;not null;default:''"`
 	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`

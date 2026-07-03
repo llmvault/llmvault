@@ -86,7 +86,7 @@ type UpdateInput struct {
 	Name         *string
 	Description  *string
 	Instructions *string
-	Model        *string // non-nil sets the agent's model (and available_models)
+	Model        *string // non-nil sets the agent's model
 	Status       *string
 
 	Tools         *model.JSON
@@ -161,7 +161,6 @@ func CreateAgent(ctx context.Context, deps Deps, orgID uuid.UUID, in CreateInput
 		SandboxImage:    model.SandboxImageDefault,
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
-		AvailableModels: pq.StringArray{modelID},
 		Tools:           tools,
 		McpToolFilter:   in.McpToolFilter,
 		McpServers:      model.RawJSON("[]"),
@@ -241,12 +240,8 @@ func UpdateAgent(ctx context.Context, deps Deps, orgID, agentID uuid.UUID, in Up
 		if err := deps.validateModel(ctx, orgID, modelID); err != nil {
 			return nil, err
 		}
-		// Keep available_models consistent with the selected model, matching the
-		// single-model shape CreateAgent uses.
 		updates["model"] = modelID
-		updates["available_models"] = pq.StringArray{modelID}
 		agent.Model = modelID
-		agent.AvailableModels = pq.StringArray{modelID}
 	}
 	if in.Status != nil {
 		status := strings.TrimSpace(*in.Status)
@@ -370,7 +365,6 @@ func buildSubAgentRows(ctx context.Context, deps Deps, orgID uuid.UUID, parentMo
 			Description:     &desc,
 			Instructions:    &instructions,
 			Model:           subModel,
-			AvailableModels: pq.StringArray{subModel},
 			Tools:           tools,
 			McpServers:      model.RawJSON("[]"),
 			McpToolFilter:   subAgentFilter(in.McpAllow, in.McpDeny),

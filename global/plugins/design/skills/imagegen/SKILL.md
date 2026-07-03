@@ -46,6 +46,8 @@ Use `generate_image` (raster) or `generate_vector_image` (SVG) for new images:
 
 Use `remix_image` when the new image must contain something that already exists — a recurring character, a specific product, or the next sibling in a set. It takes `prompt` + `reference_asset_ids` (the master asset) and preserves the identity of what the references show. Elements are only consistent *within* one generation; across generations the model reinvents whatever it redraws — so identity-critical raster work MUST go through `remix_image` with the master-asset workflow in `references/consistent-assets.md`.
 
+**Vector illustration systems are also an exception: load the `illustration-system` skill.** When the user wants a *set* of flat vector illustrations in one consistent style (spot/section illustrations, empty states, "more like these samples"), that skill holds the style across subjects with a written style contract plus reference conditioning, natively in SVG. The raster sibling-set workflow below remains correct for photos, 3D, and painterly sets.
+
 **Logos are the exception: load the `logo-design` skill and do the work there.** It generates the mark as a native SVG (`generate_vector_image`), refines with reference-conditioned regeneration until the user approves, then composes every lockup and variant deterministically from the same vector geometry — byte-identical, no remix drift, delivered as a full SVG + transparent-PNG pack. Never build a logo by generating a raster lockup and remixing variants from it; that workflow is superseded.
 
 ## Pattern families

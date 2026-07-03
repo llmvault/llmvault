@@ -11251,12 +11251,6 @@ const docTemplate = `{
         "agentCatalogResponse": {
             "type": "object",
             "properties": {
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -11380,12 +11374,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/agentSkillSummary"
                     }
                 },
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -11487,12 +11475,6 @@ const docTemplate = `{
         "agentMutationRequest": {
             "type": "object",
             "properties": {
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -11582,12 +11564,6 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/agentSkillSummary"
-                    }
-                },
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
                     }
                 },
                 "avatar_url": {

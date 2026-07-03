@@ -165,10 +165,6 @@ func (h *SessionHandler) validateSessionModel(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "agent model is not configured"})
 		return false
 	}
-	if !agentAllowsModel(agent, modelID) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model is not enabled for this agent"})
-		return false
-	}
 	agentHandler := AgentHandler{db: h.db}
 	if err := agentHandler.validateAgentSelectableModel(r.Context(), orgID, modelID); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})

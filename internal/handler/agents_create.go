@@ -89,10 +89,8 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 			sandboxImage = model.NormalizeSandboxImage(catalog.SandboxImage)
 		}
 	}
-	availableModels := []string(nil)
 	tools := model.JSON{}
 	if hasCatalog {
-		availableModels = append(availableModels, catalog.AvailableModels...)
 		tools = cloneModelJSON(catalog.Tools)
 	}
 	agent := model.Agent{
@@ -105,7 +103,6 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		SandboxImage:    sandboxImage,
 		SandboxSize:     model.DefaultHivyAgentSandboxSize,
 		Model:           modelID,
-		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
 		Status:          "active",
 		Tools:           tools,
 		McpServers:      model.RawJSON("[]"),

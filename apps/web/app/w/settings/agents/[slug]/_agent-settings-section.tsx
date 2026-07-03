@@ -26,7 +26,7 @@ export function AgentSettingsSection({
       <div className="flex flex-col gap-1">
         <h2 className="text-sm font-semibold text-foreground">Default model</h2>
         <p className="text-sm leading-5 text-muted-foreground">
-          Select from this agent&apos;s catalog models.
+          Choose any available model for this agent.
         </p>
       </div>
       <Select

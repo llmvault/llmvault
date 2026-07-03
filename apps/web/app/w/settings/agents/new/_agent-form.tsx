@@ -133,7 +133,7 @@ export function AgentFormView({
         <ModelSelect
           models={models}
           value={effectiveModel}
-          onModelChange={(model) => update({ model, availableModels: [model] })}
+          onModelChange={(model) => update({ model })}
           disabled={saving || modelsQuery.isLoading}
           ariaLabel="Default model"
         />

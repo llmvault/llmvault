@@ -14,10 +14,10 @@ import {
   type ApiPlugin,
 } from "@/app/w/(chat)/plugins/_lib"
 import { AgentAvatar } from "../_agent-avatar"
+import { availableModelIds } from "@/app/w/(chat)/_lib/model-options"
 import {
   AGENT_CATALOG_QUERY_KEY,
   INSTALLED_AGENTS_QUERY_KEY,
-  agentAvailableModels,
   agentCanInstall,
   agentDescription,
   agentIsInstalled,
@@ -55,6 +55,7 @@ export default function AgentDetailPage({
     params: { path: { slug } },
   })
   const pluginsQuery = $api.useQuery("get", "/v1/plugins")
+  const agentModelsQuery = $api.useQuery("get", "/v1/agents/models")
   const installAgent = $api.useMutation(
     "post",
     "/v1/agents/catalog/{slug}/install"
@@ -103,7 +104,10 @@ export default function AgentDetailPage({
     [agent]
   )
   const missingPlugins = agentMissingPlugins(agent)
-  const availableModels = agentAvailableModels(agent)
+  const availableModels = useMemo(
+    () => availableModelIds(agentModelsQuery.data ?? []),
+    [agentModelsQuery.data]
+  )
   const selectedModel =
     installedAgent?.model || agent?.model || availableModels[0] || ""
   const selectedSandboxImage = normalizeAgentSandboxImage(

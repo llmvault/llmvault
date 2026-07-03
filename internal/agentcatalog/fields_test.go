@@ -9,25 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lib/pq"
-
 	"github.com/usehivy/hivy/internal/model"
 )
-
-func TestCatalogUpdatesDefaultsAvailableModelsToRuntimeModel(t *testing.T) {
-	updates := catalogUpdates(Manifest{
-		Runtime: RuntimeManifest{Model: "deepseek-v4-flash"},
-	}, model.RawJSON("{}"), "hash", model.AgentCatalogStatusActive)
-
-	got, ok := updates["available_models"].(pq.StringArray)
-	if !ok {
-		t.Fatalf("available_models has type %T", updates["available_models"])
-	}
-	want := []string{"deepseek-v4-flash"}
-	if !reflect.DeepEqual([]string(got), want) {
-		t.Fatalf("available_models = %#v, want %#v", got, want)
-	}
-}
 
 func TestCatalogUpdatesNormalizesSandboxImage(t *testing.T) {
 	updates := catalogUpdates(Manifest{

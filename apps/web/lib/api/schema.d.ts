@@ -15389,7 +15389,6 @@ export interface components {
             slug?: string;
         };
         agentCatalogResponse: {
-            available_models?: string[];
             avatar_url?: string;
             category?: string;
             description?: string;
@@ -15427,7 +15426,6 @@ export interface components {
         };
         agentListItem: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
-            available_models?: string[];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
             channel_ids?: string[];
@@ -15457,7 +15455,6 @@ export interface components {
             vector_image_model?: string;
         };
         agentMutationRequest: {
-            available_models?: string[];
             avatar_url?: string;
             channel_ids?: string[];
             description?: string;
@@ -15484,7 +15481,6 @@ export interface components {
         };
         agentResponse: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
-            available_models?: string[];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
             channel_ids?: string[];

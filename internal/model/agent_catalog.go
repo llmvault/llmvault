@@ -18,7 +18,6 @@ type AgentCatalog struct {
 	Official           bool           `gorm:"not null;default:false"`
 	IsDefault          bool           `gorm:"not null;default:false;index"`
 	Model              string         `gorm:"not null;default:''"`
-	AvailableModels    pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 	SandboxImage       string         `gorm:"type:text;not null;default:'default'"`
 	Instructions       string         `gorm:"type:text;not null;default:''"`
 	Tools              JSON           `gorm:"type:jsonb;not null;default:'{}'"`

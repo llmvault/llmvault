@@ -630,7 +630,7 @@
         },
         "/incoming/triggers/{triggerID}": {
             "post": {
-                "description": "Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer \u003csecret\u003e, X-Api-Key, X-Webhook-Secret, or ?secret=\u003csecret\u003e.",
+                "description": "Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.",
                 "consumes": [
                     "application/json"
                 ],
@@ -651,7 +651,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Bearer \u003csecret\u003e. One of the accepted ways to send the trigger's shared secret.",
+                        "description": "Bearer <secret>. One of the accepted ways to send the trigger's shared secret.",
                         "name": "Authorization",
                         "in": "header"
                     },
@@ -1430,7 +1430,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all agents in the org with skills (metadata only — no bundle content),\nand triggers.",
+                "description": "Returns all agents in the org with skills (metadata only \u2014 no bundle content),\nand triggers.",
                 "produces": [
                     "application/json"
                 ],
@@ -1774,7 +1774,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns one agent in the org with skills (metadata only — no bundle content),\nand triggers.",
+                "description": "Returns one agent in the org with skills (metadata only \u2014 no bundle content),\nand triggers.",
                 "produces": [
                     "application/json"
                 ],
@@ -2590,7 +2590,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Pagination cursor — unix-nanos from the previous page's tail for created_at/updated_at sorting",
+                        "description": "Pagination cursor \u2014 unix-nanos from the previous page's tail for created_at/updated_at sorting",
                         "name": "cursor",
                         "in": "query"
                     }
@@ -6175,7 +6175,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_\u003cNAME\u003e.",
+                "description": "Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7019,7 +7019,7 @@
         },
         "/v1/plans": {
             "get": {
-                "description": "Returns the public catalog of billing plans, ordered by price\nascending (free first). Public — no authentication required.",
+                "description": "Returns the public catalog of billing plans, ordered by price\nascending (free first). Public \u2014 no authentication required.",
                 "produces": [
                     "application/json"
                 ],
@@ -7562,7 +7562,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.",
+                "description": "Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE \u2194 PAUSED transitions are client-settable; DELETING is server-managed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11248,12 +11248,6 @@
         "agentCatalogResponse": {
             "type": "object",
             "properties": {
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -11377,12 +11371,6 @@
                         "$ref": "#/definitions/agentSkillSummary"
                     }
                 },
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -11484,12 +11472,6 @@
         "agentMutationRequest": {
             "type": "object",
             "properties": {
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -11579,12 +11561,6 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/agentSkillSummary"
-                    }
-                },
-                "available_models": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
                     }
                 },
                 "avatar_url": {

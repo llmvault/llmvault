@@ -3,7 +3,6 @@ import {
   agentCanInstall,
   agentRequiredPluginSlugs,
   agentAvatarURL,
-  agentAvailableModels,
   agentCategories,
   agentMatchesCategory,
   agentMatchesQuery,
@@ -104,18 +103,6 @@ describe("agent catalog helpers", () => {
     }
 
     expect(agentAvatarURL(item)).toBe("/assets/hivy.png")
-  })
-
-  it("uses catalog available models with the catalog default first when needed", () => {
-    const item = agent({
-      model: "deepseek-v4-pro",
-      available_models: [" qwen3.7-plus ", "qwen3.7-plus"],
-    })
-
-    expect(agentAvailableModels(item)).toEqual([
-      "deepseek-v4-pro",
-      "qwen3.7-plus",
-    ])
   })
 
   it("normalizes agent sandbox size values", () => {

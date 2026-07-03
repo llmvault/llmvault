@@ -105,7 +105,7 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return
 	}
-	if err := h.validateAgentDefaultModel(ctx, org.ID, &agent, modelID); err != nil {
+	if err := h.validateAgentSelectableModel(ctx, org.ID, modelID); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
@@ -186,29 +186,6 @@ func (h *AgentHandler) validateAgentSelectableModel(ctx context.Context, orgID u
 	}
 	_, err := credentials.ResolveForModel(ctx, h.db, h.agentModelRegistry(), orgID, modelID)
 	return err
-}
-
-func (h *AgentHandler) validateAgentAvailableModels(ctx context.Context, orgID uuid.UUID, models []string) error {
-	if len(models) == 0 {
-		return fmt.Errorf("available_models must include at least one model")
-	}
-	for _, modelID := range models {
-		if err := h.validateAgentSelectableModel(ctx, orgID, strings.TrimSpace(modelID)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (h *AgentHandler) validateAgentDefaultModel(ctx context.Context, orgID uuid.UUID, agent *model.Agent, modelID string) error {
-	modelID = strings.TrimSpace(modelID)
-	if err := h.validateAgentSelectableModel(ctx, orgID, modelID); err != nil {
-		return err
-	}
-	if !agentAllowsModel(agent, modelID) {
-		return fmt.Errorf("model %q is not enabled for this agent", modelID)
-	}
-	return nil
 }
 
 func sandboxLogID(sb *model.Sandbox) string {

@@ -106,25 +106,6 @@ export function agentRequiredPluginSlugs(
   return slugs
 }
 
-export function agentAvailableModels(
-  agent: CatalogAgent | undefined
-): string[] {
-  const values = agent?.available_models ?? []
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const value of values) {
-    const model = value.trim()
-    if (!model || seen.has(model)) continue
-    seen.add(model)
-    out.push(model)
-  }
-  const defaultModel = agent?.model?.trim()
-  if (defaultModel && !seen.has(defaultModel)) {
-    out.unshift(defaultModel)
-  }
-  return out
-}
-
 export function normalizeAgentSandboxSize(
   value: string | undefined
 ): AgentSandboxSize {

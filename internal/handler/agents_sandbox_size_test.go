@@ -147,7 +147,6 @@ func createSandboxConfigTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, im
 		SandboxImage:    image,
 		SandboxSize:     size,
 		Model:           agentruntime.DefaultAgentModel,
-		AvailableModels: []string{agentruntime.DefaultAgentModel},
 		Status:          "active",
 		Tools:           model.JSON{},
 		McpServers:      model.RawJSON("[]"),

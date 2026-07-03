@@ -47,7 +47,10 @@ request, load `logo-design` and follow its procedure.
 
 ## Sets that must read as siblings
 
-For bento grids, illustration series, and recurring characters, combine both levers:
+For **flat vector illustration sets in one style**, use the `illustration-system`
+skill instead — it holds a style across subjects natively in SVG with a written
+style contract plus reference conditioning. The levers below are for raster sets
+(photographic, 3D, painterly) and recurring characters:
 
 - **Shared style contract**: one verbatim sentence (medium, palette, lighting, background treatment) prefixed to every prompt in the set.
 - **Anchor + remix**: generate the first/largest asset with `generate_image`, then produce the rest with `remix_image` referencing the anchor — "same character, same style, same palette… now [new scene/pose/concept]". For characters add: "do not redesign the character; preserve facial features, proportions, outfit, and color palette."

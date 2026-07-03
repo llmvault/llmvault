@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { useDropzone } from "react-dropzone"
@@ -43,6 +43,17 @@ import { RecordingWaveform } from "./recording-waveform"
 import { displayModel, ModelIcon } from "./model-display"
 import { useSessionUsageSummary } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { SessionSpendPill } from "./session-spend-pill"
+import {
+  agentDisplayName,
+  channelDisplayName,
+  type SidebarAgentResponse,
+  type SidebarChannelResponse,
+} from "@/app/w/(chat)/_lib/sidebar-data"
+import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
+import { Picker, PickerButton } from "./chat-picker"
+import { PickerText } from "./chat-picker-text"
+
+const EFFORTS = ["Low", "Medium", "High"]
 
 export function Composer({
   sessionId,
@@ -52,7 +63,29 @@ export function Composer({
   placeholder = "Ask for follow-up changes",
   isStreaming = false,
   isDisabled = false,
+  isSubmitting = false,
   onStop,
+  attachmentsEnabled = true,
+  audioEnabled = true,
+  spendVisible = true,
+  channelSelectable = false,
+  channel,
+  channels = [],
+  channelsLoading = false,
+  channelsError = false,
+  onChannelChange,
+  agentSelectable = false,
+  agent,
+  agents = [],
+  agentsLoading = false,
+  agentsError = false,
+  onAgentChange,
+  modelSelectable = false,
+  modelIds = [],
+  modelSummaries = [],
+  modelsLoading = false,
+  modelsError = false,
+  onModelChange,
 }: {
   sessionId: string
   agentId: string
@@ -60,12 +93,36 @@ export function Composer({
   onSend: (
     text: string,
     attachments: ImageAttachmentMetadata[],
-    codeLineComments: CodeLineCommentPayload[]
+    codeLineComments: CodeLineCommentPayload[],
+    effort: string
   ) => boolean | void | Promise<boolean | void>
   placeholder?: string
   isStreaming?: boolean
   isDisabled?: boolean
+  isSubmitting?: boolean
   onStop?: () => void
+  // Session-only affordances; turn off where no session exists yet.
+  attachmentsEnabled?: boolean
+  audioEnabled?: boolean
+  spendVisible?: boolean
+  channelSelectable?: boolean
+  channel?: SidebarChannelResponse
+  channels?: SidebarChannelResponse[]
+  channelsLoading?: boolean
+  channelsError?: boolean
+  onChannelChange?: (channel: SidebarChannelResponse) => void
+  agentSelectable?: boolean
+  agent?: SidebarAgentResponse
+  agents?: SidebarAgentResponse[]
+  agentsLoading?: boolean
+  agentsError?: boolean
+  onAgentChange?: (agent: SidebarAgentResponse) => void
+  modelSelectable?: boolean
+  modelIds?: string[]
+  modelSummaries?: ModelSummary[]
+  modelsLoading?: boolean
+  modelsError?: boolean
+  onModelChange?: (modelId: string) => void
 }) {
   const workspace = useSessionWorkspaceStore((state) =>
     selectSessionWorkspace(state, sessionId)
@@ -84,6 +141,13 @@ export function Composer({
   const setLineComments = useSessionWorkspaceStore(
     (state) => state.setLineComments
   )
+  const effort = workspace.composer.effort
+  const setEffortValue = useSessionWorkspaceStore(
+    (state) => state.setComposerEffort
+  )
+  const [channelOpen, setChannelOpen] = useState(false)
+  const [agentOpen, setAgentOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
   const attachmentDescriptions = workspace.composer.attachmentDescriptions
@@ -97,7 +161,11 @@ export function Composer({
   const { uploads, addFiles, retryUpload, removeUpload } =
     useOrgDriveFileUploads({ agentId, sessionId })
 
-  const selectedModel = displayModel(modelId)
+  const selectedModel = displayModel(modelId, modelSummaries)
+  const modelOptions = useMemo(
+    () => modelIds.map((id) => displayModel(id, modelSummaries)),
+    [modelIds, modelSummaries]
+  )
   const attachments = useMemo(
     () =>
       uploads.map((upload): ComposerImageAttachment => {
@@ -152,8 +220,10 @@ export function Composer({
     )
   const canSend =
     !isDisabled &&
+    !isSubmitting &&
     !hasPendingAttachment &&
     !hasFailedAttachment &&
+    (!channelSelectable || Boolean(channel?.id)) &&
     (value.trim().length > 0 ||
       readyAttachments.length > 0 ||
       lineComments.length > 0)
@@ -271,7 +341,7 @@ export function Composer({
   const { getRootProps, getInputProps, open, isDragActive, isDragReject } =
     useDropzone({
       accept: { "image/*": [] },
-      disabled: isDisabled,
+      disabled: isDisabled || !attachmentsEnabled,
       multiple: true,
       noClick: true,
       noKeyboard: true,
@@ -292,7 +362,7 @@ export function Composer({
       ) {
         return false
       }
-      if (isDisabled) {
+      if (isDisabled || isSubmitting) {
         return false
       }
       const sendingLineCommentIds = sendingLineComments.map(
@@ -330,7 +400,8 @@ export function Composer({
         const sent = await onSend(
           promptText,
           sendingAttachments,
-          sendingCodeLineComments
+          sendingCodeLineComments,
+          effort
         )
         if (sent === false) {
           restoreDraft()
@@ -350,7 +421,9 @@ export function Composer({
     [
       attachmentDescriptions,
       clearComposerAfterSend,
+      effort,
       isDisabled,
+      isSubmitting,
       lineCommentActions,
       lineComments,
       onSend,
@@ -405,7 +478,7 @@ export function Composer({
   })
 
   const submit = async () => {
-    if (isDisabled) return
+    if (isDisabled || isSubmitting) return
     if (isRecordingInProgress) {
       sendRecordingAfterTranscription()
       return
@@ -475,17 +548,95 @@ export function Composer({
           />
 
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              aria-label="Attach image"
-              isDisabled={isDisabled}
-              onPress={open}
-            >
-              <AppIcon icon="plus" className="h-4 w-4 text-muted" />
-            </Button>
-            <SessionSpendPill usage={usage} />
+            {attachmentsEnabled ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                isIconOnly
+                aria-label="Attach image"
+                isDisabled={isDisabled}
+                onPress={open}
+              >
+                <AppIcon icon="plus" className="h-4 w-4 text-muted" />
+              </Button>
+            ) : null}
+            {spendVisible ? <SessionSpendPill usage={usage} /> : null}
+            {channelSelectable ? (
+              <Picker
+                open={channelOpen}
+                setOpen={setChannelOpen}
+                label="Select channel"
+                icon="hash"
+                value={
+                  channelsLoading
+                    ? "Loading channels"
+                    : channel
+                      ? channelDisplayName(channel)
+                      : "Select channel"
+                }
+                width="w-64"
+              >
+                {channelsLoading ? (
+                  <PickerText>Loading channels</PickerText>
+                ) : channelsError ? (
+                  <PickerText>Could not load channels</PickerText>
+                ) : channels.length ? (
+                  channels.map((entry) => (
+                    <PickerButton
+                      key={entry.id ?? channelDisplayName(entry)}
+                      icon="hash"
+                      selected={entry.id === channel?.id}
+                      onPress={() => {
+                        onChannelChange?.(entry)
+                        setChannelOpen(false)
+                      }}
+                    >
+                      {channelDisplayName(entry)}
+                    </PickerButton>
+                  ))
+                ) : (
+                  <PickerText>No channels</PickerText>
+                )}
+              </Picker>
+            ) : null}
+            {agentSelectable ? (
+              <Picker
+                open={agentOpen}
+                setOpen={setAgentOpen}
+                label="Select agent"
+                agent={agent}
+                value={
+                  agentsLoading
+                    ? "Loading agents"
+                    : agent
+                      ? agentDisplayName(agent)
+                      : "Select agent"
+                }
+                width="w-72"
+              >
+                {agentsLoading ? (
+                  <PickerText>Loading agents</PickerText>
+                ) : agentsError ? (
+                  <PickerText>Could not load agents</PickerText>
+                ) : agents.length ? (
+                  agents.map((entry) => (
+                    <PickerButton
+                      key={entry.id ?? agentDisplayName(entry)}
+                      agent={entry}
+                      selected={entry.id === agent?.id}
+                      onPress={() => {
+                        onAgentChange?.(entry)
+                        setAgentOpen(false)
+                      }}
+                    >
+                      {agentDisplayName(entry)}
+                    </PickerButton>
+                  ))
+                ) : (
+                  <PickerText>No agents</PickerText>
+                )}
+              </Picker>
+            ) : null}
 
             {recordingActive ? (
               <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
@@ -503,19 +654,68 @@ export function Composer({
               <>
                 <div className="flex-1" />
 
-                <div
-                  aria-label={`Model: ${selectedModel.label}`}
-                  className="flex min-w-0 items-center gap-1.5 px-2 py-1.5 text-sm text-muted"
-                >
-                  <ModelIcon model={selectedModel} className="h-4 w-4" />
-                  <span className="max-w-40 truncate font-medium text-foreground">
-                    {selectedModel.label}
-                  </span>
-                </div>
+                {modelSelectable ? (
+                  <Picker
+                    open={modelOpen}
+                    setOpen={setModelOpen}
+                    label="Select model"
+                    model={selectedModel}
+                    value={selectedModel.label}
+                    suffix={effort}
+                    width="w-64"
+                  >
+                    <span className="px-2.5 pt-1.5 pb-1 text-xs text-muted">
+                      Models
+                    </span>
+                    {modelsLoading && modelOptions.length === 0 ? (
+                      <PickerText>Loading models</PickerText>
+                    ) : modelsError && modelOptions.length === 0 ? (
+                      <PickerText>Could not load models</PickerText>
+                    ) : modelOptions.length ? (
+                      modelOptions.map((entry) => (
+                        <PickerButton
+                          key={entry.id}
+                          model={entry}
+                          selected={entry.id === modelId}
+                          onPress={() => onModelChange?.(entry.id)}
+                        >
+                          {entry.label}
+                        </PickerButton>
+                      ))
+                    ) : (
+                      <PickerText>No models</PickerText>
+                    )}
+                    <span className="px-2.5 pt-2 pb-1 text-xs text-muted">
+                      Reasoning effort
+                    </span>
+                    {EFFORTS.map((entry) => (
+                      <PickerButton
+                        key={entry}
+                        selected={entry === effort}
+                        onPress={() => {
+                          setEffortValue(sessionId, entry)
+                          setModelOpen(false)
+                        }}
+                      >
+                        {entry}
+                      </PickerButton>
+                    ))}
+                  </Picker>
+                ) : (
+                  <div
+                    aria-label={`Model: ${selectedModel.label}`}
+                    className="flex min-w-0 items-center gap-1.5 px-2 py-1.5 text-sm text-muted"
+                  >
+                    <ModelIcon model={selectedModel} className="h-4 w-4" />
+                    <span className="max-w-40 truncate font-medium text-foreground">
+                      {selectedModel.label}
+                    </span>
+                  </div>
+                )}
               </>
             )}
 
-            {isTranscribingRecording ? (
+            {!audioEnabled ? null : isTranscribingRecording ? (
               <Button
                 variant="ghost"
                 size="sm"
@@ -564,6 +764,7 @@ export function Composer({
                 aria-label="Send"
                 isDisabled={
                   isDisabled ||
+                  isSubmitting ||
                   isProcessingStartRecording ||
                   isTranscribingRecording ||
                   (!isRecordingInProgress && !canSend)
@@ -571,7 +772,11 @@ export function Composer({
                 onPress={() => void submit()}
                 className="rounded-full"
               >
-                <AppIcon icon="arrow-up" className="h-4 w-4" />
+                {isSubmitting ? (
+                  <Spinner color="current" size="sm" />
+                ) : (
+                  <AppIcon icon="arrow-up" className="h-4 w-4" />
+                )}
               </Button>
             )}
           </div>

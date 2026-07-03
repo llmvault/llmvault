@@ -28,9 +28,8 @@ type Manifest struct {
 }
 
 type RuntimeManifest struct {
-	SandboxImage    string   `json:"sandbox_image"`
-	Model           string   `json:"model"`
-	AvailableModels []string `json:"available_models"`
+	SandboxImage string `json:"sandbox_image"`
+	Model        string `json:"model"`
 }
 
 type PromptManifest struct {

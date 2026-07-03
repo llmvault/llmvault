@@ -199,19 +199,6 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["model"] = modelID
 		agent.Model = modelID
 	}
-	if req.AvailableModels != nil {
-		value := normalizeAgentAvailableModels(agent.Model, req.AvailableModels)
-		if err := h.validateAgentAvailableModels(ctx, *agent.OrgID, value); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-			return false
-		}
-		updates["available_models"] = value
-		agent.AvailableModels = value
-	}
-	if !agentAllowsModel(agent, agent.Model) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model must be included in available_models"})
-		return false
-	}
 	if req.ImageModel != nil {
 		value := cleanStringPtr(req.ImageModel)
 		if err := validateImageModelPreference(value, false); err != nil {

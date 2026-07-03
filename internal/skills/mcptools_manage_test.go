@@ -213,7 +213,6 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 		Name:            "manage-test-agent",
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           "test-model",
-		AvailableModels: []string{"test-model"},
 		Status:          "active",
 		Tools:           model.JSON{},
 		McpServers:      model.RawJSON("[]"),

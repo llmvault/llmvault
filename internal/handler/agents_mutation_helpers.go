@@ -8,9 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -21,46 +19,6 @@ func agentIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool
 		return uuid.Nil, false
 	}
 	return agentID, true
-}
-
-func normalizeAgentAvailableModels(defaultModel string, requested *[]string) pq.StringArray {
-	defaultModel = strings.TrimSpace(defaultModel)
-	seen := map[string]bool{}
-	out := make([]string, 0)
-	if requested != nil {
-		for _, modelID := range *requested {
-			modelID = strings.TrimSpace(modelID)
-			if modelID == "" || seen[modelID] {
-				continue
-			}
-			seen[modelID] = true
-			out = append(out, modelID)
-		}
-	}
-	if len(out) == 0 {
-		if defaultModel == "" {
-			defaultModel = agentruntime.DefaultAgentModel
-		}
-		out = append(out, defaultModel)
-	}
-	return pq.StringArray(out)
-}
-
-func agentAllowsModel(agent *model.Agent, modelID string) bool {
-	modelID = strings.TrimSpace(modelID)
-	if modelID == "" {
-		return false
-	}
-	if containsString(agent.AvailableModels, modelID) {
-		return true
-	}
-	if agent.AgentCatalog != nil {
-		catalogModels := append([]string(nil), agent.AgentCatalog.AvailableModels...)
-		if containsString(normalizeAgentAvailableModels(agent.AgentCatalog.Model, &catalogModels), modelID) {
-			return true
-		}
-	}
-	return len(agent.AvailableModels) == 0 && strings.TrimSpace(agent.Model) == modelID
 }
 
 func containsString(values []string, target string) bool {

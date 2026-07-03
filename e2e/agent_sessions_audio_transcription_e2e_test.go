@@ -74,7 +74,6 @@ func agentSessionsCreateAudioTranscriptionAgent(t *testing.T, ctx context.Contex
 		"name":             "Audio transcription E2E " + runID,
 		"instructions":     "This agent exists for the audio transcription E2E.",
 		"model":            agentruntime.DefaultAgentModel,
-		"available_models": []string{agentruntime.DefaultAgentModel},
 	}
 	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/agents", token, orgID, payload, http.StatusCreated, &out)
 	if out.Agent.ID == "" {

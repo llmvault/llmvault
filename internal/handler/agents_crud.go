@@ -24,7 +24,6 @@ type agentMutationRequest struct {
 	SandboxSize       *string           `json:"sandbox_size,omitempty"`
 	SandboxTemplateID *string           `json:"sandbox_template_id,omitempty"`
 	Model             *string           `json:"model,omitempty"`
-	AvailableModels   *[]string         `json:"available_models,omitempty"`
 	ImageModel        *string           `json:"image_model,omitempty"`
 	VectorImageModel  *string           `json:"vector_image_model,omitempty"`
 	Tools             *model.JSON       `json:"tools,omitempty"`
@@ -80,15 +79,6 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	modelID := cleanStringPtr(req.Model)
 	if modelID == "" {
 		modelID = agentruntime.DefaultAgentModel
-	}
-	availableModels := normalizeAgentAvailableModels(modelID, req.AvailableModels)
-	if err := h.validateAgentAvailableModels(ctx, org.ID, availableModels); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
-	if !containsString(availableModels, modelID) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model must be included in available_models"})
-		return
 	}
 	if err := h.validateAgentSelectableModel(ctx, org.ID, modelID); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
@@ -162,7 +152,6 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxSize:       sandboxSize,
 		SandboxTemplateID: sandboxTemplateID,
 		Model:             modelID,
-		AvailableModels:   availableModels,
 		ImageModel:        imageModel,
 		VectorImageModel:  vectorImageModel,
 		Tools:             tools,

@@ -25,7 +25,6 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"official":            boolValue(manifest.Official),
 		"is_default":          boolValue(manifest.Default),
 		"model":               strings.TrimSpace(manifest.Runtime.Model),
-		"available_models":    pq.StringArray(normalizeCatalogAvailableModels(manifest.Runtime.Model, manifest.Runtime.AvailableModels)),
 		"sandbox_image":       sandboxImage,
 		"instructions":        strings.TrimSpace(manifest.instructions),
 		"tools":               normalizeToolSelection(manifest.Tools),
@@ -47,7 +46,6 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.Official = updates["official"].(bool)
 	row.IsDefault = updates["is_default"].(bool)
 	row.Model = updates["model"].(string)
-	row.AvailableModels = updates["available_models"].(pq.StringArray)
 	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)
 	row.Tools = updates["tools"].(model.JSON)
@@ -71,20 +69,6 @@ func normalizeStrings(values []string) []string {
 		out = append(out, clean)
 	}
 	return out
-}
-
-func normalizeCatalogAvailableModels(defaultModel string, values []string) []string {
-	out := normalizeStrings(values)
-	defaultModel = strings.TrimSpace(defaultModel)
-	if defaultModel == "" {
-		return out
-	}
-	for _, value := range out {
-		if value == defaultModel {
-			return out
-		}
-	}
-	return append([]string{defaultModel}, out...)
 }
 
 func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {

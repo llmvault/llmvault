@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
-import { ChatComposer } from "@/app/w/(chat)/_components/chat-composer"
+import { Composer } from "@/app/w/(chat)/_components/composer"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import { AGENTS } from "@/app/w/(chat)/_lib/agents"
 import {
@@ -14,10 +14,7 @@ import {
   invalidateSessionListQueries,
   seedSessionDetail,
 } from "@/app/w/(chat)/_lib/chat-cache"
-import {
-  availableModelIds,
-  newSessionModelIds,
-} from "@/app/w/(chat)/_lib/model-options"
+import { availableModelIds } from "@/app/w/(chat)/_lib/model-options"
 import { watchGeneratedSessionName } from "@/app/w/(chat)/_lib/session-name-updates"
 import {
   agentDisplayName,
@@ -51,12 +48,6 @@ export function SessionView({
     { params: { query: { status: "active", limit: 100 } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
-  const agentCatalogQuery = $api.useQuery(
-    "get",
-    "/v1/agents/catalog",
-    {},
-    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
-  )
   const agentModelsQuery = $api.useQuery(
     "get",
     "/v1/agents/models",
@@ -88,20 +79,20 @@ export function SessionView({
     agents.find((agent) => agent.id === selectedAgentID) ??
     agents.find((agent) => agent.is_default) ??
     agents[0]
-  const agentCatalog = useMemo(
-    () => agentCatalogQuery.data ?? [],
-    [agentCatalogQuery.data]
-  )
   const modelSummaries = useMemo(
     () => agentModelsQuery.data ?? [],
     [agentModelsQuery.data]
   )
-  const modelIds = useMemo(() => {
-    const ids = newSessionModelIds(selectedAgent, agentCatalog)
-    return ids.length ? ids : availableModelIds(modelSummaries)
-  }, [agentCatalog, modelSummaries, selectedAgent])
+  const modelIds = useMemo(
+    () => availableModelIds(modelSummaries),
+    [modelSummaries]
+  )
   const fallbackAgent = AGENTS[0]
-  const defaultModelId = modelIds[0] ?? fallbackAgent.defaultModelId
+  const agentDefaultModelId = selectedAgent?.model?.trim()
+  const defaultModelId =
+    (agentDefaultModelId && modelIds.includes(agentDefaultModelId)
+      ? agentDefaultModelId
+      : modelIds[0]) ?? fallbackAgent.defaultModelId
   const [selectedModelID, setSelectedModelID] = useState<string | null>(null)
   const modelId =
     selectedModelID && modelIds.includes(selectedModelID)
@@ -162,25 +153,20 @@ export function SessionView({
   }
 
   return (
-    <div className="flex h-full min-w-0 items-center justify-center px-6 pb-16">
-      <div className="w-full max-w-3xl">
-        <ChatComposer
+    <div className="flex h-full min-w-0 items-center justify-center px-2 pb-16">
+      <div className="w-full">
+        <Composer
+          sessionId={draftKey}
+          agentId={selectedAgent?.id ?? ""}
+          modelId={modelId}
+          attachmentsEnabled={false}
+          audioEnabled={false}
+          spendVisible={false}
+          channelSelectable
           channel={activeChannel}
           channels={channels}
           channelsLoading={channelsQuery.isLoading}
           channelsError={channelsQuery.isError}
-          agent={selectedAgent}
-          agents={agents}
-          agentsLoading={agentsQuery.isLoading}
-          agentsError={agentsQuery.isError}
-          modelId={modelId}
-          modelIds={modelIds}
-          modelSummaries={modelSummaries}
-          modelsLoading={
-            agentCatalogQuery.isLoading || agentModelsQuery.isLoading
-          }
-          modelsError={agentCatalogQuery.isError || agentModelsQuery.isError}
-          submitting={createSession.isPending}
           onChannelChange={(channel) =>
             setSelectedChannelChoice(
               channel.id
@@ -188,13 +174,25 @@ export function SessionView({
                 : null
             )
           }
+          agentSelectable
+          agent={selectedAgent}
+          agents={agents}
+          agentsLoading={agentsQuery.isLoading}
+          agentsError={agentsQuery.isError}
           onAgentChange={(agent) => {
             setSelectedAgentID(agent.id ?? null)
             setSelectedModelID(null)
           }}
+          modelSelectable
+          modelIds={modelIds}
+          modelSummaries={modelSummaries}
+          modelsLoading={agentModelsQuery.isLoading}
+          modelsError={agentModelsQuery.isError}
           onModelChange={setSelectedModelID}
-          onSend={createFirstSession}
-          draftKey={draftKey}
+          isSubmitting={createSession.isPending}
+          onSend={(text, _attachments, _codeLineComments, effort) =>
+            createFirstSession(text, effort)
+          }
           placeholder={
             selectedAgent?.name
               ? `Ask ${agentDisplayName(selectedAgent)} to do something...`

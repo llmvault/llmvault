@@ -81,7 +81,6 @@ func createAgentModelUpdateTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID)
 		Description:     ptrString("model update test agent"),
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           agentModelUpdateOriginalModel,
-		AvailableModels: []string{agentModelUpdateOriginalModel, agentModelUpdateNewModel},
 		Tools:           model.JSON{},
 		McpServers:      model.RawJSON("[]"),
 		Skills:          model.JSON{},

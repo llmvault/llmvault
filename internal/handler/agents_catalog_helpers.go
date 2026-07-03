@@ -46,7 +46,6 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 		Official:           c.Official,
 		IsDefault:          c.IsDefault,
 		Model:              c.Model,
-		AvailableModels:    append([]string{}, c.AvailableModels...),
 		SandboxImage:       model.NormalizeSandboxImage(c.SandboxImage),
 		RequiredPlugins:    required,
 		RecommendedPlugins: recommended,
@@ -169,7 +168,6 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	desc := catalog.Description
 	avatarURL := catalog.AvatarURL
 	catalogID := catalog.ID
-	availableModels := append([]string(nil), catalog.AvailableModels...)
 	agent := model.Agent{
 		OrgID:           &orgID,
 		AgentCatalogID:  &catalogID,
@@ -180,7 +178,6 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		SandboxImage:    model.NormalizeSandboxImage(catalog.SandboxImage),
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
-		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
 		Tools:           cloneModelJSON(catalog.Tools),
 		McpServers:      model.RawJSON("[]"),
 		Skills:          model.JSON{},

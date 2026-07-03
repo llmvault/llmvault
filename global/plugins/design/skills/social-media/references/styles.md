@@ -23,9 +23,9 @@ For each direction: when to pick it, the shared style sentence template, backdro
 
 ## 3. illustration-driven
 
-**Pick when:** friendly/human brands (HR, education, consumer SaaS, community), lighter palettes, storytelling carousels.
+**Pick when:** friendly/human brands (HR, education, consumer SaaS, community, events, craft), lighter palettes, storytelling carousels.
 
-- Style sentence: `Flat vector illustration with <texture: risograph grain / paper-cut collage / clean flat> in <4–5 named brand colors>.`
+- This direction has its own catalog: **load `references/illustration-styles.md`** to choose the specific genre (flat vector, isometric, soft 3D, risograph, line + spot color, paper collage, gouache, clay miniature), get its tested prompt template, and map genre → brand/industry. Do not prompt an illustration from this summary alone.
 - Backdrops: full-bleed illustrated scenes — force it: "the scene fills the entire canvas edge to edge, no empty margins." Quiet zone = a flat color field *inside* the scene (a wall, sky band, tabletop) named as scenery. One scene per chapter of the story; content slides reuse a simplified corner of the same world.
 - Set consistency: shared style sentence verbatim + same character/prop vocabulary; for a recurring character across slides, generate the master once and `remix_image` the rest (see `imagegen` → `references/consistent-assets.md`).
 - CSS: type sits on the scene's flat fields; pick the darkest brand ink for text rather than white-on-busy.

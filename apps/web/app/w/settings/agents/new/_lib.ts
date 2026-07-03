@@ -151,7 +151,6 @@ export type AgentForm = {
   description: string
   icon: string
   model: string
-  availableModels: string[]
   instructions: string
   tools: ToolSelection
   sandboxImage: AgentSandboxImage
@@ -180,7 +179,6 @@ export function emptyAgentForm(): AgentForm {
     description: "",
     icon: "",
     model: "",
-    availableModels: [],
     instructions: "",
     tools: allToolsSelected(),
     sandboxImage: "default",
@@ -253,7 +251,6 @@ export function agentFormFromDetail(
     description: agent.description ?? "",
     icon: agent.icon ?? "",
     model,
-    availableModels: model ? [model] : [],
     instructions: agent.instructions ?? "",
     tools: toolSelectionFromAgent(
       agent.tools as Record<string, unknown> | undefined,
@@ -269,16 +266,11 @@ export function agentFormFromDetail(
 }
 
 export function buildCreateBody(form: AgentForm): AgentCreateBody {
-  const availableModels = form.availableModels.includes(form.model)
-    ? form.availableModels
-    : [form.model, ...form.availableModels]
-
   return {
     name: form.name.trim(),
     description: form.description.trim() || undefined,
     icon: form.icon.trim() || undefined,
     model: form.model,
-    available_models: availableModels,
     instructions: form.instructions.trim() || undefined,
     tools: runtimeToolsMap(form.tools),
     mcp_tool_filter: mcpToolFilterFor(form.tools),

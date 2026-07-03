@@ -17008,12 +17008,6 @@
       "agentCatalogResponse": {
         "type": "object",
         "properties": {
-          "available_models": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "avatar_url": {
             "type": "string"
           },
@@ -17137,12 +17131,6 @@
               "$ref": "#/components/schemas/agentSkillSummary"
             }
           },
-          "available_models": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "avatar_url": {
             "type": "string"
           },
@@ -17244,12 +17232,6 @@
       "agentMutationRequest": {
         "type": "object",
         "properties": {
-          "available_models": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "avatar_url": {
             "type": "string"
           },
@@ -17339,12 +17321,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/agentSkillSummary"
-            }
-          },
-          "available_models": {
-            "type": "array",
-            "items": {
-              "type": "string"
             }
           },
           "avatar_url": {

@@ -9,7 +9,12 @@ const mocks = vi.hoisted(() => ({
     modelSummaries: Array<{ id?: string; name?: string; provider_id?: string }>
     modelsError: boolean
     modelsLoading: boolean
-    onSend: (text: string, effort: string) => boolean | Promise<boolean>
+    onSend: (
+      text: string,
+      attachments: unknown[],
+      codeLineComments: unknown[],
+      effort: string
+    ) => boolean | Promise<boolean>
   },
   mutateAsync: vi.fn(),
   queryClient: {
@@ -21,14 +26,19 @@ const mocks = vi.hoisted(() => ({
   watchGeneratedSessionName: vi.fn(),
 }))
 
-vi.mock("@/app/w/(chat)/_components/chat-composer", () => ({
-  ChatComposer: (props: {
+vi.mock("@/app/w/(chat)/_components/composer", () => ({
+  Composer: (props: {
     modelId: string
     modelIds: string[]
     modelSummaries: Array<{ id?: string; name?: string; provider_id?: string }>
     modelsError: boolean
     modelsLoading: boolean
-    onSend: (text: string, effort: string) => boolean | Promise<boolean>
+    onSend: (
+      text: string,
+      attachments: unknown[],
+      codeLineComments: unknown[],
+      effort: string
+    ) => boolean | Promise<boolean>
   }) => {
     mocks.composerProps = props
     return null
@@ -85,26 +95,10 @@ describe("SessionView", () => {
                 name: "Hivy",
                 is_default: true,
                 model: "test-model",
-                available_models: ["agent-extra", "test-model"],
                 catalog: { id: "catalog-1", slug: "hivy" },
               },
             ],
           },
-          isError: false,
-          isLoading: false,
-        }
-      }
-      if (path === "/v1/agents/catalog") {
-        return {
-          data: [
-            {
-              id: "catalog-1",
-              slug: "hivy",
-              model: "catalog-default",
-              available_models: ["catalog-model", "test-model"],
-              installed_agent_id: "agent-1",
-            },
-          ],
           isError: false,
           isLoading: false,
         }
@@ -157,9 +151,14 @@ describe("SessionView", () => {
 
     expect(mocks.composerProps).toBeTruthy()
     if (!mocks.composerProps) {
-      throw new Error("ChatComposer props were not captured")
+      throw new Error("Composer props were not captured")
     }
-    const sent = await mocks.composerProps.onSend("Investigate this", "High")
+    const sent = await mocks.composerProps.onSend(
+      "Investigate this",
+      [],
+      [],
+      "High"
+    )
 
     expect(sent).toBe(true)
 	    expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -188,7 +187,7 @@ describe("SessionView", () => {
     )
   })
 
-  it("passes installed and catalog model ids to the composer", () => {
+  it("passes all selectable model ids to the composer with the agent default selected", () => {
     renderToString(
       React.createElement(SessionView, { onSessionCreated: vi.fn() })
     )

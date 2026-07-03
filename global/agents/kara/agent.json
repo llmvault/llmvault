@@ -12,14 +12,7 @@
   "default": true,
   "runtime": {
     "sandbox_image": "default",
-    "model": "mimo-v2.5-pro",
-    "available_models": [
-      "kimi-k2.7-code",
-      "mimo-v2.5-pro",
-      "glm-5.1",
-      "glm-5.2",
-      "deepseek-v4-flash"
-    ]
+    "model": "mimo-v2.5-pro"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"

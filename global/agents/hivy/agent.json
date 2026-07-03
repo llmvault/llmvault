@@ -12,11 +12,7 @@
   "default": true,
   "runtime": {
     "sandbox_image": "default",
-    "model": "deepseek-v4-flash",
-    "available_models": [
-      "deepseek-v4-flash",
-      "step-3.7-flash"
-    ]
+    "model": "deepseek-v4-flash"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"

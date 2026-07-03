@@ -78,6 +78,7 @@ Load only what the current step needs.
 - `references/backdrop-system.md` — backdrop roles, image budgets, the set-consistency method, prompt skeletons, tested worked prompts, the reuse ledger, review checklist. Load at step 6.
 - `references/slide-kit.md` — the fixed-size HTML boilerplate, brand token block, chrome components, type scale, scrims and text-safety, fonts, `data-canvas-id` conventions. Load at step 7.
 - `references/styles.md` — the seven style directions with prompt templates and CSS notes. Load at step 5.
+- `references/illustration-styles.md` — the illustration genre catalog: eight tested genres (flat vector, isometric, soft 3D, risograph, line + spot color, paper collage, gouache, clay miniature) with fidelity notes, prompt templates, composition counters, and the brand/industry → genre map. Load when step 5 lands on the illustration-driven (or soft-3D) direction.
 - `references/recipes.md` — per-genre plans (carousel, celebration, quote, announcement, stat, invite, story, banner, multi-platform), each with slide structure, image budget, and copy guidance. Load at step 8.
 
 ## Final response checklist

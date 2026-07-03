@@ -80,7 +80,6 @@ type agentResponse struct {
 	SandboxSize       string                 `json:"sandbox_size"`
 	SandboxTemplateID *string                `json:"sandbox_template_id,omitempty"`
 	Model             string                 `json:"model"`
-	AvailableModels   []string               `json:"available_models"`
 	ImageModel        string                 `json:"image_model"`
 	VectorImageModel  string                 `json:"vector_image_model"`
 	Tools             model.JSON             `json:"tools"`
@@ -129,7 +128,6 @@ func toAgentResponse(a model.Agent) agentResponse {
 		SandboxImage:     model.NormalizeSandboxImage(a.SandboxImage),
 		SandboxSize:      sandboxSize,
 		Model:            a.Model,
-		AvailableModels:  append([]string(nil), a.AvailableModels...),
 		ImageModel:       a.ImageModel,
 		VectorImageModel: a.VectorImageModel,
 		Tools:            nonNilJSON(a.Tools),
