@@ -10,6 +10,9 @@ const MODEL_HISTORY_REDACTION_VERSION: u32 = 1;
 const SESSION_CONTEXT_PAYLOAD_VERSION: u32 = 1;
 const SESSION_CONTEXT_IDEMPOTENCY_KEY_PREFIX: &str = "session-context";
 const MODEL_HISTORY_CONTROL_REDACTION: &str = "redaction";
+const AUTO_LOAD_SKILLS_PAYLOAD_VERSION: u32 = 1;
+const AUTO_LOAD_SKILLS_CONTROL: &str = "auto_load_skills";
+const AUTO_LOAD_SKILLS_IDEMPOTENCY_KEY_PREFIX: &str = "auto-load-skills";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelHistoryPayload {
@@ -29,6 +32,12 @@ struct ModelHistoryRedactionPayload {
     version: u32,
     start_tool_call_id: String,
     reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AutoLoadSkillsPayload {
+    model_history_control: String,
+    version: u32,
 }
 
 pub async fn load_model_history(
@@ -146,6 +155,68 @@ pub async fn load_session_context(
         .filter_map(session_context_from_event)
         .next_back()
         .unwrap_or_default())
+}
+
+/// True once the skill auto-load bootstrap has run for this session. Guards
+/// against re-injecting the synthetic skill_view transcript on resume or any
+/// subsequent turn.
+pub async fn auto_load_skills_completed(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+) -> Result<bool> {
+    let Some(repo) = repo else {
+        return Ok(false);
+    };
+    let events = repo
+        .list_chronological(session_id, 1000)
+        .await
+        .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    Ok(events.iter().any(is_auto_load_skills_marker))
+}
+
+/// Persist the idempotence marker recording that the skill auto-load bootstrap
+/// has completed for this session. Idempotent per session.
+pub async fn record_auto_load_skills_completed(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+) -> Result<()> {
+    let Some(repo) = repo else {
+        return Ok(());
+    };
+    let payload = serde_json::to_value(AutoLoadSkillsPayload {
+        model_history_control: AUTO_LOAD_SKILLS_CONTROL.to_string(),
+        version: AUTO_LOAD_SKILLS_PAYLOAD_VERSION,
+    })
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    repo.append_idempotent(
+        session_id,
+        EventKind::RunEvent,
+        payload,
+        &auto_load_skills_idempotency_key(session_id),
+    )
+    .await
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    Ok(())
+}
+
+fn is_auto_load_skills_marker(event: &SessionEvent) -> bool {
+    if event.kind != EventKind::RunEvent {
+        return false;
+    }
+    match serde_json::from_value::<AutoLoadSkillsPayload>(event.payload.clone()) {
+        Ok(payload) => {
+            payload.model_history_control == AUTO_LOAD_SKILLS_CONTROL
+                && payload.version == AUTO_LOAD_SKILLS_PAYLOAD_VERSION
+        }
+        Err(_) => false,
+    }
+}
+
+fn auto_load_skills_idempotency_key(session_id: &SessionId) -> String {
+    format!(
+        "{AUTO_LOAD_SKILLS_IDEMPOTENCY_KEY_PREFIX}:{}",
+        session_id.as_str()
+    )
 }
 
 fn session_context_idempotency_key(session_id: &SessionId) -> String {
@@ -581,6 +652,54 @@ mod tests {
         assert_eq!(second_turn[1].tool_calls[0].name, "linear_list_issues");
         assert_eq!(second_turn[2].role, AgentMessageRole::Tool);
         assert_eq!(second_turn[4].role, AgentMessageRole::User);
+    }
+
+    #[tokio::test]
+    async fn auto_load_marker_records_once_and_is_scoped_by_session() {
+        let repo = Arc::new(MemoryEventRepo::default());
+        let first = SessionId::from("s-autoload-one");
+        let second = SessionId::from("s-autoload-two");
+
+        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &first)
+            .await
+            .unwrap());
+
+        record_auto_load_skills_completed(Some(repo.as_ref()), &first)
+            .await
+            .unwrap();
+        // Idempotent: a second record must not add a duplicate marker.
+        record_auto_load_skills_completed(Some(repo.as_ref()), &first)
+            .await
+            .unwrap();
+
+        assert!(auto_load_skills_completed(Some(repo.as_ref()), &first)
+            .await
+            .unwrap());
+        // Another session is unaffected.
+        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &second)
+            .await
+            .unwrap());
+
+        // The marker is a RunEvent, not model history, so it never pollutes the
+        // transcript projection.
+        assert!(load_model_history(Some(repo.as_ref()), &first, 100)
+            .await
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
+    async fn auto_load_marker_not_confused_with_redaction_events() {
+        let repo = Arc::new(MemoryEventRepo::default());
+        let session_id = SessionId::from("s-autoload-redaction");
+        // A redaction event shares the `model_history_control`/`version` shape
+        // but a different control value; it must not read as an auto-load marker.
+        append_model_history_redaction(Some(repo.as_ref()), &session_id, "call_1", "repeat")
+            .await
+            .unwrap();
+        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &session_id)
+            .await
+            .unwrap());
     }
 
     #[test]

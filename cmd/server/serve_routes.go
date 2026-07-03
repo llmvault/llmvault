@@ -36,6 +36,7 @@ func setupPublicRoutes(
 	uploadsHandler *handler.UploadsHandler,
 	imageDescribeHandler *handler.ImageDescribeHandler,
 	canvasHandler *handler.CanvasHandler,
+	appsInternalHandler *handler.AppsInternalHandler,
 	orchestrator *sandbox.Orchestrator,
 	orchestratorMissing bool,
 ) {
@@ -119,7 +120,20 @@ func setupPublicRoutes(
 		r.Put("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", uploadsHandler.StreamAgentAsset)
 		r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/move", uploadsHandler.MoveAgentAsset)
 		r.Delete("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", uploadsHandler.DeleteAgentAsset)
+		// App template distribution for builder agents: same runtime-secret
+		// auth as the drive; builders swap the /drive suffix of
+		// HIVY_DRIVE_UPLOAD_URL for /apps-template.zip.
+		r.Get("/internal/agents/{agentID}/sandboxes/{sandboxID}/apps-template.zip", uploadsHandler.StreamAppsTemplateZip)
+		// Preview side channel: `make preview` in a builder sandbox fetches
+		// the app's runtime env + the server-computed public preview URL for
+		// a port on the builder's own sandbox. Secrets travel only in this
+		// response — never through the model context.
+		r.Get("/internal/agents/{agentID}/sandboxes/{sandboxID}/apps/{appID}/preview-env", uploadsHandler.AppPreviewEnv)
 	}
+
+	// Internal app API: app-secret bearer auth, sheets CRUD on the app's one
+	// bound sheet (apps plan §1.2).
+	mountInternalAppRoutes(r, appsInternalHandler)
 	if imageDescribeHandler != nil {
 		r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/images/describe", imageDescribeHandler.DescribeForRuntime)
 	}

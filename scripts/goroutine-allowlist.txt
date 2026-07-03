@@ -45,3 +45,7 @@ internal/sandbox/docker/exec.go:57             # goroutine to unblock stdcopy wh
 # finish; work channel close signals completion.
 
 internal/evals/runner.go:79                    # fixed-size worker pool; wg.Done() + work channel close bound lifetime
+
+# --- App template (standalone hivyapp module; cannot import internal/goroutine) ---
+
+global/apps/template/hivycore/app.go:110       # bounded single-send producer to buffered errCh; Run() blocks on select until send or ctx cancel

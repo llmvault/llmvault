@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/lib/pq"
@@ -15,27 +16,28 @@ import (
 )
 
 type agentMutationRequest struct {
-	Name                   *string           `json:"name,omitempty"`
-	Description            *string           `json:"description,omitempty"`
-	Instructions           *string           `json:"instructions,omitempty"`
-	AvatarURL              *string           `json:"avatar_url,omitempty"`
-	Icon                   *string           `json:"icon,omitempty"`
-	SandboxImage           *string           `json:"sandbox_image,omitempty"`
-	SandboxSize            *string           `json:"sandbox_size,omitempty"`
-	SandboxTemplateID      *string           `json:"sandbox_template_id,omitempty"`
-	Model                  *string           `json:"model,omitempty"`
-	DefaultReasoningEffort *string           `json:"default_reasoning_effort,omitempty"`
-	ImageModel             *string           `json:"image_model,omitempty"`
-	VectorImageModel       *string           `json:"vector_image_model,omitempty"`
-	Tools                  *model.JSON       `json:"tools,omitempty"`
-	McpToolFilter          *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
-	McpServers             *json.RawMessage  `json:"mcp_servers,omitempty"`
-	Skills                 *model.JSON       `json:"skills,omitempty"`
-	Permissions            *model.JSON       `json:"permissions,omitempty"`
-	Resources              *model.JSON       `json:"resources,omitempty"`
-	SandboxTools           *[]string         `json:"sandbox_tools,omitempty"`
-	ChannelIDs             *[]string         `json:"channel_ids,omitempty"`
-	SubAgents              *[]subAgentInput  `json:"sub_agents,omitempty"`
+	Name                   *string                `json:"name,omitempty"`
+	Description            *string                `json:"description,omitempty"`
+	Instructions           *string                `json:"instructions,omitempty"`
+	AvatarURL              *string                `json:"avatar_url,omitempty"`
+	Icon                   *string                `json:"icon,omitempty"`
+	SandboxImage           *string                `json:"sandbox_image,omitempty"`
+	SandboxSize            *string                `json:"sandbox_size,omitempty"`
+	SandboxTemplateID      *string                `json:"sandbox_template_id,omitempty"`
+	Model                  *string                `json:"model,omitempty"`
+	DefaultReasoningEffort *string                `json:"default_reasoning_effort,omitempty"`
+	AutoLoadSkills         *[]model.AutoLoadSkill `json:"auto_load_skills,omitempty"`
+	ImageModel             *string                `json:"image_model,omitempty"`
+	VectorImageModel       *string                `json:"vector_image_model,omitempty"`
+	Tools                  *model.JSON            `json:"tools,omitempty"`
+	McpToolFilter          *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
+	McpServers             *json.RawMessage       `json:"mcp_servers,omitempty"`
+	Skills                 *model.JSON            `json:"skills,omitempty"`
+	Permissions            *model.JSON            `json:"permissions,omitempty"`
+	Resources              *model.JSON            `json:"resources,omitempty"`
+	SandboxTools           *[]string              `json:"sandbox_tools,omitempty"`
+	ChannelIDs             *[]string              `json:"channel_ids,omitempty"`
+	SubAgents              *[]subAgentInput       `json:"sub_agents,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -86,6 +88,10 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defaultReasoningEffort, ok := normalizeAgentDefaultReasoningEffortForRequest(w, req.DefaultReasoningEffort)
+	if !ok {
+		return
+	}
+	autoLoadSkills, ok := normalizeAgentAutoLoadSkillsForRequest(w, req.AutoLoadSkills)
 	if !ok {
 		return
 	}
@@ -158,6 +164,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxTemplateID:      sandboxTemplateID,
 		Model:                  modelID,
 		DefaultReasoningEffort: defaultReasoningEffort,
+		AutoLoadSkills:         autoLoadSkills,
 		ImageModel:             imageModel,
 		VectorImageModel:       vectorImageModel,
 		Tools:                  tools,
@@ -216,6 +223,36 @@ func normalizeAgentDefaultReasoningEffortForRequest(w http.ResponseWriter, value
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_reasoning_effort must be low, medium, or high"})
 		return "", false
+	}
+	return normalized, true
+}
+
+// normalizeAgentAutoLoadSkillsForRequest validates and normalizes an optional
+// auto_load_skills value. A nil pointer (field omitted) yields an empty list; an
+// invalid entry (empty name or a file with traversal/absolute path) writes a 400
+// and returns ok=false.
+func normalizeAgentAutoLoadSkillsForRequest(w http.ResponseWriter, value *[]model.AutoLoadSkill) (model.AutoLoadSkills, bool) {
+	if value == nil {
+		return model.AutoLoadSkills{}, true
+	}
+	normalized, err := model.NormalizeAutoLoadSkills(*value)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return nil, false
+	}
+	return normalized, true
+}
+
+// normalizeSubAgentAutoLoadSkillsForRequest is the sub-agent variant: it prefixes
+// the error with the sub-agent name and treats an omitted field as an empty list.
+func normalizeSubAgentAutoLoadSkillsForRequest(w http.ResponseWriter, subAgent string, value *[]model.AutoLoadSkill) (model.AutoLoadSkills, bool) {
+	if value == nil {
+		return model.AutoLoadSkills{}, true
+	}
+	normalized, err := model.NormalizeAutoLoadSkills(*value)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("sub-agent %q: %s", subAgent, err.Error())})
+		return nil, false
 	}
 	return normalized, true
 }

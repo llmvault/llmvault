@@ -130,6 +130,9 @@ func validateManifests(manifests []Manifest) error {
 		if _, ok := model.NormalizeReasoningEffort(manifest.Runtime.ReasoningEffort); !ok {
 			return fmt.Errorf("agent %q has invalid runtime reasoning_effort %q (want low, medium, or high)", manifest.Slug, manifest.Runtime.ReasoningEffort)
 		}
+		if _, err := model.NormalizeAutoLoadSkills(manifest.AutoLoadSkills); err != nil {
+			return fmt.Errorf("agent %q %w", manifest.Slug, err)
+		}
 		if err := validateToolSelection(manifest.Slug, "tools", manifest.Tools); err != nil {
 			return err
 		}
@@ -175,6 +178,9 @@ func validateSubAgents(manifest Manifest) error {
 		}
 		if err := validateToolSelection(manifest.Slug, "subagent "+key+" tools", subAgent.Tools); err != nil {
 			return err
+		}
+		if _, err := model.NormalizeAutoLoadSkills(subAgent.AutoLoadSkills); err != nil {
+			return fmt.Errorf("agent %q subagent %q %w", manifest.Slug, key, err)
 		}
 		modelID := strings.TrimSpace(subAgent.Model)
 		if modelID != "" {

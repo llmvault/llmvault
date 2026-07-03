@@ -12,7 +12,7 @@
   "default": false,
   "runtime": {
     "sandbox_image": "developer",
-    "model": "mimo-v2.5-pro",
+    "model": "glm-5.2",
     "reasoning_effort": "low"
   },
   "prompt": {
@@ -42,6 +42,17 @@
       "qa-authoring"
     ]
   },
+  "auto_load_skills": [
+    "qa-registry",
+    "qa-execution",
+    "qa-authoring",
+    {
+      "name": "browser",
+      "files": [
+        "references/commands.md"
+      ]
+    }
+  ],
   "plugins": {
     "required": [
       "sheets",
@@ -53,7 +64,7 @@
     "test-executor": {
       "name": "Test Executor",
       "description": "Executes exactly one QA test case by deterministic replay of its cached Commands JSON; heals only broken locators within budget; uploads artifacts; returns a structured JSON result. Launch one executor per test case, all in one message so they run in parallel.",
-      "model": "mimo-v2.5-pro",
+      "model": "glm-5.2",
       "tools": {
         "bash": true,
         "check_bash_status": true,
@@ -70,6 +81,14 @@
           "browser"
         ]
       },
+      "auto_load_skills": [
+        {
+          "name": "browser",
+          "files": [
+            "references/commands.md"
+          ]
+        }
+      ],
       "prompt": {
         "instructions": "./sub_agents/test-executor/instructions.md"
       }

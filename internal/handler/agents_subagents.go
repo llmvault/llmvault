@@ -18,29 +18,31 @@ import (
 // subAgentInput is one sub-agent supplied when creating a user agent. Each
 // becomes a row in the agents table (type='subagent') owned by the new parent.
 type subAgentInput struct {
-	Name          string            `json:"name"`
-	Description   *string           `json:"description,omitempty"`
-	Instructions  *string           `json:"instructions,omitempty"`
-	Model         *string           `json:"model,omitempty"`
-	Tools         *model.JSON       `json:"tools,omitempty"`
-	McpToolFilter *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
-	Skills        *model.JSON       `json:"skills,omitempty"`
+	Name           string                 `json:"name"`
+	Description    *string                `json:"description,omitempty"`
+	Instructions   *string                `json:"instructions,omitempty"`
+	Model          *string                `json:"model,omitempty"`
+	Tools          *model.JSON            `json:"tools,omitempty"`
+	McpToolFilter  *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
+	Skills         *model.JSON            `json:"skills,omitempty"`
+	AutoLoadSkills *[]model.AutoLoadSkill `json:"auto_load_skills,omitempty"`
 }
 
 // subAgentResponse is one sub-agent as returned inside an agent payload.
 type subAgentResponse struct {
-	ID            string            `json:"id"`
-	ParentAgentID string            `json:"parent_agent_id"`
-	Name          string            `json:"name"`
-	Description   *string           `json:"description,omitempty"`
-	Instructions  string            `json:"instructions"`
-	Model         string            `json:"model"`
-	Tools         model.JSON        `json:"tools"`
-	McpToolFilter *model.ToolFilter `json:"mcp_tool_filter,omitempty"`
-	Skills        model.JSON        `json:"skills"`
-	Status        string            `json:"status"`
-	CreatedAt     string            `json:"created_at"`
-	UpdatedAt     string            `json:"updated_at"`
+	ID             string               `json:"id"`
+	ParentAgentID  string               `json:"parent_agent_id"`
+	Name           string               `json:"name"`
+	Description    *string              `json:"description,omitempty"`
+	Instructions   string               `json:"instructions"`
+	Model          string               `json:"model"`
+	Tools          model.JSON           `json:"tools"`
+	McpToolFilter  *model.ToolFilter    `json:"mcp_tool_filter,omitempty"`
+	Skills         model.JSON           `json:"skills"`
+	AutoLoadSkills model.AutoLoadSkills `json:"auto_load_skills"`
+	Status         string               `json:"status"`
+	CreatedAt      string               `json:"created_at"`
+	UpdatedAt      string               `json:"updated_at"`
 }
 
 func toSubAgentResponse(a model.Agent) subAgentResponse {
@@ -58,18 +60,19 @@ func toSubAgentResponse(a model.Agent) subAgentResponse {
 		parent = a.ParentAgentID.String()
 	}
 	return subAgentResponse{
-		ID:            a.ID.String(),
-		ParentAgentID: parent,
-		Name:          a.Name,
-		Description:   descPtr,
-		Instructions:  instructions,
-		Model:         a.Model,
-		Tools:         nonNilJSON(a.Tools),
-		McpToolFilter: a.McpToolFilter,
-		Skills:        nonNilJSON(a.Skills),
-		Status:        a.Status,
-		CreatedAt:     a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     a.UpdatedAt.Format(time.RFC3339),
+		ID:             a.ID.String(),
+		ParentAgentID:  parent,
+		Name:           a.Name,
+		Description:    descPtr,
+		Instructions:   instructions,
+		Model:          a.Model,
+		Tools:          nonNilJSON(a.Tools),
+		McpToolFilter:  a.McpToolFilter,
+		Skills:         nonNilJSON(a.Skills),
+		AutoLoadSkills: nonNilAutoLoadSkills(a.AutoLoadSkills),
+		Status:         a.Status,
+		CreatedAt:      a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      a.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -130,15 +133,20 @@ func (h *AgentHandler) buildSubAgentRows(ctx context.Context, w http.ResponseWri
 		if filter := normalizeMcpToolFilter(in.McpToolFilter); filter != nil {
 			allow, deny = filter.Allow, filter.Deny
 		}
+		autoLoadSkills, ok := normalizeSubAgentAutoLoadSkillsForRequest(w, name, in.AutoLoadSkills)
+		if !ok {
+			return nil, false
+		}
 		serviceInputs = append(serviceInputs, agents.SubAgentInput{
-			Name:         name,
-			Description:  cleanStringPtr(in.Description),
-			Instructions: cleanStringPtr(in.Instructions),
-			Model:        cleanStringPtr(in.Model),
-			Tools:        tools,
-			McpAllow:     allow,
-			McpDeny:      deny,
-			Skills:       normalizeJSONPtr(in.Skills),
+			Name:           name,
+			Description:    cleanStringPtr(in.Description),
+			Instructions:   cleanStringPtr(in.Instructions),
+			Model:          cleanStringPtr(in.Model),
+			Tools:          tools,
+			McpAllow:       allow,
+			McpDeny:        deny,
+			Skills:         normalizeJSONPtr(in.Skills),
+			AutoLoadSkills: autoLoadSkills,
 		})
 	}
 	rows, err := agents.BuildSubAgentRows(ctx, h.agentBuilderDeps(), orgID, parentModel, serviceInputs)

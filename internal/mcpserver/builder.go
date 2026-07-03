@@ -37,6 +37,11 @@ type AgentBuilderToolsFunc func(server *mcp.Server, token *model.Token)
 // agent's sheets plugin install, so it may always be invoked.
 type SheetToolsFunc func(server *mcp.Server, token *model.Token)
 
+// AppsToolsFunc registers the apps tool group (app_create, app_publish,
+// app_status, app_logs, app_rollback). The func itself gates registration on
+// the calling agent's apps plugin install, so it may always be invoked.
+type AppsToolsFunc func(server *mcp.Server, token *model.Token)
+
 // BuildServer creates an MCP server with platform-native tools. Connection and
 // integration access is handled by provider proxy endpoints, not MCP tools.
 // If addWebTools is non-nil, it is called to register web_fetch and web_search
@@ -53,6 +58,7 @@ func BuildServer(
 	addSkillTools SkillToolsFunc,
 	addAgentBuilderTools AgentBuilderToolsFunc,
 	addSheetTools SheetToolsFunc,
+	addAppsTools AppsToolsFunc,
 ) (*mcp.Server, error) {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "hivy",
@@ -85,6 +91,10 @@ func BuildServer(
 
 	if addSheetTools != nil {
 		addSheetTools(server, token)
+	}
+
+	if addAppsTools != nil {
+		addAppsTools(server, token)
 	}
 
 	addCronTool(server, token, db)

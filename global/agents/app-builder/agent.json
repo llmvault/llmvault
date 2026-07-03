@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "slug": "app-builder",
+  "name": "App Builder",
+  "description": "Builds and ships small web apps over sheets — CRUD tools, dashboards, and custom interfaces.",
+  "category": "Engineering",
+  "avatar_url": "/assets/app-builder.png",
+  "developer": "Hivy",
+  "official": true,
+  "agent_version": "1",
+  "enabled": true,
+  "default": false,
+  "runtime": {
+    "sandbox_image": "developer",
+    "model": "deepseek-v4-flash",
+    "reasoning_effort": "medium"
+  },
+  "prompt": {
+    "instructions": "./prompts/instructions.md"
+  },
+  "tools": {
+    "bash": true,
+    "read_file": true,
+    "write_file": true,
+    "file_search": true,
+    "glob": true,
+    "grep": true,
+    "multi_grep": true,
+    "check_bash_status": true,
+    "update_plan": true,
+    "request_user_input": true
+  },
+  "skill_filter": {
+    "allow": [
+      "apps",
+      "sheets"
+    ]
+  },
+  "auto_load_skills": [
+    "apps",
+    "sheets"
+  ],
+  "plugins": {
+    "required": [
+      "apps",
+      "sheets"
+    ],
+    "recommended": []
+  }
+}

@@ -36,11 +36,14 @@ type Agent struct {
 	Model        string  `gorm:"not null"`
 	// DefaultReasoningEffort seeds new sessions (low|medium|high) when the caller
 	// does not pass an explicit reasoning_effort. Empty means unset.
-	DefaultReasoningEffort string  `gorm:"column:default_reasoning_effort;type:text"`
-	ImageModel             string  `gorm:"type:text;not null;default:''"`
-	VectorImageModel       string  `gorm:"type:text;not null;default:''"`
-	Tools                  JSON    `gorm:"type:jsonb;not null;default:'{}'"`
-	McpServers             RawJSON `gorm:"type:jsonb;not null;default:'[]'"`
+	DefaultReasoningEffort string `gorm:"column:default_reasoning_effort;type:text"`
+	// AutoLoadSkills lists skills the runtime preloads into new sessions before
+	// the first model call (normalized {name, files} object form).
+	AutoLoadSkills   AutoLoadSkills `gorm:"column:auto_load_skills;type:jsonb;not null;default:'[]'"`
+	ImageModel       string         `gorm:"type:text;not null;default:''"`
+	VectorImageModel string         `gorm:"type:text;not null;default:''"`
+	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	McpServers       RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
 	// McpToolFilter gates MCP tools (allow/deny). NULL = all MCP tools allowed.
 	McpToolFilter *ToolFilter `gorm:"type:jsonb;serializer:json"`
 	Skills        JSON        `gorm:"type:jsonb;not null;default:'{}'"`

@@ -34,6 +34,23 @@ pub struct AgentDefinition {
     pub sub_agents: HashMap<String, AgentDefinition>,
     #[serde(default)]
     pub safety: SafetyConfig,
+    /// Skills the runtime loads into the session automatically on the first
+    /// turn (before the first model call), so the agent starts with the skill
+    /// content already in context and its `.skills/` files materialized. Absent
+    /// in old configs (serde default = empty), which deserialize unchanged.
+    #[serde(default)]
+    pub auto_load_skills: Vec<AutoLoadSkill>,
+}
+
+/// A skill to auto-load, optionally with specific linked files to also load.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct AutoLoadSkill {
+    /// Skill slug, passed to `skill_view` as `{"name": ...}`.
+    pub name: String,
+    /// Relative linked-file paths, each loaded via `skill_view {name, file_path}`.
+    #[serde(default)]
+    pub files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -244,4 +261,51 @@ fn default_context_item_template() -> String {
 }
 fn default_list_item_template() -> String {
     "- {name}: {description}".to_string()
+}
+
+#[cfg(test)]
+mod auto_load_skills_tests {
+    use super::AgentDefinition;
+
+    const MINIMAL_MODEL: &str = r#""model":{"provider":"openai_compatible","base_url":"http://x","model_id":"m","api_key_env":"K"}"#;
+
+    fn parse(extra: &str) -> AgentDefinition {
+        let json = format!(r#"{{"agent":{{"name":"a"}},{MINIMAL_MODEL}{extra}}}"#);
+        serde_json::from_str(&json).expect("definition should deserialize")
+    }
+
+    #[test]
+    fn absent_auto_load_skills_defaults_to_empty() {
+        let definition = parse("");
+        assert!(definition.auto_load_skills.is_empty());
+    }
+
+    #[test]
+    fn deserializes_auto_load_skills_with_and_without_files() {
+        let definition = parse(
+            r#","auto_load_skills":[{"name":"qa-registry"},{"name":"browser","files":["references/commands.md"]}]"#,
+        );
+        assert_eq!(definition.auto_load_skills.len(), 2);
+        assert_eq!(definition.auto_load_skills[0].name, "qa-registry");
+        assert!(
+            definition.auto_load_skills[0].files.is_empty(),
+            "omitted files must default to empty"
+        );
+        assert_eq!(definition.auto_load_skills[1].name, "browser");
+        assert_eq!(
+            definition.auto_load_skills[1].files,
+            vec!["references/commands.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn auto_load_skills_round_trips_through_serde() {
+        let definition = parse(
+            r#","auto_load_skills":[{"name":"browser","files":["references/commands.md"]}]"#,
+        );
+        let serialized = serde_json::to_string(&definition).expect("serialize");
+        let reparsed: AgentDefinition = serde_json::from_str(&serialized).expect("reparse");
+        assert_eq!(reparsed.auto_load_skills[0].name, "browser");
+        assert_eq!(reparsed.auto_load_skills[0].files, vec!["references/commands.md"]);
+    }
 }

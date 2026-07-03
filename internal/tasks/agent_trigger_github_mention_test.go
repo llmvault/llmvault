@@ -2,6 +2,9 @@ package tasks
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,13 +13,65 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// githubCanonicalFixture loads one of the octokit canonical payload examples
+// (internal/trigger/dispatch/testdata/github/SOURCES.md) so the parser is
+// validated against GitHub's own published contract, not hand-built maps.
+func githubCanonicalFixture(t *testing.T, name string) map[string]any {
+	t.Helper()
+	body, err := os.ReadFile(filepath.Join("..", "trigger", "dispatch", "testdata", "github", name))
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", name, err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode fixture %s: %v", name, err)
+	}
+	return payload
+}
+
+func TestParseGitHubMentionEventCanonicalFixtures(t *testing.T) {
+	issueComment := AgentTriggerDispatchPayload{EventType: "issue_comment", EventAction: "created"}
+	event, ok := parseGitHubMentionEvent(issueComment, githubCanonicalFixture(t, "issue_comment.created.issue.json"))
+	if !ok {
+		t.Fatal("canonical issue_comment.created (issue) did not parse")
+	}
+	if event.Repo == "" || event.Number == "" || event.MentionedBy == "" ||
+		event.CommentID == "" || event.URL == "" || event.IsPR || !event.IsComment {
+		t.Fatalf("issue comment event=%+v", event)
+	}
+
+	event, ok = parseGitHubMentionEvent(issueComment, githubCanonicalFixture(t, "issue_comment.created.pr.json"))
+	if !ok || !event.IsPR {
+		t.Fatalf("canonical issue_comment.created (pr) event=%+v ok=%v", event, ok)
+	}
+
+	event, ok = parseGitHubMentionEvent(
+		AgentTriggerDispatchPayload{EventType: "issues", EventAction: "opened"},
+		githubCanonicalFixture(t, "issues.opened.json"))
+	if !ok || event.Number == "" || event.MentionedBy == "" || event.IsComment {
+		t.Fatalf("canonical issues.opened event=%+v ok=%v", event, ok)
+	}
+
+	event, ok = parseGitHubMentionEvent(
+		AgentTriggerDispatchPayload{EventType: "pull_request", EventAction: "opened"},
+		githubCanonicalFixture(t, "pull_request.opened.json"))
+	if !ok || !event.IsPR || event.Number == "" || event.MentionedBy == "" {
+		t.Fatalf("canonical pull_request.opened event=%+v ok=%v", event, ok)
+	}
+}
+
 func githubIssueCommentPayload(repo, commenter, body string, isPR bool) map[string]any {
+	commenterType := "User"
+	if strings.HasSuffix(commenter, "[bot]") {
+		commenterType = "Bot"
+	}
 	issue := map[string]any{
 		"number":   float64(42),
 		"title":    "Login crashes on empty email",
 		"html_url": "https://github.com/" + repo + "/issues/42",
-		"user":     map[string]any{"login": "alice"},
+		"user":     map[string]any{"login": "alice", "type": "User"},
 		"body":     "Steps to reproduce: submit the login form with an empty email.",
+		"comments": float64(3),
 	}
 	if isPR {
 		issue["pull_request"] = map[string]any{"url": "https://api.github.com/repos/" + repo + "/pulls/42"}
@@ -26,11 +81,12 @@ func githubIssueCommentPayload(repo, commenter, body string, isPR bool) map[stri
 		"repository": map[string]any{"full_name": repo},
 		"issue":      issue,
 		"comment": map[string]any{
+			"id":       float64(492700400),
 			"body":     body,
 			"html_url": "https://github.com/" + repo + "/issues/42#issuecomment-1",
-			"user":     map[string]any{"login": commenter},
+			"user":     map[string]any{"login": commenter, "type": commenterType},
 		},
-		"sender": map[string]any{"login": commenter},
+		"sender": map[string]any{"login": commenter, "type": commenterType},
 	}
 }
 
@@ -46,6 +102,9 @@ func TestParseGitHubMentionEvent(t *testing.T) {
 	}
 	if event.IssueBody == "" || event.Body != "hey @hivy take a look" {
 		t.Fatalf("event bodies=%+v", event)
+	}
+	if event.CommentID != "492700400" || event.CommentCount != 3 || event.AuthorType != "User" {
+		t.Fatalf("event comment metadata=%+v", event)
 	}
 
 	event, ok = parseGitHubMentionEvent(dispatch, githubIssueCommentPayload("usehivy/hivy", "bob", "@hivy", true))
@@ -145,6 +204,7 @@ func TestDeliverGitHubMentionSkips(t *testing.T) {
 		{"no hivy mention", githubIssueCommentPayload("usehivy/hivy", "bob", "just chatting with @octocat", false)},
 		{"different repository", githubIssueCommentPayload("acme/other", "bob", "hey @hivy", false)},
 		{"authored by hivy", githubIssueCommentPayload("usehivy/hivy", "usehivy[bot]", "done! cc @hivy", false)},
+		{"authored by another bot", githubIssueCommentPayload("usehivy/hivy", "dependabot[bot]", "hey @hivy", false)},
 		{"unsupported shape", map[string]any{"action": "created"}},
 	}
 	for _, tc := range cases {
@@ -187,6 +247,51 @@ func TestCompileGitHubMentionMessage(t *testing.T) {
 	}
 	if compiled.Raw["resource_key"] != compiled.ResourceKey || compiled.Raw["event_key"] != "issue_comment.created" {
 		t.Fatalf("raw=%+v", compiled.Raw)
+	}
+}
+
+func TestIsGitHubBotAuthor(t *testing.T) {
+	cases := []struct {
+		login    string
+		userType string
+		want     bool
+	}{
+		{"dependabot[bot]", "Bot", true},
+		{"usehivy[bot]", "", true},
+		{"someuser", "Bot", true},
+		{"alice", "User", false},
+		{"", "", false},
+	}
+	for _, tc := range cases {
+		if got := isGitHubBotAuthor(tc.login, tc.userType); got != tc.want {
+			t.Errorf("isGitHubBotAuthor(%q, %q)=%v want %v", tc.login, tc.userType, got, tc.want)
+		}
+	}
+}
+
+// The per-issue comments endpoint is ascending-only, so recent context must
+// come from the last page(s).
+func TestGithubMentionCommentPages(t *testing.T) {
+	cases := []struct {
+		count int
+		want  []int
+	}{
+		{0, []int{1}},
+		{3, []int{1}},
+		{100, []int{1}},
+		{101, []int{2, 1}},
+		{250, []int{3, 2}},
+	}
+	for _, tc := range cases {
+		got := githubMentionCommentPages(tc.count)
+		if len(got) != len(tc.want) {
+			t.Fatalf("pages(%d)=%v want %v", tc.count, got, tc.want)
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Fatalf("pages(%d)=%v want %v", tc.count, got, tc.want)
+			}
+		}
 	}
 }
 

@@ -67,7 +67,7 @@ func TestAgentSessionsQAAgentE2E(t *testing.T) {
 	// dumped when the status is not 201.
 	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "qa-engineer")
 	t.Logf("installed catalog agent id=%s name=%s model=%s sandbox_image=%s", agent.ID, agent.Name, agent.Model, agent.SandboxImage)
-	if agent.Model != "mimo-v2.5-pro" {
+	if agent.Model != "glm-5.2" {
 		t.Fatalf("installed QA agent model=%q want deepseek-v4-flash", agent.Model)
 	}
 
@@ -273,10 +273,17 @@ func qaAgentWaitForFinalMarker(t *testing.T, ctx context.Context, apiBase string
 		lastTypes = lastTypes[:0]
 		for _, event := range out.Data {
 			lastTypes = append(lastTypes, event.EventType)
+			if event.EventType != "final" {
+				continue
+			}
 			payloadRaw, _ := json.Marshal(event.Payload)
-			if event.EventType == "final" && strings.Contains(string(payloadRaw), marker) {
+			if strings.Contains(string(payloadRaw), marker) {
 				return event
 			}
+			// A final event without the marker means the session ended some
+			// other way (error, turn limit) — fail fast with its content
+			// instead of polling a finished session until the deadline.
+			t.Fatalf("session ended without the marker; final payload: %s", payloadRaw)
 		}
 		t.Logf("waiting for QA marker=%s event_types=%v", marker, lastTypes)
 		select {
@@ -316,11 +323,26 @@ func qaAgentDo(t *testing.T, ctx context.Context, method, url, token, orgID stri
 	if orgID != "" {
 		req.Header.Set("X-Org-ID", orgID)
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("%s %s failed: %v", method, url, err)
+	// The dev api hot-reloads on source changes, briefly dropping connections
+	// (EOF / connection refused). Retry transient transport errors for up to
+	// two minutes, re-issuing the request each attempt.
+	deadline := time.Now().Add(2 * time.Minute)
+	for {
+		if body != nil {
+			payload, _ := json.Marshal(body)
+			req.Body = io.NopCloser(bytes.NewReader(payload))
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			if time.Now().Before(deadline) && ctx.Err() == nil {
+				t.Logf("%s %s transient transport error (api reloading?): %v — retrying", method, url, err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			t.Fatalf("%s %s failed: %v", method, url, err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, raw
 	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, raw
 }

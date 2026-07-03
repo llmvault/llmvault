@@ -86,8 +86,13 @@ type Config struct {
 	SandboxDockerRuntimeOrigin        string `env:"HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN"`
 	SandboxDockerControlOrigin        string `env:"HIVY_SANDBOX_DOCKER_CONTROL_ORIGIN"`
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
-	MicrosandboxControlURL            string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
-	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`
+	// SandboxDockerSystemd boots docker sandboxes with systemd as PID 1
+	// (/sbin/init entrypoint, private cgroupns, SIGRTMIN+3 stop signal), the
+	// same process model as production microsandbox VMs. Off = legacy tini
+	// entrypoint mode.
+	SandboxDockerSystemd        bool   `env:"HIVY_SANDBOX_DOCKER_SYSTEMD"`
+	MicrosandboxControlURL      string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
+	MicrosandboxControlAPIToken string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`
 
 	RailwayAPIToken              string `env:"HIVY_RAILWAY_API_TOKEN"`
 	RailwayProjectID             string `env:"HIVY_RAILWAY_PROJECT_ID"`
@@ -107,6 +112,10 @@ type Config struct {
 	RuntimeRedisStreamShardCount int `env:"HIVY_RUNTIME_REDIS_STREAM_SHARD_COUNT" envDefault:"64"`
 
 	SandboxesRuntimeImageTag string `env:"HIVY_SANDBOXES_RUNTIME_IMAGE_TAG"`
+	// SandboxesAppImageTag pins the app sandbox image (hivy-appd host, built
+	// from sandboxes/app/Dockerfile). Empty falls back to :latest, mirroring
+	// HIVY_SANDBOXES_RUNTIME_IMAGE_TAG.
+	SandboxesAppImageTag string `env:"HIVY_SANDBOXES_APP_IMAGE_TAG"`
 
 	// Browser setup/admin panel. When disabled, admin routes are not mounted.
 	AdminEnabled bool   `env:"HIVY_ADMIN_ENABLED" envDefault:"false"`

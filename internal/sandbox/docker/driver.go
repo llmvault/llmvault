@@ -15,12 +15,19 @@ type Config struct {
 	Host                 string
 	RuntimeOrigin        string
 	ContainerLabelPrefix string
+	// Systemd boots sandbox containers with systemd as PID 1 instead of the
+	// image's tini entrypoint, mirroring production microsandbox VMs. The
+	// sandbox images ship enabled units (hivy-runtime.service /
+	// hivy-appd.service) plus an environment generator that forwards the
+	// container env to those units, so no image changes are required.
+	Systemd bool
 }
 
 type Driver struct {
 	cli           *client.Client
 	runtimeOrigin string
 	labelPrefix   string
+	systemd       bool
 }
 
 func NewDriver(cfg Config) (*Driver, error) {
@@ -44,6 +51,7 @@ func NewDriver(cfg Config) (*Driver, error) {
 		cli:           cli,
 		runtimeOrigin: runtimeOrigin,
 		labelPrefix:   labelPrefix,
+		systemd:       cfg.Systemd,
 	}, nil
 }
 

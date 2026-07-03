@@ -26,6 +26,15 @@ func (o *Orchestrator) sandboxForRuntimeControl(sb *model.Sandbox) *model.Sandbo
 	return &copy
 }
 
+// RuntimeControlURL exposes the docker control-origin rewrite to non-agent
+// orchestration (the apps deploy service): when the Go server runs inside
+// compose, sandbox endpoints returned as http://127.0.0.1:<port> must be
+// reached via HIVY_SANDBOX_DOCKER_CONTROL_ORIGIN (host.docker.internal).
+// Non-docker providers and empty config pass through unchanged.
+func RuntimeControlURL(cfg *config.Config, providerID, raw string) string {
+	return runtimeControlURL(cfg, providerID, raw)
+}
+
 func runtimeControlURL(cfg *config.Config, providerID, raw string) string {
 	runtimeURL := strings.TrimSpace(raw)
 	if cfg == nil || providerID != ProviderDocker {

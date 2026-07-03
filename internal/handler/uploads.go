@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/apps"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/registry"
@@ -22,6 +23,8 @@ type UploadsHandler struct {
 	imageHTTPClient     *http.Client
 	usageEnqueuer       enqueue.TaskEnqueuer
 	assetPreviewBaseURL string
+	appsTemplateDir     string        // override for the app template dir (tests); see apps_template_zip.go
+	appsService         *apps.Service // enables the preview-env side channel; see apps_preview_env.go
 }
 
 const assetURLStorageColumn = "public_" + "url"

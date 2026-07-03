@@ -56,6 +56,7 @@ var ValidAPIKeyScopes = map[string]bool{
 	"agents":       true,
 	"channels":     true,
 	"sessions":     true,
+	"sheets":       true,
 	"brands":       true,
 	"memories":     true,
 	"all":          true,

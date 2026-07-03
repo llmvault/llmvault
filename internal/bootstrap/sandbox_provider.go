@@ -40,6 +40,7 @@ func newSandboxProvider(cfg *config.Config) (sandbox.Provider, error) {
 			Host:                 cfg.SandboxDockerHost,
 			RuntimeOrigin:        cfg.SandboxDockerRuntimeOrigin,
 			ContainerLabelPrefix: cfg.SandboxDockerContainerLabelPrefix,
+			Systemd:              cfg.SandboxDockerSystemd,
 		})
 	case sandbox.ProviderRailway:
 		if strings.TrimSpace(cfg.RailwayAPIToken) == "" {

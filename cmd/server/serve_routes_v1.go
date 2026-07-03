@@ -50,6 +50,7 @@ func setupV1Routes(
 	agentHandler *handler.AgentHandler,
 	canvasHandler *handler.CanvasHandler,
 	sheetsHandler *handler.SheetsHandler,
+	appsHandler *handler.AppsHandler,
 	transcriptionHandler *handler.TranscriptionHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
@@ -107,7 +108,15 @@ func setupV1Routes(
 			if databaseIntegrationHandler != nil {
 				r.Get("/database-integrations", databaseIntegrationHandler.List)
 			}
-			mountSheetRoutes(r, database, sheetsHandler)
+			// Sheets are scope-gated for API keys like channels/agents; JWT
+			// callers pass and channel-level access is enforced per sheet.
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireAPIKeyScopeOrJWT("sheets"))
+				mountSheetRoutes(r, database, sheetsHandler)
+			})
+			// Apps are channel-scoped like sheets; channel-level access is
+			// enforced per app inside the handlers.
+			mountAppRoutes(r, database, appsHandler)
 
 			r.Get("/api-keys", apiKeyHandler.List)
 			// Escalation-sensitive: JWT callers must be org admins; API-key callers

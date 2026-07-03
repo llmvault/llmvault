@@ -12,6 +12,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/agents"
+	"github.com/usehivy/hivy/internal/apps"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -37,6 +38,8 @@ type serveHandlersRest struct {
 	sandboxTemplateHandler *handler.SandboxTemplateHandler
 	pluginHandler          *handler.PluginHandler
 	agentHandler           *handler.AgentHandler
+	appsInternalHandler    *handler.AppsInternalHandler
+	appsHandler            *handler.AppsHandler
 	uploadsHandler         *handler.UploadsHandler
 	imageDescribeHandler   *handler.ImageDescribeHandler
 	billingHandler         *handler.BillingHandler
@@ -144,9 +147,20 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		agentHandler = handler.NewAgentHandler(database, orchestrator, runtimeCompileDeps, reg)
 		agentHandler.SetEnqueuer(enqueuer)
 	}
+	appsInternalHandler := buildAppsInternalHandler(cfg, database, sheetsService, sandboxEncKey)
+	var appsHandler *handler.AppsHandler
+	appsService := buildAppsService(cfg, database, sandboxEncKey, orchestrator, sheetsService, deps.RSAKey)
+	if appsService != nil {
+		appsHandler = handler.NewAppsHandler(database, appsService, deps.RSAKey)
+		mcpHandler.SetAppsTools(apps.NewToolsFunc(appsService))
+	}
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 	if uploadsHandler != nil {
 		uploadsHandler.WithUsageEnqueuer(enqueuer)
+		if appsService != nil {
+			// Enables the preview-env side channel (apps_preview_env.go).
+			uploadsHandler.WithAppsService(appsService)
+		}
 	}
 	if uploadsHandler != nil && deps.KMS != nil {
 		uploadsHandler.WithImageGeneration(deps.KMS, reg, &http.Client{
@@ -215,6 +229,8 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		sandboxTemplateHandler: sandboxTemplateHandler,
 		pluginHandler:          pluginHandler,
 		agentHandler:           agentHandler,
+		appsInternalHandler:    appsInternalHandler,
+		appsHandler:            appsHandler,
 		uploadsHandler:         uploadsHandler,
 		imageDescribeHandler:   imageDescribeHandler,
 		billingHandler:         billingHandler,

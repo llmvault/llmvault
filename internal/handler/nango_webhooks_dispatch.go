@@ -34,10 +34,16 @@ func dispatchWebhookEvent(
 		return
 	}
 
-	// Prefer the provider's own delivery GUID so redelivered webhooks dedup
-	// against the (trigger_id, delivery_id) claim; fall back to a random id
-	// which only protects against asynq retries.
+	// Prefer the provider's own delivery GUID (constant across GitHub
+	// redeliveries) so redelivered webhooks dedup against the
+	// (trigger_id, delivery_id) claim. Nango's forwarding does not guarantee
+	// the original headers survive, so fall back to a payload-derived key for
+	// exactly-once events, then to a random id which only protects against
+	// asynq retries.
 	deliveryID := strings.TrimSpace(metadata.Headers["x-github-delivery"])
+	if deliveryID == "" && (providerName == "github" || strings.HasPrefix(providerName, "github")) {
+		deliveryID = stableGitHubDeliveryID(metadata.EventType, metadata.EventAction, metadata.RawBody)
+	}
 	if deliveryID == "" {
 		deliveryID = uuid.New().String()
 	}

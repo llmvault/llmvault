@@ -104,6 +104,7 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		SandboxSize:            model.DefaultHivyAgentSandboxSize,
 		Model:                  modelID,
 		DefaultReasoningEffort: strings.TrimSpace(catalog.DefaultReasoningEffort),
+		AutoLoadSkills:         append(model.AutoLoadSkills(nil), catalog.AutoLoadSkills...),
 		Status:                 "active",
 		Tools:                  tools,
 		McpServers:             model.RawJSON("[]"),

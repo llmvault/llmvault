@@ -153,6 +153,49 @@ generic dispatcher.
 - Empirical validation step before building Linear: mention Hivy in a test workspace and log
   what lands on `/internal/webhooks/nango` (wrapped vs raw, exact payload shapes).
 
+## Verified provider contracts (GitHub, 2026-07-03)
+
+Strict rule for all trigger work: **no contract assumptions** — every payload field,
+endpoint behavior, and identity convention is verified against official provider docs
+(and the octokit canonical fixtures in `internal/trigger/dispatch/testdata/github/`)
+before code is written against it. Tests pin the parsers to the canonical fixtures so
+upstream contract drift fails in CI, not production.
+
+Verified against docs.github.com (webhook payload reference, REST issues/comments,
+apps installations, delivery headers):
+
+- `issue_comment` fires for comments on both issues and PR conversations;
+  `issue.pull_request` presence is the documented way to detect the PR case.
+- `issue.body` / `pull_request.body` are nullable; `comment.body` not documented
+  nullable but handled defensively.
+- App bot identity: `<app-slug>[bot]` login (user.type `Bot`). Users mention the app by
+  typing `@<slug>` — there is NO mention webhook and NO autocomplete for app bots, so
+  detection is body parsing and users must type the handle exactly.
+- `performed_via_github_app` is on comment objects but is NOT a safe bot signal:
+  human comments posted via GitHub Mobile set it too. Bot detection uses the `[bot]`
+  login suffix + `user.type`.
+- `GET /repos/{o}/{r}/issues/{n}/comments`: JSON array, **ascending by id only** — no
+  `sort`/`direction` on the per-issue endpoint; `per_page` max 100. Recent context
+  therefore requires fetching the LAST page; `issue.comments` in the webhook payload
+  gives the count to compute it (implemented in `fetchGitHubMentionComments`).
+- `X-GitHub-Delivery` GUID is **constant across redeliveries** — ideal dedup key — but
+  Nango's forwarding does not document that original provider headers survive. Dedup
+  therefore falls back to payload-derived keys for exactly-once events
+  (`comment.id` / `issue.id` / `pull_request.id` for created/opened;
+  `stableGitHubDeliveryID`), then random. Recurring actions (edited, labeled,
+  synchronize) must never get payload-derived keys.
+- App configuration required: subscribe to **Issues, Issue comment, Pull request**
+  webhook events; permissions **Issues: read+write** (receive + comment back),
+  **Pull requests: read** (write if playbooks push/comment on PR-specific surfaces).
+- `GET /installation/repositories`: `{total_count, repositories[]}`, `per_page` max
+  100. KNOWN LIMITATION: generic resource discovery fetches one page, so the repo
+  picker truncates for installations with >100 repos.
+
+Empirical validation still pending (do before calling it production-done): send a real
+mention through Nango and confirm (a) whether `x-github-delivery`/`x-github-event`
+headers arrive in the forward (the `{data, headers}` unwrap suggests they do, but it is
+undocumented), (b) the app's webhook subscriptions actually include issue_comment.
+
 ## First implementation: GitHub mentions on issues and PRs
 
 Trigger fires when the Hivy GitHub App is @mentioned in:

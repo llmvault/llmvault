@@ -94,5 +94,6 @@ fn test_definition(name: &str) -> AgentDefinition {
         outbound_channels: Vec::new(),
         sub_agents: Default::default(),
         safety: Default::default(),
+        auto_load_skills: Default::default(),
     }
 }

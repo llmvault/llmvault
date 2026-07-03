@@ -20,18 +20,21 @@ type AgentCatalog struct {
 	Model       string    `gorm:"not null;default:''"`
 	// DefaultReasoningEffort mirrors runtime.reasoning_effort from the manifest and
 	// seeds the installed agent row's default (low|medium|high; empty = unset).
-	DefaultReasoningEffort string         `gorm:"not null;default:''"`
-	SandboxImage           string         `gorm:"type:text;not null;default:'default'"`
-	Instructions           string         `gorm:"type:text;not null;default:''"`
-	Tools                  JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	SubAgents              RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
-	RequiredPlugins        pq.StringArray `gorm:"type:text[];default:'{}'"`
-	RecommendedPlugins     pq.StringArray `gorm:"type:text[];default:'{}'"`
-	Manifest               RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
-	SourceHash             string         `gorm:"not null;default:''"`
-	Status                 string         `gorm:"not null;default:'active';index"`
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	DefaultReasoningEffort string `gorm:"not null;default:''"`
+	// AutoLoadSkills mirrors the manifest auto_load_skills and is copied to the
+	// installed agent row (normalized {name, files} object form).
+	AutoLoadSkills     AutoLoadSkills `gorm:"column:auto_load_skills;type:jsonb;not null;default:'[]'"`
+	SandboxImage       string         `gorm:"type:text;not null;default:'default'"`
+	Instructions       string         `gorm:"type:text;not null;default:''"`
+	Tools              JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	SubAgents          RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	RequiredPlugins    pq.StringArray `gorm:"type:text[];default:'{}'"`
+	RecommendedPlugins pq.StringArray `gorm:"type:text[];default:'{}'"`
+	Manifest           RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	SourceHash         string         `gorm:"not null;default:''"`
+	Status             string         `gorm:"not null;default:'active';index"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (AgentCatalog) TableName() string { return "agent_catalog" }
@@ -42,13 +45,14 @@ const (
 )
 
 type AgentCatalogSubAgent struct {
-	Name          string       `json:"name"`
-	Description   string       `json:"description"`
-	Model         string       `json:"model,omitempty"`
-	Tools         JSON         `json:"tools,omitempty"`
-	McpToolFilter *ToolFilter  `json:"mcp_tool_filter,omitempty"`
-	SkillFilter   *SkillFilter `json:"skill_filter,omitempty"`
-	Instructions  string       `json:"instructions"`
+	Name           string         `json:"name"`
+	Description    string         `json:"description"`
+	Model          string         `json:"model,omitempty"`
+	Tools          JSON           `json:"tools,omitempty"`
+	McpToolFilter  *ToolFilter    `json:"mcp_tool_filter,omitempty"`
+	SkillFilter    *SkillFilter   `json:"skill_filter,omitempty"`
+	AutoLoadSkills AutoLoadSkills `json:"auto_load_skills,omitempty"`
+	Instructions   string         `json:"instructions"`
 }
 
 type ToolFilter struct {

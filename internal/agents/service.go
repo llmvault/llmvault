@@ -57,6 +57,9 @@ type SubAgentInput struct {
 	McpAllow     []string
 	McpDeny      []string
 	Skills       model.JSON
+	// AutoLoadSkills are skills the runtime preloads into the sub-agent's
+	// sessions (already normalized by the caller).
+	AutoLoadSkills model.AutoLoadSkills
 }
 
 // CreateInput is the resolved payload for CreateAgent. All tool/skill/plugin

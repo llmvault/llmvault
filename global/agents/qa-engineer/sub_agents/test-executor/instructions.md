@@ -4,7 +4,7 @@ Your goal message contains the case id, the Commands JSON, the Expected outcomes
 
 ## Operating Rules
 
-- Load the `browser` skill (`skill_view`) before your first browser command — always — and read `.skills/browser/references/commands.md`. Browser syntax comes from those files, never from memory.
+- The `browser` skill and its commands reference (`.skills/browser/references/commands.md`) are preloaded into your context before your first turn — you never load them yourself. Browser syntax comes from those files, never from memory.
 - Batch related browser commands into one bash call. Pass `timeout_seconds: 15` on browser interaction calls so a wrong locator costs seconds, not a full default timeout.
 - Run the case in its own browser session named `case-<id>`, and `browser close --session case-<id>` when done, pass or fail.
 - Use `${NAME}` placeholders exactly as they appear in the Commands JSON; the replay script substitutes them from the environment. Never echo, printenv, or export a secret value, and never write one into a command, file, or your result.

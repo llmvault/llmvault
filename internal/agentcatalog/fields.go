@@ -17,6 +17,7 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 	}
 	sandboxImage := model.NormalizeSandboxImage(manifest.Runtime.SandboxImage)
 	reasoningEffort, _ := model.NormalizeReasoningEffort(manifest.Runtime.ReasoningEffort)
+	autoLoadSkills, _ := model.NormalizeAutoLoadSkills(manifest.AutoLoadSkills)
 	return map[string]any{
 		"name":                     strings.TrimSpace(manifest.Name),
 		"description":              strings.TrimSpace(manifest.Description),
@@ -27,6 +28,7 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"is_default":               boolValue(manifest.Default),
 		"model":                    strings.TrimSpace(manifest.Runtime.Model),
 		"default_reasoning_effort": reasoningEffort,
+		"auto_load_skills":         autoLoadSkills,
 		"sandbox_image":            sandboxImage,
 		"instructions":             strings.TrimSpace(manifest.instructions),
 		"tools":                    normalizeToolSelection(manifest.Tools),
@@ -49,6 +51,7 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.IsDefault = updates["is_default"].(bool)
 	row.Model = updates["model"].(string)
 	row.DefaultReasoningEffort = updates["default_reasoning_effort"].(string)
+	row.AutoLoadSkills = updates["auto_load_skills"].(model.AutoLoadSkills)
 	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)
 	row.Tools = updates["tools"].(model.JSON)
@@ -84,14 +87,16 @@ func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {
 		if cleanKey == "" {
 			continue
 		}
+		autoLoad, _ := model.NormalizeAutoLoadSkills(subAgent.AutoLoadSkills)
 		out[cleanKey] = model.AgentCatalogSubAgent{
-			Name:          strings.TrimSpace(subAgent.Name),
-			Description:   strings.TrimSpace(subAgent.Description),
-			Model:         strings.TrimSpace(subAgent.Model),
-			Tools:         normalizeToolSelection(subAgent.Tools),
-			McpToolFilter: normalizeManifestToolFilter(subAgent.McpToolFilter),
-			SkillFilter:   normalizeManifestSkillFilter(subAgent.SkillFilter),
-			Instructions:  strings.TrimSpace(subAgent.instructions),
+			Name:           strings.TrimSpace(subAgent.Name),
+			Description:    strings.TrimSpace(subAgent.Description),
+			Model:          strings.TrimSpace(subAgent.Model),
+			Tools:          normalizeToolSelection(subAgent.Tools),
+			McpToolFilter:  normalizeManifestToolFilter(subAgent.McpToolFilter),
+			SkillFilter:    normalizeManifestSkillFilter(subAgent.SkillFilter),
+			AutoLoadSkills: autoLoad,
+			Instructions:   strings.TrimSpace(subAgent.instructions),
 		}
 	}
 	raw, err := json.Marshal(out)

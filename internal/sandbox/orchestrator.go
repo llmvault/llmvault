@@ -87,6 +87,15 @@ func (o *Orchestrator) ProviderID() string {
 	return o.providerID()
 }
 
+// Provider exposes the underlying sandbox provider for non-agent workloads
+// (the apps deploy service) that manage their own sandbox rows.
+func (o *Orchestrator) Provider() Provider {
+	if o == nil {
+		return nil
+	}
+	return o.provider
+}
+
 func (o *Orchestrator) Config() *config.Config {
 	if o == nil {
 		return nil

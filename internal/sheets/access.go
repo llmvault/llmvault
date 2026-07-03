@@ -37,6 +37,18 @@ func (s *Service) PageInChannel(ctx context.Context, orgID, channelID, pageID uu
 			pageID, orgID, channelID))
 }
 
+// PageInSheet verifies the page belongs to sheetID and that both the page and
+// its sheet are active. The internal app API calls this keyed on the app's
+// bound sheet, so a page of any other sheet — same org included — is
+// indistinguishable from a missing one.
+func (s *Service) PageInSheet(ctx context.Context, orgID, sheetID, pageID uuid.UUID) error {
+	return s.channelGuard(s.db.WithContext(ctx).
+		Model(&model.SheetPage{}).
+		Joins("JOIN sheets ON sheets.id = sheet_pages.sheet_id AND sheets.archived_at IS NULL").
+		Where("sheet_pages.id = ? AND sheet_pages.org_id = ? AND sheets.id = ? AND sheet_pages.archived_at IS NULL",
+			pageID, orgID, sheetID))
+}
+
 // FieldInChannel verifies the field's page's sheet belongs to channelID.
 func (s *Service) FieldInChannel(ctx context.Context, orgID, channelID uuid.UUID, fieldID string) error {
 	return s.channelGuard(s.db.WithContext(ctx).

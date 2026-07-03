@@ -65,12 +65,13 @@ func loadDBSubAgents(ctx context.Context, db *gorm.DB, agent *model.Agent) (map[
 	}
 	for _, row := range rows {
 		out[row.ID.String()] = model.AgentCatalogSubAgent{
-			Name:          row.Name,
-			Description:   strings.TrimSpace(derefString(row.Description)),
-			Model:         strings.TrimSpace(row.Model),
-			Tools:         row.Tools,
-			McpToolFilter: row.McpToolFilter,
-			Instructions:  strings.TrimSpace(derefString(row.Instructions)),
+			Name:           row.Name,
+			Description:    strings.TrimSpace(derefString(row.Description)),
+			Model:          strings.TrimSpace(row.Model),
+			Tools:          row.Tools,
+			McpToolFilter:  row.McpToolFilter,
+			AutoLoadSkills: append(model.AutoLoadSkills(nil), row.AutoLoadSkills...),
+			Instructions:   strings.TrimSpace(derefString(row.Instructions)),
 		}
 	}
 	return out, nil
@@ -157,6 +158,7 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Tools:            tools,
 		McpServers:       []any{},
 		McpToolFilter:    normalizeToolFilter(spec.McpToolFilter),
+		AutoLoadSkills:   compileAutoLoadSkills(ctx, deps.DB, parent, spec.AutoLoadSkills),
 		OutboundChannels: []any{},
 		SubAgents:        map[string]*AgentDefinition{},
 	}, nil

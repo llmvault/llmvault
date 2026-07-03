@@ -546,7 +546,11 @@ impl AgentRunner for RigAgentRunner {
                 }
 
                 if tool_calls.is_empty() {
-                    let _ = turn_safety.progress_reminder.observe_response(&turn_text, 0);
+                    // Progress nudge is removed entirely for sub-agent sessions:
+                    // they never track toward it and never receive it.
+                    if !is_subagent_definition {
+                        let _ = turn_safety.progress_reminder.observe_response(&turn_text, 0);
+                    }
                     let reason = last_finish_reason.as_ref();
 
                     let is_cut_off = reason.is_some_and(|r| r.is_cut_off());
@@ -925,26 +929,31 @@ impl AgentRunner for RigAgentRunner {
                     messages.push(assistant);
                     break;
                 }
-                if let Some(reminder) = turn_safety
-                    .progress_reminder
-                    .observe_response(&turn_text, progress_tool_call_count)
-                {
-                    yield AgentEvent::RunEvent {
-                        event: "progress_reminder_injected".to_string(),
-                        payload: serde_json::json!({
-                            "session_id": session_id.as_str(),
-                            "turn_id": turn_id,
-                            "silent_tool_calls": reminder.silent_tool_calls,
-                        }),
-                    };
-                    let instruction = AgentMessage::system(reminder.message);
-                    if let Err(error) =
-                        append_model_message(event_repo.as_deref(), &session_id, &instruction).await
+                // Progress nudge is removed entirely for sub-agent sessions: no
+                // counter tracking, no injected message, ever. Main-session
+                // behavior is unchanged.
+                if !is_subagent_definition {
+                    if let Some(reminder) = turn_safety
+                        .progress_reminder
+                        .observe_response(&turn_text, progress_tool_call_count)
                     {
-                        yield AgentEvent::Error { message: error.to_string() };
-                        return;
+                        yield AgentEvent::RunEvent {
+                            event: "progress_reminder_injected".to_string(),
+                            payload: serde_json::json!({
+                                "session_id": session_id.as_str(),
+                                "turn_id": turn_id,
+                                "silent_tool_calls": reminder.silent_tool_calls,
+                            }),
+                        };
+                        let instruction = AgentMessage::system(reminder.message);
+                        if let Err(error) =
+                            append_model_message(event_repo.as_deref(), &session_id, &instruction).await
+                        {
+                            yield AgentEvent::Error { message: error.to_string() };
+                            return;
+                        }
+                        messages.push(instruction);
                     }
-                    messages.push(instruction);
                 }
                 if !budget_warned
                     && cumulative_completion_tokens
@@ -1133,6 +1142,7 @@ mod tests {
             outbound_channels: Vec::new(),
             sub_agents: Default::default(),
             safety: Default::default(),
+            auto_load_skills: Default::default(),
         }
     }
 
@@ -1859,6 +1869,118 @@ mod tests {
         assert!(
             reminder.is_some(),
             "next model request should include a system progress reminder: {messages:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn subagent_sessions_never_receive_the_progress_nudge() {
+        // Same silent-tool-call scenario that triggers the nudge for a main
+        // session, but run as a sub-agent (definition_override = Some). The nudge
+        // is removed entirely for sub-agents: no injected message, and no
+        // `progress_reminder_injected` event, ever.
+        let requests: Arc<tokio::sync::Mutex<Vec<serde_json::Value>>> =
+            Arc::new(tokio::sync::Mutex::new(Vec::new()));
+        let handler_requests = requests.clone();
+        async fn silent_tool_handler(
+            axum::extract::State(requests): axum::extract::State<
+                Arc<tokio::sync::Mutex<Vec<serde_json::Value>>>,
+            >,
+            Json(body): Json<serde_json::Value>,
+        ) -> impl IntoResponse {
+            let request_number = {
+                let mut requests = requests.lock().await;
+                let request_number = requests.len() + 1;
+                requests.push(body);
+                request_number
+            };
+
+            if request_number <= 3 {
+                let arguments =
+                    serde_json::json!({ "command": format!("printf sub-{request_number}") })
+                        .to_string();
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": {
+                            "tool_calls": [{
+                                "index": 0,
+                                "id": format!("call_{request_number}"),
+                                "function": { "name": "bash", "arguments": arguments }
+                            }]
+                        }
+                    }]
+                });
+                let done = serde_json::json!({
+                    "choices": [{ "delta": {}, "finish_reason": "tool_calls" }]
+                });
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    format!("data: {chunk}\n\ndata: {done}\n\ndata: [DONE]\n\n"),
+                )
+            } else {
+                let chunk = serde_json::json!({
+                    "choices": [{ "delta": { "content": "subagent done" }, "finish_reason": "stop" }]
+                });
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    format!("data: {chunk}\n\ndata: [DONE]\n\n"),
+                )
+            }
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new()
+            .route("/chat/completions", post(silent_tool_handler))
+            .with_state(handler_requests);
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        definition.tools = None;
+        definition.limits.max_turns_per_session = 10;
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition.clone(),
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("subagent-nudge-session"),
+                TurnInput::text("inspect quietly"),
+                Some(Arc::new(definition)),
+            )
+            .await
+            .expect("run turn");
+        let events = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate");
+
+        assert!(
+            !events.iter().any(|event| matches!(
+                event,
+                AgentEvent::RunEvent { event, .. } if event == "progress_reminder_injected"
+            )),
+            "sub-agent sessions must never emit a progress reminder"
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::FinalMessage { text } if text == "subagent done"
+        )));
+
+        let requests = requests.lock().await;
+        assert!(
+            !requests.iter().any(|request| request.to_string().contains("user-facing summary")),
+            "no model request should carry the progress nudge for a sub-agent"
         );
     }
 

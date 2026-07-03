@@ -179,6 +179,7 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		SandboxSize:            model.DefaultAgentSandboxSize,
 		Model:                  modelID,
 		DefaultReasoningEffort: strings.TrimSpace(catalog.DefaultReasoningEffort),
+		AutoLoadSkills:         append(model.AutoLoadSkills(nil), catalog.AutoLoadSkills...),
 		Tools:                  cloneModelJSON(catalog.Tools),
 		McpServers:             model.RawJSON("[]"),
 		Skills:                 model.JSON{},

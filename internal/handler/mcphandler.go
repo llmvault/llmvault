@@ -32,6 +32,7 @@ type MCPHandler struct {
 	skillTools        mcpserver.SkillToolsFunc
 	agentBuilderTools mcpserver.AgentBuilderToolsFunc
 	sheetTools        mcpserver.SheetToolsFunc
+	appsTools         mcpserver.AppsToolsFunc
 	ServerCache       *mcpserver.ServerCache
 }
 
@@ -85,6 +86,12 @@ func (h *MCPHandler) SetSheetTools(fn mcpserver.SheetToolsFunc) {
 	h.sheetTools = fn
 }
 
+// SetAppsTools sets the callback for registering the plugin-gated apps
+// tool group.
+func (h *MCPHandler) SetAppsTools(fn mcpserver.AppsToolsFunc) {
+	h.appsTools = fn
+}
+
 // StreamableHTTPHandler returns an HTTP handler for the MCP Streamable HTTP transport.
 func (h *MCPHandler) StreamableHTTPHandler() http.Handler {
 	return mcp.NewStreamableHTTPHandler(h.serverFactory, &mcp.StreamableHTTPOptions{
@@ -115,7 +122,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools)
 		if err != nil {
 			return nil, time.Time{}, err
 		}

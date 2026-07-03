@@ -15,22 +15,25 @@ import (
 // Sheets are channel-scoped: a sheet's visibility follows its channel's access.
 // The REST surface authorizes every sheet against its channel using the same
 // canUseChannel predicate as the rest of the API, so the HTTP path and the agent
-// MCP path cannot drift. API-key callers and org managers pass; otherwise the
-// requester must be able to use the sheet's channel. A denied request 404s so a
-// sheet in a channel the caller cannot see is indistinguishable from a missing
-// one.
+// MCP path cannot drift. Org managers pass; API-key callers may only reach
+// channels open to any org member; otherwise the requester must be able to use
+// the sheet's channel. A denied request 404s so a sheet in a channel the caller
+// cannot see is indistinguishable from a missing one.
 
 // canUseSheetChannel reports whether the current request may act on sheets in
-// channelID. Mirrors SessionHandler.canUseChannel.
+// channelID. Mirrors SessionHandler.canUseChannel, except API-key callers get
+// no blanket bypass: an org API key is not a team member, so it may use
+// channels open to any org member (external channels and channels with no
+// team) and is denied team-scoped ones.
 func (h *SheetsHandler) canUseSheetChannel(ctx context.Context, orgID, channelID uuid.UUID) bool {
-	if isAPIKeyRequest(ctx) {
-		return true
-	}
 	var channel model.Channel
 	if err := h.db.WithContext(ctx).
 		Where("id = ? AND org_id = ?", channelID, orgID).
 		First(&channel).Error; err != nil {
 		return false
+	}
+	if isAPIKeyRequest(ctx) {
+		return channel.Origin == "external" || channel.TeamID == nil
 	}
 	userID := sheetsRequestUserID(ctx)
 	orgRole, err := h.sheetsOrgRole(ctx, orgID, userID)

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -36,6 +37,42 @@ func inferEventFromHeaders(provider string, headers map[string]string) (eventTyp
 		eventType = headers["x-github-event"]
 	}
 	return eventType, ""
+}
+
+// stableGitHubDeliveryID derives a dedup key from the payload for events
+// whose (type, action) fires exactly once per object. GitHub's delivery GUID
+// lives in an HTTP header that is not guaranteed to survive Nango's webhook
+// forwarding, so these payload keys are the reliable fallback. Actions that
+// can recur on the same object (edited, synchronize, labeled, ...) must NOT
+// be added here — a payload key would wrongly collapse distinct events.
+func stableGitHubDeliveryID(eventType, eventAction string, body []byte) string {
+	key := eventType + "." + eventAction
+	var idPath string
+	switch key {
+	case "issue_comment.created":
+		idPath = "comment"
+	case "issues.opened":
+		idPath = "issue"
+	case "pull_request.opened":
+		idPath = "pull_request"
+	default:
+		return ""
+	}
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(body, &probe); err != nil {
+		return ""
+	}
+	raw, ok := probe[idPath]
+	if !ok {
+		return ""
+	}
+	var obj struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &obj); err != nil || obj.ID == 0 {
+		return ""
+	}
+	return fmt.Sprintf("github:%s:%d", key, obj.ID)
 }
 
 func inferGitHubEventFromPayload(body []byte) (eventType, eventAction string) {

@@ -56,6 +56,7 @@ type AgentDefinition struct {
 	Tools            []map[string]any            `json:"tools"`
 	McpServers       []any                       `json:"mcp_servers"`
 	McpToolFilter    *model.ToolFilter           `json:"mcp_tool_filter,omitempty"`
+	AutoLoadSkills   []model.AutoLoadSkill       `json:"auto_load_skills,omitempty"`
 	OutboundChannels []any                       `json:"outbound_channels"`
 	SubAgents        map[string]*AgentDefinition `json:"sub_agents,omitempty"`
 }
@@ -270,6 +271,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		Tools:            tools,
 		McpServers:       mcpServers,
 		McpToolFilter:    mcpToolFilter,
+		AutoLoadSkills:   compileAutoLoadSkills(ctx, deps.DB, agent, agent.AutoLoadSkills),
 		OutboundChannels: []any{},
 		SubAgents:        subAgents,
 	}, nil

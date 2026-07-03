@@ -1,0 +1,15 @@
+{
+  "name": "Apps",
+  "description": "Use when the user wants an interactive web app — a CRUD tool, dashboard, or custom interface — over data in a sheet, or asks to build, preview, publish, debug, or roll back a Hivy app. This is the execution skill for the app MCP tools and the template workflow: scaffold from the app template, implement Go API handlers and a React SPA, run a live preview the user can try, and — only with their explicit authorization — publish and verify with status and logs.",
+  "human_description": "Build, preview, publish, and maintain small web apps over sheets: template scaffold, build, live preview, deploy, logs, rollback.",
+  "category": "Developer Tools",
+  "root": "./SKILL.md",
+  "tags": [
+    "apps",
+    "deploy",
+    "dashboard",
+    "crud",
+    "sheets"
+  ],
+  "files": []
+}

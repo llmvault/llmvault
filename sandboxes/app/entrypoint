@@ -1,0 +1,30 @@
+#!/bin/sh
+# Entrypoint for the app sandbox image when systemd is not booted (the docker
+# provider and today's microsandbox init both run the image ENTRYPOINT
+# directly). Mirrors docker/runtime/entrypoint: prepare the persistent
+# workspace dirs, run the payload as a supervised child, forward TERM/INT.
+set -eu
+
+appd_pid=""
+APP_ROOT="${APP_ROOT:-/workspace/app}"
+LOGS_DIR="${LOGS_DIR:-/workspace/logs}"
+export APP_ROOT LOGS_DIR
+
+mkdir -p "$APP_ROOT" "$APP_ROOT/releases" "$APP_ROOT/tmp" "$LOGS_DIR" /var/run
+
+terminate_children() {
+  if [ -n "${appd_pid:-}" ] && kill -0 "$appd_pid" 2>/dev/null; then
+    kill -TERM "$appd_pid" 2>/dev/null || true
+    wait "$appd_pid" 2>/dev/null || true
+  fi
+}
+
+trap 'terminate_children; exit 143' INT TERM
+
+"$@" &
+appd_pid="$!"
+wait "$appd_pid"
+status="$?"
+appd_pid=""
+terminate_children
+exit "$status"

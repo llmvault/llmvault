@@ -158,10 +158,16 @@ func TestDockerDriverBuildTemplateCreatesLocalImage(t *testing.T) {
 func newIntegrationDriver(t *testing.T, ctx context.Context) *Driver {
 	t.Helper()
 
-	driver, err := NewDriver(Config{
+	return newIntegrationDriverWithConfig(t, ctx, Config{
 		RuntimeOrigin:        "http://127.0.0.1",
 		ContainerLabelPrefix: integrationLabelPrefix,
 	})
+}
+
+func newIntegrationDriverWithConfig(t *testing.T, ctx context.Context, cfg Config) *Driver {
+	t.Helper()
+
+	driver, err := NewDriver(cfg)
 	if err != nil {
 		t.Fatalf("NewDriver: %v", err)
 	}

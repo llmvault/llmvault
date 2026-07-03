@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "slug": "apps",
+  "name": "Apps",
+  "description": "Build and ship small web apps over sheets — CRUD tools, dashboards, and custom interfaces.",
+  "category": "Developer Tools",
+  "icon": "app-window",
+  "icon_color": "#2563EB",
+  "developer": "Hivy",
+  "official": true,
+  "featured": false,
+  "auto_install": false,
+  "locked": false,
+  "capabilities": ["Sheets", "Drive"],
+  "examples": [
+    "Build me an app to manage the leads sheet",
+    "Create a dashboard over the Q3 competitor research sheet",
+    "Add an edit form to the inventory app and republish it",
+    "The orders app is erroring — check its logs",
+    "Roll the app back to the previous version"
+  ],
+  "links": {
+    "website": "https://www.usehivy.com/"
+  },
+  "long_description": "Apps turns an agent into an app developer. It scaffolds from the strict Hivy app template (a Go backend plus a static Vite/React SPA over exactly one sheet), implements API handlers and the interface, builds the bundles, and publishes to a stable URL with authenticated access for the whole channel. Deploys are versioned with one-call rollback, and production logs are always a tool call away. Works with the Sheets plugin, which owns the data the app is built over.",
+  "plugin_version": "1",
+  "enabled": true
+}

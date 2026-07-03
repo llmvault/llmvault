@@ -44,7 +44,7 @@ Fields per step:
 
 Wrong CLI syntax is the #1 time sink in QA runs. Rules:
 
-- Load the `browser` skill (`skill_view`) once BEFORE the first browser command, then read its commands reference (`.skills/browser/references/commands.md`) — take syntax from those, never from memory.
+- The `browser` skill and its commands reference (`.skills/browser/references/commands.md`) are preloaded into every executor's context — executors never load them. The coordinator loads them manually only on the fallback path. Take syntax from those files, never from memory.
 - Batch related browser commands into one bash call; pass `timeout_seconds: 15` on interaction calls so a bad locator costs seconds, not a whole default timeout.
 - Snapshot refs (`@eN`) die on any page change; re-snapshot before reusing.
 - Two-strikes rule: the same action failing twice means STOP retrying variants — re-read the docs or re-snapshot, form a hypothesis, then act. The runtime hard-caps tool calls per turn; retry loops end runs partially complete.

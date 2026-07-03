@@ -81,6 +81,7 @@ type agentResponse struct {
 	SandboxTemplateID      *string                `json:"sandbox_template_id,omitempty"`
 	Model                  string                 `json:"model"`
 	DefaultReasoningEffort string                 `json:"default_reasoning_effort"`
+	AutoLoadSkills         model.AutoLoadSkills   `json:"auto_load_skills"`
 	ImageModel             string                 `json:"image_model"`
 	VectorImageModel       string                 `json:"vector_image_model"`
 	Tools                  model.JSON             `json:"tools"`
@@ -130,6 +131,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 		SandboxSize:            sandboxSize,
 		Model:                  a.Model,
 		DefaultReasoningEffort: a.DefaultReasoningEffort,
+		AutoLoadSkills:         nonNilAutoLoadSkills(a.AutoLoadSkills),
 		ImageModel:             a.ImageModel,
 		VectorImageModel:       a.VectorImageModel,
 		Tools:                  nonNilJSON(a.Tools),
@@ -181,6 +183,13 @@ func fallbackAgentName(a model.Agent) string {
 func nonNilJSON(value model.JSON) model.JSON {
 	if value == nil {
 		return model.JSON{}
+	}
+	return value
+}
+
+func nonNilAutoLoadSkills(value model.AutoLoadSkills) model.AutoLoadSkills {
+	if value == nil {
+		return model.AutoLoadSkills{}
 	}
 	return value
 }

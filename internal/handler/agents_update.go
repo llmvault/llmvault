@@ -207,6 +207,14 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["default_reasoning_effort"] = value
 		agent.DefaultReasoningEffort = value
 	}
+	if req.AutoLoadSkills != nil {
+		value, ok := normalizeAgentAutoLoadSkillsForRequest(w, req.AutoLoadSkills)
+		if !ok {
+			return false
+		}
+		updates["auto_load_skills"] = value
+		agent.AutoLoadSkills = value
+	}
 	if req.ImageModel != nil {
 		value := cleanStringPtr(req.ImageModel)
 		if err := validateImageModelPreference(value, false); err != nil {

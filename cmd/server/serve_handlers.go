@@ -37,6 +37,8 @@ type serveHandlers struct {
 	sandboxTemplateHandler     *handler.SandboxTemplateHandler
 	pluginHandler              *handler.PluginHandler
 	agentHandler               *handler.AgentHandler
+	appsInternalHandler        *handler.AppsInternalHandler
+	appsHandler                *handler.AppsHandler
 	uploadsHandler             *handler.UploadsHandler
 	imageDescribeHandler       *handler.ImageDescribeHandler
 	billingHandler             *handler.BillingHandler
@@ -97,6 +99,8 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		sandboxTemplateHandler:     rest.sandboxTemplateHandler,
 		pluginHandler:              rest.pluginHandler,
 		agentHandler:               rest.agentHandler,
+		appsInternalHandler:        rest.appsInternalHandler,
+		appsHandler:                rest.appsHandler,
 		uploadsHandler:             rest.uploadsHandler,
 		imageDescribeHandler:       rest.imageDescribeHandler,
 		billingHandler:             rest.billingHandler,
