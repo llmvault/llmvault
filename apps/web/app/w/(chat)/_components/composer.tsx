@@ -1,31 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useRef } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { useDropzone } from "react-dropzone"
-import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
 import {
-  useOrgDriveFileUploads,
-  type OrgDriveUploadItem,
-} from "@/hooks/use-org-drive-file-uploads"
-import {
-  deleteDraftAttachmentBlob,
   selectSessionWorkspace,
   useSessionWorkspaceStore,
-  type WorkspaceUploadItem,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
-import {
-  attachmentMetadataFromDescription,
-  requireImageDescriptionResult,
-  type ImageAttachmentMetadata,
-} from "@/app/w/(chat)/_lib/image-attachments"
+import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
 import { appendTranscriptToComposer } from "@/app/w/(chat)/_lib/audio-transcriptions"
-import {
-  AttachmentPreviewTray,
-  type ComposerImageAttachment,
-} from "./composer-attachments"
+import { AttachmentPreviewTray } from "./composer-attachments"
 import {
   codeLineCommentPayloads,
   useCodeLineCommentActions,
@@ -44,17 +30,18 @@ import { RecordingWaveform } from "./recording-waveform"
 import { displayModel, ModelIcon } from "./model-display"
 import { useSessionUsageSummary } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { SessionSpendPill } from "./session-spend-pill"
-import {
-  channelDisplayName,
-  type SidebarAgentResponse,
-  type SidebarChannelResponse,
+import type {
+  SidebarAgentResponse,
+  SidebarChannelResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { AgentSelect } from "@/components/agent-select"
-import { Picker, PickerButton } from "./chat-picker"
-import { PickerText } from "./chat-picker-text"
-
-const EFFORTS = ["Low", "Medium", "High"]
+import {
+  discardDraftUploads,
+  useComposerAttachments,
+} from "./use-composer-attachments"
+import { ComposerChannelPicker } from "./composer-channel-picker"
+import { ComposerModelPicker } from "./composer-model-picker"
 
 export function Composer({
   sessionId,
@@ -140,106 +127,28 @@ export function Composer({
   const setComposerUploads = useSessionWorkspaceStore(
     (state) => state.setComposerUploads
   )
-  const setAttachmentDescriptions = useSessionWorkspaceStore(
-    (state) => state.setAttachmentDescriptions
-  )
   const setLineComments = useSessionWorkspaceStore(
     (state) => state.setLineComments
   )
   const effort = workspace.composer.effort
-  const setEffortValue = useSessionWorkspaceStore(
-    (state) => state.setComposerEffort
-  )
-  const [channelOpen, setChannelOpen] = useState(false)
-  const [channelQuery, setChannelQuery] = useState("")
-  const [modelOpen, setModelOpen] = useState(false)
-  const [modelQuery, setModelQuery] = useState("")
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
-  const attachmentDescriptions = workspace.composer.attachmentDescriptions
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const describedUploadsRef = useRef<Set<string>>(new Set())
   const usage = useSessionUsageSummary(sessionId)
-  const { mutateAsync: describeDriveImage } = $api.useMutation(
-    "post",
-    "/v1/images/describe"
-  )
-  const { uploads, addFiles, retryUpload, removeUpload } =
-    useOrgDriveFileUploads({ agentId, sessionId, sessionExists })
 
   const selectedModel = displayModel(modelId, modelSummaries)
-  const modelOptions = useMemo(
-    () => modelIds.map((id) => displayModel(id, modelSummaries)),
-    [modelIds, modelSummaries]
-  )
-  const filteredModelOptions = useMemo(() => {
-    const query = modelQuery.trim().toLowerCase()
-    if (!query) return modelOptions
-    return modelOptions.filter(
-      (entry) =>
-        entry.label.toLowerCase().includes(query) ||
-        entry.id.toLowerCase().includes(query)
-    )
-  }, [modelOptions, modelQuery])
-  const filteredChannels = useMemo(() => {
-    const query = channelQuery.trim().toLowerCase()
-    if (!query) return channels
-    return channels.filter((entry) =>
-      channelDisplayName(entry).toLowerCase().includes(query)
-    )
-  }, [channels, channelQuery])
-  const attachments = useMemo(
-    () =>
-      uploads.map((upload): ComposerImageAttachment => {
-        if (upload.status === "uploading") {
-          return { upload, status: "uploading" }
-        }
-        if (upload.status === "error") {
-          return {
-            upload,
-            status: "error",
-            error: upload.error || "Image upload failed",
-          }
-        }
-        if (!upload.asset?.content_type.startsWith("image/")) {
-          return {
-            upload,
-            status: "error",
-            error: "Uploaded file is not an image",
-          }
-        }
-
-        const description = attachmentDescriptions[upload.id]
-        if (description?.status === "ready") {
-          return {
-            upload,
-            status: "ready",
-            metadata: description.metadata,
-          }
-        }
-        if (description?.status === "error") {
-          return {
-            upload,
-            status: "error",
-            error: description.error,
-          }
-        }
-        return { upload, status: "describing" }
-      }),
-    [attachmentDescriptions, uploads]
-  )
-  const hasPendingAttachment = attachments.some(
-    (attachment) =>
-      attachment.status === "uploading" || attachment.status === "describing"
-  )
-  const hasFailedAttachment = attachments.some(
-    (attachment) => attachment.status === "error"
-  )
-  const readyAttachments = attachments
-    .map((attachment) => attachment.metadata)
-    .filter((attachment): attachment is ImageAttachmentMetadata =>
-      Boolean(attachment)
-    )
+  const {
+    attachments,
+    attachmentDescriptions,
+    setAttachmentDescriptions,
+    describedUploadsRef,
+    hasPendingAttachment,
+    hasFailedAttachment,
+    readyAttachments,
+    retryAttachment,
+    removeAttachment,
+    onDropAccepted,
+  } = useComposerAttachments({ sessionId, agentId, sessionExists, isDisabled })
   const canSend =
     !isDisabled &&
     !isSubmitting &&
@@ -250,99 +159,6 @@ export function Composer({
       readyAttachments.length > 0 ||
       lineComments.length > 0)
 
-  const describeUpload = useCallback(
-    async (upload: OrgDriveUploadItem) => {
-      if (!upload.asset) return
-      setAttachmentDescriptions(sessionId, (current) => ({
-        ...current,
-        [upload.id]: { status: "describing" },
-      }))
-      try {
-        const description = requireImageDescriptionResult(
-          await describeDriveImage({
-            body: {
-              drive_asset_id: upload.asset.id,
-              detail_level: "high",
-              ...(sessionExists ? { session_id: sessionId } : {}),
-            },
-          })
-        )
-        const metadata = attachmentMetadataFromDescription(
-          upload.asset,
-          description
-        )
-        setAttachmentDescriptions(sessionId, (current) => ({
-          ...current,
-          [upload.id]: { status: "ready", metadata },
-        }))
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Image processing failed"
-        setAttachmentDescriptions(sessionId, (current) => ({
-          ...current,
-          [upload.id]: { status: "error", error: message },
-        }))
-      }
-    },
-    [describeDriveImage, sessionExists, sessionId, setAttachmentDescriptions]
-  )
-
-  useEffect(() => {
-    for (const upload of uploads) {
-      if (upload.status !== "uploaded" || !upload.asset) continue
-      if (attachmentDescriptions[upload.id]?.status) continue
-      if (describedUploadsRef.current.has(upload.id)) continue
-      describedUploadsRef.current.add(upload.id)
-      if (!upload.asset.content_type.startsWith("image/")) {
-        window.queueMicrotask(() => {
-          setAttachmentDescriptions(sessionId, (current) => ({
-            ...current,
-            [upload.id]: {
-              status: "error",
-              error: "Uploaded file is not an image",
-            },
-          }))
-        })
-        continue
-      }
-      window.queueMicrotask(() => {
-        void describeUpload(upload)
-      })
-    }
-  }, [
-    attachmentDescriptions,
-    describeUpload,
-    sessionId,
-    setAttachmentDescriptions,
-    uploads,
-  ])
-
-  const retryAttachment = (attachment: ComposerImageAttachment) => {
-    const id = attachment.upload.id
-    setAttachmentDescriptions(sessionId, (current) => {
-      const next = { ...current }
-      delete next[id]
-      return next
-    })
-    describedUploadsRef.current.delete(id)
-    if (attachment.upload.status === "error" || !attachment.upload.asset) {
-      retryUpload(id)
-      return
-    }
-    describedUploadsRef.current.add(id)
-    void describeUpload(attachment.upload)
-  }
-
-  const removeAttachment = (id: string) => {
-    removeUpload(id)
-    describedUploadsRef.current.delete(id)
-    setAttachmentDescriptions(sessionId, (current) => {
-      const next = { ...current }
-      delete next[id]
-      return next
-    })
-  }
-
   const resizeTextarea = useCallback(() => {
     window.requestAnimationFrame(() => {
       const node = textareaRef.current
@@ -351,14 +167,6 @@ export function Composer({
       node.style.height = `${Math.min(node.scrollHeight, 64)}px`
     })
   }, [])
-
-  const onDropAccepted = useCallback(
-    (files: File[]) => {
-      if (isDisabled) return
-      addFiles(files)
-    },
-    [addFiles, isDisabled]
-  )
 
   const { getRootProps, getInputProps, open, isDragActive, isDragReject } =
     useDropzone({
@@ -443,6 +251,7 @@ export function Composer({
     [
       attachmentDescriptions,
       clearComposerAfterSend,
+      describedUploadsRef,
       effort,
       isDisabled,
       isSubmitting,
@@ -590,55 +399,13 @@ export function Composer({
             ) : null}
             {spendVisible ? <SessionSpendPill usage={usage} /> : null}
             {channelSelectable ? (
-              <Picker
-                open={channelOpen}
-                setOpen={(open) => {
-                  setChannelOpen(open)
-                  if (!open) setChannelQuery("")
-                }}
-                label="Select channel"
-                icon="hash"
-                value={
-                  channelsLoading
-                    ? "Loading channels"
-                    : channel
-                      ? channelDisplayName(channel)
-                      : "Select channel"
-                }
-                width="w-64"
-              >
-                <input
-                  type="text"
-                  value={channelQuery}
-                  onChange={(event) => setChannelQuery(event.target.value)}
-                  placeholder="Search channels"
-                  aria-label="Search channels"
-                  className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
-                />
-                <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
-                  {channelsLoading ? (
-                    <PickerText>Loading channels</PickerText>
-                  ) : channelsError ? (
-                    <PickerText>Could not load channels</PickerText>
-                  ) : filteredChannels.length ? (
-                    filteredChannels.map((entry) => (
-                      <PickerButton
-                        key={entry.id ?? channelDisplayName(entry)}
-                        icon="hash"
-                        selected={entry.id === channel?.id}
-                        onPress={() => {
-                          onChannelChange?.(entry)
-                          setChannelOpen(false)
-                        }}
-                      >
-                        {channelDisplayName(entry)}
-                      </PickerButton>
-                    ))
-                  ) : (
-                    <PickerText>No matching channels</PickerText>
-                  )}
-                </div>
-              </Picker>
+              <ComposerChannelPicker
+                channel={channel}
+                channels={channels}
+                channelsLoading={channelsLoading}
+                channelsError={channelsError}
+                onChannelChange={onChannelChange}
+              />
             ) : null}
             {agentSelectable ? (
               agentsError ? (
@@ -675,62 +442,17 @@ export function Composer({
                 <div className="flex-1" />
 
                 {modelSelectable ? (
-                  <Picker
-                    open={modelOpen}
-                    setOpen={(open) => {
-                      setModelOpen(open)
-                      if (!open) setModelQuery("")
-                    }}
-                    label="Select model"
-                    model={selectedModel}
-                    value={selectedModel.label}
-                    suffix={effort}
-                    width="w-80"
-                  >
-                    <input
-                      type="text"
-                      value={modelQuery}
-                      onChange={(event) => setModelQuery(event.target.value)}
-                      placeholder="Search models"
-                      aria-label="Search models"
-                      className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
-                    />
-                    <div className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
-                      {modelsLoading && modelOptions.length === 0 ? (
-                        <PickerText>Loading models</PickerText>
-                      ) : modelsError && modelOptions.length === 0 ? (
-                        <PickerText>Could not load models</PickerText>
-                      ) : filteredModelOptions.length ? (
-                        filteredModelOptions.map((entry) => (
-                          <PickerButton
-                            key={entry.id}
-                            model={entry}
-                            selected={entry.id === modelId}
-                            onPress={() => onModelChange?.(entry.id)}
-                          >
-                            {entry.label}
-                          </PickerButton>
-                        ))
-                      ) : (
-                        <PickerText>No matching models</PickerText>
-                      )}
-                    </div>
-                    <span className="px-2.5 pt-2 pb-1 text-xs text-muted">
-                      Reasoning effort
-                    </span>
-                    {EFFORTS.map((entry) => (
-                      <PickerButton
-                        key={entry}
-                        selected={entry === effort}
-                        onPress={() => {
-                          setEffortValue(sessionId, entry)
-                          setModelOpen(false)
-                        }}
-                      >
-                        {entry}
-                      </PickerButton>
-                    ))}
-                  </Picker>
+                  <ComposerModelPicker
+                    sessionId={sessionId}
+                    modelId={modelId}
+                    modelIds={modelIds}
+                    modelSummaries={modelSummaries}
+                    modelsLoading={modelsLoading}
+                    modelsError={modelsError}
+                    selectedModel={selectedModel}
+                    effort={effort}
+                    onModelChange={onModelChange}
+                  />
                 ) : (
                   <div
                     aria-label={`Model: ${selectedModel.label}`}
@@ -820,13 +542,4 @@ export function Composer({
       />
     </>
   )
-}
-
-function discardDraftUploads(uploads: WorkspaceUploadItem[]) {
-  for (const upload of uploads) {
-    if (upload.previewUrl?.startsWith("blob:")) {
-      URL.revokeObjectURL(upload.previewUrl)
-    }
-    void deleteDraftAttachmentBlob(upload.blobKey)
-  }
 }
