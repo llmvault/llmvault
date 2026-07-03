@@ -1,7 +1,7 @@
 ---
 runner_api_port: 8081
-runner_cpu_overcommit: 2
-runner_memory_overcommit: 1
+runner_cpu_overcommit: 3
+runner_memory_overcommit: 2
 runner_disk_overcommit: 4
 runner_preview_port_range_start: 30000
 runner_preview_port_range_end: 60999

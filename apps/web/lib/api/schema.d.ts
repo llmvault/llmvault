@@ -3286,8 +3286,8 @@ export interface paths {
                     "multipart/form-data": {
                         /** @description Destination agent ID */
                         agent_id: string;
-                        /** @description Destination session ID */
-                        session_id: string;
+                        /** @description Destination session ID (omit for pre-session uploads) */
+                        session_id?: string;
                         /** @description Drive folder */
                         path?: string;
                         /**
@@ -15848,6 +15848,7 @@ export interface components {
             channel_id?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             text?: string;
+            attachment_ids?: string[];
         };
         createTriggerRequest: {
             agent_id?: string;

@@ -13,7 +13,7 @@ import {
   type AgentSandboxImage,
   type AgentSandboxSize,
 } from "../_lib"
-import { ModelSelect } from "./_model-select"
+import { ModelSelect } from "@/components/model-select"
 import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
 import { PluginsField } from "./_plugins-field"

@@ -153,7 +153,7 @@ func TestSheetsNestedRoutesRejectWrongSheet(t *testing.T) {
 	second, err := h.svc.CreateSheet(context.Background(), h.org.ID, sheets.CreateSheetRequest{
 		Name:  "Second Sheet",
 		Pages: []sheets.PageSpec{{Name: "Other Page"}},
-	}, sheets.Actor{UserID: &h.user.ID})
+	}, sheets.Actor{UserID: &h.user.ID, ChannelID: h.channel.ID})
 	if err != nil {
 		t.Fatalf("create second sheet: %v", err)
 	}

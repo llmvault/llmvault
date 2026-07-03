@@ -1,7 +1,6 @@
 package sheets
 
 import (
-	"context"
 	"fmt"
 	"testing"
 )
@@ -10,8 +9,8 @@ import (
 // sorts, search, cursor, resolve_relations, clamps), sheet_import_csv, and
 // sheet_operations end to end.
 func TestSheetToolsRowsAndOperations(t *testing.T) {
-	ctx := context.Background()
 	fixture, client := setupSheetTools(t)
+	ctx := fixture.toolCtx()
 	leadsPage := fixture.leads.Page.ID.String()
 	nameField := fixture.fieldByName(t, fixture.leads, "Name").ID
 	scoreField := fixture.fieldByName(t, fixture.leads, "Score").ID

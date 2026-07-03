@@ -2683,10 +2683,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Destination session ID",
+                        "description": "Destination session ID (omit for pre-session uploads)",
                         "name": "session_id",
-                        "in": "formData",
-                        "required": true
+                        "in": "formData"
                     },
                     {
                         "type": "string",
@@ -12679,6 +12678,12 @@ const docTemplate = `{
             "properties": {
                 "agent_id": {
                     "type": "string"
+                },
+                "attachment_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "channel_id": {
                     "type": "string"

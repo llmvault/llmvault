@@ -16,6 +16,7 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "general", label: "General", icon: "settings" },
       { id: "appearance", label: "Appearance", icon: "sun" },
       { id: "billing", label: "Usage & billing", icon: "gauge" },
+      { id: "archived", label: "Archived chats", icon: "archive" },
     ],
   },
   {

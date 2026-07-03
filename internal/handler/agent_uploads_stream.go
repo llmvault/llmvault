@@ -143,7 +143,7 @@ func (h *UploadsHandler) StreamAgentAsset(w http.ResponseWriter, r *http.Request
 	asset := model.AgentAsset{
 		AgentID:     agent.ID,
 		OrgID:       *agent.OrgID,
-		SandboxID:   sandbox.ID,
+		SandboxID:   &sandbox.ID,
 		Path:        folder,
 		Filename:    filename,
 		Key:         stored.Key,

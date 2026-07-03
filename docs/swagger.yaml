@@ -1477,6 +1477,10 @@ definitions:
     properties:
       agent_id:
         type: string
+      attachment_ids:
+        items:
+          type: string
+        type: array
       channel_id:
         type: string
       model_definition:
@@ -5627,10 +5631,9 @@ paths:
         name: agent_id
         required: true
         type: string
-      - description: Destination session ID
+      - description: Destination session ID (omit for pre-session uploads)
         in: formData
         name: session_id
-        required: true
         type: string
       - description: Drive folder
         in: formData

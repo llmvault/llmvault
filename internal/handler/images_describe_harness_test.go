@@ -144,7 +144,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 		ID:          uuid.New(),
 		OrgID:       org.ID,
 		AgentID:     agent.ID,
-		SandboxID:   sandbox.ID,
+		SandboxID:   &sandbox.ID,
 		Path:        "uploads",
 		Filename:    "screenshot.png",
 		Key:         "pub/e/" + agent.ID.String() + "/uploads/screenshot.png",

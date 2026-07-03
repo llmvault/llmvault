@@ -65,7 +65,7 @@ func TestImageGenerationMCPVectorizeConvertsRasterToSVG(t *testing.T) {
 		ID:          uuid.New(),
 		OrgID:       h.orgID,
 		AgentID:     h.agentID,
-		SandboxID:   h.sandboxID,
+		SandboxID:   &h.sandboxID,
 		Path:        "uploads",
 		Filename:    "vectorize-ref.png",
 		Key:         stored.Key,

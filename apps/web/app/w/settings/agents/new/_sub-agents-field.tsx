@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button, Input } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { ModelSelect } from "./_model-select"
+import { ModelSelect } from "@/components/model-select"
 import { ToolsField } from "./_tools-field"
 import {
   emptySubAgent,

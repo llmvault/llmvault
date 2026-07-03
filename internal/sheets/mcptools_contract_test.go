@@ -1,7 +1,6 @@
 package sheets
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -117,8 +116,8 @@ func assertStrictDecode(t *testing.T, payload string, dst any) {
 }
 
 func TestSheetToolsSkillPayloadContract(t *testing.T) {
-	ctx := context.Background()
 	fixture, client := setupSheetTools(t)
+	ctx := fixture.toolCtx()
 
 	assertStrictDecode(t, skillSheetCreate, &sheetCreateArgs{})
 	assertStrictDecode(t, skillSheetDescribe, &sheetDescribeArgs{})

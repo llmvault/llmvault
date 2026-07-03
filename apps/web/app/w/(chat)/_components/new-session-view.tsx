@@ -6,6 +6,8 @@ import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
+import { LogoMark } from "@/components/logo"
+import { PluginExamplePrompts } from "@/app/w/(chat)/_components/plugin-example-prompts"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import { AGENTS } from "@/app/w/(chat)/_lib/agents"
 import {
@@ -14,7 +16,12 @@ import {
   invalidateSessionListQueries,
   seedSessionDetail,
 } from "@/app/w/(chat)/_lib/chat-cache"
-import { availableModelIds } from "@/app/w/(chat)/_lib/model-options"
+import { composerModelIds } from "@/app/w/(chat)/_lib/model-options"
+import {
+  imageAttachmentIDs,
+  type ImageAttachmentMetadata,
+} from "@/app/w/(chat)/_lib/image-attachments"
+import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
 import { watchGeneratedSessionName } from "@/app/w/(chat)/_lib/session-name-updates"
 import {
   agentDisplayName,
@@ -84,7 +91,7 @@ export function SessionView({
     [agentModelsQuery.data]
   )
   const modelIds = useMemo(
-    () => availableModelIds(modelSummaries),
+    () => composerModelIds(modelSummaries),
     [modelSummaries]
   )
   const fallbackAgent = AGENTS[0]
@@ -111,19 +118,36 @@ export function SessionView({
       : undefined
   const activeChannel = selectedChannel ?? defaultChannel
   const draftKey = `new:${channelSlug ?? "root"}`
+  const setComposerUploads = useSessionWorkspaceStore(
+    (state) => state.setComposerUploads
+  )
+  const setAttachmentDescriptions = useSessionWorkspaceStore(
+    (state) => state.setAttachmentDescriptions
+  )
+  const setComposerText = useSessionWorkspaceStore(
+    (state) => state.setComposerText
+  )
 
-  const createFirstSession = async (text: string, effort: string) => {
+  const createFirstSession = async (
+    text: string,
+    attachments: ImageAttachmentMetadata[],
+    effort: string
+  ) => {
     if (!activeChannel?.id) {
       toast.danger("Select a channel first")
       return false
     }
 
+    const attachmentIDs = imageAttachmentIDs(attachments)
     try {
       const response = await createSession.mutateAsync({
         body: {
           channel_id: activeChannel.id,
           agent_id: selectedAgent?.id,
           text,
+          ...(attachmentIDs.length
+            ? { attachment_ids: attachmentIDs }
+            : {}),
 	          model_definition: {
 	            model_id: modelId,
 	            reasoning_effort: effort.toLowerCase(),
@@ -153,14 +177,28 @@ export function SessionView({
   }
 
   return (
-    <div className="flex h-full min-w-0 items-center justify-center px-2 pb-16">
-      <div className="w-full">
+    <div className="grid h-full min-w-0 grid-rows-[minmax(0,0.8fr)_auto_minmax(0,1.2fr)] px-2">
+      <div />
+      <div className="flex w-full flex-col gap-8">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <LogoMark className="h-12 w-12" />
+          <div>
+            <h1
+              suppressHydrationWarning
+              className="text-2xl font-semibold tracking-tight text-foreground"
+            >
+              {timeGreeting()}
+            </h1>
+            <p className="mt-1 text-base text-muted">
+              What are we working on today?
+            </p>
+          </div>
+        </div>
         <Composer
           sessionId={draftKey}
           agentId={selectedAgent?.id ?? ""}
           modelId={modelId}
-          attachmentsEnabled={false}
-          audioEnabled={false}
+          sessionExists={false}
           spendVisible={false}
           channelSelectable
           channel={activeChannel}
@@ -182,6 +220,10 @@ export function SessionView({
           onAgentChange={(agent) => {
             setSelectedAgentID(agent.id ?? null)
             setSelectedModelID(null)
+            // Draft uploads live in the previous agent's drive; they cannot
+            // be attached to a session for a different agent.
+            setComposerUploads(draftKey, () => [])
+            setAttachmentDescriptions(draftKey, () => ({}))
           }}
           modelSelectable
           modelIds={modelIds}
@@ -190,8 +232,8 @@ export function SessionView({
           modelsError={agentModelsQuery.isError}
           onModelChange={setSelectedModelID}
           isSubmitting={createSession.isPending}
-          onSend={(text, _attachments, _codeLineComments, effort) =>
-            createFirstSession(text, effort)
+          onSend={(text, attachments, _codeLineComments, effort) =>
+            createFirstSession(text, attachments, effort)
           }
           placeholder={
             selectedAgent?.name
@@ -200,6 +242,19 @@ export function SessionView({
           }
         />
       </div>
+      <div className="min-h-0 overflow-y-auto pt-6 pb-4">
+        <PluginExamplePrompts
+          agentId={selectedAgent?.id}
+          onSelect={(prompt) => setComposerText(draftKey, prompt)}
+        />
+      </div>
     </div>
   )
+}
+
+function timeGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return "Good morning"
+  if (hour < 18) return "Good afternoon"
+  return "Good evening"
 }

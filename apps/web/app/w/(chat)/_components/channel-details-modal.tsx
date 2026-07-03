@@ -18,9 +18,11 @@ import {
   channelDisplayName,
   channelRouteSlug,
 } from "@/app/w/(chat)/_lib/sidebar-data"
+import { AgentSelect } from "@/components/agent-select"
 
 type ChannelMember = components["schemas"]["channelMemberResponse"]
 type OrgMember = components["schemas"]["orgMemberResponse"]
+type AgentListItem = components["schemas"]["agentListItem"]
 type DetailTab = "about" | "members"
 
 export function ChannelDetailsModal({
@@ -84,6 +86,19 @@ function ChannelDetailsModalContent({
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
   )
+  const agentsQuery = $api.useQuery(
+    "get",
+    "/v1/agents",
+    { params: { query: { status: "active", limit: 100 } } },
+    {
+      retry: false,
+      staleTime: CHAT_QUERY_STALE_TIME_MS,
+    }
+  )
+  const agents = useMemo(
+    () => agentsQuery.data?.data ?? [],
+    [agentsQuery.data?.data]
+  )
   const detailChannel = channelQuery.data?.channel ?? channel
   const members = channelQuery.data?.members ?? []
   const membersByID = useMemo(
@@ -100,6 +115,11 @@ function ChannelDetailsModalContent({
     ? channelDisplayName(detailChannel)
     : "Channel"
   const renameChannel = $api.useMutation("patch", "/v1/channels/{id}")
+  const updateChannelAgent = $api.useMutation("patch", "/v1/channels/{id}")
+  const [pendingAgentID, setPendingAgentID] = useState<string | null>(null)
+  const channelAgentID = updateChannelAgent.isPending
+    ? (pendingAgentID ?? "")
+    : (detailChannel?.default_agent_id ?? "")
   const trimmedName = nameDraft.trim()
   const nameInvalid = editingName && trimmedName.length === 0
   const nameUnchanged = trimmedName === channelName
@@ -150,6 +170,31 @@ function ChannelDetailsModalContent({
         },
         onError: (error) =>
           toast.danger(extractErrorMessage(error, "Could not rename channel")),
+      }
+    )
+  }
+
+  function saveAgent(agentID: string) {
+    if (!detailChannel?.id || updateChannelAgent.isPending) return
+    if (!agentID || agentID === detailChannel.default_agent_id) return
+    setPendingAgentID(agentID)
+    updateChannelAgent.mutate(
+      {
+        params: { path: { id: detailChannel.id } },
+        body: { default_agent_id: agentID },
+      },
+      {
+        onSuccess: (response) => {
+          if (response.channel) {
+            patchChannelInChatCaches(queryClient, response.channel)
+          }
+          toast.success("Channel agent updated")
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not update channel agent")
+          ),
+        onSettled: () => setPendingAgentID(null),
       }
     )
   }
@@ -229,6 +274,11 @@ function ChannelDetailsModalContent({
                 {tab === "about" ? (
                   <AboutPanel
                     channel={detailChannel}
+                    agents={agents}
+                    agentsLoading={agentsQuery.isLoading}
+                    channelAgentID={channelAgentID}
+                    agentSaving={updateChannelAgent.isPending}
+                    onAgentChange={saveAgent}
                     creator={creatorForChannel(detailChannel, membersByID)}
                     editingName={editingName}
                     nameDraft={nameDraft}
@@ -290,6 +340,10 @@ function TabButton({
 
 function AboutPanel({
   channel,
+  agents,
+  agentsLoading,
+  agentSaving,
+  channelAgentID,
   copied,
   creator,
   editingName,
@@ -297,6 +351,7 @@ function AboutPanel({
   nameInvalid,
   nameUnchanged,
   renamePending,
+  onAgentChange,
   onCancelName,
   onCopyID,
   onEditName,
@@ -304,6 +359,10 @@ function AboutPanel({
   onSaveName,
 }: {
   channel: ChannelResponse | null | undefined
+  agents: AgentListItem[]
+  agentsLoading: boolean
+  agentSaving: boolean
+  channelAgentID: string
   copied: boolean
   creator: string
   editingName: boolean
@@ -311,6 +370,7 @@ function AboutPanel({
   nameInvalid: boolean
   nameUnchanged: boolean
   renamePending: boolean
+  onAgentChange: (agentID: string) => void
   onCancelName: () => void
   onCopyID: () => void
   onEditName: () => void
@@ -335,6 +395,25 @@ function AboutPanel({
         title="Description"
         value={channel?.description?.trim() || "No description"}
       />
+      <div className="flex items-start gap-4 border-t border-border px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">Agent</p>
+            {agentSaving ? <Spinner size="sm" /> : null}
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            Mentions in this channel are handled by this agent.
+          </p>
+          <div className="mt-2">
+            <AgentSelect
+              agents={agents}
+              selectedAgentID={channelAgentID}
+              isLoading={agentsLoading}
+              onChange={onAgentChange}
+            />
+          </div>
+        </div>
+      </div>
       <DetailRow title="Created" value={createdLabel(channel, creator)} />
       <div className="flex items-center gap-3 border-t border-border px-5 py-4">
         <div className="min-w-0 flex-1">

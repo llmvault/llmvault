@@ -3,13 +3,13 @@ package sheets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -25,20 +25,25 @@ var sheetToolNames = []string{
 // intentionally NOT cleaned up: the slug is unique and shared across tests.
 func ensureSheetsPlugin(t *testing.T, db *gorm.DB) model.Plugin {
 	t.Helper()
-	plugin := model.Plugin{
-		Slug:   SheetsPluginSlug,
-		Name:   "Sheets",
-		Status: model.PluginStatusActive,
+	// The sheets plugin is a global plugin (org_id NULL). Since migration 57 the
+	// slug uniqueness is a partial index (WHERE org_id IS NULL), so a bare
+	// ON CONFLICT(slug) no longer matches — find-or-create instead.
+	var plugin model.Plugin
+	err := db.Where("slug = ? AND org_id IS NULL", SheetsPluginSlug).First(&plugin).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		plugin = model.Plugin{Slug: SheetsPluginSlug, Name: "Sheets", Status: model.PluginStatusActive}
+		if err := db.Create(&plugin).Error; err != nil {
+			t.Fatalf("ensure sheets plugin: %v", err)
+		}
+		return plugin
 	}
-	err := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "slug"}},
-		DoUpdates: clause.Assignments(map[string]any{"status": model.PluginStatusActive}),
-	}).Create(&plugin).Error
 	if err != nil {
-		t.Fatalf("ensure sheets plugin: %v", err)
-	}
-	if err := db.Where("slug = ?", SheetsPluginSlug).First(&plugin).Error; err != nil {
 		t.Fatalf("load sheets plugin: %v", err)
+	}
+	if plugin.Status != model.PluginStatusActive {
+		if err := db.Model(&plugin).Update("status", model.PluginStatusActive).Error; err != nil {
+			t.Fatalf("activate sheets plugin: %v", err)
+		}
 	}
 	return plugin
 }
@@ -97,6 +102,32 @@ func setupSheetTools(t *testing.T) (*sheetsFixture, *mcp.ClientSession) {
 	return fixture, client
 }
 
+// sessionCtxKey carries the runtime-injected _hivy_session_id in tests, mirroring
+// the Rust proxy that injects it into every sheets tool call. The call helpers
+// read it and stamp it onto tool args, so tests do not repeat it per call.
+type sessionCtxKey struct{}
+
+// toolCtx returns a context that stamps the fixture session onto tool calls made
+// through the sheets MCP call helpers.
+func (f *sheetsFixture) toolCtx() context.Context {
+	return context.WithValue(context.Background(), sessionCtxKey{}, f.session.ID.String())
+}
+
+// injectSheetSession adds the context's _hivy_session_id to args when the caller
+// did not set one explicitly, replicating the runtime proxy's injection.
+func injectSheetSession(ctx context.Context, args map[string]any) map[string]any {
+	if args == nil {
+		args = map[string]any{}
+	}
+	if _, ok := args["_hivy_session_id"]; ok {
+		return args
+	}
+	if id, ok := ctx.Value(sessionCtxKey{}).(string); ok && id != "" {
+		args["_hivy_session_id"] = id
+	}
+	return args
+}
+
 func sheetToolText(result *mcp.CallToolResult) string {
 	if result == nil {
 		return ""
@@ -113,6 +144,7 @@ func sheetToolText(result *mcp.CallToolResult) string {
 // callSheetTool invokes a tool expecting success and decodes the JSON reply.
 func callSheetTool(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any) map[string]any {
 	t.Helper()
+	args = injectSheetSession(ctx, args)
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
 		t.Fatalf("call %s: %v", name, err)
@@ -143,6 +175,7 @@ func callSheetToolJSON(t *testing.T, ctx context.Context, client *mcp.ClientSess
 // transport error) whose text contains want.
 func assertSheetToolError(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any, want string) {
 	t.Helper()
+	args = injectSheetSession(ctx, args)
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
 		t.Fatalf("call %s: transport error instead of IsError result: %v", name, err)

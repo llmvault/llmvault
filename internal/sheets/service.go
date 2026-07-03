@@ -44,11 +44,14 @@ func (s *Service) WithImportEnqueuer(e ImportEnqueuer) *Service {
 }
 
 // Actor identifies who performed a mutation for provenance and the
-// operation (undo/audit) log.
+// operation (undo/audit) log. ChannelID is the channel the mutation is scoped
+// to — set from the agent's session on the MCP path and from the request on the
+// REST path; CreateSheet stamps it onto the new sheet.
 type Actor struct {
 	AgentID   *uuid.UUID
 	UserID    *uuid.UUID
 	SessionID *uuid.UUID
+	ChannelID uuid.UUID
 }
 
 // FieldSpec describes a column to create.
@@ -92,6 +95,9 @@ func (s *Service) CreateSheet(ctx context.Context, orgID uuid.UUID, req CreateSh
 	if name == "" {
 		name = "Untitled sheet"
 	}
+	if actor.ChannelID == uuid.Nil {
+		return nil, fmt.Errorf("sheets: a sheet must be created within a channel")
+	}
 	var count int64
 	if err := s.db.WithContext(ctx).Model(&model.Sheet{}).
 		Where("org_id = ? AND archived_at IS NULL", orgID).
@@ -119,6 +125,7 @@ func (s *Service) CreateSheet(ctx context.Context, orgID uuid.UUID, req CreateSh
 
 	sheet := model.Sheet{
 		OrgID:            orgID,
+		ChannelID:        actor.ChannelID,
 		Slug:             slug,
 		Name:             name,
 		Description:      strings.TrimSpace(req.Description),
@@ -148,13 +155,14 @@ func (s *Service) CreateSheet(ctx context.Context, orgID uuid.UUID, req CreateSh
 	return structure, nil
 }
 
-// ListSheets returns one page of the org's active sheets, newest-updated
-// first, with an optional name search. The returned cursor is non-empty when
-// more sheets follow; pass it back to continue the walk.
-func (s *Service) ListSheets(ctx context.Context, orgID uuid.UUID, search string, limit int, cursor string) ([]model.Sheet, string, error) {
+// ListSheets returns one page of a channel's active sheets, newest-updated
+// first, with an optional name search. Sheets are channel-scoped, so callers
+// pass the channel they have already authorized the requester for. The returned
+// cursor is non-empty when more sheets follow; pass it back to continue the walk.
+func (s *Service) ListSheets(ctx context.Context, orgID, channelID uuid.UUID, search string, limit int, cursor string) ([]model.Sheet, string, error) {
 	pageSize := ClampLimit(limit, QueryLimitREST)
 	q := s.db.WithContext(ctx).
-		Where("org_id = ? AND archived_at IS NULL", orgID).
+		Where("org_id = ? AND channel_id = ? AND archived_at IS NULL", orgID, channelID).
 		Order("updated_at DESC, id DESC").
 		Limit(pageSize + 1)
 	if search = strings.TrimSpace(search); search != "" {

@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useEffect, useMemo, useState } from "react"
+import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Spinner, Switch, toast } from "@heroui/react"
@@ -16,7 +16,7 @@ import {
   type AutomationItem,
   type InstalledTrigger,
 } from "@/app/w/(chat)/automations/_data"
-import { AgentSelect } from "@/app/w/(chat)/automations/_agent-select"
+import { AgentSelect } from "@/components/agent-select"
 import {
   defaultEmojiGlyph,
   normalizeEmojiName,
@@ -135,14 +135,16 @@ function SlackReactionInstallForm({
       retry: false,
     }
   )
+  const triggerResourceKey = trigger?.external_resource_key
+  const triggerResourceName = trigger?.external_resource_name
   const initialResource = useMemo(() => {
-    if (!trigger?.external_resource_key) return null
+    if (!triggerResourceKey) return null
     return {
-      id: trigger.external_resource_key,
-      name: trigger.external_resource_name || trigger.external_resource_key,
+      id: triggerResourceKey,
+      name: triggerResourceName || triggerResourceKey,
       type: slackChannelResourceType,
     } satisfies AvailableResource
-  }, [trigger?.external_resource_key, trigger?.external_resource_name])
+  }, [triggerResourceKey, triggerResourceName])
   const resources = useMemo(() => {
     const list = (
       (resourcesQuery.data?.resources ?? []) as AvailableResource[]
@@ -155,17 +157,21 @@ function SlackReactionInstallForm({
     }
     return list
   }, [initialResource, resourcesQuery.data?.resources])
+  const activeResourceID = resourceID || resources[0]?.id || ""
   const selectedResource = useMemo(
-    () => resources.find((resource) => resource.id === resourceID),
-    [resourceID, resources]
+    () => resources.find((resource) => resource.id === activeResourceID),
+    [activeResourceID, resources]
   )
   const agents = useMemo(
     () => (agentsQuery.data?.data ?? []).filter((agent) => agent.id),
     [agentsQuery.data?.data]
   )
+  const activeAgentID = agents.some((agent) => agent.id === agentID)
+    ? agentID
+    : (agents[0]?.id ?? "")
   const selectedAgent = useMemo(
-    () => agents.find((agent) => agent.id === agentID),
-    [agentID, agents]
+    () => agents.find((agent) => agent.id === activeAgentID),
+    [activeAgentID, agents]
   )
   const existingTrigger = useMemo(
     () =>
@@ -193,28 +199,6 @@ function SlackReactionInstallForm({
     ]
   )
 
-  useEffect(() => {
-    if (!connectionID && connections[0]?.id) {
-      setConnectionID(connections[0].id)
-    }
-  }, [connectionID, connections])
-
-  useEffect(() => {
-    if (!resourceID && resources[0]?.id) {
-      setResourceID(resources[0].id)
-    }
-  }, [resourceID, resources])
-
-  useEffect(() => {
-    if (agents.length === 0) {
-      if (agentID) setAgentID("")
-      return
-    }
-    const currentAllowed = agents.some((agent) => agent.id === agentID)
-    if (currentAllowed) return
-    setAgentID(agents[0]?.id ?? "")
-  }, [agentID, agents])
-
   const isLoading =
     connectionsQuery.isLoading ||
     resourcesQuery.isLoading ||
@@ -228,7 +212,7 @@ function SlackReactionInstallForm({
     Boolean(
       activeConnectionID &&
       selectedResource?.id &&
-      agentID &&
+      activeAgentID &&
       emojiName &&
       instructions.trim()
     )
@@ -262,7 +246,7 @@ function SlackReactionInstallForm({
       connection_id: selectedConnection.id,
       external_resource_key: selectedResource.id,
       external_resource_name: resourceName(selectedResource),
-      agent_id: agentID,
+      agent_id: activeAgentID,
       trigger_key: slackReactionKey,
       trigger_value: emojiName,
       instructions: trimmedInstructions,
@@ -282,7 +266,7 @@ function SlackReactionInstallForm({
           queryKey: ["get", "/v1/triggers/{id}"],
         })
       }
-      if (agentID) {
+      if (activeAgentID) {
         queryClient.invalidateQueries({
           queryKey: ["get", "/v1/agents/{id}"],
         })
@@ -392,7 +376,7 @@ function SlackReactionInstallForm({
           ) : (
             <SlackResourceSelect
               resources={resources}
-              value={resourceID}
+              value={activeResourceID}
               onChange={setResourceID}
             />
           )}
@@ -411,7 +395,7 @@ function SlackReactionInstallForm({
           ) : (
             <AgentSelect
               agents={agents}
-              selectedAgentID={agentID}
+              selectedAgentID={activeAgentID}
               isLoading={agentsQuery.isLoading}
               onChange={setAgentID}
             />

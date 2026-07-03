@@ -3,7 +3,9 @@
 import Image from "next/image"
 import { ListBox, Select } from "@heroui/react"
 import { modelLogoURL } from "@/lib/model-logos"
-import type { ModelSummary } from "./_lib"
+import type { components } from "@/lib/api/schema"
+
+type ModelSummary = components["schemas"]["modelSummary"]
 
 const INHERIT_KEY = "__inherit__"
 
@@ -49,7 +51,7 @@ export function ModelSelect({
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover className="rounded-xl p-1.5">
-        <ListBox>
+        <ListBox className="max-h-72 overflow-y-auto">
           {includeInherit ? (
             <ListBox.Item
               key={INHERIT_KEY}

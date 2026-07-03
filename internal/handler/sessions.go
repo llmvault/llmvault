@@ -79,6 +79,7 @@ type createSessionRequest struct {
 	ChannelID       string                         `json:"channel_id"`
 	AgentID         string                         `json:"agent_id,omitempty"`
 	Text            string                         `json:"text,omitempty"`
+	AttachmentIDs   []string                       `json:"attachment_ids,omitempty"`
 	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
 }
 

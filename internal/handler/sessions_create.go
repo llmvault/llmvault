@@ -53,8 +53,10 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	text := strings.TrimSpace(req.Text)
-	payload := model.JSON{}
-	hasInitialMessage := text != ""
+	payload := sessionMessageRequestPayload(sendSessionMessageRequest{
+		AttachmentIDs: req.AttachmentIDs,
+	})
+	hasInitialMessage := sessionMessageHasContent(text, payload)
 	logPhase("decode request",
 		"org_id", org.ID,
 		"channel_id", strings.TrimSpace(req.ChannelID),
@@ -89,6 +91,13 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	logPhase("validate runtime options", "org_id", org.ID, "agent_id", agent.ID)
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
 	logPhase("build session record", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
+	if hasInitialMessage {
+		payload, ok = h.hydrateSessionMessageAttachmentsForRequest(w, r, session, payload)
+		if !ok {
+			return
+		}
+		logPhase("hydrate initial message attachments", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
+	}
 	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, session.Model, session.ReasoningEffort)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)

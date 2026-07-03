@@ -139,8 +139,6 @@ export const Sidebar = memo(function Sidebar({
     pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
   const automationsActive =
     pathname === "/w/automations" || pathname.startsWith("/w/automations/")
-  const archivedActive =
-    pathname === "/w/archived" || pathname.startsWith("/w/archived/")
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -192,12 +190,6 @@ export const Sidebar = memo(function Sidebar({
             label="Automations"
             active={automationsActive}
             onClick={() => router.push("/w/automations")}
-          />
-          <NavRow
-            icon="archive"
-            label="Archived"
-            active={archivedActive}
-            onClick={() => router.push("/w/archived")}
           />
         </div>
 

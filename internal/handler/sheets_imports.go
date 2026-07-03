@@ -55,6 +55,15 @@ func (h *SheetsHandler) GetImportJob(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	channelID, err := h.svc.ChannelForImportJob(r.Context(), org.ID, jobID)
+	if err != nil {
+		writeSheetsError(w, r, err)
+		return
+	}
+	if !h.canUseSheetChannel(r.Context(), org.ID, channelID) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
+		return
+	}
 	job, err := h.svc.GetImportJob(r.Context(), org.ID, jobID)
 	if err != nil {
 		writeSheetsError(w, r, err)

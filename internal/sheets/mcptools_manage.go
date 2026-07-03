@@ -66,15 +66,15 @@ func handleSheetManage(ctx context.Context, svc *Service, token *model.Token, ag
 	}
 	switch strings.ToLower(strings.TrimSpace(args.Action)) {
 	case "rename_sheet":
-		return manageRenameSheet(tctx, svc, token, args)
+		return manageRenameSheet(tctx, svc, token, actor, args)
 	case "archive_sheet":
-		return manageArchiveSheet(tctx, svc, token, args)
+		return manageArchiveSheet(tctx, svc, token, actor, args)
 	case "create_page":
-		return manageCreatePage(tctx, svc, token, args)
+		return manageCreatePage(tctx, svc, token, actor, args)
 	case "rename_page":
-		return manageRenamePage(tctx, svc, token, args)
+		return manageRenamePage(tctx, svc, token, actor, args)
 	case "archive_page":
-		return manageArchivePage(tctx, svc, token, args)
+		return manageArchivePage(tctx, svc, token, actor, args)
 	case "add_field":
 		return manageAddField(tctx, svc, token, actor, args)
 	case "update_field":
@@ -86,9 +86,12 @@ func handleSheetManage(ctx context.Context, svc *Service, token *model.Token, ag
 	}
 }
 
-func manageRenameSheet(ctx context.Context, svc *Service, token *model.Token, args sheetManageArgs) (*mcp.CallToolResult, error) {
+func manageRenameSheet(ctx context.Context, svc *Service, token *model.Token, actor Actor, args sheetManageArgs) (*mcp.CallToolResult, error) {
 	sheetID, errResult := parseSheetToolUUID(args.SheetID, "sheet_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.SheetInChannel(ctx, token.OrgID, actor.ChannelID, sheetID)); errResult != nil {
 		return errResult, nil
 	}
 	if args.Name == nil && args.Description == nil {
@@ -104,9 +107,12 @@ func manageRenameSheet(ctx context.Context, svc *Service, token *model.Token, ar
 	return sheetToolJSON(map[string]any{"sheet": sheetObject(sheet)})
 }
 
-func manageArchiveSheet(ctx context.Context, svc *Service, token *model.Token, args sheetManageArgs) (*mcp.CallToolResult, error) {
+func manageArchiveSheet(ctx context.Context, svc *Service, token *model.Token, actor Actor, args sheetManageArgs) (*mcp.CallToolResult, error) {
 	sheetID, errResult := parseSheetToolUUID(args.SheetID, "sheet_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.SheetInChannel(ctx, token.OrgID, actor.ChannelID, sheetID)); errResult != nil {
 		return errResult, nil
 	}
 	if err := svc.ArchiveSheet(ctx, token.OrgID, sheetID); err != nil {
@@ -115,9 +121,12 @@ func manageArchiveSheet(ctx context.Context, svc *Service, token *model.Token, a
 	return sheetToolJSON(map[string]any{"archived": true, "sheet_id": sheetID.String()})
 }
 
-func manageCreatePage(ctx context.Context, svc *Service, token *model.Token, args sheetManageArgs) (*mcp.CallToolResult, error) {
+func manageCreatePage(ctx context.Context, svc *Service, token *model.Token, actor Actor, args sheetManageArgs) (*mcp.CallToolResult, error) {
 	sheetID, errResult := parseSheetToolUUID(args.SheetID, "sheet_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.SheetInChannel(ctx, token.OrgID, actor.ChannelID, sheetID)); errResult != nil {
 		return errResult, nil
 	}
 	name := ""
@@ -138,9 +147,12 @@ func manageCreatePage(ctx context.Context, svc *Service, token *model.Token, arg
 	}})
 }
 
-func manageRenamePage(ctx context.Context, svc *Service, token *model.Token, args sheetManageArgs) (*mcp.CallToolResult, error) {
+func manageRenamePage(ctx context.Context, svc *Service, token *model.Token, actor Actor, args sheetManageArgs) (*mcp.CallToolResult, error) {
 	pageID, errResult := parseSheetToolUUID(args.PageID, "page_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.PageInChannel(ctx, token.OrgID, actor.ChannelID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	if args.Name == nil || strings.TrimSpace(*args.Name) == "" {
@@ -153,9 +165,12 @@ func manageRenamePage(ctx context.Context, svc *Service, token *model.Token, arg
 	return sheetToolJSON(map[string]any{"page": map[string]any{"id": page.ID.String(), "name": page.Name}})
 }
 
-func manageArchivePage(ctx context.Context, svc *Service, token *model.Token, args sheetManageArgs) (*mcp.CallToolResult, error) {
+func manageArchivePage(ctx context.Context, svc *Service, token *model.Token, actor Actor, args sheetManageArgs) (*mcp.CallToolResult, error) {
 	pageID, errResult := parseSheetToolUUID(args.PageID, "page_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.PageInChannel(ctx, token.OrgID, actor.ChannelID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	if err := svc.ArchivePage(ctx, token.OrgID, pageID); err != nil {
@@ -167,6 +182,9 @@ func manageArchivePage(ctx context.Context, svc *Service, token *model.Token, ar
 func manageAddField(ctx context.Context, svc *Service, token *model.Token, actor Actor, args sheetManageArgs) (*mcp.CallToolResult, error) {
 	pageID, errResult := parseSheetToolUUID(args.PageID, "page_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.PageInChannel(ctx, token.OrgID, actor.ChannelID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	name, fieldType := "", ""
@@ -195,6 +213,9 @@ func manageUpdateField(ctx context.Context, svc *Service, token *model.Token, ac
 	if !ValidFieldID(fieldID) {
 		return sheetToolError("field_id must be a field ID like fld_8k2mx1q9"), nil
 	}
+	if errResult := sheetToolGuardResult(svc.FieldInChannel(ctx, token.OrgID, actor.ChannelID, fieldID)); errResult != nil {
+		return errResult, nil
+	}
 	req := UpdateFieldRequest{Name: args.Name, Type: args.Type}
 	if args.Options != nil {
 		options := model.JSON(args.Options)
@@ -214,6 +235,9 @@ func manageArchiveField(ctx context.Context, svc *Service, token *model.Token, a
 	fieldID := strings.TrimSpace(args.FieldID)
 	if !ValidFieldID(fieldID) {
 		return sheetToolError("field_id must be a field ID like fld_8k2mx1q9"), nil
+	}
+	if errResult := sheetToolGuardResult(svc.FieldInChannel(ctx, token.OrgID, actor.ChannelID, fieldID)); errResult != nil {
+		return errResult, nil
 	}
 	if err := svc.ArchiveField(ctx, token.OrgID, fieldID, actor); err != nil {
 		return sheetToolError(err.Error()), nil

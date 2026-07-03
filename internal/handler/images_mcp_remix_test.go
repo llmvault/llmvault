@@ -73,7 +73,7 @@ func TestImageGenerationMCPRemixGeneratesFromDriveReference(t *testing.T) {
 		ID:          uuid.New(),
 		OrgID:       h.orgID,
 		AgentID:     h.agentID,
-		SandboxID:   h.sandboxID,
+		SandboxID:   &h.sandboxID,
 		Path:        "uploads",
 		Filename:    "remix-ref.png",
 		Key:         stored.Key,

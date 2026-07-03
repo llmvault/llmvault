@@ -3313,7 +3313,7 @@
                     "type": "string"
                   },
                   "session_id": {
-                    "description": "Destination session ID",
+                    "description": "Destination session ID (omit for pre-session uploads)",
                     "type": "string"
                   },
                   "path": {
@@ -3328,7 +3328,6 @@
                 },
                 "required": [
                   "agent_id",
-                  "session_id",
                   "file"
                 ]
               }
@@ -18445,6 +18444,12 @@
           },
           "text": {
             "type": "string"
+          },
+          "attachment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

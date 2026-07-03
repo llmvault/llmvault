@@ -11,6 +11,7 @@ import {
   invalidateSessionListQueries,
   type ChannelResponse,
 } from "@/app/w/(chat)/_lib/chat-cache"
+import { AgentSelect } from "@/components/agent-select"
 import { cn } from "@/lib/utils"
 
 type Connection = components["schemas"]["connectionResponse"]
@@ -47,6 +48,7 @@ function ChannelCreateModalContent({
   const queryClient = useQueryClient()
   const [selectedConnectionID, setSelectedConnectionID] = useState("")
   const [selectedChannelID, setSelectedChannelID] = useState("")
+  const [selectedAgentID, setSelectedAgentID] = useState("")
   const [search, setSearch] = useState("")
   const connectionsQuery = $api.useQuery(
     "get",
@@ -80,6 +82,19 @@ function ChannelCreateModalContent({
       retry: false,
     }
   )
+  const agentsQuery = $api.useQuery(
+    "get",
+    "/v1/agents",
+    { params: { query: { status: "active", limit: 100 } } },
+    { retry: false }
+  )
+  const agents = useMemo(
+    () => agentsQuery.data?.data ?? [],
+    [agentsQuery.data?.data]
+  )
+  const defaultAgentID =
+    agents.find((agent) => agent.is_default)?.id ?? agents[0]?.id ?? ""
+  const activeAgentID = selectedAgentID || defaultAgentID
   const createChannel = $api.useMutation("post", "/v1/channels")
   const resources = useMemo(
     () => (resourcesQuery.data?.resources ?? []) as AvailableResource[],
@@ -110,7 +125,8 @@ function ChannelCreateModalContent({
   }
 
   function handleCreate() {
-    if (!selectedConnection?.id || !selectedResource?.id) return
+    if (!selectedConnection?.id || !selectedResource?.id || !activeAgentID)
+      return
     createChannel.mutate(
       {
         body: {
@@ -121,6 +137,7 @@ function ChannelCreateModalContent({
           external_resource_type: SLACK_CHANNEL_RESOURCE_TYPE,
           external_resource_key: selectedResource.id,
           external_resource_name: selectedResource.name || selectedResource.id,
+          default_agent_id: activeAgentID,
         },
       },
       {
@@ -266,6 +283,21 @@ function ChannelCreateModalContent({
                     </>
                   )}
                 </section>
+
+                <section className="flex flex-col gap-2">
+                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
+                    Agent
+                  </h3>
+                  <p className="text-sm text-muted">
+                    Mentions in this channel are handled by this agent.
+                  </p>
+                  <AgentSelect
+                    agents={agents}
+                    selectedAgentID={activeAgentID}
+                    isLoading={agentsQuery.isLoading}
+                    onChange={setSelectedAgentID}
+                  />
+                </section>
               </div>
 
               <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
@@ -282,6 +314,7 @@ function ChannelCreateModalContent({
                   variant="primary"
                   isDisabled={
                     !selectedResource?.id ||
+                    !activeAgentID ||
                     createChannel.isPending ||
                     resourcesQuery.isLoading
                   }

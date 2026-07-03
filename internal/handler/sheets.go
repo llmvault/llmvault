@@ -59,6 +59,7 @@ type sheetPageSpecRequest struct {
 }
 
 type createSheetRequest struct {
+	ChannelID   string                 `json:"channel_id"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
 	Icon        string                 `json:"icon,omitempty"`
@@ -81,8 +82,17 @@ func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	channelID, err := uuid.Parse(r.URL.Query().Get("channel_id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+		return
+	}
+	if !h.canUseSheetChannel(r.Context(), org.ID, channelID) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
+		return
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	result, nextCursor, err := h.svc.ListSheets(r.Context(), org.ID, r.URL.Query().Get("search"), limit, r.URL.Query().Get("cursor"))
+	result, nextCursor, err := h.svc.ListSheets(r.Context(), org.ID, channelID, r.URL.Query().Get("search"), limit, r.URL.Query().Get("cursor"))
 	if err != nil {
 		writeSheetsError(w, r, err)
 		return
@@ -108,6 +118,15 @@ func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
 		return
 	}
+	channelID, err := uuid.Parse(req.ChannelID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+		return
+	}
+	if !h.canUseSheetChannel(r.Context(), org.ID, channelID) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
+		return
+	}
 	create := sheets.CreateSheetRequest{
 		Name: req.Name, Description: req.Description,
 		Icon: req.Icon, Slug: req.Slug,
@@ -117,7 +136,9 @@ func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 			Name: page.Name, Fields: fieldSpecsFrom(page.Fields),
 		})
 	}
-	structure, err := h.svc.CreateSheet(r.Context(), org.ID, create, sheetsActor(r))
+	actor := sheetsActor(r)
+	actor.ChannelID = channelID
+	structure, err := h.svc.CreateSheet(r.Context(), org.ID, create, actor)
 	if err != nil {
 		writeSheetsError(w, r, err)
 		return

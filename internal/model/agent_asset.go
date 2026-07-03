@@ -12,8 +12,10 @@ type AgentAsset struct {
 	Org       Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
 	AgentID   uuid.UUID `gorm:"type:uuid;not null;index:idx_emp_asset_agent_created,priority:1"`
 	Agent     Agent     `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
-	SandboxID uuid.UUID `gorm:"type:uuid;not null"`
-	Sandbox   Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:CASCADE"`
+	// SandboxID is nil for assets uploaded before a session exists (new-chat
+	// composer attachments).
+	SandboxID *uuid.UUID `gorm:"type:uuid"`
+	Sandbox   *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:CASCADE"`
 
 	Path        string   `gorm:"type:text;not null"`
 	Filename    string   `gorm:"type:text;not null"`

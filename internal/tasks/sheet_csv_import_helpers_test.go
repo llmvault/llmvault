@@ -92,7 +92,9 @@ func newSheetImportFixture(t *testing.T, fields []sheets.FieldSpec) *sheetImport
 	}
 	f.org = model.Org{ID: uuid.New(), Name: "csvimport-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	f.user = model.User{ID: uuid.New(), Email: "csvimport-" + uuid.NewString() + "@example.com", Name: "Importer"}
-	for _, seed := range []any{&f.org, &f.user} {
+	agent := model.Agent{ID: uuid.New(), OrgID: &f.org.ID, Name: "Import Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	channel := model.Channel{ID: uuid.New(), OrgID: f.org.ID, Name: "csvimport-ch-" + uuid.NewString(), DefaultAgentID: agent.ID}
+	for _, seed := range []any{&f.org, &f.user, &agent, &channel} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("seed fixture record: %v", err)
 		}
@@ -105,7 +107,7 @@ func newSheetImportFixture(t *testing.T, fields []sheets.FieldSpec) *sheetImport
 	sheet, err := f.svc.CreateSheet(context.Background(), f.org.ID, sheets.CreateSheetRequest{
 		Name:  "Import " + uuid.NewString(),
 		Pages: []sheets.PageSpec{{Name: "Data", Fields: fields}},
-	}, sheets.Actor{UserID: &f.user.ID})
+	}, sheets.Actor{UserID: &f.user.ID, ChannelID: channel.ID})
 	if err != nil {
 		t.Fatalf("create fixture sheet: %v", err)
 	}

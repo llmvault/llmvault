@@ -1,7 +1,6 @@
 package sheets
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,8 +9,8 @@ import (
 // TestSheetToolsLifecycle drives sheet_create, sheet_list, sheet_describe,
 // and every sheet_manage action end to end against the test DB.
 func TestSheetToolsLifecycle(t *testing.T) {
-	ctx := context.Background()
 	fixture, client := setupSheetTools(t)
+	ctx := fixture.toolCtx()
 
 	name := "Tool Lifecycle " + uuid.NewString()
 	created := callSheetTool(t, ctx, client, toolSheetCreate, map[string]any{

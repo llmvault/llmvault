@@ -51,6 +51,7 @@ export function Picker({
         />
       </Popover.Trigger>
       <Popover.Content
+        placement="bottom start"
         className={`${width} rounded-2xl border border-border p-1.5`}
       >
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
@@ -82,7 +83,7 @@ export function PickerButton({
     <button
       type="button"
       onClick={onPress}
-      className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+      className="hover:bg-default flex shrink-0 items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
     >
       {agent ? (
         <AgentLogo agent={agent} className="h-5 w-5 rounded-md" />
@@ -94,7 +95,7 @@ export function PickerButton({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{children}</span>
         {description ? (
-          <span className="text-xs text-muted">{description}</span>
+          <span className="truncate text-xs text-muted">{description}</span>
         ) : null}
       </span>
       {selected ? <AppIcon icon="check" className="h-4 w-4" /> : null}

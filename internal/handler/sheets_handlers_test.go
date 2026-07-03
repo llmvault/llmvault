@@ -46,9 +46,10 @@ func TestSheetsOrgIsolation(t *testing.T) {
 
 func TestSheetsListCursorPagination(t *testing.T) {
 	h := newSheetsHarness(t)
-	// The harness already created one sheet; add two more so the org has 3.
+	channelID := h.channel.ID.String()
+	// The harness already created one sheet; add two more so the channel has 3.
 	for _, name := range []string{"Cursor B", "Cursor C"} {
-		resp := h.do(t, &h.org, http.MethodPost, "/v1/sheets", map[string]any{"name": name})
+		resp := h.do(t, &h.org, http.MethodPost, "/v1/sheets", map[string]any{"name": name, "channel_id": channelID})
 		if resp.Code != http.StatusCreated {
 			t.Fatalf("create sheet %q status=%d body=%s", name, resp.Code, resp.Body.String())
 		}
@@ -60,11 +61,11 @@ func TestSheetsListCursorPagination(t *testing.T) {
 		} `json:"sheets"`
 		NextCursor string `json:"next_cursor"`
 	}
-	fetch := func(query string) listPage {
+	fetch := func(extra string) listPage {
 		t.Helper()
-		resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets"+query, nil)
+		resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets?channel_id="+channelID+extra, nil)
 		if resp.Code != http.StatusOK {
-			t.Fatalf("list %q status=%d body=%s", query, resp.Code, resp.Body.String())
+			t.Fatalf("list %q status=%d body=%s", extra, resp.Code, resp.Body.String())
 		}
 		var page listPage
 		if err := json.Unmarshal(resp.Body.Bytes(), &page); err != nil {
@@ -77,7 +78,7 @@ func TestSheetsListCursorPagination(t *testing.T) {
 	cursor := ""
 	pages := 0
 	for {
-		query := "?limit=2"
+		query := "&limit=2"
 		if cursor != "" {
 			query += "&cursor=" + cursor
 		}
@@ -112,7 +113,7 @@ func TestSheetsListCursorPagination(t *testing.T) {
 	}
 
 	// Garbage cursors are a 400, not a 500.
-	resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets?cursor=not-a-cursor", nil)
+	resp := h.do(t, &h.org, http.MethodGet, "/v1/sheets?channel_id="+channelID+"&cursor=not-a-cursor", nil)
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("bad cursor status=%d body=%s", resp.Code, resp.Body.String())
 	}

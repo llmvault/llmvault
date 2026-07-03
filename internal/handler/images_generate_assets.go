@@ -139,7 +139,7 @@ func (h *UploadsHandler) storeGeneratedImages(ctx context.Context, agent *model.
 		asset := model.AgentAsset{
 			AgentID:     agent.ID,
 			OrgID:       *agent.OrgID,
-			SandboxID:   sandbox.ID,
+			SandboxID:   &sandbox.ID,
 			Path:        folder,
 			Filename:    filename,
 			Key:         stored.Key,

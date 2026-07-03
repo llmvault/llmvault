@@ -29,6 +29,9 @@ type sheetsHarness struct {
 	other   model.Org
 	user    model.User
 
+	channel      model.Channel
+	otherChannel model.Channel
+
 	sheet  *sheets.SheetStructure
 	page   sheets.PageStructure
 	fields map[string]string // field name -> id
@@ -53,8 +56,24 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 	if err := db.Create(&h.user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
+	// The user is an org member so channel-access checks resolve a role; the
+	// channels are native, non-team, so any member may use them.
+	membership := model.OrgMembership{UserID: h.user.ID, OrgID: h.org.ID, Role: "member"}
+	if err := db.Create(&membership).Error; err != nil {
+		t.Fatalf("create org membership: %v", err)
+	}
+	agent := h.createAgent(t, h.org.ID)
+	otherAgent := h.createAgent(t, h.other.ID)
+	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: agent.ID}
+	h.otherChannel = model.Channel{ID: uuid.New(), OrgID: h.other.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: otherAgent.ID}
+	for _, ch := range []*model.Channel{&h.channel, &h.otherChannel} {
+		if err := db.Create(ch).Error; err != nil {
+			t.Fatalf("create channel: %v", err)
+		}
+	}
 	t.Cleanup(func() {
 		db.Delete(&model.Sheet{}, "org_id IN ?", []uuid.UUID{h.org.ID, h.other.ID})
+		db.Delete(&model.OrgMembership{}, "user_id = ?", h.user.ID)
 		db.Delete(&model.User{}, "id = ?", h.user.ID)
 	})
 
@@ -66,7 +85,7 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 			{Name: "Score", Type: sheets.FieldTypeNumber},
 			{Name: "Mail", Type: sheets.FieldTypeEmail},
 		}}},
-	}, sheets.Actor{UserID: &h.user.ID})
+	}, sheets.Actor{UserID: &h.user.ID, ChannelID: h.channel.ID})
 	if err != nil {
 		t.Fatalf("create sheet: %v", err)
 	}
@@ -82,7 +101,7 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 		Pages: []sheets.PageSpec{{Name: "Secrets", Fields: []sheets.FieldSpec{
 			{Name: "Secret", Type: sheets.FieldTypeText},
 		}}},
-	}, sheets.Actor{})
+	}, sheets.Actor{ChannelID: h.otherChannel.ID})
 	if err != nil {
 		t.Fatalf("create other sheet: %v", err)
 	}
@@ -107,6 +126,7 @@ func newSheetsRouter(sheetsHandler *handler.SheetsHandler) *chi.Mux {
 			r.Post("/", sheetsHandler.CreateSheet)
 			r.Get("/imports/{jobID}", sheetsHandler.GetImportJob)
 			r.Route("/{sheetID}", func(r chi.Router) {
+				r.Use(sheetsHandler.RequireChannelAccess)
 				r.Get("/", sheetsHandler.GetSheet)
 				r.Patch("/", sheetsHandler.UpdateSheet)
 				r.Delete("/", sheetsHandler.ArchiveSheet)

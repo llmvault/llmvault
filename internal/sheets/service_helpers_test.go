@@ -13,13 +13,17 @@ import (
 )
 
 type sheetsFixture struct {
-	db       *gorm.DB
-	svc      *Service
-	org      model.Org
-	otherOrg model.Org
-	user     model.User
-	agent    model.Agent
-	actor    Actor
+	db           *gorm.DB
+	svc          *Service
+	org          model.Org
+	otherOrg     model.Org
+	user         model.User
+	agent        model.Agent
+	otherAgent   model.Agent
+	channel      model.Channel
+	otherChannel model.Channel
+	session      model.Session
+	actor        Actor
 
 	sheet     *SheetStructure
 	leads     PageStructure // page with one field per type (relation added below)
@@ -52,7 +56,11 @@ func seedSheetsFixture(t *testing.T, db *gorm.DB) *sheetsFixture {
 	f.otherOrg = model.Org{ID: uuid.New(), Name: "sheets-other-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	f.user = model.User{ID: uuid.New(), Email: "sheets-" + uuid.NewString() + "@example.com", Name: "Sheets Tester"}
 	f.agent = model.Agent{ID: uuid.New(), OrgID: &f.org.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	for _, seed := range []any{&f.org, &f.otherOrg, &f.user, &f.agent} {
+	f.otherAgent = model.Agent{ID: uuid.New(), OrgID: &f.otherOrg.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	f.channel = model.Channel{ID: uuid.New(), OrgID: f.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.agent.ID}
+	f.otherChannel = model.Channel{ID: uuid.New(), OrgID: f.otherOrg.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.otherAgent.ID}
+	f.session = model.Session{ID: uuid.New(), OrgID: f.org.ID, ChannelID: f.channel.ID, AgentID: f.agent.ID}
+	for _, seed := range []any{&f.org, &f.otherOrg, &f.user, &f.agent, &f.otherAgent, &f.channel, &f.otherChannel, &f.session} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("seed fixture record: %v", err)
 		}
@@ -61,7 +69,7 @@ func seedSheetsFixture(t *testing.T, db *gorm.DB) *sheetsFixture {
 		db.Delete(&model.Org{}, "id IN ?", []uuid.UUID{f.org.ID, f.otherOrg.ID})
 		db.Delete(&model.User{}, "id = ?", f.user.ID)
 	})
-	f.actor = Actor{AgentID: &f.agent.ID}
+	f.actor = Actor{AgentID: &f.agent.ID, ChannelID: f.channel.ID}
 
 	sheet, err := f.svc.CreateSheet(ctx, f.org.ID, CreateSheetRequest{
 		Name: "Leads " + uuid.NewString(),
@@ -96,7 +104,7 @@ func seedSheetsFixture(t *testing.T, db *gorm.DB) *sheetsFixture {
 		Pages: []PageSpec{{Name: "Other", Fields: []FieldSpec{
 			{Name: "Secret", Type: FieldTypeText},
 		}}},
-	}, Actor{})
+	}, Actor{ChannelID: f.otherChannel.ID})
 	if err != nil {
 		t.Fatalf("create other-org sheet: %v", err)
 	}

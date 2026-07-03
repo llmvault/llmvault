@@ -43,7 +43,7 @@ func seedAssetRow(t *testing.T, db *gorm.DB, orgID, agentID, sandboxID uuid.UUID
 		ID:          uuid.New(),
 		OrgID:       orgID,
 		AgentID:     agentID,
-		SandboxID:   sandboxID,
+		SandboxID:   &sandboxID,
 		Path:        folder,
 		Filename:    filename,
 		Key:         key,

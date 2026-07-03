@@ -91,7 +91,7 @@ func seedSessionImageAsset(t *testing.T, h *sessionHarness, fx sessionFixture, s
 		ID:          uuid.New(),
 		OrgID:       fx.org.ID,
 		AgentID:     fx.agent.ID,
-		SandboxID:   sandboxID,
+		SandboxID:   &sandboxID,
 		Path:        "uploads",
 		Filename:    "screen.png",
 		Key:         "pub/e/" + fx.agent.ID.String() + "/uploads/screen.png",

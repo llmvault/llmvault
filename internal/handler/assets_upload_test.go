@@ -63,7 +63,7 @@ func TestUploadAgentAsset_ImageCreatesDriveAsset(t *testing.T) {
 	if err := h.db.Where("id = ?", resp.ID).First(&row).Error; err != nil {
 		t.Fatalf("load asset row: %v", err)
 	}
-	if row.OrgID != h.orgID || row.AgentID != h.agentID || row.SandboxID != h.sandboxID {
+	if row.OrgID != h.orgID || row.AgentID != h.agentID || row.SandboxID == nil || *row.SandboxID != h.sandboxID {
 		t.Fatalf("asset ownership mismatch: %+v", row)
 	}
 }

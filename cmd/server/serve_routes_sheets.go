@@ -51,6 +51,7 @@ func mountSheetRoutes(r chi.Router, database *gorm.DB, sheetsHandler *handler.Sh
 		r.Post("/", sheetsHandler.CreateSheet)
 		r.Get("/imports/{jobID}", sheetsHandler.GetImportJob)
 		r.Route("/{sheetID}", func(r chi.Router) {
+			r.Use(sheetsHandler.RequireChannelAccess)
 			r.Get("/", sheetsHandler.GetSheet)
 			r.Patch("/", sheetsHandler.UpdateSheet)
 			r.Delete("/", sheetsHandler.ArchiveSheet)

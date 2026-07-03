@@ -37,6 +37,7 @@ import {
   type RecordingTranscriptIntent,
 } from "@/hooks/use-composer-audio-recording"
 import { useSessionAudioTranscription } from "@/hooks/use-session-audio-transcription"
+import { useOrgAudioTranscription } from "@/hooks/use-org-audio-transcription"
 import { ComposerLineComments } from "./composer-line-comments"
 import { MicrophonePermissionModal } from "./microphone-permission-modal"
 import { RecordingWaveform } from "./recording-waveform"
@@ -44,12 +45,12 @@ import { displayModel, ModelIcon } from "./model-display"
 import { useSessionUsageSummary } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { SessionSpendPill } from "./session-spend-pill"
 import {
-  agentDisplayName,
   channelDisplayName,
   type SidebarAgentResponse,
   type SidebarChannelResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
+import { AgentSelect } from "@/components/agent-select"
 import { Picker, PickerButton } from "./chat-picker"
 import { PickerText } from "./chat-picker-text"
 
@@ -65,6 +66,7 @@ export function Composer({
   isDisabled = false,
   isSubmitting = false,
   onStop,
+  sessionExists = true,
   attachmentsEnabled = true,
   audioEnabled = true,
   spendVisible = true,
@@ -101,7 +103,10 @@ export function Composer({
   isDisabled?: boolean
   isSubmitting?: boolean
   onStop?: () => void
-  // Session-only affordances; turn off where no session exists yet.
+  // False on the new-chat screen: uploads/describe/transcription then run
+  // without a session (org-scoped) and sessionId is just the draft key.
+  sessionExists?: boolean
+  // Session-only affordances; turn off where unwanted.
   attachmentsEnabled?: boolean
   audioEnabled?: boolean
   spendVisible?: boolean
@@ -146,8 +151,9 @@ export function Composer({
     (state) => state.setComposerEffort
   )
   const [channelOpen, setChannelOpen] = useState(false)
-  const [agentOpen, setAgentOpen] = useState(false)
+  const [channelQuery, setChannelQuery] = useState("")
   const [modelOpen, setModelOpen] = useState(false)
+  const [modelQuery, setModelQuery] = useState("")
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
   const attachmentDescriptions = workspace.composer.attachmentDescriptions
@@ -159,13 +165,29 @@ export function Composer({
     "/v1/images/describe"
   )
   const { uploads, addFiles, retryUpload, removeUpload } =
-    useOrgDriveFileUploads({ agentId, sessionId })
+    useOrgDriveFileUploads({ agentId, sessionId, sessionExists })
 
   const selectedModel = displayModel(modelId, modelSummaries)
   const modelOptions = useMemo(
     () => modelIds.map((id) => displayModel(id, modelSummaries)),
     [modelIds, modelSummaries]
   )
+  const filteredModelOptions = useMemo(() => {
+    const query = modelQuery.trim().toLowerCase()
+    if (!query) return modelOptions
+    return modelOptions.filter(
+      (entry) =>
+        entry.label.toLowerCase().includes(query) ||
+        entry.id.toLowerCase().includes(query)
+    )
+  }, [modelOptions, modelQuery])
+  const filteredChannels = useMemo(() => {
+    const query = channelQuery.trim().toLowerCase()
+    if (!query) return channels
+    return channels.filter((entry) =>
+      channelDisplayName(entry).toLowerCase().includes(query)
+    )
+  }, [channels, channelQuery])
   const attachments = useMemo(
     () =>
       uploads.map((upload): ComposerImageAttachment => {
@@ -241,7 +263,7 @@ export function Composer({
             body: {
               drive_asset_id: upload.asset.id,
               detail_level: "high",
-              session_id: sessionId,
+              ...(sessionExists ? { session_id: sessionId } : {}),
             },
           })
         )
@@ -262,7 +284,7 @@ export function Composer({
         }))
       }
     },
-    [describeDriveImage, sessionId, setAttachmentDescriptions]
+    [describeDriveImage, sessionExists, sessionId, setAttachmentDescriptions]
   )
 
   useEffect(() => {
@@ -459,6 +481,12 @@ export function Composer({
     ]
   )
 
+  const sessionTranscription = useSessionAudioTranscription({
+    agentId,
+    sessionId,
+  })
+  const orgTranscription = useOrgAudioTranscription()
+
   const {
     audioData,
     formattedRecordingTime,
@@ -474,7 +502,7 @@ export function Composer({
   } = useComposerAudioRecording({
     isStreaming: isStreaming || isDisabled,
     onTranscript: handleRecordingTranscript,
-    transcription: useSessionAudioTranscription({ agentId, sessionId }),
+    transcription: sessionExists ? sessionTranscription : orgTranscription,
   })
 
   const submit = async () => {
@@ -550,7 +578,7 @@ export function Composer({
           <div className="flex items-center gap-1">
             {attachmentsEnabled ? (
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 isIconOnly
                 aria-label="Attach image"
@@ -564,7 +592,10 @@ export function Composer({
             {channelSelectable ? (
               <Picker
                 open={channelOpen}
-                setOpen={setChannelOpen}
+                setOpen={(open) => {
+                  setChannelOpen(open)
+                  if (!open) setChannelQuery("")
+                }}
                 label="Select channel"
                 icon="hash"
                 value={
@@ -576,66 +607,55 @@ export function Composer({
                 }
                 width="w-64"
               >
-                {channelsLoading ? (
-                  <PickerText>Loading channels</PickerText>
-                ) : channelsError ? (
-                  <PickerText>Could not load channels</PickerText>
-                ) : channels.length ? (
-                  channels.map((entry) => (
-                    <PickerButton
-                      key={entry.id ?? channelDisplayName(entry)}
-                      icon="hash"
-                      selected={entry.id === channel?.id}
-                      onPress={() => {
-                        onChannelChange?.(entry)
-                        setChannelOpen(false)
-                      }}
-                    >
-                      {channelDisplayName(entry)}
-                    </PickerButton>
-                  ))
-                ) : (
-                  <PickerText>No channels</PickerText>
-                )}
+                <input
+                  type="text"
+                  value={channelQuery}
+                  onChange={(event) => setChannelQuery(event.target.value)}
+                  placeholder="Search channels"
+                  aria-label="Search channels"
+                  className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
+                />
+                <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+                  {channelsLoading ? (
+                    <PickerText>Loading channels</PickerText>
+                  ) : channelsError ? (
+                    <PickerText>Could not load channels</PickerText>
+                  ) : filteredChannels.length ? (
+                    filteredChannels.map((entry) => (
+                      <PickerButton
+                        key={entry.id ?? channelDisplayName(entry)}
+                        icon="hash"
+                        selected={entry.id === channel?.id}
+                        onPress={() => {
+                          onChannelChange?.(entry)
+                          setChannelOpen(false)
+                        }}
+                      >
+                        {channelDisplayName(entry)}
+                      </PickerButton>
+                    ))
+                  ) : (
+                    <PickerText>No matching channels</PickerText>
+                  )}
+                </div>
               </Picker>
             ) : null}
             {agentSelectable ? (
-              <Picker
-                open={agentOpen}
-                setOpen={setAgentOpen}
-                label="Select agent"
-                agent={agent}
-                value={
-                  agentsLoading
-                    ? "Loading agents"
-                    : agent
-                      ? agentDisplayName(agent)
-                      : "Select agent"
-                }
-                width="w-72"
-              >
-                {agentsLoading ? (
-                  <PickerText>Loading agents</PickerText>
-                ) : agentsError ? (
-                  <PickerText>Could not load agents</PickerText>
-                ) : agents.length ? (
-                  agents.map((entry) => (
-                    <PickerButton
-                      key={entry.id ?? agentDisplayName(entry)}
-                      agent={entry}
-                      selected={entry.id === agent?.id}
-                      onPress={() => {
-                        onAgentChange?.(entry)
-                        setAgentOpen(false)
-                      }}
-                    >
-                      {agentDisplayName(entry)}
-                    </PickerButton>
-                  ))
-                ) : (
-                  <PickerText>No agents</PickerText>
-                )}
-              </Picker>
+              agentsError ? (
+                <span className="px-2 py-1.5 text-sm text-muted">
+                  Could not load agents
+                </span>
+              ) : (
+                <AgentSelect
+                  agents={agents}
+                  selectedAgentID={agent?.id ?? ""}
+                  isLoading={agentsLoading}
+                  onChange={(agentID) => {
+                    const entry = agents.find((item) => item.id === agentID)
+                    if (entry) onAgentChange?.(entry)
+                  }}
+                />
+              )
             ) : null}
 
             {recordingActive ? (
@@ -657,34 +677,44 @@ export function Composer({
                 {modelSelectable ? (
                   <Picker
                     open={modelOpen}
-                    setOpen={setModelOpen}
+                    setOpen={(open) => {
+                      setModelOpen(open)
+                      if (!open) setModelQuery("")
+                    }}
                     label="Select model"
                     model={selectedModel}
                     value={selectedModel.label}
                     suffix={effort}
-                    width="w-64"
+                    width="w-80"
                   >
-                    <span className="px-2.5 pt-1.5 pb-1 text-xs text-muted">
-                      Models
-                    </span>
-                    {modelsLoading && modelOptions.length === 0 ? (
-                      <PickerText>Loading models</PickerText>
-                    ) : modelsError && modelOptions.length === 0 ? (
-                      <PickerText>Could not load models</PickerText>
-                    ) : modelOptions.length ? (
-                      modelOptions.map((entry) => (
-                        <PickerButton
-                          key={entry.id}
-                          model={entry}
-                          selected={entry.id === modelId}
-                          onPress={() => onModelChange?.(entry.id)}
-                        >
-                          {entry.label}
-                        </PickerButton>
-                      ))
-                    ) : (
-                      <PickerText>No models</PickerText>
-                    )}
+                    <input
+                      type="text"
+                      value={modelQuery}
+                      onChange={(event) => setModelQuery(event.target.value)}
+                      placeholder="Search models"
+                      aria-label="Search models"
+                      className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
+                    />
+                    <div className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
+                      {modelsLoading && modelOptions.length === 0 ? (
+                        <PickerText>Loading models</PickerText>
+                      ) : modelsError && modelOptions.length === 0 ? (
+                        <PickerText>Could not load models</PickerText>
+                      ) : filteredModelOptions.length ? (
+                        filteredModelOptions.map((entry) => (
+                          <PickerButton
+                            key={entry.id}
+                            model={entry}
+                            selected={entry.id === modelId}
+                            onPress={() => onModelChange?.(entry.id)}
+                          >
+                            {entry.label}
+                          </PickerButton>
+                        ))
+                      ) : (
+                        <PickerText>No matching models</PickerText>
+                      )}
+                    </div>
                     <span className="px-2.5 pt-2 pb-1 text-xs text-muted">
                       Reasoning effort
                     </span>

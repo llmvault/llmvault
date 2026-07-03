@@ -189,7 +189,7 @@ func seedSessionAudioAsset(t *testing.T, h *sessionHarness, fx sessionFixture, f
 		ID:          uuid.New(),
 		OrgID:       fx.org.ID,
 		AgentID:     fx.agent.ID,
-		SandboxID:   sandbox.ID,
+		SandboxID:   &sandbox.ID,
 		Path:        "uploads",
 		Filename:    filename,
 		Key:         "pub/e/" + fx.agent.ID.String() + "/uploads/" + filename,

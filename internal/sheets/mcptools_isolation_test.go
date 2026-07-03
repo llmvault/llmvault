@@ -1,7 +1,6 @@
 package sheets
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,8 +12,8 @@ import (
 // neither see nor touch org B's sheets through ANY of the eight tools
 // (KI-07 class). The fixture's otherOrg sheet/page/row are the targets.
 func TestSheetToolsOrgIsolation(t *testing.T) {
-	ctx := context.Background()
 	fixture, client := setupSheetTools(t)
+	ctx := fixture.toolCtx()
 	otherSheet := fixture.otherSheet.Sheet.ID.String()
 	otherPage := fixture.otherPage.Page.ID.String()
 	otherField := fixture.otherPage.Fields[0].ID

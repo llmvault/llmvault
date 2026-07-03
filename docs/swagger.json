@@ -2680,10 +2680,10 @@
                     },
                     {
                         "type": "string",
-                        "description": "Destination session ID",
+                        "description": "Destination session ID (omit for pre-session uploads)",
                         "name": "session_id",
                         "in": "formData",
-                        "required": true
+                        "required": false
                     },
                     {
                         "type": "string",
@@ -12685,6 +12685,12 @@
                 },
                 "text": {
                     "type": "string"
+                },
+                "attachment_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

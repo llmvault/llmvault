@@ -73,7 +73,7 @@ func (h *ImageDescribeHandler) trackImageDescribeUsage(ctx context.Context, cred
 		TokenJTI:        "system:images.describe",
 		UserID:          userID,
 		Session:         session,
-		SandboxID:       &asset.SandboxID,
+		SandboxID:       asset.SandboxID,
 		Credential:      cred,
 		InputTokens:     res.Usage.InputTokens,
 		OutputTokens:    res.Usage.OutputTokens,

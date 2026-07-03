@@ -26,6 +26,7 @@ type rowsQueryArgs struct {
 	Cursor           string          `json:"cursor"`
 	Limit            int             `json:"limit"`
 	ResolveRelations bool            `json:"resolve_relations"`
+	HivySessionID    string          `json:"_hivy_session_id"`
 }
 
 func registerRowsQuery(server *mcp.Server, svc *Service, token *model.Token) {
@@ -76,6 +77,13 @@ func handleRowsQuery(ctx context.Context, svc *Service, token *model.Token, args
 	defer cancel()
 	pageID, errResult := parseSheetToolUUID(args.PageID, "page_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.PageInChannel(tctx, token.OrgID, channelID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	sorts, err := sheetToolSorts(args.Sorts)
@@ -194,6 +202,9 @@ func handleRowsWrite(ctx context.Context, svc *Service, token *model.Token, agen
 	actor, err := svc.sheetToolActor(tctx, token, agentID, args.HivySessionID)
 	if err != nil {
 		return sheetToolError(err.Error()), nil
+	}
+	if errResult := sheetToolGuardResult(svc.PageInChannel(tctx, token.OrgID, actor.ChannelID, pageID)); errResult != nil {
+		return errResult, nil
 	}
 	switch strings.ToLower(strings.TrimSpace(args.Action)) {
 	case "insert":

@@ -107,28 +107,44 @@ func sheetToolAgentID(token *model.Token) (uuid.UUID, error) {
 	return agentID, nil
 }
 
-// sheetToolActor resolves the mutation Actor: the calling agent plus the
-// runtime-injected _hivy_session_id (recorded as source_session_id on
-// created sheets/rows/operations). The session, when present, must belong to
-// the caller's org.
+// sheetToolActor resolves the mutation Actor: the calling agent plus the channel
+// and session derived from the runtime-injected _hivy_session_id. Sheets are
+// channel-scoped, so a valid session (and thus its channel) is required on every
+// mutating sheets tool call; the session is recorded as source_session_id and the
+// channel scopes what the agent may create and touch.
 func (s *Service) sheetToolActor(ctx context.Context, token *model.Token, agentID uuid.UUID, rawSessionID string) (Actor, error) {
 	actor := Actor{AgentID: &agentID}
+	channelID, sessionID, err := s.sheetToolChannel(ctx, token, rawSessionID)
+	if err != nil {
+		return actor, err
+	}
+	actor.SessionID = &sessionID
+	actor.ChannelID = channelID
+	return actor, nil
+}
+
+// sheetToolChannel resolves the agent's current channel and session from the
+// runtime-injected _hivy_session_id. The value is server-controlled and cannot be
+// forged by the model. A session is mandatory: sheets are channel-scoped and the
+// channel is derived from session.ChannelID (a NOT NULL column, so every session
+// has one). Returns (channelID, sessionID, error).
+func (s *Service) sheetToolChannel(ctx context.Context, token *model.Token, rawSessionID string) (uuid.UUID, uuid.UUID, error) {
 	sessionIDText := strings.TrimSpace(rawSessionID)
 	if sessionIDText == "" {
-		return actor, nil
+		return uuid.Nil, uuid.Nil, fmt.Errorf("sheets tools must be called from within a session")
 	}
 	sessionID, err := uuid.Parse(sessionIDText)
 	if err != nil || sessionID == uuid.Nil {
-		return actor, fmt.Errorf("_hivy_session_id must be a valid UUID")
+		return uuid.Nil, uuid.Nil, fmt.Errorf("_hivy_session_id must be a valid UUID")
 	}
-	var count int64
-	if err := s.db.WithContext(ctx).Model(&model.Session{}).
+	var session model.Session
+	if err := s.db.WithContext(ctx).
+		Select("id", "channel_id").
 		Where("id = ? AND org_id = ?", sessionID, token.OrgID).
-		Count(&count).Error; err != nil || count == 0 {
-		return actor, fmt.Errorf("session not found in this org")
+		First(&session).Error; err != nil {
+		return uuid.Nil, uuid.Nil, fmt.Errorf("session not found in this org")
 	}
-	actor.SessionID = &sessionID
-	return actor, nil
+	return session.ChannelID, sessionID, nil
 }
 
 // --- shared plumbing ---------------------------------------------------------
@@ -168,6 +184,25 @@ func parseSheetToolUUID(raw, name string) (uuid.UUID, *mcp.CallToolResult) {
 		return uuid.Nil, sheetToolError(name + " must be a valid UUID")
 	}
 	return id, nil
+}
+
+// sheetToolChannelResult resolves the agent's current channel for a read-only
+// tool, returning an error result the handler can short-circuit on.
+func sheetToolChannelResult(ctx context.Context, svc *Service, token *model.Token, rawSessionID string) (uuid.UUID, *mcp.CallToolResult) {
+	channelID, _, err := svc.sheetToolChannel(ctx, token, rawSessionID)
+	if err != nil {
+		return uuid.Nil, sheetToolError(err.Error())
+	}
+	return channelID, nil
+}
+
+// sheetToolGuardResult turns a channel-guard error into a tool error result. A
+// nil error (target is in the channel) yields nil.
+func sheetToolGuardResult(err error) *mcp.CallToolResult {
+	if err != nil {
+		return sheetToolError(err.Error())
+	}
+	return nil
 }
 
 // --- response shaping --------------------------------------------------------

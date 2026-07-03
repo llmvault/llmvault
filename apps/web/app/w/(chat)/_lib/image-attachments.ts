@@ -30,13 +30,15 @@ export function driveAssetUploadFormData({
   path = "uploads",
 }: {
   agentId: string
-  sessionId: string
+  // Omit for pre-session uploads (new-chat drafts); the asset is stored
+  // without a sandbox and referenced when the session is created.
+  sessionId?: string
   file: File
   path?: string
 }): DriveAssetUploadBody {
   const form = new FormData()
   form.set("agent_id", agentId)
-  form.set("session_id", sessionId)
+  if (sessionId) form.set("session_id", sessionId)
   form.set("path", path)
   form.set("file", file, file.name)
   return form as unknown as DriveAssetUploadBody

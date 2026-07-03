@@ -119,14 +119,15 @@ func handleSheetCreate(ctx context.Context, svc *Service, token *model.Token, ag
 // --- sheet_list --------------------------------------------------------------
 
 type sheetListArgs struct {
-	Search string `json:"search"`
-	Limit  int    `json:"limit"`
+	Search        string `json:"search"`
+	Limit         int    `json:"limit"`
+	HivySessionID string `json:"_hivy_session_id"`
 }
 
 func registerSheetList(server *mcp.Server, svc *Service, token *model.Token) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolSheetList,
-		Description: "List this organization's sheets with their pages and row counts, newest-updated first. Use it before sheet_create to reuse an existing sheet, and to find the sheet/page IDs for other tools.",
+		Description: "List this channel's sheets with their pages and row counts, newest-updated first. Sheets are scoped to the channel you are working in. Use it before sheet_create to reuse an existing sheet, and to find the sheet/page IDs for other tools.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -147,7 +148,11 @@ func registerSheetList(server *mcp.Server, svc *Service, token *model.Token) {
 func handleSheetList(ctx context.Context, svc *Service, token *model.Token, args sheetListArgs) (*mcp.CallToolResult, error) {
 	tctx, cancel := sheetToolContext(ctx)
 	defer cancel()
-	sheets, _, err := svc.ListSheets(tctx, token.OrgID, args.Search, ClampLimit(args.Limit, QueryLimitMCP), "")
+	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	if errResult != nil {
+		return errResult, nil
+	}
+	sheets, _, err := svc.ListSheets(tctx, token.OrgID, channelID, args.Search, ClampLimit(args.Limit, QueryLimitMCP), "")
 	if err != nil {
 		return sheetToolError(err.Error()), nil
 	}
@@ -206,7 +211,8 @@ func (s *Service) sheetToolPagesIndex(ctx context.Context, orgID uuid.UUID, shee
 // --- sheet_describe ----------------------------------------------------------
 
 type sheetDescribeArgs struct {
-	SheetID string `json:"sheet_id"`
+	SheetID       string `json:"sheet_id"`
+	HivySessionID string `json:"_hivy_session_id"`
 }
 
 func registerSheetDescribe(server *mcp.Server, svc *Service, token *model.Token) {
@@ -235,6 +241,13 @@ func handleSheetDescribe(ctx context.Context, svc *Service, token *model.Token, 
 	defer cancel()
 	sheetID, errResult := parseSheetToolUUID(args.SheetID, "sheet_id")
 	if errResult != nil {
+		return errResult, nil
+	}
+	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	if errResult != nil {
+		return errResult, nil
+	}
+	if errResult := sheetToolGuardResult(svc.SheetInChannel(tctx, token.OrgID, channelID, sheetID)); errResult != nil {
 		return errResult, nil
 	}
 	structure, err := svc.GetSheet(tctx, token.OrgID, sheetID)

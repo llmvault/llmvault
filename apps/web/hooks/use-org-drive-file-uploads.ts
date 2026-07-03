@@ -35,13 +35,17 @@ export interface OrgDriveUploadItem {
 
 interface UseOrgDriveFileUploadsOptions {
   agentId: string
+  // Workspace draft key; also the upload's destination session unless
+  // sessionExists is false (pre-session drafts upload without a session).
   sessionId: string
+  sessionExists?: boolean
   path?: string
 }
 
 export function useOrgDriveFileUploads({
   agentId,
   sessionId,
+  sessionExists = true,
   path = "uploads",
 }: UseOrgDriveFileUploadsOptions) {
   const uploads = useSessionWorkspaceStore(
@@ -66,7 +70,12 @@ export function useOrgDriveFileUploads({
       try {
         const asset = requireUploadedDriveAsset(
           await uploadDriveAsset({
-            body: driveAssetUploadFormData({ agentId, sessionId, file, path }),
+            body: driveAssetUploadFormData({
+              agentId,
+              sessionId: sessionExists ? sessionId : undefined,
+              file,
+              path,
+            }),
           })
         )
         setComposerUploads(sessionId, (current) =>
@@ -88,7 +97,7 @@ export function useOrgDriveFileUploads({
         )
       }
     },
-    [agentId, path, sessionId, setComposerUploads, uploadDriveAsset]
+    [agentId, path, sessionExists, sessionId, setComposerUploads, uploadDriveAsset]
   )
 
   useEffect(() => {

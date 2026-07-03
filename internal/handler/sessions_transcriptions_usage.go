@@ -23,7 +23,7 @@ func (h *SessionHandler) trackSessionTranscriptionUsage(ctx context.Context, ses
 		TokenJTI:       "system:sessions.transcriptions",
 		UserID:         userID,
 		Session:        &session,
-		SandboxID:      &asset.SandboxID,
+		SandboxID:      asset.SandboxID,
 		Credential:     cred,
 		Cost:           cost,
 		UpstreamStatus: http.StatusOK,
