@@ -2503,6 +2503,309 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/apps": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "List a channel's apps",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Channel ID",
+                        "name": "channel_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/appListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registers a new app bound to exactly one sheet in one channel. Returns 409 when an active app in the org already uses the slug derived from the name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Create an app",
+                "parameters": [
+                    {
+                        "description": "App to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createAppRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/appView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/apps/{appID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Get an app with its version history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "App ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/appDetailResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Archive an app",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "App ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/apps/{appID}/launch": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mints a one-time launch token and returns it with the app's base URLs; the caller mounts the app at {app_url}/auth/callback?token=... itself. 503 when the app has neither a running deployment nor a preview.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Launch an app",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "App ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/appLaunchResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/apps/{appID}/versions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Streams the multipart ` + "`" + `source` + "`" + ` and ` + "`" + `bundle` + "`" + ` zips into immutable storage (server-computed sha256), records a version, and deploys it synchronously. Requires a user session; API-key callers are rejected.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apps"
+                ],
+                "summary": "Publish a new app version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "App ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "source.zip",
+                        "name": "source",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "bundle.zip",
+                        "name": "bundle",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Changelog for this version",
+                        "name": "notes",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/appPublishResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/assets": {
             "get": {
                 "security": [
@@ -12170,6 +12473,20 @@ const docTemplate = `{
                 }
             }
         },
+        "AutoLoadSkill": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "AvailableResource": {
             "type": "object",
             "properties": {
@@ -12995,6 +13312,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/agentSkillSummary"
                     }
                 },
+                "auto_load_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AutoLoadSkill"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -13008,6 +13331,9 @@ const docTemplate = `{
                     }
                 },
                 "created_at": {
+                    "type": "string"
+                },
+                "default_reasoning_effort": {
                     "type": "string"
                 },
                 "description": {
@@ -13096,6 +13422,12 @@ const docTemplate = `{
         "agentMutationRequest": {
             "type": "object",
             "properties": {
+                "auto_load_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AutoLoadSkill"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -13104,6 +13436,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "default_reasoning_effort": {
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -13187,6 +13522,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/agentSkillSummary"
                     }
                 },
+                "auto_load_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AutoLoadSkill"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -13200,6 +13541,9 @@ const docTemplate = `{
                     }
                 },
                 "created_at": {
+                    "type": "string"
+                },
+                "default_reasoning_effort": {
                     "type": "string"
                 },
                 "description": {
@@ -13400,6 +13744,138 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "appDetailResponse": {
+            "type": "object",
+            "properties": {
+                "app": {
+                    "$ref": "#/definitions/appView"
+                },
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/appVersionView"
+                    }
+                }
+            }
+        },
+        "appLaunchResponse": {
+            "type": "object",
+            "properties": {
+                "app_url": {
+                    "description": "deployed base URL; \"\" when not deployed/running",
+                    "type": "string"
+                },
+                "preview_url": {
+                    "description": "preview base URL; \"\" when no preview exists",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "token_expires_in": {
+                    "description": "seconds",
+                    "type": "integer"
+                }
+            }
+        },
+        "appListResponse": {
+            "type": "object",
+            "properties": {
+                "apps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/appView"
+                    }
+                }
+            }
+        },
+        "appPublishResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "version_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "appVersionView": {
+            "type": "object",
+            "properties": {
+                "bundle_bytes": {
+                    "type": "integer"
+                },
+                "bundle_sha256": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "source_bytes": {
+                    "type": "integer"
+                },
+                "source_sha256": {
+                    "type": "string"
+                },
+                "template_version": {
+                    "type": "string"
+                }
+            }
+        },
+        "appView": {
+            "type": "object",
+            "properties": {
+                "active_version_id": {
+                    "type": "string"
+                },
+                "channel_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sheet_id": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "template_version": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -14057,6 +14533,26 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "createAppRequest": {
+            "type": "object",
+            "properties": {
+                "channel_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sheet_id": {
+                    "type": "string"
                 }
             }
         },
@@ -17558,6 +18054,12 @@ const docTemplate = `{
         "subAgentInput": {
             "type": "object",
             "properties": {
+                "auto_load_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AutoLoadSkill"
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
@@ -17584,6 +18086,12 @@ const docTemplate = `{
         "subAgentResponse": {
             "type": "object",
             "properties": {
+                "auto_load_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AutoLoadSkill"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },

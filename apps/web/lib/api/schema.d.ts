@@ -3119,6 +3119,360 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a channel's apps */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Channel ID */
+                    channel_id: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["appListResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create an app
+         * @description Registers a new app bound to exactly one sheet in one channel. Returns 409 when an active app in the org already uses the slug derived from the name.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description App to create */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createAppRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["appView"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/apps/{appID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an app with its version history */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description App ID */
+                    appID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["appDetailResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Archive an app */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description App ID */
+                    appID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/apps/{appID}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Launch an app
+         * @description Mints a one-time launch token and returns it with the app's base URLs; the caller mounts the app at {app_url}/auth/callback?token=... itself. 503 when the app has neither a running deployment nor a preview.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description App ID */
+                    appID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["appLaunchResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/apps/{appID}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a new app version
+         * @description Streams the multipart `source` and `bundle` zips into immutable storage (server-computed sha256), records a version, and deploys it synchronously. Requires a user session; API-key callers are rejected.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description App ID */
+                    appID: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description source.zip
+                         */
+                        source: string;
+                        /**
+                         * Format: binary
+                         * @description bundle.zip
+                         */
+                        bundle: string;
+                        /** @description Changelog for this version */
+                        notes?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["appPublishResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/assets": {
         parameters: {
             query?: never;
@@ -14185,6 +14539,10 @@ export interface components {
             type?: string;
             updated_at?: string;
         };
+        AutoLoadSkill: {
+            files?: string[];
+            name?: string;
+        };
         AvailableResource: {
             id?: string;
             name?: string;
@@ -14463,10 +14821,12 @@ export interface components {
         };
         agentListItem: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
+            auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
             channel_ids?: string[];
             created_at?: string;
+            default_reasoning_effort?: string;
             description?: string;
             icon?: string;
             id?: string;
@@ -14492,8 +14852,10 @@ export interface components {
             vector_image_model?: string;
         };
         agentMutationRequest: {
+            auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             channel_ids?: string[];
+            default_reasoning_effort?: string;
             description?: string;
             icon?: string;
             image_model?: string;
@@ -14518,10 +14880,12 @@ export interface components {
         };
         agentResponse: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
+            auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
             channel_ids?: string[];
             created_at?: string;
+            default_reasoning_effort?: string;
             description?: string;
             icon?: string;
             id?: string;
@@ -14589,6 +14953,52 @@ export interface components {
             active?: number;
             revoked?: number;
             total?: number;
+        };
+        appDetailResponse: {
+            app?: components["schemas"]["appView"];
+            versions?: components["schemas"]["appVersionView"][];
+        };
+        appLaunchResponse: {
+            /** @description deployed base URL; "" when not deployed/running */
+            app_url?: string;
+            /** @description preview base URL; "" when no preview exists */
+            preview_url?: string;
+            status?: string;
+            token?: string;
+            /** @description seconds */
+            token_expires_in?: number;
+        };
+        appListResponse: {
+            apps?: components["schemas"]["appView"][];
+        };
+        appPublishResponse: {
+            status?: string;
+            url?: string;
+            version_id?: string;
+        };
+        appVersionView: {
+            bundle_bytes?: number;
+            bundle_sha256?: string;
+            created_at?: string;
+            id?: string;
+            notes?: string;
+            source_bytes?: number;
+            source_sha256?: string;
+            template_version?: string;
+        };
+        appView: {
+            active_version_id?: string;
+            channel_id?: string;
+            created_at?: string;
+            description?: string;
+            icon?: string;
+            id?: string;
+            name?: string;
+            sheet_id?: string;
+            slug?: string;
+            status?: string;
+            template_version?: string;
+            updated_at?: string;
         };
         applyChangeRequest: {
             paystack_reference?: string;
@@ -14802,6 +15212,13 @@ export interface components {
             key_prefix?: string;
             name?: string;
             scopes?: string[];
+        };
+        createAppRequest: {
+            channel_id?: string;
+            description?: string;
+            icon?: string;
+            name?: string;
+            sheet_id?: string;
         };
         createBrandAssetRequest: {
             bytes?: number;
@@ -15971,6 +16388,7 @@ export interface components {
             path?: string;
         };
         subAgentInput: {
+            auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             description?: string;
             instructions?: string;
             mcp_tool_filter?: components["schemas"]["ToolFilter"];
@@ -15980,6 +16398,7 @@ export interface components {
             tools?: components["schemas"]["JSON"];
         };
         subAgentResponse: {
+            auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             created_at?: string;
             description?: string;
             id?: string;
