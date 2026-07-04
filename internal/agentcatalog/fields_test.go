@@ -70,7 +70,7 @@ func TestGlobalHakareeManifestIncludesPortedSubAgents(t *testing.T) {
 
 	var hakaree *Manifest
 	for index := range manifests {
-		if manifests[index].Slug == "hakaree" {
+		if manifests[index].Slug == "hakaree-software-engineer" {
 			hakaree = &manifests[index]
 			break
 		}

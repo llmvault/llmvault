@@ -12,7 +12,7 @@
   "default": false,
   "runtime": {
     "sandbox_image": "developer",
-    "model": "xiaomi/mimo-v2.5-pro",
+    "model": "mimo-v2.5-pro",
     "reasoning_effort": "medium"
   },
   "prompt": {
@@ -58,7 +58,7 @@
     "codebase-explorer": {
       "name": "Codebase Explorer",
       "description": "Fast, read-only codebase exploration of the application under test. Give it ONE specific question (where a feature lives, how auth/session works, what API or data shapes a flow uses, which data-testids/roles/labels exist, the existing Playwright config and test conventions) and it returns a focused answer with file:line references. It never edits or runs application code.",
-      "model": "deepseek/deepseek-v4-flash",
+      "model": "deepseek-v4-flash",
       "tools": {
         "bash": true,
         "check_bash_status": true,

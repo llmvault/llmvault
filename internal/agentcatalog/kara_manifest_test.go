@@ -26,7 +26,7 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 
 	var kara *Manifest
 	for index := range manifests {
-		if manifests[index].Slug == "kara" {
+		if manifests[index].Slug == "kara-ui-and-graphics-designer" {
 			kara = &manifests[index]
 			break
 		}
