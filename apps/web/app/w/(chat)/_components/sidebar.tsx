@@ -139,6 +139,9 @@ export const Sidebar = memo(function Sidebar({
     pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
   const automationsActive =
     pathname === "/w/automations" || pathname.startsWith("/w/automations/")
+  const sheetsActive =
+    pathname === "/w/sheets" || pathname.startsWith("/w/sheets/")
+  const appsActive = pathname === "/w/apps" || pathname.startsWith("/w/apps/")
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -190,6 +193,18 @@ export const Sidebar = memo(function Sidebar({
             label="Automations"
             active={automationsActive}
             onClick={() => router.push("/w/automations")}
+          />
+          <NavRow
+            icon="table"
+            label="Sheets"
+            active={sheetsActive}
+            onClick={() => router.push("/w/sheets")}
+          />
+          <NavRow
+            icon="layout-grid"
+            label="Apps"
+            active={appsActive}
+            onClick={() => router.push("/w/apps")}
           />
         </div>
 

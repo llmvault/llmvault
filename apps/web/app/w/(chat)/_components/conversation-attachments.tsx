@@ -1,3 +1,4 @@
+import { Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { useState } from "react"
 import type { MediaAttachment } from "@/app/w/(chat)/_lib/static-data"
@@ -47,12 +48,7 @@ function AttachmentThumb({
       className="group bg-surface relative h-36 w-36 shrink-0 overflow-hidden rounded-xl border border-border shadow-sm transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
     >
       {showSkeleton ? (
-        <span
-          aria-hidden="true"
-          className="bg-default absolute inset-0 animate-pulse"
-        >
-          <span className="bg-surface-secondary absolute inset-x-4 bottom-4 h-2 rounded-full" />
-        </span>
+        <Skeleton aria-hidden="true" className="absolute inset-0" />
       ) : null}
       {/* eslint-disable-next-line @next/next/no-img-element -- attachment previews are arbitrary API-served media */}
       <img

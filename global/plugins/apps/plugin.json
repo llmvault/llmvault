@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "apps",
   "name": "Apps",
-  "description": "Build and ship small web apps over sheets — CRUD tools, dashboards, and custom interfaces.",
+  "description": "Build and ship small web apps, dashboards, and custom interfaces.",
   "category": "Developer Tools",
   "icon": "app-window",
   "icon_color": "#2563EB",

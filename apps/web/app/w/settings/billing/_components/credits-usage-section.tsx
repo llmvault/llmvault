@@ -1,6 +1,6 @@
 "use client"
 
-import { ProgressBar } from "@heroui/react"
+import { ProgressBar, Skeleton } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 
@@ -42,7 +42,7 @@ export function CreditsUsageSection() {
       </div>
       <div className="rounded-2xl border border-border bg-surface p-5">
         {isLoading ? (
-          <div className="h-16 animate-pulse rounded-xl bg-default" />
+          <Skeleton className="h-16 rounded-xl" />
         ) : (
           <>
             <div className="flex flex-wrap items-end justify-between gap-2">

@@ -1,7 +1,7 @@
 {
   "name": "imagegen",
   "description": "Use this skill when a design agent needs to generate or edit images: it routes each request to a detailed per-pattern reference file (20 landing-page hero patterns today, more image-type families over time), enforces hard rules that prevent common image-model failures, and provides a fallback prompting method plus copy/paste recipes for requests that map to no documented pattern.",
-  "human_description": "Generate high-quality images by picking the right layout pattern and following its tested prompt recipe.",
+  "human_description": "Generate high-quality images by picking the right layout pattern.",
   "category": "Design",
   "root": "./SKILL.md",
   "tags": [

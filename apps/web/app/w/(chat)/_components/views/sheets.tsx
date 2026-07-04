@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   ListBox,
   Popover,
   Select,
+  Skeleton,
   Spinner,
   toast,
 } from "@heroui/react"
@@ -22,8 +23,25 @@ import {
   fetchSheetStructure,
   sheetKeys,
 } from "@/app/w/(chat)/_lib/sheets"
+import { usePanelSheetTargetStore } from "@/app/w/(chat)/_stores/panel-sheet-target-store"
 import { PageTab } from "./sheets/page-tab"
 import { useSheetLive } from "./sheets/use-sheet-live"
+
+/** Shimmer placeholder shown while a sheet's grid loads. */
+function SheetGridSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
+      <Skeleton className="h-7 w-full rounded-md" />
+      {Array.from({ length: 12 }).map((_, index) => (
+        <Skeleton
+          key={index}
+          className="h-6 w-full rounded-md"
+          style={{ opacity: Math.max(0.25, 1 - index * 0.07) }}
+        />
+      ))}
+    </div>
+  )
+}
 
 /**
  * Glide Data Grid is canvas-based and touches `window`/`document`, so the
@@ -33,29 +51,26 @@ const SheetWorkbench = dynamic(
   () => import("./sheets/workbench").then((m) => m.SheetWorkbench),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner size="sm" />
-      </div>
-    ),
+    loading: () => <SheetGridSkeleton />,
   }
 )
 
 export function SheetsView({ channelId }: { channelId?: string }) {
   const queryClient = useQueryClient()
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null)
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
-  // Stable across renders so memoized PageTabs don't re-render on every parent
-  // update (e.g. live structure refetches).
-  const handleSelectPage = useCallback(
-    (pageId: string | null) => setSelectedPageId(pageId),
-    []
-  )
+
+  // When there is no session channel (e.g. opened from the /w/sheets
+  // dashboard), fall back to the launched sheet's channel + id.
+  const target = usePanelSheetTargetStore((state) => state.target)
+  const effectiveChannelId = channelId ?? target?.channelId
+  useEffect(() => {
+    if (!channelId && target?.sheetId) setSelectedSheetId(target.sheetId)
+  }, [channelId, target?.sheetId])
 
   const sheetsQuery = useQuery({
-    enabled: Boolean(channelId),
-    queryKey: sheetKeys.list(channelId ?? ""),
-    queryFn: ({ signal }) => fetchSheets(channelId ?? "", signal),
+    enabled: Boolean(effectiveChannelId),
+    queryKey: sheetKeys.list(effectiveChannelId ?? ""),
+    queryFn: ({ signal }) => fetchSheets(effectiveChannelId ?? "", signal),
   })
   // Newest-updated first from the API; default to the most recent sheet.
   const sheets = sheetsQuery.data?.sheets ?? []
@@ -67,50 +82,23 @@ export function SheetsView({ channelId }: { channelId?: string }) {
     null
   const activeSheet = sheets.find((sheet) => sheet.id === activeSheetId) ?? null
 
-  const structureQuery = useQuery({
-    enabled: Boolean(activeSheetId),
-    queryKey: sheetKeys.structure(activeSheetId ?? ""),
-    queryFn: ({ signal }) => fetchSheetStructure(activeSheetId ?? "", signal),
-  })
-  const pages = structureQuery.data?.pages ?? []
-  const activePage =
-    pages.find((page) => page.id === selectedPageId) ?? pages[0] ?? null
-
-  useSheetLive(activeSheetId, activePage?.id ?? null)
-
   const createNewSheet = async (name: string) => {
-    if (!channelId) return
-    const created = await createSheet(channelId, name)
-    await queryClient.invalidateQueries({ queryKey: sheetKeys.list(channelId) })
+    if (!effectiveChannelId) return
+    const created = await createSheet(effectiveChannelId, name)
+    await queryClient.invalidateQueries({
+      queryKey: sheetKeys.list(effectiveChannelId),
+    })
     if (created.sheet?.id) {
       setSelectedSheetId(created.sheet.id)
-      setSelectedPageId(null)
     }
   }
 
-  const createNewPage = async (name: string) => {
-    if (!activeSheetId) return
-    const created = await createSheetPage(activeSheetId, name)
-    await queryClient.invalidateQueries({
-      queryKey: sheetKeys.structure(activeSheetId),
-    })
-    if (created.id) setSelectedPageId(created.id)
-  }
-
-  if (!channelId) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Spinner size="sm" />
-      </div>
-    )
+  if (!effectiveChannelId) {
+    return <SheetGridSkeleton />
   }
 
   if (sheetsQuery.isPending) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Spinner size="sm" />
-      </div>
-    )
+    return <SheetGridSkeleton />
   }
 
   if (sheetsQuery.isError) {
@@ -155,7 +143,6 @@ export function SheetsView({ channelId }: { channelId?: string }) {
           onSelectionChange={(key) => {
             if (key === null) return
             setSelectedSheetId(String(key))
-            setSelectedPageId(null)
           }}
           className="min-w-0"
         >
@@ -208,19 +195,68 @@ export function SheetsView({ channelId }: { channelId?: string }) {
           size="sm"
           isIconOnly
           aria-label="Refresh"
-          onPress={() => {
-            void sheetsQuery.refetch()
-            void structureQuery.refetch()
-          }}
+          onPress={() => void sheetsQuery.refetch()}
         >
           <AppIcon icon="refresh-cw" className="h-3.5 w-3.5 text-muted" />
         </Button>
       </div>
 
+      {activeSheetId ? (
+        <SheetPanel
+          key={activeSheetId}
+          channelId={effectiveChannelId}
+          sheetId={activeSheetId}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * Renders a single sheet — its pages, live grid, and page tabs — for a known
+ * sheet id. Session-independent: it needs only the channel the sheet belongs
+ * to (for grid mutations) and the sheet id. Reused by SheetsView (session
+ * chat panel) and by the standalone /w/sheets dashboard right panel.
+ */
+export function SheetPanel({
+  channelId,
+  sheetId,
+}: {
+  channelId: string
+  sheetId: string
+}) {
+  const queryClient = useQueryClient()
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
+  // Stable across renders so memoized PageTabs don't re-render on every parent
+  // update (e.g. live structure refetches).
+  const handleSelectPage = useCallback(
+    (pageId: string | null) => setSelectedPageId(pageId),
+    []
+  )
+
+  const structureQuery = useQuery({
+    enabled: Boolean(sheetId),
+    queryKey: sheetKeys.structure(sheetId),
+    queryFn: ({ signal }) => fetchSheetStructure(sheetId, signal),
+  })
+  const pages = structureQuery.data?.pages ?? []
+  const activePage =
+    pages.find((page) => page.id === selectedPageId) ?? pages[0] ?? null
+
+  useSheetLive(sheetId, activePage?.id ?? null)
+
+  const createNewPage = async (name: string) => {
+    const created = await createSheetPage(sheetId, name)
+    await queryClient.invalidateQueries({
+      queryKey: sheetKeys.structure(sheetId),
+    })
+    if (created.id) setSelectedPageId(created.id)
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-background">
       {structureQuery.isPending ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Spinner size="sm" />
-        </div>
+        <SheetGridSkeleton />
       ) : structureQuery.isError ? (
         <SheetsState
           icon="circle-alert"
@@ -239,10 +275,10 @@ export function SheetsView({ channelId }: { channelId?: string }) {
             </Button>
           }
         />
-      ) : activeSheetId && activePage?.id ? (
+      ) : activePage?.id ? (
         <SheetWorkbench
           key={activePage.id}
-          sheetId={activeSheetId}
+          sheetId={sheetId}
           channelId={channelId}
           page={activePage}
           pages={pages}
@@ -257,18 +293,16 @@ export function SheetsView({ channelId }: { channelId?: string }) {
       )}
 
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-border px-2 py-1">
-        {pages.map((page) =>
-          activeSheetId ? (
-            <PageTab
-              key={page.id}
-              sheetId={activeSheetId}
-              page={page}
-              pages={pages}
-              isActive={page.id === activePage?.id}
-              onSelect={handleSelectPage}
-            />
-          ) : null
-        )}
+        {pages.map((page) => (
+          <PageTab
+            key={page.id}
+            sheetId={sheetId}
+            page={page}
+            pages={pages}
+            isActive={page.id === activePage?.id}
+            onSelect={handleSelectPage}
+          />
+        ))}
         <NamePopover label="New page" iconOnly onSubmit={createNewPage} />
       </div>
     </div>

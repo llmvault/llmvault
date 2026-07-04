@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Popover } from "@heroui/react"
+import { IconChevronDown, Popover } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import type { SidebarAgentResponse } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AgentLogo } from "./chat-agent-logo"
@@ -17,6 +17,7 @@ export function Picker({
   value,
   suffix,
   width,
+  variant = "inline",
   children,
 }: {
   open: boolean
@@ -28,31 +29,63 @@ export function Picker({
   value: string
   suffix?: string
   width: string
+  /**
+   * "inline" renders the compact composer-style pill (default). "field" renders
+   * a full-width bordered control that matches the HeroUI Select used elsewhere
+   * in forms.
+   */
+  variant?: "inline" | "field"
   children: ReactNode
 }) {
+  const isField = variant === "field"
+  const leading = agent ? (
+    <AgentLogo agent={agent} className="h-4 w-4 rounded-[5px]" />
+  ) : model ? (
+    <ModelIcon model={model} />
+  ) : (
+    <AppIcon icon={icon ?? "circle"} className="h-4 w-4 text-muted" />
+  )
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger
-        aria-label={label}
-        className="hover:bg-default flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
-      >
-        {agent ? (
-          <AgentLogo agent={agent} className="h-4 w-4 rounded-[5px]" />
-        ) : model ? (
-          <ModelIcon model={model} />
-        ) : (
-          <AppIcon icon={icon ?? "circle"} className="h-4 w-4 text-muted" />
-        )}
-        <span className="min-w-0 truncate font-medium">{value}</span>
-        {suffix ? <span className="shrink-0 text-muted">{suffix}</span> : null}
-        <AppIcon
-          icon="chevron-down"
-          className="h-3.5 w-3.5 shrink-0 text-muted"
-        />
-      </Popover.Trigger>
+      {isField ? (
+        // Match the HeroUI <Select> control exactly by reusing its own slot
+        // classes (`select__trigger`/`select__indicator`) and chevron icon, so
+        // the border, shadow, background, and indicator are identical.
+        <Popover.Trigger
+          aria-label={label}
+          className="select__trigger select__trigger--full-width"
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-2 text-start">
+            {leading}
+            <span className="min-w-0 truncate">{value}</span>
+            {suffix ? (
+              <span className="shrink-0 text-field-placeholder">{suffix}</span>
+            ) : null}
+          </span>
+          <IconChevronDown
+            className="select__indicator"
+            data-slot="select-default-indicator"
+            data-open={open ? "true" : undefined}
+          />
+        </Popover.Trigger>
+      ) : (
+        <Popover.Trigger
+          aria-label={label}
+          className="hover:bg-default flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
+        >
+          {leading}
+          <span className="min-w-0 truncate font-medium">{value}</span>
+          {suffix ? <span className="shrink-0 text-muted">{suffix}</span> : null}
+          <AppIcon
+            icon="chevron-down"
+            className="h-3.5 w-3.5 shrink-0 text-muted"
+          />
+        </Popover.Trigger>
+      )}
       <Popover.Content
         placement="bottom start"
-        className={`${width} rounded-2xl border border-border p-1.5`}
+        className={`${isField ? "" : `${width} `}rounded-2xl border border-border p-1.5`}
+        style={isField ? { width: "var(--trigger-width)" } : undefined}
       >
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
           {children}

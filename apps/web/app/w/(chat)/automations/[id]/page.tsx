@@ -2,7 +2,7 @@
 
 import { use, useMemo } from "react"
 import NextLink from "next/link"
-import { Button } from "@heroui/react"
+import { Button, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
@@ -249,12 +249,12 @@ function cadenceLabel(automation: AutomationItem): string {
 function AutomationDetailSkeleton() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="h-5 w-28 animate-pulse rounded bg-default" />
+      <Skeleton className="h-5 w-28 rounded" />
       <div className="flex items-start gap-3">
-        <div className="h-12 w-12 animate-pulse rounded-xl bg-default" />
+        <Skeleton className="h-12 w-12 rounded-xl" />
         <div className="min-w-0 flex-1">
-          <div className="h-6 w-56 animate-pulse rounded bg-default" />
-          <div className="mt-3 h-4 w-full max-w-lg animate-pulse rounded bg-default" />
+          <Skeleton className="h-6 w-56 rounded" />
+          <Skeleton className="mt-3 h-4 w-full max-w-lg rounded" />
         </div>
       </div>
       {Array.from({ length: 3 }).map((_, index) => (
@@ -262,9 +262,9 @@ function AutomationDetailSkeleton() {
           key={index}
           className="bg-card rounded-xl border border-border p-4"
         >
-          <div className="h-4 w-32 animate-pulse rounded bg-default" />
-          <div className="mt-3 h-4 w-full animate-pulse rounded bg-default" />
-          <div className="mt-2 h-4 w-4/5 animate-pulse rounded bg-default" />
+          <Skeleton className="h-4 w-32 rounded" />
+          <Skeleton className="mt-3 h-4 w-full rounded" />
+          <Skeleton className="mt-2 h-4 w-4/5 rounded" />
         </section>
       ))}
     </div>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import emojiData from "@emoji-mart/data/sets/15/native.json"
 import type { Emoji as EmojiMartEmoji, EmojiMartData } from "@emoji-mart/data"
-import { Popover } from "@heroui/react"
+import { IconChevronDown, Popover } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 
 type SlackEmojiOption = {
@@ -60,14 +60,18 @@ export function SlackEmojiPicker({
 
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex h-9 w-full items-center justify-between rounded-md border border-border px-3 text-left text-sm transition-colors hover:bg-muted/20">
-        <span className="flex min-w-0 items-center gap-2">
+      <Popover.Trigger className="select__trigger select__trigger--full-width text-left">
+        <span className="flex min-w-0 flex-1 items-center gap-2">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-default text-base">
             {emojiGlyph}
           </span>
-          <span className="truncate font-medium">:{emojiName}:</span>
+          <span className="truncate">:{emojiName}:</span>
         </span>
-        <AppIcon icon="chevron-down" className="h-4 w-4 text-muted" />
+        <IconChevronDown
+          className="select__indicator"
+          data-slot="select-default-indicator"
+          data-open={open ? "true" : undefined}
+        />
       </Popover.Trigger>
       <Popover.Content className="w-[22rem] overflow-hidden rounded-2xl border border-border p-0">
         <Popover.Dialog className="flex max-h-[26rem] w-[22rem] flex-col p-0">

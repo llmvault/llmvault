@@ -33,6 +33,8 @@ const (
 	AgentEnvGlitchTipURL               = "HIVY_GLITCHTIP_URL"
 	AgentEnvGlitchTipDashboardBaseURL  = "HIVY_GLITCHTIP_DASHBOARD_BASE_URL"
 	AgentEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
+	AgentEnvApifyURL                   = "HIVY_APIFY_URL"
+	AgentEnvApifyToken                 = "HIVY_APIFY_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvLinearURL                  = "HIVY_LINEAR_URL"
 	AgentEnvLinearToken                = "HIVY_LINEAR_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
@@ -121,6 +123,8 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvGlitchTipURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvGlitchTipDashboardBaseURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
 	{Key: AgentEnvGlitchTipToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvApifyURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvApifyToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvLinearURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvLinearToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvNotionAPIURL, Source: AgentEnvSourceControlPlaneInjected},

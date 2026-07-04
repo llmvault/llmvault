@@ -4,7 +4,7 @@ import { use, useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Chip, Spinner, toast } from "@heroui/react"
+import { Button, Chip, Skeleton, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -145,11 +145,11 @@ export default function TeamDetailPage({
       <div className="flex flex-col gap-8">
         <BackLink />
         <div className="flex flex-col gap-2">
-          <div className="bg-default h-8 w-48 animate-pulse rounded" />
-          <div className="bg-default h-4 w-72 animate-pulse rounded" />
+          <Skeleton className="h-8 w-48 rounded" />
+          <Skeleton className="h-4 w-72 rounded" />
         </div>
         <section className="bg-surface overflow-hidden rounded-2xl border border-border">
-          <div className="h-16 animate-pulse" />
+          <Skeleton className="h-16" />
         </section>
       </div>
     )

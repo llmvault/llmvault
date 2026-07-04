@@ -96,6 +96,9 @@ func setupPublicRoutes(
 		glitchTipProxyHandler := handler.NewGlitchTipProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Handle("/internal/glitchtip-proxy/{agentID}/*", http.HandlerFunc(glitchTipProxyHandler.Handle))
 
+		apifyProxyHandler := handler.NewApifyProxyHandler(database, sandboxEncKey, nangoClient)
+		r.Handle("/internal/apify-proxy/{agentID}/*", http.HandlerFunc(apifyProxyHandler.Handle))
+
 		linearProxyHandler := handler.NewLinearProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Post("/internal/linear-proxy/{agentID}", linearProxyHandler.Handle)
 

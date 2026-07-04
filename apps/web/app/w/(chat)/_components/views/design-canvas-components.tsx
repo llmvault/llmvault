@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import type { ReactNode } from "react"
-import { Button, Spinner } from "@heroui/react"
+import { Button, Skeleton, Spinner } from "@heroui/react"
 import { useMutation } from "@tanstack/react-query"
 import { AppIcon } from "@/components/icon"
 import {
@@ -241,7 +241,7 @@ export function CanvasPreviewPane({
           <Spinner size="sm" aria-label="Opening artifact" />
           Opening artifact
         </div>
-        <div className="min-h-0 flex-1 animate-pulse rounded-lg border border-border bg-surface" />
+        <Skeleton className="min-h-0 flex-1 rounded-lg border border-border bg-surface" />
       </div>
     )
   }
@@ -380,19 +380,16 @@ export function CanvasBrowserSkeleton() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="shrink-0 border-b border-border px-3 py-3">
-        <div className="h-4 w-28 animate-pulse rounded bg-default" />
+        <Skeleton className="h-4 w-28 rounded" />
         <div className="mt-3 flex gap-2">
           {[0, 1, 2].map((item) => (
-            <div
-              key={item}
-              className="h-8 w-28 animate-pulse rounded-lg bg-default"
-            />
+            <Skeleton key={item} className="h-8 w-28 rounded-lg" />
           ))}
         </div>
       </div>
       <div className="flex min-h-0 flex-1 gap-3 p-3">
-        <div className="min-h-0 flex-1 animate-pulse rounded-lg border border-border bg-surface" />
-        <div className="hidden w-80 animate-pulse rounded-lg border border-border bg-surface xl:block" />
+        <Skeleton className="min-h-0 flex-1 rounded-lg border border-border bg-surface" />
+        <Skeleton className="hidden w-80 rounded-lg border border-border bg-surface xl:block" />
       </div>
     </div>
   )

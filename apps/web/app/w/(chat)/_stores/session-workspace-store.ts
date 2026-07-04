@@ -42,6 +42,7 @@ export type WorkspacePanelViewID =
   | "files"
   | "design"
   | "sheets"
+  | "apps"
   | "side-chat"
 
 export interface SessionWorkspace {

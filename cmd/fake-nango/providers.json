@@ -12,6 +12,7 @@
     { "name": "sendgrid",          "display_name": "SendGrid",   "auth_mode": "API_KEY" },
     { "name": "stripe",            "display_name": "Stripe",     "auth_mode": "API_KEY" },
     { "name": "railway",           "display_name": "Railway",    "auth_mode": "API_KEY" },
+    { "name": "apify",             "display_name": "Apify",      "auth_mode": "API_KEY" },
     {
       "name": "glitchtip",
       "display_name": "GlitchTip",

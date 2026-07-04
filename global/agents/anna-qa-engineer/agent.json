@@ -35,7 +35,8 @@
   "skill_filter": {
     "allow": [
       "browser",
-      "drive"
+      "drive",
+      "playwright-testing"
     ]
   },
   "auto_load_skills": [
@@ -44,6 +45,9 @@
       "files": [
         "references/commands.md"
       ]
+    },
+    {
+      "name": "playwright-testing"
     }
   ],
   "plugins": {

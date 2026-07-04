@@ -3,7 +3,7 @@
 import { use, useCallback, useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Spinner, toast } from "@heroui/react"
+import { Button, Skeleton, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -415,19 +415,19 @@ function MissingPluginsWarning({ count }: { count: number }) {
 function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="h-4 w-20 animate-pulse rounded bg-default" />
+      <Skeleton className="h-4 w-20 rounded" />
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 animate-pulse rounded-xl bg-default" />
+          <Skeleton className="h-12 w-12 rounded-xl" />
           <div className="flex flex-col gap-3">
-            <div className="h-5 w-36 animate-pulse rounded bg-default" />
-            <div className="h-4 w-80 max-w-full animate-pulse rounded bg-default" />
+            <Skeleton className="h-5 w-36 rounded" />
+            <Skeleton className="h-4 w-80 max-w-full rounded" />
           </div>
         </div>
-        <div className="h-8 w-20 animate-pulse rounded-full bg-default" />
+        <Skeleton className="h-8 w-20 rounded-full" />
       </header>
-      <div className="h-24 animate-pulse rounded-xl bg-default" />
-      <div className="h-44 animate-pulse rounded-xl bg-default" />
+      <Skeleton className="h-24 rounded-xl" />
+      <Skeleton className="h-44 rounded-xl" />
     </div>
   )
 }

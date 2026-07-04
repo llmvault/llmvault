@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import Image from "next/image"
 import NextLink from "next/link"
-import { Input, ListBox, Select } from "@heroui/react"
+import { Input, ListBox, Select, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { integrationLogoURL } from "@/components/integration-logo"
@@ -290,6 +290,7 @@ function PluginLogo({
   forceIconWhite?: boolean
 }) {
   const provider = pluginLogoProvider(plugin)
+
   if (provider) {
     return (
       <Image
@@ -341,12 +342,12 @@ function PluginListSkeleton() {
     <div className="flex flex-col rounded-xl bg-card">
       {[0, 1, 2, 3].map((index) => (
         <div key={index} className="flex items-center gap-3 p-3">
-          <div className="bg-default h-8 w-8 shrink-0 animate-pulse rounded-lg" />
+          <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <div className="bg-default h-3.5 w-28 animate-pulse rounded" />
-            <div className="bg-default h-3 w-64 max-w-full animate-pulse rounded" />
+            <Skeleton className="h-3.5 w-28 rounded" />
+            <Skeleton className="h-3 w-64 max-w-full rounded" />
           </div>
-          <div className="bg-default h-4 w-4 shrink-0 animate-pulse rounded" />
+          <Skeleton className="h-4 w-4 shrink-0 rounded" />
         </div>
       ))}
     </div>

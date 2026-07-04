@@ -47,6 +47,10 @@ func NewGlitchTipProxyHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoCli
 	return &RawProviderProxyHandler{db: db, encKey: encKey, nango: nangoClient, provider: "glitchtip", allowedPrefix: "/api/0/"}
 }
 
+func NewApifyProxyHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoClient *nango.Client) *RawProviderProxyHandler {
+	return &RawProviderProxyHandler{db: db, encKey: encKey, nango: nangoClient, provider: "apify", allowedPrefix: "/v2/"}
+}
+
 func NewSlackProxyHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoClient *nango.Client) *RawProviderProxyHandler {
 	return &RawProviderProxyHandler{db: db, encKey: encKey, nango: nangoClient, provider: "slack", allowedPrefix: "/"}
 }

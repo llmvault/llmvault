@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Button, Spinner } from "@heroui/react"
+import { Button, Skeleton, Spinner } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
 import type { components } from "@/lib/api/schema"
@@ -56,8 +56,8 @@ export function YourPlanSection() {
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {isLoading ? (
             <>
-              <span className="bg-default h-4 w-32 animate-pulse rounded" />
-              <span className="bg-default mt-1 h-3.5 w-48 animate-pulse rounded" />
+              <Skeleton className="h-4 w-32 rounded" />
+              <Skeleton className="mt-1 h-3.5 w-48 rounded" />
             </>
           ) : (
             <>

@@ -17,6 +17,7 @@ export type PanelViewID =
   | "files"
   | "design"
   | "sheets"
+  | "apps"
   | "side-chat"
 
 const PANEL_VIEWS: {
@@ -35,6 +36,7 @@ const PANEL_VIEWS: {
     shortcut: "⌘D",
   },
   { id: "sheets", label: "Sheets", icon: "table", shortcut: "" },
+  { id: "apps", label: "Apps", icon: "layout-grid", shortcut: "" },
   {
     id: "side-chat",
     label: "Subagents",

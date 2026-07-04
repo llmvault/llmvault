@@ -1,7 +1,7 @@
 {
   "name": "Skill Creator",
   "description": "Use when the user asks to create a skill from scratch, write a custom skill, turn a runbook/process into a reusable skill, clone or install a skill from a git repository, skill marketplace, or archive link, port an existing skill to Hivy, or organize the org's custom skills into plugins. From scratch: design the workflow with the user (or by doing the task once), write it, test it. From an external source: install in the sandbox, security-scan (prompt injection, malicious scripts, exfiltration), study, adapt to the Hivy sandbox (browser CLI, /workspace persistence, org environment variables, no docker). Both paths: dry-run every script, get explicit user approval, publish with create_skill, attach the plugin to agents.",
-  "human_description": "Creates custom org skills — written from scratch or installed from git repositories and skill marketplaces — security-scanned, adapted, and tested for the Hivy platform.",
+  "human_description": "Creates custom skills from scratch, or import an existing skill.",
   "category": "Hivy",
   "root": "./SKILL.md",
   "tags": ["skills", "plugins", "skill-creator", "git", "security"],

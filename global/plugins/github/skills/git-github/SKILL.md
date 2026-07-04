@@ -21,6 +21,24 @@ If `gh auth status` fails, ask the user to run `gh auth login` themselves — do
 
 ---
 
+## 0. GitHub activity comes to you — do not poll
+
+You are running inside Hivy, which delivers GitHub activity to you as new messages in **this same session**. You do not watch for it; it wakes you.
+
+- After you open a pull request, later activity on it — top-level comments, `@`-mentions, review comments, submitted reviews, and CI / check-suite results — arrives automatically as a new message here. Someone comments, a review lands, a check fails → you get told.
+- **Do not poll the GitHub API waiting for these — unless the user explicitly asks you to.** No `gh pr checks` watch-loop for CI, no re-running `gh pr view --comments` to see if anyone replied, no repeatedly hitting the reviews endpoint. After you act, **end your turn** — the next event will bring you back. Polling in a loop only burns time and API calls, and the session model ends your turn anyway.
+- The exception is the user. If they explicitly ask you to check or watch something ("did CI pass?", "keep an eye on the review"), go ahead and poll/read as they asked — their request always overrides the default. Also reach for the API when you need a specific detail to act on an event you were just handed — e.g. after a check-failure notification, fetch that job's logs so you can fix it.
+
+**When you receive a GitHub event, respond on GitHub directly — that is where the conversation lives.** Don't just describe what you'd do:
+
+- Reply with a comment (`gh pr comment`, `gh issue comment`), post a review, or add an emoji reaction (section 6) to acknowledge — then stop.
+- For review feedback: push the fix to the PR branch, leave a short comment pointing at it, end your turn. You'll be notified of the next review.
+- For a failed check: read the failing logs, push the fix, comment briefly, end your turn. You'll be notified when checks re-run.
+
+The loop is: act on GitHub → end your turn → get woken by the next event → act again. You never drive it by polling.
+
+---
+
 ## 1. Discover repo conventions FIRST
 
 Run these before creating branches, commits, or PRs. They take seconds and save you from getting your work bounced in review.
@@ -212,6 +230,8 @@ Useful flags:
 - `--label "bug,needs-review"` — only labels that already exist (see 1d).
 - `--body-file pr.md` — when the body is large; easier than escaping.
 - `--web` — print the URL and open in browser instead of creating via API (use only if the user asks).
+
+Once the PR is open, you're done for now — **do not poll it unless the user explicitly asks**. Comments, reviews, and check results on this PR will be delivered to you as new messages in this session (see section 0). End your turn and respond when the next event arrives. (If the user asks you to watch or check the PR, do as they say.)
 
 If the repo has a PR template (`.github/PULL_REQUEST_TEMPLATE.md`), `gh pr create` only loads it in **interactive** mode. When you pass `--body` or `--body-file` non-interactively, the template is bypassed — so read it yourself first and incorporate its structure into your `--body`/`--body-file` content. Don't strip the template's sections.
 
@@ -449,6 +469,8 @@ gh pr view <number> --comments
 | Committing screenshots into the project repo to embed in a PR | Upload them via the `drive` skill — that's the only supported host |
 | Reaching for gists, imgur, base64 data-URIs, or `gh api user-attachments` for PR images | All wrong. Load `drive` and use it; it returns a stable file URL you can paste into the PR body |
 | Merging without checking CI | `gh pr checks <n>` and `mergeStateStatus` before `gh pr merge` |
+| Polling in a loop for CI / comments / reviews after opening a PR | Don't, unless the user explicitly asks. They're delivered to you as new messages (section 0) — act, end your turn, get woken by the next event |
+| Describing what you'd reply instead of replying on GitHub | When handed a GitHub comment/review, respond on GitHub directly — comment, review, or emoji reaction |
 | Approving / merging someone else's PR without being asked | Don't. Ask the user first |
 
 ---

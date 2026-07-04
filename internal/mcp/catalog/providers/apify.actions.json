@@ -1,0 +1,192 @@
+{
+  "display_name": "Apify",
+  "resources": {},
+  "actions": {
+    "list_actors": {
+      "display_name": "List Actors",
+      "description": "List Actors available to the authenticated user.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of Actors to return."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Number of Actors to skip before returning results."
+          },
+          "my": {
+            "type": "boolean",
+            "description": "If true, only return Actors owned by the authenticated user."
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "get_actor": {
+      "display_name": "Get Actor",
+      "description": "Get details for a single Actor by its ID.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "description": "The ID of the Actor to retrieve."
+          }
+        },
+        "required": [
+          "actorId"
+        ],
+        "type": "object"
+      }
+    },
+    "run_actor": {
+      "display_name": "Run Actor",
+      "description": "Start a new run of the specified Actor.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "description": "The ID of the Actor to run."
+          },
+          "input": {
+            "type": "object",
+            "description": "Input passed to the Actor run, as a JSON object or string."
+          },
+          "build": {
+            "type": "string",
+            "description": "The tag or number of the Actor build to run."
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "Timeout for the Actor run in seconds."
+          },
+          "memory": {
+            "type": "integer",
+            "description": "Memory allocated for the Actor run in megabytes."
+          }
+        },
+        "required": [
+          "actorId"
+        ],
+        "type": "object"
+      }
+    },
+    "get_run": {
+      "display_name": "Get Run",
+      "description": "Get details for a single Actor run by its ID.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "runId": {
+            "type": "string",
+            "description": "The ID of the Actor run to retrieve."
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "type": "object"
+      }
+    },
+    "list_runs": {
+      "display_name": "List Runs",
+      "description": "List Actor runs for the authenticated user.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of runs to return."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Number of runs to skip before returning results."
+          },
+          "status": {
+            "type": "string",
+            "description": "Filter runs by their status."
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "get_dataset_items": {
+      "display_name": "Get Dataset Items",
+      "description": "Retrieve items stored in a dataset by its ID.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "datasetId": {
+            "type": "string",
+            "description": "The ID of the dataset to read items from."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of items to return."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Number of items to skip before returning results."
+          },
+          "clean": {
+            "type": "boolean",
+            "description": "If true, return only non-empty items and skip hidden fields."
+          },
+          "format": {
+            "type": "string",
+            "description": "Format in which to return the dataset items."
+          }
+        },
+        "required": [
+          "datasetId"
+        ],
+        "type": "object"
+      }
+    },
+    "get_key_value_record": {
+      "display_name": "Get Key-Value Record",
+      "description": "Retrieve a single record from a key-value store by store ID and key.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "storeId": {
+            "type": "string",
+            "description": "The ID of the key-value store."
+          },
+          "key": {
+            "type": "string",
+            "description": "The key of the record to retrieve."
+          }
+        },
+        "required": [
+          "storeId",
+          "key"
+        ],
+        "type": "object"
+      }
+    },
+    "whoami": {
+      "display_name": "Whoami",
+      "description": "Return information about the authenticated user.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "required": [],
+        "type": "object"
+      }
+    }
+  }
+}

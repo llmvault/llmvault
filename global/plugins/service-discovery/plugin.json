@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "service-discovery",
   "name": "Service Discovery",
-  "description": "Discover your connected services once — Railway, Vercel, Notion, Slack — and commit the IDs, names, and domains to agent memory for every future session.",
+  "description": "Discover your connected services once — agents remember your tools and services in future.",
   "category": "Developer Tools",
   "icon": "radar",
   "icon_color": "#0EA5E9",

@@ -6,6 +6,7 @@ import {
   FilesView,
   type FilesRepoSelectorProps,
 } from "@/app/w/(chat)/_components/views/files"
+import { AppsView } from "@/app/w/(chat)/_components/views/apps"
 import { ReviewView } from "@/app/w/(chat)/_components/views/review"
 import { SheetsView } from "@/app/w/(chat)/_components/views/sheets"
 import { SubagentView } from "@/app/w/(chat)/_components/views/side-chat"
@@ -47,6 +48,8 @@ export function ActiveView({
       return <DesignView sessionId={sessionId} />
     case "sheets":
       return <SheetsView channelId={channelId} />
+    case "apps":
+      return <AppsView />
     case "files":
       return (
         <FilesView

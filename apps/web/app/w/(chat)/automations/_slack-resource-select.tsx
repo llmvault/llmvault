@@ -25,7 +25,7 @@ export function SlackConnectionSelect({
       }}
       className="w-full"
     >
-      <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
         <span className="flex min-w-0 items-center gap-2">
           <AppIcon icon="slack" className="h-4 w-4 shrink-0" />
           <span className="truncate">
@@ -78,7 +78,7 @@ export function SlackResourceSelect({
       }}
       className="w-full"
     >
-      <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
         <span className="flex min-w-0 items-center gap-2">
           <AppIcon icon="hash" className="h-4 w-4 shrink-0 text-muted" />
           <span className="truncate">

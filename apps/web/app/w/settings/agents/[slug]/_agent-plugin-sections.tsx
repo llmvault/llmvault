@@ -1,7 +1,7 @@
 "use client"
 
 import NextLink from "next/link"
-import { Switch, Tooltip } from "@heroui/react"
+import { Skeleton, Switch, Tooltip } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 import {
@@ -311,13 +311,13 @@ function AgentPluginSkeleton() {
           className="bg-card flex items-center justify-between gap-4 rounded-lg border border-border p-3"
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="h-8 w-8 animate-pulse rounded-lg bg-default" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <div className="h-4 w-32 animate-pulse rounded bg-default" />
-              <div className="h-3 w-56 max-w-full animate-pulse rounded bg-default" />
+              <Skeleton className="h-4 w-32 rounded" />
+              <Skeleton className="h-3 w-56 max-w-full rounded" />
             </div>
           </div>
-          <div className="h-6 w-10 animate-pulse rounded-full bg-default" />
+          <Skeleton className="h-6 w-10 rounded-full" />
         </div>
       ))}
     </div>

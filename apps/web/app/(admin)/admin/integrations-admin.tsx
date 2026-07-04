@@ -1,6 +1,6 @@
 "use client"
 
-import { Spinner } from "@heroui/react"
+import { Skeleton, Spinner } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 import type { AdminIntegrationDefinition } from "./types"
@@ -100,10 +100,10 @@ function IntegrationSkeleton() {
     <div className="bg-surface flex flex-col divide-y divide-border rounded-2xl border border-border">
       {Array.from({ length: 6 }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 px-4 py-3">
-          <div className="bg-default size-10 animate-pulse rounded-lg" />
+          <Skeleton className="size-10 rounded-lg" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="bg-default h-4 w-40 animate-pulse rounded" />
-            <div className="bg-default h-3 w-64 max-w-full animate-pulse rounded" />
+            <Skeleton className="h-4 w-40 rounded" />
+            <Skeleton className="h-3 w-64 max-w-full rounded" />
           </div>
           <Spinner size="sm" className="opacity-0" />
         </div>

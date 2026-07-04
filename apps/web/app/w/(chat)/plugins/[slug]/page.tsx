@@ -2,7 +2,7 @@
 
 import { use, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Modal, toast, useOverlayState } from "@heroui/react"
+import { Modal, Skeleton, toast, useOverlayState } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -578,16 +578,16 @@ function DetailSkeleton() {
     <div className="flex flex-col gap-8">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 animate-pulse rounded-xl bg-default" />
+          <Skeleton className="h-12 w-12 rounded-xl" />
           <div className="flex flex-col gap-3">
-            <div className="h-5 w-36 animate-pulse rounded bg-default" />
-            <div className="h-4 w-80 max-w-full animate-pulse rounded bg-default" />
+            <Skeleton className="h-5 w-36 rounded" />
+            <Skeleton className="h-4 w-80 max-w-full rounded" />
           </div>
         </div>
-        <div className="h-8 w-16 animate-pulse rounded-full bg-default" />
+        <Skeleton className="h-8 w-16 rounded-full" />
       </header>
-      <div className="h-40 animate-pulse rounded-xl bg-default" />
-      <div className="h-56 animate-pulse rounded-xl bg-default" />
+      <Skeleton className="h-40 rounded-xl" />
+      <Skeleton className="h-56 rounded-xl" />
     </div>
   )
 }

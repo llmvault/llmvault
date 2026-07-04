@@ -57,6 +57,8 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		AgentEnvBugsinkToken:           "runtime-secret",
 		AgentEnvGlitchTipURL:           "https://api.example.test/internal/glitchtip-proxy/" + agentID.String(),
 		AgentEnvGlitchTipToken:         "runtime-secret",
+		AgentEnvApifyURL:               "https://api.example.test/internal/apify-proxy/" + agentID.String(),
+		AgentEnvApifyToken:             "runtime-secret",
 		AgentEnvLinearURL:              "https://api.example.test/internal/linear-proxy/" + agentID.String(),
 		AgentEnvLinearToken:            "runtime-secret",
 		AgentEnvNotionAPIURL:           "https://api.example.test/internal/notion-proxy/" + agentID.String(),

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Button } from "@heroui/react"
+import { Button, Skeleton } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 import { formatCreditsWithUsage } from "./credit-value"
@@ -28,8 +28,8 @@ export function CreditsBalanceSection() {
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {dashboardQuery.isLoading ? (
             <>
-              <span className="bg-default h-4 w-48 animate-pulse rounded" />
-              <span className="bg-default mt-1 h-3.5 w-64 animate-pulse rounded" />
+              <Skeleton className="h-4 w-48 rounded" />
+              <Skeleton className="mt-1 h-3.5 w-64 rounded" />
             </>
           ) : (
             <>

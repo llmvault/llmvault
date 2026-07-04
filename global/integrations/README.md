@@ -21,3 +21,4 @@ Provider requirements checked against real Nango `/providers`:
 | `bugsink` | `bugsink` | `API_KEY` | none | none | `baseUrl` |
 | `glitchtip` | `glitchtip` | `API_KEY` | none | none | `baseUrl` |
 | `vercel` | `vercel` | `API_KEY` | none | none | none |
+| `apify` | `apify` | `API_KEY` | none | none | none |

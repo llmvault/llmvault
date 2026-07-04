@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Spinner, Switch, toast } from "@heroui/react"
+import { Button, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -370,6 +370,7 @@ export function SlackReactionInstallForm({
               selectedAgentID={activeAgentID}
               isLoading={agentsQuery.isLoading}
               onChange={setAgentID}
+              variant="field"
             />
           )}
         </FormSection>
@@ -423,11 +424,12 @@ export function SlackReactionInstallForm({
           title="Instructions"
           description="These instructions are added to the agent run when the reaction event fires."
         >
-          <textarea
+          <TextArea
             value={instructions}
             onChange={(event) => setInstructions(event.target.value)}
             rows={8}
-            className="placeholder:text-muted-foreground min-h-44 w-full resize-y rounded-xl border border-border px-3 py-2.5 text-sm leading-5 text-foreground transition-colors outline-none focus:border-accent"
+            fullWidth
+            className="min-h-44 resize-y leading-5"
           />
         </FormSection>
 

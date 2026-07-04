@@ -13,11 +13,17 @@ export function AgentSelect({
   selectedAgentID,
   isLoading,
   onChange,
+  variant = "inline",
 }: {
   agents: SidebarAgentResponse[]
   selectedAgentID: string
   isLoading: boolean
   onChange: (agentID: string) => void
+  /**
+   * "inline" is the compact composer pill (default). "field" renders a
+   * full-width bordered control that matches the other form selects.
+   */
+  variant?: "inline" | "field"
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -48,6 +54,7 @@ export function AgentSelect({
             : "Select agent"
       }
       width="w-96"
+      variant={variant}
     >
       <input
         type="text"

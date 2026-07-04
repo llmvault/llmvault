@@ -2,6 +2,7 @@
 
 import { use, useMemo } from "react"
 import NextLink from "next/link"
+import { Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { TriggerInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form"
@@ -117,19 +118,19 @@ function AutomationLogo({ automation }: { automation: AutomationItem }) {
 function InstallSkeleton() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="h-5 w-32 animate-pulse rounded bg-default" />
+      <Skeleton className="h-5 w-32 rounded" />
       <div className="flex items-start gap-3">
-        <div className="h-12 w-12 animate-pulse rounded-xl bg-default" />
+        <Skeleton className="h-12 w-12 rounded-xl" />
         <div className="min-w-0 flex-1">
-          <div className="h-6 w-44 animate-pulse rounded bg-default" />
-          <div className="mt-3 h-4 w-full max-w-lg animate-pulse rounded bg-default" />
+          <Skeleton className="h-6 w-44 rounded" />
+          <Skeleton className="mt-3 h-4 w-full max-w-lg rounded" />
         </div>
       </div>
       {Array.from({ length: 4 }).map((_, index) => (
         <section key={index} className="flex flex-col gap-3">
-          <div className="h-4 w-28 animate-pulse rounded bg-default" />
-          <div className="h-4 w-full max-w-md animate-pulse rounded bg-default" />
-          <div className="h-9 animate-pulse rounded-md bg-default" />
+          <Skeleton className="h-4 w-28 rounded" />
+          <Skeleton className="h-4 w-full max-w-md rounded" />
+          <Skeleton className="h-9 rounded-md" />
         </section>
       ))}
     </div>

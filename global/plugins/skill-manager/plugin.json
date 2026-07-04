@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "skill-manager",
   "name": "Skill Manager",
-  "description": "Create custom skills for your organization — written from scratch or installed from git repositories and skill marketplaces — security-scanned, adapted to Hivy, organized into org plugins, and installable on any agent.",
+  "description": "Create custom skills, specific to how your team works.",
   "category": "Hivy",
   "icon": "hammer",
   "icon_color": "#F59E0B",

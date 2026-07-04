@@ -1,3 +1,4 @@
+import { Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 
 export function FormSection({
@@ -21,7 +22,7 @@ export function FormSection({
 }
 
 export function FieldSkeleton() {
-  return <div className="h-9 animate-pulse rounded-md bg-default" />
+  return <Skeleton className="h-9 rounded-md" />
 }
 
 export function InlineNotice({

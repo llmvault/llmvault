@@ -1,7 +1,7 @@
 {
   "name": "social-media",
   "description": "Use this skill when a design agent needs to create social media graphics: Instagram carousels and single posts, story/reel covers, birthday, anniversary, welcome, or milestone celebration cards, quote cards, product announcements, event invites, stat posts, X/LinkedIn/Facebook post images, YouTube thumbnails, profile banners, or OG share cards. It teaches the backdrop-first method — generate a small set of reusable image backdrops, then compose every asset as a pixel-exact Canvas artifact with all text in HTML — plus exact platform dimensions, artifact planning (one presentation artifact per slide set, one web_page per single asset), seven style directions, per-genre recipes with image budgets, and an image gate for deciding when an asset needs no generated images at all.",
-  "human_description": "Design on-brand social media graphics: carousels, celebration cards, announcements, and more — generated backdrops underneath, pixel-perfect HTML on top.",
+  "human_description": "Design on-brand social media graphics: carousels, celebration cards, announcements, and more.",
   "category": "Design",
   "root": "./SKILL.md",
   "tags": [

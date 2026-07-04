@@ -9,6 +9,7 @@ import {
   Chip,
   ListBox,
   Select,
+  Skeleton,
   Spinner,
   toast,
 } from "@heroui/react"
@@ -248,10 +249,10 @@ export function RowSkeleton() {
             index === 1 ? "" : "border-b border-border"
           )}
         >
-          <div className="bg-default h-9 w-9 shrink-0 animate-pulse rounded-full" />
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
           <div className="flex flex-1 flex-col gap-1.5">
-            <div className="bg-default h-3.5 w-32 animate-pulse rounded" />
-            <div className="bg-default h-3 w-48 animate-pulse rounded" />
+            <Skeleton className="h-3.5 w-32 rounded" />
+            <Skeleton className="h-3 w-48 rounded" />
           </div>
         </div>
       ))}

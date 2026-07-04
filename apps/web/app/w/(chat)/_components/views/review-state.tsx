@@ -1,4 +1,4 @@
-import { Spinner } from "@heroui/react"
+import { Skeleton, Spinner } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 
 export function ReviewLoadingState({ label }: { label: string }) {
@@ -15,13 +15,13 @@ export function ReviewLoadingState({ label }: { label: string }) {
             className="overflow-hidden rounded-lg border border-border bg-background"
           >
             <div className="h-9 border-b border-border px-3 py-2">
-              <div className="bg-default h-3.5 w-36 animate-pulse rounded" />
+              <Skeleton className="h-3.5 w-36 rounded" />
             </div>
             <div className="flex flex-col gap-2 p-3">
               {Array.from({ length: 4 }).map((__, lineIndex) => (
-                <div
+                <Skeleton
                   key={lineIndex}
-                  className="bg-default h-3 animate-pulse rounded"
+                  className="h-3 rounded"
                   style={{ width: `${60 + ((lineIndex + index) % 4) * 9}%` }}
                 />
               ))}
