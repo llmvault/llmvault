@@ -2,6 +2,8 @@ package apps
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -10,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/microsandbox/alias"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -66,18 +69,13 @@ func (s *Service) CreateApp(ctx context.Context, params CreateAppParams) (*model
 		return nil, validationErrorf("sheet does not belong to this channel")
 	}
 
-	slug := normalizeAppSlug(name)
-	if slug == "" {
-		slug = "app"
-	}
-	var count int64
-	if err := s.db.WithContext(ctx).Model(&model.App{}).
-		Where("org_id = ? AND slug = ? AND archived_at IS NULL", params.OrgID, slug).
-		Count(&count).Error; err != nil {
-		return nil, fmt.Errorf("check app slug: %w", err)
-	}
-	if count > 0 {
-		return nil, ErrSlugTaken
+	// The slug doubles as the microsandbox alias stem, so it must satisfy the
+	// SAME rules the control plane enforces at deploy (internal/microsandbox/alias):
+	// reserved/too-short/malformed names, and collisions, are auto-suffixed here
+	// so app_create never hands back a slug that hard-fails at publish.
+	slug, err := s.resolveAppSlug(ctx, params.OrgID, name)
+	if err != nil {
+		return nil, err
 	}
 
 	secret, err := model.GenerateAppSecret()
@@ -126,6 +124,74 @@ func normalizeAppSlug(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	value = appSlugPattern.ReplaceAllString(value, "-")
 	return strings.Trim(value, "-")
+}
+
+// resolveAppSlug derives a slug from name that BOTH passes alias.Validate and
+// is free in the org. It first tries the clean normalized slug; if that is
+// reserved/too-short/malformed or already taken, it appends a short random
+// suffix and retries until a valid, available slug is found ("suffix on
+// collision", apps plan). archived slugs don't block reuse (partial index).
+func (s *Service) resolveAppSlug(ctx context.Context, orgID uuid.UUID, name string) (string, error) {
+	base := normalizeAppSlug(name)
+	for attempt := 0; attempt < 16; attempt++ {
+		candidate := base
+		// Suffix when the clean base is unusable on its own (invalid/reserved/
+		// too short) or on any later attempt (collision retry).
+		if attempt > 0 || alias.Validate(candidate) != nil {
+			candidate = suffixedAppSlug(base)
+		}
+		if alias.Validate(candidate) != nil {
+			continue // structurally unusable; try a fresh suffix
+		}
+		taken, err := s.appSlugTaken(ctx, orgID, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("could not derive an available slug for %q", name)
+}
+
+func (s *Service) appSlugTaken(ctx context.Context, orgID uuid.UUID, slug string) (bool, error) {
+	var count int64
+	if err := s.db.WithContext(ctx).Model(&model.App{}).
+		Where("org_id = ? AND slug = ? AND archived_at IS NULL", orgID, slug).
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("check app slug: %w", err)
+	}
+	return count > 0, nil
+}
+
+// suffixedAppSlug appends a random suffix to base, keeping the result within
+// the alias length bound. When base is structurally unusable even with a
+// suffix (empty, or a preview-port-prefix like "3000-x"), it falls back to a
+// guaranteed-valid "app-<suffix>" so the caller always gets a claimable slug.
+func suffixedAppSlug(base string) string {
+	suffix := randSlugSuffix()
+	stem := strings.Trim(base, "-")
+	if max := alias.MaxLen - len(suffix) - 1; len(stem) > max {
+		stem = strings.Trim(stem[:max], "-")
+	}
+	if stem != "" {
+		if cand := stem + "-" + suffix; alias.Validate(cand) == nil {
+			return cand
+		}
+	}
+	return "app-" + suffix
+}
+
+// randSlugSuffix returns 6 lowercase hex chars (crypto/rand). Hex keeps it in
+// the [a-z0-9] charset; a fixed non-empty length keeps it short and readable.
+func randSlugSuffix() string {
+	b := make([]byte, 3)
+	if _, err := rand.Read(b); err != nil {
+		// rand.Read essentially never fails; a static stem still yields a valid,
+		// (very likely) unique slug via the collision-retry loop.
+		return "app"
+	}
+	return hex.EncodeToString(b)
 }
 
 func isAppSlugUniqueViolation(err error) bool {

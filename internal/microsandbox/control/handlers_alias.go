@@ -3,13 +3,13 @@ package control
 import (
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/microsandbox/alias"
 	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -27,52 +27,14 @@ type aliasResponse struct {
 	Port      int    `json:"port"`
 }
 
-var (
-	aliasCharset    = regexp.MustCompile(`^[a-z0-9-]+$`)
-	aliasPortPrefix = regexp.MustCompile(`^[0-9]{1,5}-`)
-)
-
-// reservedAliases protects operational hostnames and the preview scheme. The
-// port-prefix pattern (e.g. "3000-...") is rejected separately because it
-// collides with the {port}-{sandbox} preview host grammar.
-var reservedAliases = map[string]bool{
-	"www":      true,
-	"api":      true,
-	"admin":    true,
-	"preview":  true,
-	"static":   true,
-	"app":      true,
-	"apps":     true,
-	"mail":     true,
-	"gateway":  true,
-	"health":   true,
-	"metrics":  true,
-	"internal": true,
-	"runner":   true,
-	"control":  true,
-}
-
-func validateAlias(alias string) error {
-	if len(alias) < 3 || len(alias) > 63 {
-		return fmt.Errorf("alias must be between 3 and 63 characters")
-	}
-	if !aliasCharset.MatchString(alias) {
-		return fmt.Errorf("alias must contain only lowercase letters, digits, and hyphens")
-	}
-	if strings.HasPrefix(alias, "-") || strings.HasSuffix(alias, "-") {
-		return fmt.Errorf("alias must not start or end with a hyphen")
-	}
-	if aliasPortPrefix.MatchString(alias) {
-		return fmt.Errorf("alias must not look like a preview port prefix")
-	}
-	if reservedAliases[alias] {
-		return fmt.Errorf("alias is reserved")
-	}
-	return nil
+// validateAlias delegates to the shared alias ruleset (internal/microsandbox/alias)
+// so the control plane and the apps slug derivation stay in lockstep.
+func validateAlias(a string) error {
+	return alias.Validate(a)
 }
 
 func normalizeAliasParam(r *http.Request) string {
-	return strings.ToLower(strings.TrimSpace(chi.URLParam(r, "alias")))
+	return alias.Normalize(chi.URLParam(r, "alias"))
 }
 
 func (s *Server) aliasURL(alias string) string {
