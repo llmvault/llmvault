@@ -34,7 +34,14 @@ type Config struct {
 	// SheetID is the one sheet this app is bound to (informational — the
 	// internal API is already scoped to it server-side).
 	SheetID string
-	// Port is the listen port (PORT env, default 8080).
+	// Port is the listen port (PORT env, default 8080). Production never sets
+	// PORT — it always gets the 8080 default — because the platform's
+	// sandbox alias/proxy is hard-bound to port 8080 (see
+	// sandboxes/app/hivy-app.service and internal/apps/image.go's appPort).
+	// Changing this default (or the app.json/Makefile build commands) does
+	// not change what the platform proxies to; it would just make the
+	// deployed app unreachable. `make preview`'s PORT=… is a local-sandbox
+	// convenience only and never applies in production.
 	Port string
 	// PublicDir is the static SPA directory (default "public").
 	PublicDir string

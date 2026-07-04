@@ -10,8 +10,11 @@
 #   GET ${HIVY_DRIVE_UPLOAD_URL%/drive}/apps/$APP_ID/preview-env?port=$PORT
 # writes the returned env to a 0600 file, (re)starts dist/server under
 # systemd when booted (hivy-app-preview.service) or as a supervised
-# background process otherwise, waits for /healthz, and prints the preview
-# URL as the LAST line of stdout. All progress goes to stderr.
+# background process otherwise, waits for /healthz, and prints two URLs as
+# the last lines of stdout: a raw one (for the agent's own health checks —
+# do not share it) and, as the true LAST line, the share URL with ?app=
+# appended (share ONLY that one with the user; it tells the Hivy frontend
+# which app to frame). All progress goes to stderr.
 #
 # SECRETS: the env values live only in the HTTP response, the 0600 env file,
 # and the server process environment. Never print them.
@@ -166,6 +169,9 @@ if [ -z "$HEALTHY" ]; then
   exit 1
 fi
 
-log "preview: healthy — share ONLY the URL on the next line with the user"
-# The LAST line of stdout is exactly the preview URL (agents parse it).
-echo "$PREVIEW_URL"
+log "preview: healthy"
+log "preview: raw preview_url (for your own health checks — do not share this line): $PREVIEW_URL"
+log "preview: share ONLY the URL on the next line with the user"
+# The LAST line of stdout is the share URL: the raw preview_url with
+# ?app=$APP_ID appended, so the Hivy frontend knows which app to frame.
+echo "${PREVIEW_URL}/?app=${APP_ID}"

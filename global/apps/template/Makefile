@@ -9,12 +9,31 @@
 #                  print the public preview URL (last line of output):
 #                  make preview APP_ID=<uuid> [PORT=3000]
 #
-# GOOS/GOARCH pass through for cross-builds; the deploy target is linux/amd64
-# (builder sandboxes are already linux, so the default native build is right
-# there).
+# App sandboxes are always linux/amd64, regardless of what the builder
+# sandbox runs — GOOS/GOARCH default to that target below so a non-amd64 (or
+# non-linux) builder can't silently produce a binary the deploy target can't
+# execute. Override only if you know the deploy target changed.
+#
+# .NOTPARALLEL below is deliberate: `vite build` and `go build` are each
+# multi-process/multi-threaded on their own, and running them at the same
+# time (e.g. under `make -jN`) is what killed the Go build under memory
+# pressure in the builder sandbox. `web` always finishes before `server`
+# starts. GOFLAGS=-p=1 also caps Go's own package-build parallelism to keep
+# its peak memory down.
 
+# PORT here is a PREVIEW-ONLY convenience (which local port `make preview`
+# listens on in THIS builder sandbox). It has no effect on production: the
+# deployed app always gets PORT unset and defaults to 8080 inside
+# hivycore/config.go, and the platform's sandbox alias/proxy is hard-bound to
+# 8080 (sandboxes/app/hivy-app.service, internal/apps/image.go's appPort).
+# Never hardcode a different port in app code to "fix" a preview conflict —
+# change PORT here instead.
 DIST := dist
 PORT ?= 3000
+GOOS ?= linux
+GOARCH ?= amd64
+
+.NOTPARALLEL:
 
 .PHONY: all deps web server bundle source test preview clean
 
@@ -26,9 +45,14 @@ deps:
 web:
 	cd web && npm run build
 
+# CGO_ENABLED=0: the template and its one dependency (golang-jwt) are pure
+# Go, and disabling cgo keeps cross-compilation (e.g. building for
+# linux/amd64 from a non-linux or non-amd64 builder) from ever needing a C
+# cross-compiler. GOFLAGS=-p=1 serializes Go's own package builds to limit
+# peak memory (see .NOTPARALLEL note above).
 server:
 	mkdir -p $(DIST)
-	go build -o $(DIST)/server .
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) GOFLAGS=-p=1 go build -o $(DIST)/server .
 
 bundle: web server
 	rm -rf $(DIST)/bundle $(DIST)/bundle.zip
