@@ -42,7 +42,14 @@ func (h *AgentTriggerDispatchHandler) deliverCompiled(ctx context.Context, paylo
 		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)
 		return err
 	}
+	return h.deliverToSession(ctx, payload, trigger, session, compiled)
+}
 
+// deliverToSession queues the compiled message into an explicit session and
+// fires the generic drain. Used both for the trigger's own session
+// (deliverCompiled) and for routing PR events into the session that opened the
+// PR.
+func (h *AgentTriggerDispatchHandler) deliverToSession(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, session *model.Session, compiled compiledTriggerMessage) error {
 	// Claim before the durable enqueue: asynq retries the whole batch and
 	// GitHub/Nango may redeliver, so a claimed row means this event was already
 	// queued and its message row must not be created twice.

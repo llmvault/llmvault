@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -96,23 +95,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sandboxes []model.Sandbox
-	if err := h.db.Where("agent_id = ?", agentID).Find(&sandboxes).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to look up sandboxes"})
-		return
-	}
-	authenticated := false
-	for _, sb := range sandboxes {
-		decryptedKey, err := h.encKey.DecryptString(sb.EncryptedRuntimeSecret)
-		if err != nil {
-			continue
-		}
-		if subtle.ConstantTimeCompare([]byte(bearerToken), []byte(decryptedKey)) == 1 {
-			authenticated = true
-			break
-		}
-	}
-	if !authenticated {
+	if _, ok := resolveSandboxBySecret(h.db, h.encKey, agentID, bearerToken); !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
 	}

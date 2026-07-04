@@ -73,4 +73,33 @@ export GH_TOKEN
 
 cleanup
 trap - EXIT HUP INT TERM
+
+# For `gh pr create`, run gh (not exec) so we can capture the created PR URL and
+# report it to the control plane — later events on that PR route back to the
+# session that opened it. Reporting is best-effort and must never affect the
+# agent's command. Every other gh command is passed through unchanged (exec)
+# so TTY, streaming, and exit codes are preserved exactly.
+if [ "${1:-}" = "pr" ] && [ "${2:-}" = "create" ]; then
+  set +e
+  out="$(/usr/bin/gh "$@")"
+  rc=$?
+  set -e
+  printf '%s\n' "$out"
+  if [ "$rc" -eq 0 ]; then
+    pr_url="$(printf '%s\n' "$out" | grep -Eo 'https?://[^ ]+/pull/[0-9]+' | head -n1)"
+    if [ -n "$pr_url" ]; then
+      report_url="$(printf '%s' "$HIVY_GIT_CREDENTIALS_URL" \
+        | sed 's#/internal/git-credentials/#/internal/github-pr-created/#')"
+      report_body="$(printf '%s' "$pr_url" \
+        | python3 -c 'import json,sys;print(json.dumps({"schema_version":1,"pr_url":sys.stdin.read().strip()}))')"
+      curl -sS --max-time 5 -X POST \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "$report_body" \
+        "$report_url" >/dev/null 2>&1 || true
+    fi
+  fi
+  exit "$rc"
+fi
+
 exec /usr/bin/gh "$@"

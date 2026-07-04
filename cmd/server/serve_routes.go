@@ -84,6 +84,9 @@ func setupPublicRoutes(
 		gitCredsHandler := handler.NewGitCredentialsHandler(database, sandboxEncKey, nangoClient)
 		r.Post("/internal/git-credentials/{agentID}", gitCredsHandler.Handle)
 
+		githubPRCreatedHandler := handler.NewGitHubPRCreatedHandler(database, sandboxEncKey)
+		r.Post("/internal/github-pr-created/{agentID}", githubPRCreatedHandler.Handle)
+
 		railwayProxyHandler := handler.NewRailwayProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Post("/internal/railway-proxy/{agentID}", railwayProxyHandler.Handle)
 

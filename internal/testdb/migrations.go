@@ -204,6 +204,7 @@ var migratedTables = []string{
 	"app_versions",
 	"apps",
 	"generations",
+	"github_pull_request_sessions",
 	"integrations",
 	"oauth_accounts",
 	"oauth_exchange_tokens",
@@ -256,4 +257,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 67
+const latestMigrationVersion = 68

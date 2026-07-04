@@ -3,8 +3,11 @@ package tasks
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -18,6 +21,14 @@ const (
 )
 
 var githubHandlePattern = regexp.MustCompile(`@([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)`)
+
+// githubReplyDirective is prepended to every message compiled from a GitHub
+// event. Replying on GitHub is a hard requirement — the agent must not end its
+// turn without responding on the issue/PR — and it must load the GitHub skill
+// if it is not already available to have the tools to do so.
+const githubReplyDirective = `<system_message>
+This event came from GitHub. You are required to respond on GitHub itself before ending your turn: either post a reply comment on the issue or pull request, or add an emoji reaction to the relevant comment. This is not optional. If the GitHub skill is not already loaded, load it first (the git-github skill) so you have the tools to reply.
+</system_message>`
 
 func isGitHubMentionTrigger(provider string, trigger model.AgentTrigger) bool {
 	return trigger.TriggerKey == model.TriggerKeyGitHubMention && strings.HasPrefix(provider, "github")
@@ -78,7 +89,43 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		return err
 	}
 	compiled := h.compileGitHubMentionMessage(ctx, payload, trigger, event)
+
+	// If this event is on a PR that a Hivy session opened, route the message
+	// into that same session so the conversation continues. Fall back to the
+	// trigger's own PR-scoped session only when no mapping is found.
+	if event.IsPR {
+		if session, ok := h.lookupPRSession(ctx, payload.OrgID, event.Repo, event.Number); ok {
+			logging.FromContext(ctx).InfoContext(ctx, "github mention routed to originating session",
+				"trigger_id", trigger.ID, "session_id", session.ID,
+				"repo", event.Repo, "pr_number", event.Number)
+			return h.deliverToSession(ctx, payload, trigger, session, compiled)
+		}
+	}
 	return h.deliverCompiled(ctx, payload, trigger, agent, compiled)
+}
+
+// lookupPRSession returns the active session that opened the given PR, if we
+// recorded it (via the gh-wrapper capture path). Returns false when there is no
+// mapping or the owning session is no longer active — callers then fall back to
+// a fresh PR-scoped session.
+func (h *AgentTriggerDispatchHandler) lookupPRSession(ctx context.Context, orgID uuid.UUID, repo, prNumber string) (*model.Session, bool) {
+	number, err := strconv.Atoi(strings.TrimSpace(prNumber))
+	if err != nil || number <= 0 {
+		return nil, false
+	}
+	var mapping model.GitHubPullRequestSession
+	if err := h.db.WithContext(ctx).
+		Where("org_id = ? AND repo = ? AND pr_number = ?", orgID, strings.ToLower(repo), number).
+		First(&mapping).Error; err != nil {
+		return nil, false
+	}
+	var session model.Session
+	if err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND status = ?", mapping.SessionID, orgID, "active").
+		First(&session).Error; err != nil {
+		return nil, false
+	}
+	return &session, true
 }
 
 // isGitHubBotAuthor reports whether a webhook author is a bot account.
@@ -119,7 +166,8 @@ func (h *AgentTriggerDispatchHandler) compileGitHubMentionMessage(ctx context.Co
 	}
 
 	var b strings.Builder
-	b.WriteString("You were mentioned on GitHub.\n\n")
+	b.WriteString(githubReplyDirective)
+	b.WriteString("\n\nYou were mentioned on GitHub.\n\n")
 	if strings.TrimSpace(trigger.Instructions) != "" {
 		b.WriteString("Instructions:\n")
 		b.WriteString(strings.TrimSpace(trigger.Instructions))
