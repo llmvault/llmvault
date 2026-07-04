@@ -66,7 +66,8 @@ func TestAppPublishStatusLogsRollbackTools(t *testing.T) {
 	if published["status"] != string(model.AppStatusRunning) {
 		t.Fatalf("publish status = %v", published)
 	}
-	if published["url"] != "http://127.0.0.1:45678" {
+	// The publish URL carries the ?app=<appID> launch hint the frontend uses.
+	if published["url"] != "http://127.0.0.1:45678?app="+appID {
 		t.Fatalf("publish url = %v", published["url"])
 	}
 	v1 := mustAppUUID(t, published["version_id"])

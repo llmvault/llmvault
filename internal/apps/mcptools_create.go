@@ -176,7 +176,20 @@ func handleAppPublish(ctx context.Context, svc *Service, token *model.Token, age
 	}
 	return appToolJSON(map[string]any{
 		"version_id": version.ID.String(),
-		"url":        url,
+		"url":        appLaunchURL(url, app.ID),
 		"status":     reloaded.Status,
 	})
+}
+
+// appLaunchURL appends the ?app=<appID> query hint the frontend uses to detect
+// a launchable app link. The param name is the frontend contract — keep it "app".
+func appLaunchURL(rawURL string, appID uuid.UUID) string {
+	if rawURL == "" {
+		return rawURL
+	}
+	sep := "?"
+	if strings.Contains(rawURL, "?") {
+		sep = "&"
+	}
+	return rawURL + sep + "app=" + appID.String()
 }

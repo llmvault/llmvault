@@ -54,12 +54,27 @@ func handleAppStatus(ctx context.Context, svc *Service, token *model.Token, args
 	if err != nil {
 		return appToolError(err.Error()), nil
 	}
+	url, _ := svc.AppURL(tctx, status.App) // "" (with error) until the app is running
+	return appToolJSON(appStatusOutput(status, url))
+}
+
+// appStatusOutput builds the app_status tool payload. It is a pure function of
+// the resolved status so the marshal contract can be table-tested directly.
+//
+// health is appd's GET /health body forwarded verbatim as a json.RawMessage.
+// The encoding/json marshaler RE-VALIDATES a RawMessage (via compact), so a
+// non-empty-but-invalid probe body (e.g. a whitespace-only or non-JSON 200
+// from a gateway) makes json.Marshal(out) fail — the exact "failed to
+// serialize response" seen in prod. Guard with json.Valid: forward only valid
+// JSON, and degrade an invalid body to health_error instead of failing the
+// whole call.
+func appStatusOutput(status *AppStatus, url string) map[string]any {
 	out := map[string]any{
 		"status": status.App.Status,
 		"name":   status.App.Name,
 		"slug":   status.App.Slug,
 	}
-	if url, urlErr := svc.AppURL(tctx, status.App); urlErr == nil {
+	if url != "" {
 		out["url"] = url
 	}
 	if status.ActiveVersion != nil {
@@ -71,12 +86,16 @@ func handleAppStatus(ctx context.Context, svc *Service, token *model.Token, args
 		}
 	}
 	if len(status.Health) > 0 {
-		out["health"] = status.Health
+		if json.Valid(status.Health) {
+			out["health"] = status.Health
+		} else if status.HealthError == "" {
+			status.HealthError = "app health probe returned a non-JSON response"
+		}
 	}
 	if status.HealthError != "" {
 		out["health_error"] = status.HealthError
 	}
-	return appToolJSON(out)
+	return out
 }
 
 // --- app_logs ------------------------------------------------------------------
