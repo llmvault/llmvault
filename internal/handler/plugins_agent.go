@@ -129,16 +129,12 @@ func (h *PluginHandler) DisableForAgent(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	if pluginstore.PluginAutoInstall(plugin) {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is installed for all agents and cannot be disabled"})
-		return
+	var catalogRequired []string
+	if agent.AgentCatalog != nil {
+		catalogRequired = []string(agent.AgentCatalog.RequiredPlugins)
 	}
-	if pluginstore.PluginLocked(plugin) {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required and cannot be disabled"})
-		return
-	}
-	if agent.AgentCatalog != nil && containsString(agent.AgentCatalog.RequiredPlugins, plugin.Slug) {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required for this agent and cannot be disabled"})
+	if locked, reason := pluginstore.PluginDetachLock(plugin, agent.IsDefault, catalogRequired); locked {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": reason})
 		return
 	}
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

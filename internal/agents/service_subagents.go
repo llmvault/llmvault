@@ -103,20 +103,24 @@ func attachPlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, p
 	return nil
 }
 
-// replacePlugins sets the agent's plugin installs to exactly the auto-installed
-// set plus the requested plugin ids. It removes any currently-enabled plugin
-// that is neither auto-installed nor requested.
+// replacePlugins sets the agent's plugin installs to exactly the protected set
+// plus the requested plugin ids. It removes any currently-enabled plugin that is
+// neither protected nor requested.
 func replacePlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, pluginIDs []uuid.UUID) error {
 	want := map[uuid.UUID]bool{}
 	for _, id := range pluginIDs {
 		want[id] = true
 	}
-	// Auto-installed plugins are locked on the agent and must never be removed.
-	locked, err := lockedPluginIDs(ctx, tx, orgID)
+	// Protected plugins (auto-install, locked, catalog-required, or
+	// default_agent_install on the default agent) must never be removed — and are
+	// force-added if missing — no matter what plugin_slugs the caller sends. This
+	// keeps the MCP update path in lockstep with the UI disable endpoint; both
+	// consult pluginstore.PluginDetachLock.
+	protected, err := protectedAgentPluginIDs(ctx, tx, orgID, agentID)
 	if err != nil {
 		return err
 	}
-	for id := range locked {
+	for id := range protected {
 		want[id] = true
 	}
 
@@ -151,9 +155,25 @@ func replacePlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, 
 	return nil
 }
 
-// lockedPluginIDs returns the active auto-install plugin ids installed for the
-// org; these are attached to every agent and must not be removed on update.
-func lockedPluginIDs(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (map[uuid.UUID]bool, error) {
+// protectedAgentPluginIDs returns the org-installed plugin ids that must never
+// be removed from this agent, per pluginstore.PluginDetachLock — auto-install,
+// manifest-locked, catalog-required, and default_agent_install plugins on the
+// org's default (Hivy) agent. Iterating the org-installed set (rather than only
+// the agent's current installs) also lets replacePlugins re-add a protected
+// plugin that was somehow detached, healing the agent back to policy.
+func protectedAgentPluginIDs(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID) (map[uuid.UUID]bool, error) {
+	var agent model.Agent
+	if err := tx.WithContext(ctx).
+		Preload("AgentCatalog").
+		Where("id = ? AND org_id = ?", agentID, orgID).
+		First(&agent).Error; err != nil {
+		return nil, err
+	}
+	var catalogRequired []string
+	if agent.AgentCatalog != nil {
+		catalogRequired = []string(agent.AgentCatalog.RequiredPlugins)
+	}
+
 	var installs []model.OrgPluginInstall
 	if err := tx.WithContext(ctx).
 		Preload("Plugin").
@@ -163,7 +183,7 @@ func lockedPluginIDs(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (map[uui
 	}
 	out := map[uuid.UUID]bool{}
 	for _, install := range installs {
-		if pluginstore.PluginAutoInstall(install.Plugin) {
+		if locked, _ := pluginstore.PluginDetachLock(install.Plugin, agent.IsDefault, catalogRequired); locked {
 			out[install.PluginID] = true
 		}
 	}

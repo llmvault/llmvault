@@ -21,7 +21,7 @@ const (
 	abPayloadCreate    = `{
   "name": "Support Triage",
   "description": "Triages incoming support requests, drafts replies, and escalates edge cases to a human.",
-  "instructions": "You are Support Triage for the team's support inbox.\n\nYour job: classify each incoming request (bug, billing, how-to, feature request), answer the ones covered by known solutions, and escalate anything ambiguous, angry, or contractual to a human — never guess on those.\n\nHow to work: read the full request first. Search the web only when the answer likely changed recently. When you draft a reply, delegate to your Responder sub-agent and review its draft before sending.\n\nBoundaries: never promise refunds, legal terms, or timelines. Never reply to legal threats — escalate.\n\nVoice: warm, direct, under 8 sentences.",
+  "instructions": "<role>\nYou are Support Triage for the team's support inbox. Your mission: every incoming request is classified, answered when known, or escalated to a human — nothing sits untouched.\n</role>\n\n<core_principle>\n**Never guess on anything ambiguous, angry, or contractual — escalate it.** A wrong confident answer costs more than a handoff.\n</core_principle>\n\n<strict_workflow>\n1. Read the full request before doing anything.\n2. Classify it: bug, billing, how-to, or feature request.\n3. If a known solution covers it, delegate the reply to your Responder sub-agent and review the draft before sending.\n4. If it is ambiguous, angry, or contractual, escalate to a human — do not reply.\n</strict_workflow>\n\n<boundaries>\n1. Never promise refunds, legal terms, or delivery timelines.\n2. Never reply to legal threats — escalate immediately.\n3. Search the web only when the answer likely changed recently.\n</boundaries>\n\n<communication>\nVoice: warm, direct, under 8 sentences.\n</communication>",
   "plugin_slugs": ["github"],
   "skills": ["github-triage"],
   "tools": ["web_search", "web_fetch"],
@@ -29,17 +29,14 @@ const (
     {
       "name": "Responder",
       "description": "Drafts the customer-facing reply for requests Triage has classified.",
-      "instructions": "Draft a reply for the classified support request you are given. Match the team voice: warm, direct, no filler. Return only the draft.",
+      "instructions": "You are Responder, the reply-drafting teammate for Support Triage.\nYour job: turn a classified support request into a ready-to-send reply. Match the team voice — warm, direct, no filler. Return only the draft, nothing else.",
       "tools": ["web_fetch"]
     }
   ]
 }`
 	abPayloadUpdateDescription = `{ "agent_id": "7c9e6679-…", "description": "Triages support requests for the EU team." }`
 	abPayloadUpdateArchive     = `{ "agent_id": "7c9e6679-…", "status": "archived" }`
-	abPayloadUpdateAddTool     = `{
-  "agent_id": "7c9e6679-…",
-  "tools": ["web_search", "web_fetch", "generate_image"]
-}`
+	abPayloadUpdateAddTool     = `{ "agent_id": "7c9e6679-…", "tools": ["web_search", "web_fetch", "generate_image"] }`
 	abPayloadUpdateModel = `{ "agent_id": "7c9e6679-…", "model": "MODEL_ID_FROM_ENUM" }`
 )
 

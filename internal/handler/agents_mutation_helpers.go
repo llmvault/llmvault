@@ -21,16 +21,6 @@ func agentIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool
 	return agentID, true
 }
 
-func containsString(values []string, target string) bool {
-	target = strings.TrimSpace(target)
-	for _, value := range values {
-		if strings.TrimSpace(value) == target {
-			return true
-		}
-	}
-	return false
-}
-
 func cleanStringPtr(value *string) string {
 	if value == nil {
 		return ""
