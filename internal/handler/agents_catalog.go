@@ -192,7 +192,12 @@ func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	if catalog.IsDefault {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default agent cannot be uninstalled"})
+		return
+	}
 	err := h.db.WithContext(r.Context()).Model(&model.Agent{}).
+		Where("is_default = ?", false).
 		Where("org_id = ? AND agent_catalog_id = ? AND status <> ?", org.ID, catalog.ID, "archived").
 		Update("status", "archived").Error
 	if err != nil {

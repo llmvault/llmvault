@@ -140,7 +140,7 @@ func (h *SlackAppMentionHandler) ensureSlackQueueRow(tx *gorm.DB, row *model.Sla
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.SessionMessageQueue{}, fmt.Errorf("load slack queue row: %w", err)
 	}
-	seq, err := nextSlackQueueSequence(tx, session.ID)
+	seq, err := nextSessionQueueSequence(tx, session.ID)
 	if err != nil {
 		return model.SessionMessageQueue{}, err
 	}
@@ -240,7 +240,10 @@ func slackSenderTag(senderID string) string {
 	return "<@" + senderID + ">"
 }
 
-func nextSlackQueueSequence(tx *gorm.DB, sessionID uuid.UUID) (int64, error) {
+// nextSessionQueueSequence returns the next per-session message-queue sequence.
+// Callers must hold a lock on the session row so the (session_id,
+// sequence_number) allocation is race-free against concurrent enqueues.
+func nextSessionQueueSequence(tx *gorm.DB, sessionID uuid.UUID) (int64, error) {
 	var maxSeq int64
 	err := tx.Model(&model.SessionMessageQueue{}).
 		Where("session_id = ?", sessionID).

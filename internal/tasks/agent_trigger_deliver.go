@@ -3,13 +3,13 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -42,49 +42,79 @@ func (h *AgentTriggerDispatchHandler) deliverCompiled(ctx context.Context, paylo
 		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)
 		return err
 	}
-	_, client, err := h.ensureTriggerSessionRuntime(ctx, &agent, session)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "load_session_sandbox", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
-		return err
-	}
-	if err := client.Readyz(ctx); err != nil {
-		err = fmt.Errorf("agent runtime readyz: %w", err)
-		captureTriggerDispatchBoundary(ctx, "agent_runtime_readyz", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
-		return err
-	}
 
-	// Claim before the irreversible PostHTTPMessage: asynq retries the whole batch,
-	// so without a claim a retry re-delivers already-succeeded triggers and the
-	// agent acts twice. A claimed row means a prior attempt posted, so skip.
+	// Claim before the durable enqueue: asynq retries the whole batch and
+	// GitHub/Nango may redeliver, so a claimed row means this event was already
+	// queued and its message row must not be created twice.
 	claimed, err := h.claimTriggerDelivery(ctx, payload, trigger, session, compiled)
 	if err != nil {
 		captureTriggerDispatchBoundary(ctx, "claim_trigger_delivery", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
 		return err
 	}
-	if !claimed {
-		logging.FromContext(ctx).InfoContext(ctx, "agent trigger already delivered, skipping",
+	if claimed {
+		if err := h.enqueueTriggerSessionMessage(ctx, session, compiled); err != nil {
+			// The message row was not created, so roll back the claim and let the
+			// asynq retry re-queue it.
+			h.releaseTriggerDeliveryClaim(ctx, trigger.ID, payload.DeliveryID)
+			captureTriggerDispatchBoundary(ctx, "enqueue_trigger_session_message", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
+			return err
+		}
+		h.enqueueStoreDelivery(ctx, payload, trigger, session, compiled, nil)
+	} else {
+		logging.FromContext(ctx).InfoContext(ctx, "agent trigger already queued, re-triggering delivery",
 			"trigger_id", trigger.ID,
 			"agent_id", trigger.AgentID,
 			"delivery_id", payload.DeliveryID,
 			"event_key", eventKey(payload.EventType, payload.EventAction))
-		return nil
 	}
 
-	resp, err := client.PostHTTPMessage(ctx, agentruntime.HTTPMessageRequest{
-		Text:            compiled.Text,
-		SessionID:       session.ID.String(),
-		User:            "hivy-trigger",
-		UserDisplayName: "Hivy Trigger",
-	})
-	if err != nil {
-		// The post never reached the runtime, so release the claim for the asynq
-		// retry; earlier triggers keep their claims and are not re-delivered.
-		h.releaseTriggerDeliveryClaim(ctx, trigger.ID, payload.DeliveryID)
-		captureTriggerDispatchBoundary(ctx, "post_session_message", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
-		return fmt.Errorf("post agent trigger message: %w", err)
+	// Fire-and-forget: hand the message to the generic session delivery machinery,
+	// which arbitrates the agent turn (deliver now when idle, after the active
+	// turn otherwise) and provisions the runtime. We never wait for a reply — the
+	// agent acts and responds through its own tools. Re-enqueuing is idempotent
+	// (a no-op when nothing is pending), so it is safe on asynq retries and when
+	// the delivery was already claimed by a prior attempt.
+	if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, session.ID); err != nil {
+		captureTriggerDispatchBoundary(ctx, "enqueue_session_message_deliver", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
+		return err
 	}
-	h.enqueueStoreDelivery(ctx, payload, trigger, session, compiled, resp)
 	return nil
+}
+
+// enqueueTriggerSessionMessage appends the compiled trigger message to the
+// session's message queue under a session lock so the (session_id,
+// sequence_number) allocation is race-free. The generic session delivery worker
+// drains it, arbitrating the agent turn — mid-turn triggers queue behind the
+// active turn instead of colliding with it.
+func (h *AgentTriggerDispatchHandler) enqueueTriggerSessionMessage(ctx context.Context, session *model.Session, compiled compiledTriggerMessage) error {
+	return h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var locked model.Session
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&locked, "id = ?", session.ID).Error; err != nil {
+			return fmt.Errorf("lock trigger session: %w", err)
+		}
+		seq, err := nextSessionQueueSequence(tx, locked.ID)
+		if err != nil {
+			return err
+		}
+		messagePayload := model.JSON{}
+		maps.Copy(messagePayload, compiled.Raw)
+		messagePayload["text"] = compiled.Text
+		queue := model.SessionMessageQueue{
+			OrgID:           locked.OrgID,
+			SessionID:       locked.ID,
+			MessageText:     compiled.Text,
+			MessagePayload:  messagePayload,
+			SequenceNumber:  seq,
+			Status:          "pending",
+			Model:           locked.Model,
+			ReasoningEffort: locked.ReasoningEffort,
+		}
+		if err := tx.Create(&queue).Error; err != nil {
+			return fmt.Errorf("create trigger message queue: %w", err)
+		}
+		return nil
+	})
 }
 
 // claimTriggerDelivery inserts the (trigger_id, delivery_id) row before posting
@@ -154,48 +184,4 @@ func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload A
 		"resource_key": resourceKey,
 		"session_id":   sessionID,
 	})
-}
-
-func (h *AgentTriggerDispatchHandler) ensureTriggerSessionRuntime(ctx context.Context, agent *model.Agent, session *model.Session) (*model.Sandbox, *agentruntime.Client, error) {
-	if h == nil || h.orchestrator == nil {
-		return nil, nil, fmt.Errorf("trigger runtime delivery not configured")
-	}
-	if h.compileDeps.EncKey == nil {
-		return nil, nil, fmt.Errorf("trigger runtime encryption key is required")
-	}
-	if agent == nil || agent.OrgID == nil || session == nil {
-		return nil, nil, fmt.Errorf("trigger runtime context is required")
-	}
-	var sb *model.Sandbox
-	var err error
-	if session.SandboxID != nil {
-		sb, err = loadAgentSandboxByID(ctx, h.db, *agent.OrgID, agent.ID, *session.SandboxID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("load session sandbox: %w", err)
-		}
-	} else {
-		runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, *session)
-		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
-		if prepErr != nil {
-			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
-		}
-		sb, err = h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, runtimeAgent, secrets, runtimeOptions)
-		if err != nil {
-			return nil, nil, fmt.Errorf("create agent sandbox: %w", err)
-		}
-		if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
-			return nil, nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
-		}
-		if err := h.db.WithContext(ctx).Model(&model.Session{}).
-			Where("id = ? AND org_id = ?", session.ID, session.OrgID).
-			Update("sandbox_id", sb.ID).Error; err != nil {
-			return nil, nil, fmt.Errorf("attach trigger session sandbox: %w", err)
-		}
-		session.SandboxID = &sb.ID
-	}
-	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
-	if err != nil {
-		return nil, nil, fmt.Errorf("agent runtime client: %w", err)
-	}
-	return sb, client, nil
 }

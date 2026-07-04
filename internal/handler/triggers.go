@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/slackapp"
@@ -143,7 +145,7 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 
 	var trigger model.AgentTrigger
 	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(tx, orgID, agentID, channel.ID); err != nil {
+		if err := validateTriggerAgent(r.Context(), tx, orgID, agentID, channel.ID, template); err != nil {
 			return err
 		}
 		trigger = model.AgentTrigger{
@@ -187,7 +189,7 @@ func loadTriggerConnection(db *gorm.DB, orgID, connectionID uuid.UUID, provider 
 	return conn, nil
 }
 
-func validateTriggerAgent(db *gorm.DB, orgID, agentID, channelID uuid.UUID) error {
+func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID, channelID uuid.UUID, template triggerTemplate) error {
 	var count int64
 	if err := db.Model(&model.Agent{}).
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
@@ -204,7 +206,29 @@ func validateTriggerAgent(db *gorm.DB, orgID, agentID, channelID uuid.UUID) erro
 	if !allowed {
 		return fmt.Errorf("agent is not available in this channel")
 	}
-	return nil
+	return validateTriggerAgentPlugin(ctx, db, orgID, agentID, template)
+}
+
+// validateTriggerAgentPlugin enforces that the target agent can actually use
+// the provider the trigger's playbook depends on. It reuses the same resolver
+// the runtime uses to authenticate provider tooling, so a passing check means
+// the agent has the plugin installed and a usable connection.
+func validateTriggerAgentPlugin(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, template triggerTemplate) error {
+	if len(template.requiredProviders) == 0 {
+		return nil
+	}
+	_, err := connectionaccess.ResolveAgentProviderAny(ctx, db, orgID, agentID, template.requiredProviders...)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		label := template.requiredPluginLabel
+		if label == "" {
+			label = "required"
+		}
+		return fmt.Errorf("agent is missing the required %s plugin", label)
+	}
+	return fmt.Errorf("check agent plugin access: %w", err)
 }
 
 func normalizeTriggerValue(value string) string {
@@ -228,6 +252,8 @@ func triggerCreateError(err error) (int, string) {
 		return http.StatusNotFound, err.Error()
 	case strings.Contains(err.Error(), "not available"):
 		return http.StatusForbidden, err.Error()
+	case strings.Contains(err.Error(), "missing the required"):
+		return http.StatusBadRequest, err.Error()
 	default:
 		return http.StatusInternalServerError, "failed to create trigger"
 	}

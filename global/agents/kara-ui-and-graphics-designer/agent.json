@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "slug": "kara",
-  "name": "Kara",
+  "slug": "kara-ui-and-graphics-designer",
+  "name": "Kara - UI and Graphics design",
   "description": "Design, prototyping, visual systems, and Canvas collaboration specialist.",
   "category": "Design",
-  "avatar_url": "/assets/kara.png",
+  "avatar_url": "/agent-avatars/kara.png",
   "developer": "Hivy",
   "official": true,
   "agent_version": "1",

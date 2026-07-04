@@ -9,6 +9,12 @@ import (
 
 const githubAppProvider = "github-app"
 
+// githubToolingProviders are the connection providers that grant an agent
+// working GitHub tooling (the `gh` CLI is authenticated from any of these via
+// the git-credentials helper). Matches internal/handler/git_credentials.go so
+// the install check reflects the same capability the runtime relies on.
+var githubToolingProviders = []string{"github-app", "github-app-oauth", "github", "github-pat"}
+
 // triggerTemplate describes a curated installable trigger. Delivery code is
 // provider-specific and lives with the webhook pipeline; this registry only
 // owns install validation and the stored row shape.
@@ -20,6 +26,12 @@ type triggerTemplate struct {
 	// valueFromResource derives trigger_value from the external resource key
 	// instead of user input (e.g. the repo full name for GitHub mentions).
 	valueFromResource bool
+	// requiredProviders, when set, requires the target agent to have a plugin
+	// installed that resolves one of these connection providers — otherwise the
+	// trigger's playbook could not act (e.g. the agent could not post a reply).
+	requiredProviders []string
+	// requiredPluginLabel names the plugin in install-rejection messages.
+	requiredPluginLabel string
 }
 
 var triggerTemplates = []triggerTemplate{
@@ -30,11 +42,13 @@ var triggerTemplates = []triggerTemplate{
 		triggerKeys:  []string{slackapp.EventReactionAdded},
 	},
 	{
-		provider:          githubAppProvider,
-		key:               model.TriggerKeyGitHubMention,
-		resourceType:      "github_repo",
-		triggerKeys:       model.GitHubMentionEventKeys,
-		valueFromResource: true,
+		provider:            githubAppProvider,
+		key:                 model.TriggerKeyGitHubMention,
+		resourceType:        "github_repo",
+		triggerKeys:         model.GitHubMentionEventKeys,
+		valueFromResource:   true,
+		requiredProviders:   githubToolingProviders,
+		requiredPluginLabel: "GitHub",
 	},
 }
 

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "slug": "hakaree",
-  "name": "Hakaree",
+  "slug": "hakaree-software-engineer",
+  "name": "Hakaree - software engineer",
   "description": "Coding, devops, infrastructure and debugging specialist.",
   "category": "Developer Tools",
-  "avatar_url": "/assets/hakaree.png",
+  "avatar_url": "/agent-avatars/hakaree.png",
   "developer": "Hivy",
   "official": true,
   "agent_version": "1",

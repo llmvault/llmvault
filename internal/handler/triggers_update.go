@@ -100,7 +100,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 		return model.AgentTrigger{}, status, message, err
 	}
 	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(tx, orgID, parsed.agentID, channel.ID); err != nil {
+		if err := validateTriggerAgent(r.Context(), tx, orgID, parsed.agentID, channel.ID, template); err != nil {
 			return err
 		}
 		return tx.Model(&model.AgentTrigger{}).

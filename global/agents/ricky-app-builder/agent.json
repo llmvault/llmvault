@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "slug": "app-builder",
-  "name": "App Builder",
+  "slug": "ricky-app-builder",
+  "name": "Ricky - App builder",
   "description": "Builds and ships small web apps over sheets — CRUD tools, dashboards, and custom interfaces.",
   "category": "Engineering",
-  "avatar_url": "/assets/app-builder.png",
+  "avatar_url": "/agent-avatars/riko.png",
   "developer": "Hivy",
   "official": true,
   "agent_version": "1",

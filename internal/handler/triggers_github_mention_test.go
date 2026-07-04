@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -41,10 +42,33 @@ func seedNangoGitHubConnection(t *testing.T, db *gorm.DB) (model.Org, model.Conn
 	return org, conn
 }
 
+// seedGitHubPluginForAgent installs an active GitHub plugin (integrating the
+// github-app provider) on the agent so connectionaccess.ResolveAgentProvider
+// resolves — i.e. the agent can actually use GitHub tooling.
+func seedGitHubPluginForAgent(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID) {
+	t.Helper()
+	plugin := model.Plugin{Slug: "github-" + uuid.NewString()[:8], Name: "GitHub", Status: model.PluginStatusActive}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
+	if err := db.Create(&model.PluginIntegration{
+		PluginID: plugin.ID, Provider: githubAppProvider, Kind: model.PluginIntegrationKindIntegration, Required: true,
+	}).Error; err != nil {
+		t.Fatalf("create plugin integration: %v", err)
+	}
+	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("create org plugin install: %v", err)
+	}
+	if err := db.Create(&model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("create agent plugin install: %v", err)
+	}
+}
+
 func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	db := connectNangoSlackTestDB(t)
 	org, conn := seedNangoGitHubConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
+	seedGitHubPluginForAgent(t, db, org.ID, agent.ID)
 	body, _ := json.Marshal(createTriggerRequest{
 		Provider:             githubAppProvider,
 		ConnectionID:         conn.ID.String(),
@@ -100,6 +124,42 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
 	if rr.Code != http.StatusConflict {
 		t.Fatalf("duplicate status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestTriggerHandlerCreateGitHubMentionRequiresGitHubPlugin(t *testing.T) {
+	db := connectNangoSlackTestDB(t)
+	org, conn := seedNangoGitHubConnection(t, db)
+	agent := seedSlackReactionAgent(t, db, org.ID)
+	// No GitHub plugin installed on the agent → the agent could not post a
+	// reply, so install must be rejected.
+	body, _ := json.Marshal(createTriggerRequest{
+		Provider:             githubAppProvider,
+		ConnectionID:         conn.ID.String(),
+		ExternalResourceKey:  "usehivy/hivy",
+		ExternalResourceName: "hivy",
+		AgentID:              agent.ID.String(),
+		TriggerKey:           model.TriggerKeyGitHubMention,
+		Instructions:         "Reply with one concise comment.",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+
+	NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if body := rr.Body.String(); !strings.Contains(body, "GitHub plugin") {
+		t.Fatalf("expected GitHub plugin message, got %s", body)
+	}
+	var count int64
+	if err := db.Model(&model.AgentTrigger{}).Where("org_id = ?", org.ID).Count(&count).Error; err != nil {
+		t.Fatalf("count triggers: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("created triggers=%d, want 0", count)
 	}
 }
 

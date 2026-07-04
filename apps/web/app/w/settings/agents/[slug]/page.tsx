@@ -123,6 +123,7 @@ export default function AgentDetailPage({
     installedAgent?.sandbox_size
   )
   const installed = agent ? agentIsInstalled(agent) : false
+  const isDefaultAgent = Boolean(agent?.is_default)
   const canInstall = agentCanInstall(agent)
   const busy = installAgent.isPending
   const uninstalling = uninstallAgent.isPending
@@ -163,7 +164,7 @@ export default function AgentDetailPage({
   }
 
   function handleUninstall() {
-    if (!agent) return
+    if (!agent || isDefaultAgent) return
     uninstallAgent.mutate(
       { params: { path: { slug } } },
       {
@@ -300,20 +301,26 @@ export default function AgentDetailPage({
         </div>
 
         {installed ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="shrink-0 text-danger"
-            isDisabled={uninstalling}
-            onPress={() => setConfirmUninstall(true)}
-          >
-            {uninstalling ? (
-              <Spinner color="current" size="sm" />
-            ) : (
-              <AppIcon icon="trash-2" className="h-4 w-4" />
-            )}
-            Uninstall
-          </Button>
+          isDefaultAgent ? (
+            <span className="text-muted-foreground shrink-0 text-sm">
+              Default agent
+            </span>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="shrink-0 text-danger"
+              isDisabled={uninstalling}
+              onPress={() => setConfirmUninstall(true)}
+            >
+              {uninstalling ? (
+                <Spinner color="current" size="sm" />
+              ) : (
+                <AppIcon icon="trash-2" className="h-4 w-4" />
+              )}
+              Uninstall
+            </Button>
+          )
         ) : (
           <Button
             size="sm"
