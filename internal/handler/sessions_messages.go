@@ -114,11 +114,14 @@ func (h *SessionHandler) rejectExternalSessionMessage(w http.ResponseWriter, r *
 }
 
 func (h *SessionHandler) externalSessionMessageTarget(r *http.Request, session model.Session) (bool, string) {
+	// Gate only on where the session was initiated, not on whether the channel
+	// is linked to an external provider: a web-initiated session on a
+	// Slack-connected channel is a normal web session and must not be told to
+	// "continue in Slack". The channel is loaded solely to label the provider.
 	external := session.Source == model.SessionSourceExternal
 	provider := ""
 	channel, found, err := h.loadSessionChannel(r.Context(), session)
 	if err == nil && found {
-		external = external || channel.Origin == "external"
 		provider = externalProviderLabel(channel.ExternalProvider)
 	}
 	if !external {
