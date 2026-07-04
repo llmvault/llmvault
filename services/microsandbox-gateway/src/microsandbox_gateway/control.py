@@ -34,6 +34,31 @@ class ControlClient:
         payload = await self._request("GET", f"/v1/sandboxes/{sandbox_id}/route")
         return payload["route"]
 
+    async def alias(self, alias: str) -> dict[str, Any] | None:
+        """Resolve an alias to its (sandbox_id, port) mapping via the control
+        plane. Returns None when control has no such alias (404). This is the
+        gateway's self-heal on a Redis miss: control is the source of truth for
+        alias→sandbox bindings, so a dropped push (or evicted key) no longer
+        strands the alias behind "invalid preview host"."""
+        if not self.configured():
+            return None
+        if self.session is None:
+            self._owned_session = ClientSession(timeout=ClientTimeout(total=120))
+            self.session = self._owned_session
+        headers = {"Authorization": f"Bearer {self.token}"}
+        async with self.session.request(
+            "GET",
+            f"{self.base_url}/v1/aliases/{alias}",
+            headers=headers,
+            timeout=ClientTimeout(total=5),
+        ) as response:
+            if response.status == 404:
+                return None
+            if response.status >= 300:
+                body = await response.text()
+                raise RuntimeError(f"control returned {response.status}: {body.strip()}")
+            return await response.json()
+
     async def ensure_ready(
         self,
         sandbox_id: str,

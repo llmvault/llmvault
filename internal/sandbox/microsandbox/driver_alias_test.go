@@ -63,3 +63,26 @@ func TestDriverClaimAndReleaseAlias(t *testing.T) {
 		t.Fatal("ReleaseAlias did not call DELETE")
 	}
 }
+
+// TestDriverClaimAliasSurfacesNon2xx proves the apps driver treats a control
+// non-2xx (the fail-closed response when the gateway push fails) as an error,
+// so the deploy is marked failed rather than reporting a dead alias URL.
+func TestDriverClaimAliasSurfacesNon2xx(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":"failed to propagate alias route to gateway"}`, http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	driver, err := NewDriver(Config{ControlURL: server.URL, APIToken: "test-token", RuntimeImage: "img"})
+	if err != nil {
+		t.Fatalf("NewDriver: %v", err)
+	}
+
+	url, err := driver.ClaimAlias(context.Background(), "my-app", "sbx_test", 8080)
+	if err == nil {
+		t.Fatalf("ClaimAlias returned nil error on 502; url = %q", url)
+	}
+	if url != "" {
+		t.Fatalf("ClaimAlias url = %q, want empty on error", url)
+	}
+}
