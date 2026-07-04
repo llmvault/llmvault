@@ -145,6 +145,10 @@ func (s *Service) ensureAppSandbox(ctx context.Context, app *model.App, env map[
 			"harness":    "app-sandbox",
 		},
 		ExposedPorts: []int{appPort},
+		// App sandboxes run hivy-appd on appdPort, which serves /health (not the
+		// agent-runtime /healthz). Probe it explicitly so the wake health check
+		// after an idle sleep succeeds instead of 404ing on /healthz.
+		HealthCheck: &sandbox.SandboxHealthCheck{Port: appdPort, Path: "/health", ExpectedStatus: 200},
 	})
 	if err != nil {
 		if delErr := s.db.WithContext(ctx).Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
