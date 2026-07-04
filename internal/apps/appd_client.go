@@ -82,9 +82,10 @@ func (c *appdClient) deploy(ctx context.Context, baseURL, secret string, req App
 	return &resp, nil
 }
 
-// deployWithBootRetry retries connection-level failures (refused/reset —
-// the container is still booting) within the bounded window. HTTP-level
-// errors (auth, bad bundle) fail immediately.
+// deployWithBootRetry retries boot-window failures within the bounded window:
+// connection-level failures (refused/reset — the container is still booting)
+// and the 502/503 the gateway returns while appd itself is not yet listening.
+// Genuine HTTP errors (auth, bad bundle, other 5xx) fail immediately.
 func (c *appdClient) deployWithBootRetry(ctx context.Context, baseURL, secret string, req AppdDeployRequest) (*AppdDeployResponse, error) {
 	deadline := time.Now().Add(c.bootRetryWindow)
 	for {
@@ -92,7 +93,7 @@ func (c *appdClient) deployWithBootRetry(ctx context.Context, baseURL, secret st
 		if err == nil {
 			return resp, nil
 		}
-		if !isConnectionError(err) || time.Now().After(deadline) {
+		if !isBootRetryable(err) || time.Now().After(deadline) {
 			return nil, err
 		}
 		select {
@@ -211,6 +212,22 @@ func appdErrorMessage(payload []byte) string {
 		msg = msg[:300]
 	}
 	return msg
+}
+
+// isBootRetryable reports failures worth retrying while a container boots:
+// transport-level errors, plus the gateway's 502/503 emitted before appd is
+// listening. Other appd HTTP errors (auth, bad bundle, 4xx, other 5xx) are
+// genuine and must not be retried.
+func isBootRetryable(err error) bool {
+	if isConnectionError(err) {
+		return true
+	}
+	var appdErr *AppdError
+	if errors.As(err, &appdErr) {
+		return appdErr.StatusCode == http.StatusBadGateway ||
+			appdErr.StatusCode == http.StatusServiceUnavailable
+	}
+	return false
 }
 
 // isConnectionError reports transport-level failures worth retrying while a

@@ -44,6 +44,22 @@ func TestCorrectBearerIsAccepted(t *testing.T) {
 	}
 }
 
+// TestHealthAndHealthzBothOK proves the /healthz alias resolves to the same
+// liveness handler as /health, so a stray agent-runtime style /healthz probe
+// pointed at appd still succeeds.
+func TestHealthAndHealthzBothOK(t *testing.T) {
+	_, ts := newTestServer(t)
+	for _, path := range []string{"/health", "/healthz"} {
+		status, body := doJSON(t, ts, http.MethodGet, path, testSecret, nil)
+		if status != http.StatusOK {
+			t.Fatalf("GET %s: status = %d, want 200", path, status)
+		}
+		if body["ok"] != true {
+			t.Fatalf("GET %s: ok = %v, want true", path, body["ok"])
+		}
+	}
+}
+
 func TestBearerFromHeader(t *testing.T) {
 	cases := map[string]string{
 		"Bearer abc":  "abc",

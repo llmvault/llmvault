@@ -103,6 +103,63 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	}
 }
 
+// TestDriverCreateSandboxHealthCheckOverride proves an app sandbox is created
+// with an explicit /health probe on the appd port (7080) — not the default
+// agent-runtime /healthz — while a normal agent sandbox keeps /healthz.
+func TestDriverCreateSandboxHealthCheckOverride(t *testing.T) {
+	var createReq map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
+			t.Fatalf("decode create request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "sbx_app", "Status": "running"})
+	}))
+	defer server.Close()
+
+	driver, err := NewDriver(Config{
+		ControlURL:   server.URL,
+		APIToken:     "test-token",
+		RuntimeImage: "ghcr.io/usehivy/hivy-app-runtime:latest",
+	})
+	if err != nil {
+		t.Fatalf("NewDriver: %v", err)
+	}
+	if _, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
+		Name:         "app-sandbox",
+		TemplateRef:  "ghcr.io/usehivy/hivy-app-runtime:latest",
+		Labels:       map[string]string{"org_id": "org_123", "harness": "app-sandbox"},
+		ExposedPorts: []int{8080},
+		HealthCheck: &sandbox.SandboxHealthCheck{
+			Port:           sandbox.AgentSandboxPort, // appd shares the runtime port 7080
+			Path:           "/health",
+			ExpectedStatus: http.StatusOK,
+		},
+	}); err != nil {
+		t.Fatalf("CreateSandbox: %v", err)
+	}
+	checks, ok := createReq["health_checks"].([]any)
+	if !ok || len(checks) != 1 {
+		t.Fatalf("health_checks = %#v, want one check", createReq["health_checks"])
+	}
+	check, ok := checks[0].(map[string]any)
+	if !ok {
+		t.Fatalf("health check = %T, want object", checks[0])
+	}
+	if check["guest_port"] != float64(sandbox.AgentSandboxPort) {
+		t.Fatalf("health check guest_port = %v, want %d", check["guest_port"], sandbox.AgentSandboxPort)
+	}
+	if check["path"] != "/health" {
+		t.Fatalf("health check path = %v, want /health (not /healthz)", check["path"])
+	}
+	if check["expected_status"] != float64(http.StatusOK) {
+		t.Fatalf("health check expected_status = %v, want 200", check["expected_status"])
+	}
+}
+
 func TestDriverCreateSandboxUsesTemplateIDForMicrosandboxTemplate(t *testing.T) {
 	var createReq map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

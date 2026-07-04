@@ -148,3 +148,90 @@ func TestDeployWithBootRetry(t *testing.T) {
 		t.Fatalf("resp = %+v", resp)
 	}
 }
+
+// TestDeployWithBootRetryGatewayStatus proves the gateway's 502/503 (appd not
+// yet listening) is retried within the boot window and eventually succeeds.
+func TestDeployWithBootRetryGatewayStatus(t *testing.T) {
+	for _, bootStatus := range []int{http.StatusBadGateway, http.StatusServiceUnavailable} {
+		bootStatus := bootStatus
+		t.Run(http.StatusText(bootStatus), func(t *testing.T) {
+			var calls atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if calls.Add(1) <= 2 {
+					w.WriteHeader(bootStatus)
+					_, _ = w.Write([]byte("<html>gateway</html>"))
+					return
+				}
+				_ = json.NewEncoder(w).Encode(AppdDeployResponse{NewSHA: "booted"})
+			}))
+			defer server.Close()
+
+			client := newAppdClient()
+			client.bootRetryWindow = 5 * time.Second
+			client.bootRetryInterval = 20 * time.Millisecond
+			resp, err := client.deployWithBootRetry(context.Background(), server.URL, "secret", AppdDeployRequest{
+				BundleURL: "https://s3.test/b.zip", SHA256: "abc", VersionID: "v",
+			})
+			if err != nil {
+				t.Fatalf("deployWithBootRetry: %v", err)
+			}
+			if resp.NewSHA != "booted" {
+				t.Fatalf("resp = %+v", resp)
+			}
+			if got := calls.Load(); got != 3 {
+				t.Fatalf("appd calls = %d, want 3 (two boot %d then success)", got, bootStatus)
+			}
+		})
+	}
+}
+
+// TestDeployWithBootRetryStopsAfterWindow proves a 502 that outlasts the boot
+// window fails (non-retryable once the deadline passes), and that a genuine
+// non-boot HTTP error (400) is never retried.
+func TestDeployWithBootRetryStopsAfterWindow(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("still down"))
+	}))
+	defer server.Close()
+
+	client := newAppdClient()
+	// Zero window: the deadline is already in the past on the first failure, so
+	// the 502 surfaces without a retry (post-window behaviour).
+	client.bootRetryWindow = 0
+	client.bootRetryInterval = time.Millisecond
+	_, err := client.deployWithBootRetry(context.Background(), server.URL, "secret", AppdDeployRequest{
+		BundleURL: "https://s3.test/b.zip", SHA256: "abc", VersionID: "v",
+	})
+	var appdErr *AppdError
+	if !errors.As(err, &appdErr) || appdErr.StatusCode != http.StatusBadGateway {
+		t.Fatalf("err = %v, want AppdError 502 after window", err)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("appd calls = %d, want 1 (no retry past the window)", got)
+	}
+
+	// A genuine 400 is never boot-retryable, even with a generous window.
+	badReqCalls := atomic.Int32{}
+	badServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		badReqCalls.Add(1)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "bad bundle"})
+	}))
+	defer badServer.Close()
+
+	client = newAppdClient()
+	client.bootRetryWindow = 5 * time.Second
+	client.bootRetryInterval = time.Millisecond
+	_, err = client.deployWithBootRetry(context.Background(), badServer.URL, "secret", AppdDeployRequest{
+		BundleURL: "https://s3.test/b.zip", SHA256: "abc", VersionID: "v",
+	})
+	if !errors.As(err, &appdErr) || appdErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("err = %v, want AppdError 400 (non-retryable)", err)
+	}
+	if got := badReqCalls.Load(); got != 1 {
+		t.Fatalf("appd calls = %d, want 1 (400 not retried)", got)
+	}
+}

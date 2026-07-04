@@ -104,7 +104,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		"env":           opts.EnvVars,
 		"metadata":      opts.Labels,
 		"preview_ports": d.previewPorts(opts.ExposedPorts),
-		"health_checks": d.runtimeHealthChecks(d.runtimePort),
+		"health_checks": d.healthChecksForCreate(opts.HealthCheck),
 		"init":          agentRuntimeInit,
 	}
 	var out createSandboxResponse
@@ -112,6 +112,20 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		return nil, err
 	}
 	return &sandbox.SandboxInfo{ExternalID: out.ID, Status: sandbox.StatusRunning}, nil
+}
+
+// healthChecksForCreate resolves the runtime health checks for a new sandbox:
+// the caller's explicit override when set (app sandboxes probe the app daemon's
+// /health), otherwise the agent-runtime default (/healthz on the runtime port).
+func (d *Driver) healthChecksForCreate(override *sandbox.SandboxHealthCheck) []map[string]any {
+	if override == nil {
+		return d.runtimeHealthChecks(d.runtimePort)
+	}
+	port := override.Port
+	if port <= 0 {
+		port = d.runtimePort
+	}
+	return d.healthCheck(port, override.Path, override.ExpectedStatus)
 }
 
 func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreateOpts) (*sandbox.WarmSlotInfo, error) {
@@ -191,15 +205,25 @@ func (d *Driver) previewPorts(exposedPorts []int) []int {
 }
 
 func (d *Driver) runtimeHealthChecks(port int) []map[string]any {
+	return d.healthCheck(port, "/healthz", 200)
+}
+
+func (d *Driver) healthCheck(port int, path string, expectedStatus int) []map[string]any {
 	if port <= 0 {
 		return nil
+	}
+	if path == "" {
+		path = "/healthz"
+	}
+	if expectedStatus == 0 {
+		expectedStatus = 200
 	}
 	return []map[string]any{{
 		"guest_port":      port,
 		"type":            "http",
 		"method":          "GET",
-		"path":            "/healthz",
-		"expected_status": 200,
+		"path":            path,
+		"expected_status": expectedStatus,
 		"timeout_seconds": 30,
 		"interval_ms":     250,
 	}}

@@ -43,6 +43,19 @@ type CreateSandboxOpts struct {
 	Memory       int               // memory in GB (0 = provider default)
 	Disk         int               // disk in GB (0 = provider default)
 	ExposedPorts []int             // user-facing preview ports to expose
+	// HealthCheck overrides the default agent-runtime health probe (/healthz on
+	// the runtime port). App sandboxes set this so the wake probe targets the
+	// app daemon, which serves /health rather than the agent-runtime /healthz.
+	// Nil keeps the agent-runtime default so non-app sandboxes are unaffected.
+	HealthCheck *SandboxHealthCheck
+}
+
+// SandboxHealthCheck is an explicit HTTP runtime health probe for a sandbox
+// port. It overrides the driver's default agent-runtime probe.
+type SandboxHealthCheck struct {
+	Port           int    // guest port to probe (must be previewable/exposed)
+	Path           string // request path, e.g. "/health"
+	ExpectedStatus int    // status treated as healthy (0 defaults to 200)
 }
 
 // SandboxInfo is returned after creating a sandbox.

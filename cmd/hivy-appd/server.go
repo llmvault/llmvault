@@ -31,6 +31,9 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /rollback", s.handleRollback)
 	mux.HandleFunc("GET /logs", s.handleLogs)
 	mux.HandleFunc("GET /health", s.handleHealth)
+	// Alias: a stray /healthz probe (e.g. an agent-runtime style health check
+	// pointed at appd) resolves to the same liveness handler as /health.
+	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("POST /env", s.handleEnv)
 	return s.requireAuth(mux)
 }
