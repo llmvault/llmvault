@@ -157,11 +157,11 @@ Run the app inside your own sandbox with its real platform environment and let t
 make preview APP_ID=<app_id> PORT=3000
 ```
 
-`make preview` rebuilds the server, fetches the app's runtime env over an authenticated side channel, writes it to a 0600 file, (re)starts the preview supervised (a systemd unit when systemd is booted, a background process otherwise), waits for `/healthz`, and prints the public preview URL as the **last line of stdout**. All progress goes to stderr.
+`make preview` rebuilds the server, fetches the app's runtime env over an authenticated side channel, writes it to a 0600 file, (re)starts the preview supervised (a systemd unit when systemd is booted, a background process otherwise), waits for `/healthz`, and prints the public preview URL — carrying the `?app=<app_id>` hint the Hivy frontend needs to route the launch — as the **last line of stdout**, right after a line telling you to share ONLY that URL. All progress goes to stderr.
 
-- **Read only that final URL line.** Never print, read, or inspect the env file (under `/workspace/.hivy/`), the preview-env response, or the process environment — they contain the app secret and the channel's secrets.
-- Verify before you share: drive the preview in the sandbox's headless browser with the `browser` CLI (the browser skill documents it) — `browser open <preview-url>`, `browser snapshot -i` to confirm the page renders, `browser click`/`browser fill` through the key interactions, `browser console` to check for errors. This, not a test suite, is how an app gets verified.
-- Share the preview URL with the user and ask them to test it. Preview URLs authenticate through the Hivy frontend exactly like the live app; opened raw they show the 401 page.
+- **Read only that final URL line, and share it exactly, hint included.** Never strip the `?app=<app_id>` query, and never share a bare `{port}-{id}.preview.usehivy.com` URL without it — the frontend can't route an unhinted link. Never print, read, or inspect the env file (under `/workspace/.hivy/`), the preview-env response, or the process environment — they contain the app secret and the channel's secrets.
+- Verify the server itself before you share — not the authenticated UI: `curl {preview_url}/healthz` (expect `{"status":"ok"}`) and `curl {preview_url}/` (expect 200 HTML) against the raw preview URL. You can also `browser open <preview-url>` to eyeball it, `browser snapshot -i`, click/fill through key interactions, `browser console` for errors — but you have no user session, so a direct open lands on hivycore's "you're not signed in" page (or a 401 with `launch_url` for `/api/*` calls). That's expected, not a bug — don't report it as one; it just isn't how you exercise the signed-in flows the user will see.
+- Share the preview URL with the user exactly as printed and ask them to test it — and tell them it's ephemeral: tied to this builder sandbox, it stops working once the session ends, unlike a deployed app's link. Preview URLs authenticate through the Hivy frontend exactly like the live app; opened raw, or without the `?app=` hint, they show the 401 page.
 - Iterate: edit code → `make web` (only if `web/` changed; preview rebuilds the Go server itself) → `make preview APP_ID=<app_id> PORT=3000` again → share the URL. Reruns replace the previous preview.
 
 ### 8. Deploy — only with explicit authorization
@@ -205,13 +205,13 @@ Then publish:
 
 ### 9. Verify
 
-`app_publish` returns `version_id`, the live `url`, and `status`. Then:
+`app_publish` returns `version_id`, the live `url` — carrying the same `?app=<app_id>` hint as the preview URL — and `status`. Then:
 
 1. `app_status` — confirm the app is running and the new version is active.
 2. `curl -fsS <url>/healthz` — liveness plus the template version, no auth needed.
 3. `app_logs` with a small `lines` value — confirm clean startup, no error lines.
 
-Give the user the live URL only after all three check out. If publish or startup failed, `app_logs` (add `grep` for `error`/`panic`) is your debugger — production logs survive sleep/wake and the tool wakes the sandbox for you.
+Give the user the live `url` exactly as returned, hint included — never a bare alias — only after all three check out. A direct open (or a curl of the app UI itself rather than `/healthz`) may still show "invalid preview host" until the alias is fully routed; that's expected, not a failed publish. If publish or startup failed, `app_logs` (add `grep` for `error`/`panic`) is your debugger — production logs survive sleep/wake and the tool wakes the sandbox for you.
 
 ### 10. Iterate
 
@@ -234,12 +234,13 @@ These are requirements for every screen you ship — the template already wires 
 
 - Never edit, delete, or add files under `hivycore/`. Never change `template_version` in `app.json`.
 - `app_publish` only after the user explicitly authorizes deployment (step 8's hard rule) — for the first deploy and for every re-deploy of a live app.
-- `make preview` output: read only the last stdout line (the preview URL). Never print, read, or paste the env file, the preview-env response, or the process environment.
+- `make preview` output: read only the last stdout line (the hinted preview URL). Never print, read, or paste the env file, the preview-env response, or the process environment.
 - Never invent page or field IDs — `sheet_describe` / `Structure()` first, then key everything by `fld_…` IDs, never display names.
 - All data access through `app.Sheets()`; all browser traffic through `/api/*` same-origin. No secrets in the SPA, no third-party calls from the browser. No login UI, tokens, or session handling of your own — hivycore owns auth.
 - The app reads sheet structure and CRUDs rows; it never modifies schema. Schema changes are sheets-plugin work (`sheet_manage`), done outside the app.
 - `make deps` once per sandbox, then `make all` per iteration; deploy target is linux/amd64.
-- Verify before reporting: `app_status`, `/healthz`, and a clean `app_logs` read after every publish. Never hand the user a URL you have not checked — previews included: drive them in the headless `browser` first.
+- Verify before reporting: `app_status`, `/healthz`, and a clean `app_logs` read after every publish. Never hand the user a URL you have not checked — previews included. Check the raw URL's `/healthz` and `/` with `curl`; a direct browser open or curl of `/api/*` hitting the sign-in wall or a 401 with `launch_url` is expected there, not a check failure.
+- Always share the `?app=<app_id>`-hinted URL `make preview` prints or `app_publish` returns — never a bare `{port}-{id}.preview.usehivy.com` or alias without it. Preview links are ephemeral (die with the builder session); say so when sharing one — only a deployed app's link is durable.
 - No test suites for the app unless it has grown genuinely complex (multi-page flows, tricky server logic) — verify in the headless browser on the preview instead; `make test` is a compile check, not your quality gate.
 - Rows in mutations cap at 100 per call; queries clamp to 100 with cursor paging — handle `NextCursor` in handlers that need full data.
 - Env: the channel's custom env vars are injected into the app (read with `os.Getenv`); `HIVY_*` names are platform-reserved. Never echo or log secret values.
@@ -247,7 +248,7 @@ These are requirements for every screen you ship — the template already wires 
 
 ## Final response checklist
 
-When handing over a preview, state: the preview URL, what the app does (routes/views), what you want the user to try, that you already drove it in the headless browser (pages render, key interactions work, `browser console` clean), and that you will deploy once they give the go-ahead.
+When handing over a preview, state: the preview URL (hint included) and that it's ephemeral to this session, what the app does (routes/views), what you want the user to try, that you already verified it serves (`/healthz`, `/`, and a headless-browser look — expecting the sign-in wall, not a rendered app), and that you will deploy once they give the go-ahead.
 
 After a deploy, state:
 
