@@ -7,6 +7,11 @@ ConditionPathExists=/workspace/app/current/server
 
 [Service]
 WorkingDirectory=/workspace/app/current
+# /workspace/app/env intentionally carries no PORT: the server defaults to
+# 8080 (hivycore/config.go), and the sandbox alias/proxy the platform points
+# at this app is hard-bound to 8080 (internal/apps/image.go's appPort). Do
+# not add PORT to that env file or change this default — it would only make
+# the deployed app unreachable behind its own alias.
 EnvironmentFile=-/workspace/app/env
 ExecStartPre=/bin/mkdir -p /workspace/logs
 ExecStart=/workspace/app/current/server

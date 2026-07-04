@@ -8,8 +8,14 @@
     "resolveJsonModule": true,
     "jsx": "react-jsx",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    // Deliberately OFF (unlike a hand-written app): the app-builder agent
+    // iterates on generated pages fast, and a leftover unused import or
+    // handler param is common mid-edit noise, not a real bug — it should
+    // never be a hard `make all` failure (TS6133). `strict` above still
+    // catches actual type errors (e.g. passing `unknown` where a ReactNode
+    // is expected); only the "unused" checks are relaxed.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "noEmit": true,
     "isolatedModules": true,

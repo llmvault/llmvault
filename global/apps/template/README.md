@@ -188,13 +188,17 @@ authenticated side channel (using this sandbox's ambient credentials), writes
 it to a 0600 file under `/workspace/.hivy/`, (re)starts `dist/server`
 supervised — a systemd unit (`hivy-app-preview.service`) when systemd is
 booted, otherwise a background process with a pidfile — waits for `/healthz`,
-and prints the public preview URL as the **last line of output**.
+and prints two URLs: the raw `preview_url` (stderr, labeled, for your own
+health checks only) and, as the **last line of stdout**, the share URL —
+the raw URL with `?app=<APP_ID>` appended, which tells the Hivy frontend
+which app to frame.
 
 Rules for the preview loop:
 
-- Read **only** that final URL line and share it with the user. Never print,
-  read, or paste the env file, the endpoint response, or the process
-  environment — they contain the app secret and the channel's secrets.
+- Read **only** that final line (the `?app=` URL) and share it with the
+  user — never the raw `preview_url` line. Never print, read, or paste the
+  env file, the endpoint response, or the process environment — they contain
+  the app secret and the channel's secrets.
 - Iterate: edit code → `make web` (if the SPA changed) → `make preview …`
   again → share the URL. Reruns replace the previous preview.
 - **Deploy only after the user explicitly approves.** The preview URL is for
