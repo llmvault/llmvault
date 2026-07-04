@@ -49,4 +49,13 @@ describe("preview browser links", () => {
       host: "5173-um7j159u.preview.usehivy.com",
     })
   })
+
+  it("captures the ?app= hint as appId", () => {
+    const appUrl = `${previewUrl}?app=ea22cbda-3d72-4d17-8524-f0d07ac57b63`
+    expect(previewBrowserTargetFromURL(appUrl)).toMatchObject({
+      appId: "ea22cbda-3d72-4d17-8524-f0d07ac57b63",
+    })
+    // A plain preview URL has no app hint.
+    expect(previewBrowserTargetFromURL(previewUrl)?.appId).toBeUndefined()
+  })
 })

@@ -136,7 +136,7 @@ interface SessionWorkspaceStoreState {
   ) => void
   setBrowserURL: (sessionId: string, url: string) => void
   navigateBrowser: (sessionId: string, src: string) => void
-  openBrowserURL: (sessionId: string, url: string) => void
+  openBrowserURL: (sessionId: string, url: string, src?: string) => void
   reloadBrowser: (sessionId: string) => void
   openSubagentRun: (sessionId: string, jobId: string) => void
   setReviewDiffStyle: (
@@ -401,7 +401,7 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
         }))
       )
     },
-    openBrowserURL(sessionId, url) {
+    openBrowserURL(sessionId, url, src) {
       setState((state) =>
         updateWorkspaceState(state, sessionId, (workspace) => ({
           ...workspace,
@@ -416,7 +416,10 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
           browser: {
             ...workspace.browser,
             url,
-            src: url,
+            // src defaults to the address-bar url; callers pass a distinct src
+            // to show a friendly url while the iframe loads something else
+            // (e.g. an app that must first go through the launch handshake).
+            src: src ?? url,
             reloadKey: workspace.browser.reloadKey + 1,
           },
         }))

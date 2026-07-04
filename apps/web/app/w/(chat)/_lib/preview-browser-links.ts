@@ -3,6 +3,12 @@ export interface PreviewBrowserTarget {
   url: string
   host: string
   port?: string
+  /**
+   * App id from the `?app=<id>` hint. Present when the URL points at a Hivy
+   * app (preview or deployed): opening it must go through the launch-token
+   * handshake instead of loading the raw URL, which would 401 ("not signed in").
+   */
+  appId?: string
 }
 
 const PREVIEW_DOMAIN = "preview.usehivy.com"
@@ -34,6 +40,7 @@ export function previewBrowserTargetFromURL(
       url: normalizedUrl,
       host: url.hostname,
       port: previewPort(url.hostname),
+      appId: url.searchParams.get("app") ?? undefined,
     }
   } catch {
     return null

@@ -43,6 +43,7 @@ import {
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
 import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
+import { launchAppPreview } from "@/app/w/(chat)/_lib/app-launch"
 import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import type { SubagentConversationBlock } from "@/app/w/(chat)/_lib/static-data"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
@@ -82,6 +83,9 @@ export function SessionThreadView({
   const liveSubagentRuns = useSessionSubagentRuns(sessionId)
   const openBrowserURL = useSessionWorkspaceStore(
     (state) => state.openBrowserURL
+  )
+  const navigateBrowser = useSessionWorkspaceStore(
+    (state) => state.navigateBrowser
   )
   const openSubagentRun = useSessionWorkspaceStore(
     (state) => state.openSubagentRun
@@ -392,9 +396,23 @@ export function SessionThreadView({
 
   const handleOpenPreviewTarget = useCallback(
     (target: PreviewBrowserTarget) => {
-      openBrowserURL(sessionId ?? "new-chat", target.url)
+      const sid = sessionId ?? "new-chat"
+      if (!target.appId) {
+        openBrowserURL(sid, target.url)
+        return
+      }
+      // App card: open the panel immediately (blank), exchange a one-time
+      // launch token, then load the app's /auth/callback so the iframe boots
+      // with the user already authenticated. The address bar keeps the
+      // shareable app url; only the iframe src swaps to the callback.
+      openBrowserURL(sid, target.url, "about:blank")
+      void launchAppPreview(target.appId)
+        .then(({ iframeUrl }) => navigateBrowser(sid, iframeUrl))
+        .catch((error) =>
+          toast.danger(extractErrorMessage(error, "Could not open app"))
+        )
     },
-    [openBrowserURL, sessionId]
+    [openBrowserURL, navigateBrowser, sessionId]
   )
   const handleOpenSubagentRun = useCallback(
     (block: SubagentConversationBlock) => {
