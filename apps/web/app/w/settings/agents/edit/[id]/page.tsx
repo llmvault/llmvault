@@ -1,15 +1,16 @@
 "use client"
 
-import { use, useMemo } from "react"
+import { use, useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Spinner, toast } from "@heroui/react"
+import { Button, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { pluginSlug, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import { INSTALLED_AGENTS_QUERY_KEY, pluginEnabledForAgent } from "../../_lib"
+import { RemoveAgentDialog } from "../../_remove-agent-dialog"
 import { AgentFormView } from "../../new/_agent-form"
 import {
   agentFormFromDetail,
@@ -41,6 +42,8 @@ export default function EditAgentPage({
     "delete",
     "/v1/agents/{id}/plugins/{slug}"
   )
+  const deleteAgent = $api.useMutation("delete", "/v1/agents/{id}")
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const agent = agentQuery.data as AgentDetail | undefined
   const agentPlugins =
@@ -87,6 +90,22 @@ export default function EditAgentPage({
     }
   }
 
+  function handleDelete() {
+    deleteAgent.mutate(
+      { params: { path: { id } } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
+          toast.success(`${agent?.name?.trim() || "Agent"} deleted`)
+          setConfirmDelete(false)
+          router.push("/w/settings/agents")
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not delete agent")),
+      }
+    )
+  }
+
   if (agentQuery.isLoading || agentPluginsQuery.isLoading) {
     return <CenteredSpinner />
   }
@@ -112,14 +131,43 @@ export default function EditAgentPage({
   }
 
   return (
-    <AgentFormView
-      heading="Edit agent"
-      subheading="Update this agent — its model, tools, plugins, and sub-agents."
-      submitLabel="Save changes"
-      initialForm={agentFormFromDetail(agent, enabledSlugs)}
-      saving={saving}
-      onSave={handleUpdate}
-    />
+    <>
+      <AgentFormView
+        heading="Edit agent"
+        subheading="Update this agent — its model, tools, plugins, and sub-agents."
+        submitLabel="Save changes"
+        initialForm={agentFormFromDetail(agent, enabledSlugs)}
+        saving={saving}
+        onSave={handleUpdate}
+        headerAction={
+          <Button
+            variant="secondary"
+            size="sm"
+            className="text-danger"
+            isDisabled={deleteAgent.isPending}
+            onPress={() => setConfirmDelete(true)}
+          >
+            {deleteAgent.isPending ? (
+              <Spinner color="current" size="sm" />
+            ) : (
+              <AppIcon icon="trash-2" className="h-4 w-4" />
+            )}
+            Delete agent
+          </Button>
+        }
+      />
+      <RemoveAgentDialog
+        open={confirmDelete}
+        pending={deleteAgent.isPending}
+        heading="Delete agent"
+        description={`This permanently removes ${
+          agent.name?.trim() || "this agent"
+        } and its configuration. This can't be undone.`}
+        confirmLabel="Delete agent"
+        onOpenChange={setConfirmDelete}
+        onConfirm={handleDelete}
+      />
+    </>
   )
 }
 

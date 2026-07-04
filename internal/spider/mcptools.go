@@ -15,6 +15,7 @@ func NewWebToolsFunc(client *Client) func(server *mcp.Server, token *model.Token
 	return func(server *mcp.Server, token *model.Token) {
 		registerWebFetch(server, client)
 		registerWebSearch(server, client)
+		registerWebCrawl(server, client)
 	}
 }
 
@@ -76,6 +77,44 @@ Returns an array of search results, each with url, title, and description.`,
 			},
 		},
 		WebSearchHandler(client),
+	)
+}
+
+func registerWebCrawl(server *mcp.Server, client *Client) {
+	server.AddTool(
+		&mcp.Tool{
+			Name: "web_crawl",
+			Description: `Crawl a website starting from a URL, following links to gather content from multiple pages. Converts each page to markdown by default. Use this tool when you need to:
+- Gather content from many pages of a site or documentation set at once
+- Explore a site broadly rather than reading a single known page
+- Collect a corpus of related pages for deeper research
+
+Prefer web_search to discover URLs and web_fetch to read one known page. Reach for web_crawl only when you need breadth across a site. Returns an array of pages, each with url, content, and status.`,
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"url": map[string]any{
+						"type":        "string",
+						"description": "The starting URL to crawl from. Must be a valid HTTP or HTTPS URL.",
+					},
+					"limit": map[string]any{
+						"type":        "integer",
+						"description": "Maximum number of pages to crawl (default 10, max 100). Keep this small to control cost and latency.",
+					},
+					"depth": map[string]any{
+						"type":        "integer",
+						"description": "Maximum link depth to follow from the starting URL (default 2).",
+					},
+					"return_format": map[string]any{
+						"type":        "string",
+						"enum":        []string{"markdown", "text", "html"},
+						"description": "Output format for each page. 'markdown' (default) converts HTML to clean markdown. 'text' strips all markup. 'html' returns raw HTML.",
+					},
+				},
+				"required": []string{"url"},
+			},
+		},
+		WebCrawlHandler(client),
 	)
 }
 
@@ -149,6 +188,70 @@ func WebSearchHandler(client *Client) mcp.ToolHandler {
 		}
 
 		return toolJSON(results.Content)
+	}
+}
+
+// WebCrawlHandler returns an MCP tool handler that crawls a website via Spider.
+func WebCrawlHandler(client *Client) mcp.ToolHandler {
+	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		var params struct {
+			URL          string `json:"url"`
+			Limit        *int   `json:"limit"`
+			Depth        *int   `json:"depth"`
+			ReturnFormat string `json:"return_format"`
+		}
+		if req.Params.Arguments != nil {
+			_ = json.Unmarshal(req.Params.Arguments, &params)
+		}
+		if params.URL == "" {
+			return toolError("url is required"), nil
+		}
+		if params.ReturnFormat == "" {
+			params.ReturnFormat = "markdown"
+		}
+
+		limit := 10
+		if params.Limit != nil && *params.Limit > 0 {
+			limit = *params.Limit
+		}
+		if limit > 100 {
+			limit = 100
+		}
+
+		sp := SpiderParams{
+			URL:          params.URL,
+			ReturnFormat: params.ReturnFormat,
+			RequestType:  "smart",
+			Limit:        &limit,
+		}
+		if params.Depth != nil {
+			sp.Depth = params.Depth
+		}
+
+		results, err := client.Crawl(ctx, sp)
+		if err != nil {
+			return toolError("web crawl failed: " + err.Error()), nil
+		}
+		if len(results) == 0 {
+			return toolError("no content returned for crawl"), nil
+		}
+
+		pages := make([]map[string]any, 0, len(results))
+		for _, result := range results {
+			if result.Error != "" {
+				continue
+			}
+			pages = append(pages, map[string]any{
+				"url":     result.URL,
+				"content": result.Content,
+				"status":  result.StatusCode,
+			})
+		}
+		if len(pages) == 0 {
+			return toolError("all crawled pages returned errors"), nil
+		}
+
+		return toolJSON(pages)
 	}
 }
 

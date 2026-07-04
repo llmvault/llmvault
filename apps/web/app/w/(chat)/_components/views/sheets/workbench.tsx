@@ -29,7 +29,6 @@ import { SheetToolbar } from "./toolbar"
 import { useSheetRows } from "./use-sheet-rows"
 
 const PERSIST_DEBOUNCE_MS = 800
-const SEARCH_DEBOUNCE_MS = 300
 
 const EMPTY_SELECTION: GridSelection = {
   columns: CompactSelection.empty(),
@@ -188,18 +187,13 @@ function WorkbenchInner({
   const [hiddenFieldIds, setHiddenFieldIds] = useState<string[]>(
     () => initialConfig.hidden_fields ?? []
   )
-  const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
+  // The raw search text and its debounce live inside the toolbar's SearchBox
+  // leaf, so keystrokes don't re-render the whole workbench. We only hold the
+  // committed (debounced) query here, plus a signal to imperatively clear it.
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResetSignal, setSearchResetSignal] = useState(0)
   const [selection, setSelection] = useState<GridSelection>(EMPTY_SELECTION)
   const [importOpen, setImportOpen] = useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(
-      () => setDebouncedSearch(search),
-      SEARCH_DEBOUNCE_MS
-    )
-    return () => clearTimeout(timer)
-  }, [search])
 
   /* ---------------- view config: debounce persist -------------------- */
 
@@ -280,7 +274,7 @@ function WorkbenchInner({
     pageId,
     filter,
     sorts: sorts.length > 0 ? sorts : undefined,
-    search: debouncedSearch || undefined,
+    search: searchQuery || undefined,
   })
 
   const selectedRowIds = useMemo(() => {
@@ -392,6 +386,8 @@ function WorkbenchInner({
     [pageId, queryClient, sheetId]
   )
 
+  const onOpenImport = useCallback(() => setImportOpen(true), [])
+
   /* ---------------- render ------------------------------------------ */
 
   return (
@@ -401,8 +397,8 @@ function WorkbenchInner({
         pageId={pageId}
         pages={pages}
         fields={fields}
-        search={search}
-        onSearchChange={setSearch}
+        onSearchChange={setSearchQuery}
+        searchResetSignal={searchResetSignal}
         filterRules={filterRules}
         onFilterRulesChange={onFilterRulesChange}
         sorts={sorts}
@@ -415,7 +411,7 @@ function WorkbenchInner({
         onDeleteView={onDeleteView}
         selectedRowIds={selectedRowIds}
         onDeleteSelected={onDeleteSelected}
-        onOpenImport={() => setImportOpen(true)}
+        onOpenImport={onOpenImport}
         onAddField={onAddField}
         hiddenFields={hiddenFields}
         onUnhideField={onUnhideField}
@@ -444,7 +440,7 @@ function WorkbenchInner({
           </Button>
         </div>
       ) : controller.rows.length === 0 ? (
-        filterRules.length > 0 || debouncedSearch ? (
+        filterRules.length > 0 || searchQuery ? (
           <EmptyState className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
             <AppIcon icon="list-filter" className="h-6 w-6 text-muted" />
             <p className="text-sm font-medium text-foreground">
@@ -459,7 +455,7 @@ function WorkbenchInner({
               className="mt-1"
               onPress={() => {
                 onFilterRulesChange([])
-                setSearch("")
+                setSearchResetSignal((n) => n + 1)
               }}
             >
               Clear filters

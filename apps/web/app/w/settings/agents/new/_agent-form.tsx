@@ -40,6 +40,7 @@ export function AgentFormView({
   initialForm,
   saving,
   onSave,
+  headerAction,
 }: {
   heading: string
   subheading: string
@@ -47,6 +48,7 @@ export function AgentFormView({
   initialForm: AgentForm
   saving: boolean
   onSave: (form: AgentForm) => void
+  headerAction?: React.ReactNode
 }) {
   const router = useRouter()
   const modelsQuery = $api.useQuery("get", "/v1/agents/models")
@@ -100,8 +102,15 @@ export function AgentFormView({
           <AppIcon icon="arrow-left" className="h-4 w-4" />
           Agents
         </NextLink>
-        <h1 className="mt-4 text-2xl font-semibold text-foreground">{heading}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{subheading}</p>
+        <div className="mt-4 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">{heading}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{subheading}</p>
+          </div>
+          {headerAction ? (
+            <div className="shrink-0">{headerAction}</div>
+          ) : null}
+        </div>
       </div>
 
       <Section title="Basics" description="Name and describe the agent.">

@@ -2,18 +2,18 @@
   "version": 1,
   "slug": "anna-qa-engineer",
   "name": "Anna",
-  "description": "Anna authors, runs, and maintains browser test suites recorded in sheets.",
+  "description": "Anna is a Playwright QA engineer. She reproduces a flow in a real browser, then writes and runs production-grade Playwright tests inside your repository, captures evidence, and opens a pull request.",
   "category": "Engineering",
   "avatar_url": "/assets/anna.png",
   "developer": "Hivy",
   "official": true,
-  "agent_version": "1",
+  "agent_version": "2",
   "enabled": true,
   "default": false,
   "runtime": {
     "sandbox_image": "developer",
-    "model": "glm-5.2",
-    "reasoning_effort": "low"
+    "model": "xiaomi/mimo-v2.5-pro",
+    "reasoning_effort": "medium"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"
@@ -35,17 +35,10 @@
   "skill_filter": {
     "allow": [
       "browser",
-      "drive",
-      "sheets",
-      "qa-registry",
-      "qa-execution",
-      "qa-authoring"
+      "drive"
     ]
   },
   "auto_load_skills": [
-    "qa-registry",
-    "qa-execution",
-    "qa-authoring",
     {
       "name": "browser",
       "files": [
@@ -55,42 +48,33 @@
   ],
   "plugins": {
     "required": [
-      "sheets",
-      "qa"
+      "playwright"
     ],
-    "recommended": []
+    "recommended": [
+      "github"
+    ]
   },
   "sub_agents": {
-    "test-executor": {
-      "name": "Test Executor",
-      "description": "Executes exactly one QA test case by deterministic replay of its cached Commands JSON; heals only broken locators within budget; uploads artifacts; returns a structured JSON result. Launch one executor per test case, all in one message so they run in parallel.",
-      "model": "glm-5.2",
+    "codebase-explorer": {
+      "name": "Codebase Explorer",
+      "description": "Fast, read-only codebase exploration of the application under test. Give it ONE specific question (where a feature lives, how auth/session works, what API or data shapes a flow uses, which data-testids/roles/labels exist, the existing Playwright config and test conventions) and it returns a focused answer with file:line references. It never edits or runs application code.",
+      "model": "deepseek/deepseek-v4-flash",
       "tools": {
         "bash": true,
         "check_bash_status": true,
         "read_file": true,
-        "write_file": true
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true
       },
       "mcp_tool_filter": {
         "allow": [
           "skills_list"
         ]
       },
-      "skill_filter": {
-        "allow": [
-          "browser"
-        ]
-      },
-      "auto_load_skills": [
-        {
-          "name": "browser",
-          "files": [
-            "references/commands.md"
-          ]
-        }
-      ],
       "prompt": {
-        "instructions": "./sub_agents/test-executor/instructions.md"
+        "instructions": "./sub_agents/codebase-explorer/instructions.md"
       }
     }
   }

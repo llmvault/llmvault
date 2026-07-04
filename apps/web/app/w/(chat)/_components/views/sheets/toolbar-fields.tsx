@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useMemo, useState } from "react"
 import { Button, Input, Popover, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -13,7 +13,13 @@ import {
 import { fieldTypeIcon } from "./cells"
 import { ToolbarSelect } from "./toolbar-select"
 
-export function HiddenColumnsPopover({
+/** Static — the set of field types never changes at runtime. */
+const FIELD_TYPE_OPTIONS = SHEET_FIELD_TYPES.map((entry) => ({
+  value: entry,
+  label: entry.replace("_", " "),
+}))
+
+export const HiddenColumnsPopover = memo(function HiddenColumnsPopover({
   hiddenFields,
   onUnhideField,
 }: {
@@ -50,9 +56,9 @@ export function HiddenColumnsPopover({
       </Popover.Content>
     </Popover>
   )
-}
+})
 
-export function AddFieldPopover({
+export const AddFieldPopover = memo(function AddFieldPopover({
   pages,
   onAddField,
 }: {
@@ -65,6 +71,14 @@ export function AddFieldPopover({
   const [choices, setChoices] = useState("")
   const [targetPageId, setTargetPageId] = useState("")
   const [saving, setSaving] = useState(false)
+
+  const pageOptions = useMemo(
+    () =>
+      pages
+        .filter((page) => page.id)
+        .map((page) => ({ value: page.id ?? "", label: page.name ?? "" })),
+    [pages]
+  )
 
   const isSelect = type === "select" || type === "multi_select"
   const isRelation = type === "relation"
@@ -126,10 +140,7 @@ export function AddFieldPopover({
               ariaLabel="Column type"
               value={type}
               onChange={setType}
-              options={SHEET_FIELD_TYPES.map((entry) => ({
-                value: entry,
-                label: entry.replace("_", " "),
-              }))}
+              options={FIELD_TYPE_OPTIONS}
               className="flex-1"
             />
           </div>
@@ -146,12 +157,7 @@ export function AddFieldPopover({
               ariaLabel="Linked page"
               value={targetPageId}
               onChange={setTargetPageId}
-              options={pages
-                .filter((page) => page.id)
-                .map((page) => ({
-                  value: page.id ?? "",
-                  label: page.name ?? "",
-                }))}
+              options={pageOptions}
               className="w-full"
               placeholder="Select linked page…"
             />
@@ -167,4 +173,4 @@ export function AddFieldPopover({
       </Popover.Content>
     </Popover>
   )
-}
+})

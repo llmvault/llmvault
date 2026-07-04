@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 type EmbedderConfig struct {
@@ -74,6 +76,9 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, err
 			e.cfg.BaseURL+"/embeddings", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+e.cfg.APIKey)
+		if providerheaders.IsOpenRouter("", e.cfg.BaseURL) {
+			providerheaders.ApplyOpenRouter(req)
+		}
 
 		resp, err := e.http.Do(req)
 		if err != nil {

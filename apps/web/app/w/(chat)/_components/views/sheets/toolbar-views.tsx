@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useState } from "react"
 import {
   AlertDialog,
   Button,
@@ -19,7 +19,7 @@ import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { SheetView } from "@/app/w/(chat)/_lib/sheets"
 
-export function ViewSwitcher({
+export const ViewSwitcher = memo(function ViewSwitcher({
   views,
   activeViewId,
   onSelectView,
@@ -215,7 +215,7 @@ export function ViewSwitcher({
       ) : null}
     </>
   )
-}
+})
 
 function ViewNameModal({
   title,

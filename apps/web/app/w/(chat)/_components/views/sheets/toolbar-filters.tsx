@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { Button, Input, Popover, Tag, TagGroup } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import {
@@ -82,7 +82,52 @@ function TagValuesInput({
   )
 }
 
-export function FilterPopover({
+/**
+ * Text input that debounces its committed value. Typing a filter value flows
+ * all the way into the rows query key, so without this every keystroke would
+ * mint a fresh cache entry / network request. Local state keeps the field
+ * responsive; the parent only sees the value after the user pauses. Syncs down
+ * when the external value changes (e.g. the rule's field is switched, resetting
+ * the value to empty).
+ */
+function DebouncedValueInput({
+  value,
+  onChange,
+  ariaLabel,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  ariaLabel: string
+  className?: string
+}) {
+  const [local, setLocal] = useState(value)
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  useEffect(() => {
+    setLocal(value)
+  }, [value])
+
+  useEffect(() => {
+    if (local === value) return
+    const timer = setTimeout(() => onChangeRef.current(local), 300)
+    return () => clearTimeout(timer)
+  }, [local, value])
+
+  return (
+    <Input
+      aria-label={ariaLabel}
+      value={local}
+      onChange={(event) => setLocal(event.target.value)}
+      className={className}
+    />
+  )
+}
+
+export const FilterPopover = memo(function FilterPopover({
   fields,
   rules,
   onChange,
@@ -93,9 +138,13 @@ export function FilterPopover({
   onChange: (rules: FilterRuleState[]) => void
   activeCount: number
 }) {
-  const fieldOptions = fields
-    .filter((field) => field.id)
-    .map((field) => ({ value: field.id ?? "", label: field.name ?? "" }))
+  const fieldOptions = useMemo(
+    () =>
+      fields
+        .filter((field) => field.id)
+        .map((field) => ({ value: field.id ?? "", label: field.name ?? "" })),
+    [fields]
+  )
 
   const updateRule = (id: string, patch: Partial<FilterRuleState>) => {
     onChange(
@@ -171,12 +220,10 @@ export function FilterPopover({
                         className="flex-1"
                       />
                     ) : (
-                      <Input
-                        aria-label="Filter value"
+                      <DebouncedValueInput
+                        ariaLabel="Filter value"
                         value={rule.value}
-                        onChange={(event) =>
-                          updateRule(rule.id, { value: event.target.value })
-                        }
+                        onChange={(value) => updateRule(rule.id, { value })}
                         className="h-8 min-w-0 flex-1 text-xs"
                       />
                     )
@@ -229,9 +276,9 @@ export function FilterPopover({
       </Popover.Content>
     </Popover>
   )
-}
+})
 
-export function SortPopover({
+export const SortPopover = memo(function SortPopover({
   fields,
   sorts,
   onChange,
@@ -240,9 +287,13 @@ export function SortPopover({
   sorts: SheetSort[]
   onChange: (sorts: SheetSort[]) => void
 }) {
-  const fieldOptions = fields
-    .filter((field) => field.id)
-    .map((field) => ({ value: field.id ?? "", label: field.name ?? "" }))
+  const fieldOptions = useMemo(
+    () =>
+      fields
+        .filter((field) => field.id)
+        .map((field) => ({ value: field.id ?? "", label: field.name ?? "" })),
+    [fields]
+  )
 
   const usedFields = new Set(sorts.map((sort) => sort.field))
   const firstUnused = fieldOptions.find(
@@ -284,7 +335,7 @@ export function SortPopover({
           ) : (
             sorts.map((sort, index) => (
               <div
-                key={`${sort.field}-${index}`}
+                key={sort.field ?? index}
                 className="flex items-center gap-1.5"
               >
                 <ToolbarSelect
@@ -365,4 +416,4 @@ export function SortPopover({
       </Popover.Content>
     </Popover>
   )
-}
+})

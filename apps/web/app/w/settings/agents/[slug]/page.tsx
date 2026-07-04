@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useCallback, useMemo } from "react"
+import { use, useCallback, useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Spinner, toast } from "@heroui/react"
@@ -43,6 +43,7 @@ import {
   SandboxImageSection,
   SandboxSizeSection,
 } from "./_agent-settings-section"
+import { RemoveAgentDialog } from "../_remove-agent-dialog"
 
 export default function AgentDetailPage({
   params,
@@ -60,6 +61,11 @@ export default function AgentDetailPage({
     "post",
     "/v1/agents/catalog/{slug}/install"
   )
+  const uninstallAgent = $api.useMutation(
+    "delete",
+    "/v1/agents/catalog/{slug}/install"
+  )
+  const [confirmUninstall, setConfirmUninstall] = useState(false)
   const updateAgentModel = $api.useMutation("patch", "/v1/agents/{id}/model")
   const updateAgent = $api.useMutation("patch", "/v1/agents/{id}")
   const enableAgentPlugin = $api.useMutation(
@@ -119,6 +125,7 @@ export default function AgentDetailPage({
   const installed = agent ? agentIsInstalled(agent) : false
   const canInstall = agentCanInstall(agent)
   const busy = installAgent.isPending
+  const uninstalling = uninstallAgent.isPending
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
   const sandboxConfigBusy =
     installedAgentQuery.isLoading || updateAgent.isPending
@@ -151,6 +158,24 @@ export default function AgentDetailPage({
         },
         onError: (error) =>
           toast.danger(extractErrorMessage(error, "Could not install agent")),
+      }
+    )
+  }
+
+  function handleUninstall() {
+    if (!agent) return
+    uninstallAgent.mutate(
+      { params: { path: { slug } } },
+      {
+        onSuccess: () => {
+          toast.success(`${agentName(agent)} agent uninstalled`)
+          setConfirmUninstall(false)
+          refresh()
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not uninstall agent")
+          ),
       }
     )
   }
@@ -274,17 +299,46 @@ export default function AgentDetailPage({
           </div>
         </div>
 
-        <Button
-          size="sm"
-          variant="primary"
-          className="shrink-0"
-          isDisabled={busy || installed || !canInstall}
-          onPress={handleInstall}
-        >
-          {busy ? <Spinner color="current" size="sm" /> : null}
-          {installed ? "Installed" : "Install"}
-        </Button>
+        {installed ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="shrink-0 text-danger"
+            isDisabled={uninstalling}
+            onPress={() => setConfirmUninstall(true)}
+          >
+            {uninstalling ? (
+              <Spinner color="current" size="sm" />
+            ) : (
+              <AppIcon icon="trash-2" className="h-4 w-4" />
+            )}
+            Uninstall
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="primary"
+            className="shrink-0"
+            isDisabled={busy || !canInstall}
+            onPress={handleInstall}
+          >
+            {busy ? <Spinner color="current" size="sm" /> : null}
+            Install
+          </Button>
+        )}
       </header>
+
+      <RemoveAgentDialog
+        open={confirmUninstall}
+        pending={uninstalling}
+        heading="Uninstall agent"
+        description={`This removes ${agentName(
+          agent
+        )} from this workspace along with its settings. You can install it again from the catalog later.`}
+        confirmLabel="Uninstall"
+        onOpenChange={setConfirmUninstall}
+        onConfirm={handleUninstall}
+      />
 
       {missingPlugins.length > 0 ? (
         <MissingPluginsWarning count={missingPlugins.length} />

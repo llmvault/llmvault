@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { memo, useRef, useState } from "react"
 import {
   AlertDialog,
   Button,
@@ -30,7 +30,7 @@ type Mode = "closed" | "menu" | "rename" | "archive"
  * right-click anywhere on the tab): rename, move left/right via fractional
  * position midpoints, and archive behind a confirm dialog.
  */
-export function PageTab({
+export const PageTab = memo(function PageTab({
   sheetId,
   page,
   pages,
@@ -41,7 +41,7 @@ export function PageTab({
   page: SheetPage
   pages: SheetPage[]
   isActive: boolean
-  onSelect: () => void
+  onSelect: (pageId: string | null) => void
 }) {
   const queryClient = useQueryClient()
   const [mode, setModeState] = useState<Mode>("closed")
@@ -110,7 +110,7 @@ export function PageTab({
         <button
           type="button"
           className="flex items-center gap-1.5 py-1 pl-2.5 text-xs"
-          onClick={onSelect}
+          onClick={() => onSelect(page.id ?? null)}
         >
           <span className="max-w-40 truncate">{page.name}</span>
           {typeof page.row_count === "number" ? (
@@ -275,7 +275,7 @@ export function PageTab({
       ) : null}
     </>
   )
-}
+})
 
 function RenamePageForm({
   page,

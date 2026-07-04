@@ -63,7 +63,10 @@ export function useSheetRows({
   search?: string
 }): SheetRowsController {
   const queryClient = useQueryClient()
-  const querySig = rowsQuerySig({ filter, sorts, search })
+  const querySig = useMemo(
+    () => rowsQuerySig({ filter, sorts, search }),
+    [filter, sorts, search]
+  )
   const queryKey = sheetKeys.rows(pageId, querySig)
 
   const query = useInfiniteQuery({

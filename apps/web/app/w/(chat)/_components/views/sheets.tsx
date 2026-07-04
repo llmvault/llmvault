@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   Button,
@@ -45,6 +45,12 @@ export function SheetsView({ channelId }: { channelId?: string }) {
   const queryClient = useQueryClient()
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null)
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
+  // Stable across renders so memoized PageTabs don't re-render on every parent
+  // update (e.g. live structure refetches).
+  const handleSelectPage = useCallback(
+    (pageId: string | null) => setSelectedPageId(pageId),
+    []
+  )
 
   const sheetsQuery = useQuery({
     enabled: Boolean(channelId),
@@ -153,12 +159,12 @@ export function SheetsView({ channelId }: { channelId?: string }) {
           }}
           className="min-w-0"
         >
-          <Select.Trigger className="flex h-8 max-w-64 items-center gap-1.5 rounded-lg px-2 text-sm">
+          <Select.Trigger className="flex h-8 max-w-80 items-center gap-1.5 rounded-lg py-1 pl-2 pe-7 text-sm">
             <AppIcon
               icon="table"
               className="h-3.5 w-3.5 shrink-0 text-muted"
             />
-            <span className="truncate text-foreground">
+            <span className="min-w-0 flex-1 truncate text-foreground">
               {activeSheet?.name ?? "Select sheet"}
             </span>
             <Select.Indicator />
@@ -211,22 +217,6 @@ export function SheetsView({ channelId }: { channelId?: string }) {
         </Button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1">
-        {pages.map((page) =>
-          activeSheetId ? (
-            <PageTab
-              key={page.id}
-              sheetId={activeSheetId}
-              page={page}
-              pages={pages}
-              isActive={page.id === activePage?.id}
-              onSelect={() => setSelectedPageId(page.id ?? null)}
-            />
-          ) : null
-        )}
-        <NamePopover label="New page" iconOnly onSubmit={createNewPage} />
-      </div>
-
       {structureQuery.isPending ? (
         <div className="flex flex-1 items-center justify-center">
           <Spinner size="sm" />
@@ -265,6 +255,22 @@ export function SheetsView({ channelId }: { channelId?: string }) {
           action={<NamePopover label="New page" onSubmit={createNewPage} />}
         />
       )}
+
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-border px-2 py-1">
+        {pages.map((page) =>
+          activeSheetId ? (
+            <PageTab
+              key={page.id}
+              sheetId={activeSheetId}
+              page={page}
+              pages={pages}
+              isActive={page.id === activePage?.id}
+              onSelect={handleSelectPage}
+            />
+          ) : null
+        )}
+        <NamePopover label="New page" iconOnly onSubmit={createNewPage} />
+      </div>
     </div>
   )
 }

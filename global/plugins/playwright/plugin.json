@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "slug": "playwright",
+  "name": "Playwright",
+  "description": "Write, run, and maintain real Playwright end-to-end tests in your own repository.",
+  "category": "Testing",
+  "icon": "flask-conical",
+  "icon_color": "#2EAD33",
+  "developer": "Hivy",
+  "official": true,
+  "featured": false,
+  "auto_install": false,
+  "locked": false,
+  "capabilities": ["Browser", "Drive", "GitHub"],
+  "examples": [
+    "Write a Playwright test for the login flow against staging",
+    "Add end-to-end coverage for guest checkout in my web repo",
+    "Figure out why the signup e2e test is failing and open a fix PR",
+    "Reproduce this bug in the browser and capture the evidence",
+    "Write Playwright tests for the dashboard and open a pull request"
+  ],
+  "links": {
+    "website": "https://www.usehivy.com/"
+  },
+  "long_description": "Playwright turns an agent into a QA automation engineer that works inside your codebase. It reproduces a user flow in a real browser first, then writes production-grade Playwright tests that match your repository's conventions (fixtures, page objects, storageState auth), runs them to green, captures screenshots and video as evidence, and opens a pull request. Bugs are reported with a clear reproduction; tests are never weakened just to pass. Works with the Browser and Drive runtime capabilities and the GitHub plugin.",
+  "plugin_version": "1",
+  "enabled": true
+}
