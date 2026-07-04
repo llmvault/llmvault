@@ -54,6 +54,8 @@ class FakeControl:
         self.ensure_delay = 0.0
         self.activity_calls: list[str] = []
         self.activity_bulk_calls: list[list[str]] = []
+        self.alias_calls: list[str] = []
+        self.aliases: dict[str, dict[str, Any]] = {}
         self.route_payload = {
             "sandbox_id": "sbx_test",
             "status": "running",
@@ -66,6 +68,11 @@ class FakeControl:
     async def route(self, sandbox_id: str) -> dict[str, Any]:
         self.route_calls += 1
         return dict(self.route_payload, sandbox_id=sandbox_id)
+
+    async def alias(self, alias: str) -> dict[str, Any] | None:
+        self.alias_calls.append(alias)
+        mapping = self.aliases.get(alias)
+        return dict(mapping) if mapping else None
 
     async def ensure_ready(
         self,
@@ -176,6 +183,40 @@ async def test_lookup_unknown_alias_is_404(
     resp = await test_client.get("/v1/lookup", headers={"Host": "ghost-app.preview.test"})
     assert resp.status == 404
     assert control.ensure_calls == []
+    # Redis missed and control has no such alias → invalid-host, control consulted.
+    assert control.alias_calls == ["ghost-app"]
+
+
+async def test_lookup_alias_redis_miss_falls_back_to_control_and_backfills(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, store, control = client
+    # Alias is NOT in Redis (the dropped-push bug) but control knows it, and the
+    # sandbox's preview route is cached.
+    await store.set_json(route_key("sbx_test"), control.route_payload)
+    control.aliases["my-app"] = {"alias": "my-app", "sandbox_id": "sbx_test", "port": 3000}
+
+    resp = await test_client.get("/v1/lookup", headers={"Host": "my-app.preview.test"})
+
+    assert resp.status == 204
+    assert resp.headers["X-Microsandbox-Upstream"] == "10.0.0.2:43000"
+    assert control.alias_calls == ["my-app"]
+    # The alias mapping was lazily backfilled into Redis for the next lookup.
+    backfilled = await store.get_json(alias_key("my-app"))
+    assert backfilled is not None
+    assert backfilled["sandbox_id"] == "sbx_test"
+    assert backfilled["port"] == 3000
+
+
+async def test_lookup_alias_control_miss_is_404(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, store, control = client
+    # Neither Redis nor control know the alias → invalid preview host, no backfill.
+    resp = await test_client.get("/v1/lookup", headers={"Host": "gone-app.preview.test"})
+    assert resp.status == 404
+    assert control.alias_calls == ["gone-app"]
+    assert await store.get_json(alias_key("gone-app")) is None
 
 
 async def test_alias_admin_round_trip(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:

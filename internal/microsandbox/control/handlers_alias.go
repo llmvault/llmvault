@@ -121,7 +121,17 @@ func (s *Server) claimAlias(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to persist alias"})
 		return
 	}
-	s.syncAliasRoute(ctx, row)
+	// Fail the claim closed when the gateway never gets the mapping: returning
+	// 200 + URL here (the old behavior) reported a dead alias as success and
+	// stranded redeploys behind "invalid preview host". The caller marks the
+	// deploy failed on this non-2xx instead.
+	if err := s.syncAliasRouteWithRetry(ctx, row); err != nil {
+		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: "failed to propagate alias route to gateway"})
+		return
+	}
+	// Re-push the sandbox's preview route too, so a redeploy into an existing
+	// sandbox restores a preview route whose gateway TTL lapsed (best effort).
+	s.syncSandboxPreviewRoute(ctx, row.SandboxID)
 	httpx.JSON(w, http.StatusOK, aliasResponse{
 		Alias:     alias,
 		URL:       s.aliasURL(alias),

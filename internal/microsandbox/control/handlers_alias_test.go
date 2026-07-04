@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"gorm.io/driver/sqlite"
@@ -239,6 +240,109 @@ func TestSyncAndDeleteSandboxAliasRoutes(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("alias rows after sandbox alias delete = %d, want 2", count)
+	}
+}
+
+// TestClaimAliasFailsWhenGatewayPushFails proves the claim fails closed: the
+// old behavior returned 200 + URL even when the gateway never got the mapping,
+// stranding the alias behind "invalid preview host".
+func TestClaimAliasFailsWhenGatewayPushFails(t *testing.T) {
+	var fail atomic.Bool
+	fail.Store(true)
+	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if fail.Load() {
+			http.Error(w, "gateway down", http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer gw.Close()
+	s := newAliasTestServer(t, gw.URL, "cache-token")
+	seedSandbox(t, s, "sbx_one")
+
+	// Gateway push fails → claim must return non-2xx, not 200 + URL.
+	rec := doAlias(s, http.MethodPut, "my-app", `{"sandbox_id":"sbx_one","port":8080}`)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("claim status = %d, want 502 when gateway push fails; body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Gateway recovers → claim succeeds with 200.
+	fail.Store(false)
+	rec = doAlias(s, http.MethodPut, "my-app", `{"sandbox_id":"sbx_one","port":8080}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("claim status = %d, want 200 when gateway push succeeds; body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+type gatewayCall struct {
+	Method string
+	Path   string
+}
+
+// recordingGateway accepts both alias and route pushes and records their paths.
+func recordingGateway(t *testing.T) (*httptest.Server, func() []gatewayCall) {
+	t.Helper()
+	var mu sync.Mutex
+	var calls []gatewayCall
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls = append(calls, gatewayCall{Method: r.Method, Path: r.URL.Path})
+		mu.Unlock()
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	return srv, func() []gatewayCall {
+		mu.Lock()
+		defer mu.Unlock()
+		out := make([]gatewayCall, len(calls))
+		copy(out, calls)
+		return out
+	}
+}
+
+// TestClaimAliasResyncsPreviewRouteOnRedeploy proves a redeploy into an existing
+// sandbox (a second claim of the same alias) re-pushes the sandbox's preview
+// route to the gateway, healing a route whose gateway TTL lapsed.
+func TestClaimAliasResyncsPreviewRouteOnRedeploy(t *testing.T) {
+	gw, calls := recordingGateway(t)
+	defer gw.Close()
+	s := newAliasTestServer(t, gw.URL, "cache-token")
+
+	// A live runner + sandbox + port so a preview route can actually be built.
+	if err := s.db.Create(&model.Runner{
+		ID: "runner-1", Name: "r1", APIURL: "http://runner", PreviewBaseURL: "http://10.0.0.9",
+		AuthTokenHash: []byte("x"), Status: model.RunnerStatusHealthy,
+		TotalCPU: 8, TotalMemoryMB: 8192, TotalDiskGB: 100,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	seedSandbox(t, s, "sbx_one")
+	if err := s.db.Create(&model.SandboxPort{
+		ID: "port-1", SandboxID: "sbx_one", GuestPort: 8080, HostPort: 43080, Protocol: "http",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 2; i++ {
+		rec := doAlias(s, http.MethodPut, "my-app", `{"sandbox_id":"sbx_one","port":8080}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("claim %d status = %d body = %s", i, rec.Code, rec.Body.String())
+		}
+	}
+
+	var aliasPuts, routePuts int
+	for _, c := range calls() {
+		switch {
+		case c.Method == http.MethodPut && strings.HasPrefix(c.Path, "/v1/aliases/"):
+			aliasPuts++
+		case c.Method == http.MethodPut && strings.HasPrefix(c.Path, "/v1/routes/"):
+			routePuts++
+		}
+	}
+	if aliasPuts != 2 {
+		t.Fatalf("alias route puts = %d, want 2", aliasPuts)
+	}
+	if routePuts != 2 {
+		t.Fatalf("preview route puts = %d, want 2 (route re-synced on every claim/redeploy)", routePuts)
 	}
 }
 

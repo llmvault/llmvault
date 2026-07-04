@@ -45,16 +45,76 @@ func (c *PreviewCacheClient) DeleteAliasRoute(ctx context.Context, alias string)
 	return c.do(ctx, http.MethodDelete, "/v1/aliases/"+alias, nil, nil)
 }
 
-func (s *Server) syncAliasRoute(ctx context.Context, a model.Alias) {
+// aliasRouteSyncAttempts / aliasRouteSyncBackoff bound the retry the claim path
+// applies before failing closed: a transient gateway blip should not strand an
+// alias URL, but we must not block the claim indefinitely either.
+const (
+	aliasRouteSyncAttempts = 3
+	aliasRouteSyncBackoff  = 100 * time.Millisecond
+)
+
+// syncAliasRoute pushes a single alias→(sandbox,port) mapping to the gateway.
+// It returns the push error so the claim path can fail closed; the best-effort
+// refresh callers (wake/stop/bulk) ignore the return.
+func (s *Server) syncAliasRoute(ctx context.Context, a model.Alias) error {
 	if s.previewCache == nil {
-		return
+		return nil
 	}
 	logger := logging.FromContext(ctx)
 	if err := s.previewCache.UpsertAliasRoute(ctx, aliasCacheRouteFor(a)); err != nil {
 		logger.ErrorContext(ctx, "alias route sync failed", "alias", a.Alias, "sandbox_id", a.SandboxID, "error", err)
-		return
+		return err
 	}
 	logger.InfoContext(ctx, "alias route synced", "alias", a.Alias, "sandbox_id", a.SandboxID)
+	return nil
+}
+
+// syncAliasRouteWithRetry pushes an alias route with a bounded backoff retry.
+// The claim path uses it so a redeployed app never reports a live alias URL the
+// gateway cannot resolve: if every attempt fails the final error is returned and
+// the caller fails the claim (non-2xx) rather than persisting a dead route.
+func (s *Server) syncAliasRouteWithRetry(ctx context.Context, a model.Alias) error {
+	if s.previewCache == nil {
+		return nil
+	}
+	var err error
+	for attempt := 1; attempt <= aliasRouteSyncAttempts; attempt++ {
+		if err = s.syncAliasRoute(ctx, a); err == nil {
+			return nil
+		}
+		if attempt == aliasRouteSyncAttempts {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(aliasRouteSyncBackoff * time.Duration(attempt)):
+		}
+	}
+	return err
+}
+
+// syncSandboxPreviewRoute re-pushes a sandbox's preview route to the gateway by
+// id. The claim path calls it so a redeploy into an existing sandbox restores a
+// preview route whose gateway TTL lapsed. Best effort: the alias route is the
+// claim's hard dependency, and a missing preview route self-heals on the next
+// ensure-ready.
+func (s *Server) syncSandboxPreviewRoute(ctx context.Context, sandboxID string) {
+	if s.previewCache == nil {
+		return
+	}
+	logger := logging.FromContext(ctx)
+	var sb model.Sandbox
+	if err := s.db.WithContext(ctx).First(&sb, "id = ?", sandboxID).Error; err != nil {
+		logger.WarnContext(ctx, "preview route resync load sandbox failed", "sandbox_id", sandboxID, "error", err)
+		return
+	}
+	var runner model.Runner
+	if err := s.db.WithContext(ctx).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+		logger.WarnContext(ctx, "preview route resync load runner failed", "sandbox_id", sandboxID, "runner_id", sb.RunnerID, "error", err)
+		return
+	}
+	s.syncPreviewRoute(ctx, sb, runner, routePorts(ctx, s.db, sb.ID))
 }
 
 func (s *Server) deleteAliasRoute(ctx context.Context, alias string) {
@@ -85,7 +145,7 @@ func (s *Server) syncSandboxAliasRoutes(ctx context.Context, sandboxID string) {
 		return
 	}
 	for _, a := range s.aliasesForSandbox(ctx, sandboxID) {
-		s.syncAliasRoute(ctx, a)
+		_ = s.syncAliasRoute(ctx, a)
 	}
 }
 

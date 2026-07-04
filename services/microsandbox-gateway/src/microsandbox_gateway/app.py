@@ -204,6 +204,11 @@ async def lookup(request: web.Request) -> web.Response:
         alias = parse_alias_host(host, cfg.base_domain)
         if alias:
             mapping = await load_alias(state.store, alias)
+            if not mapping:
+                # Redis miss: control is the source of truth for alias bindings,
+                # so fall back to it and lazily backfill Redis. On a control miss
+                # the mapping stays None and we keep the invalid-host behavior.
+                mapping = await load_alias_from_control(state, alias)
             if mapping:
                 sandbox_id = str(mapping.get("sandbox_id") or "")
                 port = int(mapping.get("port") or 0)
@@ -241,6 +246,35 @@ async def lookup(request: web.Request) -> web.Response:
         },
     )
     return web.Response(status=204, headers={"X-Microsandbox-Upstream": upstream})
+
+
+async def load_alias_from_control(state: AppState, alias: str) -> dict[str, Any] | None:
+    """Resolve an alias via the control plane on a Redis miss and lazily backfill
+    the gateway store so the next lookup is a Redis hit. Returns None when control
+    is unconfigured, errors, or has no such alias (in which case the caller keeps
+    the invalid-host behavior)."""
+    try:
+        mapping = await state.control.alias(alias)
+    except Exception as exc:
+        state.metrics.inc("alias_control_error")
+        LOGGER.warning("alias control fallback failed", extra={"alias": alias, "error": str(exc)})
+        return None
+    if not mapping:
+        return None
+    try:
+        await store_alias(
+            state.store,
+            {
+                "alias": alias,
+                "sandbox_id": mapping.get("sandbox_id"),
+                "port": mapping.get("port"),
+            },
+        )
+        state.metrics.inc("alias_control_backfill")
+    except Exception as exc:
+        # Backfill is an optimization; resolve with the control mapping regardless.
+        LOGGER.warning("alias backfill failed", extra={"alias": alias, "error": str(exc)})
+    return mapping
 
 
 async def resolve_route(state: AppState, sandbox_id: str, port: int, request_id: str) -> ResolveResult:

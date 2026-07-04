@@ -100,7 +100,11 @@ func (s *Service) deploySandbox(ctx context.Context, app *model.App, version *mo
 	}
 
 	// Claim (or repoint) the app's stable production alias at this sandbox
-	// (silent no-op on providers without alias support; see claimAlias).
+	// (silent no-op on providers without alias support; see claimAlias). This
+	// runs on every deploy, including redeploys into an existing sandbox: the
+	// control plane re-pushes both the alias route and the sandbox's preview
+	// route to the gateway, healing a route whose gateway TTL lapsed, and fails
+	// the deploy if the gateway never receives the mapping.
 	if err := s.claimAlias(ctx, app, sb); err != nil {
 		return err
 	}
