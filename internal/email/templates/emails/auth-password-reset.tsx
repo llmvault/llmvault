@@ -32,5 +32,5 @@ export default function AuthPasswordReset({
 AuthPasswordReset.PreviewProps = {
   expiresIn: "1 hour",
   firstName: "Ada",
-  resetUrl: "https://usehivy.com/auth/reset-password?token=preview-token",
+  resetUrl: "https://usehivy.test/auth/reset-password?token=preview-token",
 } satisfies AuthPasswordResetProps

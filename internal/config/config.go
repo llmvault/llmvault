@@ -62,8 +62,8 @@ type Config struct {
 	EmailFrom    string `env:"HIVY_EMAIL_FROM"` // e.g. "Acme <hello@acme.com>"; required for SMTP delivery
 	// Substituted into templates as {{{siteUrl}}} (footer links) and
 	// {{{assetBaseUrl}}} (logo image base).
-	EmailSiteURL  string `env:"HIVY_EMAIL_SITE_URL" envDefault:"https://usehivy.com"`
-	EmailAssetURL string `env:"HIVY_EMAIL_ASSET_URL" envDefault:"https://usehivy.com/static"`
+	EmailSiteURL  string `env:"HIVY_EMAIL_SITE_URL"`
+	EmailAssetURL string `env:"HIVY_EMAIL_ASSET_URL"`
 
 	OAuthGitHubClientID     string `env:"HIVY_OAUTH_GITHUB_CLIENT_ID"`
 	OAuthGitHubClientSecret string `env:"HIVY_OAUTH_GITHUB_CLIENT_SECRET"`

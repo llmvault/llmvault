@@ -109,7 +109,7 @@ func (h *emailConfirmationHarness) cleanupEmail(t *testing.T, emailAddr string) 
 
 func TestEmailPasswordSignup_SendsAndConfirmsSixDigitCode(t *testing.T) {
 	h := newEmailConfirmationHarness(t)
-	testEmail := "confirm-code@test.usehivy.com"
+	testEmail := "confirm-code@test.usehivy.test"
 	h.cleanupEmail(t, testEmail)
 
 	rr := h.doRequest(t, http.MethodPost, "/auth/register", map[string]string{
@@ -173,7 +173,7 @@ func TestEmailPasswordSignup_SendsAndConfirmsSixDigitCode(t *testing.T) {
 
 func TestResendConfirmation_SendsSixDigitCode(t *testing.T) {
 	h := newEmailConfirmationHarness(t)
-	testEmail := "resend-code@test.usehivy.com"
+	testEmail := "resend-code@test.usehivy.test"
 	h.cleanupEmail(t, testEmail)
 
 	user := model.User{Email: testEmail, Name: "Resend Code"}
@@ -198,7 +198,7 @@ func TestResendConfirmation_SendsSixDigitCode(t *testing.T) {
 
 func TestLogin_UnconfirmedUserSendsConfirmationCode(t *testing.T) {
 	h := newEmailConfirmationHarness(t)
-	testEmail := "login-unconfirmed@test.usehivy.com"
+	testEmail := "login-unconfirmed@test.usehivy.test"
 	h.cleanupEmail(t, testEmail)
 
 	hash, err := auth.HashPassword("password123")

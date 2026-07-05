@@ -6,7 +6,7 @@
   "provider": {
     "provider_type": "open_ai",
     "model": "moonshotai/kimi-k2.5",
-    "base_url": "https://proxy.usehivy.com"
+    "base_url": "https://proxy.usehivy.test"
   },
   "tools": [],
   "mcp_servers": [
@@ -14,7 +14,7 @@
       "name": "hivy",
       "transport": {
         "type": "streamable_http",
-        "url": "https://mcp.usehivy.com/d7cebf3b-65ab-4913-a78b-76a609587fed",
+        "url": "https://mcp.usehivy.test/d7cebf3b-65ab-4913-a78b-76a609587fed",
         "headers": {
           "Authorization": "Bearer ptok_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdfaWQiOiJkNTljZTI1Mi01MWU4LTQ3ODYtOWM0MS00NzRiZjlkMzllNzEiLCJjcmVkX2lkIjoiNDE4OTU3NDgtMGI0My00NTc3LWEyMTYtMDRhZDcxZWVkNDQzIiwiZXhwIjoxNzc2NDEzMzU3LCJpYXQiOjE3NzYzMjY5NTcsImp0aSI6ImQ3Y2ViZjNiLTY1YWItNDkxMy1hNzhiLTc2YTYwOTU4N2ZlZCJ9.h9WWCSmx0FJ4MJAqqje98Bd4RoaEbPrObYV5KWe3dpY"
         }
@@ -45,7 +45,7 @@
       "provider": {
         "provider_type": "open_ai",
         "model": "moonshotai/kimi-k2.5",
-        "base_url": "https://proxy.usehivy.com"
+        "base_url": "https://proxy.usehivy.test"
       },
       "config": {
         "max_tokens": 209715,
@@ -138,7 +138,7 @@
       "provider": {
         "provider_type": "open_ai",
         "model": "moonshotai/kimi-k2.5",
-        "base_url": "https://proxy.usehivy.com"
+        "base_url": "https://proxy.usehivy.test"
       },
       "config": {
         "max_tokens": 209715,
@@ -231,7 +231,7 @@
       "provider": {
         "provider_type": "open_ai",
         "model": "moonshotai/kimi-k2.5",
-        "base_url": "https://proxy.usehivy.com"
+        "base_url": "https://proxy.usehivy.test"
       },
       "config": {
         "max_tokens": 209715,

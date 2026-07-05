@@ -47,7 +47,7 @@ func newOrgHarness(t *testing.T) *orgHarness {
 	pubKey := &privKey.PublicKey
 	signingHMAC := []byte("e2e-org-hmac-signing-key")
 
-	authHandler := handler.NewAuthHandler(h.db, privKey, signingHMAC, orgTestIssuer, orgTestAudience, 15*time.Minute, 24*time.Hour, &email.LogSender{}, "http://localhost:3000", true, billing.NewCreditsService(h.db))
+	authHandler := handler.NewAuthHandler(h.db, privKey, signingHMAC, orgTestIssuer, orgTestAudience, 15*time.Minute, 24*time.Hour, &email.NoopSender{}, "http://localhost:3000", true, billing.NewCreditsService(h.db))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	authHandler.StartCleanup(ctx)

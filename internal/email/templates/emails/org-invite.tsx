@@ -38,7 +38,7 @@ export default function OrgInvite({
 OrgInvite.PreviewProps = {
   expiresIn: "7 days",
   firstName: "there",
-  inviteUrl: "https://usehivy.com/invites/accept?token=preview-token",
+  inviteUrl: "https://usehivy.test/invites/accept?token=preview-token",
   inviterName: "Ada Lovelace",
   orgName: "Analytical Engines Ltd",
   role: "admin",

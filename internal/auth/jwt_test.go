@@ -19,13 +19,13 @@ func generateTestKey(t *testing.T) *rsa.PrivateKey {
 func TestAccessToken_RoundTrip(t *testing.T) {
 	key := generateTestKey(t)
 
-	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.com",
+	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.test",
 		"user-123", "org-456", "admin", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("IssueAccessToken: %v", err)
 	}
 
-	claims, err := ValidateAccessToken(&key.PublicKey, "hivy", "https://api.usehivy.com", tokenStr)
+	claims, err := ValidateAccessToken(&key.PublicKey, "hivy", "https://api.usehivy.test", tokenStr)
 	if err != nil {
 		t.Fatalf("ValidateAccessToken: %v", err)
 	}
@@ -47,13 +47,13 @@ func TestAccessToken_RoundTrip(t *testing.T) {
 func TestAccessToken_WrongIssuer(t *testing.T) {
 	key := generateTestKey(t)
 
-	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.com",
+	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.test",
 		"user-123", "org-456", "admin", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("IssueAccessToken: %v", err)
 	}
 
-	_, err = ValidateAccessToken(&key.PublicKey, "wrong-issuer", "https://api.usehivy.com", tokenStr)
+	_, err = ValidateAccessToken(&key.PublicKey, "wrong-issuer", "https://api.usehivy.test", tokenStr)
 	if err == nil {
 		t.Fatal("expected error for wrong issuer")
 	}
@@ -62,7 +62,7 @@ func TestAccessToken_WrongIssuer(t *testing.T) {
 func TestAccessToken_WrongAudience(t *testing.T) {
 	key := generateTestKey(t)
 
-	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.com",
+	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.test",
 		"user-123", "org-456", "admin", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("IssueAccessToken: %v", err)
@@ -77,13 +77,13 @@ func TestAccessToken_WrongAudience(t *testing.T) {
 func TestAccessToken_Expired(t *testing.T) {
 	key := generateTestKey(t)
 
-	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.com",
+	tokenStr, err := IssueAccessToken(key, "hivy", "https://api.usehivy.test",
 		"user-123", "org-456", "admin", -1*time.Minute)
 	if err != nil {
 		t.Fatalf("IssueAccessToken: %v", err)
 	}
 
-	_, err = ValidateAccessToken(&key.PublicKey, "hivy", "https://api.usehivy.com", tokenStr)
+	_, err = ValidateAccessToken(&key.PublicKey, "hivy", "https://api.usehivy.test", tokenStr)
 	if err == nil {
 		t.Fatal("expected error for expired token")
 	}
@@ -93,13 +93,13 @@ func TestAccessToken_WrongKey(t *testing.T) {
 	key1 := generateTestKey(t)
 	key2 := generateTestKey(t)
 
-	tokenStr, err := IssueAccessToken(key1, "hivy", "https://api.usehivy.com",
+	tokenStr, err := IssueAccessToken(key1, "hivy", "https://api.usehivy.test",
 		"user-123", "org-456", "admin", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("IssueAccessToken: %v", err)
 	}
 
-	_, err = ValidateAccessToken(&key2.PublicKey, "hivy", "https://api.usehivy.com", tokenStr)
+	_, err = ValidateAccessToken(&key2.PublicKey, "hivy", "https://api.usehivy.test", tokenStr)
 	if err == nil {
 		t.Fatal("expected error for wrong signing key")
 	}

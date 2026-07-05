@@ -47,12 +47,12 @@ func newInviteHarness(t *testing.T) *inviteHarness {
 
 	authHandler := handler.NewAuthHandler(h.db, privKey, []byte("invite-e2e-hmac"),
 		inviteTestIssuer, inviteTestAudience, 15*time.Minute, 24*time.Hour,
-		&email.LogSender{}, "http://localhost:3000", true, billing.NewCreditsService(h.db))
+		&email.NoopSender{}, "http://localhost:3000", true, billing.NewCreditsService(h.db))
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	authHandler.StartCleanup(ctx)
 
-	orgInviteHandler := handler.NewOrgInviteHandler(h.db, &email.LogSender{}, "http://localhost:3000")
+	orgInviteHandler := handler.NewOrgInviteHandler(h.db, &email.NoopSender{}, "http://localhost:3000")
 
 	r := chi.NewRouter()
 

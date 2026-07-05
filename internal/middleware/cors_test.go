@@ -7,17 +7,17 @@ import (
 )
 
 func TestCORS_AllowsListedOrigins(t *testing.T) {
-	handler := CORS([]string{"https://app.usehivy.com"}, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := CORS([]string{"https://app.usehivy.test"}, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Origin", "https://app.usehivy.com")
+	req.Header.Set("Origin", "https://app.usehivy.test")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://app.usehivy.com" {
-		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "https://app.usehivy.com")
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://app.usehivy.test" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "https://app.usehivy.test")
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
 		t.Fatalf("Access-Control-Allow-Credentials = %q, want true", got)
@@ -25,7 +25,7 @@ func TestCORS_AllowsListedOrigins(t *testing.T) {
 }
 
 func TestCORS_BlocksUnlistedOrigins(t *testing.T) {
-	handler := CORS([]string{"https://app.usehivy.com"}, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := CORS([]string{"https://app.usehivy.test"}, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

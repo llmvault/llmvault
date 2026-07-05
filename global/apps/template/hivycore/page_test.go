@@ -8,10 +8,10 @@ func TestFrameAncestorsFrom(t *testing.T) {
 		launchURL string
 		want      string
 	}{
-		{"https origin", "https://app.usehivy.com/w/apps/abc/launch", "frame-ancestors 'self' https://app.usehivy.com"},
+		{"https origin", "https://app.usehivy.test/w/apps/abc/launch", "frame-ancestors 'self' https://app.usehivy.test"},
 		{"origin with port", "http://localhost:3000/w/apps/abc/launch", "frame-ancestors 'self' http://localhost:3000"},
 		{"empty", "", "frame-ancestors 'self'"},
-		{"no scheme", "app.usehivy.com/launch", "frame-ancestors 'self'"},
+		{"no scheme", "app.usehivy.test/launch", "frame-ancestors 'self'"},
 		{"garbage", "://not a url", "frame-ancestors 'self'"},
 	}
 	for _, tc := range cases {

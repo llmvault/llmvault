@@ -21,7 +21,7 @@ func agentRuntimeE2EModel(t *testing.T, proxyURL string) map[string]any {
 		"max_output_tokens": 4096,
 		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
-			"HTTP-Referer": "https://usehivy.com",
+			"HTTP-Referer": "https://usehivy.test",
 			"X-Title":      "Hivy",
 		},
 	}

@@ -109,7 +109,7 @@ func TestOrgUpdate_NameAndLogoSucceed(t *testing.T) {
 
 	rr := h.doPatch(t, user.ID, org.ID, "admin", map[string]any{
 		"name":     "Renamed Inc",
-		"logo_url": "https://assets.usehivy.com/pub/o/" + org.ID.String() + "/logo.png",
+		"logo_url": "https://assets.usehivy.test/pub/o/" + org.ID.String() + "/logo.png",
 	})
 
 	if rr.Code != http.StatusOK {
@@ -147,7 +147,7 @@ func TestOrgUpdate_LogoOnly(t *testing.T) {
 	org, user := h.createOrg(t, "owner")
 
 	rr := h.doPatch(t, user.ID, org.ID, "owner", map[string]any{
-		"logo_url": "https://assets.usehivy.com/pub/o/abc/logo.png",
+		"logo_url": "https://assets.usehivy.test/pub/o/abc/logo.png",
 	})
 
 	if rr.Code != http.StatusOK {
@@ -213,7 +213,7 @@ func TestOrgUpdate_EmptyLogoClears(t *testing.T) {
 	org, user := h.createOrg(t, "admin")
 
 	h.db.Model(&model.Org{}).Where("id = ?", org.ID).
-		Update("logo_url", "https://assets.usehivy.com/pub/o/abc/old.png")
+		Update("logo_url", "https://assets.usehivy.test/pub/o/abc/old.png")
 
 	emptyLogo := ""
 	rr := h.doPatch(t, user.ID, org.ID, "admin", map[string]any{

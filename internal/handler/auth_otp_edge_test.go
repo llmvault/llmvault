@@ -11,7 +11,7 @@ import (
 
 func TestOTP_WrongCode(t *testing.T) {
 	h := newOTPHarness(t)
-	testEmail := "otp-wrong@test.usehivy.com"
+	testEmail := "otp-wrong@test.usehivy.test"
 	t.Cleanup(func() { h.cleanup(t, testEmail) })
 
 	h.doRequest(t, "POST", "/auth/otp/request", map[string]string{"email": testEmail})
@@ -29,7 +29,7 @@ func TestOTP_WrongCode(t *testing.T) {
 
 func TestOTP_ExpiredCode(t *testing.T) {
 	h := newOTPHarness(t)
-	testEmail := "otp-expired@test.usehivy.com"
+	testEmail := "otp-expired@test.usehivy.test"
 	t.Cleanup(func() { h.cleanup(t, testEmail) })
 
 	h.doRequest(t, "POST", "/auth/otp/request", map[string]string{"email": testEmail})
@@ -52,7 +52,7 @@ func TestOTP_ExpiredCode(t *testing.T) {
 
 func TestOTP_NewRequestInvalidatesOld(t *testing.T) {
 	h := newOTPHarness(t)
-	testEmail := "otp-invalidate@test.usehivy.com"
+	testEmail := "otp-invalidate@test.usehivy.test"
 	h.cleanup(t, testEmail) // Remove stale data from prior runs
 	t.Cleanup(func() { h.cleanup(t, testEmail) })
 

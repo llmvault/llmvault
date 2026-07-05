@@ -74,7 +74,7 @@ export function createDefaultSessionWorkspace(
       repoTreeCaches: {},
     },
     browser: {
-      url: "usehivy.com",
+      url: "",
       src: "/",
       reloadKey: 0,
     },

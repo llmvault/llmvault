@@ -208,18 +208,18 @@ func TestScrubSensitiveQueryParams_ScrubbsTokenAndKey(t *testing.T) {
 	}{
 		{
 			name:  "token param is scrubbed",
-			input: "https://api.usehivy.com/v1/agents/abc/sessions/def/streams/ghi?token=supersecret",
-			want:  "https://api.usehivy.com/v1/agents/abc/sessions/def/streams/ghi?token=%5BFiltered%5D",
+			input: "https://api.usehivy.test/v1/agents/abc/sessions/def/streams/ghi?token=supersecret",
+			want:  "https://api.usehivy.test/v1/agents/abc/sessions/def/streams/ghi?token=%5BFiltered%5D",
 		},
 		{
 			name:  "key param is scrubbed",
-			input: "https://api.usehivy.com/v1/proxy?key=AIzaSySecretKey",
-			want:  "https://api.usehivy.com/v1/proxy?key=%5BFiltered%5D",
+			input: "https://api.usehivy.test/v1/proxy?key=AIzaSySecretKey",
+			want:  "https://api.usehivy.test/v1/proxy?key=%5BFiltered%5D",
 		},
 		{
 			name:  "non-sensitive params preserved",
-			input: "https://api.usehivy.com/v1/sessions?page=2",
-			want:  "https://api.usehivy.com/v1/sessions?page=2",
+			input: "https://api.usehivy.test/v1/sessions?page=2",
+			want:  "https://api.usehivy.test/v1/sessions?page=2",
 		},
 		{
 			name:  "empty url unchanged",
@@ -228,8 +228,8 @@ func TestScrubSensitiveQueryParams_ScrubbsTokenAndKey(t *testing.T) {
 		},
 		{
 			name:  "no query string unchanged",
-			input: "https://api.usehivy.com/v1/sessions",
-			want:  "https://api.usehivy.com/v1/sessions",
+			input: "https://api.usehivy.test/v1/sessions",
+			want:  "https://api.usehivy.test/v1/sessions",
 		},
 	}
 	for _, tc := range tests {
@@ -244,7 +244,7 @@ func TestScrubSensitiveQueryParams_ScrubbsTokenAndKey(t *testing.T) {
 func TestBeforeSend_ScrubbsRequestURL(t *testing.T) {
 	event := &sentrygo.Event{
 		Request: &sentrygo.Request{
-			URL:         "https://api.usehivy.com/stream?token=secret123",
+			URL:         "https://api.usehivy.test/stream?token=secret123",
 			QueryString: "token=secret123",
 		},
 	}
@@ -252,7 +252,7 @@ func TestBeforeSend_ScrubbsRequestURL(t *testing.T) {
 	if result == nil {
 		t.Fatal("beforeSend returned nil")
 	}
-	if result.Request.URL == "https://api.usehivy.com/stream?token=secret123" {
+	if result.Request.URL == "https://api.usehivy.test/stream?token=secret123" {
 		t.Fatalf("URL was not scrubbed: %q", result.Request.URL)
 	}
 	if result.Request.QueryString == "token=secret123" {

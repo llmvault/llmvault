@@ -23,7 +23,7 @@ func TestSlackReactionAutomationTextUsesRenderedMessageAndMedia(t *testing.T) {
 				Title:    "*fmt.wrapError: dispatch slack service discovery",
 				ImageURL: "https://files.slack.com/screenshot.png",
 				Fields: []slacksdk.AttachmentField{
-					{Title: "Project", Value: "api.usehivy.com"},
+					{Title: "Project", Value: "api.usehivy.test"},
 					{Title: "Environment", Value: "production"},
 				},
 			}},
@@ -49,7 +49,7 @@ func TestSlackReactionAutomationTextUsesRenderedMessageAndMedia(t *testing.T) {
 		"bot:B0B8NAEH1TM [1782643393.499329]:",
 		"Top-level text:\nGlitchTip Alert",
 		"Attachments:",
-		"**Project:** api.usehivy.com",
+		"**Project:** api.usehivy.test",
 		"**Environment:** production",
 		`<attachment type="image"`,
 		"<short_description>Screenshot shows the production error.</short_description>",
@@ -72,7 +72,7 @@ func TestSlackInboundContextTextUsesRenderedMessageAndMedia(t *testing.T) {
 				Title:    "error screenshot",
 				ImageURL: "https://files.slack.com/screenshot.png",
 				Fields: []slacksdk.AttachmentField{
-					{Title: "Project", Value: "api.usehivy.com"},
+					{Title: "Project", Value: "api.usehivy.test"},
 				},
 			}},
 		}},
@@ -98,7 +98,7 @@ func TestSlackInboundContextTextUsesRenderedMessageAndMedia(t *testing.T) {
 		"sender_tag: <@U0B5QJZCPQR>",
 		"clean_text: please investigate",
 		"Top-level text:\n<@B123> please investigate",
-		"**Project:** api.usehivy.com",
+		"**Project:** api.usehivy.test",
 		`<attachment type="image"`,
 	} {
 		if !strings.Contains(text, want) {

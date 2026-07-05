@@ -8,7 +8,7 @@ import { setPublicConfigForTests } from "@/lib/config/public-config"
 
 beforeEach(() => setPublicConfigForTests())
 
-const previewUrl = "https://5173-um7j159u.preview.usehivy.com/"
+const previewUrl = "https://5173-um7j159u.preview.usehivy.test/"
 
 describe("preview browser links", () => {
   it("extracts unique Hivy preview targets from assistant text", () => {
@@ -20,7 +20,7 @@ describe("preview browser links", () => {
       {
         key: previewUrl,
         url: previewUrl,
-        host: "5173-um7j159u.preview.usehivy.com",
+        host: "5173-um7j159u.preview.usehivy.test",
         port: "5173",
       },
     ])
@@ -29,27 +29,27 @@ describe("preview browser links", () => {
   it("keeps separate preview paths distinct", () => {
     expect(
       previewBrowserTargets(
-        `${previewUrl} https://5173-um7j159u.preview.usehivy.com/settings`
+        `${previewUrl} https://5173-um7j159u.preview.usehivy.test/settings`
       ).map((target) => target.url)
     ).toEqual([
       previewUrl,
-      "https://5173-um7j159u.preview.usehivy.com/settings",
+      "https://5173-um7j159u.preview.usehivy.test/settings",
     ])
   })
 
   it("rejects non-preview and non-HTTPS URLs", () => {
     expect(
-      isPreviewBrowserURL("http://5173-um7j159u.preview.usehivy.com/")
+      isPreviewBrowserURL("http://5173-um7j159u.preview.usehivy.test/")
     ).toBe(false)
-    expect(isPreviewBrowserURL("https://preview.usehivy.com/")).toBe(false)
-    expect(isPreviewBrowserURL("https://evilpreview.usehivy.com/")).toBe(false)
+    expect(isPreviewBrowserURL("https://preview.usehivy.test/")).toBe(false)
+    expect(isPreviewBrowserURL("https://evilpreview.usehivy.test/")).toBe(false)
     expect(isPreviewBrowserURL("https://example.com/")).toBe(false)
   })
 
   it("returns one target for a direct URL", () => {
     expect(previewBrowserTargetFromURL(previewUrl)).toMatchObject({
       url: previewUrl,
-      host: "5173-um7j159u.preview.usehivy.com",
+      host: "5173-um7j159u.preview.usehivy.test",
     })
   })
 

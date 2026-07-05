@@ -68,7 +68,7 @@ export function HivyEmail({ preview, eyebrow, title, children, footerNote }: Hiv
             {footerNote ? <Text style={styles.footerText}>{footerNote}</Text> : null}
             <Text style={styles.footerText}>
               <Link href={siteUrl} style={styles.footerLink}>
-                usehivy.com
+                {"{{{siteLabel}}}"}
               </Link>
               {"  |  "}
               <Link href={`${siteUrl}/terms`} style={styles.footerLink}>

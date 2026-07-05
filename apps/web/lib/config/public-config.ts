@@ -91,10 +91,10 @@ export function serializePublicConfig(): string {
  */
 export function setPublicConfigForTests(overrides: Partial<PublicConfig> = {}): void {
   const base: PublicConfig = {
-    apiUrl: "https://api.usehivy.com",
-    connectionsHost: "connections.usehivy.com",
-    assetsUrl: "https://assets.usehivy.com",
-    previewDomain: "preview.usehivy.com",
+    apiUrl: "https://api.usehivy.test",
+    connectionsHost: "connections.usehivy.test",
+    assetsUrl: "https://assets.usehivy.test",
+    previewDomain: "preview.usehivy.test",
     adminEnabled: false,
   }
   ;(globalThis as unknown as Record<string, unknown>).window ??= {}

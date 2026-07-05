@@ -68,7 +68,7 @@ func (h *refreshTestHarness) seedUserWithRefreshToken(t *testing.T) (model.User,
 	t.Helper()
 
 	user := model.User{
-		Email: "refresh-" + uuid.NewString() + "@test.usehivy.com",
+		Email: "refresh-" + uuid.NewString() + "@test.usehivy.test",
 		Name:  "Refresh Test",
 	}
 	if err := h.db.Create(&user).Error; err != nil {

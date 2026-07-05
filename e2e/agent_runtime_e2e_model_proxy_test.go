@@ -56,7 +56,7 @@ func (p *agentRuntimeModelProxy) serveHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	upstream.Header.Set("Authorization", "Bearer "+p.key)
 	upstream.Header.Set("Content-Type", r.Header.Get("Content-Type"))
-	upstream.Header.Set("HTTP-Referer", "https://usehivy.com")
+	upstream.Header.Set("HTTP-Referer", "https://usehivy.test")
 	upstream.Header.Set("X-Title", "Hivy")
 	resp, err := http.DefaultClient.Do(upstream)
 	if err != nil {

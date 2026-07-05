@@ -3,6 +3,7 @@ package email
 import (
 	"embed"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -37,18 +38,28 @@ func Render(slug TemplateSlug, vars TemplateVars, siteURL, assetBaseURL string) 
 	// Plaintext body is optional; absence just yields an HTML-only email.
 	text, _ := templateFS.ReadFile("templates/dist/" + string(slug) + ".txt")
 
-	all := make(TemplateVars, len(vars)+2)
+	all := make(TemplateVars, len(vars)+3)
 	for k, v := range vars {
 		all[k] = v
 	}
 	all["siteUrl"] = siteURL
 	all["assetBaseUrl"] = assetBaseURL
+	all["siteLabel"] = siteLabel(siteURL) // human-readable host for footer link text
 
 	return RenderedEmail{
 		Subject: Subject(slug, vars),
 		HTML:    substitutePlaceholders(string(html), all),
 		Text:    substitutePlaceholders(string(text), all),
 	}, nil
+}
+
+// siteLabel returns the bare host of a site URL (e.g. "acme.com") for display as
+// footer link text, falling back to the trimmed input if it can't be parsed.
+func siteLabel(siteURL string) string {
+	if u, err := url.Parse(siteURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(siteURL, "https://"), "http://"), "/")
 }
 
 // substitutePlaceholders replaces {{{key}}} (and {{key}}) with the given values.

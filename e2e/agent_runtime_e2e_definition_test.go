@@ -63,7 +63,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 		"temperature":       0,
 		"max_output_tokens": 4096,
 		"extra_headers": map[string]string{
-			"HTTP-Referer": "https://usehivy.com",
+			"HTTP-Referer": "https://usehivy.test",
 			"X-Title":      "Hivy",
 		},
 	}

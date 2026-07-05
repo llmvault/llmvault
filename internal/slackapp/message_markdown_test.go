@@ -16,7 +16,7 @@ func TestRenderSlackMessageMarkdownIncludesLegacyAttachmentFields(t *testing.T) 
 			TitleLink: "https://glitch.example.com/issues/123",
 			Color:     "danger",
 			Fields: []slacksdk.AttachmentField{
-				{Title: "Project", Value: "api.usehivy.com", Short: true},
+				{Title: "Project", Value: "api.usehivy.test", Short: true},
 				{Title: "Environment", Value: "production", Short: true},
 				{Title: "Server Name", Value: "ada4767dfb57"},
 			},
@@ -29,7 +29,7 @@ func TestRenderSlackMessageMarkdownIncludesLegacyAttachmentFields(t *testing.T) 
 		"Top-level text:\nGlitchTip Alert",
 		"Attachments:",
 		"### [*fmt.wrapError: dispatch slack service discovery](https://glitch.example.com/issues/123)",
-		"**Project:** api.usehivy.com",
+		"**Project:** api.usehivy.test",
 		"**Environment:** production",
 		"**Server Name:** ada4767dfb57",
 		"Color: danger",

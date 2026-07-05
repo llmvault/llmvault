@@ -89,7 +89,7 @@ func agentRuntimeQuestionDefinition(t *testing.T, trace *agentRuntimeE2ETrace, p
 		"max_output_tokens": 2048,
 		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
-			"HTTP-Referer": "https://usehivy.com",
+			"HTTP-Referer": "https://usehivy.test",
 			"X-Title":      "Hivy",
 		},
 	}

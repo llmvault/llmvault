@@ -77,7 +77,7 @@ describe("session workspace store", () => {
 
   it("opens preview URLs in the browser panel", () => {
     const store = useSessionWorkspaceStore.getState()
-    const url = "https://5173-um7j159u.preview.usehivy.com/"
+    const url = "https://5173-um7j159u.preview.usehivy.test/"
 
     store.openPanelView("session-a", "terminal")
     store.openBrowserURL("session-a", url)

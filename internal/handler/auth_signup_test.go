@@ -49,7 +49,7 @@ func seedFreePlan(t *testing.T, db *gorm.DB, welcome int64) {
 func seedSignupUser(t *testing.T, db *gorm.DB) *model.User {
 	t.Helper()
 	user := &model.User{
-		Email: "signup-" + uuid.NewString() + "@test.usehivy.com",
+		Email: "signup-" + uuid.NewString() + "@test.usehivy.test",
 		Name:  "Signup Test",
 	}
 	if err := db.Create(user).Error; err != nil {

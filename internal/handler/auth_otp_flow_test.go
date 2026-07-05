@@ -11,7 +11,7 @@ import (
 
 func TestOTP_FullFlow_NewUser(t *testing.T) {
 	h := newOTPHarness(t)
-	testEmail := "otp-new-user@test.usehivy.com"
+	testEmail := "otp-new-user@test.usehivy.test"
 	h.cleanup(t, testEmail)
 	t.Cleanup(func() { h.cleanup(t, testEmail) })
 
@@ -96,7 +96,7 @@ func TestOTP_FullFlow_NewUser(t *testing.T) {
 
 func TestOTP_FullFlow_ExistingUser(t *testing.T) {
 	h := newOTPHarness(t)
-	testEmail := "otp-existing@test.usehivy.com"
+	testEmail := "otp-existing@test.usehivy.test"
 	t.Cleanup(func() { h.cleanup(t, testEmail) })
 
 	user := model.User{Email: testEmail, Name: "Existing"}

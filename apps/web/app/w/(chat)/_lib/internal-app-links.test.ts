@@ -6,17 +6,17 @@ import {
 } from "@/app/w/(chat)/_lib/internal-app-links"
 
 const agentUrl =
-  "https://usehivy.com/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
+  "https://usehivy.test/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
 const agentHref = "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
 
 // Internal app links are now matched purely by same-origin (window.location.origin),
-// not a hardcoded host allowlist. Simulate the app being served from usehivy.com so
+// not a hardcoded host allowlist. Simulate the app being served from usehivy.test so
 // the hosted-style URLs above resolve as same-origin.
 const originalWindow = (globalThis as { window?: unknown }).window
 
 beforeEach(() => {
   ;(globalThis as { window?: unknown }).window = {
-    location: { origin: "https://usehivy.com" },
+    location: { origin: "https://usehivy.test" },
   }
 })
 
@@ -48,7 +48,7 @@ describe("internal app links", () => {
   it("only cards curated agent-facing links, not every /w/ URL", () => {
     // A mix: the templated edit-agent link + non-templated app links.
     const targets = internalAppLinkTargets(
-      `${agentUrl} https://usehivy.com/w/plugins/github https://usehivy.com/w/settings/general`
+      `${agentUrl} https://usehivy.test/w/plugins/github https://usehivy.test/w/settings/general`
     )
     expect(targets.map((t) => t.href)).toEqual([agentHref])
   })
@@ -57,8 +57,8 @@ describe("internal app links", () => {
     // Different origin than the app
     expect(isInternalAppURL(`https://example.com${agentHref}`)).toBe(false)
     // Same origin but no template for this path
-    expect(isInternalAppURL("https://usehivy.com/w/plugins/github")).toBe(false)
-    expect(isInternalAppURL("https://usehivy.com/pricing")).toBe(false)
+    expect(isInternalAppURL("https://usehivy.test/w/plugins/github")).toBe(false)
+    expect(isInternalAppURL("https://usehivy.test/pricing")).toBe(false)
     // Same origin + templated edit-agent path
     expect(isInternalAppURL(agentUrl)).toBe(true)
   })

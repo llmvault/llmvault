@@ -75,7 +75,7 @@ func assertLaunchRejected(t *testing.T, rec *httptest.ResponseRecorder) {
 
 func TestCallbackWrongAudience(t *testing.T) {
 	app, key := newTestApp(t)
-	assertLaunchRejected(t, callbackRequest(app, signLaunchToken(t, key, tokenOverrides{audience: "https://api.usehivy.com"})))
+	assertLaunchRejected(t, callbackRequest(app, signLaunchToken(t, key, tokenOverrides{audience: "https://api.usehivy.test"})))
 }
 
 func TestCallbackWrongIssuer(t *testing.T) {

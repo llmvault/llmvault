@@ -27,6 +27,12 @@ func TestRender_SubstitutesPlaceholders(t *testing.T) {
 	if !strings.Contains(got.HTML, "https://assets.acme.test/hivy-logo.png") {
 		t.Errorf("HTML missing injected logo asset URL")
 	}
+	if !strings.Contains(got.HTML, ">acme.test</a") {
+		t.Errorf("footer should show the site host label 'acme.test'")
+	}
+	if strings.Contains(got.HTML, "usehivy") {
+		t.Errorf("rendered email leaked the hosted domain 'usehivy':\n%s", got.HTML)
+	}
 	if got.Subject != "Your Hivy login code: 123456" {
 		t.Errorf("subject = %q", got.Subject)
 	}
