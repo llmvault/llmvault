@@ -3,8 +3,11 @@ import { withSentryConfig } from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    loader: 'custom',
-    loaderFile: './lib/image-loader.ts',
+    // No image optimization: logos load directly from their src (local
+    // /logomarks/* from the app origin, integration logos from the connections
+    // host). Keeps the prebuilt image domain-agnostic without a remotePatterns
+    // allowlist or a custom loader.
+    unoptimized: true,
   },
   async redirects() {
     return [

@@ -113,7 +113,7 @@ export function integrationLogoURL(provider: string): string {
   if (localLogo) return localLogo
 
   const aliased = LOGO_PROVIDER_ALIASES[provider] ?? provider
-  const logoBase = `https://${clientConfig().connectionsHost}/images/template-logos`
+  const logoBase = `${clientConfig().connectionsHost.replace(/\/$/, "")}/images/template-logos`
   return `${logoBase}/${aliased}.svg`
 }
 

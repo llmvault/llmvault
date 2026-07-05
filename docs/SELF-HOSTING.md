@@ -21,7 +21,6 @@ HIVY_AUTH_AUDIENCE=https://api.yourdomain.com
 HIVY_PUBLIC_API_URL=https://api.yourdomain.com       # browser-facing API URL
 HIVY_API_URL=http://api:8080                          # server→API (internal ok)
 HIVY_CONNECTIONS_HOST=connect.yourdomain.com
-HIVY_ASSETS_URL=https://assets.yourdomain.com
 
 # --- Email (optional; omit for local dev, see "Email") ---
 HIVY_SMTP_HOST=smtp.yourprovider.com
@@ -60,7 +59,6 @@ The frontend reads these at **runtime** (injected into the page as `window.__HIV
 | `HIVY_PUBLIC_API_URL` | ✅¹ | falls back to `HIVY_API_URL` | Browser-facing API URL (OAuth redirects, SSE). Must be publicly reachable. |
 | `HIVY_API_URL` | ✅¹ | — | Server→API URL used by the `/api/proxy` route. May be an internal address. |
 | `HIVY_CONNECTIONS_HOST` | ✅ | — | Host serving integration connect flows + template logos. |
-| `HIVY_ASSETS_URL` | ✅ | — | Base URL of your public assets host (images, uploads). |
 | `HIVY_PREVIEW_BASE_DOMAIN` | ✅ | — | Same preview suffix as the backend — used to recognize preview URLs in chat. |
 | `HIVY_ADMIN_ENABLED` | — | `false` | Set `true` to expose the admin panel. |
 

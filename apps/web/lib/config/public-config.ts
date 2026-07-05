@@ -12,8 +12,6 @@ export type PublicConfig = {
   apiUrl: string
   /** Host serving integration connect flows + template logos. */
   connectionsHost: string
-  /** Base URL of the public assets/CDN host (next/image, asset previews). */
-  assetsUrl: string
   /** Wildcard preview host suffix ({port}-{id}.<domain>) for sandbox previews. */
   previewDomain: string
   /** Whether the admin panel routes are enabled. */
@@ -34,13 +32,11 @@ function readServerPublicConfig(): PublicConfig {
   // deploys (browser vs. server-internal) differ; falls back to HIVY_API_URL.
   const apiUrl = (process.env.HIVY_PUBLIC_API_URL || process.env.HIVY_API_URL || "").trim()
   const connectionsHost = (process.env.HIVY_CONNECTIONS_HOST || "").trim()
-  const assetsUrl = (process.env.HIVY_ASSETS_URL || "").trim()
   const previewDomain = (process.env.HIVY_PREVIEW_BASE_DOMAIN || "").trim()
 
   const missing: string[] = []
   if (!apiUrl) missing.push("HIVY_PUBLIC_API_URL (or HIVY_API_URL)")
   if (!connectionsHost) missing.push("HIVY_CONNECTIONS_HOST")
-  if (!assetsUrl) missing.push("HIVY_ASSETS_URL")
   if (!previewDomain) missing.push("HIVY_PREVIEW_BASE_DOMAIN")
   if (missing.length > 0) {
     throw new Error(
@@ -52,7 +48,6 @@ function readServerPublicConfig(): PublicConfig {
   return {
     apiUrl,
     connectionsHost,
-    assetsUrl,
     previewDomain,
     adminEnabled: process.env.HIVY_ADMIN_ENABLED === "true",
   }
@@ -93,7 +88,6 @@ export function setPublicConfigForTests(overrides: Partial<PublicConfig> = {}): 
   const base: PublicConfig = {
     apiUrl: "https://api.usehivy.test",
     connectionsHost: "connections.usehivy.test",
-    assetsUrl: "https://assets.usehivy.test",
     previewDomain: "preview.usehivy.test",
     adminEnabled: false,
   }
