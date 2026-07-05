@@ -5,7 +5,7 @@ import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { Button, Input, ListBox, Select, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { cn } from "@/lib/utils"
+import { LogoTile } from "@/components/plugin-logo"
 import {
   automationCategories,
   automationCategory,
@@ -22,6 +22,7 @@ export function AutomationsListView({
   isError,
   onRetry,
   action,
+  nav,
   title = "Automations",
   description = "Start agent work from events or recurring schedules",
   searchLabel = "triggers",
@@ -32,6 +33,7 @@ export function AutomationsListView({
   isError: boolean
   onRetry: () => void
   action?: { label: string; href: string; icon?: string }
+  nav?: React.ReactNode
   title?: string
   description?: string
   searchLabel?: string
@@ -78,6 +80,7 @@ export function AutomationsListView({
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-6 py-12">
         <div className="flex flex-col gap-8">
+          {nav}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-foreground">
@@ -194,15 +197,11 @@ function AutomationRow({ automation }: { automation: AutomationItem }) {
     >
       <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default group-focus-visible:bg-default group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-foreground/40">
         <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundColor: automation.iconColor }}
-          >
-            <AppIcon
-              icon={automation.icon}
-              className="h-[18px] w-[18px] shrink-0 text-white"
-            />
-          </div>
+          <LogoTile
+            provider={automation.provider}
+            icon={automation.icon}
+            color={automation.iconColor}
+          />
 
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium text-foreground">

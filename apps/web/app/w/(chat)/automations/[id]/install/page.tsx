@@ -4,6 +4,7 @@ import { use, useMemo } from "react"
 import NextLink from "next/link"
 import { Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { LogoTile } from "@/components/plugin-logo"
 import { $api } from "@/lib/api/hooks"
 import { TriggerInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form"
 import {
@@ -106,12 +107,13 @@ function InstallShell({ content }: { content: React.ReactNode }) {
 
 function AutomationLogo({ automation }: { automation: AutomationItem }) {
   return (
-    <div
-      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-      style={{ backgroundColor: automation.iconColor }}
-    >
-      <AppIcon icon={automation.icon} className="h-6 w-6 text-white" />
-    </div>
+    <LogoTile
+      provider={automation.provider}
+      icon={automation.icon}
+      color={automation.iconColor}
+      size={48}
+      className="rounded-xl"
+    />
   )
 }
 

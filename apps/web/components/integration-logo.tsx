@@ -67,17 +67,14 @@ const PROVIDER_BRAND_ALIASES: Record<string, string> = {
   "github-app-code-reviews": "github",
 }
 
-/** Icon-registry names (e.g. a plugin's `icon`) -> canonical brand key. */
-const ICON_BRAND_ALIASES: Record<string, string> = {}
-
 /** Brand config for an integration provider, if @thesvg/react ships one. */
 export function providerBrand(provider: string): BrandConfig | undefined {
   return BRANDS[PROVIDER_BRAND_ALIASES[provider] ?? provider]
 }
 
-/** Brand config for an icon-registry name, if one exists. */
+/** Brand config for an icon-registry name (e.g. a plugin's `icon`), if one exists. */
 export function brandForIcon(icon: string): BrandConfig | undefined {
-  return BRANDS[ICON_BRAND_ALIASES[icon] ?? icon]
+  return BRANDS[icon]
 }
 
 /** Renders a brand mark with its configured variant and tint. */
@@ -156,13 +153,13 @@ export function ProviderLogoMark({
 }
 
 const sizeClasses: Record<number, string> = {
-  16: "size-4",
-  20: "size-5",
-  24: "size-6",
-  28: "size-7",
-  32: "size-8",
-  40: "size-10",
-  48: "size-12",
+  16: "size-4 p-0.5",
+  20: "size-5 p-0.5",
+  24: "size-6 p-1",
+  28: "size-7 p-1",
+  32: "size-8 p-1",
+  40: "size-10 p-1.5",
+  48: "size-12 p-2",
 }
 
 interface IntegrationLogoProps {
@@ -175,7 +172,7 @@ export function IntegrationLogo({ provider, size = 32, className }: IntegrationL
   const sizeClass = sizeClasses[size] ?? "size-8"
 
   return (
-    <div className={cn("shrink-0 rounded-md bg-white p-0.5", sizeClass, className)}>
+    <div className={cn("shrink-0 rounded-md bg-white", sizeClass, className)}>
       <ProviderLogoMark provider={provider} size={size} className="size-full" />
     </div>
   )

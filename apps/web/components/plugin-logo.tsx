@@ -95,6 +95,73 @@ export function pluginLogoFrameStyle(
 }
 
 /**
+ * Self-framed 32px logo tile keyed by an integration provider (brand logo on a
+ * white tile), a brand `icon` (brand mark on white), or an arbitrary `icon` +
+ * brand `color` (white glyph on the color). Shared by plugin and automation
+ * lists so their icons render identically.
+ */
+const TILE_SIZES: Record<number, { box: string; glyph: string; pad: string }> = {
+  32: { box: "h-8 w-8", glyph: "h-4 w-4", pad: "p-1" },
+  40: { box: "h-10 w-10", glyph: "h-5 w-5", pad: "p-1.5" },
+  48: { box: "h-12 w-12", glyph: "h-6 w-6", pad: "p-2" },
+}
+
+export function LogoTile({
+  provider,
+  icon,
+  color,
+  size = 32,
+  className,
+}: {
+  provider?: string | null
+  icon: string
+  color: string
+  size?: 32 | 40 | 48
+  className?: string
+}) {
+  const { box, glyph, pad } = TILE_SIZES[size] ?? TILE_SIZES[32]
+
+  if (provider) {
+    return (
+      <IntegrationLogo
+        provider={provider}
+        size={size}
+        className={cn("rounded-lg", className)}
+      />
+    )
+  }
+
+  const brand = brandForIcon(icon)
+  if (brand) {
+    return (
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-lg bg-white",
+          box,
+          pad,
+          className
+        )}
+      >
+        <BrandMark brand={brand} label={icon} className="size-full" />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg text-white",
+        box,
+        className
+      )}
+      style={{ backgroundColor: color }}
+    >
+      <AppIcon icon={icon} className={glyph} />
+    </div>
+  )
+}
+
+/**
  * Self-framed 32px plugin tile used in agent plugin lists. Tolerates an
  * undefined plugin (renders a neutral placeholder).
  */
@@ -118,41 +185,12 @@ export function PluginLogoTile({
     )
   }
 
-  const provider = pluginLogoProvider(plugin)
-  if (provider) {
-    return (
-      <IntegrationLogo
-        provider={provider}
-        size={32}
-        className={cn("rounded-lg", className)}
-      />
-    )
-  }
-
-  const icon = pluginIcon(plugin)
-  const brand = brandForIcon(icon)
-  if (brand) {
-    return (
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white p-0.5",
-          className
-        )}
-      >
-        <BrandMark brand={brand} label={icon} className="size-full" />
-      </div>
-    )
-  }
-
   return (
-    <div
-      className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white",
-        className
-      )}
-      style={{ backgroundColor: pluginIconColor(plugin) }}
-    >
-      <AppIcon icon={icon} className="h-4 w-4" />
-    </div>
+    <LogoTile
+      provider={pluginLogoProvider(plugin)}
+      icon={pluginIcon(plugin)}
+      color={pluginIconColor(plugin)}
+      className={className}
+    />
   )
 }
