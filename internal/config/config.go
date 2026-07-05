@@ -122,8 +122,8 @@ type Config struct {
 	AdminSecret  string `env:"HIVY_ADMIN_SECRET"`
 
 	PreviewCNAMETarget string `env:"HIVY_PREVIEW_CNAME_TARGET" envDefault:"preview-proxy.usehivy.com"`
-	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.usehivy.com)
-	CaddyAdminURL      string `env:"HIVY_CADDY_ADMIN_URL"`  // Caddy admin API proxy (e.g. https://caddy-admin.daytona.usehivy.com)
+	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.example.com)
+	CaddyAdminURL      string `env:"HIVY_CADDY_ADMIN_URL"`  // Caddy admin API proxy (e.g. https://caddy-admin.daytona.example.com)
 
 	// Spider (web crawling/search via spider.cloud)
 	SpiderAPIKey  string `env:"HIVY_SPIDER_CLOUD_API_KEY"`                                  // empty = spider disabled

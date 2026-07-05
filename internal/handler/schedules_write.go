@@ -13,6 +13,20 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// Create handles POST /v1/schedules.
+// @Summary Create schedule
+// @Description Creates a recurring agent schedule (cron or interval).
+// @Tags schedules
+// @Accept json
+// @Produce json
+// @Param request body createScheduleRequest true "Schedule configuration"
+// @Success 201 {object} createScheduleResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/schedules [post]
 func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {

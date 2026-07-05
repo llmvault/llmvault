@@ -3288,6 +3288,10 @@ definitions:
         type: string
       last_run_at:
         type: string
+      last_run_session_id:
+        description: LastRunSessionID links to the session of the most recent run,
+          if any.
+        type: string
       last_status:
         type: string
       name:
@@ -4546,7 +4550,7 @@ definitions:
       status:
         type: string
     type: object
-host: api.dev.usehivy.com
+host: api.example.com
 info:
   contact: {}
   description: Proxy runtime for LLM API credentials.

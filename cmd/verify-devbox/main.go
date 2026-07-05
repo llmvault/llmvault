@@ -4,7 +4,7 @@
 //
 // Verification uses Daytona preview URLs (sandbox.GetPreviewLink) instead of
 // the toolbox proxy, because this Daytona instance returns a toolbox proxy
-// hostname (preview.usehivy.com) that has no public DNS.
+// hostname (preview.example.com) that has no public DNS.
 //
 // Usage:
 //

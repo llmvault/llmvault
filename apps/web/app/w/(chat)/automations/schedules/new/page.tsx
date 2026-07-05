@@ -3,15 +3,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import {
-  Button,
-  Input,
-  ListBox,
-  Select,
-  Spinner,
-  TextArea,
-  toast,
-} from "@heroui/react"
+import { Button, Input, Spinner, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -21,20 +13,16 @@ import {
   useHivyChannels,
 } from "@/app/w/(chat)/automations/_channel-select"
 import {
+  ScheduleCadenceFields,
+  type Cadence,
+} from "@/app/w/(chat)/automations/_schedule-cadence"
+import {
   FormSection,
   InlineNotice,
 } from "@/app/w/(chat)/automations/_trigger-form-sections"
 
 const DEFAULT_TASK_PROMPT =
   "Describe the recurring task the agent should run each time this schedule fires."
-
-type CadenceMode = "interval" | "cron"
-
-const UNIT_SECONDS: Record<string, number> = {
-  minutes: 60,
-  hours: 3600,
-  days: 86400,
-}
 
 export default function NewSchedulePage() {
   const router = useRouter()
@@ -55,22 +43,16 @@ export default function NewSchedulePage() {
   const [channelID, setChannelID] = useState("")
   const [agentID, setAgentID] = useState("")
   const [taskPrompt, setTaskPrompt] = useState(DEFAULT_TASK_PROMPT)
-  const [mode, setMode] = useState<CadenceMode>("interval")
-  const [intervalValue, setIntervalValue] = useState("30")
-  const [intervalUnit, setIntervalUnit] = useState("minutes")
-  const [cron, setCron] = useState("0 9 * * *")
+  const [cadence, setCadence] = useState<Cadence | null>(null)
 
   const activeChannelID = channelID || channels[0]?.id || ""
   const activeAgentID = agents.some((agent) => agent.id === agentID)
     ? agentID
     : (agents[0]?.id ?? "")
 
-  const intervalSeconds =
-    Math.round(Number(intervalValue) || 0) * (UNIT_SECONDS[intervalUnit] ?? 60)
   const isLoading = channelsLoading || agentsQuery.isLoading
   const isSaving = createSchedule.isPending
-  const cadenceValid =
-    mode === "cron" ? Boolean(cron.trim()) : intervalSeconds > 0
+  const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSubmit = Boolean(
     !isSaving &&
       name.trim() &&
@@ -98,9 +80,9 @@ export default function NewSchedulePage() {
       toast.danger("Task prompt is required")
       return
     }
-    if (!cadenceValid) {
+    if (!cadence || !("body" in cadence)) {
       toast.danger(
-        mode === "cron" ? "Enter a cron expression" : "Enter an interval"
+        cadence && "error" in cadence ? cadence.error : "Set a schedule"
       )
       return
     }
@@ -111,9 +93,7 @@ export default function NewSchedulePage() {
           agent_id: activeAgentID,
           channel_id: activeChannelID,
           task_prompt: taskPrompt.trim(),
-          ...(mode === "cron"
-            ? { cron_expression: cron.trim() }
-            : { interval_seconds: intervalSeconds }),
+          ...cadence.body,
         },
       },
       {
@@ -150,7 +130,7 @@ export default function NewSchedulePage() {
                 Add schedule
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">
-                Run an agent on a recurring interval or cron schedule.
+                Run an agent on a recurring schedule.
               </p>
             </div>
           </header>
@@ -212,33 +192,9 @@ export default function NewSchedulePage() {
 
             <FormSection
               title="Repeat"
-              description="How often the agent should run. All times are UTC."
+              description="Pick when this runs in your local time — schedules execute in UTC and we convert for you."
             >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <ModeSelect value={mode} onChange={setMode} />
-                {mode === "interval" ? (
-                  <div className="flex flex-1 items-center gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={intervalValue}
-                      onChange={(event) => setIntervalValue(event.target.value)}
-                      className="h-9 w-24 rounded-md"
-                    />
-                    <UnitSelect
-                      value={intervalUnit}
-                      onChange={setIntervalUnit}
-                    />
-                  </div>
-                ) : (
-                  <Input
-                    value={cron}
-                    onChange={(event) => setCron(event.target.value)}
-                    placeholder="0 9 * * *"
-                    className="h-9 flex-1 rounded-md font-mono"
-                  />
-                )}
-              </div>
+              <ScheduleCadenceFields onChange={setCadence} />
             </FormSection>
 
             <FormSection
@@ -274,76 +230,5 @@ export default function NewSchedulePage() {
         </div>
       </div>
     </div>
-  )
-}
-
-function ModeSelect({
-  value,
-  onChange,
-}: {
-  value: CadenceMode
-  onChange: (value: CadenceMode) => void
-}) {
-  return (
-    <Select
-      aria-label="Schedule type"
-      selectedKey={value}
-      onSelectionChange={(key) => {
-        if (key !== null) onChange(String(key) as CadenceMode)
-      }}
-      className="w-full sm:w-40"
-    >
-      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm">
-        <Select.Value />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover className="w-40 p-1.5">
-        <ListBox>
-          <ListBox.Item id="interval" textValue="Every interval">
-            Every interval
-          </ListBox.Item>
-          <ListBox.Item id="cron" textValue="Cron expression">
-            Cron expression
-          </ListBox.Item>
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  )
-}
-
-function UnitSelect({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <Select
-      aria-label="Interval unit"
-      selectedKey={value}
-      onSelectionChange={(key) => {
-        if (key !== null) onChange(String(key))
-      }}
-      className="w-full sm:w-32"
-    >
-      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm">
-        <Select.Value />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover className="w-32 p-1.5">
-        <ListBox>
-          <ListBox.Item id="minutes" textValue="Minutes">
-            Minutes
-          </ListBox.Item>
-          <ListBox.Item id="hours" textValue="Hours">
-            Hours
-          </ListBox.Item>
-          <ListBox.Item id="days" textValue="Days">
-            Days
-          </ListBox.Item>
-        </ListBox>
-      </Select.Popover>
-    </Select>
   )
 }

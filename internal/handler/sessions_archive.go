@@ -78,11 +78,43 @@ func (h *SessionHandler) canArchiveSession(ctx context.Context, session model.Se
 	if userID == nil {
 		return false, nil
 	}
+	// External (e.g. Slack) sessions have no Hivy participants — the caller
+	// reaches them through the channel. Allow org admins and members of the
+	// session's channel, where membership is derived from the user's team.
+	if session.Source == model.SessionSourceExternal {
+		return h.canArchiveExternalSession(ctx, session, userID)
+	}
 	role, err := h.sessionParticipantRole(ctx, session.ID, userID)
 	if err != nil {
 		return false, err
 	}
 	return role == "owner" || role == "collaborator" || role == "member", nil
+}
+
+func (h *SessionHandler) canArchiveExternalSession(ctx context.Context, session model.Session, userID *uuid.UUID) (bool, error) {
+	orgRole, err := h.orgRole(ctx, session.OrgID, userID)
+	if err != nil {
+		return false, err
+	}
+	if isOrgManager(orgRole) {
+		return true, nil
+	}
+	if orgRole == "" {
+		return false, nil
+	}
+	channel, found, err := h.loadSessionChannel(ctx, session)
+	if err != nil {
+		return false, err
+	}
+	if !found {
+		return false, nil
+	}
+	// A channel with no team is org-wide, so any org member counts; otherwise
+	// membership is active membership of the channel's team.
+	if channel.TeamID == nil {
+		return true, nil
+	}
+	return userIsActiveTeamMember(ctx, h.db, *channel.TeamID, *userID), nil
 }
 
 func (h *SessionHandler) archiveSession(ctx context.Context, session *model.Session) error {

@@ -29,7 +29,7 @@ Run every item against the source skill (or your draft). Each finding is **works
 ## 5. Processes, ports, scheduling
 
 - Long-running commands (builds, batch jobs > ~2 minutes) → **adapt**: instruct background execution with status polling; never rely on a single blocking call.
-- Servers meant to be reached externally → **adapt**: registered preview ports only, URL scheme `https://{port}-{sandbox_id}.preview.usehivy.com`; recommend `hivy-guardian` for resilience; note the ~5-minute idle sleep.
+- Servers meant to be reached externally → **adapt**: registered preview ports only, URL scheme `https://{port}-{sandbox_id}.<preview-domain>`; never hand-construct this URL — the platform tooling (e.g. `make preview` or the preview-env endpoint) provides the actual preview URL; recommend `hivy-guardian` for resilience; note the ~5-minute idle sleep.
 - cron / systemd / launchd scheduling → **incompatible** inside the sandbox; scheduling belongs to platform triggers, not the skill. While systemd is available inside sandboxes, this is not the way to create schedules or repeatable tasks. Should use hivy platform native tools instead.
 
 ## 6. Format & metadata (git mode)

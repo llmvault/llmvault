@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -42,6 +44,73 @@ func TestIntegration_SessionsArchive_AllowsSessionOwnersAndMembers(t *testing.T)
 	}
 	if stored.EndedAt == nil {
 		t.Fatal("archived session ended_at is nil")
+	}
+}
+
+func TestIntegration_SessionsArchive_ExternalSessionByAdminAndTeamMembers(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+
+	team := model.Team{OrgID: fx.org.ID, Name: "eng-" + uuid.NewString()[:8]}
+	if err := h.db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	channel := model.Channel{
+		OrgID:                fx.org.ID,
+		Name:                 "slack-" + uuid.NewString()[:8],
+		Kind:                 "standard",
+		Visibility:           "public",
+		TeamID:               &team.ID,
+		DefaultAgentID:       fx.agent.ID,
+		Origin:               "external",
+		ExternalProvider:     "slack",
+		ExternalResourceType: "slack_channel",
+		ExternalResourceKey:  "C" + uuid.NewString()[:8],
+		ExternalMetadata:     model.JSON{},
+	}
+	if err := h.db.Create(&channel).Error; err != nil {
+		t.Fatalf("create external channel: %v", err)
+	}
+
+	newExternalSession := func() model.Session {
+		s := model.Session{
+			OrgID:           fx.org.ID,
+			ChannelID:       channel.ID,
+			AgentID:         fx.agent.ID,
+			Model:           "deepseek-v4-flash",
+			ReasoningEffort: "high",
+			Source:          model.SessionSourceExternal,
+			Name:            "ext-" + uuid.NewString()[:8],
+			Status:          "active",
+		}
+		if err := h.db.Create(&s).Error; err != nil {
+			t.Fatalf("create external session: %v", err)
+		}
+		h.markSessionIdle(t, s.ID.String())
+		return s
+	}
+
+	// A non-team org member cannot archive an external session in a team channel.
+	s1 := newExternalSession()
+	denied := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s1.ID.String(), fx, fx.member, nil)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("non-team member archive status=%d body=%s", denied.Code, denied.Body.String())
+	}
+
+	// Once on the channel's team, the same member can archive it.
+	if err := h.db.Create(&model.TeamMember{OrgID: fx.org.ID, TeamID: team.ID, UserID: fx.member.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("add team member: %v", err)
+	}
+	allowed := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s1.ID.String(), fx, fx.member, nil)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("team member archive status=%d body=%s", allowed.Code, allowed.Body.String())
+	}
+
+	// An org admin can archive without team membership.
+	s2 := newExternalSession()
+	adminRes := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s2.ID.String(), fx, fx.owner, nil)
+	if adminRes.Code != http.StatusOK {
+		t.Fatalf("admin archive status=%d body=%s", adminRes.Code, adminRes.Body.String())
 	}
 }
 

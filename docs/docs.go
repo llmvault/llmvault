@@ -17557,6 +17557,10 @@ const docTemplate = `{
                 "last_run_at": {
                     "type": "string"
                 },
+                "last_run_session_id": {
+                    "description": "LastRunSessionID links to the session of the most recent run, if any.",
+                    "type": "string"
+                },
                 "last_status": {
                     "type": "string"
                 },
@@ -19494,7 +19498,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "api.dev.usehivy.com",
+	Host:             "api.example.com",
 	BasePath:         "/",
 	Schemes:          []string{"https"},
 	Title:            "Hivy API",

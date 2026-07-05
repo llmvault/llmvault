@@ -333,13 +333,13 @@ def jira_issue(idx, org):
 
 def github_pr(idx, org):
     topic = pick_topic()
-    repo = random.choice(["usehivy/hivy", "usehivy/rag-engine", "usehivy/web", "usehivy/infra"])
+    repo = random.choice(["example-org/hivy", "example-org/rag-engine", "example-org/web", "example-org/infra"])
     num = 2000 + idx
     title = body_from_topic(topic, 1).rstrip(".")
     body = body_from_topic(topic, random.randint(3, 5))
     checks = random.choice(["all passing", "1 failing (flaky)", "all passing, needs review"])
     reviewers = random.sample(USERS, k=random.randint(1, 3))
-    is_public = "usehivy/hivy" in repo and random.random() < 0.1
+    is_public = "example-org/hivy" in repo and random.random() < 0.1
     return {
         "doc_id": f"gh-pr-{repo.replace('/', '_')}-{num}",
         "semantic_id": f"{repo}#{num}: {title}",
@@ -362,12 +362,12 @@ def github_pr(idx, org):
 
 def github_issue(idx, org):
     topic = pick_topic()
-    repo = random.choice(["usehivy/hivy", "usehivy/rag-engine", "usehivy/web"])
+    repo = random.choice(["example-org/hivy", "example-org/rag-engine", "example-org/web"])
     num = 3000 + idx
     title = body_from_topic(topic, 1).rstrip(".")
     body = body_from_topic(topic, random.randint(2, 4))
     reproduction = body_from_topic(topic, 2)
-    is_public = "usehivy/hivy" in repo and random.random() < 0.2
+    is_public = "example-org/hivy" in repo and random.random() < 0.2
     return {
         "doc_id": f"gh-issue-{repo.replace('/', '_')}-{num}",
         "semantic_id": f"{repo}#{num}: {title}",
@@ -388,7 +388,7 @@ def github_issue(idx, org):
 
 def github_discussion(idx, org):
     topic = pick_topic()
-    repo = "usehivy/hivy"
+    repo = "example-org/hivy"
     num = 4000 + idx
     title = f"RFC: " + body_from_topic(topic, 1).rstrip(".")
     body = body_from_topic(topic, random.randint(4, 6))
@@ -415,7 +415,7 @@ def gitlab_mr(idx, org):
     return {
         "doc_id": f"gl-mr-{num}",
         "semantic_id": f"infra!{num}: {title}",
-        "link": f"https://gitlab.com/usehivy/infra/-/merge_requests/{num}",
+        "link": f"https://gitlab.com/example-org/infra/-/merge_requests/{num}",
         "doc_updated_at": iso_ts(random.randint(0, 90)),
         "acl": random_acl(is_public),
         "is_public": is_public,
@@ -434,7 +434,7 @@ def gitlab_issue(idx, org):
     return {
         "doc_id": f"gl-issue-{num}",
         "semantic_id": f"infra#{num}: {title}",
-        "link": f"https://gitlab.com/usehivy/infra/-/issues/{num}",
+        "link": f"https://gitlab.com/example-org/infra/-/issues/{num}",
         "doc_updated_at": iso_ts(random.randint(0, 120)),
         "acl": random_acl(False),
         "is_public": False,
@@ -695,7 +695,7 @@ def api_doc(idx, org):
     return {
         "doc_id": f"apidoc-{method}-{resource.replace('/', '_')}-{idx}",
         "semantic_id": f"API: {method} {resource}",
-        "link": f"https://docs.usehivy.com/api{resource}",
+        "link": f"https://docs.example.com/api{resource}",
         "doc_updated_at": iso_ts(random.randint(0, 120)),
         "acl": random_acl(True),
         "is_public": True,
@@ -713,7 +713,7 @@ def gitbook(idx, org):
     return {
         "doc_id": f"gitbook-{idx}",
         "semantic_id": f"Docs: {title}",
-        "link": f"https://docs.usehivy.com/{idx}",
+        "link": f"https://docs.example.com/{idx}",
         "doc_updated_at": iso_ts(random.randint(0, 180)),
         "acl": random_acl(True),
         "is_public": True,
@@ -941,7 +941,7 @@ def adr(idx, org):
     return {
         "doc_id": f"adr-{num:04d}",
         "semantic_id": title,
-        "link": f"https://github.com/usehivy/adr/blob/main/{num:04d}.md",
+        "link": f"https://github.com/example-org/adr/blob/main/{num:04d}.md",
         "doc_updated_at": iso_ts(random.randint(0, 365)),
         "acl": random_acl(False),
         "is_public": False,
@@ -963,7 +963,7 @@ def rfc(idx, org):
     return {
         "doc_id": f"rfc-{num:04d}",
         "semantic_id": title,
-        "link": f"https://github.com/usehivy/rfcs/pull/{num}",
+        "link": f"https://github.com/example-org/rfcs/pull/{num}",
         "doc_updated_at": iso_ts(random.randint(0, 365)),
         "acl": random_acl(False),
         "is_public": False,

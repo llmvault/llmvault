@@ -16425,6 +16425,8 @@ export interface components {
             interval_seconds?: number;
             last_error?: string;
             last_run_at?: string;
+            /** @description LastRunSessionID links to the session of the most recent run, if any. */
+            last_run_session_id?: string;
             last_status?: string;
             name?: string;
             next_run_at?: string;

@@ -50,7 +50,7 @@ class Config:
             admin_token=os.environ.get("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN", ""),
             base_domain=os.environ.get(
                 "HIVY_MICROSANDBOX_PREVIEW_BASE_DOMAIN",
-                "preview.usehivy.com",
+                "preview.example.com",
             ).strip("."),
             control_url=os.environ.get("HIVY_MICROSANDBOX_CONTROL_URL", "").rstrip("/"),
             control_token=control_token,

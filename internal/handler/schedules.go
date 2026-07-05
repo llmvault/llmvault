@@ -44,8 +44,10 @@ type scheduleResponse struct {
 	LastRunAt       string `json:"last_run_at,omitempty"`
 	LastStatus      string `json:"last_status,omitempty"`
 	LastError       string `json:"last_error,omitempty"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
+	// LastRunSessionID links to the session of the most recent run, if any.
+	LastRunSessionID string `json:"last_run_session_id,omitempty"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
 }
 
 type scheduleListResponse struct {
@@ -187,23 +189,25 @@ func (h *ScheduleHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "schedule not found"})
 		return
 	}
-	writeJSON(w, http.StatusOK, scheduleGetResponse{Schedule: scheduleToResponse(*schedule)})
+	resp := scheduleToResponse(*schedule)
+	resp.LastRunSessionID = h.lastRunSessionID(r.Context(), schedule.ID)
+	writeJSON(w, http.StatusOK, scheduleGetResponse{Schedule: resp})
 }
 
-// Create handles POST /v1/schedules.
-// @Summary Create schedule
-// @Description Creates a recurring agent schedule (cron or interval).
-// @Tags schedules
-// @Accept json
-// @Produce json
-// @Param request body createScheduleRequest true "Schedule configuration"
-// @Success 201 {object} createScheduleResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/schedules [post]
+// lastRunSessionID returns the session id of the most recent run of a schedule
+// that produced one, or "" if the schedule has never run in a session.
+func (h *ScheduleHandler) lastRunSessionID(ctx context.Context, scheduleID uuid.UUID) string {
+	var run model.AgentScheduleRun
+	err := h.db.WithContext(ctx).
+		Where("schedule_id = ? AND session_id IS NOT NULL", scheduleID).
+		Order("created_at DESC").
+		First(&run).Error
+	if err != nil || run.SessionID == nil {
+		return ""
+	}
+	return run.SessionID.String()
+}
+
 func (h *ScheduleHandler) scheduleContext(w http.ResponseWriter, r *http.Request) (*model.Org, *access.Actor, uuid.UUID, bool) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
