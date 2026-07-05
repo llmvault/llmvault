@@ -26,7 +26,9 @@ import (
 // @Security BearerAuth
 // @Router /v1/sessions/{id}/sandbox-access [post]
 func (h *SessionHandler) SandboxAccess(w http.ResponseWriter, r *http.Request) {
-	session, userID, ok := h.authorizeSession(w, r, false)
+	// Minting a sandbox JWT requires being shared into the session (a participant),
+	// not merely channel membership.
+	session, userID, ok := h.authorizeSession(w, r, true)
 	if !ok {
 		return
 	}

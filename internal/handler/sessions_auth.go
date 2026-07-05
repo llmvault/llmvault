@@ -64,7 +64,9 @@ func (h *SessionHandler) canAccessSession(ctx context.Context, session model.Ses
 	if participant != "" {
 		return true
 	}
-	if !requireParticipant && session.Source == model.SessionSourceExternal {
+	// Non-participant read access is by channel membership — a member of the
+	// session's channel can reach every session in it, whatever its source.
+	if !requireParticipant {
 		channel, found, err := h.loadSessionChannel(ctx, session)
 		if err == nil && found && h.canViewChannel(ctx, channel, userID) {
 			return true

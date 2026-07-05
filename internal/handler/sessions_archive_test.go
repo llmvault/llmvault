@@ -47,7 +47,7 @@ func TestIntegration_SessionsArchive_AllowsSessionOwnersAndMembers(t *testing.T)
 	}
 }
 
-func TestIntegration_SessionsArchive_ExternalSessionByAdminAndTeamMembers(t *testing.T) {
+func TestIntegration_SessionsArchive_ExternalSessionByOrgMembersAndAdmin(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 
@@ -90,23 +90,14 @@ func TestIntegration_SessionsArchive_ExternalSessionByAdminAndTeamMembers(t *tes
 		return s
 	}
 
-	// A non-team org member cannot archive an external session in a team channel.
+	// External channels are org-wide, so any org member can archive their sessions.
 	s1 := newExternalSession()
-	denied := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s1.ID.String(), fx, fx.member, nil)
-	if denied.Code != http.StatusForbidden {
-		t.Fatalf("non-team member archive status=%d body=%s", denied.Code, denied.Body.String())
+	memberRes := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s1.ID.String(), fx, fx.member, nil)
+	if memberRes.Code != http.StatusOK {
+		t.Fatalf("member archive status=%d body=%s", memberRes.Code, memberRes.Body.String())
 	}
 
-	// Once on the channel's team, the same member can archive it.
-	if err := h.db.Create(&model.TeamMember{OrgID: fx.org.ID, TeamID: team.ID, UserID: fx.member.ID, Role: "member"}).Error; err != nil {
-		t.Fatalf("add team member: %v", err)
-	}
-	allowed := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s1.ID.String(), fx, fx.member, nil)
-	if allowed.Code != http.StatusOK {
-		t.Fatalf("team member archive status=%d body=%s", allowed.Code, allowed.Body.String())
-	}
-
-	// An org admin can archive without team membership.
+	// An org admin can archive too.
 	s2 := newExternalSession()
 	adminRes := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s2.ID.String(), fx, fx.owner, nil)
 	if adminRes.Code != http.StatusOK {
@@ -114,27 +105,52 @@ func TestIntegration_SessionsArchive_ExternalSessionByAdminAndTeamMembers(t *tes
 	}
 }
 
-func TestIntegration_SessionsArchive_RejectsOrgOwnerWhenNotSessionParticipant(t *testing.T) {
+func TestIntegration_SessionsArchive_ByOrgAdminAndDeniesNonMembers(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
-	created := h.createSession(t, fx, fx.member, "Member-owned session")
 
-	deleted := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+created.Session.ID, fx, fx.owner, nil)
-	if deleted.Code != http.StatusForbidden {
-		t.Fatalf("org owner delete status=%d body=%s", deleted.Code, deleted.Body.String())
+	// An org admin can archive any session, even one they neither created nor joined.
+	created := h.createSession(t, fx, fx.member, "Member-owned session")
+	h.markSessionIdle(t, created.Session.ID)
+	adminArchive := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+created.Session.ID, fx, fx.owner, nil)
+	if adminArchive.Code != http.StatusOK {
+		t.Fatalf("org admin archive status=%d body=%s", adminArchive.Code, adminArchive.Body.String())
 	}
-	patched := h.doJSON(t, http.MethodPatch, "/v1/sessions/"+created.Session.ID, fx, fx.owner, map[string]any{
-		"status": "archived",
-	})
-	if patched.Code != http.StatusForbidden {
-		t.Fatalf("org owner patch status=%d body=%s", patched.Code, patched.Body.String())
+
+	// A user who is neither an admin nor a member of the session's channel is denied.
+	team := model.Team{OrgID: fx.org.ID, Name: "eng-" + uuid.NewString()[:8]}
+	if err := h.db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
 	}
-	var stored model.Session
-	if err := h.db.First(&stored, "id = ?", created.Session.ID).Error; err != nil {
-		t.Fatalf("load session: %v", err)
+	teamChannel := model.Channel{
+		OrgID:          fx.org.ID,
+		Name:           "team-" + uuid.NewString()[:8],
+		Kind:           "standard",
+		Visibility:     "private",
+		TeamID:         &team.ID,
+		DefaultAgentID: fx.agent.ID,
+		Origin:         "native",
 	}
-	if stored.Status != "active" {
-		t.Fatalf("session status=%q, want active", stored.Status)
+	if err := h.db.Create(&teamChannel).Error; err != nil {
+		t.Fatalf("create team channel: %v", err)
+	}
+	teamSession := model.Session{
+		OrgID:           fx.org.ID,
+		ChannelID:       teamChannel.ID,
+		AgentID:         fx.agent.ID,
+		Model:           "deepseek-v4-flash",
+		ReasoningEffort: "high",
+		Source:          model.SessionSourceWeb,
+		Name:            "team-sess-" + uuid.NewString()[:8],
+		Status:          "active",
+	}
+	if err := h.db.Create(&teamSession).Error; err != nil {
+		t.Fatalf("create team session: %v", err)
+	}
+	h.markSessionIdle(t, teamSession.ID.String())
+	denied := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+teamSession.ID.String(), fx, fx.viewer, nil)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("non-member archive status=%d body=%s", denied.Code, denied.Body.String())
 	}
 }
 
