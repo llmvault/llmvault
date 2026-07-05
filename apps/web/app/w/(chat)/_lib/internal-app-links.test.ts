@@ -45,6 +45,11 @@ describe("internal app links", () => {
     expect(targets.map((t) => t.href)).toEqual([agentHref])
   })
 
+  it("does not absorb trailing markdown emphasis markers into the URL", () => {
+    const targets = internalAppLinkTargets(`Open **${agentUrl}** now`)
+    expect(targets.map((t) => t.href)).toEqual([agentHref])
+  })
+
   it("only cards curated agent-facing links, not every /w/ URL", () => {
     // A mix: the templated edit-agent link + non-templated app links.
     const targets = internalAppLinkTargets(

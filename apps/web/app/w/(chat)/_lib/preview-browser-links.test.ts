@@ -61,4 +61,12 @@ describe("preview browser links", () => {
     // A plain preview URL has no app hint.
     expect(previewBrowserTargetFromURL(previewUrl)?.appId).toBeUndefined()
   })
+
+  it("does not absorb trailing markdown emphasis into the ?app= hint", () => {
+    const appId = "92cf1439-f307-4d57-b1b3-33bd9daba26e"
+    const targets = previewBrowserTargets(
+      `Preview: **${previewUrl}?app=${appId}**`
+    )
+    expect(targets.map((t) => t.appId)).toEqual([appId])
+  })
 })

@@ -8,7 +8,7 @@ export interface InternalAppLinkTarget {
   icon: string
 }
 
-const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/g
+const URL_PATTERN = /https?:\/\/[^\s<>"'`*]+/g
 
 // Curated templates for the app links agents actually share. Only links that
 // match a template render a card — we intentionally do NOT card every /w/ URL.
@@ -84,5 +84,5 @@ function isAppOrigin(url: URL) {
 }
 
 function cleanUrl(url: string) {
-  return url.replace(/[),.;!?]+$/g, "")
+  return url.replace(/[),.;!?*]+$/g, "")
 }

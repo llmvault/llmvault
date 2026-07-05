@@ -13,7 +13,7 @@ export interface PreviewBrowserTarget {
   appId?: string
 }
 
-const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/g
+const URL_PATTERN = /https?:\/\/[^\s<>"'`*]+/g
 
 export function previewBrowserTargets(text: string): PreviewBrowserTarget[] {
   const seen = new Set<string>()
@@ -68,5 +68,5 @@ function previewPort(hostname: string) {
 }
 
 function cleanUrl(url: string) {
-  return url.replace(/[),.;!?]+$/g, "")
+  return url.replace(/[),.;!?*]+$/g, "")
 }
