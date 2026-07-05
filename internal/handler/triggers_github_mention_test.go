@@ -70,6 +70,7 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	agent := seedSlackReactionAgent(t, db, org.ID)
 	seedGitHubPluginForAgent(t, db, org.ID, agent.ID)
 	body, _ := json.Marshal(createTriggerRequest{
+		Name:                 "Test trigger",
 		Provider:             githubAppProvider,
 		ConnectionID:         conn.ID.String(),
 		ExternalResourceKey:  "UseHivy/Hivy",
@@ -134,6 +135,7 @@ func TestTriggerHandlerCreateGitHubMentionRequiresGitHubPlugin(t *testing.T) {
 	// No GitHub plugin installed on the agent → the agent could not post a
 	// reply, so install must be rejected.
 	body, _ := json.Marshal(createTriggerRequest{
+		Name:                 "Test trigger",
 		Provider:             githubAppProvider,
 		ConnectionID:         conn.ID.String(),
 		ExternalResourceKey:  "usehivy/hivy",
@@ -168,6 +170,7 @@ func TestTriggerHandlerCreateGitHubMentionRejectsUnknownKey(t *testing.T) {
 	org, conn := seedNangoGitHubConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
 	body, _ := json.Marshal(createTriggerRequest{
+		Name:                "Test trigger",
 		Provider:            githubAppProvider,
 		ConnectionID:        conn.ID.String(),
 		ExternalResourceKey: "usehivy/hivy",

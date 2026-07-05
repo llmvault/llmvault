@@ -32,6 +32,7 @@ func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 	agent := seedSlackReactionAgent(t, db, org.ID)
 	provisioner := &fakeTriggerProvisioner{}
 	body, _ := json.Marshal(createTriggerRequest{
+		Name:                 "Test trigger",
 		Provider:             slackapp.Provider,
 		ConnectionID:         conn.ID.String(),
 		ExternalResourceKey:  "C111",
@@ -92,6 +93,7 @@ func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testin
 	channel := seedSlackReactionChannel(t, db, org.ID, conn, agent)
 	provisioner := &fakeTriggerProvisioner{}
 	body, _ := json.Marshal(createTriggerRequest{
+		Name:                 "Test trigger",
 		Provider:             slackapp.Provider,
 		ConnectionID:         conn.ID.String(),
 		ExternalResourceKey:  channel.ExternalResourceKey,
@@ -139,6 +141,7 @@ func TestTriggerHandlerCreateSlackReactionTriggerProvisionFailure(t *testing.T) 
 		err: &ChannelExternalProvisionError{StatusCode: http.StatusBadRequest, Message: "Slack channel is not available"},
 	}
 	body, _ := json.Marshal(createTriggerRequest{
+		Name:                 "Test trigger",
 		Provider:             slackapp.Provider,
 		ConnectionID:         conn.ID.String(),
 		ExternalResourceKey:  "CFAIL",

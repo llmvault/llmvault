@@ -182,16 +182,17 @@ func suffixedAppSlug(base string) string {
 	return "app-" + suffix
 }
 
-// randSlugSuffix returns 6 lowercase hex chars (crypto/rand). Hex keeps it in
-// the [a-z0-9] charset; a fixed non-empty length keeps it short and readable.
+// randSlugSuffix returns 3 lowercase hex chars (crypto/rand). Hex keeps it in
+// the [a-z0-9] charset; a short fixed length keeps slugs readable, and the
+// collision-retry loop in resolveAppSlug absorbs the higher collision rate.
 func randSlugSuffix() string {
-	b := make([]byte, 3)
+	b := make([]byte, 2)
 	if _, err := rand.Read(b); err != nil {
 		// rand.Read essentially never fails; a static stem still yields a valid,
 		// (very likely) unique slug via the collision-retry loop.
 		return "app"
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b)[:3]
 }
 
 func isAppSlugUniqueViolation(err error) bool {

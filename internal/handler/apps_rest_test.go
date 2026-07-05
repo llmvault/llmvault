@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -61,17 +62,28 @@ func TestAppsCreateAndGet(t *testing.T) {
 	}
 }
 
-func TestAppsCreateDuplicateSlugConflicts(t *testing.T) {
+func TestAppsCreateDuplicateSlugAutoSuffixes(t *testing.T) {
 	h := newAppsRESTHarness(t)
 	h.createAppViaAPI(t, "Reports")
 
+	// A colliding name no longer conflicts: app create auto-suffixes to a fresh,
+	// available slug ("suffix on collision") instead of returning 409.
 	rr := h.do(t, "POST", "/v1/apps", map[string]string{
 		"channel_id": h.channel.ID.String(),
 		"sheet_id":   h.sheet.ID.String(),
 		"name":       "reports",
 	}, true)
-	if rr.Code != 409 {
+	if rr.Code != 201 {
 		t.Fatalf("duplicate slug status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var created struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if created.Slug == "reports" || !strings.HasPrefix(created.Slug, "reports-") {
+		t.Fatalf("duplicate slug = %q, want a suffixed reports-<suffix>", created.Slug)
 	}
 }
 
