@@ -43,7 +43,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 
 	var workerSender email.Sender = &email.LogSender{}
 	if cfg.ResendAPIKey != "" {
-		workerSender = email.NewResendSender(cfg.ResendAPIKey, cfg.ResendFrom)
+		workerSender = email.NewResendSender(cfg.ResendAPIKey, cfg.EmailFrom)
 	} else {
 		slog.Warn("HIVY_RESEND_API_KEY not set — emails will be logged only")
 	}

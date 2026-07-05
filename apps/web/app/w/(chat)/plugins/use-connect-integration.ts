@@ -6,6 +6,7 @@ import Nango, { AuthError } from "@nangohq/frontend"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { clientConfig } from "@/lib/config/public-config"
 
 export interface ConnectOptions {
   credentials?: Record<string, string>
@@ -46,7 +47,7 @@ export function useConnectIntegration() {
 
     const nango = new Nango({
       connectSessionToken: token,
-      host: process.env.NEXT_PUBLIC_HIVY_CONNECTIONS_HOST,
+      host: clientConfig().connectionsHost,
     })
 
     const authOptions: Record<string, unknown> = {}
@@ -87,7 +88,7 @@ export function useConnectIntegration() {
 
     const nango = new Nango({
       connectSessionToken: token,
-      host: process.env.NEXT_PUBLIC_HIVY_CONNECTIONS_HOST,
+      host: clientConfig().connectionsHost,
     })
 
     const authOptions: Record<string, unknown> = {}

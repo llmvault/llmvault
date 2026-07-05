@@ -31,6 +31,7 @@ func buildUploadsHandler(cfg *config.Config, database *gorm.DB, sandboxEncKey *c
 	}
 	uploadsHandler := handler.NewUploadsHandler(database, presigner)
 	uploadsHandler.WithAssetPreviewBaseURL(cfg.APIWebhookBaseURL)
+	uploadsHandler.WithPreviewBaseDomain(cfg.PreviewBaseDomain)
 	if sandboxEncKey != nil {
 		uploadsHandler.WithStreamer(presigner, sandboxEncKey)
 	}

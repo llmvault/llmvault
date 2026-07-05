@@ -1,8 +1,8 @@
 import type { MediaAttachment } from "@/app/w/(chat)/_lib/static-data"
+import { clientConfig } from "@/lib/config/public-config"
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/g
 const PREVIEW_PATH = "/v1/assets/preview"
-const PREVIEW_HOST = "api.usehivy.com"
 
 export function assetPreviewAttachments(
   text: string,
@@ -31,8 +31,9 @@ export function assetPreviewAttachments(
 export function isAssetPreviewUrl(rawUrl: string) {
   try {
     const url = new URL(cleanUrl(rawUrl))
+    const previewHost = new URL(clientConfig().apiUrl).hostname
     return (
-      url.hostname === PREVIEW_HOST && url.pathname.startsWith(PREVIEW_PATH)
+      url.hostname === previewHost && url.pathname.startsWith(PREVIEW_PATH)
     )
   } catch {
     return false

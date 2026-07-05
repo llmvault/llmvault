@@ -35,7 +35,7 @@ type StaticPromptSegment = runtimeapi.StaticPromptSegment
 //go:embed system_prompt.md
 var agentBaseSystemPrompt string
 
-func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description, modelID string) PromptSections {
+func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description, modelID, previewBaseDomain string) PromptSections {
 	var org model.Org
 	var hasOrg bool
 	if agent != nil && agent.OrgID != nil && db != nil {
@@ -44,7 +44,7 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 		}
 	}
 
-	base := renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description)
+	base := renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description, previewBaseDomain)
 	// Model-specific tool guidance folds into the base tool contract rather than
 	// standing as its own section, so the model sees it as part of tool usage.
 	if adapter := renderModelAdapterSection(modelID); adapter != "" {
@@ -73,7 +73,7 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) SystemPromptConfig {
 	basePrompt := strings.TrimSpace(fragments.Base)
 	if basePrompt == "" {
-		basePrompt = renderBaseSystemPrompt(ctx, nil, nil, model.Org{}, false, "")
+		basePrompt = renderBaseSystemPrompt(ctx, nil, nil, model.Org{}, false, "", "")
 	}
 	cacheable := []SystemPromptSegment{
 		staticPromptSegment("", basePrompt),

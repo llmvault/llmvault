@@ -5,8 +5,11 @@ import react from "@vitejs/plugin-react"
 // SPA fallback. `npm run dev` proxies /api and /auth to a locally running
 // server binary on :8080.
 //
-// host: true + allowedHosts let the dev/preview server answer on the
-// *.preview.usehivy.com hostnames the platform routes to builder sandboxes.
+// host: true + allowedHosts let the dev/preview server answer on whatever
+// preview hostnames the platform routes to builder sandboxes. allowedHosts is
+// `true` (accept any host) so the template is domain-agnostic and works under
+// any self-hosted preview domain — the sandbox network boundary is the real
+// access control here, not the hostname allowlist.
 export default defineConfig({
   plugins: [react()],
   build: {
@@ -15,7 +18,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    allowedHosts: [".preview.usehivy.com"],
+    allowedHosts: true,
     proxy: {
       "/api": "http://localhost:8080",
       "/auth": "http://localhost:8080",
@@ -23,6 +26,6 @@ export default defineConfig({
   },
   preview: {
     host: true,
-    allowedHosts: [".preview.usehivy.com"],
+    allowedHosts: true,
   },
 })

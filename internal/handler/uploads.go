@@ -23,6 +23,7 @@ type UploadsHandler struct {
 	imageHTTPClient     *http.Client
 	usageEnqueuer       enqueue.TaskEnqueuer
 	assetPreviewBaseURL string
+	previewBaseDomain   string        // wildcard sandbox preview host suffix (HIVY_PREVIEW_BASE_DOMAIN); see apps_preview_env.go
 	appsTemplateDir     string        // override for the app template dir (tests); see apps_template_zip.go
 	appsService         *apps.Service // enables the preview-env side channel; see apps_preview_env.go
 }
@@ -35,6 +36,14 @@ func NewUploadsHandler(db *gorm.DB, presigner storage.Presigner) *UploadsHandler
 
 func (h *UploadsHandler) WithAssetPreviewBaseURL(baseURL string) *UploadsHandler {
 	h.assetPreviewBaseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	return h
+}
+
+// WithPreviewBaseDomain sets the wildcard sandbox preview host suffix
+// (HIVY_PREVIEW_BASE_DOMAIN) used to build app preview URLs when it can't be
+// derived from the sandbox RuntimeURL.
+func (h *UploadsHandler) WithPreviewBaseDomain(domain string) *UploadsHandler {
+	h.previewBaseDomain = strings.TrimSpace(domain)
 	return h
 }
 

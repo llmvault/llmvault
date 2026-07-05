@@ -12,9 +12,8 @@ import ThesvgRailway from "@thesvg/react/railway"
 import ThesvgRedis from "@thesvg/react/redis"
 import ThesvgSlack from "@thesvg/react/slack"
 import ThesvgVercel from "@thesvg/react/vercel"
+import { clientConfig } from "@/lib/config/public-config"
 import { cn } from "@/lib/utils"
-
-const LOGO_BASE = "https://connections.usehivy.com/images/template-logos"
 
 const LOGO_PROVIDER_ALIASES: Record<string, string> = {
   "github-app-code-reviews": "github-app",
@@ -114,7 +113,8 @@ export function integrationLogoURL(provider: string): string {
   if (localLogo) return localLogo
 
   const aliased = LOGO_PROVIDER_ALIASES[provider] ?? provider
-  return `${LOGO_BASE}/${aliased}.svg`
+  const logoBase = `https://${clientConfig().connectionsHost}/images/template-logos`
+  return `${logoBase}/${aliased}.svg`
 }
 
 /**

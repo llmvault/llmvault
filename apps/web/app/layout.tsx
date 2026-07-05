@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Bricolage_Grotesque, Geist_Mono } from "next/font/google"
 import "./hero.css"
 import { Toast } from "@heroui/react"
+import { PublicConfigScript } from "@/components/public-config-script"
 import { QueryProvider } from "@/components/query-provider"
 import { ThemeProviders } from "@/components/theme-providers"
 
@@ -47,6 +48,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className={bricolageSans.className}>
+        <PublicConfigScript />
         <script dangerouslySetInnerHTML={{ __html: PRESET_NO_FLASH }} />
         <ThemeProviders>
           <QueryProvider>

@@ -18,10 +18,6 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-// appsPreviewDefaultBaseDomain mirrors agentruntime's fallback when the
-// microsandbox preview base domain cannot be derived from the runtime URL.
-const appsPreviewDefaultBaseDomain = "preview.usehivy.com"
-
 // WithAppsService enables the app preview-env side channel (nil leaves the
 // endpoint answering 503, matching the other optional upload features).
 func (h *UploadsHandler) WithAppsService(svc *apps.Service) *UploadsHandler {
@@ -119,7 +115,7 @@ func (h *UploadsHandler) appPreviewURL(ctx context.Context, sb *model.Sandbox, p
 	if strings.EqualFold(providerID, sandbox.ProviderMicrosandbox) {
 		baseDomain := previewBaseDomainFromRuntimeURL(sb.RuntimeURL, externalID)
 		if baseDomain == "" {
-			baseDomain = appsPreviewDefaultBaseDomain
+			baseDomain = h.previewBaseDomain
 		}
 		return fmt.Sprintf("https://%d-%s.%s", port, externalID, baseDomain), 0, ""
 	}

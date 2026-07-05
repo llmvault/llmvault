@@ -22,7 +22,7 @@ func TestBuildPromptSections_UsesTypedFields(t *testing.T) {
 		Instructions: ptrString("Own engineering outcomes with evidence."),
 	}
 
-	fragments := buildPromptSections(context.Background(), nil, agent, description, "")
+	fragments := buildPromptSections(context.Background(), nil, agent, description, "", "")
 
 	if !strings.Contains(fragments.Base, "You are Aria, an AI agent running in Hivy's sandbox environment.") {
 		t.Fatalf("base identity should include agent name: %#v", fragments.Base)
@@ -49,7 +49,7 @@ func TestBuildPromptSections_UsesCatalogInstructions(t *testing.T) {
 			Instructions: instructions,
 		},
 	}
-	fragments := buildPromptSections(context.Background(), nil, agent, "", "")
+	fragments := buildPromptSections(context.Background(), nil, agent, "", "", "")
 	if fragments.Instructions.Content != instructions {
 		t.Fatalf("instructions = %#v", fragments.Instructions)
 	}
@@ -57,7 +57,7 @@ func TestBuildPromptSections_UsesCatalogInstructions(t *testing.T) {
 
 func TestBuildPromptSections_FoldsModelAdapterIntoToolContract(t *testing.T) {
 	agent := &model.Agent{ID: uuid.New(), Name: "Aria"}
-	fragments := buildPromptSections(context.Background(), nil, agent, "", "glm-5.2")
+	fragments := buildPromptSections(context.Background(), nil, agent, "", "glm-5.2", "")
 
 	if strings.Contains(fragments.Base, "model_adapter") {
 		t.Fatalf("base prompt must not keep a model_adapter section: %q", fragments.Base)
@@ -99,7 +99,7 @@ func TestBuildPromptSections_IncludesCatalogSubAgentRouting(t *testing.T) {
 		},
 	}
 
-	fragments := buildPromptSections(context.Background(), nil, agent, "", "")
+	fragments := buildPromptSections(context.Background(), nil, agent, "", "", "")
 
 	if fragments.SubAgents.Tag != "subagents" {
 		t.Fatalf("subagent section tag = %q", fragments.SubAgents.Tag)

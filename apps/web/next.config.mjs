@@ -3,13 +3,8 @@ import { withSentryConfig } from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'assets.usehivy.com',
-        pathname: '/**',
-      },
-    ],
+    loader: 'custom',
+    loaderFile: './lib/image-loader.ts',
   },
   async redirects() {
     return [

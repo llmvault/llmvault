@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation"
+import { clientConfig } from "@/lib/config/public-config"
 import { AdminClient } from "./admin-client"
 
 export default function AdminPage() {
-  if (process.env.NEXT_PUBLIC_HIVY_ADMIN_ENABLED !== "true") {
+  if (!clientConfig().adminEnabled) {
     notFound()
   }
 

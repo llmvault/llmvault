@@ -1,8 +1,9 @@
 import createClient from "openapi-fetch"
+import { clientConfig } from "@/lib/config/public-config"
 import type { paths } from "./schema"
 
 export function apiUrl(path: string = ""): string {
-  const base = process.env.NEXT_PUBLIC_HIVY_API_URL ?? ""
+  const base = clientConfig().apiUrl
   return `${base}${path}`
 }
 

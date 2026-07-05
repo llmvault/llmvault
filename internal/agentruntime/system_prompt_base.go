@@ -13,15 +13,12 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-const (
-	defaultPreviewBaseDomain = "preview.usehivy.com"
-	microsandboxProviderID   = "microsandbox"
-)
+const microsandboxProviderID = "microsandbox"
 
-func renderBaseSystemPrompt(ctx context.Context, db *gorm.DB, agent *model.Agent, org model.Org, hasOrg bool, description string) string {
+func renderBaseSystemPrompt(ctx context.Context, db *gorm.DB, agent *model.Agent, org model.Org, hasOrg bool, description, previewBaseDomain string) string {
 	prompt := agentBaseSystemPrompt
 	prompt = replaceTaggedSection(prompt, "identity", renderIdentityContext(agentDisplayName(agent), org, hasOrg, description))
-	prompt = appendTaggedSection(prompt, "environment", renderEnvironmentContext(ctx, db, agent))
+	prompt = appendTaggedSection(prompt, "environment", renderEnvironmentContext(ctx, db, agent, previewBaseDomain))
 	return prompt
 }
 
@@ -39,7 +36,7 @@ func renderIdentityContext(agentName string, org model.Org, hasOrg bool, descrip
 	return strings.Join(lines, "\n")
 }
 
-func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Agent) string {
+func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Agent, previewBaseDomain string) string {
 	if db == nil || agent == nil || agent.OrgID == nil {
 		return ""
 	}
@@ -56,7 +53,7 @@ func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Age
 	if resources := sandboxResourceEnvironmentContext(ctx, db, agent, sandbox); resources != "" {
 		sections = append(sections, resources)
 	}
-	if preview := sandboxPreviewEnvironmentContext(sandbox); preview != "" {
+	if preview := sandboxPreviewEnvironmentContext(sandbox, previewBaseDomain); preview != "" {
 		sections = append(sections, preview)
 	}
 	return strings.Join(sections, "\n\n")
@@ -78,14 +75,17 @@ func sandboxResourceEnvironmentContext(ctx context.Context, db *gorm.DB, agent *
 	return ""
 }
 
-func sandboxPreviewEnvironmentContext(sandbox model.Sandbox) string {
+func sandboxPreviewEnvironmentContext(sandbox model.Sandbox, previewBaseDomain string) string {
 	if !strings.EqualFold(strings.TrimSpace(sandbox.ProviderID), microsandboxProviderID) {
 		return ""
 	}
 	sandboxID := strings.TrimSpace(sandbox.ExternalID)
+	// Prefer the domain encoded in the sandbox's own RuntimeURL (kept in sync
+	// with the microsandbox gateway); fall back to the required
+	// HIVY_PREVIEW_BASE_DOMAIN, which Load() guarantees is non-empty.
 	baseDomain := previewBaseDomainFromRuntimeURL(sandbox.RuntimeURL, sandboxID)
 	if baseDomain == "" {
-		baseDomain = defaultPreviewBaseDomain
+		baseDomain = previewBaseDomain
 	}
 	previewPattern := fmt.Sprintf("https://<port>-%s.%s", sandboxID, baseDomain)
 	if sandboxID == "" {

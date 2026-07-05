@@ -53,7 +53,7 @@ type Config struct {
 	// Resend (transactional email). When ResendAPIKey is empty the worker
 	// falls back to LogSender (emails appear in logs only).
 	ResendAPIKey string `env:"HIVY_RESEND_API_KEY"`
-	ResendFrom   string `env:"HIVY_RESEND_FROM" envDefault:"Betty from Hivy <betty@notifications.usehivy.com>"`
+	EmailFrom    string `env:"HIVY_EMAIL_FROM" envDefault:"Betty from Hivy <betty@notifications.usehivy.com>"`
 
 	OAuthGitHubClientID     string `env:"HIVY_OAUTH_GITHUB_CLIENT_ID"`
 	OAuthGitHubClientSecret string `env:"HIVY_OAUTH_GITHUB_CLIENT_SECRET"`
@@ -120,6 +120,13 @@ type Config struct {
 	// Browser setup/admin panel. When disabled, admin routes are not mounted.
 	AdminEnabled bool   `env:"HIVY_ADMIN_ENABLED" envDefault:"false"`
 	AdminSecret  string `env:"HIVY_ADMIN_SECRET"`
+
+	// PreviewBaseDomain is the wildcard preview host suffix
+	// ({port}-{sandbox_id}.<domain>) for user-facing sandbox previews, injected
+	// into the agent system prompt and the apps preview URL builder. Required:
+	// the server fails fast at startup if unset, so downstream code never has to
+	// guard against an empty preview domain. Self-hosters set their own.
+	PreviewBaseDomain string `env:"HIVY_PREVIEW_BASE_DOMAIN,required"`
 
 	PreviewCNAMETarget string `env:"HIVY_PREVIEW_CNAME_TARGET" envDefault:"preview-proxy.usehivy.com"`
 	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.example.com)
@@ -209,6 +216,13 @@ func Load() (*Config, error) {
 	// empty key). The `,required` tag misses an explicitly-empty value, so reject it here too.
 	if strings.TrimSpace(cfg.NangoWebhooksSecret) == "" {
 		return nil, fmt.Errorf("HIVY_NANGO_WEBHOOKS_SECRET must be set and non-empty")
+	}
+
+	// Fail fast on an empty preview domain (the `,required` tag misses an
+	// explicitly-empty value). Guaranteeing it non-empty here lets the system
+	// prompt and apps preview URL builder use it without their own guards.
+	if strings.TrimSpace(cfg.PreviewBaseDomain) == "" {
+		return nil, fmt.Errorf("HIVY_PREVIEW_BASE_DOMAIN must be set and non-empty")
 	}
 
 	cfg.CORSOrigins = includeFrontendCORSOrigin(cfg.CORSOrigins, cfg.FrontendURL)

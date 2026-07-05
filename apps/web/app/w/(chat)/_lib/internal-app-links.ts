@@ -8,15 +8,6 @@ export interface InternalAppLinkTarget {
   icon: string
 }
 
-// Known canonical hosts for the Hivy app. Same-origin links (whatever host the
-// app is actually served from, including localhost in dev) are also matched at
-// runtime via window.location.origin.
-const APP_HOSTS = new Set([
-  "usehivy.com",
-  "www.usehivy.com",
-  "app.usehivy.com",
-])
-
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/g
 
 // Curated templates for the app links agents actually share. Only links that
@@ -81,9 +72,11 @@ export function isInternalAppURL(rawUrl: string) {
   return Boolean(internalAppLinkFromURL(rawUrl))
 }
 
+// Only same-origin links (whatever host the app is actually served from,
+// including localhost in dev) are treated as internal app links — matched at
+// runtime via window.location.origin.
 function isAppOrigin(url: URL) {
   if (url.protocol !== "https:" && url.protocol !== "http:") return false
-  if (APP_HOSTS.has(url.hostname)) return true
   if (typeof window !== "undefined" && url.origin === window.location.origin) {
     return true
   }

@@ -28,6 +28,7 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("HIVY_AUTH_RSA_PRIVATE_KEY", "dGVzdC1wZW0=")
 	t.Setenv("HIVY_FRONTEND_URL", "http://localhost:3000")
 	t.Setenv("HIVY_NANGO_WEBHOOKS_SECRET", "test-nango-webhook-secret")
+	t.Setenv("HIVY_PREVIEW_BASE_DOMAIN", "preview.usehivy.test")
 }
 
 // The Nango webhook signing secret must be required so the server fails to boot

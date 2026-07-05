@@ -10,7 +10,10 @@ import {
 import { refreshCoordinator, type RefreshOutcome } from "@/lib/auth/refresh"
 import { log } from "@/lib/logger"
 
-const HIVY_API_URL = process.env.HIVY_API_URL ?? process.env.NEXT_PUBLIC_HIVY_API_URL as string
+// Server-to-API base URL (may be an internal address, e.g. http://api:8080 in a
+// docker network). Distinct from the browser-facing public API URL that the
+// client reads via clientConfig().apiUrl.
+const HIVY_API_URL = process.env.HIVY_API_URL as string
 
 log.info({ api_url: HIVY_API_URL }, "proxy route initialized")
 

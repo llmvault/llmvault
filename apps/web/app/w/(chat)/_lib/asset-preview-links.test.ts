@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import {
   assetPreviewAttachments,
   isAssetPreviewUrl,
 } from "@/app/w/(chat)/_lib/asset-preview-links"
+import { setPublicConfigForTests } from "@/lib/config/public-config"
+
+beforeEach(() => setPublicConfigForTests())
 
 const previewUrl =
   "https://api.usehivy.com/v1/assets/preview?path=pub%2Fe%2F11601c67-0860-44f8-9730-fd9820b3970b%2Fscreenshots%2Fexample-com.png"

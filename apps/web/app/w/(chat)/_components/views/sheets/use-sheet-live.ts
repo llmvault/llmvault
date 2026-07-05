@@ -132,10 +132,11 @@ function handleSheetEvent(
 }
 
 /**
- * Live sheet updates over SSE, connected directly to the Go API
- * (NEXT_PUBLIC_HIVY_API_URL) with a short-lived live token minted through
- * the proxy. Reconnects with a fresh token on expiry, close, or error, and
- * heals missed events by refetching the sheet's cached windows on reconnect.
+ * Live sheet updates over SSE, connected directly to the Go API (browser-facing
+ * API URL from clientConfig().apiUrl) with a short-lived live token minted
+ * through the proxy. Reconnects with a fresh token on expiry, close, or error,
+ * and heals missed events by refetching the sheet's cached windows on
+ * reconnect.
  */
 export function useSheetLive(
   sheetId: string | null | undefined,

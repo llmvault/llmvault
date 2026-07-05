@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
   internalAppLinkFromURL,
   internalAppLinkTargets,
@@ -8,6 +8,25 @@ import {
 const agentUrl =
   "https://usehivy.com/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
 const agentHref = "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
+
+// Internal app links are now matched purely by same-origin (window.location.origin),
+// not a hardcoded host allowlist. Simulate the app being served from usehivy.com so
+// the hosted-style URLs above resolve as same-origin.
+const originalWindow = (globalThis as { window?: unknown }).window
+
+beforeEach(() => {
+  ;(globalThis as { window?: unknown }).window = {
+    location: { origin: "https://usehivy.com" },
+  }
+})
+
+afterEach(() => {
+  if (originalWindow === undefined) {
+    delete (globalThis as { window?: unknown }).window
+  } else {
+    ;(globalThis as { window?: unknown }).window = originalWindow
+  }
+})
 
 describe("internal app links", () => {
   it("strips our origin and titles the edit-agent link", () => {
@@ -34,13 +53,13 @@ describe("internal app links", () => {
     expect(targets.map((t) => t.href)).toEqual([agentHref])
   })
 
-  it("matches only app hosts and only templated paths", () => {
-    // Non-app host
+  it("matches only same-origin URLs and only templated paths", () => {
+    // Different origin than the app
     expect(isInternalAppURL(`https://example.com${agentHref}`)).toBe(false)
-    // App host but no template for this path
+    // Same origin but no template for this path
     expect(isInternalAppURL("https://usehivy.com/w/plugins/github")).toBe(false)
     expect(isInternalAppURL("https://usehivy.com/pricing")).toBe(false)
-    // App host + templated edit-agent path
+    // Same origin + templated edit-agent path
     expect(isInternalAppURL(agentUrl)).toBe(true)
   })
 

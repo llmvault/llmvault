@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import {
   isPreviewBrowserURL,
   previewBrowserTargetFromURL,
   previewBrowserTargets,
 } from "@/app/w/(chat)/_lib/preview-browser-links"
+import { setPublicConfigForTests } from "@/lib/config/public-config"
+
+beforeEach(() => setPublicConfigForTests())
 
 const previewUrl = "https://5173-um7j159u.preview.usehivy.com/"
 

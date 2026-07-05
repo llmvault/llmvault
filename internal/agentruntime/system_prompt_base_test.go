@@ -14,7 +14,7 @@ func TestRenderBaseSystemPrompt_PopulatesIdentityTag(t *testing.T) {
 	org := model.Org{Name: "ExampleCo", PromptCompany: "Builds field-service software."}
 
 	agent := &model.Agent{Name: "Ari"}
-	prompt := renderBaseSystemPrompt(context.Background(), nil, agent, org, true, "Coordinates engineering work.")
+	prompt := renderBaseSystemPrompt(context.Background(), nil, agent, org, true, "Coordinates engineering work.", "preview.usehivy.com")
 
 	for _, want := range []string{
 		"<identity>",
@@ -30,7 +30,7 @@ func TestRenderBaseSystemPrompt_PopulatesIdentityTag(t *testing.T) {
 }
 
 func TestRenderBaseSystemPrompt_LeavesEmptyIdentityWhenOrgMissing(t *testing.T) {
-	prompt := renderBaseSystemPrompt(context.Background(), nil, nil, model.Org{}, false, "")
+	prompt := renderBaseSystemPrompt(context.Background(), nil, nil, model.Org{}, false, "", "preview.usehivy.com")
 
 	if strings.Contains(prompt, "You are working for") || strings.Contains(prompt, "Your configured role:") {
 		t.Fatalf("rendered base prompt should not invent company identity:\n%s", prompt)
@@ -109,7 +109,7 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 
-	got := renderEnvironmentContext(context.Background(), db, &agent)
+	got := renderEnvironmentContext(context.Background(), db, &agent, "preview.usehivy.com")
 	want := "This sandbox has 1 CPU core, 2 GB of memory, and 10 GB of disk available."
 	if !strings.Contains(got, want) {
 		t.Fatalf("environment context=%q, want %q", got, want)
@@ -172,7 +172,7 @@ func TestRenderEnvironmentContextUsesAgentSandboxSize(t *testing.T) {
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 
-	got := renderEnvironmentContext(context.Background(), db, &agent)
+	got := renderEnvironmentContext(context.Background(), db, &agent, "preview.usehivy.com")
 	want := "This sandbox has 8 CPU cores, 16 GB of memory, and 60 GB of disk available."
 	if !strings.Contains(got, want) {
 		t.Fatalf("environment context=%q, want %q", got, want)
@@ -184,7 +184,7 @@ func TestSandboxPreviewEnvironmentContextUsesFallbackDomain(t *testing.T) {
 		ProviderID: "microsandbox",
 		ExternalID: "fallback-test",
 		RuntimeURL: "http://runtime.test",
-	})
+	}, "preview.usehivy.com")
 
 	if !strings.Contains(got, "https://<port>-fallback-test.preview.usehivy.com") {
 		t.Fatalf("preview context should fall back to production preview domain:\n%s", got)
@@ -196,7 +196,7 @@ func TestSandboxPreviewEnvironmentContextSkipsNonMicrosandbox(t *testing.T) {
 		ProviderID: "docker",
 		ExternalID: "container-test",
 		RuntimeURL: "http://localhost:7080",
-	})
+	}, "preview.usehivy.com")
 
 	if got != "" {
 		t.Fatalf("preview context should skip non-microsandbox provider, got %q", got)

@@ -1,3 +1,5 @@
+import { clientConfig } from "@/lib/config/public-config"
+
 export interface PreviewBrowserTarget {
   key: string
   url: string
@@ -11,7 +13,6 @@ export interface PreviewBrowserTarget {
   appId?: string
 }
 
-const PREVIEW_DOMAIN = "preview.usehivy.com"
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/g
 
 export function previewBrowserTargets(text: string): PreviewBrowserTarget[] {
@@ -52,14 +53,16 @@ export function isPreviewBrowserURL(rawUrl: string) {
 }
 
 function isPreviewHost(hostname: string) {
+  const previewDomain = clientConfig().previewDomain
   return (
-    hostname.endsWith(`.${PREVIEW_DOMAIN}`) &&
-    hostname.length > PREVIEW_DOMAIN.length + 1
+    hostname.endsWith(`.${previewDomain}`) &&
+    hostname.length > previewDomain.length + 1
   )
 }
 
 function previewPort(hostname: string) {
-  const prefix = hostname.slice(0, -1 * `.${PREVIEW_DOMAIN}`.length)
+  const previewDomain = clientConfig().previewDomain
+  const prefix = hostname.slice(0, -1 * `.${previewDomain}`.length)
   const [port] = prefix.split("-")
   return port && /^\d+$/.test(port) ? port : undefined
 }
