@@ -132,7 +132,7 @@ func TestIntegration_ChannelsVisibilityAndJoin(t *testing.T) {
 	}
 }
 
-func TestIntegration_ChannelsListIncludesPublicTeamAndParticipantChannels(t *testing.T) {
+func TestIntegration_ChannelsListIsMembershipScoped(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
 	publicID := createChannelForTest(t, h, fx, fx.owner, "general", "public")
@@ -141,40 +141,45 @@ func TestIntegration_ChannelsListIncludesPublicTeamAndParticipantChannels(t *tes
 	privateTeam := seedChannelTeam(t, h, fx, "Private")
 	privateID := createTeamChannelForTest(t, h, fx, "private-work", privateTeam.ID)
 
+	// A team-less public channel is visible to any org member.
 	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general"})
 
+	// Joining a team reveals that team's channel.
 	if err := h.db.Create(&model.TeamMember{OrgID: fx.org.ID, TeamID: engineering.ID, UserID: fx.member.ID, Role: "member"}).Error; err != nil {
 		t.Fatalf("add team member: %v", err)
 	}
 	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general", "engineering"})
 
+	// Merely participating in a session does NOT grant access to another team's channel.
 	privateUUID := uuid.MustParse(privateID)
 	seedChannelRecentSession(t, h, fx, privateUUID, fx.owner.ID, []uuid.UUID{fx.member.ID}, time.Now())
-	list := h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil)
-	assertChannelNameSet(t, list, []string{"general", "engineering", "private-work"})
+	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general", "engineering"})
 
 	privateGet := h.doJSON(t, http.MethodGet, "/v1/channels/"+privateID, fx, fx.member, nil)
-	if privateGet.Code != http.StatusOK {
-		t.Fatalf("participant channel get status=%d body=%s", privateGet.Code, privateGet.Body.String())
+	if privateGet.Code != http.StatusForbidden {
+		t.Fatalf("non-member channel get status=%d body=%s", privateGet.Code, privateGet.Body.String())
 	}
 	if publicID == "" || engineeringID == "" {
 		t.Fatal("expected channels to be created")
 	}
 }
 
-func TestIntegration_ChannelsListIncludesRecentSessionsForCurrentUser(t *testing.T) {
+func TestIntegration_ChannelsListRecentSessionsShowAllForMembers(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
 	channelID := createChannelForTest(t, h, fx, fx.owner, "customer-work", "public")
 	channelUUID := uuid.MustParse(channelID)
 	base := time.Date(2026, 6, 21, 8, 0, 0, 0, time.UTC)
 
-	oldCreatedByOwner := seedChannelRecentSession(t, h, fx, channelUUID, fx.owner.ID, nil, base.Add(-6*time.Hour))
-	hidden := seedChannelRecentSession(t, h, fx, channelUUID, fx.member.ID, []uuid.UUID{fx.member.ID}, base.Add(2*time.Hour))
-	participantSessions := make([]model.Session, 0, 5)
-	for i := 0; i < 5; i++ {
-		session := seedChannelRecentSession(t, h, fx, channelUUID, fx.member.ID, []uuid.UUID{fx.owner.ID}, base.Add(time.Duration(i)*time.Hour))
-		participantSessions = append(participantSessions, session)
+	// Six sessions from mixed creators, none with the caller as participant.
+	// A channel member sees them all, newest activity first.
+	sessions := make([]model.Session, 0, 6)
+	for i := 0; i < 6; i++ {
+		creator := fx.owner.ID
+		if i%2 == 0 {
+			creator = fx.member.ID
+		}
+		sessions = append(sessions, seedChannelRecentSession(t, h, fx, channelUUID, creator, nil, base.Add(time.Duration(i)*time.Hour)))
 	}
 
 	rr := h.doJSON(t, http.MethodGet, "/v1/channels?include=recent_sessions&recent_sessions_limit=5", fx, fx.owner, nil)
@@ -202,27 +207,21 @@ func TestIntegration_ChannelsListIncludesRecentSessionsForCurrentUser(t *testing
 	if !channel.RecentSessionsHasMore || channel.RecentSessionsNextCursor == nil || *channel.RecentSessionsNextCursor == "" {
 		t.Fatalf("expected recent sessions next cursor, got has_more=%v cursor=%v", channel.RecentSessionsHasMore, channel.RecentSessionsNextCursor)
 	}
-	gotIDs := make([]string, len(channel.RecentSessions))
-	for i, session := range channel.RecentSessions {
-		gotIDs[i] = session.ID
-		if session.ID == hidden.ID.String() {
-			t.Fatalf("hidden session was included: %+v", channel.RecentSessions)
-		}
-	}
 	wantIDs := []string{
-		participantSessions[4].ID.String(),
-		participantSessions[3].ID.String(),
-		participantSessions[2].ID.String(),
-		participantSessions[1].ID.String(),
-		participantSessions[0].ID.String(),
+		sessions[5].ID.String(),
+		sessions[4].ID.String(),
+		sessions[3].ID.String(),
+		sessions[2].ID.String(),
+		sessions[1].ID.String(),
 	}
-	for i := range wantIDs {
-		if gotIDs[i] != wantIDs[i] {
+	for i, session := range channel.RecentSessions {
+		if session.ID != wantIDs[i] {
+			gotIDs := make([]string, len(channel.RecentSessions))
+			for j, s := range channel.RecentSessions {
+				gotIDs[j] = s.ID
+			}
 			t.Fatalf("recent session ids=%v, want=%v", gotIDs, wantIDs)
 		}
-	}
-	if oldCreatedByOwner.ID == uuid.Nil {
-		t.Fatal("created-by owner session was not seeded")
 	}
 }
 

@@ -9,13 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestIntegration_ChannelsListIncludesSlackRecentSessionWithoutParticipant(t *testing.T) {
+func TestIntegration_ChannelsListRecentSessionsIncludeAllSourcesForMembers(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
 	channelID := createChannelForTest(t, h, fx, fx.owner, "slack-work", "public")
 	channelUUID := uuid.MustParse(channelID)
 	base := time.Date(2026, 6, 21, 8, 0, 0, 0, time.UTC)
-	_ = seedChannelRecentSession(t, h, fx, channelUUID, fx.member.ID, nil, base.Add(time.Hour))
+	memberSession := seedChannelRecentSession(t, h, fx, channelUUID, fx.member.ID, nil, base.Add(time.Hour))
 	slackSession := seedChannelSlackRecentSession(t, h, fx, channelUUID, base.Add(2*time.Hour))
 
 	rr := h.doJSON(t, http.MethodGet, "/v1/channels?include=recent_sessions&recent_sessions_limit=5", fx, fx.owner, nil)
@@ -33,7 +33,9 @@ func TestIntegration_ChannelsListIncludesSlackRecentSessionWithoutParticipant(t 
 			break
 		}
 	}
-	if len(channel.RecentSessions) != 1 || channel.RecentSessions[0].ID != slackSession.ID.String() {
-		t.Fatalf("recent sessions=%+v, want only %s", channel.RecentSessions, slackSession.ID)
+	if len(channel.RecentSessions) != 2 ||
+		channel.RecentSessions[0].ID != slackSession.ID.String() ||
+		channel.RecentSessions[1].ID != memberSession.ID.String() {
+		t.Fatalf("recent sessions=%+v, want [%s %s]", channel.RecentSessions, slackSession.ID, memberSession.ID)
 	}
 }

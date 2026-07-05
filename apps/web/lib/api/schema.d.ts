@@ -16888,12 +16888,7 @@ export interface components {
             external_resource_name?: string;
             id?: string;
             instructions?: string;
-            /**
-             * @description LastRunAt is when this trigger most recently fired (created a session), if
-             *     ever. RFC3339. Sourced from agent_trigger_deliveries on the detail read.
-             */
             last_run_at?: string;
-            /** @description LastRunSessionID links to the session of the most recent run, if any. */
             last_run_session_id?: string;
             name?: string;
             provider?: string;

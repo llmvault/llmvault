@@ -205,18 +205,19 @@ func (h *SessionHandler) applySessionListVisibility(r *http.Request, query *gorm
 	if userID == nil {
 		return query.Where("1 = 0")
 	}
+	// Channel access was already checked; membership sees every session in it.
+	if channelScoped {
+		return query
+	}
 	if sort != sessionSortActivity && h.isOrgAdminForSession(r, orgID, userID) {
 		return query
 	}
-	return h.applyOwnedParticipantSessionFilter(query, userID, channelScoped)
+	return h.applyOwnedParticipantSessionFilter(query, userID)
 }
 
-func (h *SessionHandler) applyOwnedParticipantSessionFilter(query *gorm.DB, userID *uuid.UUID, includeExternalSource bool) *gorm.DB {
+func (h *SessionHandler) applyOwnedParticipantSessionFilter(query *gorm.DB, userID *uuid.UUID) *gorm.DB {
 	if userID == nil {
 		return query.Where("1 = 0")
-	}
-	if includeExternalSource {
-		return query.Where("created_by = ? OR id IN (?) OR source = ?", *userID, h.participantSessionSubquery(userID), model.SessionSourceExternal)
 	}
 	return query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
 }

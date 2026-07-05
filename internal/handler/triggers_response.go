@@ -41,13 +41,10 @@ type triggerAutomationResponse struct {
 	WebhookURL string `json:"webhook_url,omitempty"`
 	// SecretSet reports whether an HTTP trigger requires a shared secret. The
 	// secret itself is never returned.
-	SecretSet bool   `json:"secret_set"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	// LastRunAt is when this trigger most recently fired (created a session), if
-	// ever. RFC3339. Sourced from agent_trigger_deliveries on the detail read.
-	LastRunAt string `json:"last_run_at,omitempty"`
-	// LastRunSessionID links to the session of the most recent run, if any.
+	SecretSet        bool   `json:"secret_set"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+	LastRunAt        string `json:"last_run_at,omitempty"`
 	LastRunSessionID string `json:"last_run_session_id,omitempty"`
 }
 

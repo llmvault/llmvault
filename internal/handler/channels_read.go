@@ -59,7 +59,7 @@ func (h *ChannelHandler) List(w http.ResponseWriter, r *http.Request) {
 		Model(&model.Channel{}).
 		Where("org_id = ? AND archived_at IS NULL", org.ID)
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
-		q = q.Where("origin = ? OR team_id IS NULL OR team_id IN (?) OR id IN (?)", "external", visibleTeamSubquery(h.db, userID), participantChannelSubquery(h.db, userID))
+		q = q.Where("origin = ? OR team_id IS NULL OR team_id IN (?)", "external", visibleTeamSubquery(h.db, userID))
 	}
 	q = applyPagination(q, cursor, limit)
 
@@ -208,21 +208,12 @@ WITH ranked_sessions AS (
   ) AS session_activity ON TRUE
   WHERE s.channel_id IN ?
     AND s.status <> ?
-    AND (
-      s.created_by = ?
-      OR EXISTS (
-        SELECT 1
-        FROM session_participants sp
-        WHERE sp.session_id = s.id AND sp.user_id = ?
-      )
-      OR s.source = ?
-    )
 )
 SELECT *
 FROM ranked_sessions
 WHERE recent_rank <= ?
 ORDER BY channel_id ASC, recent_rank ASC`
-	if err := h.db.WithContext(ctx).Raw(query, channelIDs, "archived", *userID, *userID, model.SessionSourceExternal, limit+1).Scan(&sessions).Error; err != nil {
+	if err := h.db.WithContext(ctx).Raw(query, channelIDs, "archived", limit+1).Scan(&sessions).Error; err != nil {
 		return out
 	}
 

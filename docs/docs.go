@@ -18894,11 +18894,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_run_at": {
-                    "description": "LastRunAt is when this trigger most recently fired (created a session), if\never. RFC3339. Sourced from agent_trigger_deliveries on the detail read.",
                     "type": "string"
                 },
                 "last_run_session_id": {
-                    "description": "LastRunSessionID links to the session of the most recent run, if any.",
                     "type": "string"
                 },
                 "name": {

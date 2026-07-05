@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -45,6 +46,16 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 	}
 	if err := h.db.WithContext(ctx).Create(&session).Error; err != nil {
 		return nil, fmt.Errorf("create trigger session: %w", err)
+	}
+	// Best-effort auto-naming, same as web/Slack; replaces the placeholder name.
+	if h.enqueuer != nil {
+		if task, opts, err := NewSessionNameTask(session.ID); err != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "build trigger session naming task",
+				"session_id", session.ID, "error", err)
+		} else if _, err := h.enqueuer.Enqueue(task, opts...); err != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "enqueue trigger session naming",
+				"session_id", session.ID, "error", err)
+		}
 	}
 	return &session, nil
 }

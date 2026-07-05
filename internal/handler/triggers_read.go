@@ -118,9 +118,6 @@ func (h *TriggerHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: resp})
 }
 
-// applyLastRun fills the most-recent run time + session id for a trigger from
-// agent_trigger_deliveries (every fire records one). Detail read only, so the
-// UI can show a "last run" line that links to the session.
 func (h *TriggerHandler) applyLastRun(ctx context.Context, resp *triggerAutomationResponse, triggerID uuid.UUID) {
 	var delivery model.AgentTriggerDelivery
 	err := h.db.WithContext(ctx).
