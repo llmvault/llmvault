@@ -45,6 +45,19 @@ func (h *sessionHarness) createSession(t *testing.T, fx sessionFixture, user mod
 	return decodeSessionMutation(t, rr)
 }
 
+// markSessionIdle clears any in-flight turn on a session so it can be archived.
+// createSession posts an initial message, which starts a turn (agent_turn_status
+// = active); tests that exercise archive permissions/visibility flip the session
+// back to idle to simulate the turn completing.
+func (h *sessionHarness) markSessionIdle(t *testing.T, id string) {
+	t.Helper()
+	if err := h.db.Model(&model.Session{}).
+		Where("id = ?", id).
+		Update("agent_turn_status", model.SessionAgentTurnIdle).Error; err != nil {
+		t.Fatalf("mark session idle: %v", err)
+	}
+}
+
 func decodeSessionMutation(t *testing.T, rr *httptest.ResponseRecorder) sessionMutationOut {
 	t.Helper()
 	var out sessionMutationOut

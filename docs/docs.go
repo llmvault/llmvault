@@ -14926,6 +14926,10 @@ const docTemplate = `{
                 "agent_id": {
                     "type": "string"
                 },
+                "channel_id": {
+                    "description": "ChannelID is the Hivy channel the trigger runs in. Required for HTTP\ntriggers; the caller must have access to it.",
+                    "type": "string"
+                },
                 "connection_id": {
                     "type": "string"
                 },
@@ -14938,10 +14942,22 @@ const docTemplate = `{
                 "instructions": {
                     "type": "string"
                 },
+                "name": {
+                    "description": "Name is a required human label for the trigger.",
+                    "type": "string"
+                },
                 "provider": {
                     "type": "string"
                 },
+                "secret_key": {
+                    "description": "SecretKey is an optional shared secret for HTTP triggers. Stored bcrypt-\nhashed; never returned.",
+                    "type": "string"
+                },
                 "trigger_key": {
+                    "type": "string"
+                },
+                "trigger_type": {
+                    "description": "TriggerType selects the create path: \"\" / \"webhook\" (provider triggers,\ndefault) or \"http\" (inbound webhook triggers).",
                     "type": "string"
                 },
                 "trigger_value": {
@@ -18499,8 +18515,15 @@ const docTemplate = `{
                 "instructions": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "provider": {
                     "type": "string"
+                },
+                "secret_set": {
+                    "description": "SecretSet reports whether an HTTP trigger requires a shared secret. The\nsecret itself is never returned.",
+                    "type": "boolean"
                 },
                 "source_slug": {
                     "type": "string"
@@ -18515,6 +18538,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "webhook_url": {
+                    "description": "WebhookURL is the public endpoint that invokes an HTTP trigger. Only set\nwhen TriggerType == \"http\".",
                     "type": "string"
                 }
             }
@@ -18871,6 +18898,9 @@ const docTemplate = `{
                 "agent_id": {
                     "type": "string"
                 },
+                "channel_id": {
+                    "type": "string"
+                },
                 "connection_id": {
                     "type": "string"
                 },
@@ -18884,6 +18914,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "instructions": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "provider": {

@@ -15343,12 +15343,29 @@ export interface components {
         };
         createTriggerRequest: {
             agent_id?: string;
+            /**
+             * @description ChannelID is the Hivy channel the trigger runs in. Required for HTTP
+             *     triggers; the caller must have access to it.
+             */
+            channel_id?: string;
             connection_id?: string;
             external_resource_key?: string;
             external_resource_name?: string;
             instructions?: string;
+            /** @description Name is a required human label for the trigger. */
+            name?: string;
             provider?: string;
+            /**
+             * @description SecretKey is an optional shared secret for HTTP triggers. Stored bcrypt-
+             *     hashed; never returned.
+             */
+            secret_key?: string;
             trigger_key?: string;
+            /**
+             * @description TriggerType selects the create path: "" / "webhook" (provider triggers,
+             *     default) or "http" (inbound webhook triggers).
+             */
+            trigger_type?: string;
             trigger_value?: string;
         };
         createTriggerResponse: {
@@ -16543,12 +16560,23 @@ export interface components {
             external_resource_name?: string;
             id?: string;
             instructions?: string;
+            name?: string;
             provider?: string;
+            /**
+             * @description SecretSet reports whether an HTTP trigger requires a shared secret. The
+             *     secret itself is never returned.
+             */
+            secret_set?: boolean;
             source_slug?: string;
             trigger_key?: string;
             trigger_type?: string;
             trigger_value?: string;
             updated_at?: string;
+            /**
+             * @description WebhookURL is the public endpoint that invokes an HTTP trigger. Only set
+             *     when TriggerType == "http".
+             */
+            webhook_url?: string;
         };
         triggerGetResponse: {
             trigger?: components["schemas"]["triggerAutomationResponse"];
@@ -16674,11 +16702,13 @@ export interface components {
         };
         updateTriggerRequest: {
             agent_id?: string;
+            channel_id?: string;
             connection_id?: string;
             enabled?: boolean;
             external_resource_key?: string;
             external_resource_name?: string;
             instructions?: string;
+            name?: string;
             provider?: string;
             trigger_key?: string;
             trigger_value?: string;

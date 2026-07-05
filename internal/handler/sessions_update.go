@@ -52,6 +52,10 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// A PATCH that archives the session tears down its sandbox, same as DELETE.
+	if req.Status != nil && strings.TrimSpace(*req.Status) == "archived" {
+		h.enqueueSessionSandboxTeardown(r.Context(), &session)
+	}
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusOK, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
@@ -72,6 +76,9 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 			return false
 		}
 		if status == "archived" && !h.requireSessionArchivePermission(w, r, *session, userID) {
+			return false
+		}
+		if status == "archived" && !h.requireSessionIdleForArchive(w, *session) {
 			return false
 		}
 		updates["status"] = status

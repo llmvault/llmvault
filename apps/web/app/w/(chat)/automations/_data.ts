@@ -3,7 +3,7 @@ import type { components } from "@/lib/api/schema"
 export type CatalogAutomation = components["schemas"]["CatalogItem"]
 export type InstalledTrigger =
   components["schemas"]["triggerAutomationResponse"]
-export type AutomationTab = "Triggers" | "Schedules"
+export type AutomationTab = "Triggers" | "Schedules" | "Webhooks"
 export type AutomationCategory = "All" | "Featured" | string
 
 export interface AutomationItem {
@@ -83,11 +83,13 @@ export function automationFromInstalledTrigger(
   const triggerKey = trigger.trigger_key || ""
   const isSlackReaction = provider === "slack" && triggerKey === "reaction_added"
   const isGithubMention = provider === "github-app" && triggerKey === "mention"
-  const name = isSlackReaction
-    ? "React with emoji"
-    : isGithubMention
-      ? "Mentioned on GitHub"
-      : humanizeSlug(triggerKey) || "Trigger"
+  const name =
+    trigger.name?.trim() ||
+    (isSlackReaction
+      ? "React with emoji"
+      : isGithubMention
+        ? "Mentioned on GitHub"
+        : humanizeSlug(triggerKey) || "Trigger")
   const channel = trigger.external_resource_name || trigger.channel_name || ""
   const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
   const agent = trigger.agent_name || "Agent"
@@ -112,6 +114,29 @@ export function automationFromInstalledTrigger(
     iconColor: providerMeta?.color ?? "#64748B",
     provider,
     href: trigger.id ? `/w/automations/triggers/${trigger.id}` : undefined,
+    trigger,
+  }
+}
+
+export function automationFromWebhookTrigger(
+  trigger: InstalledTrigger
+): AutomationItem {
+  const agent = trigger.agent_name || "Agent"
+  const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
+  const channel = trigger.channel_name ? ` in ${trigger.channel_name}` : ""
+
+  return {
+    id: trigger.id || "",
+    type: "Webhooks",
+    name: trigger.name?.trim() || agent,
+    description:
+      trigger.instructions?.trim() ||
+      `${statusPrefix}Runs ${agent}${channel} when the webhook URL is called.`,
+    category: "Webhooks",
+    icon: "globe",
+    iconColor: "#0EA5E9",
+    provider: "",
+    href: trigger.id ? `/w/automations/webhooks/${trigger.id}` : undefined,
     trigger,
   }
 }

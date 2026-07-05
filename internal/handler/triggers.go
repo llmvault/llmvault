@@ -10,8 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -21,6 +23,7 @@ import (
 type TriggerHandler struct {
 	db                  *gorm.DB
 	externalProvisioner ChannelExternalProvisioner
+	webhookBaseURL      string
 }
 
 type TriggerHandlerOption func(*TriggerHandler)
@@ -41,15 +44,44 @@ func WithTriggerExternalProvisioner(p ChannelExternalProvisioner) TriggerHandler
 	}
 }
 
+// WithTriggerWebhookBaseURL sets the public API base used to build HTTP trigger
+// URLs (e.g. cfg.APIWebhookBaseURL). Falls back to a default when empty.
+func WithTriggerWebhookBaseURL(base string) TriggerHandlerOption {
+	return func(h *TriggerHandler) {
+		h.webhookBaseURL = strings.TrimSpace(base)
+	}
+}
+
+// httpTriggerWebhookURL builds the public endpoint that invokes an HTTP trigger,
+// mirroring the route served at POST /incoming/triggers/{id}.
+func (h *TriggerHandler) httpTriggerWebhookURL(id uuid.UUID) string {
+	base := h.webhookBaseURL
+	if base == "" {
+		base = "https://api.usehivy.com"
+	}
+	return strings.TrimRight(base, "/") + "/incoming/triggers/" + id.String()
+}
+
 type createTriggerRequest struct {
+	// TriggerType selects the create path: "" / "webhook" (provider triggers,
+	// default) or "http" (inbound webhook triggers).
+	TriggerType          string `json:"trigger_type"`
+	// Name is a required human label for the trigger.
+	Name                 string `json:"name"`
 	Provider             string `json:"provider"`
 	ConnectionID         string `json:"connection_id"`
 	ExternalResourceKey  string `json:"external_resource_key"`
 	ExternalResourceName string `json:"external_resource_name"`
 	AgentID              string `json:"agent_id"`
-	TriggerKey           string `json:"trigger_key"`
-	TriggerValue         string `json:"trigger_value"`
-	Instructions         string `json:"instructions"`
+	// ChannelID is the Hivy channel the trigger runs in. Required for HTTP
+	// triggers; the caller must have access to it.
+	ChannelID    string `json:"channel_id"`
+	TriggerKey   string `json:"trigger_key"`
+	TriggerValue string `json:"trigger_value"`
+	Instructions string `json:"instructions"`
+	// SecretKey is an optional shared secret for HTTP triggers. Stored bcrypt-
+	// hashed; never returned.
+	SecretKey string `json:"secret_key"`
 }
 
 type createTriggerResponse struct {
@@ -92,6 +124,12 @@ func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTriggerRequest) (model.AgentTrigger, string, int, string, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return model.AgentTrigger{}, "", http.StatusBadRequest, "name is required", fmt.Errorf("missing name")
+	}
+	if strings.EqualFold(strings.TrimSpace(req.TriggerType), "http") {
+		return h.createHTTP(r, orgID, req)
+	}
 	provider := strings.ToLower(strings.TrimSpace(req.Provider))
 	if provider == "" {
 		provider = slackapp.Provider
@@ -130,6 +168,67 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 		status, message := triggerCreateError(err)
 		return model.AgentTrigger{}, provider, status, message, err
 	}
+	// The channel is where the agent's session runs. When the caller picks one
+	// (e.g. GitHub, where the channel is independent of the repo), use it after
+	// an access check. Otherwise auto-create it from the resource (e.g. Slack,
+	// where the channel IS the event source).
+	channelID, status, message, err := h.resolveProviderTriggerChannel(
+		r, orgID, provider, conn, template, resourceKey, resourceName, agentID, req.ChannelID,
+	)
+	if err != nil {
+		return model.AgentTrigger{}, provider, status, message, err
+	}
+
+	var trigger model.AgentTrigger
+	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := validateTriggerAgent(r.Context(), tx, orgID, agentID, channelID, template); err != nil {
+			return err
+		}
+		trigger = model.AgentTrigger{
+			OrgID:        orgID,
+			AgentID:      agentID,
+			Name:         strings.TrimSpace(req.Name),
+			TriggerType:  "webhook",
+			ChannelID:    &channelID,
+			ConnectionID: &conn.ID,
+			TriggerKeys:  pq.StringArray(template.triggerKeys),
+			TriggerKey:   triggerKey,
+			TriggerValue: triggerValue,
+			Enabled:      true,
+			SourceSlug:   triggerSourceSlug(provider, triggerKey, resourceKey, triggerValue),
+			Instructions: strings.TrimSpace(req.Instructions),
+		}
+		return tx.Create(&trigger).Error
+	})
+	if err != nil {
+		status, message := triggerCreateError(err)
+		return model.AgentTrigger{}, provider, status, message, err
+	}
+	return trigger, provider, http.StatusCreated, "", nil
+}
+
+// resolveProviderTriggerChannel returns the channel a provider trigger's session
+// runs in. A caller-supplied channel_id is used after an access check; otherwise
+// the channel is auto-created from the provider resource.
+func (h *TriggerHandler) resolveProviderTriggerChannel(r *http.Request, orgID uuid.UUID, provider string, conn model.Connection, template triggerTemplate, resourceKey, resourceName string, agentID uuid.UUID, rawChannelID string) (uuid.UUID, int, string, error) {
+	if raw := strings.TrimSpace(rawChannelID); raw != "" {
+		cid, err := uuid.Parse(raw)
+		if err != nil || cid == uuid.Nil {
+			return uuid.Nil, http.StatusBadRequest, "channel_id must be a uuid", fmt.Errorf("invalid channel id")
+		}
+		actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
+		if err != nil {
+			return uuid.Nil, http.StatusForbidden, "forbidden", err
+		}
+		allowed, err := actor.CanUseChannelID(r.Context(), h.db, cid)
+		if err != nil {
+			return uuid.Nil, http.StatusInternalServerError, "failed to check channel access", err
+		}
+		if !allowed {
+			return uuid.Nil, http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel access denied")
+		}
+		return cid, http.StatusOK, "", nil
+	}
 	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
 		Provider:       provider,
 		Connection:     conn,
@@ -140,37 +239,70 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	})
 	if err != nil {
 		status, message := triggerCreateError(err)
-		return model.AgentTrigger{}, provider, status, message, err
+		return uuid.Nil, status, message, err
+	}
+	return channel.ID, http.StatusOK, "", nil
+}
+
+// createHTTP creates an inbound HTTP ("webhook") trigger. Unlike provider
+// triggers it has no connection/resource — just an agent, a channel the caller
+// can access, instructions, and an optional shared secret.
+func (h *TriggerHandler) createHTTP(r *http.Request, orgID uuid.UUID, req createTriggerRequest) (model.AgentTrigger, string, int, string, error) {
+	if strings.TrimSpace(req.Instructions) == "" {
+		return model.AgentTrigger{}, "", http.StatusBadRequest, "instructions are required", fmt.Errorf("missing instructions")
+	}
+	agentID, err := uuid.Parse(strings.TrimSpace(req.AgentID))
+	if err != nil || agentID == uuid.Nil {
+		return model.AgentTrigger{}, "", http.StatusBadRequest, "agent_id must be a uuid", fmt.Errorf("invalid agent id")
+	}
+	channelID, err := uuid.Parse(strings.TrimSpace(req.ChannelID))
+	if err != nil || channelID == uuid.Nil {
+		return model.AgentTrigger{}, "", http.StatusBadRequest, "channel_id must be a uuid", fmt.Errorf("invalid channel id")
+	}
+
+	actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
+	if err != nil {
+		return model.AgentTrigger{}, "", http.StatusForbidden, "forbidden", err
+	}
+	allowed, err := actor.CanUseChannelID(r.Context(), h.db, channelID)
+	if err != nil {
+		return model.AgentTrigger{}, "", http.StatusInternalServerError, "failed to check channel access", err
+	}
+	if !allowed {
+		return model.AgentTrigger{}, "", http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel access denied")
 	}
 
 	var trigger model.AgentTrigger
 	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(r.Context(), tx, orgID, agentID, channel.ID, template); err != nil {
+		var agent model.Agent
+		if err := tx.Where("id = ? AND org_id = ?", agentID, orgID).First(&agent).Error; err != nil {
 			return err
 		}
 		trigger = model.AgentTrigger{
 			OrgID:        orgID,
 			AgentID:      agentID,
-			TriggerType:  "webhook",
-			ChannelID:    &channel.ID,
-			ConnectionID: &conn.ID,
-			TriggerKeys:  pq.StringArray(template.triggerKeys),
-			TriggerKey:   triggerKey,
-			TriggerValue: triggerValue,
+			Name:         strings.TrimSpace(req.Name),
+			TriggerType:  "http",
+			ChannelID:    &channelID,
 			Enabled:      true,
-			SourceSlug:   triggerSourceSlug(provider, triggerKey, channel.ExternalResourceKey, triggerValue),
 			Instructions: strings.TrimSpace(req.Instructions),
 		}
-		if err := tx.Create(&trigger).Error; err != nil {
-			return err
+		if secret := strings.TrimSpace(req.SecretKey); secret != "" {
+			hash, hashErr := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
+			if hashErr != nil {
+				return fmt.Errorf("hash trigger secret: %w", hashErr)
+			}
+			trigger.SecretKey = string(hash)
 		}
-		return nil
+		return tx.Create(&trigger).Error
 	})
 	if err != nil {
-		status, message := triggerCreateError(err)
-		return model.AgentTrigger{}, provider, status, message, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.AgentTrigger{}, "", http.StatusNotFound, "agent not found", err
+		}
+		return model.AgentTrigger{}, "", http.StatusInternalServerError, "failed to create trigger", err
 	}
-	return trigger, provider, http.StatusCreated, "", nil
+	return trigger, "", http.StatusCreated, "", nil
 }
 
 func loadTriggerConnection(db *gorm.DB, orgID, connectionID uuid.UUID, provider string) (model.Connection, error) {

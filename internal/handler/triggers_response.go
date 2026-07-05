@@ -18,6 +18,7 @@ type triggerGetResponse struct {
 
 type triggerAutomationResponse struct {
 	ID                   string `json:"id"`
+	Name                 string `json:"name,omitempty"`
 	TriggerType          string `json:"trigger_type"`
 	Provider             string `json:"provider"`
 	ConnectionID         string `json:"connection_id,omitempty"`
@@ -35,14 +36,21 @@ type triggerAutomationResponse struct {
 	Enabled              bool   `json:"enabled"`
 	SourceSlug           string `json:"source_slug,omitempty"`
 	Instructions         string `json:"instructions,omitempty"`
-	CreatedAt            string `json:"created_at"`
-	UpdatedAt            string `json:"updated_at"`
+	// WebhookURL is the public endpoint that invokes an HTTP trigger. Only set
+	// when TriggerType == "http".
+	WebhookURL string `json:"webhook_url,omitempty"`
+	// SecretSet reports whether an HTTP trigger requires a shared secret. The
+	// secret itself is never returned.
+	SecretSet bool   `json:"secret_set"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 func triggerAutomationToResponse(trigger model.AgentTrigger) triggerAutomationResponse {
 	provider := triggerProvider(trigger)
 	response := triggerAutomationResponse{
 		ID:           trigger.ID.String(),
+		Name:         trigger.Name,
 		TriggerType:  trigger.TriggerType,
 		Provider:     provider,
 		AgentID:      trigger.AgentID.String(),

@@ -1,6 +1,8 @@
 "use client"
 
 import { useMemo } from "react"
+import NextLink from "next/link"
+import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { AutomationsListView } from "@/app/w/(chat)/automations/_automation-list"
 import { automationFromCatalog } from "@/app/w/(chat)/automations/_data"
@@ -21,10 +23,21 @@ export default function NewTriggerPage() {
 
   return (
     <AutomationsListView
+      nav={
+        <NextLink
+          href="/w/automations"
+          className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm transition-colors"
+        >
+          <AppIcon icon="arrow-left" className="h-4 w-4" />
+          Automations
+        </NextLink>
+      }
       automations={automations}
       isLoading={triggersQuery.isLoading}
       isError={triggersQuery.isError}
       onRetry={() => void triggersQuery.refetch()}
+      title="Install triggers"
+      description="Start agent work from connection events"
       searchLabel="triggers"
       emptyTab="Triggers"
     />

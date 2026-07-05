@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Spinner, Switch, TextArea, toast } from "@heroui/react"
+import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -13,6 +13,10 @@ import {
   type InstalledTrigger,
 } from "@/app/w/(chat)/automations/_data"
 import { AgentSelect } from "@/components/agent-select"
+import {
+  ChannelSelect,
+  useHivyChannels,
+} from "@/app/w/(chat)/automations/_channel-select"
 import {
   GithubConnectionSelect,
   GithubRepoSelect,
@@ -56,6 +60,9 @@ export function GithubMentionInstallForm({
   const createTrigger = $api.useMutation("post", "/v1/triggers")
   const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
   const deleteTrigger = $api.useMutation("delete", "/v1/triggers/{id}")
+  const { channels, isLoading: channelsLoading } = useHivyChannels()
+  const [name, setName] = useState(trigger?.name || automation.name || "")
+  const [channelID, setChannelID] = useState(trigger?.channel_id || "")
   const [connectionID, setConnectionID] = useState(trigger?.connection_id || "")
   const [resourceID, setResourceID] = useState(
     trigger?.external_resource_key || ""
@@ -125,6 +132,7 @@ export function GithubMentionInstallForm({
   const activeAgentID = agents.some((agent) => agent.id === agentID)
     ? agentID
     : (agents[0]?.id ?? "")
+  const activeChannelID = channelID || channels[0]?.id || ""
   const selectedAgent = useMemo(
     () => agents.find((agent) => agent.id === activeAgentID),
     [activeAgentID, agents]
@@ -151,7 +159,8 @@ export function GithubMentionInstallForm({
   const isLoading =
     connectionsQuery.isLoading ||
     resourcesQuery.isLoading ||
-    agentsQuery.isLoading
+    agentsQuery.isLoading ||
+    channelsLoading
   const isSaving = createTrigger.isPending || updateTrigger.isPending
   const isBusy = isSaving || deleteTrigger.isPending
   const canSubmit =
@@ -159,9 +168,11 @@ export function GithubMentionInstallForm({
     !isBusy &&
     !existingTrigger &&
     Boolean(
+      name.trim() &&
       activeConnectionID &&
       selectedResource?.id &&
       activeAgentID &&
+      activeChannelID &&
       instructions.trim()
     )
 
@@ -172,6 +183,10 @@ export function GithubMentionInstallForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!name.trim()) {
+      toast.danger("Name is required")
+      return
+    }
     if (!selectedConnection?.id) {
       toast.danger("Select a GitHub connection")
       return
@@ -184,17 +199,23 @@ export function GithubMentionInstallForm({
       toast.danger("Select an agent")
       return
     }
+    if (!activeChannelID) {
+      toast.danger("Select a channel")
+      return
+    }
     const trimmedInstructions = instructions.trim()
     if (!trimmedInstructions) {
       toast.danger("Instructions are required")
       return
     }
     const body = {
+      name: name.trim(),
       provider: "github-app",
       connection_id: selectedConnection.id,
       external_resource_key: selectedResource.id,
       external_resource_name: repoName(selectedResource),
       agent_id: activeAgentID,
+      channel_id: activeChannelID,
       trigger_key: githubMentionKey,
       instructions: trimmedInstructions,
     }
@@ -275,6 +296,18 @@ export function GithubMentionInstallForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <FormSection
+          title="Name"
+          description="A label for this trigger, shown in your automations list."
+        >
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Name this trigger"
+            className="h-9 w-full rounded-md"
+          />
+        </FormSection>
+
         {connections.length > 1 ? (
           <FormSection
             title="GitHub connection"
@@ -346,6 +379,27 @@ export function GithubMentionInstallForm({
               isLoading={agentsQuery.isLoading}
               onChange={setAgentID}
               variant="field"
+            />
+          )}
+        </FormSection>
+
+        <FormSection
+          title="Channel"
+          description="The channel this agent's session runs in when it's @mentioned. You can only pick channels you have access to."
+        >
+          {channelsLoading ? (
+            <FieldSkeleton />
+          ) : channels.length === 0 ? (
+            <InlineNotice
+              icon="hash"
+              title="No channels"
+              body="Create a channel before installing this trigger."
+            />
+          ) : (
+            <ChannelSelect
+              channels={channels}
+              value={activeChannelID}
+              onChange={setChannelID}
             />
           )}
         </FormSection>

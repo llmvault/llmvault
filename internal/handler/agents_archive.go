@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -11,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 // Archive handles DELETE /v1/agents/{id}.
@@ -56,14 +59,21 @@ func (h *AgentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default agent cannot be archived"})
 		return
 	}
-	hasActiveSessions, err := h.agentHasActiveSessions(ctx, org.ID, agent.ID)
+	hasBusySessions, err := h.agentHasBusySessions(ctx, org.ID, agent.ID)
 	if err != nil {
-		log.ErrorContext(ctx, "check active sessions before agent archive", "error", err, "agent_id", agent.ID, "org_id", org.ID)
+		log.ErrorContext(ctx, "check busy sessions before agent archive", "error", err, "agent_id", agent.ID, "org_id", org.ID)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check active sessions"})
 		return
 	}
-	if hasActiveSessions {
-		writeJSON(w, http.StatusConflict, errorResponse{Error: "agent has active sessions"})
+	if hasBusySessions {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "agent has sessions with an in-progress turn"})
+		return
+	}
+	// Archive every open session for the agent, tearing down each session's
+	// sandbox, before archiving the agent itself.
+	if err := h.archiveAgentSessions(ctx, org.ID, agent.ID); err != nil {
+		log.ErrorContext(ctx, "archive agent sessions", "error", err, "agent_id", agent.ID, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to archive agent sessions"})
 		return
 	}
 	if err := h.db.WithContext(ctx).
@@ -78,13 +88,54 @@ func (h *AgentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
 }
 
-func (h *AgentHandler) agentHasActiveSessions(ctx context.Context, orgID, agentID uuid.UUID) (bool, error) {
-	var newCount int64
+// agentHasBusySessions reports whether any of the agent's sessions currently has
+// an in-progress agent turn. A merely-open but idle session does not block the
+// archive; only a live turn does (ripping its sandbox out would abort the run).
+func (h *AgentHandler) agentHasBusySessions(ctx context.Context, orgID, agentID uuid.UUID) (bool, error) {
+	var busyCount int64
 	if err := h.db.WithContext(ctx).
 		Model(&model.Session{}).
-		Where("org_id = ? AND agent_id = ? AND status = ?", orgID, agentID, "active").
-		Count(&newCount).Error; err != nil {
+		Where("org_id = ? AND agent_id = ? AND agent_turn_status = ?", orgID, agentID, model.SessionAgentTurnActive).
+		Count(&busyCount).Error; err != nil {
 		return false, err
 	}
-	return newCount > 0, nil
+	return busyCount > 0, nil
+}
+
+// archiveAgentSessions archives every open (non-archived, non-ended) session for
+// the agent and enqueues teardown of each session's sandbox. Enqueue failures
+// are logged, not surfaced: the DB archive already succeeded and the sandbox
+// reaper is the backstop.
+func (h *AgentHandler) archiveAgentSessions(ctx context.Context, orgID, agentID uuid.UUID) error {
+	var sessions []model.Session
+	if err := h.db.WithContext(ctx).
+		Where("org_id = ? AND agent_id = ? AND status = ?", orgID, agentID, "active").
+		Find(&sessions).Error; err != nil {
+		return err
+	}
+	now := time.Now()
+	for i := range sessions {
+		session := &sessions[i]
+		updates := map[string]any{"status": "archived"}
+		if session.EndedAt == nil {
+			updates["ended_at"] = &now
+		}
+		if err := h.db.WithContext(ctx).
+			Model(&model.Session{}).
+			Where("id = ? AND org_id = ?", session.ID, orgID).
+			Updates(updates).Error; err != nil {
+			return err
+		}
+		if session.SandboxID == nil {
+			continue
+		}
+		if err := tasks.EnqueueSandboxDelete(ctx, h.enqueuer, *session.SandboxID); err != nil {
+			logging.CaptureWithFields(ctx, fmt.Errorf("enqueue sandbox delete on agent archive: %w", err), map[string]any{
+				"agent_id":   agentID.String(),
+				"session_id": session.ID.String(),
+				"sandbox_id": session.SandboxID.String(),
+			})
+		}
+	}
+	return nil
 }

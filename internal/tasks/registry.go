@@ -71,6 +71,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxAutoSleep, NewSandboxAutoSleepHandler(deps.DB, deps.Orchestrator).Handle)
+		// Tears down a single session's sandbox after the session is archived.
+		mux.HandleFunc(TypeSandboxDelete, NewSandboxDeleteHandler(deps.DB, deps.Orchestrator).Handle)
 	}
 
 	// Flips a slept sandbox back to 'running' when its runtime websocket reconnects.

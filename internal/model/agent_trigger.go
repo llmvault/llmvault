@@ -19,6 +19,7 @@ type AgentTrigger struct {
 	Channel      *Channel       `gorm:"foreignKey:ChannelID;constraint:OnDelete:SET NULL"`
 	ConnectionID *uuid.UUID     `gorm:"type:uuid;index"`
 	Connection   *Connection    `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
+	Name         string         `gorm:"type:text"` // optional human label; nullable in DB
 	TriggerKeys  pq.StringArray `gorm:"type:text[];not null;default:'{}'"` // e.g. {"issues.opened","issues.reopened"}
 	TriggerKey   string         `gorm:"type:text;not null;default:'';index"`
 	TriggerValue string         `gorm:"type:text;not null;default:''"`

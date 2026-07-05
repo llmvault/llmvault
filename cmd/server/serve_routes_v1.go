@@ -213,7 +213,9 @@ func setupV1Routes(
 					r.Post("/{id}/retry", sandboxTemplateHandler.RetryBuild)
 				})
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
-				triggerOptions := []handler.TriggerHandlerOption{}
+				triggerOptions := []handler.TriggerHandlerOption{
+					handler.WithTriggerWebhookBaseURL(cfg.APIWebhookBaseURL),
+				}
 				if slackChannelHandler != nil {
 					triggerOptions = append(triggerOptions, handler.WithTriggerExternalProvisioner(slackChannelHandler))
 				}

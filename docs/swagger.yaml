@@ -1728,6 +1728,11 @@ definitions:
     properties:
       agent_id:
         type: string
+      channel_id:
+        description: |-
+          ChannelID is the Hivy channel the trigger runs in. Required for HTTP
+          triggers; the caller must have access to it.
+        type: string
       connection_id:
         type: string
       external_resource_key:
@@ -1736,9 +1741,22 @@ definitions:
         type: string
       instructions:
         type: string
+      name:
+        description: Name is a required human label for the trigger.
+        type: string
       provider:
         type: string
+      secret_key:
+        description: |-
+          SecretKey is an optional shared secret for HTTP triggers. Stored bcrypt-
+          hashed; never returned.
+        type: string
       trigger_key:
+        type: string
+      trigger_type:
+        description: |-
+          TriggerType selects the create path: "" / "webhook" (provider triggers,
+          default) or "http" (inbound webhook triggers).
         type: string
       trigger_value:
         type: string
@@ -4060,8 +4078,15 @@ definitions:
         type: string
       instructions:
         type: string
+      name:
+        type: string
       provider:
         type: string
+      secret_set:
+        description: |-
+          SecretSet reports whether an HTTP trigger requires a shared secret. The
+          secret itself is never returned.
+        type: boolean
       source_slug:
         type: string
       trigger_key:
@@ -4071,6 +4096,11 @@ definitions:
       trigger_value:
         type: string
       updated_at:
+        type: string
+      webhook_url:
+        description: |-
+          WebhookURL is the public endpoint that invokes an HTTP trigger. Only set
+          when TriggerType == "http".
         type: string
     type: object
   triggerGetResponse:
@@ -4301,6 +4331,8 @@ definitions:
     properties:
       agent_id:
         type: string
+      channel_id:
+        type: string
       connection_id:
         type: string
       enabled:
@@ -4310,6 +4342,8 @@ definitions:
       external_resource_name:
         type: string
       instructions:
+        type: string
+      name:
         type: string
       provider:
         type: string

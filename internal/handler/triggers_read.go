@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -8,9 +9,38 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// triggerResponse builds the API response, adding the webhook URL + secret state
+// for HTTP triggers.
+func (h *TriggerHandler) triggerResponse(trigger model.AgentTrigger) triggerAutomationResponse {
+	resp := triggerAutomationToResponse(trigger)
+	if trigger.TriggerType == "http" {
+		resp.WebhookURL = h.httpTriggerWebhookURL(trigger.ID)
+		resp.SecretSet = trigger.SecretKey != ""
+	}
+	return resp
+}
+
+// actorCanAccessTrigger reports whether the actor may see/manage a trigger.
+// Provider (webhook) triggers keep their existing visibility; HTTP ("webhook")
+// triggers are channel-scoped — the actor must be an org manager or able to use
+// the trigger's channel.
+func (h *TriggerHandler) actorCanAccessTrigger(ctx context.Context, actor *access.Actor, trigger model.AgentTrigger) bool {
+	if trigger.TriggerType != "http" {
+		return true
+	}
+	if actor.IsOrgManager() {
+		return true
+	}
+	if trigger.Channel == nil {
+		return false
+	}
+	return actor.CanUseChannel(ctx, h.db, *trigger.Channel)
+}
 
 // List handles GET /v1/triggers.
 // @Summary List triggers
@@ -28,6 +58,11 @@ func (h *TriggerHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
 		return
 	}
+	actor, err := access.Resolve(r.Context(), h.db, org.ID, middleware.UserID(r.Context()))
+	if err != nil {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "forbidden"})
+		return
+	}
 	var triggers []model.AgentTrigger
 	if err := triggerQuery(h.db.WithContext(r.Context()), org.ID).
 		Order("agent_triggers.created_at DESC, agent_triggers.id DESC").
@@ -36,8 +71,11 @@ func (h *TriggerHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := make([]triggerAutomationResponse, 0, len(triggers))
-	for _, trigger := range triggers {
-		data = append(data, triggerAutomationToResponse(trigger))
+	for i := range triggers {
+		if !h.actorCanAccessTrigger(r.Context(), actor, triggers[i]) {
+			continue
+		}
+		data = append(data, h.triggerResponse(triggers[i]))
 	}
 	writeJSON(w, http.StatusOK, triggerListResponse{Data: data})
 }
@@ -70,7 +108,12 @@ func (h *TriggerHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeTriggerReadError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: triggerAutomationToResponse(trigger)})
+	actor, err := access.Resolve(r.Context(), h.db, org.ID, middleware.UserID(r.Context()))
+	if err != nil || !h.actorCanAccessTrigger(r.Context(), actor, trigger) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: h.triggerResponse(trigger)})
 }
 
 func (h *TriggerHandler) loadTrigger(r *http.Request, orgID, id uuid.UUID) (model.AgentTrigger, error) {

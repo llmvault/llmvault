@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -30,6 +31,16 @@ func (h *TriggerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	id, ok := triggerIDFromString(chi.URLParam(r, "id"))
 	if !ok {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
+		return
+	}
+	trigger, err := h.loadTrigger(r, org.ID, id)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
+		return
+	}
+	actor, err := access.Resolve(r.Context(), h.db, org.ID, middleware.UserID(r.Context()))
+	if err != nil || !h.actorCanAccessTrigger(r.Context(), actor, trigger) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
 		return
 	}

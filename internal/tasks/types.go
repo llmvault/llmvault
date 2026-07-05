@@ -29,6 +29,7 @@ const (
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
 	TypeSandboxMarkRunning        = "sandbox:mark_running"
+	TypeSandboxDelete             = "sandbox:delete"
 	TypeSheetCSVImport            = "sheet:csv_import"
 
 	// Periodic tasks (scheduled by the worker)

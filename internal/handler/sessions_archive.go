@@ -2,12 +2,15 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 // Archive handles DELETE /v1/sessions/{id}.
@@ -30,6 +33,9 @@ func (h *SessionHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.requireSessionArchivePermission(w, r, session, userID) {
+		return
+	}
+	if !h.requireSessionIdleForArchive(w, session) {
 		return
 	}
 	if session.Status != "archived" || session.EndedAt == nil {
@@ -57,6 +63,17 @@ func (h *SessionHandler) requireSessionArchivePermission(w http.ResponseWriter, 
 	return true
 }
 
+// requireSessionIdleForArchive rejects a manual archive while the session's
+// agent turn is in progress. Archiving tears down the sandbox, which would
+// abort the live turn, so a session can only be archived when it is idle.
+func (h *SessionHandler) requireSessionIdleForArchive(w http.ResponseWriter, session model.Session) bool {
+	if session.AgentTurnStatus == model.SessionAgentTurnActive {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "session has an in-progress turn"})
+		return false
+	}
+	return true
+}
+
 func (h *SessionHandler) canArchiveSession(ctx context.Context, session model.Session, userID *uuid.UUID) (bool, error) {
 	if userID == nil {
 		return false, nil
@@ -76,8 +93,28 @@ func (h *SessionHandler) archiveSession(ctx context.Context, session *model.Sess
 		updates["ended_at"] = &now
 		session.EndedAt = &now
 	}
-	return h.db.WithContext(ctx).
+	if err := h.db.WithContext(ctx).
 		Model(&model.Session{}).
 		Where("id = ? AND org_id = ?", session.ID, session.OrgID).
-		Updates(updates).Error
+		Updates(updates).Error; err != nil {
+		return err
+	}
+	h.enqueueSessionSandboxTeardown(ctx, session)
+	return nil
+}
+
+// enqueueSessionSandboxTeardown schedules deletion of the session's sandbox once
+// the session has been archived. No-op when the session has no sandbox or no
+// enqueuer is configured. Enqueue failures are logged, not surfaced: the DB
+// archive already succeeded and the sandbox reaper is the backstop.
+func (h *SessionHandler) enqueueSessionSandboxTeardown(ctx context.Context, session *model.Session) {
+	if session == nil || session.SandboxID == nil {
+		return
+	}
+	if err := tasks.EnqueueSandboxDelete(ctx, h.enqueuer, *session.SandboxID); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("enqueue sandbox delete on session archive: %w", err), map[string]any{
+			"session_id": session.ID.String(),
+			"sandbox_id": session.SandboxID.String(),
+		})
+	}
 }

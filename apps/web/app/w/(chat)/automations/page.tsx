@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Suspense, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { $api } from "@/lib/api/hooks"
 import { AutomationsListView } from "@/app/w/(chat)/automations/_automation-list"
 import {
@@ -8,17 +9,40 @@ import {
   AutomationsTabs,
   type AutomationsTab,
 } from "@/app/w/(chat)/automations/_automation-tabs"
-import { automationFromInstalledTrigger } from "@/app/w/(chat)/automations/_data"
+import {
+  automationFromInstalledTrigger,
+  automationFromWebhookTrigger,
+} from "@/app/w/(chat)/automations/_data"
 
 export default function AutomationsPage() {
-  const [tab, setTab] = useState<AutomationsTab>("connections")
+  return (
+    <Suspense fallback={null}>
+      <AutomationsPageInner />
+    </Suspense>
+  )
+}
+
+function AutomationsPageInner() {
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<AutomationsTab>(
+    tabFromParam(searchParams.get("tab"))
+  )
   const triggersQuery = $api.useQuery("get", "/v1/triggers")
-  const automations = useMemo(
+  const triggers = triggersQuery.data?.data
+
+  const connections = useMemo(
     () =>
-      (triggersQuery.data?.data ?? []).map((trigger) =>
-        automationFromInstalledTrigger(trigger)
-      ),
-    [triggersQuery.data?.data]
+      (triggers ?? [])
+        .filter((trigger) => trigger.trigger_type !== "http")
+        .map(automationFromInstalledTrigger),
+    [triggers]
+  )
+  const webhooks = useMemo(
+    () =>
+      (triggers ?? [])
+        .filter((trigger) => trigger.trigger_type === "http")
+        .map(automationFromWebhookTrigger),
+    [triggers]
   )
   const nav = <AutomationsTabs active={tab} onChange={setTab} />
 
@@ -38,14 +62,20 @@ export default function AutomationsPage() {
 
   if (tab === "webhooks") {
     return (
-      <AutomationPlaceholderView
+      <AutomationsListView
         nav={nav}
+        automations={webhooks}
+        isLoading={triggersQuery.isLoading}
+        isError={triggersQuery.isError}
+        onRetry={() => void triggersQuery.refetch()}
+        action={{
+          label: "Add webhook trigger",
+          href: "/w/automations/webhooks/new",
+        }}
         title="Webhooks"
         description="Trigger agents from inbound HTTP requests"
         searchLabel="webhooks"
-        icon="globe"
-        emptyTitle="No webhooks yet"
-        emptyBody="HTTP-based triggers will appear here."
+        emptyTab="Webhooks"
       />
     )
   }
@@ -53,7 +83,7 @@ export default function AutomationsPage() {
   return (
     <AutomationsListView
       nav={nav}
-      automations={automations}
+      automations={connections}
       isLoading={triggersQuery.isLoading}
       isError={triggersQuery.isError}
       onRetry={() => void triggersQuery.refetch()}
@@ -67,4 +97,9 @@ export default function AutomationsPage() {
       emptyTab="Triggers"
     />
   )
+}
+
+function tabFromParam(raw: string | null): AutomationsTab {
+  if (raw === "schedules" || raw === "webhooks") return raw
+  return "connections"
 }

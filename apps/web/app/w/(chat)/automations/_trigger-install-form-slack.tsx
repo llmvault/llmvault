@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Spinner, Switch, TextArea, toast } from "@heroui/react"
+import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -68,6 +68,7 @@ export function SlackReactionInstallForm({
       automationTriggerDefaultValue(automation) ||
       "eyes"
   )
+  const [name, setName] = useState(trigger?.name || automation.name || "")
   const [connectionID, setConnectionID] = useState(trigger?.connection_id || "")
   const [resourceID, setResourceID] = useState(
     trigger?.external_resource_key || ""
@@ -182,6 +183,7 @@ export function SlackReactionInstallForm({
     !isBusy &&
     !existingTrigger &&
     Boolean(
+      name.trim() &&
       activeConnectionID &&
       selectedResource?.id &&
       activeAgentID &&
@@ -196,6 +198,10 @@ export function SlackReactionInstallForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!name.trim()) {
+      toast.danger("Name is required")
+      return
+    }
     if (!selectedConnection?.id) {
       toast.danger("Select a Slack workspace")
       return
@@ -214,6 +220,7 @@ export function SlackReactionInstallForm({
       return
     }
     const body = {
+      name: name.trim(),
       provider: "slack",
       connection_id: selectedConnection.id,
       external_resource_key: selectedResource.id,
@@ -300,6 +307,18 @@ export function SlackReactionInstallForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <FormSection
+          title="Name"
+          description="A label for this trigger, shown in your automations list."
+        >
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Name this trigger"
+            className="h-9 w-full rounded-md"
+          />
+        </FormSection>
+
         {connections.length > 1 ? (
           <FormSection
             title="Slack workspace"

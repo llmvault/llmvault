@@ -12,17 +12,20 @@ import (
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
 type updateTriggerRequest struct {
+	Name                 *string `json:"name,omitempty"`
 	Provider             *string `json:"provider,omitempty"`
 	ConnectionID         *string `json:"connection_id,omitempty"`
 	ExternalResourceKey  *string `json:"external_resource_key,omitempty"`
 	ExternalResourceName *string `json:"external_resource_name,omitempty"`
 	AgentID              *string `json:"agent_id,omitempty"`
+	ChannelID            *string `json:"channel_id,omitempty"`
 	TriggerKey           *string `json:"trigger_key,omitempty"`
 	TriggerValue         *string `json:"trigger_value,omitempty"`
 	Enabled              *bool   `json:"enabled,omitempty"`
@@ -67,7 +70,7 @@ func (h *TriggerHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, errorResponse{Error: message})
 		return
 	}
-	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: triggerAutomationToResponse(trigger)})
+	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: h.triggerResponse(trigger)})
 }
 
 func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req updateTriggerRequest) (model.AgentTrigger, int, string, error) {
@@ -78,6 +81,9 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 		}
 		return model.AgentTrigger{}, http.StatusInternalServerError, "failed to load trigger", err
 	}
+	if current.TriggerType == "http" {
+		return h.updateHTTP(r, orgID, id, current, req)
+	}
 	parsed, template, err := parseTriggerUpdate(current, req)
 	if err != nil {
 		return model.AgentTrigger{}, http.StatusBadRequest, err.Error(), err
@@ -87,32 +93,35 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 		status, message := triggerCreateError(err)
 		return model.AgentTrigger{}, status, message, err
 	}
-	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
-		Provider:       parsed.provider,
-		Connection:     conn,
-		ResourceType:   template.resourceType,
-		ResourceKey:    parsed.resourceKey,
-		ResourceName:   parsed.resourceName,
-		DefaultAgentID: parsed.agentID,
-	})
+	rawChannelID := ""
+	if req.ChannelID != nil {
+		rawChannelID = *req.ChannelID
+	}
+	channelID, status, message, err := h.resolveProviderTriggerChannel(
+		r, orgID, parsed.provider, conn, template, parsed.resourceKey, parsed.resourceName, parsed.agentID, rawChannelID,
+	)
 	if err != nil {
-		status, message := triggerCreateError(err)
 		return model.AgentTrigger{}, status, message, err
 	}
+	name := current.Name
+	if req.Name != nil {
+		name = strings.TrimSpace(*req.Name)
+	}
 	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(r.Context(), tx, orgID, parsed.agentID, channel.ID, template); err != nil {
+		if err := validateTriggerAgent(r.Context(), tx, orgID, parsed.agentID, channelID, template); err != nil {
 			return err
 		}
 		return tx.Model(&model.AgentTrigger{}).
 			Where("id = ? AND org_id = ?", id, orgID).
 			Updates(map[string]any{
 				"agent_id":      parsed.agentID,
-				"channel_id":    channel.ID,
+				"name":          name,
+				"channel_id":    channelID,
 				"connection_id": conn.ID,
 				"trigger_keys":  pq.StringArray(template.triggerKeys),
 				"trigger_key":   parsed.triggerKey,
 				"trigger_value": parsed.triggerValue,
-				"source_slug":   triggerSourceSlug(parsed.provider, parsed.triggerKey, channel.ExternalResourceKey, parsed.triggerValue),
+				"source_slug":   triggerSourceSlug(parsed.provider, parsed.triggerKey, parsed.resourceKey, parsed.triggerValue),
 				"instructions":  parsed.instructions,
 				"trigger_type":  "webhook",
 				"enabled":       parsed.enabled,
@@ -123,6 +132,45 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 	if err != nil {
 		status, message := triggerCreateError(err)
 		return model.AgentTrigger{}, status, message, err
+	}
+	updated, err := h.loadTrigger(r, orgID, id)
+	if err != nil {
+		return model.AgentTrigger{}, http.StatusInternalServerError, "failed to load trigger", err
+	}
+	return updated, http.StatusOK, "", nil
+}
+
+// updateHTTP updates an inbound HTTP ("webhook") trigger: enable/disable and
+// instructions only. The channel/agent/secret are set at create time.
+func (h *TriggerHandler) updateHTTP(r *http.Request, orgID, id uuid.UUID, current model.AgentTrigger, req updateTriggerRequest) (model.AgentTrigger, int, string, error) {
+	actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
+	if err != nil || !h.actorCanAccessTrigger(r.Context(), actor, current) {
+		return model.AgentTrigger{}, http.StatusNotFound, "trigger not found", fmt.Errorf("trigger not accessible")
+	}
+	updates := map[string]any{}
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			return model.AgentTrigger{}, http.StatusBadRequest, "name is required", fmt.Errorf("empty name")
+		}
+		updates["name"] = name
+	}
+	if req.Enabled != nil {
+		updates["enabled"] = *req.Enabled
+	}
+	if req.Instructions != nil {
+		instructions := strings.TrimSpace(*req.Instructions)
+		if instructions == "" {
+			return model.AgentTrigger{}, http.StatusBadRequest, "instructions are required", fmt.Errorf("empty instructions")
+		}
+		updates["instructions"] = instructions
+	}
+	if len(updates) > 0 {
+		if err := h.db.WithContext(r.Context()).Model(&model.AgentTrigger{}).
+			Where("id = ? AND org_id = ?", id, orgID).
+			Updates(updates).Error; err != nil {
+			return model.AgentTrigger{}, http.StatusInternalServerError, "failed to update trigger", err
+		}
 	}
 	updated, err := h.loadTrigger(r, orgID, id)
 	if err != nil {
