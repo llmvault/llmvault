@@ -1692,6 +1692,30 @@ definitions:
       vcpu:
         type: integer
     type: object
+  createScheduleRequest:
+    properties:
+      agent_id:
+        type: string
+      channel_id:
+        type: string
+      cron_expression:
+        type: string
+      description:
+        type: string
+      interval_seconds:
+        type: integer
+      name:
+        type: string
+      repeat_count:
+        type: integer
+      task_prompt:
+        type: string
+    type: object
+  createScheduleResponse:
+    properties:
+      schedule:
+        $ref: '#/definitions/scheduleResponse'
+    type: object
   createSessionRequest:
     properties:
       agent_id:
@@ -3228,6 +3252,61 @@ definitions:
       updated_at:
         type: string
     type: object
+  scheduleGetResponse:
+    properties:
+      schedule:
+        $ref: '#/definitions/scheduleResponse'
+    type: object
+  scheduleListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/scheduleResponse'
+        type: array
+    type: object
+  scheduleResponse:
+    properties:
+      agent_icon:
+        type: string
+      agent_id:
+        type: string
+      agent_name:
+        type: string
+      channel_id:
+        type: string
+      created_at:
+        type: string
+      cron_expression:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      interval_seconds:
+        type: integer
+      last_error:
+        type: string
+      last_run_at:
+        type: string
+      last_status:
+        type: string
+      name:
+        type: string
+      next_run_at:
+        type: string
+      repeat_completed:
+        type: integer
+      repeat_count:
+        type: integer
+      schedule_kind:
+        type: string
+      status:
+        type: string
+      task_prompt:
+        type: string
+      updated_at:
+        type: string
+    type: object
   schemaPath:
     properties:
       path:
@@ -4301,6 +4380,25 @@ definitions:
       config:
         $ref: '#/definitions/JSON'
       name:
+        type: string
+    type: object
+  updateScheduleRequest:
+    properties:
+      channel_id:
+        type: string
+      cron_expression:
+        type: string
+      description:
+        type: string
+      interval_seconds:
+        type: integer
+      name:
+        type: string
+      repeat_count:
+        type: integer
+      status:
+        type: string
+      task_prompt:
         type: string
     type: object
   updateSessionRequest:
@@ -10263,6 +10361,167 @@ paths:
       summary: Stop a sandbox
       tags:
       - sandboxes
+  /v1/schedules:
+    get:
+      description: Lists recurring agent schedules the caller can access.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheduleListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List schedules
+      tags:
+      - schedules
+    post:
+      consumes:
+      - application/json
+      description: Creates a recurring agent schedule (cron or interval).
+      parameters:
+      - description: Schedule configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/createScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/createScheduleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create schedule
+      tags:
+      - schedules
+  /v1/schedules/{id}:
+    delete:
+      description: Cancels a recurring agent schedule.
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete schedule
+      tags:
+      - schedules
+    get:
+      description: Gets one recurring agent schedule.
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheduleGetResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get schedule
+      tags:
+      - schedules
+    patch:
+      consumes:
+      - application/json
+      description: Updates a schedule's fields, or its status (active/paused/cancelled).
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/updateScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheduleGetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update schedule
+      tags:
+      - schedules
   /v1/sessions:
     get:
       description: Lists sessions visible to the caller, optionally filtered by channel

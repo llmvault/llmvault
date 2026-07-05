@@ -17,6 +17,7 @@ type AgentSchedule struct {
 
 	RuntimeJobID    string      `gorm:"not null;size:255;uniqueIndex:idx_agent_schedule_agent_runtime"`
 	IsSystem        bool        `gorm:"not null;default:false;index"`
+	Name            string      `gorm:"type:text"` // optional human label; nullable in DB
 	SourceSlug      string      `gorm:"type:text;not null;default:'';index"`
 	Provider        string      `gorm:"not null;default:'';size:64;index"`
 	ConnectionID    *uuid.UUID  `gorm:"type:uuid;index"`

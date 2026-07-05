@@ -5,12 +5,12 @@ import { useSearchParams } from "next/navigation"
 import { $api } from "@/lib/api/hooks"
 import { AutomationsListView } from "@/app/w/(chat)/automations/_automation-list"
 import {
-  AutomationPlaceholderView,
   AutomationsTabs,
   type AutomationsTab,
 } from "@/app/w/(chat)/automations/_automation-tabs"
 import {
   automationFromInstalledTrigger,
+  automationFromSchedule,
   automationFromWebhookTrigger,
 } from "@/app/w/(chat)/automations/_data"
 
@@ -29,6 +29,11 @@ function AutomationsPageInner() {
   )
   const triggersQuery = $api.useQuery("get", "/v1/triggers")
   const triggers = triggersQuery.data?.data
+  const schedulesQuery = $api.useQuery("get", "/v1/schedules")
+  const schedules = useMemo(
+    () => (schedulesQuery.data?.data ?? []).map(automationFromSchedule),
+    [schedulesQuery.data?.data]
+  )
 
   const connections = useMemo(
     () =>
@@ -48,14 +53,20 @@ function AutomationsPageInner() {
 
   if (tab === "schedules") {
     return (
-      <AutomationPlaceholderView
+      <AutomationsListView
         nav={nav}
+        automations={schedules}
+        isLoading={schedulesQuery.isLoading}
+        isError={schedulesQuery.isError}
+        onRetry={() => void schedulesQuery.refetch()}
+        action={{
+          label: "Add schedule",
+          href: "/w/automations/schedules/new",
+        }}
         title="Schedules"
         description="Run agents on a recurring schedule"
         searchLabel="schedules"
-        icon="calendar"
-        emptyTitle="No schedules yet"
-        emptyBody="Recurring agent runs will appear here."
+        emptyTab="Schedules"
       />
     )
   }

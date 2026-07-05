@@ -31,6 +31,7 @@ const (
 
 type CreateInput struct {
 	JobID           string
+	Name            string
 	SourceSlug      string
 	Description     string
 	TaskPrompt      string
@@ -41,6 +42,7 @@ type CreateInput struct {
 }
 
 type UpdateInput struct {
+	Name            *string
 	Description     *string
 	TaskPrompt      *string
 	ChannelID       *string
@@ -107,6 +109,7 @@ func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySessi
 		OrgID:            *agent.OrgID,
 		AgentID:          agent.ID,
 		RuntimeJobID:     jobID,
+		Name:             strings.TrimSpace(input.Name),
 		Status:           StatusActive,
 		SourceSlug:       strings.TrimSpace(input.SourceSlug),
 		ScheduleKind:     kind,
@@ -126,6 +129,7 @@ func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySessi
 		DoUpdates: clause.Assignments(map[string]any{
 			"org_id":             schedule.OrgID,
 			"sandbox_id":         schedule.SandboxID,
+			"name":               schedule.Name,
 			"status":             schedule.Status,
 			"source_slug":        gorm.Expr("CASE WHEN EXCLUDED.source_slug <> '' THEN EXCLUDED.source_slug ELSE agent_schedules.source_slug END"),
 			"schedule_kind":      schedule.ScheduleKind,
@@ -173,6 +177,9 @@ func Update(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID string, 
 		return nil, err
 	}
 	updates := map[string]any{}
+	if input.Name != nil {
+		updates["name"] = strings.TrimSpace(*input.Name)
+	}
 	if input.Description != nil {
 		updates["description"] = strings.TrimSpace(*input.Description)
 	}
@@ -277,3 +284,5 @@ func LoadForAgent(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID st
 	}
 	return &schedule, nil
 }
+
+// ListForOrg returns all non-cancelled schedules in an org (across agents), with

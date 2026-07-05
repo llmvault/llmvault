@@ -141,6 +141,44 @@ export function automationFromWebhookTrigger(
   }
 }
 
+export type ScheduleItem = components["schemas"]["scheduleResponse"]
+
+export function scheduleCadenceLabel(schedule: ScheduleItem): string {
+  if (schedule.schedule_kind === "cron" && schedule.cron_expression) {
+    return `Cron: ${schedule.cron_expression}`
+  }
+  const seconds = schedule.interval_seconds ?? 0
+  if (seconds > 0) {
+    if (seconds % 86400 === 0) {
+      const days = seconds / 86400
+      return `Every ${days} day${days === 1 ? "" : "s"}`
+    }
+    if (seconds % 3600 === 0) {
+      const hours = seconds / 3600
+      return `Every ${hours} hour${hours === 1 ? "" : "s"}`
+    }
+    if (seconds % 60 === 0) return `Every ${seconds / 60} min`
+    return `Every ${seconds}s`
+  }
+  return "Recurring"
+}
+
+export function automationFromSchedule(schedule: ScheduleItem): AutomationItem {
+  const agent = schedule.agent_name || "Agent"
+  const paused = schedule.status === "paused"
+  return {
+    id: schedule.id || "",
+    type: "Schedules",
+    name: schedule.name?.trim() || agent,
+    description: `${paused ? "Paused. " : ""}${scheduleCadenceLabel(schedule)} · ${agent}`,
+    category: "Schedules",
+    icon: "calendar",
+    iconColor: "#8B5CF6",
+    provider: "",
+    href: schedule.id ? `/w/automations/schedules/${schedule.id}` : undefined,
+  }
+}
+
 export function automationCategories(
   automations: AutomationItem[]
 ): AutomationCategory[] {

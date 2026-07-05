@@ -53,7 +53,7 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 	r := chi.NewRouter()
 	r.Post("/v1/agents/catalog/{slug}/install", h.InstallCatalog)
-	req := httptest.NewRequest(http.MethodPost, "/v1/agents/catalog/kara/install", nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/agents/catalog/kara-ui-and-graphics-designer/install", nil)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
@@ -62,7 +62,7 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	}
 
 	var catalog model.AgentCatalog
-	if err := db.Where("slug = ?", "kara").First(&catalog).Error; err != nil {
+	if err := db.Where("slug = ?", "kara-ui-and-graphics-designer").First(&catalog).Error; err != nil {
 		t.Fatalf("load kara catalog: %v", err)
 	}
 	var agent model.Agent

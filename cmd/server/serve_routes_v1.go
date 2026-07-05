@@ -213,13 +213,12 @@ func setupV1Routes(
 					r.Post("/{id}/retry", sandboxTemplateHandler.RetryBuild)
 				})
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
-				triggerOptions := []handler.TriggerHandlerOption{
-					handler.WithTriggerWebhookBaseURL(cfg.APIWebhookBaseURL),
-				}
+				triggerOptions := []handler.TriggerHandlerOption{handler.WithTriggerWebhookBaseURL(cfg.APIWebhookBaseURL)}
 				if slackChannelHandler != nil {
 					triggerOptions = append(triggerOptions, handler.WithTriggerExternalProvisioner(slackChannelHandler))
 				}
 				triggerHandler := handler.NewTriggerHandler(database, triggerOptions...)
+				scheduleHandler := handler.NewScheduleHandler(database)
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)
 					r.Get("/agents/catalog", agentHandler.ListCatalog)
@@ -233,6 +232,8 @@ func setupV1Routes(
 					}
 					r.Get("/triggers", triggerHandler.List)
 					r.Get("/triggers/{id}", triggerHandler.Get)
+					r.Get("/schedules", scheduleHandler.List)
+					r.Get("/schedules/{id}", scheduleHandler.Get)
 					r.Get("/agents/{id}/trigger-deliveries", triggerDeliveryHandler.List)
 					r.Get("/agents/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
 					r.Group(func(r chi.Router) {
@@ -247,6 +248,9 @@ func setupV1Routes(
 						r.Post("/triggers", triggerHandler.Create)
 						r.Patch("/triggers/{id}", triggerHandler.Update)
 						r.Delete("/triggers/{id}", triggerHandler.Delete)
+						r.Post("/schedules", scheduleHandler.Create)
+						r.Patch("/schedules/{id}", scheduleHandler.Update)
+						r.Delete("/schedules/{id}", scheduleHandler.Delete)
 					})
 				}
 				if systemTaskHandler != nil {

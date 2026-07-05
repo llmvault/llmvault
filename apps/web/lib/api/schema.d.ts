@@ -10698,6 +10698,291 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List schedules
+         * @description Lists recurring agent schedules the caller can access.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["scheduleListResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create schedule
+         * @description Creates a recurring agent schedule (cron or interval).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Schedule configuration */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createScheduleRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["createScheduleResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get schedule
+         * @description Gets one recurring agent schedule.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["scheduleGetResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete schedule
+         * @description Cancels a recurring agent schedule.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update schedule
+         * @description Updates a schedule's fields, or its status (active/paused/cancelled).
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateScheduleRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["scheduleGetResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/sessions": {
         parameters: {
             query?: never;
@@ -15326,6 +15611,19 @@ export interface components {
             name?: string;
             vcpu?: number;
         };
+        createScheduleRequest: {
+            agent_id?: string;
+            channel_id?: string;
+            cron_expression?: string;
+            description?: string;
+            interval_seconds?: number;
+            name?: string;
+            repeat_count?: number;
+            task_prompt?: string;
+        };
+        createScheduleResponse: {
+            schedule?: components["schemas"]["scheduleResponse"];
+        };
         createSessionRequest: {
             agent_id?: string;
             attachment_ids?: string[];
@@ -16109,6 +16407,34 @@ export interface components {
             tags?: components["schemas"]["JSON"];
             updated_at?: string;
         };
+        scheduleGetResponse: {
+            schedule?: components["schemas"]["scheduleResponse"];
+        };
+        scheduleListResponse: {
+            data?: components["schemas"]["scheduleResponse"][];
+        };
+        scheduleResponse: {
+            agent_icon?: string;
+            agent_id?: string;
+            agent_name?: string;
+            channel_id?: string;
+            created_at?: string;
+            cron_expression?: string;
+            description?: string;
+            id?: string;
+            interval_seconds?: number;
+            last_error?: string;
+            last_run_at?: string;
+            last_status?: string;
+            name?: string;
+            next_run_at?: string;
+            repeat_completed?: number;
+            repeat_count?: number;
+            schedule_kind?: string;
+            status?: string;
+            task_prompt?: string;
+            updated_at?: string;
+        };
         schemaPath: {
             path?: string;
             type?: string;
@@ -16686,6 +17012,16 @@ export interface components {
             build_commands?: string[];
             config?: components["schemas"]["JSON"];
             name?: string;
+        };
+        updateScheduleRequest: {
+            channel_id?: string;
+            cron_expression?: string;
+            description?: string;
+            interval_seconds?: number;
+            name?: string;
+            repeat_count?: number;
+            status?: string;
+            task_prompt?: string;
         };
         updateSessionRequest: {
             agent_id?: string;
