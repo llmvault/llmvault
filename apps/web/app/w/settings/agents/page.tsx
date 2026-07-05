@@ -206,7 +206,7 @@ function InstalledAgentsSection({
         <h2 className="text-sm font-medium text-foreground">Installed agents</h2>
         <div className="flex flex-wrap items-center gap-2">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-8 w-8 rounded-lg" />
+            <Skeleton key={index} className="h-8 w-8" />
           ))}
         </div>
       </section>
@@ -249,11 +249,11 @@ function CategorySelect({
       onChange={(key) => onChange(String(key))}
       className="w-full sm:w-52"
     >
-      <Select.Trigger className="h-10 w-full justify-between rounded-md px-3 text-sm transition-colors">
+      <Select.Trigger className="h-10 w-full justify-between px-3 text-sm transition-colors">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="w-48 rounded-xl p-1.5">
+      <Select.Popover className="w-48 p-1.5">
         <ListBox>
           {categories.map((item) => (
             <ListBox.Item key={item} id={item} textValue={item}>
@@ -318,7 +318,7 @@ function CatalogSkeleton() {
           <div className="flex flex-col gap-3 bg-card">
             {Array.from({ length: 3 }).map((_, row) => (
               <div key={row} className="flex items-center gap-3 py-1.5">
-                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="h-9 w-9" />
                 <div className="min-w-0 flex-1">
                   <Skeleton className="h-4 w-40 rounded" />
                   <Skeleton className="mt-2 h-4 w-full max-w-sm rounded" />

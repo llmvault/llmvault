@@ -71,7 +71,7 @@ export const ViewSwitcher = memo(function ViewSwitcher({
               </span>
               <Select.Indicator />
             </Select.Trigger>
-            <Select.Popover className="min-w-48 rounded-xl p-1">
+            <Select.Popover className="min-w-48 p-1">
               <ListBox>
                 {views.map((view) => (
                   <ListBox.Item

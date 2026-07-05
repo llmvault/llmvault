@@ -38,7 +38,7 @@ export function AgentSettingsSection({
         isDisabled={isBusy || availableModels.length === 0}
         className="w-full"
       >
-        <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+        <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
           <span className="flex min-w-0 items-center gap-2">
             {selectedModel ? <ModelLogo model={selectedModel} /> : null}
             <span className="truncate">
@@ -51,7 +51,7 @@ export function AgentSettingsSection({
             <Select.Indicator />
           )}
         </Select.Trigger>
-        <Select.Popover className="rounded-xl p-1.5">
+        <Select.Popover className="p-1.5">
           <ListBox>
             {availableModels.map((model) => (
               <ListBox.Item key={model} id={model} textValue={model}>
@@ -103,7 +103,7 @@ export function SandboxImageSection({
         isDisabled={isBusy}
         className="w-full"
       >
-        <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+        <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="shrink-0">{selectedSandboxOption.label}</span>
             <span className="truncate text-xs text-muted-foreground">
@@ -116,7 +116,7 @@ export function SandboxImageSection({
             <Select.Indicator />
           )}
         </Select.Trigger>
-        <Select.Popover className="rounded-xl p-1.5">
+        <Select.Popover className="p-1.5">
           <ListBox>
             {AGENT_SANDBOX_IMAGE_OPTIONS.map((option) => (
               <ListBox.Item
@@ -170,7 +170,7 @@ export function SandboxSizeSection({
         isDisabled={isBusy}
         className="w-full"
       >
-        <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+        <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="shrink-0">{selectedSandboxOption.label}</span>
             <span className="truncate text-xs text-muted-foreground">
@@ -183,7 +183,7 @@ export function SandboxSizeSection({
             <Select.Indicator />
           )}
         </Select.Trigger>
-        <Select.Popover className="rounded-xl p-1.5">
+        <Select.Popover className="p-1.5">
           <ListBox>
             {AGENT_SANDBOX_SIZE_OPTIONS.map((option) => (
               <ListBox.Item

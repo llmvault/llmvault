@@ -81,7 +81,7 @@ export function IntegrationDialog({
     <Modal isOpen={Boolean(definition)} onOpenChange={onOpenChange}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="w-full max-w-lg rounded-3xl border border-border bg-background p-0 shadow-xl outline-none">
+          <Modal.Dialog className="w-full max-w-lg border border-border bg-background p-0 shadow-xl outline-none">
             {definition ? (
               <form
                 onSubmit={saveIntegration}

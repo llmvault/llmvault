@@ -200,11 +200,11 @@ function CategorySelect({
       onChange={(key) => onChange(String(key))}
       className="w-full sm:w-48"
     >
-      <Select.Trigger className="h-10 w-full justify-between rounded-md bg-card px-3 text-sm text-foreground transition-colors hover:bg-muted/20">
+      <Select.Trigger className="h-10 w-full justify-between bg-card px-3 text-sm text-foreground transition-colors hover:bg-muted/20">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="w-48 rounded-xl p-1.5">
+      <Select.Popover className="w-48 p-1.5">
         <ListBox>
           {categories.map((item) => (
             <ListBox.Item key={item} id={item} textValue={item}>
@@ -342,7 +342,7 @@ function PluginListSkeleton() {
     <div className="flex flex-col rounded-xl bg-card">
       {[0, 1, 2, 3].map((index) => (
         <div key={index} className="flex items-center gap-3 p-3">
-          <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+          <Skeleton className="h-8 w-8 shrink-0" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Skeleton className="h-3.5 w-28 rounded" />
             <Skeleton className="h-3 w-64 max-w-full rounded" />

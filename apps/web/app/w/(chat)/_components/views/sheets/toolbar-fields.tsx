@@ -28,14 +28,14 @@ export const HiddenColumnsPopover = memo(function HiddenColumnsPopover({
 }) {
   return (
     <Popover>
-      <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
+      <Popover.Trigger className="flex h-8 items-center gap-1.5 border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
         <AppIcon icon="eye-off" className="h-3.5 w-3.5" />
         Hidden
         <span className="rounded-full bg-accent px-1.5 text-[10px] text-accent-foreground">
           {hiddenFields.length}
         </span>
       </Popover.Trigger>
-      <Popover.Content className="w-64 rounded-2xl border border-border p-3">
+      <Popover.Content className="w-64 border border-border p-3">
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
           {hiddenFields.map((field) => (
             <button
@@ -118,11 +118,11 @@ export const AddFieldPopover = memo(function AddFieldPopover({
 
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
+      <Popover.Trigger className="flex h-8 items-center gap-1.5 border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
         <AppIcon icon="columns-3" className="h-3.5 w-3.5" />
         Add column
       </Popover.Trigger>
-      <Popover.Content className="w-72 rounded-2xl border border-border p-3">
+      <Popover.Content className="w-72 border border-border p-3">
         <Popover.Dialog className="flex w-full flex-col gap-2 p-0">
           <Input
             aria-label="Column name"

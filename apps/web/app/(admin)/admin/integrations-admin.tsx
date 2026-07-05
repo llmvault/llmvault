@@ -100,7 +100,7 @@ function IntegrationSkeleton() {
     <div className="bg-surface flex flex-col divide-y divide-border rounded-2xl border border-border">
       {Array.from({ length: 6 }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 px-4 py-3">
-          <Skeleton className="size-10 rounded-lg" />
+          <Skeleton className="size-10" />
           <div className="min-w-0 flex-1 space-y-2">
             <Skeleton className="h-4 w-40 rounded" />
             <Skeleton className="h-3 w-64 max-w-full rounded" />

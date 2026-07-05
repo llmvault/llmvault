@@ -61,7 +61,7 @@ const SearchBox = memo(function SearchBox({
       onChange={setValue}
       className="w-44"
     >
-      <SearchField.Group className="h-8 rounded-lg border border-border bg-surface">
+      <SearchField.Group className="h-8 border border-border bg-surface">
         <SearchField.SearchIcon className="h-3.5 w-3.5 text-muted" />
         <SearchField.Input placeholder="Search…" className="text-xs" />
         <SearchField.ClearButton />

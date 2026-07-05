@@ -107,11 +107,11 @@ export function UndoPopover({
 
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
+      <Popover.Trigger className="flex h-8 items-center gap-1.5 border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
         <AppIcon icon="undo-2" className="h-3.5 w-3.5" />
         Undo
       </Popover.Trigger>
-      <Popover.Content className="w-80 rounded-2xl border border-border p-2">
+      <Popover.Content className="w-80 border border-border p-2">
         <Popover.Dialog className="flex max-h-80 w-full flex-col gap-0.5 overflow-y-auto p-0">
           {operationsQuery.isPending ? (
             <div className="flex justify-center py-4">

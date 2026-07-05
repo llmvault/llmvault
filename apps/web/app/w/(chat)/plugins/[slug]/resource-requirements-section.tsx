@@ -164,7 +164,7 @@ function ResourceSelectionModalContent({
   }
 
   return (
-    <Modal.Dialog className="relative w-full max-w-lg rounded-3xl bg-background p-0 shadow-xl outline-none">
+    <Modal.Dialog className="relative w-full max-w-lg bg-background p-0 shadow-xl outline-none">
       <div className="flex flex-col gap-5 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

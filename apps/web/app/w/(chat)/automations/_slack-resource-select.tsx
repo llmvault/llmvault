@@ -34,7 +34,7 @@ export function SlackConnectionSelect({
         </span>
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="rounded-xl p-1.5">
+      <Select.Popover className="p-1.5">
         <ListBox>
           {connections.map((connection) => (
             <ListBox.Item
@@ -87,7 +87,7 @@ export function SlackResourceSelect({
         </span>
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="rounded-xl p-1.5">
+      <Select.Popover className="p-1.5">
         <ListBox>
           {resources.map((resource) => (
             <ListBox.Item

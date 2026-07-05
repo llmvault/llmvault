@@ -150,7 +150,7 @@ function ProviderPicker({
           </span>
           <AppIcon icon="chevron-down" className="size-4 text-muted" />
         </Popover.Trigger>
-        <Popover.Content className="w-72 rounded-2xl border border-border bg-background p-1.5 shadow-xl">
+        <Popover.Content className="w-72 border border-border bg-background p-1.5 shadow-xl">
           <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
             {providers.map((provider) => (
               <button

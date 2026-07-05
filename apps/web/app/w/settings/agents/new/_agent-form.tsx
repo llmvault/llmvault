@@ -329,11 +329,11 @@ function OptionSelect({
       isDisabled={disabled}
       className="w-full"
     >
-      <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
         <span className="truncate">{selected?.label}</span>
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="rounded-xl p-1.5">
+      <Select.Popover className="p-1.5">
         <ListBox>
           {options.map((option) => (
             <ListBox.Item

@@ -31,7 +31,7 @@ import { useSheetLive } from "./sheets/use-sheet-live"
 function SheetGridSkeleton() {
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
-      <Skeleton className="h-7 w-full rounded-md" />
+      <Skeleton className="h-7 w-full" />
       {Array.from({ length: 12 }).map((_, index) => (
         <Skeleton
           key={index}
@@ -146,7 +146,7 @@ export function SheetsView({ channelId }: { channelId?: string }) {
           }}
           className="min-w-0"
         >
-          <Select.Trigger className="flex h-8 max-w-80 items-center gap-1.5 rounded-lg py-1 pl-2 pe-7 text-sm">
+          <Select.Trigger className="flex h-8 max-w-80 items-center gap-1.5 py-1 pl-2 pe-7 text-sm">
             <AppIcon
               icon="table"
               className="h-3.5 w-3.5 shrink-0 text-muted"
@@ -156,7 +156,7 @@ export function SheetsView({ channelId }: { channelId?: string }) {
             </span>
             <Select.Indicator />
           </Select.Trigger>
-          <Select.Popover className="w-72 rounded-xl p-1.5">
+          <Select.Popover className="w-72 p-1.5">
             <ListBox>
               {sheets.map((sheet) => (
                 <ListBox.Item
@@ -369,7 +369,7 @@ function NamePopover({
         <AppIcon icon="plus" className="h-3.5 w-3.5" />
         {iconOnly ? null : label}
       </Popover.Trigger>
-      <Popover.Content className="w-64 rounded-2xl border border-border p-3">
+      <Popover.Content className="w-64 border border-border p-3">
         <Popover.Dialog className="flex w-full flex-col gap-2 p-0">
           <Input
             aria-label={`${label} name`}

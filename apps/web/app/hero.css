@@ -48,7 +48,7 @@
   --warning-foreground: oklch(21.03% 0.0059 72.33);
 
   --radius: 0.25rem;
-  --field-radius: 0.5rem;
+  --field-radius: 0.25rem;
 
   /* Font Family */
   --font-sans: var(--font-bricolage-sans), sans-serif;

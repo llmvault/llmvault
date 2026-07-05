@@ -163,7 +163,7 @@ function PluginsSkeleton() {
           className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-3"
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Skeleton className="h-4 w-32 rounded" />
               <Skeleton className="h-3 w-56 max-w-full rounded" />

@@ -43,14 +43,14 @@ export function ModelSelect({
       isDisabled={disabled}
       className="w-full"
     >
-      <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
         <span className="flex min-w-0 items-center gap-2">
           {value ? <ModelLogo model={value} /> : null}
           <span className="truncate">{label || <Select.Value />}</span>
         </span>
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="rounded-xl p-1.5">
+      <Select.Popover className="p-1.5">
         <ListBox className="max-h-72 overflow-y-auto">
           {includeInherit ? (
             <ListBox.Item

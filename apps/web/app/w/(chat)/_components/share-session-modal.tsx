@@ -252,7 +252,7 @@ function MemberComboBox({
       onInputChange={onInputChange}
       onSelectionChange={onSelect}
     >
-      <ComboBox.InputGroup className="flex h-10 items-center gap-2 rounded-xl border border-border px-3">
+      <ComboBox.InputGroup className="flex h-10 items-center gap-2 border border-border px-3">
         <AppIcon icon="search" className="h-4 w-4 shrink-0 text-muted" />
         <Input
           aria-label="Search organization members"
@@ -261,7 +261,7 @@ function MemberComboBox({
         />
         <ComboBox.Trigger className="shrink-0 text-muted" />
       </ComboBox.InputGroup>
-      <ComboBox.Popover className="max-h-72 rounded-xl p-1.5">
+      <ComboBox.Popover className="max-h-72 p-1.5">
         {members.length ? (
           <ListBox<OrgMember> items={members}>
             {(member) => {

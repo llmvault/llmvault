@@ -169,11 +169,11 @@ function CategorySelect({
       onChange={(key) => onChange(String(key) as AutomationCategory)}
       className="w-full sm:w-48"
     >
-      <Select.Trigger className="bg-card h-10 w-full justify-between rounded-md px-3 text-sm text-foreground transition-colors hover:bg-muted/20">
+      <Select.Trigger className="bg-card h-10 w-full justify-between px-3 text-sm text-foreground transition-colors hover:bg-muted/20">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="w-48 rounded-xl p-1.5">
+      <Select.Popover className="w-48 p-1.5">
         <ListBox>
           {categories.map((item) => (
             <ListBox.Item key={item} id={item} textValue={item}>
@@ -233,7 +233,7 @@ function CatalogSkeleton() {
           <div className="bg-card flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, row) => (
               <div key={row} className="flex items-center gap-3 py-1.5">
-                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="h-9 w-9" />
                 <div className="min-w-0 flex-1">
                   <Skeleton className="h-4 w-40 rounded" />
                   <Skeleton className="mt-2 h-4 w-full max-w-sm rounded" />

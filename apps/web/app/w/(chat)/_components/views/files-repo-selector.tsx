@@ -27,11 +27,11 @@ export function FilesRepoSelector({
   }
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="hover:bg-surface-secondary flex max-w-32 min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted transition-colors">
+      <Popover.Trigger className="hover:bg-surface-secondary flex max-w-32 min-w-0 items-center gap-1 px-1.5 py-0.5 text-xs text-muted transition-colors">
         <span className="truncate">{selectedRepo.name}</span>
         <AppIcon icon="chevron-down" className="h-3 w-3 shrink-0" />
       </Popover.Trigger>
-      <Popover.Content className="bg-surface w-64 rounded-2xl border border-border p-1.5">
+      <Popover.Content className="bg-surface w-64 border border-border p-1.5">
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
           {repos.map((repo) => (
             <button

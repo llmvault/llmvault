@@ -60,7 +60,7 @@ function ThemeSelect() {
         {current.label}
         <AppIcon icon="chevron-down" className="h-3.5 w-3.5 text-muted" />
       </Popover.Trigger>
-      <Popover.Content className="w-56 rounded-2xl border border-border p-1.5">
+      <Popover.Content className="w-56 border border-border p-1.5">
         <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
           {THEME_PRESETS.map((option) => (
             <button

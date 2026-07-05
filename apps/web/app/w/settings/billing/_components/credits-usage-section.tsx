@@ -42,7 +42,7 @@ export function CreditsUsageSection() {
       </div>
       <div className="rounded-2xl border border-border bg-surface p-5">
         {isLoading ? (
-          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16" />
         ) : (
           <>
             <div className="flex flex-wrap items-end justify-between gap-2">

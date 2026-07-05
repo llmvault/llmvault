@@ -133,7 +133,7 @@ export const RightPanel = memo(function RightPanel({
               >
                 <AppIcon icon="plus" className="h-4 w-4" />
               </Popover.Trigger>
-              <Popover.Content className="w-64 rounded-2xl border border-border p-1.5">
+              <Popover.Content className="w-64 border border-border p-1.5">
                 <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
                   {unopened.map((view) => (
                     <LauncherRow

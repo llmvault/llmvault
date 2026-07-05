@@ -73,8 +73,8 @@ export function SlackEmojiPicker({
           data-open={open ? "true" : undefined}
         />
       </Popover.Trigger>
-      <Popover.Content className="w-[22rem] overflow-hidden rounded-2xl border border-border p-0">
-        <Popover.Dialog className="flex max-h-[26rem] w-[22rem] flex-col p-0">
+      <Popover.Content className="w-88 overflow-hidden border border-border p-0">
+        <Popover.Dialog className="flex max-h-104 w-88 flex-col p-0">
           <div className="border-b border-border p-2">
             <label className="flex h-8 items-center gap-2 rounded-md border border-border px-2 text-sm">
               <AppIcon

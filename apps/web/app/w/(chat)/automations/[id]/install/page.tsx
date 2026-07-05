@@ -120,7 +120,7 @@ function InstallSkeleton() {
     <div className="flex flex-col gap-8">
       <Skeleton className="h-5 w-32 rounded" />
       <div className="flex items-start gap-3">
-        <Skeleton className="h-12 w-12 rounded-xl" />
+        <Skeleton className="h-12 w-12" />
         <div className="min-w-0 flex-1">
           <Skeleton className="h-6 w-44 rounded" />
           <Skeleton className="mt-3 h-4 w-full max-w-lg rounded" />
@@ -130,7 +130,7 @@ function InstallSkeleton() {
         <section key={index} className="flex flex-col gap-3">
           <Skeleton className="h-4 w-28 rounded" />
           <Skeleton className="h-4 w-full max-w-md rounded" />
-          <Skeleton className="h-9 rounded-md" />
+          <Skeleton className="h-9" />
         </section>
       ))}
     </div>

@@ -418,7 +418,7 @@ function DetailSkeleton() {
       <Skeleton className="h-4 w-20 rounded" />
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-12 w-12 rounded-xl" />
+          <Skeleton className="h-12 w-12" />
           <div className="flex flex-col gap-3">
             <Skeleton className="h-5 w-36 rounded" />
             <Skeleton className="h-4 w-80 max-w-full rounded" />
@@ -426,8 +426,8 @@ function DetailSkeleton() {
         </div>
         <Skeleton className="h-8 w-20 rounded-full" />
       </header>
-      <Skeleton className="h-24 rounded-xl" />
-      <Skeleton className="h-44 rounded-xl" />
+      <Skeleton className="h-24" />
+      <Skeleton className="h-44" />
     </div>
   )
 }

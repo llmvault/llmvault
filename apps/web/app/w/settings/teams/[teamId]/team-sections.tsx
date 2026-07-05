@@ -121,7 +121,7 @@ export function TeamMembersSection({
               isDisabled={addMember.isPending || candidates.length === 0}
               className="w-full"
             >
-              <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+              <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
                 {selectedCandidate ? (
                   <span className="truncate">
                     {memberLabel(selectedCandidate)}
@@ -131,7 +131,7 @@ export function TeamMembersSection({
                 )}
                 <Select.Indicator />
               </Select.Trigger>
-              <Select.Popover className="rounded-xl p-1.5">
+              <Select.Popover className="p-1.5">
                 <ListBox>
                   {candidates.map((member) => (
                     <ListBox.Item
@@ -310,7 +310,7 @@ export function TeamChannelsSection({
               }
               className="w-full"
             >
-              <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+              <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
                 {selectedChannel ? (
                   <span className="truncate">
                     #{channelLabel(selectedChannel)}
@@ -320,7 +320,7 @@ export function TeamChannelsSection({
                 )}
                 <Select.Indicator />
               </Select.Trigger>
-              <Select.Popover className="rounded-xl p-1.5">
+              <Select.Popover className="p-1.5">
                 <ListBox>
                   {availableChannels.map((channel) => (
                     <ListBox.Item

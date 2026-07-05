@@ -32,7 +32,7 @@ export function AccountMenu() {
         <AppIcon icon="settings" className="h-4 w-4 shrink-0 text-muted" />
         <span className="min-w-0 flex-1 truncate">Settings</span>
       </Popover.Trigger>
-      <Popover.Content className="w-64 rounded-2xl border border-border p-1.5">
+      <Popover.Content className="w-64 border border-border p-1.5">
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
           <div className="flex flex-col gap-1 px-2.5 pt-1.5 pb-2">
             <div className="flex items-center gap-2 text-sm text-muted">

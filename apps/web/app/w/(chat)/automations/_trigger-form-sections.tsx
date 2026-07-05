@@ -22,7 +22,7 @@ export function FormSection({
 }
 
 export function FieldSkeleton() {
-  return <Skeleton className="h-9 rounded-md" />
+  return <Skeleton className="h-9" />
 }
 
 export function InlineNotice({

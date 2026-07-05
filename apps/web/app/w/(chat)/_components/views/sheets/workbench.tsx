@@ -88,7 +88,7 @@ function parsePersistedConfig(raw: unknown): PersistedConfig {
 function SkeletonRows() {
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
-      <Skeleton className="h-7 w-full rounded-md" />
+      <Skeleton className="h-7 w-full" />
       {Array.from({ length: 12 }).map((_, index) => (
         <Skeleton
           key={index}

@@ -552,7 +552,7 @@ function RequiredConnectionModal({
     <Modal.Root state={state}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="relative w-full max-w-sm rounded-3xl bg-background p-0 shadow-xl outline-none">
+          <Modal.Dialog className="relative w-full max-w-sm bg-background p-0 shadow-xl outline-none">
             {modal?.view === "database" && isDatabaseProvider(provider) ? (
               <DatabaseConnectionModalContent
                 provider={provider}
@@ -578,7 +578,7 @@ function DetailSkeleton() {
     <div className="flex flex-col gap-8">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Skeleton className="h-12 w-12 rounded-xl" />
+          <Skeleton className="h-12 w-12" />
           <div className="flex flex-col gap-3">
             <Skeleton className="h-5 w-36 rounded" />
             <Skeleton className="h-4 w-80 max-w-full rounded" />
@@ -586,8 +586,8 @@ function DetailSkeleton() {
         </div>
         <Skeleton className="h-8 w-16 rounded-full" />
       </header>
-      <Skeleton className="h-40 rounded-xl" />
-      <Skeleton className="h-56 rounded-xl" />
+      <Skeleton className="h-40" />
+      <Skeleton className="h-56" />
     </div>
   )
 }

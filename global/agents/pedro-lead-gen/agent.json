@@ -51,8 +51,6 @@
       "apify",
       "sheets"
     ],
-    "recommended": [
-      "drive"
-    ]
+    "recommended": []
   }
 }

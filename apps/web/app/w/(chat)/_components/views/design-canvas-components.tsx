@@ -241,7 +241,7 @@ export function CanvasPreviewPane({
           <Spinner size="sm" aria-label="Opening artifact" />
           Opening artifact
         </div>
-        <Skeleton className="min-h-0 flex-1 rounded-lg border border-border bg-surface" />
+        <Skeleton className="min-h-0 flex-1 border border-border bg-surface" />
       </div>
     )
   }
@@ -383,13 +383,13 @@ export function CanvasBrowserSkeleton() {
         <Skeleton className="h-4 w-28 rounded" />
         <div className="mt-3 flex gap-2">
           {[0, 1, 2].map((item) => (
-            <Skeleton key={item} className="h-8 w-28 rounded-lg" />
+            <Skeleton key={item} className="h-8 w-28" />
           ))}
         </div>
       </div>
       <div className="flex min-h-0 flex-1 gap-3 p-3">
-        <Skeleton className="min-h-0 flex-1 rounded-lg border border-border bg-surface" />
-        <Skeleton className="hidden w-80 rounded-lg border border-border bg-surface xl:block" />
+        <Skeleton className="min-h-0 flex-1 border border-border bg-surface" />
+        <Skeleton className="hidden w-80 border border-border bg-surface xl:block" />
       </div>
     </div>
   )

@@ -154,7 +154,7 @@ export const FilterPopover = memo(function FilterPopover({
 
   return (
     <Popover>
-      <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
+      <Popover.Trigger className="flex h-8 items-center gap-1.5 border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
         <AppIcon icon="list-filter" className="h-3.5 w-3.5" />
         Filter
         {activeCount > 0 ? (
@@ -163,7 +163,7 @@ export const FilterPopover = memo(function FilterPopover({
           </span>
         ) : null}
       </Popover.Trigger>
-      <Popover.Content className="w-96 rounded-2xl border border-border p-3">
+      <Popover.Content className="w-96 border border-border p-3">
         <Popover.Dialog className="flex w-full flex-col gap-2 p-0">
           {rules.length === 0 ? (
             <p className="text-xs text-muted">No filters applied.</p>
@@ -317,7 +317,7 @@ export const SortPopover = memo(function SortPopover({
 
   return (
     <Popover>
-      <Popover.Trigger className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
+      <Popover.Trigger className="flex h-8 items-center gap-1.5 border border-border px-2 text-xs text-muted transition-colors hover:bg-default">
         <AppIcon icon="arrow-up-down" className="h-3.5 w-3.5" />
         Sort
         {sorts.length > 0 ? (
@@ -326,7 +326,7 @@ export const SortPopover = memo(function SortPopover({
           </span>
         ) : null}
       </Popover.Trigger>
-      <Popover.Content className="w-96 rounded-2xl border border-border p-3">
+      <Popover.Content className="w-96 border border-border p-3">
         <Popover.Dialog className="flex w-full flex-col gap-2 p-0">
           {sorts.length === 0 ? (
             <p className="text-xs text-muted">
