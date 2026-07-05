@@ -1,22 +1,22 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Image from "next/image"
 import NextLink from "next/link"
 import { Input, ListBox, Select, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
-import { integrationLogoURL } from "@/components/integration-logo"
-import { cn } from "@/lib/utils"
+import {
+  PluginLogo,
+  PluginLogoTile,
+  pluginLogoFrameClass,
+  pluginLogoFrameStyle,
+} from "@/components/plugin-logo"
 import {
   type ApiPlugin,
   pluginCategories,
   pluginCategory,
   pluginDescription,
-  pluginIcon,
-  pluginIconColor,
   pluginHasMissingResourceRequirements,
-  pluginLogoProvider,
   pluginMatchesCategory,
   pluginMatchesQuery,
   pluginName,
@@ -118,29 +118,16 @@ export default function PluginsPage() {
 
           {connectedPlugins.length > 0 ? (
             <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-medium text-foreground">
-                  Connected
-                </h2>
-                <button
-                  type="button"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Manage
-                </button>
-              </div>
+              <h2 className="text-sm font-medium text-foreground">Connected</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {connectedPlugins.map((plugin) => (
                   <NextLink
                     key={pluginSlug(plugin)}
                     href={`/w/plugins/${pluginSlug(plugin)}`}
-                    className={cn(
-                      "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40",
-                      pluginLogoProvider(plugin) ? "bg-white" : "bg-card"
-                    )}
+                    className="relative inline-flex rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40"
                     title={pluginName(plugin)}
                   >
-                    <PluginLogo plugin={plugin} size={20} iconSize={14} />
+                    <PluginLogoTile plugin={plugin} />
                     {pluginHasMissingResourceRequirements(plugin) ? (
                       <span
                         aria-label="Resource selection required"
@@ -258,67 +245,6 @@ function PluginRow({ plugin }: { plugin: ApiPlugin }) {
       </div>
     </NextLink>
   )
-}
-
-function PluginColoredIcon({
-  icon,
-  color,
-  size = 20,
-}: {
-  icon: string
-  color: string
-  size?: number
-}) {
-  return (
-    <AppIcon
-      icon={icon}
-      className="shrink-0"
-      style={{ color, width: size, height: size }}
-    />
-  )
-}
-
-function PluginLogo({
-  plugin,
-  size,
-  iconSize = size,
-  forceIconWhite = false,
-}: {
-  plugin: ApiPlugin
-  size: number
-  iconSize?: number
-  forceIconWhite?: boolean
-}) {
-  const provider = pluginLogoProvider(plugin)
-
-  if (provider) {
-    return (
-      <Image
-        src={integrationLogoURL(provider)}
-        alt={provider}
-        width={size}
-        height={size}
-        className="shrink-0 object-contain"
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  return (
-    <PluginColoredIcon
-      icon={pluginIcon(plugin)}
-      color={forceIconWhite ? "#FFFFFF" : pluginIconColor(plugin)}
-      size={iconSize}
-    />
-  )
-}
-
-function pluginLogoFrameClass(plugin: ApiPlugin, className: string): string {
-  return cn(className, pluginLogoProvider(plugin) ? "bg-white" : "text-white")
-}
-
-function pluginLogoFrameStyle(plugin: ApiPlugin) {
-  if (pluginLogoProvider(plugin)) return undefined
-  return { backgroundColor: pluginIconColor(plugin) }
 }
 
 function EmptyState({ query }: { query: string }) {

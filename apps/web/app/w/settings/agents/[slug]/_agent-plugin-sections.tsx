@@ -3,12 +3,9 @@
 import NextLink from "next/link"
 import { Skeleton, Switch, Tooltip } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { IntegrationLogo } from "@/components/integration-logo"
+import { PluginLogoTile } from "@/components/plugin-logo"
 import {
   pluginDescription,
-  pluginIcon,
-  pluginIconColor,
-  pluginLogoProvider,
   pluginName,
   pluginSlug,
   type ApiPlugin,
@@ -141,7 +138,7 @@ function AgentPluginCard({
   const disabled = required || globalInstall || isBusy || !slug
   const details = (
     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-      <PluginLogoMark plugin={plugin} />
+      <PluginLogoTile plugin={plugin} />
       <div className="min-w-0 flex-1 overflow-hidden">
         <p className="block truncate text-sm font-medium text-foreground">
           {pluginName(plugin)}
@@ -234,7 +231,7 @@ function RequiredPluginRow({
   const row = (
     <div className="flex items-center justify-between gap-3 px-3 py-2.5">
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-        <PluginLogoMark plugin={catalogPlugin} />
+        <PluginLogoTile plugin={catalogPlugin} />
         <div className="min-w-0 flex-1 overflow-hidden">
           <p className="block truncate text-sm font-medium text-foreground">
             {pluginRequirementName(plugin)}
@@ -273,32 +270,6 @@ function RequiredPluginRow({
     >
       {row}
     </NextLink>
-  )
-}
-
-function PluginLogoMark({ plugin }: { plugin?: ApiPlugin }) {
-  const provider = plugin ? pluginLogoProvider(plugin) : null
-  if (provider) {
-    return (
-      <IntegrationLogo provider={provider} size={32} className="rounded-lg" />
-    )
-  }
-
-  if (!plugin) {
-    return (
-      <div className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-default">
-        <AppIcon icon="plug" className="h-4 w-4" />
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
-      style={{ backgroundColor: pluginIconColor(plugin) }}
-    >
-      <AppIcon icon={pluginIcon(plugin)} className="h-4 w-4" />
-    </div>
   )
 }
 

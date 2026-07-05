@@ -3,13 +3,10 @@
 import NextLink from "next/link"
 import { Description, Skeleton, Switch, Tooltip } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { IntegrationLogo } from "@/components/integration-logo"
+import { PluginLogoTile } from "@/components/plugin-logo"
 import {
   pluginCanInstall,
   pluginDescription,
-  pluginIcon,
-  pluginIconColor,
-  pluginLogoProvider,
   pluginName,
   pluginSlug,
   type ApiPlugin,
@@ -59,7 +56,7 @@ export function PluginsField({
             className="flex min-w-0 items-center justify-between gap-4 rounded-lg border border-border bg-card p-3"
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <PluginLogo plugin={plugin} />
+              <PluginLogoTile plugin={plugin} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">
                   {pluginName(plugin)}
@@ -134,23 +131,6 @@ function PluginSwitch({
         Installed for all agents.
       </Tooltip.Content>
     </Tooltip>
-  )
-}
-
-function PluginLogo({ plugin }: { plugin: ApiPlugin }) {
-  const provider = pluginLogoProvider(plugin)
-  if (provider) {
-    return (
-      <IntegrationLogo provider={provider} size={32} className="rounded-lg" />
-    )
-  }
-  return (
-    <div
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
-      style={{ backgroundColor: pluginIconColor(plugin) }}
-    >
-      <AppIcon icon={pluginIcon(plugin)} className="h-4 w-4" />
-    </div>
   )
 }
 

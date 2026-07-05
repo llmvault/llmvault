@@ -1,15 +1,9 @@
 "use client"
 
-import Image from "next/image"
 import { AppIcon } from "@/components/icon"
-import { IntegrationLogo, integrationLogoURL } from "@/components/integration-logo"
-import { cn } from "@/lib/utils"
+import { IntegrationLogo } from "@/components/integration-logo"
 import { isDatabaseProvider } from "@/app/w/(chat)/plugins/database-connection-modal-content"
 import {
-  type ApiPlugin,
-  pluginIcon,
-  pluginIconColor,
-  pluginLogoProvider,
   pluginRequirementKind,
   type PluginRequirement,
 } from "@/app/w/(chat)/plugins/_lib"
@@ -31,69 +25,6 @@ export function RequirementLogo({
   return (
     <IntegrationLogo provider={provider} size={28} className="rounded-lg" />
   )
-}
-
-function PluginColoredIcon({
-  icon,
-  color,
-  size = 20,
-}: {
-  icon: string
-  color: string
-  size?: number
-}) {
-  return (
-    <AppIcon
-      icon={icon}
-      className="shrink-0"
-      style={{ color, width: size, height: size }}
-    />
-  )
-}
-
-export function PluginLogo({
-  plugin,
-  size,
-  iconSize = size,
-  forceIconWhite = false,
-}: {
-  plugin: ApiPlugin
-  size: number
-  iconSize?: number
-  forceIconWhite?: boolean
-}) {
-  const provider = pluginLogoProvider(plugin)
-  if (provider) {
-    return (
-      <Image
-        src={integrationLogoURL(provider)}
-        alt={provider}
-        width={size}
-        height={size}
-        className="shrink-0 object-contain"
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  return (
-    <PluginColoredIcon
-      icon={pluginIcon(plugin)}
-      color={forceIconWhite ? "#FFFFFF" : pluginIconColor(plugin)}
-      size={iconSize}
-    />
-  )
-}
-
-export function pluginLogoFrameClass(
-  plugin: ApiPlugin,
-  className: string
-): string {
-  return cn(className, pluginLogoProvider(plugin) ? "bg-white" : "text-white")
-}
-
-export function pluginLogoFrameStyle(plugin: ApiPlugin) {
-  if (pluginLogoProvider(plugin)) return undefined
-  return { backgroundColor: pluginIconColor(plugin) }
 }
 
 export function providerLabel(provider: string): string {

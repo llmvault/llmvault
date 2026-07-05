@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "apify",
   "name": "Apify",
-  "description": "Discover and run Apify Actors, then retrieve scraped datasets and results.",
+  "description": "Scrape any website, and any platform for useful business data.",
   "category": "Developer Tools",
   "icon": "apify",
   "icon_color": "#FF9012",

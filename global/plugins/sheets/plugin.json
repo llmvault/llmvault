@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "sheets",
   "name": "Sheets",
-  "description": "Create and manage structured sheets — store leads, research, and any tabular work output.",
+  "description": "Structured database for your agent's work.",
   "category": "Data & Analytics",
   "icon": "table",
   "icon_color": "#10B981",

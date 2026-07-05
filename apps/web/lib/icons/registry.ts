@@ -2,6 +2,7 @@ import type { IconSvgElement } from "@hugeicons/react"
 import type { ComponentType, SVGProps } from "react"
 import {
   Activity,
+  AiBrowserIcon,
   AlertTriangle,
   Archive,
   ArrowDownAZ,
@@ -19,8 +20,8 @@ import {
   Calendar,
   Camera,
   ChartSpline,
-  Check,
   CheckCircle,
+  CheckIcon,
   CheckmarkSquare01Icon,
   ChevronDown,
   ChevronLeft,
@@ -66,6 +67,7 @@ import {
   GitBranch,
   GitFork,
   Globe,
+  Hammer,
   Hash,
   Heading,
   Headset,
@@ -174,6 +176,7 @@ import ThesvgLinear from "@thesvg/react/linear"
 import ThesvgMongodb from "@thesvg/react/mongodb"
 import ThesvgMysql from "@thesvg/react/mysql"
 import ThesvgNotion from "@thesvg/react/notion"
+import ThesvgPlaywright from "@thesvg/react/playwright"
 import ThesvgPostgresql from "@thesvg/react/postgresql"
 import ThesvgRailway from "@thesvg/react/railway"
 import ThesvgRedis from "@thesvg/react/redis"
@@ -210,10 +213,12 @@ function brand(
  */
 export const iconRegistry: Record<string, RegisteredIcon> = {
   // ---- Lucide-alias exports from @hugeicons/core-free-icons ----
-  check: Check,
+  check: CheckIcon,
   plus: Plus,
   x: X,
   hash: Hash,
+  hammer: Hammer,
+  "app-window": AiBrowserIcon,
   "arrow-left": ArrowLeft,
   "chevron-down": ChevronDown,
   bot: Bot,
@@ -387,6 +392,7 @@ export const iconRegistry: Record<string, RegisteredIcon> = {
   google: brand(ThesvgGoogle),
   "twitter-x": brand(ThesvgX),
   linear: brand(ThesvgLinear),
+  playwright: brand(ThesvgPlaywright),
   postgresql: brand(ThesvgPostgresql),
   railway: brand(ThesvgRailway),
   redis: brand(ThesvgRedis),

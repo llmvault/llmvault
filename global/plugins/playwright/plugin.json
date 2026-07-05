@@ -4,7 +4,7 @@
   "name": "Playwright",
   "description": "Write, run, and maintain real Playwright end-to-end tests in your own repository.",
   "category": "Testing",
-  "icon": "flask-conical",
+  "icon": "playwright",
   "icon_color": "#2EAD33",
   "developer": "Hivy",
   "official": true,

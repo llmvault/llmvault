@@ -23,11 +23,13 @@ import {
 } from "@/app/w/(chat)/plugins/database-connection-modal-content"
 import {
   PluginLogo,
+  pluginLogoFrameClass,
+  pluginLogoFrameStyle,
+} from "@/components/plugin-logo"
+import {
   isDatabaseRequirement,
   isIntegrationRequirement,
   isRequirementMissing,
-  pluginLogoFrameClass,
-  pluginLogoFrameStyle,
   providerLabel,
 } from "@/app/w/(chat)/plugins/[slug]/plugin-detail-helpers"
 import {

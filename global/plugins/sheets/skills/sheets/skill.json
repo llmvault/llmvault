@@ -1,7 +1,7 @@
 {
   "name": "Sheets",
   "description": "Use when work produces structured or tabular data the user should keep, browse, or edit — leads, research results, inventories, comparisons — or when the user asks for a sheet, database, table, tracker, or spreadsheet. It teaches the first-party sheet tools: creating sheets with typed fields, batch row writes, filter-AST queries, CSV import, relations, attachments, and operation revert.",
-  "human_description": "Create and manage structured sheets: typed columns, rows, queries, CSV import, and undo.",
+  "human_description": "Create and manage structured sheets/databases.",
   "category": "Data & Analytics",
   "root": "./SKILL.md",
   "tags": [

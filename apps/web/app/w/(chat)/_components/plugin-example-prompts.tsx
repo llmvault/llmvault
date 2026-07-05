@@ -10,7 +10,7 @@ import {
   pluginName,
   pluginSlug,
 } from "@/app/w/(chat)/plugins/_lib"
-import { PluginLogo } from "@/app/w/(chat)/plugins/[slug]/plugin-detail-helpers"
+import { PluginLogo } from "@/components/plugin-logo"
 
 const MAX_PLUGINS = 3
 const MAX_EXAMPLES_PER_PLUGIN = 3
