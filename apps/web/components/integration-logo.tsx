@@ -8,7 +8,6 @@ import ThesvgMongodb from "@thesvg/react/mongodb"
 import ThesvgMysql from "@thesvg/react/mysql"
 import ThesvgNotion from "@thesvg/react/notion"
 import ThesvgPlaywright from "@thesvg/react/playwright"
-import ThesvgPostgresql from "@thesvg/react/postgresql"
 import ThesvgRailway from "@thesvg/react/railway"
 import ThesvgRedis from "@thesvg/react/redis"
 import ThesvgSlack from "@thesvg/react/slack"
@@ -58,7 +57,7 @@ const BRANDS: Record<string, BrandConfig> = {
   railway: { Logo: ThesvgRailway, variant: "light" },
   mysql: { Logo: ThesvgMysql, variant: "light" },
   // No colored light-bg variant — render the monochrome path tinted to brand.
-  postgresql: { Logo: ThesvgPostgresql },
+  // (postgres uses a custom local logomark instead — see LOCAL_PROVIDER_LOGOS.)
   notion: { Logo: ThesvgNotion, variant: "mono", color: "#000000" },
 }
 
@@ -66,13 +65,10 @@ const BRANDS: Record<string, BrandConfig> = {
 const PROVIDER_BRAND_ALIASES: Record<string, string> = {
   "github-app": "github",
   "github-app-code-reviews": "github",
-  postgres: "postgresql",
 }
 
 /** Icon-registry names (e.g. a plugin's `icon`) -> canonical brand key. */
-const ICON_BRAND_ALIASES: Record<string, string> = {
-  postgres: "postgresql",
-}
+const ICON_BRAND_ALIASES: Record<string, string> = {}
 
 /** Brand config for an integration provider, if @thesvg/react ships one. */
 export function providerBrand(provider: string): BrandConfig | undefined {

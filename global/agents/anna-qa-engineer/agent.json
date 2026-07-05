@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "anna-playwright-qa-engineer",
   "name": "Anna - Playwright QA engineer",
-  "description": "Anna is a Playwright QA engineer. She reproduces a flow in a real browser, then writes and runs production-grade Playwright tests inside your repository, captures evidence, and opens a pull request.",
+  "description": "Writes and maintains your playwright end-to-end tests.",
   "category": "Engineering",
   "avatar_url": "/agent-avatars/anna.png",
   "developer": "Hivy",

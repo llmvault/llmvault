@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "pedro-lead-gen",
   "name": "Pedro - Lead Generation",
-  "description": "Pedro turns a target audience into a durable, structured sheet of leads. He picks the right Apify Actors, runs them through the platform proxy, pulls the results into a local file, imports them into a Hivy sheet keyed to a typed schema, and hands back the sheet plus the Apify run and dataset links — confirming cost before running any paid scrape.",
+  "description": "Find, research and verify for your business.",
   "category": "Sales",
   "avatar_url": "/agent-assets/pedro.png",
   "developer": "Hivy",

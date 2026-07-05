@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "ricky-app-builder",
   "name": "Ricky - App builder",
-  "description": "Builds and ships small web apps over sheets — CRUD tools, dashboards, and custom interfaces.",
+  "description": "Builds and ships small web apps over sheets — dashboards, custom interfaces.",
   "category": "Engineering",
   "avatar_url": "/agent-avatars/ricky.png",
   "developer": "Hivy",
