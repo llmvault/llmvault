@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "slug": "zuko-code-reviewer",
+  "name": "Zuko - code reviewer",
+  "description": "Reviews pull requests when mentioned: coordinates specialist reviewer subagents, synthesizes one deduped, severity-scored review, and blocks unreviewable or unsafe PRs.",
+  "category": "Developer Tools",
+  "avatar_url": "/agent-avatars/zuko.png",
+  "developer": "Hivy",
+  "official": true,
+  "agent_version": "1",
+  "enabled": true,
+  "default": false,
+  "runtime": {
+    "sandbox_image": "developer",
+    "model": "deepseek-v4-pro"
+  },
+  "prompt": {
+    "instructions": "./prompts/instructions.md"
+  },
+  "tools": {
+    "bash": true,
+    "check_bash_status": true,
+    "read_file": true,
+    "write_file": true,
+    "file_search": true,
+    "glob": true,
+    "grep": true,
+    "multi_grep": true,
+    "search_sessions": true,
+    "update_plan": true,
+    "subagent_task": true
+  },
+  "sub_agents": {
+    "generalist-reviewer": {
+      "name": "Generalist Reviewer",
+      "description": "Single-pass reviewer that inspects the diff and surrounding code and reports bug, security, and performance findings from one investigation. Dispatched for standard reviews; replaced by the three specialists on a deep review.",
+      "model": "glm-5.2",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "lsp": true,
+        "search_sessions": true,
+        "update_plan": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/generalist-reviewer/instructions.md"
+      }
+    },
+    "bug-reviewer": {
+      "name": "Bug Reviewer",
+      "description": "Deep-review specialist for correctness defects: logic errors, contract/interface mismatches, state and concurrency bugs, bad error handling, and unchecked failure paths in the changed code.",
+      "model": "glm-5.2",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "lsp": true,
+        "search_sessions": true,
+        "update_plan": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/bug-reviewer/instructions.md"
+      }
+    },
+    "security-reviewer": {
+      "name": "Security Reviewer",
+      "description": "Deep-review specialist for exploitable security flaws: auth/access-control gaps, injection, unsafe trust boundaries, data exposure, and committed secrets. Flags secrets and confirmed critical vulns as non-waivable blocks.",
+      "model": "glm-5.2",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "lsp": true,
+        "search_sessions": true,
+        "update_plan": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/security-reviewer/instructions.md"
+      }
+    },
+    "performance-reviewer": {
+      "name": "Performance Reviewer",
+      "description": "Deep-review specialist for material performance regressions: N+1s, unbounded loading, hot-path blowups, blocking I/O, and needless allocation in the changed code.",
+      "model": "glm-5.2",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "lsp": true,
+        "search_sessions": true,
+        "update_plan": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/performance-reviewer/instructions.md"
+      }
+    },
+    "business-logic-validator": {
+      "name": "Business Logic Validator",
+      "description": "Validates the PR against the linked ticket/issue acceptance criteria when a task reference is present: confirms the change does what the task asked and flags gaps or scope drift. Skipped when no task is linked.",
+      "model": "glm-5.2",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "search_sessions": true,
+        "update_plan": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/business-logic-validator/instructions.md"
+      }
+    },
+    "memory-pass": {
+      "name": "Memory Pass",
+      "description": "Runs after a review is posted. Reads the review, verdict, and any author feedback, then persists durable review conventions, confirmed false-positive patterns, and author preferences to Zuko's memory (and forgets contradicted ones). Never stores secrets or diffs.",
+      "model": "glm-5.2",
+      "tools": {
+        "read_file": true,
+        "file_search": true,
+        "grep": true,
+        "search_sessions": true,
+        "update_plan": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/memory-pass/instructions.md"
+      }
+    }
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  }
+}
