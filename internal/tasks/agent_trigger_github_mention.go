@@ -31,7 +31,7 @@ This event came from GitHub. You are required to respond on GitHub itself before
 </system_message>`
 
 func isGitHubMentionTrigger(provider string, trigger model.AgentTrigger) bool {
-	return trigger.TriggerKey == model.TriggerKeyGitHubMention && strings.HasPrefix(provider, "github")
+	return model.IsGitHubMentionKey(trigger.TriggerKey) && strings.HasPrefix(provider, "github")
 }
 
 // githubMentionEvent is the normalized view of the three webhook shapes a
@@ -61,6 +61,14 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		skipReason = "event shape not supported"
 	case !strings.EqualFold(event.Repo, trigger.TriggerValue):
 		skipReason = "event repository does not match trigger"
+	case trigger.TriggerKey == model.TriggerKeyGitHubIssueMention && event.IsPR:
+		// issue_comment.created is shared with PRs; drop PR events for the
+		// issue-only split trigger (pull_request.opened never matches its keys).
+		skipReason = "pull request event on issue-only mention trigger"
+	case trigger.TriggerKey == model.TriggerKeyGitHubPRMention && !event.IsPR:
+		// issue_comment.created is shared with issues; drop plain-issue events
+		// for the pull-request-only split trigger.
+		skipReason = "issue event on pull-request-only mention trigger"
 	case isHivyIdentityValue(event.MentionedBy):
 		// Loop protection: never respond to content Hivy itself authored.
 		skipReason = "event author is Hivy"

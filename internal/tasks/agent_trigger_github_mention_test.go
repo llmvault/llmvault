@@ -49,7 +49,7 @@ func TestDeliverGitHubMentionSkips(t *testing.T) {
 	trigger := model.AgentTrigger{
 		ID:           uuid.New(),
 		AgentID:      uuid.New(),
-		TriggerKey:   model.TriggerKeyGitHubMention,
+		TriggerKey:   model.TriggerKeyGitHubIssueMention,
 		TriggerValue: "usehivy/hivy",
 	}
 	dispatch := AgentTriggerDispatchPayload{Provider: "github-app", EventType: "issue_comment", EventAction: "created"}
@@ -67,6 +67,37 @@ func TestDeliverGitHubMentionSkips(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := h.deliverGitHubMention(context.Background(), dispatch, trigger, tc.payload); err != nil {
+				t.Fatalf("expected skip, got err=%v", err)
+			}
+		})
+	}
+}
+
+// The split issue/PR triggers share issue_comment.created, so the entity gate
+// must drop the mismatched entity before touching the DB. A payload that clears
+// every other filter (right repo, human author, mentions Hivy) isolates the
+// gate: if it failed to skip, deliverGitHubMention would reach loadTriggerAgent
+// and panic on the zero-value handler's nil db.
+func TestDeliverGitHubMentionEntityGate(t *testing.T) {
+	h := &AgentTriggerDispatchHandler{}
+	trigger := func(key string) model.AgentTrigger {
+		return model.AgentTrigger{ID: uuid.New(), AgentID: uuid.New(), TriggerKey: key, TriggerValue: "usehivy/hivy"}
+	}
+	dispatch := AgentTriggerDispatchPayload{Provider: "github-app", EventType: "issue_comment", EventAction: "created"}
+
+	cases := []struct {
+		name    string
+		trigger model.AgentTrigger
+		payload map[string]any
+	}{
+		{"issue-only trigger drops PR comment", trigger(model.TriggerKeyGitHubIssueMention),
+			githubIssueCommentPayload("usehivy/hivy", "alice", "hey @hivy", true)},
+		{"pr-only trigger drops plain-issue comment", trigger(model.TriggerKeyGitHubPRMention),
+			githubIssueCommentPayload("usehivy/hivy", "alice", "hey @hivy", false)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := h.deliverGitHubMention(context.Background(), dispatch, tc.trigger, tc.payload); err != nil {
 				t.Fatalf("expected skip, got err=%v", err)
 			}
 		})

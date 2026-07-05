@@ -8,7 +8,7 @@ import {
 import { SlackReactionInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form-slack"
 import { GithubMentionInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form-github"
 import {
-  githubMentionKey,
+  isGithubMentionKey,
   slackReactionKey,
 } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
 
@@ -27,7 +27,7 @@ export function TriggerInstallForm({
     )
   }
 
-  if (automation.provider === "github-app" && triggerKey === githubMentionKey) {
+  if (automation.provider === "github-app" && isGithubMentionKey(triggerKey)) {
     return <GithubMentionInstallForm automation={automation} trigger={trigger} />
   }
 

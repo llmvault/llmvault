@@ -9,6 +9,7 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import {
   automationTriggerDefaultInstructions,
+  automationTriggerKey,
   type AutomationItem,
   type InstalledTrigger,
 } from "@/app/w/(chat)/automations/_data"
@@ -31,7 +32,6 @@ import { TriggerDeleteConfirmModal } from "@/app/w/(chat)/automations/_trigger-d
 import {
   type AvailableResource,
   type Connection,
-  githubMentionKey,
   githubRepoResourceType,
   triggerSourceSlug,
 } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
@@ -46,6 +46,9 @@ export function GithubMentionInstallForm({
   const router = useRouter()
   const queryClient = useQueryClient()
   const triggerID = trigger?.id || ""
+  // The mention family shares this form; install with the catalog item's own key
+  // (mention | issue_mention | pr_mention), not a hardcoded one.
+  const triggerKey = trigger?.trigger_key || automationTriggerKey(automation)
   const connectionsQuery = $api.useQuery(
     "get",
     "/v1/connections",
@@ -144,16 +147,16 @@ export function GithubMentionInstallForm({
           item.id !== triggerID &&
           item.provider === "github-app" &&
           item.connection_id === activeConnectionID &&
-          item.trigger_key === githubMentionKey &&
+          item.trigger_key === triggerKey &&
           item.source_slug ===
             triggerSourceSlug(
               "github-app",
-              githubMentionKey,
+              triggerKey,
               selectedResource?.id ?? "",
               (selectedResource?.id ?? "").toLowerCase()
             )
       ) ?? false,
-    [activeConnectionID, selectedAgent, selectedResource?.id, triggerID]
+    [activeConnectionID, selectedAgent, selectedResource?.id, triggerID, triggerKey]
   )
 
   const isLoading =
@@ -216,7 +219,7 @@ export function GithubMentionInstallForm({
       external_resource_name: repoName(selectedResource),
       agent_id: activeAgentID,
       channel_id: activeChannelID,
-      trigger_key: githubMentionKey,
+      trigger_key: triggerKey,
       instructions: trimmedInstructions,
     }
     const updateBody = { ...body, enabled: isEnabled }

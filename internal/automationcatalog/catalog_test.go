@@ -23,15 +23,20 @@ func TestLoadTriggersIncludesShippedTemplates(t *testing.T) {
 		t.Fatalf("slack-reaction=%+v", slack)
 	}
 
-	mention, ok := bySlug["github-mention"]
-	if !ok {
-		t.Fatal("github-mention template missing")
-	}
-	if mention.Integration.Provider != "github-app" || mention.Trigger.Key != "mention" ||
-		mention.Trigger.Defaults.Instructions == "" {
-		t.Fatalf("github-mention=%+v", mention)
-	}
-	if len(mention.Plugins.Required) != 1 || mention.Plugins.Required[0] != "github" {
-		t.Fatalf("github-mention plugins=%+v", mention.Plugins)
+	for slug, wantKey := range map[string]string{
+		"github-issue-mention": "issue_mention",
+		"github-pr-mention":    "pr_mention",
+	} {
+		mention, ok := bySlug[slug]
+		if !ok {
+			t.Fatalf("%s template missing", slug)
+		}
+		if mention.Integration.Provider != "github-app" || mention.Trigger.Key != wantKey ||
+			mention.Trigger.Defaults.Instructions == "" {
+			t.Fatalf("%s=%+v", slug, mention)
+		}
+		if len(mention.Plugins.Required) != 1 || mention.Plugins.Required[0] != "github" {
+			t.Fatalf("%s plugins=%+v", slug, mention.Plugins)
+		}
 	}
 }

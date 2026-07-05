@@ -19,7 +19,7 @@ type AgentTrigger struct {
 	Channel      *Channel       `gorm:"foreignKey:ChannelID;constraint:OnDelete:SET NULL"`
 	ConnectionID *uuid.UUID     `gorm:"type:uuid;index"`
 	Connection   *Connection    `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
-	Name         string         `gorm:"type:text"` // optional human label; nullable in DB
+	Name         string         `gorm:"type:text"`                         // optional human label; nullable in DB
 	TriggerKeys  pq.StringArray `gorm:"type:text[];not null;default:'{}'"` // e.g. {"issues.opened","issues.reopened"}
 	TriggerKey   string         `gorm:"type:text;not null;default:'';index"`
 	TriggerValue string         `gorm:"type:text;not null;default:''"`
@@ -35,17 +35,36 @@ type AgentTrigger struct {
 
 func (AgentTrigger) TableName() string { return "agent_triggers" }
 
-// TriggerKeyGitHubMention marks curated triggers that fire when the Hivy
-// GitHub App is @mentioned on an issue or pull request.
-const TriggerKeyGitHubMention = "mention"
+// TriggerKeyGitHubIssueMention fires only when Hivy is @mentioned on an issue.
+const TriggerKeyGitHubIssueMention = "issue_mention"
 
-// GitHubMentionEventKeys are the webhook event keys a GitHub mention trigger
-// subscribes to: conversation comments (issues and PRs share issue_comment),
-// new issue bodies, and new pull request bodies.
-var GitHubMentionEventKeys = []string{
+// TriggerKeyGitHubPRMention fires only when Hivy is @mentioned on a pull request.
+const TriggerKeyGitHubPRMention = "pr_mention"
+
+// GitHubIssueMentionEventKeys subscribes an issue-only mention trigger. It shares
+// issue_comment.created with pull requests, so the dispatch gate drops comments
+// whose issue is actually a PR (issue.pull_request present).
+var GitHubIssueMentionEventKeys = []string{
 	"issue_comment.created",
 	"issues.opened",
+}
+
+// GitHubPRMentionEventKeys subscribes a pull-request-only mention trigger. It
+// shares issue_comment.created with issues, so the dispatch gate drops comments
+// on plain issues (issue.pull_request absent).
+var GitHubPRMentionEventKeys = []string{
+	"issue_comment.created",
 	"pull_request.opened",
+}
+
+// IsGitHubMentionKey reports whether a trigger key is one of the GitHub mention
+// keys (issue-only or pull-request-only).
+func IsGitHubMentionKey(key string) bool {
+	switch key {
+	case TriggerKeyGitHubIssueMention, TriggerKeyGitHubPRMention:
+		return true
+	}
+	return false
 }
 
 // TriggerMatch defines filtering conditions on the webhook payload.

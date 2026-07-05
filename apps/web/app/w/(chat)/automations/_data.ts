@@ -1,4 +1,5 @@
 import type { components } from "@/lib/api/schema"
+import { isGithubMentionKey } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
 
 export type CatalogAutomation = components["schemas"]["CatalogItem"]
 export type InstalledTrigger =
@@ -82,7 +83,8 @@ export function automationFromInstalledTrigger(
   const providerMeta = PROVIDER_META[provider]
   const triggerKey = trigger.trigger_key || ""
   const isSlackReaction = provider === "slack" && triggerKey === "reaction_added"
-  const isGithubMention = provider === "github-app" && triggerKey === "mention"
+  const isGithubMention =
+    provider === "github-app" && isGithubMentionKey(triggerKey)
   const name =
     trigger.name?.trim() ||
     (isSlackReaction

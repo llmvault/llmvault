@@ -64,6 +64,61 @@ func seedGitHubPluginForAgent(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUI
 	}
 }
 
+// The split issue/PR mention keys resolve to their own templates, so install
+// must store the entity-specific event-key subscription.
+func TestTriggerHandlerCreateGitHubMentionSplitKeys(t *testing.T) {
+	cases := []struct {
+		key       string
+		eventKeys []string
+	}{
+		{model.TriggerKeyGitHubIssueMention, model.GitHubIssueMentionEventKeys},
+		{model.TriggerKeyGitHubPRMention, model.GitHubPRMentionEventKeys},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			db := connectNangoSlackTestDB(t)
+			org, conn := seedNangoGitHubConnection(t, db)
+			agent := seedSlackReactionAgent(t, db, org.ID)
+			seedGitHubPluginForAgent(t, db, org.ID, agent.ID)
+			body, _ := json.Marshal(createTriggerRequest{
+				Name:                 "Test trigger",
+				Provider:             githubAppProvider,
+				ConnectionID:         conn.ID.String(),
+				ExternalResourceKey:  "UseHivy/Hivy",
+				ExternalResourceName: "hivy",
+				AgentID:              agent.ID.String(),
+				TriggerKey:           tc.key,
+				Instructions:         "Reply with one concise comment.",
+			})
+			req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
+			req = middleware.WithOrg(req, &org)
+			rr := httptest.NewRecorder()
+
+			NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
+
+			if rr.Code != http.StatusCreated {
+				t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+			}
+			var resp map[string]agentTriggerResponse
+			if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			var row model.AgentTrigger
+			if err := db.First(&row, "id = ?", resp["trigger"].ID).Error; err != nil {
+				t.Fatalf("load trigger: %v", err)
+			}
+			if row.TriggerKey != tc.key || len(row.TriggerKeys) != len(tc.eventKeys) {
+				t.Fatalf("stored trigger=%+v want key %s keys %v", row, tc.key, tc.eventKeys)
+			}
+			for i, key := range tc.eventKeys {
+				if row.TriggerKeys[i] != key {
+					t.Fatalf("trigger_keys=%v want %v", row.TriggerKeys, tc.eventKeys)
+				}
+			}
+		})
+	}
+}
+
 func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	db := connectNangoSlackTestDB(t)
 	org, conn := seedNangoGitHubConnection(t, db)
@@ -76,7 +131,7 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 		ExternalResourceKey:  "UseHivy/Hivy",
 		ExternalResourceName: "hivy",
 		AgentID:              agent.ID.String(),
-		TriggerKey:           model.TriggerKeyGitHubMention,
+		TriggerKey:           model.TriggerKeyGitHubIssueMention,
 		Instructions:         "Reply with one concise comment.",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
@@ -93,19 +148,19 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 	trigger := resp["trigger"]
-	if trigger.TriggerKey != model.TriggerKeyGitHubMention || trigger.TriggerValue != "usehivy/hivy" {
+	if trigger.TriggerKey != model.TriggerKeyGitHubIssueMention || trigger.TriggerValue != "usehivy/hivy" {
 		t.Fatalf("trigger key/value=%q/%q", trigger.TriggerKey, trigger.TriggerValue)
 	}
 	var row model.AgentTrigger
 	if err := db.First(&row, "id = ?", trigger.ID).Error; err != nil {
 		t.Fatalf("load trigger: %v", err)
 	}
-	if row.TriggerType != "webhook" || len(row.TriggerKeys) != len(model.GitHubMentionEventKeys) {
+	if row.TriggerType != "webhook" || len(row.TriggerKeys) != len(model.GitHubIssueMentionEventKeys) {
 		t.Fatalf("stored trigger=%+v", row)
 	}
-	for i, key := range model.GitHubMentionEventKeys {
+	for i, key := range model.GitHubIssueMentionEventKeys {
 		if row.TriggerKeys[i] != key {
-			t.Fatalf("trigger_keys=%v want %v", row.TriggerKeys, model.GitHubMentionEventKeys)
+			t.Fatalf("trigger_keys=%v want %v", row.TriggerKeys, model.GitHubIssueMentionEventKeys)
 		}
 	}
 	var channel model.Channel
@@ -141,7 +196,7 @@ func TestTriggerHandlerCreateGitHubMentionRequiresGitHubPlugin(t *testing.T) {
 		ExternalResourceKey:  "usehivy/hivy",
 		ExternalResourceName: "hivy",
 		AgentID:              agent.ID.String(),
-		TriggerKey:           model.TriggerKeyGitHubMention,
+		TriggerKey:           model.TriggerKeyGitHubIssueMention,
 		Instructions:         "Reply with one concise comment.",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))

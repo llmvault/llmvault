@@ -83,8 +83,9 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 					provider string
 					key      string
 				}{
-					"slack-reaction": {provider: "slack", key: "reaction_added"},
-					"github-mention": {provider: "github-app", key: "mention"},
+					"slack-reaction":       {provider: "slack", key: "reaction_added"},
+					"github-issue-mention": {provider: "github-app", key: "issue_mention"},
+					"github-pr-mention":    {provider: "github-app", key: "pr_mention"},
 				}
 				if len(resp.Data) != len(wantTriggers) {
 					t.Fatalf("trigger items = %d, want %d", len(resp.Data), len(wantTriggers))

@@ -14,7 +14,7 @@ func seedMentionTrigger(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, rep
 	t.Helper()
 	trigger := model.AgentTrigger{
 		ID: uuid.New(), OrgID: orgID, AgentID: agentID, TriggerType: "webhook",
-		TriggerKey: model.TriggerKeyGitHubMention, TriggerValue: repo, Enabled: true,
+		TriggerKey: model.TriggerKeyGitHubPRMention, TriggerValue: repo, Enabled: true,
 	}
 	if err := db.Create(&trigger).Error; err != nil {
 		t.Fatalf("create mention trigger: %v", err)
