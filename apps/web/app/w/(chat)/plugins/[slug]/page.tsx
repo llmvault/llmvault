@@ -3,6 +3,7 @@
 import { use, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Modal, Skeleton, toast, useOverlayState } from "@heroui/react"
+import NextLink from "next/link"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -354,6 +355,13 @@ export default function PluginDetailPage({
       <PluginDetailShell
         content={
           <div className="flex flex-col gap-8">
+            <NextLink
+              href="/w/plugins"
+              className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm transition-colors"
+            >
+              <AppIcon icon="arrow-left" className="h-4 w-4" />
+              Plugins
+            </NextLink>
             <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div
