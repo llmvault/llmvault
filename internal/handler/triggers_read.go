@@ -113,7 +113,27 @@ func (h *TriggerHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
 		return
 	}
-	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: h.triggerResponse(trigger)})
+	resp := h.triggerResponse(trigger)
+	h.applyLastRun(r.Context(), &resp, trigger.ID)
+	writeJSON(w, http.StatusOK, triggerGetResponse{Trigger: resp})
+}
+
+// applyLastRun fills the most-recent run time + session id for a trigger from
+// agent_trigger_deliveries (every fire records one). Detail read only, so the
+// UI can show a "last run" line that links to the session.
+func (h *TriggerHandler) applyLastRun(ctx context.Context, resp *triggerAutomationResponse, triggerID uuid.UUID) {
+	var delivery model.AgentTriggerDelivery
+	err := h.db.WithContext(ctx).
+		Where("trigger_id = ?", triggerID).
+		Order("created_at DESC").
+		First(&delivery).Error
+	if err != nil {
+		return
+	}
+	resp.LastRunAt = formatTriggerTime(delivery.CreatedAt)
+	if delivery.SessionID != uuid.Nil {
+		resp.LastRunSessionID = delivery.SessionID.String()
+	}
 }
 
 func (h *TriggerHandler) loadTrigger(r *http.Request, orgID, id uuid.UUID) (model.AgentTrigger, error) {

@@ -44,6 +44,11 @@ type triggerAutomationResponse struct {
 	SecretSet bool   `json:"secret_set"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+	// LastRunAt is when this trigger most recently fired (created a session), if
+	// ever. RFC3339. Sourced from agent_trigger_deliveries on the detail read.
+	LastRunAt string `json:"last_run_at,omitempty"`
+	// LastRunSessionID links to the session of the most recent run, if any.
+	LastRunSessionID string `json:"last_run_session_id,omitempty"`
 }
 
 func triggerAutomationToResponse(trigger model.AgentTrigger) triggerAutomationResponse {
