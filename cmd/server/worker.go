@@ -41,11 +41,9 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		return fmt.Errorf("worker: %w", err)
 	}
 
-	var workerSender email.Sender = &email.LogSender{}
-	if cfg.ResendAPIKey != "" {
-		workerSender = email.NewResendSender(cfg.ResendAPIKey, cfg.EmailFrom)
-	} else {
-		slog.Warn("HIVY_RESEND_API_KEY not set — emails will be logged only")
+	workerSender := email.NewTransport(emailTransportConfig(cfg))
+	if cfg.SMTPHost == "" {
+		slog.Warn("HIVY_SMTP_HOST not set — emails will be rendered to temp files, not sent")
 	}
 
 	enqueuer := enqueue.NewClient(redisOpt)

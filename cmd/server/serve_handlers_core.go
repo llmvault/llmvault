@@ -123,9 +123,13 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
 	brandHandler := handler.NewBrandHandler(database)
 	plansHandler := handler.NewPlansHandler(database)
-	var emailSender email.Sender = &email.LogSender{}
-	if enqueuer != nil && cfg.ResendAPIKey != "" {
+	// Handlers enqueue emails for async delivery when a queue is available;
+	// without one (degraded/dev), send through the transport directly.
+	var emailSender email.Sender
+	if enqueuer != nil {
 		emailSender = email.NewAsynqSender(enqueuer)
+	} else {
+		emailSender = email.NewTransport(emailTransportConfig(cfg))
 	}
 	orgInviteHandler := handler.NewOrgInviteHandler(database, emailSender, cfg.FrontendURL)
 	orgInviteHandler.SetEnqueuer(enqueuer)

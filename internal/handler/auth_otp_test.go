@@ -47,7 +47,7 @@ func newOTPHarness(t *testing.T) *otpTestHarness {
 		db, pk, signingKey,
 		"hivy-test", "http://localhost:8080",
 		15*time.Minute, 720*time.Hour,
-		&email.LogSender{},
+		&email.NoopSender{},
 		"http://localhost:3000",
 		true, // autoConfirmEmail
 		billing.NewCreditsService(db),

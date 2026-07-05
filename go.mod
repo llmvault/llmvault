@@ -41,18 +41,18 @@ require (
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/qdrant/go-client v1.17.1
 	github.com/redis/go-redis/v9 v9.18.0
-	github.com/resend/resend-go/v3 v3.7.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/slack-go/slack v0.23.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/superradcompany/microsandbox/sdk/go v0.5.6
 	github.com/swaggo/swag v1.16.6
+	github.com/wneessen/go-mail v0.8.0
 	go.mongodb.org/mongo-driver/v2 v2.6.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.53.0
 	golang.org/x/image v0.36.0
 	golang.org/x/oauth2 v0.35.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.21.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
@@ -177,11 +177,11 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
-	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
-	golang.org/x/tools v0.44.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/net v0.55.0
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/tools v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
 	gotest.tools/v3 v3.5.2 // indirect

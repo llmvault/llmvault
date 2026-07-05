@@ -14,13 +14,10 @@ import {
   Text,
 } from "@react-email/components"
 
-export const siteUrl = "https://usehivy.com"
+// Placeholders substituted by the Go backend at send time.
+export const siteUrl = "{{{siteUrl}}}"
 
-const emailAssetBaseUrl =
-  process.env.HIVY_EMAIL_RENDER_TARGET === "resend" ||
-  process.env.NODE_ENV === "production"
-    ? (process.env.HIVY_EMAIL_ASSET_URL ?? siteUrl)
-    : "/static"
+const emailAssetBaseUrl = "{{{assetBaseUrl}}}"
 
 export const brand = {
   background: "#FFFAFA",

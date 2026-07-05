@@ -46,7 +46,7 @@ func newRefreshHarness(t *testing.T) *refreshTestHarness {
 		db, pk, signingKey,
 		"hivy-test", "http://localhost:8080",
 		15*time.Minute, refreshTTL,
-		&email.LogSender{},
+		&email.NoopSender{},
 		"http://localhost:3000",
 		true,
 		billing.NewCreditsService(db),

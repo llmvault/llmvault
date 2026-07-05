@@ -50,10 +50,20 @@ type Config struct {
 	// Auth: auto-confirm email on registration (useful for self-hosted deployments)
 	AutoConfirmEmail bool `env:"HIVY_AUTO_CONFIRM_EMAIL" envDefault:"false"`
 
-	// Resend (transactional email). When ResendAPIKey is empty the worker
-	// falls back to LogSender (emails appear in logs only).
-	ResendAPIKey string `env:"HIVY_RESEND_API_KEY"`
-	EmailFrom    string `env:"HIVY_EMAIL_FROM" envDefault:"Betty from Hivy <betty@notifications.usehivy.com>"`
+	// Email (SMTP transactional delivery). Provider-agnostic — point at any SMTP
+	// server (Resend SMTP, SES, Postmark, self-hosted…). When SMTPHost is empty
+	// the worker renders each email and writes it to a temp file (logging the
+	// path) instead of sending, so local dev needs no mail provider.
+	SMTPHost     string `env:"HIVY_SMTP_HOST"`
+	SMTPPort     int    `env:"HIVY_SMTP_PORT" envDefault:"587"`
+	SMTPUsername string `env:"HIVY_SMTP_USERNAME"`
+	SMTPPassword string `env:"HIVY_SMTP_PASSWORD"`
+	SMTPTLS      string `env:"HIVY_SMTP_TLS" envDefault:"starttls"` // starttls | ssl | none
+	EmailFrom    string `env:"HIVY_EMAIL_FROM"` // e.g. "Acme <hello@acme.com>"; required for SMTP delivery
+	// Substituted into templates as {{{siteUrl}}} (footer links) and
+	// {{{assetBaseUrl}}} (logo image base).
+	EmailSiteURL  string `env:"HIVY_EMAIL_SITE_URL" envDefault:"https://usehivy.com"`
+	EmailAssetURL string `env:"HIVY_EMAIL_ASSET_URL" envDefault:"https://usehivy.com/static"`
 
 	OAuthGitHubClientID     string `env:"HIVY_OAUTH_GITHUB_CLIENT_ID"`
 	OAuthGitHubClientSecret string `env:"HIVY_OAUTH_GITHUB_CLIENT_SECRET"`

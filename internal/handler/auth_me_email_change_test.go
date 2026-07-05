@@ -34,7 +34,7 @@ func TestIntegration_UpdateProfile_EmailChangeRequiresReverification_WithAutoCon
 		db, pk, []byte("test-signing-key-for-refresh-tokens"),
 		"hivy-test", "http://localhost:8080",
 		15*time.Minute, 720*time.Hour,
-		&email.LogSender{},
+		&email.NoopSender{},
 		"http://localhost:3000",
 		true, // autoConfirmEmail — the dangerous configuration
 		billing.NewCreditsService(db),

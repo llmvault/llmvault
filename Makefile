@@ -78,6 +78,13 @@ openapi:
 	"
 	@echo "✓ docs/openapi.json updated"
 
+.PHONY: emails
+# Rebuild the transactional email HTML/text from the React Email sources into
+# internal/email/templates/dist (committed and embedded by the Go backend).
+emails:
+	cd internal/email/templates && pnpm install && pnpm run build
+	@echo "✓ internal/email/templates/dist regenerated"
+
 # Register Daytona snapshots from runtime images already published.
 # Requires HIVY_DAYTONA_API_KEY, HIVY_DAYTONA_API_URL, HIVY_DAYTONA_TARGET.
 # Usage: make build-sandbox-runtime-templates SANDBOX_RUNTIME_VERSION=v0.0.1
