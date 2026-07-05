@@ -14,8 +14,6 @@ export type PublicConfig = {
   connectionsHost: string
   /** Wildcard preview host suffix ({port}-{id}.<domain>) for sandbox previews. */
   previewDomain: string
-  /** Whether the admin panel routes are enabled. */
-  adminEnabled: boolean
 }
 
 /** Global key under which the server injects the config for the client to read. */
@@ -49,7 +47,6 @@ function readServerPublicConfig(): PublicConfig {
     apiUrl,
     connectionsHost,
     previewDomain,
-    adminEnabled: process.env.HIVY_ADMIN_ENABLED === "true",
   }
 }
 
@@ -89,7 +86,6 @@ export function setPublicConfigForTests(overrides: Partial<PublicConfig> = {}): 
     apiUrl: "https://api.usehivy.test",
     connectionsHost: "connections.usehivy.test",
     previewDomain: "preview.usehivy.test",
-    adminEnabled: false,
   }
   ;(globalThis as unknown as Record<string, unknown>).window ??= {}
   ;(window as unknown as Record<string, PublicConfig>)[PUBLIC_CONFIG_KEY] = { ...base, ...overrides }

@@ -1,0 +1,22 @@
+{{{siteUrl}}}
+
+Confirm your email
+
+
+FINISH SETTING UP HIVY, {{{FIRSTNAME}}}
+
+Use this code to confirm your email address and protect your Hivy account.
+
+{{{code}}}
+
+The code expires in {{{expiresIn}}}. After confirmation, you can keep working in Hivy.
+
+----------------------------------------
+
+If you did not create or update a Hivy account, no action is needed.
+
+This confirmation was sent to {{{email}}}.
+
+{{{siteLabel}}} {{{siteUrl}}} | Terms {{{siteUrl}}}/terms | Privacy {{{siteUrl}}}/legal
+
+HIVY TECHNOLOGIES LTD, B1 Orji Murray St, behind Romay Garden Estate, off Lekki - Epe Expressway, Eti-Osa, Lekki 106104, Lagos.

@@ -1,0 +1,68 @@
+[
+  {
+    "alias": "auth-confirm-email",
+    "subject": "Your Hivy confirmation code: {{{code}}}",
+    "variables": [
+      "code",
+      "email",
+      "expiresIn",
+      "firstName"
+    ]
+  },
+  {
+    "alias": "auth-otp-login",
+    "subject": "Your Hivy login code: {{{code}}}",
+    "variables": [
+      "code",
+      "email",
+      "expiresIn"
+    ]
+  },
+  {
+    "alias": "auth-password-changed",
+    "subject": "Your Hivy password was changed",
+    "variables": [
+      "changedAt",
+      "firstName"
+    ]
+  },
+  {
+    "alias": "auth-password-reset",
+    "subject": "Reset your Hivy password",
+    "variables": [
+      "expiresIn",
+      "firstName",
+      "resetUrl"
+    ]
+  },
+  {
+    "alias": "auth-welcome",
+    "subject": "Welcome to Hivy, {{{firstName}}}",
+    "variables": [
+      "firstName"
+    ]
+  },
+  {
+    "alias": "org-invite",
+    "subject": "{{{inviterName}}} invited you to {{{orgName}}}",
+    "variables": [
+      "expiresIn",
+      "firstName",
+      "inviteUrl",
+      "inviterName",
+      "orgName",
+      "role"
+    ]
+  },
+  {
+    "alias": "org-invite-accepted",
+    "subject": "{{{invitedName}}} joined {{{orgName}}}",
+    "variables": [
+      "adminFirstName",
+      "invitedEmail",
+      "invitedName",
+      "orgName",
+      "role"
+    ]
+  }
+]

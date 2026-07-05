@@ -49,6 +49,10 @@ target/
 dist/
 **/target/
 **/dist/
+# But keep the committed email templates dist/ — the Go server embeds it via
+# //go:embed, so the image build (COPY . .) must include it.
+!internal/email/templates/dist/
+!internal/email/templates/dist/**
 
 # Claude / AI agents
 .claude/

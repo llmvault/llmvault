@@ -1,0 +1,20 @@
+{{{siteUrl}}}
+
+Workspace invitation
+
+
+YOU'RE INVITED TO {{{ORGNAME}}}
+
+{{{inviterName}}} invited you to collaborate in {{{orgName}}} on Hivy.
+
+Role
+
+{{{role}}}
+
+Accept invitation {{{inviteUrl}}}
+
+This invitation expires in {{{expiresIn}}}.
+
+{{{siteLabel}}} {{{siteUrl}}} | Terms {{{siteUrl}}}/terms | Privacy {{{siteUrl}}}/legal
+
+HIVY TECHNOLOGIES LTD, B1 Orji Murray St, behind Romay Garden Estate, off Lekki - Epe Expressway, Eti-Osa, Lekki 106104, Lagos.

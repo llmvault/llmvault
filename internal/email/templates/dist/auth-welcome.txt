@@ -1,0 +1,16 @@
+{{{siteUrl}}}
+
+Welcome to Hivy
+
+
+YOU'RE IN, {{{FIRSTNAME}}}
+
+Your email is confirmed. Hivy is ready to help your workspace connect tools, organize context, and move work forward from one place.
+
+Open Hivy {{{siteUrl}}}/w
+
+Start by connecting the tools your team already uses, then give Hivy the context it needs to help with day-to-day work.
+
+{{{siteLabel}}} {{{siteUrl}}} | Terms {{{siteUrl}}}/terms | Privacy {{{siteUrl}}}/legal
+
+HIVY TECHNOLOGIES LTD, B1 Orji Murray St, behind Romay Garden Estate, off Lekki - Epe Expressway, Eti-Osa, Lekki 106104, Lagos.

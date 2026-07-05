@@ -4,5 +4,8 @@ out/
 *.log
 *.tsbuildinfo
 
-# NOTE: dist/ is intentionally NOT ignored — the Go backend embeds the
-# rendered HTML/text/manifest from dist/ at build time.
+# dist/ holds the rendered HTML/text/manifest the Go backend embeds via
+# //go:embed. The repo-root .gitignore ignores every `dist/`, so re-include
+# this one explicitly — these files MUST be committed for `go build` to work.
+!dist/
+!dist/**

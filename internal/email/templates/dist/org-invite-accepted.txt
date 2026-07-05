@@ -1,0 +1,24 @@
+{{{siteUrl}}}
+
+Invitation accepted
+
+
+{{{ADMINFIRSTNAME}}}, {{{INVITEDNAME}}} JOINED {{{ORGNAME}}}
+
+Your invitation was accepted and the new member is now part of the workspace.
+
+Member
+
+{{{invitedName}}} ({{{invitedEmail}}})
+
+Role
+
+{{{role}}}
+
+Review workspace settings {{{siteUrl}}}/w/settings
+
+You can update roles and workspace access from Hivy settings.
+
+{{{siteLabel}}} {{{siteUrl}}} | Terms {{{siteUrl}}}/terms | Privacy {{{siteUrl}}}/legal
+
+HIVY TECHNOLOGIES LTD, B1 Orji Murray St, behind Romay Garden Estate, off Lekki - Epe Expressway, Eti-Osa, Lekki 106104, Lagos.

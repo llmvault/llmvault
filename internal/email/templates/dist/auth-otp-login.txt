@@ -1,0 +1,22 @@
+{{{siteUrl}}}
+
+Secure sign-in
+
+
+USE THIS CODE TO SIGN IN
+
+Enter this code in Hivy to finish signing in to your workspace.
+
+{{{code}}}
+
+The code expires in {{{expiresIn}}}. If you did not request it, you can ignore this email.
+
+----------------------------------------
+
+Hivy will never ask for this code outside the sign-in flow.
+
+This code was requested for {{{email}}}.
+
+{{{siteLabel}}} {{{siteUrl}}} | Terms {{{siteUrl}}}/terms | Privacy {{{siteUrl}}}/legal
+
+HIVY TECHNOLOGIES LTD, B1 Orji Murray St, behind Romay Garden Estate, off Lekki - Epe Expressway, Eti-Osa, Lekki 106104, Lagos.
