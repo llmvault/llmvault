@@ -1,4 +1,5 @@
 import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
+import { subagentIdentityJobId } from "@/app/w/(chat)/_lib/session-subagent-identity"
 
 export type SubagentRunStatus = "running" | "completed" | "failed"
 
@@ -26,23 +27,24 @@ export function subagentFrameMetadata(
 
   if (!scoped && !hasSubagentPayload && !childSessionId) return null
 
-  const jobId =
-    stringValue(subagent, "job_id") ||
-    stringValue(data, "job_id") ||
-    childSessionId ||
-    frame.id ||
-    `${frame.event}:${Date.now()}`
+  const agentName =
+    stringValue(subagent, "agent_name") || stringValue(data, "agent_name")
+  const parentSessionId =
+    stringValue(subagent, "parent_session_id") ||
+    stringValue(data, "parent_session_id") ||
+    (typeof frame.sessionId === "string" ? frame.sessionId.trim() : "")
+
+  const jobId = subagentIdentityJobId({
+    jobId: stringValue(subagent, "job_id") || stringValue(data, "job_id"),
+    childSessionId,
+    agentName,
+    parentSessionId,
+  })
 
   return {
     jobId,
-    agentName:
-      stringValue(subagent, "agent_name") ||
-      stringValue(data, "agent_name") ||
-      undefined,
-    parentSessionId:
-      stringValue(subagent, "parent_session_id") ||
-      stringValue(data, "parent_session_id") ||
-      undefined,
+    agentName: agentName || undefined,
+    parentSessionId: parentSessionId || undefined,
     childSessionId: childSessionId || undefined,
   }
 }

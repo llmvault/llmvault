@@ -773,9 +773,11 @@ async fn process_single_turn(
             .activate_session_stream(&session_id, stream_id)
             .await;
     }
+    let durable_session = durable_session_for(&session_id, stream_metadata.as_ref());
     let event_context = DurableEventContext {
         emitter: emitter.as_ref(),
         session_id: &session_id,
+        durable_session_id: &durable_session,
         source: event_source,
         stream_id: session_stream_id.as_deref(),
         metadata: stream_metadata.as_ref(),
@@ -907,6 +909,9 @@ async fn process_single_turn(
             let parent_event_context = DurableEventContext {
                 emitter: emitter.as_ref(),
                 session_id: &parent_session,
+                // Lifecycle events are already parent-scoped; durable copy
+                // matches the live session.
+                durable_session_id: &parent_session,
                 source: "subagent_task",
                 stream_id: session_stream_id.as_deref(),
                 metadata: stream_metadata.as_ref(),
@@ -1295,9 +1300,11 @@ async fn consume_agent_stream(
     let mut error_message: Option<String> = None;
     let mut sequence: u64 = 0;
     let mut durable = DurableAgentStream::default();
+    let durable_session = durable_session_for(session_id, metadata);
     let event_context = DurableEventContext {
         emitter,
         session_id,
+        durable_session_id: &durable_session,
         source,
         stream_id: stream_id.as_deref(),
         metadata,
@@ -1470,10 +1477,30 @@ struct DurableAgentStream {
 
 struct DurableEventContext<'a> {
     emitter: &'a OutboundEmitter,
+    /// Session the LIVE turn runs under. For a subagent turn this is the child
+    /// session id, and it is what the live preview copy is scoped to.
     session_id: &'a SessionId,
+    /// Session the DURABLE copy is persisted under. Equal to `session_id` for a
+    /// normal turn, but the PARENT session id for a subagent turn so the
+    /// subagent detail survives a parent page refresh. runtime_seq is assigned
+    /// downstream per this session id (see storage outbox_enqueue_runtime).
+    durable_session_id: &'a SessionId,
     source: &'static str,
     stream_id: Option<&'a str>,
     metadata: Option<&'a StreamEventMetadata>,
+}
+
+/// The session the DURABLE canonical copy must be scoped to. For a subagent
+/// turn (metadata carries a subagent block) this is the PARENT session id so the
+/// subagent detail is persisted under, and replays with, the parent session.
+fn durable_session_for(
+    session_id: &SessionId,
+    metadata: Option<&StreamEventMetadata>,
+) -> SessionId {
+    metadata
+        .and_then(|metadata| metadata.subagent.as_ref())
+        .map(|subagent| SessionId::from(subagent.parent_session_id.as_str()))
+        .unwrap_or_else(|| session_id.clone())
 }
 
 struct DurableDelta {
@@ -1672,9 +1699,12 @@ async fn emit_canonical_runtime_event(
         .emitter
         .emit(OutboundEvent::new(
             event_type,
+            // The durable copy is scoped to the parent session for subagent
+            // turns; the metadata still stamps scope:"subagent" + the subagent
+            // block, and runtime_seq is drawn from this session id downstream.
             canonical_runtime_payload(
                 event_type,
-                context.session_id,
+                context.durable_session_id,
                 context.source,
                 sequence,
                 context.stream_id,
@@ -2114,10 +2144,11 @@ mod stream_tests {
     use agent::AgentEvent;
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use domain::SessionId;
+    use domain::{OutboundEvent, SessionId};
     use futures::StreamExt;
-    use outbound::{OutboundEmitter, OutboundRegistry};
-    use serde_json::json;
+    use outbound::{OutboundChannel, OutboundEmitter, OutboundError, OutboundRegistry};
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
     use storage::{OutboxRepo, OutboxRow};
     use tokio::sync::RwLock;
@@ -2286,6 +2317,207 @@ mod stream_tests {
         assert_eq!(payload["subagent"]["agent_name"], "helper");
         assert_eq!(payload["subagent"]["parent_session_id"], "parent-session");
         assert_eq!(payload["subagent"]["child_session_id"], "child-session");
+    }
+
+    /// Outbox that records every runtime event and assigns a monotonic
+    /// per-session `runtime_seq`, mirroring the production
+    /// `outbox_enqueue_runtime` gateway. This lets the durable-scoping test
+    /// assert that subagent detail is persisted under the PARENT session and
+    /// carries a non-zero `runtime_seq`.
+    #[derive(Default)]
+    struct RuntimeSeqOutbox {
+        rows: Mutex<Vec<(String, Value)>>,
+        seqs: Mutex<HashMap<String, i64>>,
+    }
+
+    #[async_trait]
+    impl OutboxRepo for RuntimeSeqOutbox {
+        async fn enqueue(
+            &self,
+            _channel_name: &str,
+            event_type: &str,
+            payload: Value,
+        ) -> storage::Result<i64> {
+            let mut rows = self.rows.lock().expect("rows lock");
+            rows.push((event_type.to_string(), payload));
+            Ok(rows.len() as i64)
+        }
+
+        async fn enqueue_runtime_event(
+            &self,
+            _channel_name: &str,
+            event_type: &str,
+            mut payload: Value,
+        ) -> storage::Result<i64> {
+            if let Some(session_id) = payload
+                .get("session_id")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+            {
+                let mut seqs = self.seqs.lock().expect("seqs lock");
+                let seq = seqs.entry(session_id).or_insert(0);
+                *seq += 1;
+                if let Some(map) = payload.as_object_mut() {
+                    map.insert("runtime_seq".to_string(), json!(*seq));
+                }
+            }
+            let mut rows = self.rows.lock().expect("rows lock");
+            rows.push((event_type.to_string(), payload));
+            Ok(rows.len() as i64)
+        }
+
+        async fn claim_due(&self, _limit: u32) -> storage::Result<Vec<OutboxRow>> {
+            Ok(Vec::new())
+        }
+
+        async fn pending_count(&self) -> storage::Result<i64> {
+            Ok(0)
+        }
+
+        async fn mark_delivered(&self, _id: i64) -> storage::Result<()> {
+            Ok(())
+        }
+
+        async fn schedule_retry(
+            &self,
+            _id: i64,
+            _attempts: i32,
+            _next_retry_at: DateTime<Utc>,
+        ) -> storage::Result<()> {
+            Ok(())
+        }
+
+        async fn mark_failed(&self, _id: i64) -> storage::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// Websocket-kind channel accepting every runtime event so the emitter
+    /// routes durable events through `enqueue_runtime_event` (the runtime_seq
+    /// path).
+    struct RuntimeChannel;
+
+    #[async_trait]
+    impl OutboundChannel for RuntimeChannel {
+        fn name(&self) -> &str {
+            "runtime"
+        }
+        fn kind(&self) -> &'static str {
+            "websocket"
+        }
+        fn accepts(&self, _event_type: &str) -> bool {
+            true
+        }
+        async fn deliver(&self, _event: &OutboundEvent) -> outbound::Result<()> {
+            Err(OutboundError::Delivery("unused".into()))
+        }
+    }
+
+    #[tokio::test]
+    async fn subagent_durable_events_are_scoped_to_parent_session() {
+        let outbox = Arc::new(RuntimeSeqOutbox::default());
+        let registry = OutboundRegistry::new().with_channel(Arc::new(RuntimeChannel));
+        let emitter = OutboundEmitter::new(outbox.clone(), Arc::new(RwLock::new(registry)));
+        let sink = RecordingSink::default();
+        let child_session_id = SessionId::from("child-session");
+        let metadata = StreamEventMetadata {
+            trace_id: None,
+            turn_id: Some("turn-1".to_string()),
+            subagent: Some(SubagentStreamMetadata {
+                job_id: "job-1".to_string(),
+                agent_name: "helper".to_string(),
+                parent_session_id: "parent-session".to_string(),
+                child_session_id: "child-session".to_string(),
+            }),
+        };
+        let stream = futures::stream::iter(vec![
+            AgentEvent::ThinkingChunk {
+                text: "let me think".to_string(),
+            },
+            AgentEvent::TokenChunk {
+                text: "hel".to_string(),
+            },
+            AgentEvent::TokenChunk {
+                text: "lo".to_string(),
+            },
+            AgentEvent::ToolCall {
+                id: "call-1".to_string(),
+                tool: "search".to_string(),
+                args: json!({"q": "rust"}),
+            },
+            AgentEvent::ToolResult {
+                id: "call-1".to_string(),
+                result: json!({"ok": true}),
+            },
+        ])
+        .boxed();
+
+        consume_agent_stream(
+            stream,
+            Some("parent-stream".to_string()),
+            &child_session_id,
+            &emitter,
+            "session",
+            &sink,
+            Some(&metadata),
+        )
+        .await;
+
+        let rows = outbox.rows.lock().expect("rows lock").clone();
+        let durable: Vec<&(String, Value)> = rows
+            .iter()
+            .filter(|(_, payload)| payload["durability"] == "durable")
+            .collect();
+        assert!(
+            !durable.is_empty(),
+            "expected durable subagent events to be emitted"
+        );
+
+        // Every durable subagent-detail event is persisted under the PARENT
+        // session, stamped scope:"subagent" with the subagent block, and
+        // carries a monotonic non-zero runtime_seq drawn from the parent
+        // session sequence.
+        for (event_type, payload) in &durable {
+            assert_eq!(
+                payload["session_id"], "parent-session",
+                "durable {event_type} must be scoped to the parent session"
+            );
+            assert_eq!(payload["scope"], "subagent", "durable {event_type} scope");
+            assert_eq!(payload["subagent"]["job_id"], "job-1");
+            assert_eq!(payload["subagent"]["parent_session_id"], "parent-session");
+            assert_eq!(payload["subagent"]["child_session_id"], "child-session");
+            let runtime_seq = payload["runtime_seq"]
+                .as_i64()
+                .unwrap_or_else(|| panic!("durable {event_type} missing runtime_seq"));
+            assert!(
+                runtime_seq >= 1,
+                "durable {event_type} runtime_seq must be non-zero, got {runtime_seq}"
+            );
+        }
+
+        // Token deltas are coalesced into a single durable row, not one per
+        // token (same as the main agent via DurableAgentStream).
+        let token_rows: Vec<&&(String, Value)> = durable
+            .iter()
+            .filter(|(event_type, _)| event_type == "token")
+            .collect();
+        assert_eq!(
+            token_rows.len(),
+            1,
+            "token deltas must coalesce into a single durable row"
+        );
+        assert_eq!(token_rows[0].1["text"], "hello");
+        assert_eq!(token_rows[0].1["coalesced"], true);
+
+        // The live preview copy stays scoped to the CHILD session (unchanged
+        // path) so the in-runtime broker still shows subagent detail live.
+        let preview_child = rows.iter().any(|(_, payload)| {
+            payload["durability"] == "preview" && payload["session_id"] == "child-session"
+        });
+        assert!(
+            preview_child,
+            "live preview copy must remain scoped to the child session"
+        );
     }
 }
 

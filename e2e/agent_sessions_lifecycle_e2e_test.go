@@ -102,7 +102,7 @@ func runAgentSessionsCatalogAgentCronSleepWakeE2E(t *testing.T, ctx context.Cont
 	githubPluginID := agentSessionsSeedInstalledPluginFixture(t, orgID, ownerUserID, "github")
 	t.Logf("seeded GitHub plugin install for session sandbox lifecycle agent plugin_id=%s", githubPluginID)
 
-	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "hakaree")
+	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "hakaree-software-engineer")
 	assertAgentSessionsAgentSandboxImage(t, "lifecycle Hakaree", agent, model.SandboxImageDeveloper)
 	channel := agentSessionsCreateChannel(t, ctx, apiBase, token, orgID, "lifecycle-hakaree-"+runID, agent.ID)
 

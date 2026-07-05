@@ -1,6 +1,7 @@
 import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
 import { streamFrameToSessionEvent } from "@/app/w/(chat)/_lib/live-session-stream"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
+import { subagentIdentityJobId } from "@/app/w/(chat)/_lib/session-subagent-identity"
 import {
   subagentFrameKey,
   subagentStatusForFrame,
@@ -201,26 +202,26 @@ function subagentEventMetadata(
     return null
   }
 
-  const jobId =
-    stringValue(subagent, "job_id") ||
-    stringValue(payload, "job_id") ||
-    childSessionId ||
-    event.event_id ||
-    event.id ||
-    `${event.event_type}:${event.sequence_number ?? "unknown"}`
+  const agentName =
+    stringValue(subagent, "agent_name") ||
+    stringValue(payload, "agent_name") ||
+    stringValue(payload, "agent")
+  const parentSessionId =
+    stringValue(subagent, "parent_session_id") ||
+    stringValue(payload, "parent_session_id") ||
+    (typeof event.session_id === "string" ? event.session_id.trim() : "")
+
+  const jobId = subagentIdentityJobId({
+    jobId: stringValue(subagent, "job_id") || stringValue(payload, "job_id"),
+    childSessionId,
+    agentName,
+    parentSessionId,
+  })
 
   return {
     jobId,
-    agentName:
-      stringValue(subagent, "agent_name") ||
-      stringValue(payload, "agent_name") ||
-      stringValue(payload, "agent") ||
-      undefined,
-    parentSessionId:
-      stringValue(subagent, "parent_session_id") ||
-      stringValue(payload, "parent_session_id") ||
-      event.session_id ||
-      undefined,
+    agentName: agentName || undefined,
+    parentSessionId: parentSessionId || undefined,
     childSessionId: childSessionId || undefined,
   }
 }

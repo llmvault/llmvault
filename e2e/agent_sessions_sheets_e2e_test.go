@@ -83,6 +83,16 @@ func TestAgentSessionsSheetsE2E(t *testing.T) {
 	agentSessionsJSON(t, ctx, http.MethodPost, apiBase+"/v1/agents/"+defaultAgent.ID+"/plugins/sheets", ownerToken, orgID, nil, http.StatusOK, nil)
 	t.Log("sheets plugin installed for org and enabled for the default agent")
 
+	// Sheets tools are channel-scoped (see internal/sheets/mcptools.go) and derive
+	// their channel from the runtime-injected _hivy_session_id. Create a real
+	// session and inject its id into subsequent tool calls; the harness stands in
+	// for the Rust runtime that normally supplies it.
+	sheetsChannel := agentSessionsCreateChannel(t, ctx, apiBase, ownerToken, orgID, "sheets-e2e-"+runID, defaultAgent.ID)
+	sheetsSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, sheetsChannel.ID, "sheets e2e session")
+	sheetsE2ESessionID = sheetsSession.Session.ID
+	t.Cleanup(func() { sheetsE2ESessionID = "" })
+	t.Logf("sheets session id=%s channel=%s", sheetsE2ESessionID, sheetsChannel.ID)
+
 	// --- After install: all 8 tools register and the skill is discoverable.
 	client := sheetsE2EConnectMCP(t, ctx, db, svc, orgUUID, agentUUID)
 	tools := sheetsE2EListTools(t, ctx, client)
@@ -156,7 +166,7 @@ func TestAgentSessionsSheetsE2E(t *testing.T) {
 		} `json:"sheets"`
 		NextCursor string `json:"next_cursor"`
 	}
-	agentSessionsJSON(t, ctx, http.MethodGet, apiBase+"/v1/sheets?limit=50", ownerToken, orgID, nil, http.StatusOK, &listPage)
+	agentSessionsJSON(t, ctx, http.MethodGet, apiBase+"/v1/sheets?limit=50&channel_id="+sheetsChannel.ID, ownerToken, orgID, nil, http.StatusOK, &listPage)
 	foundListed := false
 	for _, s := range listPage.Sheets {
 		if s.ID == sheetID {

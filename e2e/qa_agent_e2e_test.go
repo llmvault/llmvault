@@ -63,7 +63,7 @@ func TestAgentSessionsQAAgentE2E(t *testing.T) {
 	// --- Install the catalog agent. A 409 here means the required plugins are
 	// not installed; agentSessionsInstallCatalogAgent fatals with the body
 	// dumped when the status is not 201.
-	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "anna-qa-engineer")
+	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "anna-playwright-qa-engineer")
 	t.Logf("installed catalog agent id=%s name=%s model=%s sandbox_image=%s", agent.ID, agent.Name, agent.Model, agent.SandboxImage)
 	if agent.Model != "glm-5.2" {
 		t.Fatalf("installed QA agent model=%q want glm-5.2", agent.Model)

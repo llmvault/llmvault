@@ -70,7 +70,7 @@ func TestAgentSessionsAppBuilderFlagshipE2E(t *testing.T) {
 	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "apps")
 	t.Log("installed sheets + apps org plugins")
 
-	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "app-builder")
+	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "ricky-app-builder")
 	assertAgentSessionsAgentSandboxImage(t, "app-builder", agent, model.SandboxImageDeveloper)
 	t.Logf("installed catalog agent id=%s name=%s model=%s sandbox_image=%s", agent.ID, agent.Name, agent.Model, agent.SandboxImage)
 

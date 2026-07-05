@@ -124,7 +124,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 
 func loadAgentRuntimeE2EHakareeManifest(t *testing.T) agentRuntimeE2EAgentManifest {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(repoRootFromE2E(t), "global", "agents", "hakaree", "agent.json"))
+	raw, err := os.ReadFile(filepath.Join(repoRootFromE2E(t), "global", "agents", "hakaree-software-engineer", "agent.json"))
 	if err != nil {
 		t.Fatalf("read hakaree agent manifest: %v", err)
 	}

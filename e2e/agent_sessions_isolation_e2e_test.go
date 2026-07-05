@@ -20,9 +20,9 @@ func runAgentSessionsCatalogAgentIsolationE2E(t *testing.T, ctx context.Context,
 	githubPluginID := agentSessionsSeedInstalledPluginFixture(t, orgID, ownerUserID, "github")
 	t.Logf("seeded required GitHub plugin install fixture plugin_id=%s", githubPluginID)
 
-	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, ownerToken, orgID, "hakaree")
-	if agent.Model != "deepseek-v4-flash" {
-		t.Fatalf("installed Hakaree model=%q want deepseek-v4-flash", agent.Model)
+	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, ownerToken, orgID, "hakaree-software-engineer")
+	if agent.Model != "mimo-v2.5-pro" {
+		t.Fatalf("installed Hakaree model=%q want mimo-v2.5-pro", agent.Model)
 	}
 	assertAgentSessionsAgentSandboxImage(t, "Hakaree", agent, model.SandboxImageDeveloper)
 	t.Logf("installed session sandbox catalog agent id=%s name=%s", agent.ID, agent.Name)

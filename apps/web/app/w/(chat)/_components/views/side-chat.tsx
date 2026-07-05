@@ -18,7 +18,17 @@ export function SubagentView({ sessionId }: { sessionId?: string }) {
       selectSessionWorkspace(state, workspaceSessionId).subagents.activeJobId
   )
   const runs = useSessionSubagentRuns(sessionId)
-  const run = runs.find((item) => item.jobId === activeJobId) ?? runs[0]
+  // `activeJobId` may hold either a jobId or a childSessionId. Match on both.
+  // Only fall back to the first run when nothing is selected at all; when a
+  // selection is present but not yet matched, render a distinct waiting state
+  // instead of silently resolving to a different (wrong) run.
+  const selectedRun = activeJobId
+    ? runs.find(
+        (item) =>
+          item.jobId === activeJobId || item.childSessionId === activeJobId
+      )
+    : undefined
+  const run = selectedRun ?? (activeJobId ? undefined : runs[0])
   const blocks = useMemo(
     () =>
       sessionEventsToConversationBlocks(run?.events ?? [], {
@@ -28,6 +38,14 @@ export function SubagentView({ sessionId }: { sessionId?: string }) {
   )
 
   if (!run) {
+    if (activeJobId) {
+      return (
+        <SubagentEmptyState
+          title="Waiting for subagent"
+          message="Waiting for this subagent's stream to arrive."
+        />
+      )
+    }
     return (
       <SubagentEmptyState
         title="No subagent selected"

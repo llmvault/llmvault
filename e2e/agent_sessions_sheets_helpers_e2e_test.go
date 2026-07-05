@@ -120,8 +120,22 @@ func sheetsE2EToolNameList(tools map[string]*mcp.Tool) []string {
 	return out
 }
 
+// sheetsE2ESessionID, when set by the test, is injected as the runtime-controlled
+// _hivy_session_id into every tool call — sheets tools are channel-scoped and
+// derive their channel from the session. In production the Rust runtime injects
+// this; the e2e harness stands in for the runtime here.
+var sheetsE2ESessionID string
+
 func sheetsE2ECallTool(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any) map[string]any {
 	t.Helper()
+	if sheetsE2ESessionID != "" {
+		if args == nil {
+			args = map[string]any{}
+		}
+		if _, ok := args["_hivy_session_id"]; !ok {
+			args["_hivy_session_id"] = sheetsE2ESessionID
+		}
+	}
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
 		t.Fatalf("call %s: %v", name, err)
