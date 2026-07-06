@@ -14,11 +14,34 @@ type Embedder interface {
 
 type EnqueueEmbeddingFunc func(context.Context, uuid.UUID, int) error
 
+// ChannelScope selects which memories a read touches. It is the single scoping
+// primitive: a regular agent reads its own channel (optionally folding in
+// org-wide memories when the channel allows it); the manage tool reads every
+// channel.
+type ChannelScope struct {
+	ChannelID          *uuid.UUID // channel to read; nil = org-wide (channel_id IS NULL) only
+	IncludeOrgMemories bool       // also include org-wide memories (only meaningful with ChannelID set)
+	AllChannels        bool       // manage mode: every memory in the org, any channel
+}
+
+// whereSQL renders the scope as a SQL predicate and its args. An empty string
+// means "no channel filter" (AllChannels).
+func (cs ChannelScope) whereSQL() (string, []any) {
+	switch {
+	case cs.AllChannels:
+		return "", nil
+	case cs.ChannelID != nil && cs.IncludeOrgMemories:
+		return "(channel_id = ? OR channel_id IS NULL)", []any{*cs.ChannelID}
+	case cs.ChannelID != nil:
+		return "channel_id = ?", []any{*cs.ChannelID}
+	default:
+		return "channel_id IS NULL", nil
+	}
+}
+
 type CreateRequest struct {
 	OrgID             uuid.UUID
-	AgentID           *uuid.UUID
-	UserID            *uuid.UUID
-	Scope             string
+	ChannelID         *uuid.UUID // nil = org-wide
 	Content           string
 	MemoryFingerprint string
 	Tags              []string
@@ -31,7 +54,6 @@ type CreateRequest struct {
 type UpdateRequest struct {
 	OrgID    uuid.UUID
 	ID       uuid.UUID
-	AgentID  *uuid.UUID
 	Content  *string
 	Tags     *[]string
 	Metadata *model.JSON
@@ -40,41 +62,26 @@ type UpdateRequest struct {
 type ArchiveRequest struct {
 	OrgID uuid.UUID
 	ID    uuid.UUID
-	// AgentID, when set, restricts archiving to memories visible to that
-	// agent (agent_id IS NULL or agent_id = AgentID). Used by the agent
-	// tool path; the org-admin REST path leaves it nil.
-	AgentID *uuid.UUID
 }
 
 type ListRequest struct {
-	OrgID           uuid.UUID
-	UserID          *uuid.UUID
-	AgentID         *uuid.UUID
-	Scope           string
-	AgentVisibility string
-	Tags            []string
-	Limit           int
-	NoLimit         bool
+	OrgID   uuid.UUID
+	Scope   ChannelScope
+	Tags    []string
+	Limit   int
+	NoLimit bool
 }
 
 type SearchRequest struct {
-	OrgID           uuid.UUID
-	UserID          *uuid.UUID
-	AgentID         uuid.UUID
-	Scope           string
-	AgentVisibility string
-	Query           string
-	QueryVector     []float32
-	Tags            []string
-	Limit           int
+	OrgID       uuid.UUID
+	Scope       ChannelScope
+	Query       string
+	QueryVector []float32
+	Tags        []string
+	Limit       int
 }
 
 type SearchHit struct {
 	Memory     model.AgentMemory
 	Similarity float64
-}
-
-type TurnMemories struct {
-	Org  []SearchHit
-	User []SearchHit
 }

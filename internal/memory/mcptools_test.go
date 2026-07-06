@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestMemoryMCPToolsRetainSearchAndForget(t *testing.T) {
+func TestMemoryMCPToolsChannelScoping(t *testing.T) {
 	ctx := context.Background()
 	db := connectMemoryToolTestDB(t)
 	fixture := seedMemoryToolFixture(t, db)
@@ -26,35 +25,35 @@ func TestMemoryMCPToolsRetainSearchAndForget(t *testing.T) {
 	}
 	assertMemoryToolDescriptions(t, tools.Tools)
 
+	// retain writes to the session's channel, no target argument required.
 	retained := callMemoryTool(t, ctx, client, "retain_memory", map[string]any{
-		"content":          "The agent should use the Helio launch checklist before release planning.",
-		"target":           map[string]any{"owner": "user", "visibility": "this_agent"},
+		"content":          "The team uses the Helio launch checklist before release planning.",
 		"tags":             []string{"launch", "preference"},
 		"_hivy_session_id": fixture.session.ID.String(),
 	})
-	retainedMemory := retained["memory"].(map[string]any)
-	retainedID := uuid.MustParse(retainedMemory["id"].(string))
-	assertRetainedMemoryTarget(t, db, retainedID, fixture.user.ID, fixture.agent.ID)
+	retainedID := uuid.MustParse(retained["memory"].(map[string]any)["id"].(string))
+	assertMemoryChannel(t, db, retainedID, &fixture.channel.ID)
 
-	seedReadyMemory(t, service, fixture.org.ID, nil, nil, "The org billing policy is Net 30 for annual contracts.")
-	seedReadyMemory(t, service, fixture.org.ID, &fixture.agent.ID, nil, "This agent owns the Helio release checklist.")
-
-	agentResults := callMemoryTool(t, ctx, client, "search_memories", map[string]any{
-		"query":            "Helio release checklist",
-		"target":           map[string]any{"owner": "org", "visibility": "this_agent"},
-		"_hivy_session_id": fixture.session.ID.String(),
-	})
-	if got := len(agentResults["results"].([]any)); got != 1 {
-		t.Fatalf("this_agent search returned %d results, want 1: %#v", got, agentResults)
+	otherChannel := model.Channel{ID: uuid.New(), OrgID: fixture.org.ID, Name: "memory-mcp-other-" + uuid.NewString(), DefaultAgentID: fixture.agent.ID, ExposeOrgMemories: true}
+	if err := db.Create(&otherChannel).Error; err != nil {
+		t.Fatalf("create other channel: %v", err)
 	}
 
-	sharedResults := callMemoryTool(t, ctx, client, "search_memories", map[string]any{
-		"query":            "billing policy",
-		"target":           map[string]any{"owner": "org", "visibility": "all_agents"},
+	channelMem := seedReadyMemory(t, service, fixture.org.ID, &fixture.channel.ID, "This channel owns the Helio release checklist.")
+	orgMem := seedReadyMemory(t, service, fixture.org.ID, nil, "The org billing policy is Net 30 for annual contracts.")
+	otherMem := seedReadyMemory(t, service, fixture.org.ID, &otherChannel.ID, "A different channel's private note.")
+
+	// Search is auto-scoped: this channel plus org-wide (channel exposes them).
+	results := callMemoryTool(t, ctx, client, "search_memories", map[string]any{
+		"query":            "release checklist",
 		"_hivy_session_id": fixture.session.ID.String(),
 	})
-	if got := len(sharedResults["results"].([]any)); got != 1 {
-		t.Fatalf("all_agents search returned %d results, want 1: %#v", got, sharedResults)
+	ids := resultIDSet(results)
+	if len(ids) != 2 || !ids[channelMem.String()] || !ids[orgMem.String()] {
+		t.Fatalf("channel search = %#v, want channel + org-wide memories", results)
+	}
+	if ids[otherMem.String()] {
+		t.Fatalf("search leaked another channel's memory: %#v", results)
 	}
 
 	assertMemoryToolError(t, ctx, client, "search_memories", map[string]any{
@@ -63,178 +62,110 @@ func TestMemoryMCPToolsRetainSearchAndForget(t *testing.T) {
 	}, "query must be at most")
 	assertMemoryToolError(t, ctx, client, "retain_memory", map[string]any{
 		"content":          "The agent should remember this malformed tag test.",
-		"target":           map[string]any{"owner": "org", "visibility": "this_agent"},
 		"tags":             []string{"Project Helio"},
 		"_hivy_session_id": fixture.session.ID.String(),
 	}, "lowercase kebab-case")
 
-	sharedID := seedReadyMemory(t, service, fixture.org.ID, nil, nil, "Shared org memory can be forgotten by an agent.")
-	callMemoryTool(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        sharedID.String(),
-		"_hivy_session_id": fixture.session.ID.String(),
-	})
-	assertMemoryArchived(t, db, sharedID)
-
-	otherUserMemoryID := seedReadyMemory(t, service, fixture.org.ID, nil, &fixture.otherUser.ID, "Other user's billing preference.")
+	// forget refuses a memory that belongs to another channel.
 	assertMemoryToolError(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        otherUserMemoryID.String(),
+		"memory_id":        otherMem.String(),
 		"_hivy_session_id": fixture.session.ID.String(),
-	}, "another user's memory")
+	}, "only archive memories in this channel")
+	assertMemoryNotArchived(t, db, otherMem)
 
+	// forget allows this channel's memory and org-wide memories (channel exposes them).
 	callMemoryTool(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        retainedID.String(),
+		"memory_id":        channelMem.String(),
 		"_hivy_session_id": fixture.session.ID.String(),
 	})
-	assertMemoryArchived(t, db, retainedID)
+	assertMemoryArchived(t, db, channelMem)
+	callMemoryTool(t, ctx, client, "forget_memory", map[string]any{
+		"memory_id":        orgMem.String(),
+		"_hivy_session_id": fixture.session.ID.String(),
+	})
+	assertMemoryArchived(t, db, orgMem)
 }
 
-func TestMemoryMCPToolsForgetAgentIsolation(t *testing.T) {
+func TestMemoryMCPToolsExposeOrgMemoriesToggle(t *testing.T) {
+	ctx := context.Background()
+	db := connectMemoryToolTestDB(t)
+	fixture := seedMemoryToolFixture(t, db)
+	if err := db.Model(&model.Channel{}).Where("id = ?", fixture.channel.ID).Update("expose_org_memories", false).Error; err != nil {
+		t.Fatalf("disable expose_org_memories: %v", err)
+	}
+	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
+	client := connectMemoryToolClient(t, ctx, service, fixture.token)
+
+	channelMem := seedReadyMemory(t, service, fixture.org.ID, &fixture.channel.ID, "Channel-only note about the release.")
+	orgMem := seedReadyMemory(t, service, fixture.org.ID, nil, "Org-wide note hidden from this channel.")
+
+	results := callMemoryTool(t, ctx, client, "search_memories", map[string]any{
+		"query":            "release note",
+		"_hivy_session_id": fixture.session.ID.String(),
+	})
+	ids := resultIDSet(results)
+	if len(ids) != 1 || !ids[channelMem.String()] {
+		t.Fatalf("search with exposure off = %#v, want only the channel memory", results)
+	}
+	if ids[orgMem.String()] {
+		t.Fatalf("search leaked org-wide memory despite exposure off: %#v", results)
+	}
+
+	// With exposure off, org-wide memories are out of this channel's forget scope.
+	assertMemoryToolError(t, ctx, client, "forget_memory", map[string]any{
+		"memory_id":        orgMem.String(),
+		"_hivy_session_id": fixture.session.ID.String(),
+	}, "only archive memories in this channel")
+	assertMemoryNotArchived(t, db, orgMem)
+}
+
+func TestMemoryMCPToolsSessionRequired(t *testing.T) {
 	ctx := context.Background()
 	db := connectMemoryToolTestDB(t)
 	fixture := seedMemoryToolFixture(t, db)
 	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
+	client := connectMemoryToolClient(t, ctx, service, fixture.token)
 
-	otherAgent := model.Agent{ID: uuid.New(), OrgID: &fixture.org.ID, Name: "Memory MCP Other Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	if err := db.Create(&otherAgent).Error; err != nil {
-		t.Fatalf("create other agent: %v", err)
-	}
-	otherToken := &model.Token{
-		OrgID: fixture.org.ID,
-		Meta: model.JSON{
-			model.TokenMetaType:    model.TokenTypeAgentProxy,
-			model.TokenMetaAgentID: otherAgent.ID.String(),
-		},
-	}
-	otherClient := connectMemoryToolClient(t, ctx, service, otherToken)
-
-	privateID := seedReadyMemory(t, service, fixture.org.ID, &fixture.agent.ID, nil, "Agent A's private release checklist notes.")
-	assertMemoryToolError(t, ctx, otherClient, "forget_memory", map[string]any{
-		"memory_id": privateID.String(),
-	}, "another agent's memory")
-	assertMemoryNotArchived(t, db, privateID)
-
-	sharedID := seedReadyMemory(t, service, fixture.org.ID, nil, nil, "Org-wide memory forgettable by any agent.")
-	callMemoryTool(t, ctx, otherClient, "forget_memory", map[string]any{
-		"memory_id": sharedID.String(),
-	})
-	assertMemoryArchived(t, db, sharedID)
-
-	// SQL hardening: an agent-scoped archive must not cross agent boundaries
-	// even when the Go guard is bypassed.
-	if err := service.Archive(ctx, ArchiveRequest{OrgID: fixture.org.ID, ID: privateID, AgentID: &otherAgent.ID}); !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("agent-scoped archive of another agent's memory = %v, want gorm.ErrRecordNotFound", err)
-	}
-	assertMemoryNotArchived(t, db, privateID)
-
-	// The unscoped path (REST/dashboard) can still archive agent-bound memories.
-	if err := service.Archive(ctx, ArchiveRequest{OrgID: fixture.org.ID, ID: privateID}); err != nil {
-		t.Fatalf("unscoped archive: %v", err)
-	}
-	assertMemoryArchived(t, db, privateID)
+	assertMemoryToolError(t, ctx, client, "search_memories", map[string]any{
+		"query": "release checklist",
+	}, "_hivy_session_id is required")
+	assertMemoryToolError(t, ctx, client, "retain_memory", map[string]any{
+		"content": "This should be rejected without a session.",
+	}, "_hivy_session_id is required")
+	assertMemoryToolError(t, ctx, client, "search_memories", map[string]any{
+		"query":            "release checklist",
+		"_hivy_session_id": uuid.NewString(),
+	}, "session not found for this agent")
 }
 
-func TestMemoryMCPToolsRetainForOtherAgent(t *testing.T) {
-	ctx := context.Background()
-	db := connectMemoryToolTestDB(t)
-	fixture := seedMemoryToolFixture(t, db)
-	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
-	clientA := connectMemoryToolClient(t, ctx, service, fixture.token)
-
-	agentB := model.Agent{ID: uuid.New(), OrgID: &fixture.org.ID, Name: "Memory MCP Agent B " + uuid.NewString(), Model: "test", Status: "active"}
-	archivedAgent := model.Agent{ID: uuid.New(), OrgID: &fixture.org.ID, Name: "Memory MCP Archived " + uuid.NewString(), Model: "test", Status: "archived"}
-	otherOrg := model.Org{ID: uuid.New(), Name: "memory-mcp-other-org-" + uuid.NewString(), Active: true, RateLimit: 1000}
-	otherOrgAgent := model.Agent{ID: uuid.New(), OrgID: &otherOrg.ID, Name: "Memory MCP Foreign " + uuid.NewString(), Model: "test", Status: "active"}
-	for _, row := range []any{&agentB, &archivedAgent, &otherOrg, &otherOrgAgent} {
-		if err := db.Create(row).Error; err != nil {
-			t.Fatalf("create seed row %T: %v", row, err)
-		}
+func resultIDSet(resp map[string]any) map[string]bool {
+	out := map[string]bool{}
+	for _, raw := range resp["results"].([]any) {
+		out[raw.(map[string]any)["id"].(string)] = true
 	}
-	t.Cleanup(func() {
-		db.Where("org_id = ?", otherOrg.ID).Delete(&model.Agent{})
-		db.Delete(&model.Org{}, "id = ?", otherOrg.ID)
-	})
-	tokenB := &model.Token{
-		OrgID: fixture.org.ID,
-		Meta: model.JSON{
-			model.TokenMetaType:    model.TokenTypeAgentProxy,
-			model.TokenMetaAgentID: agentB.ID.String(),
-		},
-	}
-	clientB := connectMemoryToolClient(t, ctx, service, tokenB)
+	return out
+}
 
-	seeded := callMemoryTool(t, ctx, clientA, "retain_memory", map[string]any{
-		"content": "The deploy agent must use service id svc-12345 for production deploys.",
-		"target":  map[string]any{"owner": "org", "agent_id": agentB.ID.String()},
-	})
-	seededMemory := seeded["memory"].(map[string]any)
-	seededID := uuid.MustParse(seededMemory["id"].(string))
+func assertMemoryChannel(t *testing.T, db *gorm.DB, memoryID uuid.UUID, want *uuid.UUID) {
+	t.Helper()
 	var mem model.AgentMemory
-	if err := db.First(&mem, "id = ?", seededID).Error; err != nil {
-		t.Fatalf("load seeded memory: %v", err)
+	if err := db.First(&mem, "id = ?", memoryID).Error; err != nil {
+		t.Fatalf("load memory: %v", err)
 	}
-	if mem.Scope != model.AgentMemoryScopeOrg || mem.AgentID == nil || *mem.AgentID != agentB.ID {
-		t.Fatalf("seeded memory target mismatch: %#v", mem)
+	if want == nil {
+		if mem.ChannelID != nil {
+			t.Fatalf("memory %s channel = %v, want org-wide (nil)", memoryID, mem.ChannelID)
+		}
+		return
 	}
-
-	rows, err := service.List(ctx, ListRequest{OrgID: fixture.org.ID, AgentID: &agentB.ID, AgentVisibility: AgentVisibilityThisAgent})
-	if err != nil {
-		t.Fatalf("list agent B memories: %v", err)
+	if mem.ChannelID == nil || *mem.ChannelID != *want {
+		t.Fatalf("memory %s channel = %v, want %s", memoryID, mem.ChannelID, want)
 	}
-	if len(rows) != 1 || rows[0].ID != seededID {
-		t.Fatalf("agent B this_agent list = %#v, want only seeded memory", rows)
-	}
-
-	ok, err := service.MarkEmbeddingReady(ctx, seededID, 1, testMemoryVector())
-	if err != nil || !ok {
-		t.Fatalf("mark seeded memory ready: ok=%v err=%v", ok, err)
-	}
-	searchA := callMemoryTool(t, ctx, clientA, "search_memories", map[string]any{"query": "production deploy service id"})
-	if got := len(searchA["results"].([]any)); got != 0 {
-		t.Fatalf("agent A search returned %d results, want 0: %#v", got, searchA)
-	}
-	searchB := callMemoryTool(t, ctx, clientB, "search_memories", map[string]any{"query": "production deploy service id"})
-	resultsB := searchB["results"].([]any)
-	if len(resultsB) != 1 || resultsB[0].(map[string]any)["id"].(string) != seededID.String() {
-		t.Fatalf("agent B search = %#v, want seeded memory", searchB)
-	}
-
-	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
-		"content": "The target cannot carry both a visibility and an agent binding.",
-		"target":  map[string]any{"owner": "org", "visibility": "all_agents", "agent_id": agentB.ID.String()},
-	}, "cannot include both visibility and agent_id")
-	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
-		"content": "Unknown agents must be rejected before the memory is stored.",
-		"target":  map[string]any{"owner": "org", "agent_id": uuid.NewString()},
-	}, "must be an active agent in this org")
-	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
-		"content": "Archived agents must be rejected before the memory is stored.",
-		"target":  map[string]any{"owner": "org", "agent_id": archivedAgent.ID.String()},
-	}, "must be an active agent in this org")
-	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
-		"content": "Agents from other orgs must be rejected before the memory is stored.",
-		"target":  map[string]any{"owner": "org", "agent_id": otherOrgAgent.ID.String()},
-	}, "must be an active agent in this org")
-	assertMemoryToolError(t, ctx, clientA, "retain_memory", map[string]any{
-		"content": "User-owned memories cannot be bound to a specific agent.",
-		"target":  map[string]any{"owner": "user", "agent_id": agentB.ID.String()},
-	}, "target.agent_id requires target.owner org")
-
-	assertMemoryToolError(t, ctx, clientA, "forget_memory", map[string]any{
-		"memory_id": seededID.String(),
-	}, "another agent's memory")
-	assertMemoryNotArchived(t, db, seededID)
-	callMemoryTool(t, ctx, clientB, "forget_memory", map[string]any{
-		"memory_id": seededID.String(),
-	})
-	assertMemoryArchived(t, db, seededID)
 }
 
 func assertMemoryToolError(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any, want string) {
 	t.Helper()
-	result, err := client.CallTool(ctx, &mcp.CallToolParams{
-		Name:      name,
-		Arguments: args,
-	})
+	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
 		t.Fatalf("call %s: %v", name, err)
 	}

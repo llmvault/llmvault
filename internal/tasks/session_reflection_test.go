@@ -111,8 +111,8 @@ func TestSessionReflectionHandlerStoresMemoriesAndSuppressesDuplicates(t *testin
 		t.Fatalf("memories len=%d want 1: %#v", len(memories), memories)
 	}
 	mem := memories[0]
-	if mem.Scope != model.AgentMemoryScopeUser || mem.UserID == nil || *mem.UserID != fx.user.ID {
-		t.Fatalf("memory target scope=%q user=%v", mem.Scope, mem.UserID)
+	if mem.ChannelID == nil || *mem.ChannelID != fx.session.ChannelID {
+		t.Fatalf("memory channel=%v want %v", mem.ChannelID, fx.session.ChannelID)
 	}
 	if mem.MemoryFingerprint == "" || mem.EmbeddingStatus != model.AgentMemoryEmbeddingPending {
 		t.Fatalf("memory fingerprint/status=%q/%q", mem.MemoryFingerprint, mem.EmbeddingStatus)

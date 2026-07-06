@@ -28,4 +28,3 @@ func vectorLiteral(vector []float32) string {
 	b.WriteByte(']')
 	return b.String()
 }
-

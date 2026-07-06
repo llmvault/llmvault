@@ -57,39 +57,21 @@ func (h *SessionReflectionHandler) memoryCreateRequest(
 	candidate reflectionMemoryCandidate,
 ) memory.CreateRequest {
 	sourceEventID, identity := strongestReflectionSource(events, identities, candidate.SourceEventIDs)
-	scope := candidate.Scope
-	userID := identity.UserID
-	if userID == nil && session.Source != model.SessionSourceExternal && session.CreatedBy != nil {
-		userID = session.CreatedBy
-	}
-	if scope == model.AgentMemoryScopeUser && userID == nil {
-		scope = model.AgentMemoryScopeOrg
-	}
-	var agentID *uuid.UUID
-	if candidate.Visibility == memory.AgentVisibilityThisAgent {
-		agentID = &session.AgentID
-	}
+	channelID := session.ChannelID
 	tags := append([]string{}, candidate.Tags...)
 	tags = append(tags, "reflection", candidate.Kind)
-	if candidate.Scope == model.AgentMemoryScopeUser && userID == nil {
-		tags = append(tags, "external-user")
-	}
 	metadata := model.JSON{
 		"source":             "reflection",
 		"kind":               candidate.Kind,
 		"confidence":         candidate.Confidence,
-		"visibility":         candidate.Visibility,
 		"source_event_ids":   candidate.SourceEventIDs,
 		"actor_display_name": firstNonEmptyString(candidate.ActorDisplayName, identity.DisplayName),
 		"actor_external_ref": firstNonEmptyString(candidate.ActorExternalRef, identity.ExternalRef),
-		"requested_scope":    candidate.Scope,
 	}
-	fingerprint := reflectionMemoryFingerprint(session.OrgID, scope, userID, agentID, candidate.Content)
+	fingerprint := reflectionMemoryFingerprint(session.OrgID, &channelID, candidate.Content)
 	return memory.CreateRequest{
 		OrgID:             session.OrgID,
-		AgentID:           agentID,
-		UserID:            userID,
-		Scope:             scope,
+		ChannelID:         &channelID,
 		Content:           candidate.Content,
 		MemoryFingerprint: fingerprint,
 		Tags:              tags,
@@ -119,27 +101,20 @@ func strongestReflectionSource(
 
 func (h *SessionReflectionHandler) memoryExists(ctx context.Context, req memory.CreateRequest) bool {
 	q := h.db.WithContext(ctx).Model(&model.AgentMemory{}).
-		Where("org_id = ? AND scope = ? AND memory_fingerprint = ? AND archived_at IS NULL", req.OrgID, req.Scope, req.MemoryFingerprint)
-	if req.UserID == nil {
-		q = q.Where("user_id IS NULL")
+		Where("org_id = ? AND memory_fingerprint = ? AND archived_at IS NULL", req.OrgID, req.MemoryFingerprint)
+	if req.ChannelID == nil {
+		q = q.Where("channel_id IS NULL")
 	} else {
-		q = q.Where("user_id = ?", *req.UserID)
-	}
-	if req.AgentID == nil {
-		q = q.Where("agent_id IS NULL")
-	} else {
-		q = q.Where("agent_id = ?", *req.AgentID)
+		q = q.Where("channel_id = ?", *req.ChannelID)
 	}
 	var count int64
 	return q.Count(&count).Error == nil && count > 0
 }
 
-func reflectionMemoryFingerprint(orgID uuid.UUID, scope string, userID, agentID *uuid.UUID, content string) string {
+func reflectionMemoryFingerprint(orgID uuid.UUID, channelID *uuid.UUID, content string) string {
 	parts := []string{
 		orgID.String(),
-		scope,
-		uuidPart(userID),
-		uuidPart(agentID),
+		uuidPart(channelID),
 		strings.ToLower(strings.Join(strings.Fields(content), " ")),
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))

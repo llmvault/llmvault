@@ -179,9 +179,7 @@ func waitForAgentSessionsReflectionComplete(t *testing.T, ctx context.Context, s
 type agentSessionsReflectionMemoryRow struct {
 	ID                uuid.UUID  `gorm:"column:id"`
 	OrgID             uuid.UUID  `gorm:"column:org_id"`
-	AgentID           *uuid.UUID `gorm:"column:agent_id"`
-	UserID            *uuid.UUID `gorm:"column:user_id"`
-	Scope             string     `gorm:"column:scope"`
+	ChannelID         *uuid.UUID `gorm:"column:channel_id"`
 	Content           string     `gorm:"column:content"`
 	MemoryFingerprint string     `gorm:"column:memory_fingerprint"`
 	TagsCSV           string     `gorm:"column:tags_csv"`
@@ -215,7 +213,7 @@ func loadAgentSessionsReflectionMemoryRows(t *testing.T, db *gorm.DB, sessionID 
 	t.Helper()
 	var rows []agentSessionsReflectionMemoryRow
 	if err := db.Raw(`
-SELECT id, org_id, agent_id, user_id, scope, content, memory_fingerprint,
+SELECT id, org_id, channel_id, content, memory_fingerprint,
        array_to_string(tags, ',') AS tags_csv, metadata, source_session_id, source_event_id
 FROM agent_memories
 WHERE archived_at IS NULL
@@ -227,31 +225,28 @@ ORDER BY created_at ASC`, sessionID).Scan(&rows).Error; err != nil {
 	return rows
 }
 
-func agentSessionsReflectionRowsReady(rows []agentSessionsReflectionMemoryRow, ownerID uuid.UUID, orgMarker, sandboxMarker string) bool {
+func agentSessionsReflectionRowsReady(rows []agentSessionsReflectionMemoryRow, _ uuid.UUID, orgMarker, sandboxMarker string) bool {
 	if len(rows) < 4 {
 		return false
 	}
-	var userOK, pythonOK, actorOK, orgOK, sandboxOK bool
+	// Reflection memories are all channel-scoped now; verify content markers are
+	// present across the channel's rows.
+	var pythonOK, actorOK, orgOK, sandboxOK bool
 	for _, row := range rows {
 		if row.MemoryFingerprint == "" || row.SourceEventID == nil || !strings.Contains(row.TagsCSV, "reflection") {
 			return false
 		}
-		if reflectionMetadataString(row.Metadata, "source") != "reflection" {
+		if reflectionMetadataString(row.Metadata, "source") != "reflection" || row.ChannelID == nil {
 			return false
 		}
 		content := strings.ToLower(row.Content)
-		if row.Scope == model.AgentMemoryScopeUser && row.UserID != nil && *row.UserID == ownerID {
-			userOK = true
-			pythonOK = pythonOK || strings.Contains(content, "python")
-			actor := strings.ToLower(reflectionMetadataString(row.Metadata, "actor_display_name"))
-			actorOK = actorOK || strings.Contains(actor, "franz")
-		}
-		if row.Scope == model.AgentMemoryScopeOrg {
-			orgOK = orgOK || strings.Contains(content, strings.ToLower(orgMarker))
-			sandboxOK = sandboxOK || strings.Contains(content, strings.ToLower(sandboxMarker))
-		}
+		pythonOK = pythonOK || strings.Contains(content, "python")
+		actor := strings.ToLower(reflectionMetadataString(row.Metadata, "actor_display_name"))
+		actorOK = actorOK || strings.Contains(actor, "franz")
+		orgOK = orgOK || strings.Contains(content, strings.ToLower(orgMarker))
+		sandboxOK = sandboxOK || strings.Contains(content, strings.ToLower(sandboxMarker))
 	}
-	return userOK && pythonOK && actorOK && orgOK && sandboxOK
+	return pythonOK && actorOK && orgOK && sandboxOK
 }
 
 func reflectionMetadataString(metadata model.JSON, key string) string {
@@ -264,9 +259,7 @@ func reflectionMetadataString(metadata model.JSON, key string) string {
 
 func summarizeAgentSessionsReflectionRows(rows []agentSessionsReflectionMemoryRow) string {
 	type rowSummary struct {
-		Scope     string `json:"scope"`
-		UserID    string `json:"user_id,omitempty"`
-		AgentID   string `json:"agent_id,omitempty"`
+		ChannelID string `json:"channel_id,omitempty"`
 		Content   string `json:"content"`
 		Tags      string `json:"tags"`
 		EventID   string `json:"source_event_id,omitempty"`
@@ -276,9 +269,7 @@ func summarizeAgentSessionsReflectionRows(rows []agentSessionsReflectionMemoryRo
 	summaries := make([]rowSummary, 0, len(rows))
 	for _, row := range rows {
 		summaries = append(summaries, rowSummary{
-			Scope:     row.Scope,
-			UserID:    reflectionUUIDString(row.UserID),
-			AgentID:   reflectionUUIDString(row.AgentID),
+			ChannelID: reflectionUUIDString(row.ChannelID),
 			Content:   row.Content,
 			Tags:      row.TagsCSV,
 			EventID:   reflectionUUIDString(row.SourceEventID),

@@ -29,20 +29,16 @@ func NewMemoryHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, cacheManager *cache
 }
 
 type memoryMutationRequest struct {
-	Scope    string      `json:"scope,omitempty"`
-	AgentID  *string     `json:"agent_id,omitempty"`
-	UserID   *string     `json:"user_id,omitempty"`
-	Content  *string     `json:"content,omitempty"`
-	Tags     []string    `json:"tags,omitempty"`
-	Metadata *model.JSON `json:"metadata,omitempty"`
+	ChannelID *string     `json:"channel_id,omitempty"`
+	Content   *string     `json:"content,omitempty"`
+	Tags      []string    `json:"tags,omitempty"`
+	Metadata  *model.JSON `json:"metadata,omitempty"`
 }
 
 type memoryResponse struct {
 	ID                string     `json:"id"`
-	Scope             string     `json:"scope"`
 	OrgID             string     `json:"org_id"`
-	AgentID           *string    `json:"agent_id,omitempty"`
-	UserID            *string    `json:"user_id,omitempty"`
+	ChannelID         *string    `json:"channel_id,omitempty"`
 	Content           string     `json:"content"`
 	Tags              []string   `json:"tags"`
 	Metadata          model.JSON `json:"metadata"`
@@ -71,19 +67,13 @@ func (h *MemoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	scope := strings.TrimSpace(req.Scope)
-	if scope == "" {
-		scope = model.AgentMemoryScopeUser
-	}
-	targetUser, ok := h.memoryTargetUser(w, r, scope, req.UserID, userID)
-	if !ok {
+	// Writing memories is an org-admin action (channel-classified in the future
+	// settings UI); API keys with the memories scope are also allowed.
+	if !h.canManageOrgMemory(r, org.ID, userID) {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "admin role required to manage memories"})
 		return
 	}
-	if scope == model.AgentMemoryScopeOrg && !h.canManageOrgMemory(r, org.ID, userID) {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "admin role required for org memories"})
-		return
-	}
-	agentID, ok := parseOptionalUUIDString(w, req.AgentID, "agent_id")
+	channelID, ok := parseOptionalUUIDString(w, req.ChannelID, "channel_id")
 	if !ok {
 		return
 	}
@@ -97,9 +87,7 @@ func (h *MemoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	mem, err := h.service().Create(r.Context(), memory.CreateRequest{
 		OrgID:           org.ID,
-		AgentID:         agentID,
-		UserID:          targetUser,
-		Scope:           scope,
+		ChannelID:       channelID,
 		Content:         content,
 		Tags:            req.Tags,
 		Metadata:        metadata,
@@ -113,26 +101,25 @@ func (h *MemoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MemoryHandler) List(w http.ResponseWriter, r *http.Request) {
-	org, userID, ok := h.memoryRequestContext(w, r)
+	org, _, ok := h.memoryRequestContext(w, r)
 	if !ok {
 		return
 	}
-	agentID, ok := parseOptionalUUIDQuery(w, r, "agent_id")
+	scope, ok := memoryListScope(r)
 	if !ok {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid channel_id"})
 		return
 	}
 	limit := parseMemoryLimit(r.URL.Query().Get("limit"), 50)
 	if query := strings.TrimSpace(r.URL.Query().Get("q")); query != "" {
-		h.search(w, r, org.ID, userID, agentID, query, limit)
+		h.search(w, r, org.ID, scope, query, limit)
 		return
 	}
 	rows, err := h.service().List(r.Context(), memory.ListRequest{
-		OrgID:   org.ID,
-		UserID:  userID,
-		AgentID: agentID,
-		Scope:   strings.TrimSpace(r.URL.Query().Get("scope")),
-		Tags:    splitTags(r.URL.Query().Get("tags")),
-		Limit:   limit,
+		OrgID: org.ID,
+		Scope: scope,
+		Tags:  splitTags(r.URL.Query().Get("tags")),
+		Limit: limit,
 	})
 	if err != nil {
 		writeMemoryError(w, err)
@@ -154,21 +141,13 @@ func (h *MemoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	existing, ok := h.authorizeMemoryMutation(w, r, org.ID, userID, id)
-	if !ok {
+	if _, ok := h.authorizeMemoryMutation(w, r, org.ID, userID, id); !ok {
 		return
 	}
 	var req memoryMutationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
-	}
-	agentID, ok := parseOptionalUUIDString(w, req.AgentID, "agent_id")
-	if !ok {
-		return
-	}
-	if req.AgentID == nil {
-		agentID = existing.AgentID
 	}
 	var tags *[]string
 	if req.Tags != nil {
@@ -177,7 +156,6 @@ func (h *MemoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	mem, err := h.service().Update(r.Context(), memory.UpdateRequest{
 		OrgID:    org.ID,
 		ID:       id,
-		AgentID:  agentID,
 		Content:  req.Content,
 		Tags:     tags,
 		Metadata: req.Metadata,
@@ -208,18 +186,13 @@ func (h *MemoryHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "archived"})
 }
 
-func (h *MemoryHandler) search(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, userID, agentID *uuid.UUID, query string, limit int) {
-	agent := uuid.Nil
-	if agentID != nil {
-		agent = *agentID
-	}
+func (h *MemoryHandler) search(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, scope memory.ChannelScope, query string, limit int) {
 	hits, err := h.service().Search(r.Context(), memory.SearchRequest{
-		OrgID:   orgID,
-		UserID:  userID,
-		AgentID: agent,
-		Query:   query,
-		Tags:    splitTags(r.URL.Query().Get("tags")),
-		Limit:   limit,
+		OrgID: orgID,
+		Scope: scope,
+		Query: query,
+		Tags:  splitTags(r.URL.Query().Get("tags")),
+		Limit: limit,
 	})
 	if err != nil {
 		writeMemoryError(w, err)

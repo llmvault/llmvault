@@ -40,22 +40,16 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (*model.AgentMe
 	if err != nil {
 		return nil, err
 	}
-	scope, userID, err := normalizeScope(req.Scope, req.UserID)
-	if err != nil {
-		return nil, err
-	}
 	if req.OrgID == uuid.Nil {
 		return nil, fmt.Errorf("org_id is required")
 	}
-	if err := s.validateAgentScope(ctx, req.OrgID, req.AgentID); err != nil {
+	if err := s.validateChannel(ctx, req.OrgID, req.ChannelID); err != nil {
 		return nil, err
 	}
 	mem := &model.AgentMemory{
 		ID:                uuid.New(),
 		OrgID:             req.OrgID,
-		AgentID:           req.AgentID,
-		UserID:            userID,
-		Scope:             scope,
+		ChannelID:         req.ChannelID,
 		Content:           content,
 		MemoryFingerprint: strings.TrimSpace(req.MemoryFingerprint),
 		Tags:              pq.StringArray(NormalizeTags(req.Tags)),
@@ -92,13 +86,6 @@ func (s *Service) Update(ctx context.Context, req UpdateRequest) (*model.AgentMe
 	}
 	updates := map[string]any{"updated_at": time.Now()}
 	reembed := false
-	if req.AgentID != nil {
-		if err := s.validateAgentScope(ctx, req.OrgID, req.AgentID); err != nil {
-			return nil, err
-		}
-		updates["agent_id"] = *req.AgentID
-		mem.AgentID = req.AgentID
-	}
 	if req.Content != nil {
 		content, err := normalizeContent(*req.Content)
 		if err != nil {
@@ -147,12 +134,9 @@ func (s *Service) Archive(ctx context.Context, req ArchiveRequest) error {
 		return fmt.Errorf("memory service is not configured")
 	}
 	now := time.Now()
-	q := s.cfg.DB.WithContext(ctx).Model(&model.AgentMemory{}).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", req.ID, req.OrgID)
-	if req.AgentID != nil && *req.AgentID != uuid.Nil {
-		q = q.Where("(agent_id IS NULL OR agent_id = ?)", *req.AgentID)
-	}
-	res := q.Update("archived_at", &now)
+	res := s.cfg.DB.WithContext(ctx).Model(&model.AgentMemory{}).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", req.ID, req.OrgID).
+		Update("archived_at", &now)
 	if res.Error != nil {
 		return fmt.Errorf("archive memory: %w", res.Error)
 	}
@@ -169,22 +153,8 @@ func (s *Service) List(ctx context.Context, req ListRequest) ([]model.AgentMemor
 	q := s.cfg.DB.WithContext(ctx).
 		Where("org_id = ? AND archived_at IS NULL", req.OrgID).
 		Order("created_at DESC")
-	q = applyAccessibleScope(q, req.UserID)
-	switch strings.TrimSpace(req.AgentVisibility) {
-	case AgentVisibilityAllAgents:
-		q = q.Where("agent_id IS NULL")
-	case AgentVisibilityThisAgent:
-		if req.AgentID == nil || *req.AgentID == uuid.Nil {
-			return nil, nil
-		}
-		q = q.Where("agent_id = ?", *req.AgentID)
-	default:
-		if req.AgentID != nil {
-			q = q.Where("(agent_id IS NULL OR agent_id = ?)", *req.AgentID)
-		}
-	}
-	if strings.TrimSpace(req.Scope) != "" {
-		q = q.Where("scope = ?", strings.TrimSpace(req.Scope))
+	if clause, args := req.Scope.whereSQL(); clause != "" {
+		q = q.Where(clause, args...)
 	}
 	if tags := NormalizeTags(req.Tags); len(tags) > 0 {
 		q = q.Where("tags && ?", pq.StringArray(tags))
@@ -249,18 +219,18 @@ func (s *Service) enqueueEmbed(ctx context.Context, id uuid.UUID, revision int) 
 	return s.cfg.EnqueueEmbed(ctx, id, revision)
 }
 
-func (s *Service) validateAgentScope(ctx context.Context, orgID uuid.UUID, agentID *uuid.UUID) error {
-	if agentID == nil || *agentID == uuid.Nil {
+func (s *Service) validateChannel(ctx context.Context, orgID uuid.UUID, channelID *uuid.UUID) error {
+	if channelID == nil || *channelID == uuid.Nil {
 		return nil
 	}
 	var count int64
-	if err := s.cfg.DB.WithContext(ctx).Model(&model.Agent{}).
-		Where("id = ? AND org_id = ? AND status <> ?", *agentID, orgID, "archived").
+	if err := s.cfg.DB.WithContext(ctx).Model(&model.Channel{}).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", *channelID, orgID).
 		Count(&count).Error; err != nil {
-		return fmt.Errorf("validate memory agent: %w", err)
+		return fmt.Errorf("validate memory channel: %w", err)
 	}
 	if count == 0 {
-		return fmt.Errorf("agent_id must belong to org")
+		return fmt.Errorf("channel_id must belong to org")
 	}
 	return nil
 }

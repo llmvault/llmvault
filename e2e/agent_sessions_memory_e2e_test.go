@@ -46,16 +46,13 @@ func TestAgentSessionsMemoryE2E(t *testing.T) {
 	general := findDefaultGeneralChannel(t, channels, defaultAgent.ID)
 
 	orgMemory := agentSessionsCreateMemory(t, ctx, apiBase, ownerToken, orgID, map[string]any{
-		"scope":    "org",
-		"agent_id": defaultAgent.ID,
-		"content":  "Organization memory marker: " + orgMarker + ". The launch codename is Helio.",
-		"tags":     []string{"e2e", "memory", "launch"},
+		"content": "Organization memory marker: " + orgMarker + ". The launch codename is Helio.",
+		"tags":    []string{"e2e", "memory", "launch"},
 	})
 	userMemory := agentSessionsCreateMemory(t, ctx, apiBase, ownerToken, orgID, map[string]any{
-		"scope":    "user",
-		"agent_id": defaultAgent.ID,
-		"content":  "User memory marker: " + userMarker + ". The preferred escalation word is Prism.",
-		"tags":     []string{"e2e", "memory", "escalation"},
+		"channel_id": general.ID,
+		"content":    "Channel memory marker: " + userMarker + ". The preferred escalation word is Prism.",
+		"tags":       []string{"e2e", "memory", "escalation"},
 	})
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), time.Minute)
@@ -92,7 +89,6 @@ func TestAgentSessionsMemoryE2E(t *testing.T) {
 		"This is the live MCP memory tool E2E.",
 		"Before replying, call hivy_retain_memory exactly once.",
 		"Use content exactly: Tool-retained memory marker: " + toolMarker + ". The remembered onboarding word is Nova.",
-		"Use target owner user and visibility this_agent.",
 		"Use tags exactly e2e-memory and tool-retain.",
 		"After the tool result, reply exactly " + toolFinalMarker + " and no other text.",
 	}, "\n"))
@@ -110,7 +106,7 @@ func TestAgentSessionsMemoryE2E(t *testing.T) {
 		return event.Name == "tool_result" && strings.Contains(event.RawData, toolMarker)
 	})
 	createdByTool := waitForAgentSessionsMemoryRow(t, ctx, toolMarker, "pending", "ready")
-	assertAgentSessionsToolMemoryRow(t, createdByTool, orgID, defaultAgent.ID, ownerAuth.User.ID, toolSession.Session.ID, toolMarker)
+	assertAgentSessionsToolMemoryRow(t, createdByTool, orgID, general.ID, defaultAgent.ID, ownerAuth.User.ID, toolSession.Session.ID, toolMarker)
 	waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, toolSession.Session.ID, toolFinalMarker)
 	readyToolMemory := waitForAgentSessionsMemoryRow(t, ctx, toolMarker, "ready")
 	assertAgentSessionsToolMemoryEmbedding(t, readyToolMemory)
@@ -134,9 +130,7 @@ func assertAgentSessionsMemorySearchHits(t *testing.T, hits []agentSessionsMemor
 type agentSessionsMemoryRow struct {
 	ID                uuid.UUID  `gorm:"column:id"`
 	OrgID             uuid.UUID  `gorm:"column:org_id"`
-	AgentID           *uuid.UUID `gorm:"column:agent_id"`
-	UserID            *uuid.UUID `gorm:"column:user_id"`
-	Scope             string     `gorm:"column:scope"`
+	ChannelID         *uuid.UUID `gorm:"column:channel_id"`
 	Content           string     `gorm:"column:content"`
 	TagsCSV           string     `gorm:"column:tags_csv"`
 	Metadata          model.JSON `gorm:"column:metadata"`
@@ -187,7 +181,7 @@ func loadAgentSessionsMemoryRow(t *testing.T, db interface {
 	t.Helper()
 	var rows []agentSessionsMemoryRow
 	if err := db.Raw(`
-SELECT id, org_id, agent_id, user_id, scope, content, array_to_string(tags, ',') AS tags_csv, metadata,
+SELECT id, org_id, channel_id, content, array_to_string(tags, ',') AS tags_csv, metadata,
        embedding_model, embedding_status, embedding_revision, embedding_error,
        embedded_at, source_session_id, created_by_user_id,
        embedding IS NOT NULL AS has_embedding,
@@ -204,20 +198,18 @@ LIMIT 1`, "%"+marker+"%").Scan(&rows).Error; err != nil {
 	return rows[0], true
 }
 
-func assertAgentSessionsToolMemoryRow(t *testing.T, row agentSessionsMemoryRow, orgIDRaw, agentIDRaw, userIDRaw, sessionIDRaw, marker string) {
+func assertAgentSessionsToolMemoryRow(t *testing.T, row agentSessionsMemoryRow, orgIDRaw, channelIDRaw, agentIDRaw, userIDRaw, sessionIDRaw, marker string) {
 	t.Helper()
 	orgID := uuid.MustParse(orgIDRaw)
+	channelID := uuid.MustParse(channelIDRaw)
 	agentID := uuid.MustParse(agentIDRaw)
 	userID := uuid.MustParse(userIDRaw)
 	sessionID := uuid.MustParse(sessionIDRaw)
-	if row.OrgID != orgID || row.Scope != model.AgentMemoryScopeUser {
-		t.Fatalf("memory row target mismatch org=%s scope=%s row=%+v", row.OrgID, row.Scope, row)
+	if row.OrgID != orgID {
+		t.Fatalf("memory row org mismatch org=%s row=%+v", row.OrgID, row)
 	}
-	if row.AgentID == nil || *row.AgentID != agentID {
-		t.Fatalf("memory row agent_id mismatch row=%+v want=%s", row, agentID)
-	}
-	if row.UserID == nil || *row.UserID != userID {
-		t.Fatalf("memory row user_id mismatch row=%+v want=%s", row, userID)
+	if row.ChannelID == nil || *row.ChannelID != channelID {
+		t.Fatalf("memory row channel_id mismatch row=%+v want=%s", row, channelID)
 	}
 	if row.SourceSessionID == nil || *row.SourceSessionID != sessionID {
 		t.Fatalf("memory row source_session_id mismatch row=%+v want=%s", row, sessionID)
@@ -255,10 +247,6 @@ func assertAgentSessionsToolMemoryMetadata(t *testing.T, metadata model.JSON, ag
 	}
 	if got, _ := metadata["created_by_agent_id"].(string); got != agentID.String() {
 		t.Fatalf("memory metadata created_by_agent_id=%q want %s metadata=%v", got, agentID, metadata)
-	}
-	target, _ := metadata["target"].(map[string]any)
-	if target == nil || target["owner"] != "user" || target["visibility"] != "this_agent" {
-		t.Fatalf("memory metadata target mismatch metadata=%v", metadata)
 	}
 }
 

@@ -125,67 +125,43 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	}
 }
 
-func TestBuildIncludesLatestOrgMemories(t *testing.T) {
+func TestBuildIncludesChannelMemories(t *testing.T) {
 	orgID := uuid.New()
-	agentID := uuid.New()
+	channelID := uuid.New()
 	lister := &fakeMemoryLister{list: func(req memory.ListRequest) []model.AgentMemory {
-		switch req.AgentVisibility {
-		case memory.AgentVisibilityAllAgents:
-			return []model.AgentMemory{{
-				Scope:   model.AgentMemoryScopeOrg,
-				Content: "Organization memory marker: ORG_MEMORY_TEST. The launch codename is Helio.",
-				Tags:    pq.StringArray{"launch"},
-			}}
-		case memory.AgentVisibilityThisAgent:
-			return []model.AgentMemory{{
-				AgentID: &agentID,
-				Scope:   model.AgentMemoryScopeOrg,
-				Content: "Agent memory marker: AGENT_MEMORY_TEST. Use the runtime harness first.",
-				Tags:    pq.StringArray{"runtime"},
-			}}
-		default:
-			return nil
-		}
+		return []model.AgentMemory{{
+			ChannelID: &channelID,
+			Content:   "Channel memory marker: CHANNEL_MEMORY_TEST. The launch codename is Helio.",
+			Tags:      pq.StringArray{"launch"},
+		}}
 	}}
-	service := NewService(Config{
-		Memories: lister,
-	})
+	service := NewService(Config{Memories: lister})
 	service.sessions = func(context.Context, Request) (string, error) { return "", nil }
 
 	out, err := service.Build(context.Background(), Request{
-		OrgID:   orgID,
-		AgentID: agentID,
-		Text:    "What are the launch codename and escalation word?",
+		OrgID:              orgID,
+		ChannelID:          channelID,
+		IncludeOrgMemories: true,
+		Text:               "What is the launch codename?",
 	})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
 	if len(out) != 1 ||
 		!strings.Contains(out[0], "## Memories") ||
-		!strings.Contains(out[0], "ORG_MEMORY_TEST") ||
-		!strings.Contains(out[0], "AGENT_MEMORY_TEST") {
+		!strings.Contains(out[0], "CHANNEL_MEMORY_TEST") {
 		t.Fatalf("memory context missing: %#v", out)
 	}
-	if len(lister.requests) != 2 {
-		t.Fatalf("memory list calls=%d, want 2", len(lister.requests))
+	if len(lister.requests) != 1 {
+		t.Fatalf("memory list calls=%d, want 1", len(lister.requests))
 	}
-	orgReq := lister.requests[0]
-	if orgReq.OrgID != orgID ||
-		orgReq.Scope != model.AgentMemoryScopeOrg ||
-		orgReq.AgentVisibility != memory.AgentVisibilityAllAgents ||
-		orgReq.Limit != latestOrgMemoryLimit ||
-		orgReq.NoLimit ||
-		orgReq.AgentID != nil {
-		t.Fatalf("unexpected org memory list request: %#v", orgReq)
-	}
-	agentReq := lister.requests[1]
-	if agentReq.OrgID != orgID ||
-		agentReq.Scope != model.AgentMemoryScopeOrg ||
-		agentReq.AgentVisibility != memory.AgentVisibilityThisAgent ||
-		!agentReq.NoLimit ||
-		agentReq.AgentID == nil ||
-		*agentReq.AgentID != agentID {
-		t.Fatalf("unexpected agent memory list request: %#v", agentReq)
+	req := lister.requests[0]
+	if req.OrgID != orgID ||
+		req.Scope.ChannelID == nil || *req.Scope.ChannelID != channelID ||
+		!req.Scope.IncludeOrgMemories ||
+		req.Scope.AllChannels ||
+		req.Limit != latestOrgMemoryLimit {
+		t.Fatalf("unexpected channel memory list request: %#v", req)
 	}
 }
 

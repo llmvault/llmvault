@@ -21,6 +21,7 @@ type memoryToolFixture struct {
 	user      model.User
 	otherUser model.User
 	agent     model.Agent
+	channel   model.Channel
 	session   model.Session
 	token     *model.Token
 }
@@ -45,7 +46,7 @@ func seedMemoryToolFixture(t *testing.T, db *gorm.DB) memoryToolFixture {
 	user := model.User{ID: uuid.New(), Email: "memory-mcp-" + uuid.NewString() + "@example.com", Name: "Memory MCP"}
 	otherUser := model.User{ID: uuid.New(), Email: "memory-mcp-other-" + uuid.NewString() + "@example.com", Name: "Other Memory MCP"}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Memory MCP Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "memory-mcp-" + uuid.NewString(), DefaultAgentID: agent.ID}
+	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "memory-mcp-" + uuid.NewString(), DefaultAgentID: agent.ID, ExposeOrgMemories: true}
 	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, CreatedBy: &user.ID, Status: "active"}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
@@ -87,7 +88,7 @@ func seedMemoryToolFixture(t *testing.T, db *gorm.DB) memoryToolFixture {
 			model.TokenMetaAgentID: agent.ID.String(),
 		},
 	}
-	return memoryToolFixture{org: org, user: user, otherUser: otherUser, agent: agent, session: session, token: token}
+	return memoryToolFixture{org: org, user: user, otherUser: otherUser, agent: agent, channel: channel, session: session, token: token}
 }
 
 func connectMemoryToolClient(t *testing.T, ctx context.Context, service *Service, token *model.Token) *mcp.ClientSession {
@@ -119,10 +120,9 @@ func assertMemoryToolDescriptions(t *testing.T, tools []*mcp.Tool) {
 		if len(byName[name].Description) < 120 {
 			t.Fatalf("tool %s has weak description %q", name, byName[name].Description)
 		}
-	}
-	if !strings.Contains(byName["retain_memory"].Description, "target.owner") ||
-		!strings.Contains(byName["retain_memory"].Description, "target.visibility") {
-		t.Fatalf("retain_memory description does not guide target use: %q", byName["retain_memory"].Description)
+		if !strings.Contains(byName[name].Description, "channel") {
+			t.Fatalf("tool %s description does not mention channel scoping: %q", name, byName[name].Description)
+		}
 	}
 	assertMemoryToolSchemas(t, tools)
 }
@@ -139,6 +139,12 @@ func assertMemoryToolSchemas(t *testing.T, tools []*mcp.Tool) {
 		}
 		if tool.Name == "search_memories" && strings.Contains(string(schema), "limit") {
 			t.Fatalf("search_memories exposes agent-controlled limit: %s", schema)
+		}
+		// Regular agent tools must not carry any scope/owner concept anymore.
+		for _, name := range []string{"search_memories", "retain_memory", "forget_memory"} {
+			if tool.Name == name && strings.Contains(string(schema), "target") {
+				t.Fatalf("tool %s still exposes a target argument: %s", tool.Name, schema)
+			}
 		}
 	}
 }
@@ -159,42 +165,27 @@ func callMemoryTool(t *testing.T, ctx context.Context, client *mcp.ClientSession
 	return out
 }
 
-func assertRetainedMemoryTarget(t *testing.T, db *gorm.DB, memoryID, userID, agentID uuid.UUID) {
+// seedReadyMemory stores a memory scoped to channelID (nil = org-wide) and marks
+// it embedded so semantic search can reach it.
+func seedReadyMemory(t *testing.T, service *Service, orgID uuid.UUID, channelID *uuid.UUID, content string) uuid.UUID {
 	t.Helper()
-	var mem model.AgentMemory
-	if err := db.First(&mem, "id = ?", memoryID).Error; err != nil {
-		t.Fatalf("load retained memory: %v", err)
-	}
-	if mem.Scope != model.AgentMemoryScopeUser || mem.UserID == nil || *mem.UserID != userID {
-		t.Fatalf("retained user target mismatch: %#v", mem)
-	}
-	if mem.AgentID == nil || *mem.AgentID != agentID {
-		t.Fatalf("retained agent target mismatch: %#v", mem)
-	}
+	return seedReadyMemoryTagged(t, service, orgID, channelID, content, nil)
 }
 
-func seedReadyMemory(t *testing.T, service *Service, orgID uuid.UUID, agentID *uuid.UUID, userID *uuid.UUID, content string) uuid.UUID {
+func seedReadyMemoryTagged(t *testing.T, service *Service, orgID uuid.UUID, channelID *uuid.UUID, content string, tags []string) uuid.UUID {
 	t.Helper()
-	scope := model.AgentMemoryScopeOrg
-	if userID != nil {
-		scope = model.AgentMemoryScopeUser
-	}
 	mem, err := service.Create(context.Background(), CreateRequest{
-		OrgID:   orgID,
-		AgentID: agentID,
-		UserID:  userID,
-		Scope:   scope,
-		Content: content,
+		OrgID:     orgID,
+		ChannelID: channelID,
+		Content:   content,
+		Tags:      tags,
 	})
 	if err != nil {
 		t.Fatalf("seed memory: %v", err)
 	}
 	ok, err := service.MarkEmbeddingReady(context.Background(), mem.ID, mem.EmbeddingRevision, testMemoryVector())
-	if err != nil {
-		t.Fatalf("mark memory ready: %v", err)
-	}
-	if !ok {
-		t.Fatalf("mark memory ready updated no rows")
+	if err != nil || !ok {
+		t.Fatalf("mark memory ready: ok=%v err=%v", ok, err)
 	}
 	return mem.ID
 }

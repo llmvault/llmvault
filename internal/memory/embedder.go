@@ -75,4 +75,3 @@ func loadOpenRouterCredential(ctx context.Context, db *gorm.DB, cacheManager *ca
 	}
 	return decrypted, nil
 }
-

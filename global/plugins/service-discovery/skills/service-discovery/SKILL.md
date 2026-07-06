@@ -19,21 +19,20 @@ The loop is always the same four steps:
 Never discover before searching. Discovery inventories are tagged consistently, so one search tells you what you already know:
 
 ```json
-{ "query": "railway services inventory", "target": { "owner": "org" }, "tags": ["service-discovery", "railway"] }
+{ "query": "railway services inventory", "tags": ["service-discovery", "railway"] }
 ```
 
-Swap the provider tag (`railway` → `vercel` / `notion` / `slack`) per service. If the results cover what you need and the user hasn't asked for a refresh — use them and stop. Only discover what is missing or explicitly stale.
+`search_memories` automatically searches the channel your session is running in (plus org-wide facts, when this channel is configured to expose them) — there are no scope arguments. Swap the provider tag (`railway` → `vercel` / `notion` / `slack`) per service. If the results cover what you need and the user hasn't asked for a refresh — use them and stop. Only discover what is missing or explicitly stale.
 
 ## The memory contract for discovery facts
 
-**Target.** Retain with `{"owner": "org", "visibility": "this_agent"}`. This is the only combination that is both private to you AND automatically loaded into your context at the start of every future session. Do not use `owner: "user"` for infrastructure facts (never auto-injected), and do not use `visibility: "all_agents"` unless the user explicitly wants every agent in the org to carry this inventory — that broadcasts into every agent's context.
+**Scope is automatic — the channel you are in.** `retain_memory` always stores the fact in the current channel, and every future session in this channel auto-loads it. There are no owner/visibility/target arguments: an agent only ever reads its own channel's memories (plus org-wide facts the channel is set to expose), so persist an inventory in the channel where it will be used.
 
 **Shape: one compact line per project or service group, under 300 characters.** Injected memory lines are truncated beyond that, so a bloated memory is a broken memory. Pack the durable identifiers — IDs, names, domains — and nothing else:
 
 ```json
 {
   "content": "railway project acme-prod (id 9f3c2e1a): services api (id 4b7d9f21, domain api.acme.example.com), worker (id 8c1e5a37); environment production (id 2d6f8b44)",
-  "target": { "owner": "org", "visibility": "this_agent" },
   "tags": ["service-discovery", "railway", "project-acme-prod"]
 }
 ```
@@ -44,7 +43,7 @@ Swap the provider tag (`railway` → `vercel` / `notion` / `slack`) per service.
 
 **What must NEVER go into memory:** tokens, secrets, environment-variable *values*, connection strings, deployment statuses, message contents. Memory is re-injected into prompts; secrets in memory leak, and volatile data rots.
 
-**Timing fact:** a just-retained memory is auto-loaded from your *next* session onward, and becomes searchable after a short embedding delay. If a search right after retaining misses it, that is normal — do not retain it again.
+**Timing fact:** a just-retained memory is auto-loaded from your *next* session in this channel onward, and becomes searchable after a short embedding delay. If a search right after retaining misses it, that is normal — do not retain it again.
 
 ## Refreshing — there is no update tool
 
@@ -54,64 +53,41 @@ Memories are immutable to you: no update call exists, and retains do not dedupli
 { "memory_id": "b82fd4c1-…", "reason": "stale service inventory replaced after re-discovery" }
 ```
 
-Never retain a fresh inventory while the stale one still exists — you would duplicate, and both would compete for the injection budget. Forget first, retain second.
+`forget_memory` can only archive a memory in your own channel. Never retain a fresh inventory while the stale one still exists — you would duplicate, and both would compete for the injection budget. Forget first, retain second.
 
-## Supervising org memory (default Hivy agent only)
+## Managing memories across channels (default Hivy agent only)
 
-If you are the org's default agent you have one extra tool: **`org_memories`** — supervisor-wide visibility across every agent's org memories (other agents' `search_memories` only ever sees their own plus shared). Use it for two things:
+If you are the org's default agent you have one extra tool: **`manage_memories`** — read and curate memories across *every* channel plus org-wide facts (regular `search_memories` only ever sees the current channel). It also requires the human you are acting for to be an org admin or owner. Use it for:
 
-**Check any agent's inventory** before discovering or seeding — this replaces guessing:
+**Search across everything** — before curating or when the user asks about another channel's inventory:
 
 ```json
-{ "action": "search", "query": "railway services inventory", "agent_id": "7c9e6679-…", "tags": ["service-discovery", "railway"] }
+{ "action": "search", "query": "railway services inventory", "tags": ["service-discovery", "railway"] }
 ```
 
-Drop `agent_id` to search across all agents at once. Results carry each memory's `agent_id`, `agent_name`, and `shared` flag so you can see exactly who knows what.
+Narrow with `channel_id: "<uuid>"` for one channel, or `channel_id: "org"` for org-wide facts. Results carry each memory's `channel_id`.
 
-**Map the org's memory** — totals, shared count, per-agent counts, top tags:
+**Map memory** — totals, per-channel counts, top tags:
 
 ```json
 { "action": "overview" }
 ```
 
-Privacy boundary you must respect and can rely on: `org_memories` never returns user-scoped personal memories — they appear only as an aggregate `user_scoped_count`. Do not try to inspect them; the tool will not show them.
-
-**Cleaning up another agent's memories — only with the user's explicit approval.** As the default agent you may archive a memory that belongs to another agent, but the flow is strict:
-
-1. Find it (`org_memories` search) and show the user the memory's **content and owning agent**.
-2. Get an explicit yes **in this session** — for that specific memory, not a blanket "clean things up".
-3. Only then call `forget_memory` with `user_approved`:
+**Archive any memory** in the org:
 
 ```json
-{ "memory_id": "b82fd4c1-…", "reason": "duplicate railway inventory superseded by fresh discovery", "user_approved": true }
+{ "action": "forget", "memory_id": "b82fd4c1-…", "reason": "duplicate railway inventory superseded by fresh discovery" }
 ```
 
-Never set `user_approved` speculatively, never batch-forget without listing each memory to the user first, and note the flag does nothing for non-default agents — it is not an escalation path. User-scoped personal memories remain untouchable regardless of approval.
+Before archiving on the user's behalf, show them the memory's content and channel and get an explicit yes in this session — never batch-forget speculatively.
 
-## Seeding another agent's memory
-
-When the discovered IDs belong in a *different* agent's head — you are coordinating, and a deploy agent will do the work — bind the memory to that agent instead of yourself:
+**Make an inventory available in every channel** — store it org-wide, which folds into any channel configured to expose org memories:
 
 ```json
-{
-  "content": "railway deploy target for acme-prod: service api (id 4b7d9f21, domain api.acme.example.com), environment production (id 2d6f8b44), project id 9f3c2e1a",
-  "target": { "owner": "org", "agent_id": "7c9e6679-…" },
-  "tags": ["service-discovery", "railway"]
-}
+{ "action": "retain", "channel_id": "org", "content": "railway project acme-prod (id 9f3c2e1a): services api (id 4b7d9f21, domain api.acme.example.com); environment production (id 2d6f8b44)", "tags": ["service-discovery", "railway"] }
 ```
 
-**Resolve the target agent BEFORE you persist anything:**
-
-1. If you have the `list_agents` tool (the org's default assistant typically does), call it first and match the intended agent by name from the response. If more than one agent could be the target, show the candidates and ask the user which one — never pick silently.
-2. If you don't have `list_agents`, ask the user for the agent and use the ID they provide.
-3. Never guess or reconstruct an agent ID from memory of past sessions — resolve it fresh, in this session, from a tool result or the user.
-
-Hard rules for seeding:
-
-- `agent_id` and `visibility` are **mutually exclusive** — sending both is rejected. Pick one.
-- `agent_id` requires `owner: "org"` and must be an active agent in this org.
-- **Only the receiving agent can forget a seeded memory.** You cannot retract it afterward — seed accurate, atomic facts or don't seed.
-- **Check before you seed — or acknowledge you can't.** If you are the default agent, run `org_memories` with the target's `agent_id` first and seed only what's missing (stale entries: propose cleanup via the approved-forget flow above). If you are NOT the default agent, seeding is blind — you cannot see the target's memories — so seed only right after a fresh discovery or when the user explicitly asks, tell the user exactly what you seeded, and note that duplicates can only be cleaned up by the receiving agent, the default agent (with user approval), or the dashboard.
+Or pass a specific `channel_id` to seed a particular channel's memory. Only the default agent can write org-wide or cross-channel facts; every other agent is confined to its own channel.
 
 ## Step 2 — per-service discovery
 
@@ -152,16 +128,15 @@ Discover one provider at a time, and only the providers the user asked about (or
 - Never persist secrets, env values, connection strings, statuses, or message contents.
 - Refresh = forget stale, then retain fresh. Never both-alive.
 - A 404 "no connection" means stop and tell the user — never invent services.
-- IDs come from tool results only — and the seeding `agent_id` is resolved fresh via `list_agents` (or the user) in the current session, never from recollection.
-- Don't broadcast (`all_agents`) unless the user explicitly wants org-wide memory.
-- `user_approved` on forget_memory is set only after showing the user that exact memory and its owner and hearing yes in this session — never speculatively, never batched.
+- IDs come from tool results only, never from recollection.
+- Memories are channel-scoped: retain/search/forget act on the current channel only. Org-wide or cross-channel facts are the default agent's `manage_memories` tool, and only when the user wants them shared beyond this channel.
 
 ## Final response checklist
 
 When discovery finishes, your reply must state:
 
 1. What was discovered, per provider, with counts (projects/services/domains/data sources/channels).
-2. What was persisted: how many memories, under which tags — and for which agent, if you seeded another agent.
+2. What was persisted: how many memories, under which tags — and whether org-wide, if you used `manage_memories`.
 3. What was skipped and why (provider not connected, volatile data excluded).
-4. Any cleanup performed — each memory forgotten, its owner, and that the user approved it.
-5. That future sessions will know this automatically, and a refresh is one ask away ("re-discover my Railway services").
+4. Any cleanup performed — each memory forgotten and why.
+5. That future sessions in this channel will know this automatically, and a refresh is one ask away ("re-discover my Railway services").

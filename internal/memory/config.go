@@ -7,8 +7,4 @@ const (
 
 	MaxContentLength = 2000
 	MaxTags          = 20
-
-	AgentVisibilityAllAgents = "all_agents"
-	AgentVisibilityThisAgent = "this_agent"
-	AgentVisibilityBoth      = "both"
 )

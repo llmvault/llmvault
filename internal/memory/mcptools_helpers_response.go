@@ -22,14 +22,13 @@ func (s *Service) loadToolMemory(ctx context.Context, orgID, memoryID uuid.UUID)
 	return mem, err
 }
 
-func memoryToolMetadata(metadata model.JSON, target map[string]any, agentID uuid.UUID) model.JSON {
+func memoryToolMetadata(metadata model.JSON, agentID uuid.UUID) model.JSON {
 	out := model.JSON{}
 	for key, value := range metadata {
 		out[key] = value
 	}
 	out["source"] = "mcp_memory_tool"
 	out["created_by_agent_id"] = agentID.String()
-	out["target"] = target
 	return out
 }
 
@@ -47,7 +46,7 @@ func memoryToolMemoryResponse(mem model.AgentMemory, similarity *float64) map[st
 		"id":                 mem.ID.String(),
 		"content":            mem.Content,
 		"tags":               []string(mem.Tags),
-		"target":             memoryToolTargetFromMemory(mem),
+		"channel_id":         channelIDValue(mem.ChannelID),
 		"embedding_status":   mem.EmbeddingStatus,
 		"embedding_revision": mem.EmbeddingRevision,
 		"created_at":         mem.CreatedAt,
@@ -59,17 +58,12 @@ func memoryToolMemoryResponse(mem model.AgentMemory, similarity *float64) map[st
 	return out
 }
 
-func memoryToolTargetFromMemory(mem model.AgentMemory) map[string]any {
-	owner := mem.Scope
-	visibility := AgentVisibilityAllAgents
-	if mem.AgentID != nil {
-		visibility = AgentVisibilityThisAgent
+// channelIDValue renders a nullable channel id: nil = org-wide.
+func channelIDValue(id *uuid.UUID) any {
+	if id == nil {
+		return nil
 	}
-	return memoryToolTargetResponse(owner, visibility)
-}
-
-func memoryToolTargetResponse(owner, visibility string) map[string]any {
-	return map[string]any{"owner": owner, "visibility": visibility}
+	return id.String()
 }
 
 func normalizeMemoryToolSearchQuery(raw string) (string, error) {

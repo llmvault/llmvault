@@ -12,12 +12,16 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func handleOrgMemoriesSearch(ctx context.Context, service *Service, token *model.Token, args orgMemoriesArgs) (*mcp.CallToolResult, error) {
+func handleManageSearch(ctx context.Context, service *Service, token *model.Token, args manageMemoriesArgs) (*mcp.CallToolResult, error) {
 	query, err := normalizeMemoryToolSearchQuery(args.Query)
 	if err != nil {
 		return memoryToolError(err.Error()), nil
 	}
 	tags, err := normalizeMemoryToolTags(args.Tags)
+	if err != nil {
+		return memoryToolError(err.Error()), nil
+	}
+	channelID, explicit, err := resolveManageChannel(args.ChannelID)
 	if err != nil {
 		return memoryToolError(err.Error()), nil
 	}
@@ -27,78 +31,72 @@ func handleOrgMemoriesSearch(ctx context.Context, service *Service, token *model
 	} else if limit > 50 {
 		limit = 50
 	}
-	// Org-scoped memories ONLY: shared (agent_id IS NULL) plus every agent's
-	// bindings. User-scoped rows are a privacy boundary and are never searched.
-	req := SearchRequest{
-		OrgID: token.OrgID,
-		Scope: model.AgentMemoryScopeOrg,
-		Query: query,
-		Tags:  tags,
-		Limit: limit,
-	}
-	filterText := strings.TrimSpace(args.AgentID)
-	if filterText != "" {
-		filterAgentID, err := uuid.Parse(filterText)
-		if err != nil || filterAgentID == uuid.Nil {
-			return memoryToolError("agent_id must be a valid UUID"), nil
-		}
-		req.AgentVisibility = AgentVisibilityThisAgent
-		req.AgentID = filterAgentID
+	scope := ChannelScope{AllChannels: true}
+	if explicit {
+		scope = ChannelScope{ChannelID: channelID}
 	}
 	searchCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	hits, err := service.Search(searchCtx, req)
+	hits, err := service.Search(searchCtx, SearchRequest{
+		OrgID: token.OrgID,
+		Scope: scope,
+		Query: query,
+		Tags:  tags,
+		Limit: limit,
+	})
 	if err != nil {
-		return memoryToolError("org memory search failed: " + err.Error()), nil
+		return memoryToolError("memory search failed: " + err.Error()), nil
 	}
-	names, err := service.orgAgentNames(ctx, token.OrgID, hits)
+	names, err := service.channelNames(ctx, token.OrgID, hits)
 	if err != nil {
-		return memoryToolError("org memory search failed: " + err.Error()), nil
+		return memoryToolError("memory search failed: " + err.Error()), nil
 	}
 	out := map[string]any{
 		"success": true,
 		"query":   query,
-		"results": orgMemoriesSearchResponses(hits, names),
+		"results": manageSearchResponses(hits, names),
 		"total":   len(hits),
 	}
-	if filterText != "" {
-		out["agent_id"] = req.AgentID.String()
+	if explicit {
+		if channelID == nil {
+			out["channel_id"] = "org"
+		} else {
+			out["channel_id"] = channelID.String()
+		}
 	}
 	return memoryToolJSON(out)
 }
 
-func orgMemoriesSearchResponses(hits []SearchHit, names map[uuid.UUID]string) []map[string]any {
+func manageSearchResponses(hits []SearchHit, names map[uuid.UUID]string) []map[string]any {
 	out := make([]map[string]any, 0, len(hits))
 	for _, hit := range hits {
 		similarity := hit.Similarity
 		item := memoryToolMemoryResponse(hit.Memory, &similarity)
-		if hit.Memory.AgentID != nil {
-			item["agent_id"] = hit.Memory.AgentID.String()
-			item["shared"] = false
-			if name, ok := names[*hit.Memory.AgentID]; ok {
-				item["agent_name"] = name
+		if hit.Memory.ChannelID != nil {
+			item["org_wide"] = false
+			if name, ok := names[*hit.Memory.ChannelID]; ok {
+				item["channel_name"] = name
 			} else {
-				item["agent_name"] = nil
+				item["channel_name"] = nil
 			}
 		} else {
-			item["agent_id"] = nil
-			item["agent_name"] = nil
-			item["shared"] = true
+			item["org_wide"] = true
+			item["channel_name"] = nil
 		}
 		out = append(out, item)
 	}
 	return out
 }
 
-func (s *Service) orgAgentNames(ctx context.Context, orgID uuid.UUID, hits []SearchHit) (map[uuid.UUID]string, error) {
+func (s *Service) channelNames(ctx context.Context, orgID uuid.UUID, hits []SearchHit) (map[uuid.UUID]string, error) {
 	ids := make([]uuid.UUID, 0, len(hits))
 	seen := map[uuid.UUID]bool{}
 	for _, hit := range hits {
-		if hit.Memory.AgentID == nil || seen[*hit.Memory.AgentID] {
+		if hit.Memory.ChannelID == nil || seen[*hit.Memory.ChannelID] {
 			continue
 		}
-		seen[*hit.Memory.AgentID] = true
-		ids = append(ids, *hit.Memory.AgentID)
+		seen[*hit.Memory.ChannelID] = true
+		ids = append(ids, *hit.Memory.ChannelID)
 	}
 	names := map[uuid.UUID]string{}
 	if len(ids) == 0 {
@@ -108,11 +106,11 @@ func (s *Service) orgAgentNames(ctx context.Context, orgID uuid.UUID, hits []Sea
 		ID   uuid.UUID
 		Name string
 	}
-	if err := s.cfg.DB.WithContext(ctx).Model(&model.Agent{}).
+	if err := s.cfg.DB.WithContext(ctx).Model(&model.Channel{}).
 		Select("id, name").
 		Where("org_id = ? AND id IN ?", orgID, ids).
 		Scan(&rows).Error; err != nil {
-		return nil, fmt.Errorf("load agent names: %w", err)
+		return nil, fmt.Errorf("load channel names: %w", err)
 	}
 	for _, row := range rows {
 		names[row.ID] = row.Name
@@ -120,53 +118,86 @@ func (s *Service) orgAgentNames(ctx context.Context, orgID uuid.UUID, hits []Sea
 	return names, nil
 }
 
-func handleOrgMemoriesOverview(ctx context.Context, service *Service, token *model.Token) (*mcp.CallToolResult, error) {
+func handleManageForget(ctx context.Context, service *Service, token *model.Token, args manageMemoriesArgs) (*mcp.CallToolResult, error) {
+	memoryID, err := uuid.Parse(strings.TrimSpace(args.MemoryID))
+	if err != nil || memoryID == uuid.Nil {
+		return memoryToolError("memory_id must be a valid UUID"), nil
+	}
+	if err := service.Archive(ctx, ArchiveRequest{OrgID: token.OrgID, ID: memoryID}); err != nil {
+		return memoryToolError("forget failed: " + memoryToolLoadMessage(err)), nil
+	}
+	return memoryToolJSON(map[string]any{
+		"success":   true,
+		"memory_id": memoryID.String(),
+		"status":    "archived",
+	})
+}
+
+func handleManageRetain(ctx context.Context, service *Service, token *model.Token, args manageMemoriesArgs) (*mcp.CallToolResult, error) {
+	tags, err := normalizeMemoryToolTags(args.Tags)
+	if err != nil {
+		return memoryToolError(err.Error()), nil
+	}
+	channelID, _, err := resolveManageChannel(args.ChannelID)
+	if err != nil {
+		return memoryToolError(err.Error()), nil
+	}
+	createCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	mem, err := service.Create(createCtx, CreateRequest{
+		OrgID:     token.OrgID,
+		ChannelID: channelID,
+		Content:   args.Content,
+		Tags:      tags,
+		Metadata:  args.Metadata,
+	})
+	if err != nil {
+		return memoryToolError("retain failed: " + err.Error()), nil
+	}
+	return memoryToolJSON(map[string]any{
+		"success": true,
+		"memory":  memoryToolMemoryResponse(*mem, nil),
+		"note":    "Embedding is queued asynchronously; semantic search becomes available after embedding_status is ready.",
+	})
+}
+
+func handleManageOverview(ctx context.Context, service *Service, token *model.Token) (*mcp.CallToolResult, error) {
 	db := service.cfg.DB.WithContext(ctx)
-	var total, shared, userScoped int64
+	var total, orgWide int64
 	if err := db.Model(&model.AgentMemory{}).
-		Where("org_id = ? AND scope = ? AND archived_at IS NULL", token.OrgID, model.AgentMemoryScopeOrg).
+		Where("org_id = ? AND archived_at IS NULL", token.OrgID).
 		Count(&total).Error; err != nil {
-		return memoryToolError("org memory overview failed: " + err.Error()), nil
+		return memoryToolError("memory overview failed: " + err.Error()), nil
 	}
 	if err := db.Model(&model.AgentMemory{}).
-		Where("org_id = ? AND scope = ? AND archived_at IS NULL AND agent_id IS NULL", token.OrgID, model.AgentMemoryScopeOrg).
-		Count(&shared).Error; err != nil {
-		return memoryToolError("org memory overview failed: " + err.Error()), nil
+		Where("org_id = ? AND archived_at IS NULL AND channel_id IS NULL", token.OrgID).
+		Count(&orgWide).Error; err != nil {
+		return memoryToolError("memory overview failed: " + err.Error()), nil
 	}
-	// Aggregate count only: user-scoped memory content and per-user breakdowns
-	// are never exposed through this tool.
-	if err := db.Model(&model.AgentMemory{}).
-		Where("org_id = ? AND scope = ? AND archived_at IS NULL", token.OrgID, model.AgentMemoryScopeUser).
-		Count(&userScoped).Error; err != nil {
-		return memoryToolError("org memory overview failed: " + err.Error()), nil
-	}
-	var agentRows []struct {
-		AgentID uuid.UUID
-		Name    *string
-		Count   int64
+	var channelRows []struct {
+		ChannelID uuid.UUID
+		Name      *string
+		Count     int64
 	}
 	if err := db.Raw(`
-SELECT m.agent_id AS agent_id, a.name AS name, COUNT(*) AS count
+SELECT m.channel_id AS channel_id, c.name AS name, COUNT(*) AS count
 FROM agent_memories m
-LEFT JOIN agents a ON a.id = m.agent_id AND a.org_id = m.org_id
-WHERE m.org_id = ? AND m.scope = ? AND m.archived_at IS NULL AND m.agent_id IS NOT NULL
-GROUP BY m.agent_id, a.name
-ORDER BY count DESC, a.name ASC NULLS LAST`, token.OrgID, model.AgentMemoryScopeOrg).
-		Scan(&agentRows).Error; err != nil {
-		return memoryToolError("org memory overview failed: " + err.Error()), nil
+LEFT JOIN channels c ON c.id = m.channel_id AND c.org_id = m.org_id
+WHERE m.org_id = ? AND m.archived_at IS NULL AND m.channel_id IS NOT NULL
+GROUP BY m.channel_id, c.name
+ORDER BY count DESC, c.name ASC NULLS LAST`, token.OrgID).
+		Scan(&channelRows).Error; err != nil {
+		return memoryToolError("memory overview failed: " + err.Error()), nil
 	}
-	agents := make([]map[string]any, 0, len(agentRows))
-	for _, row := range agentRows {
-		item := map[string]any{
-			"agent_id": row.AgentID.String(),
-			"count":    row.Count,
-		}
+	channels := make([]map[string]any, 0, len(channelRows))
+	for _, row := range channelRows {
+		item := map[string]any{"channel_id": row.ChannelID.String(), "count": row.Count}
 		if row.Name != nil {
 			item["name"] = *row.Name
 		} else {
 			item["name"] = nil
 		}
-		agents = append(agents, item)
+		channels = append(channels, item)
 	}
 	var tagRows []struct {
 		Tag   string
@@ -175,23 +206,22 @@ ORDER BY count DESC, a.name ASC NULLS LAST`, token.OrgID, model.AgentMemoryScope
 	if err := db.Raw(`
 SELECT tag, COUNT(*) AS count
 FROM agent_memories m, unnest(m.tags) AS tag
-WHERE m.org_id = ? AND m.scope = ? AND m.archived_at IS NULL
+WHERE m.org_id = ? AND m.archived_at IS NULL
 GROUP BY tag
 ORDER BY count DESC, tag ASC
-LIMIT ?`, token.OrgID, model.AgentMemoryScopeOrg, orgMemoriesTopTagsLimit).
+LIMIT ?`, token.OrgID, manageMemoriesTopTagsLimit).
 		Scan(&tagRows).Error; err != nil {
-		return memoryToolError("org memory overview failed: " + err.Error()), nil
+		return memoryToolError("memory overview failed: " + err.Error()), nil
 	}
 	topTags := make([]map[string]any, 0, len(tagRows))
 	for _, row := range tagRows {
 		topTags = append(topTags, map[string]any{"tag": row.Tag, "count": row.Count})
 	}
 	return memoryToolJSON(map[string]any{
-		"success":           true,
-		"total":             total,
-		"shared_count":      shared,
-		"agents":            agents,
-		"top_tags":          topTags,
-		"user_scoped_count": userScoped,
+		"success":        true,
+		"total":          total,
+		"org_wide_count": orgWide,
+		"channels":       channels,
+		"top_tags":       topTags,
 	})
 }

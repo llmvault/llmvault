@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -25,22 +26,22 @@ func (h *MemoryHandler) memoryRequestContext(w http.ResponseWriter, r *http.Requ
 	return org, userID, true
 }
 
-func (h *MemoryHandler) memoryTargetUser(w http.ResponseWriter, r *http.Request, scope string, requested *string, current *uuid.UUID) (*uuid.UUID, bool) {
-	if scope == model.AgentMemoryScopeOrg {
-		return nil, true
+// memoryListScope resolves the ?channel_id filter: absent = all channels, "org"
+// = org-wide only, a UUID = that channel.
+func memoryListScope(r *http.Request) (memory.ChannelScope, bool) {
+	raw := strings.TrimSpace(r.URL.Query().Get("channel_id"))
+	switch {
+	case raw == "":
+		return memory.ChannelScope{AllChannels: true}, true
+	case raw == "org":
+		return memory.ChannelScope{}, true
+	default:
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return memory.ChannelScope{}, false
+		}
+		return memory.ChannelScope{ChannelID: &id}, true
 	}
-	if scope != model.AgentMemoryScopeUser {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "scope must be org or user"})
-		return nil, false
-	}
-	if isAPIKeyRequest(r.Context()) {
-		return parseRequiredUUIDString(w, requested, "user_id")
-	}
-	if current == nil {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing user context"})
-		return nil, false
-	}
-	return current, true
 }
 
 func (h *MemoryHandler) authorizeMemoryMutation(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, userID *uuid.UUID, id uuid.UUID) (model.AgentMemory, bool) {
@@ -56,13 +57,7 @@ func (h *MemoryHandler) authorizeMemoryMutation(w http.ResponseWriter, r *http.R
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load memory"})
 		return mem, false
 	}
-	if isAPIKeyRequest(r.Context()) {
-		return mem, true
-	}
-	if mem.Scope == model.AgentMemoryScopeUser && userID != nil && mem.UserID != nil && *mem.UserID == *userID {
-		return mem, true
-	}
-	if h.canManageOrgMemory(r, orgID, userID) {
+	if isAPIKeyRequest(r.Context()) || h.canManageOrgMemory(r, orgID, userID) {
 		return mem, true
 	}
 	writeJSON(w, http.StatusForbidden, errorResponse{Error: "memory access denied"})
@@ -143,10 +138,8 @@ func splitTags(raw string) []string {
 func memoryToResponse(mem model.AgentMemory, similarity *float64) memoryResponse {
 	return memoryResponse{
 		ID:                mem.ID.String(),
-		Scope:             mem.Scope,
 		OrgID:             mem.OrgID.String(),
-		AgentID:           formatUUIDPtr(mem.AgentID),
-		UserID:            formatUUIDPtr(mem.UserID),
+		ChannelID:         formatUUIDPtr(mem.ChannelID),
 		Content:           mem.Content,
 		Tags:              []string(mem.Tags),
 		Metadata:          mem.Metadata,

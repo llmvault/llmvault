@@ -5,8 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -43,24 +41,6 @@ func normalizeContent(value string) (string, error) {
 		return "", fmt.Errorf("content must be at most %d characters", MaxContentLength)
 	}
 	return value, nil
-}
-
-func normalizeScope(scope string, userID *uuid.UUID) (string, *uuid.UUID, error) {
-	scope = strings.TrimSpace(scope)
-	if scope == "" {
-		scope = model.AgentMemoryScopeUser
-	}
-	switch scope {
-	case model.AgentMemoryScopeOrg:
-		return scope, nil, nil
-	case model.AgentMemoryScopeUser:
-		if userID == nil || *userID == uuid.Nil {
-			return "", nil, fmt.Errorf("user_id is required for user memories")
-		}
-		return scope, userID, nil
-	default:
-		return "", nil, fmt.Errorf("scope must be org or user")
-	}
 }
 
 func normalizeMetadata(value model.JSON) model.JSON {

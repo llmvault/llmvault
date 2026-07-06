@@ -16,7 +16,13 @@ func (h *SessionHandler) buildInitialSessionContext(ctx context.Context, session
 	if h == nil || h.preContext == nil {
 		return nil
 	}
-	sections, err := h.preContext.Build(ctx, initialSessionContextRequest(session, actor, text, payload))
+	req := initialSessionContextRequest(session, actor, text, payload)
+	req.ChannelID = session.ChannelID
+	var ch model.Channel
+	if err := h.db.WithContext(ctx).Select("expose_org_memories").First(&ch, "id = ?", session.ChannelID).Error; err == nil {
+		req.IncludeOrgMemories = ch.ExposeOrgMemories
+	}
+	sections, err := h.preContext.Build(ctx, req)
 	if err != nil {
 		logging.Capture(ctx, fmt.Errorf("build initial session context: %w", err))
 		return nil

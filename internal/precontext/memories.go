@@ -14,43 +14,22 @@ import (
 const latestOrgMemoryLimit = 500
 
 func (s *Service) fetchMemoriesSection(ctx context.Context, req Request) (string, error) {
-	if isNilValue(s.cfg.Memories) || req.OrgID == uuid.Nil {
+	if isNilValue(s.cfg.Memories) || req.OrgID == uuid.Nil || req.ChannelID == uuid.Nil {
 		return "", nil
 	}
-	orgRows, err := s.cfg.Memories.List(ctx, memory.ListRequest{
-		OrgID:           req.OrgID,
-		Scope:           model.AgentMemoryScopeOrg,
-		AgentVisibility: memory.AgentVisibilityAllAgents,
-		Limit:           latestOrgMemoryLimit,
+	channelID := req.ChannelID
+	rows, err := s.cfg.Memories.List(ctx, memory.ListRequest{
+		OrgID: req.OrgID,
+		Scope: memory.ChannelScope{
+			ChannelID:          &channelID,
+			IncludeOrgMemories: req.IncludeOrgMemories,
+		},
+		Limit: latestOrgMemoryLimit,
 	})
 	if err != nil {
-		return "", fmt.Errorf("list org memories: %w", err)
+		return "", fmt.Errorf("list channel memories: %w", err)
 	}
-	var agentRows []model.AgentMemory
-	if req.AgentID != uuid.Nil {
-		agentRows, err = s.cfg.Memories.List(ctx, memory.ListRequest{
-			OrgID:           req.OrgID,
-			AgentID:         &req.AgentID,
-			Scope:           model.AgentMemoryScopeOrg,
-			AgentVisibility: memory.AgentVisibilityThisAgent,
-			NoLimit:         true,
-		})
-		if err != nil {
-			return "", fmt.Errorf("list agent memories: %w", err)
-		}
-	}
-	return section("## Memories", formatMemoryGroups(orgRows, agentRows), MemoriesBudgetBytes), nil
-}
-
-func formatMemoryGroups(orgRows, agentRows []model.AgentMemory) string {
-	parts := make([]string, 0, 2)
-	if org := formatMemories(orgRows); org != "" {
-		parts = append(parts, "Organization:\n"+org)
-	}
-	if agent := formatMemories(agentRows); agent != "" {
-		parts = append(parts, "Agent:\n"+agent)
-	}
-	return strings.Join(parts, "\n")
+	return section("## Memories", formatMemories(rows), MemoriesBudgetBytes), nil
 }
 
 func formatMemories(rows []model.AgentMemory) string {

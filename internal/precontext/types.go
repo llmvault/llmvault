@@ -21,11 +21,15 @@ const (
 type Request struct {
 	OrgID            uuid.UUID
 	AgentID          uuid.UUID
+	ChannelID        uuid.UUID
 	CurrentSessionID uuid.UUID
 	Text             string
 	UserID           string
 	UserDisplayName  string
 	Source           string
+	// IncludeOrgMemories folds org-wide memories into this channel's recall
+	// (the channel's expose_org_memories flag).
+	IncludeOrgMemories bool
 }
 
 type Builder interface {
