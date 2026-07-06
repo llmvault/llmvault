@@ -4,6 +4,7 @@ package connectors
 
 import (
 	_ "github.com/usehivy/hivy/internal/rag/connectors/github"
+	_ "github.com/usehivy/hivy/internal/rag/connectors/linear"
 	_ "github.com/usehivy/hivy/internal/rag/connectors/notion"
 	_ "github.com/usehivy/hivy/internal/rag/connectors/slack"
 	_ "github.com/usehivy/hivy/internal/rag/connectors/website"

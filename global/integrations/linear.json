@@ -6,7 +6,7 @@
   "display_name": "Linear",
   "enabled": true,
   "required": false,
-  "supports_rag_source": false,
+  "supports_rag_source": true,
   "credentials": {
     "type": "OAUTH2",
     "client_id": true,

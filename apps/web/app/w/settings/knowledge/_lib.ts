@@ -34,6 +34,7 @@ export const PROVIDERS: ProviderMeta[] = [
   },
   { provider: "notion", label: "Notion", icon: "notion", kind: "INTEGRATION", scopeNoun: "pages & databases", connectionProviders: ["notion"] },
   { provider: "slack", label: "Slack", icon: "slack", kind: "INTEGRATION", scopeNoun: "channels", connectionProviders: ["slack"] },
+  { provider: "linear", label: "Linear", icon: "linear", kind: "INTEGRATION", scopeNoun: "teams", connectionProviders: ["linear"] },
   { provider: "website", label: "Website", icon: "globe", kind: "WEBSITE", scopeNoun: "sections", connectionProviders: [] },
 ]
 
