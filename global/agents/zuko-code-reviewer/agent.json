@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "zuko-code-reviewer",
   "name": "Zuko - code reviewer",
-  "description": "Reviews pull requests when mentioned: coordinates specialist reviewer subagents, synthesizes one deduped, severity-scored review, and blocks unreviewable or unsafe PRs.",
+  "description": "Deep pr reviews to find bugs, security issues and performance issues.",
   "category": "Developer Tools",
   "avatar_url": "/agent-avatars/zuko.png",
   "developer": "Hivy",

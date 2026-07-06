@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 	"github.com/usehivy/hivy/internal/spider"
 )
@@ -18,7 +19,7 @@ func (c *WebsiteConnector) Run(
 ) (<-chan interfaces.DocumentOrFailure, error) {
 	out := make(chan interfaces.DocumentOrFailure, 32)
 
-	go func() {
+	goroutine.Go(ctx, func(ctx context.Context) {
 		defer close(out)
 		// Scrape each configured URL to markdown; MaxPages caps the list.
 		max := c.cfg.MaxPages
@@ -53,7 +54,7 @@ func (c *WebsiteConnector) Run(
 				return
 			}
 		}
-	}()
+	})
 
 	return out, nil
 }
