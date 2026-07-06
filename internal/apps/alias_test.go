@@ -173,6 +173,11 @@ func TestDeployFailsWhenClaimAliasErrors(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "claim app alias") {
 		t.Fatalf("deploy error = %v, want claim-alias failure", err)
 	}
+	// A gateway/alias push failure is our infrastructure, not the app bundle.
+	var infra *InfraError
+	if !errors.As(err, &infra) {
+		t.Fatalf("claim-alias failure = %v, want InfraError", err)
+	}
 	reloaded, err := h.svc.GetApp(ctx, h.org.ID, app.ID)
 	if err != nil {
 		t.Fatalf("reload: %v", err)
@@ -182,6 +187,14 @@ func TestDeployFailsWhenClaimAliasErrors(t *testing.T) {
 	}
 	if reloaded.AliasURL != "" {
 		t.Fatalf("alias_url = %q, want empty on failed claim", reloaded.AliasURL)
+	}
+	// Hard rollback: the sandbox created for this first deploy is torn down and
+	// unlinked, as if the attempt never happened, so a retry starts clean.
+	if reloaded.SandboxID != nil {
+		t.Fatalf("sandbox_id = %v, want nil after teardown", reloaded.SandboxID)
+	}
+	if len(h.provider.deleted) != 1 || h.provider.deleted[0] != "stub-ext-1" {
+		t.Fatalf("deleted sandboxes = %v, want [stub-ext-1]", h.provider.deleted)
 	}
 }
 

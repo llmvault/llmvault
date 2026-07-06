@@ -2,6 +2,5 @@
 // via SiliconFlow by default, with a deterministic in-memory fake for
 // tests).
 //
-// Ports backend/onyx/indexing/embedder.py — the IndexingEmbedder
-// interface and its implementations.
+// It defines the embedder interface and its implementations.
 package embedder

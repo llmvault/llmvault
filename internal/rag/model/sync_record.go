@@ -11,46 +11,39 @@ import (
 // store (deletion-sweep, pruning sweep, external-permissions refresh,
 // external-group refresh).
 //
-// Subset port of Onyx `SyncRecord` at
-// backend/onyx/db/models.py:2440-2478.
-//
-// DEVIATION vs Onyx:
+// Notes:
 //   - We exclude the `document_set` and `user_group` SyncType values
 //     because Hivy has no DocumentSet and no UserGroup concept.
 //     See SyncType in enums_index_attempt.go.
-//   - OrgID column added; Onyx uses schema-per-tenant, Hivy uses
-//     row-level tenancy.
+//   - OrgID column enables row-level tenancy.
 //   - PK is a uuid, not an autoincrement int (Hivy convention).
 type RAGSyncRecord struct {
-	// ID — Onyx models.py:2450.
+	// ID is the primary key.
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 
-	// OrgID — Hivy addition. Every sync runs inside a single org;
-	// the scheduler fans out per-org.
+	// OrgID — every sync runs inside a single org; the scheduler fans
+	// out per-org.
 	OrgID uuid.UUID `gorm:"type:uuid;not null;index;constraint:OnDelete:CASCADE"`
 
-	// EntityID — the subject of the sync. Onyx models.py:2452 stored
-	// an int (document_set_id / user_group_id / …); we store a uuid
-	// because every Hivy entity is uuid-keyed. Interpretation is
-	// driven by SyncType: for `connector_deletion` / `pruning` /
+	// EntityID — the subject of the sync, stored as a uuid because
+	// every Hivy entity is uuid-keyed. Interpretation is driven by
+	// SyncType: for `connector_deletion` / `pruning` /
 	// `external_permissions` / `external_group` the EntityID refers to
 	// an Connection.
 	EntityID uuid.UUID `gorm:"type:uuid;not null"`
 
-	// SyncType — Onyx models.py:2454. See SyncType in
-	// enums_index_attempt.go for the Hivy subset.
+	// SyncType. See SyncType in enums_index_attempt.go for the Hivy
+	// subset.
 	SyncType SyncType `gorm:"type:text;not null"`
 
-	// SyncStatus — Onyx models.py:2455.
+	// SyncStatus is the lifecycle state of this sync run.
 	SyncStatus SyncStatus `gorm:"type:text;not null"`
 
-	// NumDocsSynced — count of docs touched by this sync. Onyx
-	// models.py:2457.
+	// NumDocsSynced — count of docs touched by this sync.
 	NumDocsSynced int `gorm:"not null;default:0"`
 
-	// SyncStartTime / SyncEndTime — wall-clock window.
-	// Onyx models.py:2459-2462. End is nullable for still-running
-	// syncs.
+	// SyncStartTime / SyncEndTime — wall-clock window. End is nullable
+	// for still-running syncs.
 	SyncStartTime time.Time `gorm:"not null"`
 	SyncEndTime   *time.Time
 }

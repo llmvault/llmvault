@@ -40,6 +40,10 @@ func (a *App) requestLogger(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
+		// Any served request except the health probe counts as usage.
+		if r.URL.Path != "/healthz" {
+			a.activity.ping()
+		}
 		a.log.Info("request",
 			"method", r.Method,
 			"path", r.URL.Path,

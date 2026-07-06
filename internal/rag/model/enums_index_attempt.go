@@ -2,17 +2,10 @@ package model
 
 // Enums for the index-attempt + sync-record tables
 // (RAGIndexAttempt, RAGIndexAttemptError, RAGSyncRecord).
-//
-// Onyx sources:
-//   - IndexingStatus : backend/onyx/db/enums.py:38-62
-//   - IndexingMode   : backend/onyx/db/enums.py:88-91
-//   - SyncType       : backend/onyx/db/enums.py:101-111 (subset — see note)
-//   - SyncStatus     : backend/onyx/db/enums.py:113-127
 
 // IndexingStatus is the lifecycle status of a single RAGIndexAttempt.
-// Verbatim port of Onyx `IndexingStatus` at
-// backend/onyx/db/enums.py:38-62 — value strings are byte-identical so
-// Postgres-level rows survive a re-indexing port.
+// Value strings are stable on-disk identifiers — they must not change
+// once rows exist.
 type IndexingStatus string
 
 const (
@@ -25,8 +18,7 @@ const (
 )
 
 // IsTerminal returns true for every status that the scheduler should
-// treat as "finished" (successful or not). Port of Onyx
-// `IndexingStatus.is_terminal` at backend/onyx/db/enums.py:46-53.
+// treat as "finished" (successful or not).
 //
 // The scheduler uses this to decide whether it's safe to spawn a new
 // attempt for the same (connection, embedding model) pair — a wrong
@@ -45,15 +37,13 @@ func (s IndexingStatus) IsTerminal() bool {
 }
 
 // IsSuccessful returns true when the attempt produced usable index
-// output. "completed_with_errors" counts as successful per Onyx's
-// convention at backend/onyx/db/enums.py:55-59 — partial failures still
-// yield retrievable documents.
+// output. "completed_with_errors" counts as successful — partial
+// failures still yield retrievable documents.
 func (s IndexingStatus) IsSuccessful() bool {
 	return s == IndexingStatusSuccess || s == IndexingStatusCompletedWithErrors
 }
 
-// IndexingMode selects full reindex vs incremental update. Verbatim
-// port of Onyx `IndexingMode` at backend/onyx/db/enums.py:88-91.
+// IndexingMode selects full reindex vs incremental update.
 type IndexingMode string
 
 const (
@@ -62,11 +52,10 @@ const (
 )
 
 // SyncType is the kind of sync operation represented by a
-// RAGSyncRecord. Subset port of Onyx `SyncType` at
-// backend/onyx/db/enums.py:101-111.
+// RAGSyncRecord.
 //
-// DEVIATION: we intentionally DO NOT port `document_set` or
-// `user_group` — Hivy has neither concept.
+// Note: there is intentionally no `document_set` or `user_group`
+// value — Hivy has neither concept.
 type SyncType string
 
 const (
@@ -90,8 +79,7 @@ func (s SyncType) IsValid() bool {
 	}
 }
 
-// SyncStatus is the lifecycle state of a RAGSyncRecord. Verbatim port
-// of Onyx `SyncStatus` at backend/onyx/db/enums.py:113-127.
+// SyncStatus is the lifecycle state of a RAGSyncRecord.
 type SyncStatus string
 
 const (
@@ -102,12 +90,10 @@ const (
 )
 
 // IsTerminal returns true for sync statuses that conclude the sync
-// run. Port of Onyx `SyncStatus.is_terminal` at
-// backend/onyx/db/enums.py:119-125. Note the subtle difference vs
-// IndexingStatus.IsTerminal: `canceled` is NOT terminal for a sync
-// (Onyx distinguishes "user cancelled, still cleaning up" from
-// "truly done"). Do not "fix" this to match IndexingStatus — it's
-// intentional.
+// run. Note the subtle difference vs IndexingStatus.IsTerminal:
+// `canceled` is NOT terminal for a sync — it distinguishes "user
+// cancelled, still cleaning up" from "truly done". Do not "fix" this
+// to match IndexingStatus — it's intentional.
 func (s SyncStatus) IsTerminal() bool {
 	switch s {
 	case SyncStatusSuccess, SyncStatusFailed:

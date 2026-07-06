@@ -153,6 +153,8 @@ func setupV1Routes(
 					r.Post("/channels/{id}/environment-variables", channelHandler.CreateChannelEnvironmentVariable)
 					r.Patch("/channels/{id}/environment-variables/{name}", channelHandler.UpdateChannelEnvironmentVariable)
 					r.Delete("/channels/{id}/environment-variables/{name}", channelHandler.DeleteChannelEnvironmentVariable)
+					r.Get("/channels/{id}/rag-sources", channelHandler.ListChannelRAGSources)
+					r.Put("/channels/{id}/rag-sources", channelHandler.SetChannelRAGSources)
 					if sessionHandler != nil {
 						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
 					}
@@ -279,6 +281,7 @@ func setupV1Routes(
 					r.Get("/sources/{id}/attempts/{attempt_id}", ragSourceHandler.GetAttempt)
 					if ragSearchHandler != nil {
 						r.Post("/search", ragSearchHandler.Search)
+						r.Get("/sources/{id}/documents", ragSearchHandler.ListDocuments)
 					}
 					// Mutations (sources, sync/prune jobs) are admin-only: a non-admin
 					// must not reconfigure org-wide RAG ingestion.

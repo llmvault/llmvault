@@ -45,6 +45,10 @@ type Config struct {
 	Port string
 	// PublicDir is the static SPA directory (default "public").
 	PublicDir string
+	// ActivityReportURL, when set (HIVY_APP_ACTIVITY_URL), is the endpoint the
+	// app pings — debounced, on served requests — so the platform knows the app
+	// is being used and its idle timer resets. Empty (docker/local) disables it.
+	ActivityReportURL string
 }
 
 // LoadConfig reads and validates the environment, failing fast with one
@@ -60,14 +64,15 @@ func LoadConfig() (*Config, error) {
 	}
 
 	cfg := &Config{
-		AppID:         need("HIVY_APP_ID"),
-		AppSecret:     need("HIVY_APP_SECRET"),
-		APIBaseURL:    strings.TrimRight(need("HIVY_APP_API_URL"), "/"),
-		LaunchURL:     need("HIVY_LAUNCH_URL"),
-		SessionSecret: need("HIVY_SESSION_SECRET"),
-		SheetID:       need("HIVY_SHEET_ID"),
-		Port:          strings.TrimSpace(os.Getenv("PORT")),
-		PublicDir:     "public",
+		AppID:             need("HIVY_APP_ID"),
+		AppSecret:         need("HIVY_APP_SECRET"),
+		APIBaseURL:        strings.TrimRight(need("HIVY_APP_API_URL"), "/"),
+		LaunchURL:         need("HIVY_LAUNCH_URL"),
+		SessionSecret:     need("HIVY_SESSION_SECRET"),
+		SheetID:           need("HIVY_SHEET_ID"),
+		Port:              strings.TrimSpace(os.Getenv("PORT")),
+		PublicDir:         "public",
+		ActivityReportURL: strings.TrimRight(strings.TrimSpace(os.Getenv("HIVY_APP_ACTIVITY_URL")), "/"),
 	}
 	pemStr := need("HIVY_AUTH_PUBLIC_KEY")
 

@@ -118,6 +118,10 @@ issues:
       linters: [unused]
     - path: internal/agentruntime/env\.go
       linters: [gosec]
+    # env.go holds HIVY_* env-var NAME constants, not credentials — G101 false
+    # positives, same as internal/agentruntime/env.go above.
+    - path: internal/apps/env\.go
+      linters: [gosec]
 
 run:
   timeout: 5m

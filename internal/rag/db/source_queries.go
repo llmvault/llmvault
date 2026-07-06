@@ -14,8 +14,7 @@ const (
 )
 
 // ListOptions controls org-scoped pagination + filtering for
-// ListSourcesForOrg. Page is zero-indexed (page 0 is the first page),
-// matching Onyx's `cc_pair.py:82` convention.
+// ListSourcesForOrg. Page is zero-indexed (page 0 is the first page).
 type ListOptions struct {
 	Page         int
 	PageSize     int
@@ -71,7 +70,6 @@ func GetSourceForOrg(db *gorm.DB, orgID, sourceID uuid.UUID) (*ragmodel.RAGSourc
 }
 
 // ListAttemptsForSource returns paginated attempts ordered newest first.
-// Matches Onyx's `cc_pair.py:82` paginated index-attempts endpoint.
 func ListAttemptsForSource(
 	db *gorm.DB,
 	orgID, sourceID uuid.UUID,

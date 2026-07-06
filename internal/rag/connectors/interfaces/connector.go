@@ -22,8 +22,8 @@ import (
 // *ragmodel.RAGSource (which will trivially satisfy this interface via
 // method additions or a thin adapter).
 //
-// The methods mirror the RAGSource fields documented in the Phase 3
-// plan at plans/onyx-port-phase3.md (Tranche 3A schema section).
+// The methods mirror the RAGSource fields defined in the Tranche 3A
+// data-model schema.
 type Source interface {
 	// SourceID returns the RAGSource.ID (uuid, rendered as string).
 	// Used as the lock key + attempt-attribution identifier.
@@ -48,12 +48,11 @@ type Source interface {
 // Factory registration key) and validates the per-source configuration
 // at registration time — before any ingest attempt fires.
 //
-// Onyx analog: BaseConnector at
-// backend/onyx/connectors/interfaces.py:43-114. We don't port the full
-// Onyx surface (load_credentials, parse_metadata, oauth methods, raw
-// file callback, etc.) — those live above or below this layer in
-// Hivy's architecture (Nango handles creds; parse_metadata is a
-// pure helper; OAuth is handled at the Connection layer).
+// We expose a deliberately minimal surface — no credential loading,
+// metadata parsing, OAuth methods, or raw file callbacks. Those live
+// above or below this layer in Hivy's architecture (Nango handles
+// creds; metadata parsing is a pure helper; OAuth is handled at the
+// Connection layer).
 type Connector interface {
 	// Kind returns the connector identifier (e.g. "github"). This
 	// MUST match the key used at registry.Register time.
@@ -63,9 +62,6 @@ type Connector interface {
 	// the configuration is malformed or references unavailable
 	// resources. Called at Create time (Tranche 3E) before the first
 	// ingest is enqueued.
-	//
-	// Onyx analog: BaseConnector.validate_connector_settings at
-	// interfaces.py:71-77.
 	ValidateConfig(ctx context.Context, src Source) error
 }
 
@@ -80,14 +76,9 @@ type Connector interface {
 // structs can't be silently passed in. Each connector defines its own
 // concrete checkpoint type (e.g. GitHubCheckpoint in Tranche 3D).
 //
-// Onyx analog: CheckpointedConnector at
-// backend/onyx/connectors/interfaces.py:266-302. Onyx uses a generator
-// that returns the checkpoint as its final value (Python's
-// `yield from ... return` pattern). Go lacks that, so we return the
-// checkpoint-advance separately: the connector mutates the checkpoint
-// via its own state, and the scheduler reads the latest checkpoint
-// before closing the channel. UnmarshalCheckpoint owns reading
-// persisted bytes back into T.
+// The connector advances the checkpoint via its own state, and the
+// scheduler reads the latest checkpoint before closing the channel.
+// UnmarshalCheckpoint owns reading persisted bytes back into T.
 type CheckpointedConnector[T Checkpoint] interface {
 	Connector
 
@@ -106,14 +97,10 @@ type CheckpointedConnector[T Checkpoint] interface {
 
 	// DummyCheckpoint returns the zero-value checkpoint used for a
 	// fresh "from-beginning" run.
-	// Onyx analog: BaseConnector.build_dummy_checkpoint at
-	// interfaces.py:113-114.
 	DummyCheckpoint() T
 
 	// UnmarshalCheckpoint parses persisted bytes back into T. Called
 	// by the scheduler (Tranche 3C) when resuming a run.
-	// Onyx analog: CheckpointedConnector.validate_checkpoint_json at
-	// interfaces.py:299-302.
 	UnmarshalCheckpoint(raw json.RawMessage) (T, error)
 }
 
@@ -123,13 +110,9 @@ type CheckpointedConnector[T Checkpoint] interface {
 // Source.PermSyncFreqSeconds; results are streamed through channels so
 // large result sets don't have to fit in memory.
 //
-// Onyx analog (split across two modules):
-//   - backend/ee/onyx/external_permissions/<provider>/doc_sync.py
-//   - backend/ee/onyx/external_permissions/<provider>/group_sync.py
-//
-// We unify them under one trait because both operations share the
-// same connector instance + Nango auth and typically reuse the same
-// HTTP client state.
+// Document-permission sync and external-group sync are unified under
+// one trait because both operations share the same connector instance +
+// Nango auth and typically reuse the same HTTP client state.
 type PermSyncConnector interface {
 	Connector
 
@@ -155,9 +138,6 @@ type EstimatingConnector interface {
 // source. Used by the pruning loop (Tranche 3C) to detect source-side
 // deletions: documents present in our index but no longer in the
 // source are scheduled for delete.
-//
-// Onyx analog: SlimConnector at
-// backend/onyx/connectors/interfaces.py:134-142.
 type SlimConnector interface {
 	Connector
 

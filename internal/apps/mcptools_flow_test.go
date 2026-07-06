@@ -142,12 +142,13 @@ func TestAppPublishStatusLogsRollbackTools(t *testing.T) {
 		t.Fatalf("active_version_id after rollback = %v", app.ActiveVersionID)
 	}
 
-	// A failing deploy surfaces as a clear tool error pointing at app_logs.
+	// A failing deploy (bundle rejected by appd) surfaces as a clear tool error
+	// blaming the app build and pointing at app_logs.
 	appd.forceStatus("/deploy", http.StatusUnprocessableEntity)
 	h.store.put(sourceKey, []byte("src-3"))
 	h.store.put(bundleKey, []byte("bin-3"))
 	assertAppToolError(t, client, session, toolAppPublish, map[string]any{
 		"app_id": appID, "source_key": sourceKey, "bundle_key": bundleKey,
 		"source_sha256": sha256Hex([]byte("src-3")), "bundle_sha256": sha256Hex([]byte("bin-3")),
-	}, "deploy failed")
+	}, "app_logs")
 }

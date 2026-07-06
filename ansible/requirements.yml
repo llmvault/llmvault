@@ -1,0 +1,7 @@
+---
+# Install with: ansible-galaxy collection install -r requirements.yml
+collections:
+  # microsandbox-preview-cache role syncs the gateway source with
+  # ansible.posix.synchronize (rsync) to exclude local build artifacts (.venv).
+  - name: ansible.posix
+    version: ">=1.5.0"

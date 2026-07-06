@@ -78,6 +78,18 @@ func BuildSourceFilter(orgID, sourceID string) *qc.Filter {
 	}}
 }
 
+// BuildScopedFilter is BuildACLFilter plus an optional restriction to a set of
+// sources. When sourceIDs is non-empty it adds a mandatory
+// rag_source_id any-of [sourceIDs] clause, so results come only from those
+// sources. When sourceIDs is empty the filter is identical to BuildACLFilter.
+func BuildScopedFilter(orgID string, aclAnyOf []string, bypassACL bool, sourceIDs []string) *qc.Filter {
+	filter := BuildACLFilter(orgID, aclAnyOf, bypassACL)
+	if len(sourceIDs) > 0 {
+		filter.Must = append(filter.Must, qc.NewMatchKeywords("rag_source_id", sourceIDs...))
+	}
+	return filter
+}
+
 func pointIDString(id *qc.PointId) string {
 	if id == nil {
 		return ""

@@ -7,8 +7,7 @@ import (
 )
 
 // SlackTextCleaner replaces Slack-specific markup with human-readable
-// text before indexing. Ported from Onyx's SlackTextCleaner at
-// backend/onyx/connectors/slack/utils.py:215-329.
+// text before indexing.
 type SlackTextCleaner struct {
 	api        slackAPIClient
 	userCache  *userCache
@@ -66,7 +65,7 @@ func (c *SlackTextCleaner) replaceSubteamRefs(text string) string {
 }
 
 // resolveUserName returns the display name for a user ID.
-// On failure, returns the user ID itself (matching Onyx's behavior).
+// On failure, returns the user ID itself.
 func (c *SlackTextCleaner) resolveUserName(ctx context.Context, userID string) string {
 	if name, ok := c.nameCache[userID]; ok {
 		return name

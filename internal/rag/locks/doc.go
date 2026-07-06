@@ -2,7 +2,7 @@
 // three-loop sync architecture — per-connection single-flight,
 // fencing-token locks, and heartbeat-liveness checks.
 //
-// Ports the Redis lock helpers scattered across Onyx's background tasks
-// (backend/onyx/background/celery/tasks/*/tasks.py — every task that calls
-// redis_client.lock(...)).
+// Every sync loop (ingest, perm-sync, prune) acquires a per-connection
+// Redis lock for the duration of its run so a connection is never
+// processed by two workers at once.
 package locks

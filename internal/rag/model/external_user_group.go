@@ -11,11 +11,10 @@ import (
 // GitHub team, a Google Drive shared-drive membership) that has been
 // discovered inside a specific RAGSource.
 //
-// HIVY ADDITION: Onyx has no direct analog — Onyx derives external
-// group display data on-demand inside the perm-sync code path. We
-// persist it because (a) the admin UI wants to render display names
-// without making source-API calls, and (b) the stale-sweep pattern used
-// by `RAGUserExternalUserGroup` and `RAGPublicExternalUserGroup` needs a
+// We persist it (rather than deriving it on demand during perm-sync)
+// because (a) the admin UI wants to render display names without
+// making source-API calls, and (b) the stale-sweep pattern used by
+// `RAGUserExternalUserGroup` and `RAGPublicExternalUserGroup` needs a
 // parent row to sweep.
 //
 // ExternalUserGroupID is the source-prefixed, lowercased group

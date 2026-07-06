@@ -76,10 +76,18 @@ func (h *AgentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to archive agent sessions"})
 		return
 	}
-	if err := h.db.WithContext(ctx).
-		Model(&model.Agent{}).
-		Where("id = ? AND org_id = ?", agent.ID, org.ID).
-		Update("status", "archived").Error; err != nil {
+	// Archive the agent and re-home its triggers onto the default agent
+	// (disabled) in one transaction, so a trigger is never left orphaned behind
+	// the now-archived agent — invisible in the automations UI and silently not
+	// firing.
+	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Agent{}).
+			Where("id = ? AND org_id = ?", agent.ID, org.ID).
+			Update("status", "archived").Error; err != nil {
+			return fmt.Errorf("archive agent: %w", err)
+		}
+		return reassignAgentTriggersToDefault(tx, org.ID, []uuid.UUID{agent.ID})
+	}); err != nil {
 		log.ErrorContext(ctx, "archive agent", "error", err, "agent_id", agent.ID, "org_id", org.ID)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to archive agent"})
 		return

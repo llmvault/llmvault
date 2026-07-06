@@ -42,6 +42,8 @@ const (
 	TypeAgentScheduleScan     = "periodic:agent_schedule_scan"
 	TypeSessionReflectionScan = "periodic:session_reflection_scan"
 	TypeSandboxAutoSleep      = "periodic:sandbox_auto_sleep"
+	TypeSandboxReconcile      = "periodic:sandbox_reconcile"
+	TypeSessionTurnWatchdog   = "periodic:session_turn_watchdog"
 
 	// On-demand task enqueued by the sweep for each due subscription.
 	TypeBillingRenewSubscription = "billing:renew_subscription"

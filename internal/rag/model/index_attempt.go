@@ -12,50 +12,41 @@ import (
 // EmbeddingModel) pair because the one-model-per-org invariant means
 // switching the model = starting a new attempt against a new dataset.
 //
-// Direct port of Onyx `IndexAttempt` at
-// backend/onyx/db/models.py:2189-2343.
-//
-// DEVIATIONS vs Onyx:
+// Notes:
 //   - PK is a uuid (not an autoincrement int). Hivy convention —
-//     every table uses uuid.UUID PKs. Zero semantic impact.
-//   - `connector_credential_pair_id` becomes `rag_source_id` because
-//     Hivy keys every RAG table off the top-level RAGSource.
-//   - `search_settings_id` becomes `embedding_model_id` → FK to
-//     `rag_embedding_models(id)`. The FK is installed by the model
-//     package's Migrate entry point after the embedding-model catalog
-//     has been created.
-//   - OrgID column added; Onyx uses schema-per-tenant, Hivy uses
-//     row-level org_id with a CASCADE FK to orgs(id).
+//     every table uses uuid.UUID PKs.
+//   - Every RAG table keys off the top-level RAGSource, so this
+//     attempt is scoped to `rag_source_id`.
+//   - EmbeddingModelID is an FK to `rag_embedding_models(id)`. The FK
+//     is installed by the model package's Migrate entry point after
+//     the embedding-model catalog has been created.
+//   - OrgID carries row-level tenancy with a CASCADE FK to orgs(id).
 type RAGIndexAttempt struct {
-	// ID — Onyx models.py:2198
+	// ID is the primary key.
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 
-	// OrgID — Hivy addition for row-level tenancy.
+	// OrgID enables row-level tenancy.
 	OrgID uuid.UUID `gorm:"type:uuid;not null;index;constraint:OnDelete:CASCADE"`
 
-	// RAGSourceID — adapts Onyx `connector_credential_pair_id`
-	// (models.py:2200-2204). FK to rag_sources(id) with CASCADE so
-	// that tearing down a source wipes its index-attempt history.
+	// RAGSourceID — FK to rag_sources(id) with CASCADE so that
+	// tearing down a source wipes its index-attempt history.
 	// RAGSource carries the Connection reference for
 	// INTEGRATION-kind sources.
 	RAGSourceID uuid.UUID `gorm:"type:uuid;not null;index"`
 
-	// EmbeddingModelID — adapts Onyx `search_settings_id`
-	// (models.py:2221-2225). FK to rag_embedding_models(id).
+	// EmbeddingModelID is an FK to rag_embedding_models(id).
 	EmbeddingModelID *string `gorm:"type:text"`
 
-	// FromBeginning — Onyx models.py:2206-2209. Only set when the
-	// attempt was kicked off via the run-once API with reindex-from-
-	// zero semantics.
+	// FromBeginning — only set when the attempt was kicked off via
+	// the run-once API with reindex-from-zero semantics.
 	FromBeginning bool `gorm:"not null;default:false"`
 
-	// Status — Onyx models.py:2210-2212.
+	// Status is the lifecycle status of this attempt.
 	Status IndexingStatus `gorm:"type:text;not null;index"`
 
-	// Document counters — Onyx models.py:2214-2216. Nullable because
-	// an attempt that hasn't started reporting progress yet has no
-	// meaningful value (a 0 would be indistinguishable from "zero docs
-	// processed so far").
+	// Document counters. Nullable because an attempt that hasn't
+	// started reporting progress yet has no meaningful value (a 0
+	// would be indistinguishable from "zero docs processed so far").
 	NewDocsIndexed       *int `gorm:"default:0"`
 	TotalDocsIndexed     *int `gorm:"default:0"`
 	DocsRemovedFromIndex *int `gorm:"default:0"`
@@ -64,26 +55,25 @@ type RAGIndexAttempt struct {
 	DocsEstimated *int `gorm:"type:integer"`
 
 	// ErrorMsg / FullExceptionTrace — only populated when Status=failed.
-	// Onyx models.py:2217-2220.
 	ErrorMsg           *string `gorm:"type:text"`
 	FullExceptionTrace *string `gorm:"type:text"`
 
 	// PollRangeStart / PollRangeEnd — for polling connectors, the
-	// window this attempt is fetching. Onyx models.py:2227-2234.
+	// window this attempt is fetching.
 	PollRangeStart *time.Time
 	PollRangeEnd   *time.Time
 
 	// CheckpointPointer — key into the RAG filestore where the
 	// in-progress checkpoint blob lives; lets us resume a crashed
-	// docfetching run. Onyx models.py:2236-2238.
+	// docfetching run.
 	CheckpointPointer *string `gorm:"type:text"`
 
-	// Coordination fields (replacing Onyx's Redis fencing mechanism
-	// with plain Postgres rows). Onyx models.py:2240-2242.
+	// Coordination fields, backed by plain Postgres rows rather than
+	// an external fencing mechanism.
 	CeleryTaskID          *string `gorm:"type:text"`
 	CancellationRequested bool    `gorm:"not null;default:false"`
 
-	// Batch coordination. Onyx models.py:2244-2251.
+	// Batch coordination.
 	//
 	// TotalBatches is set once docfetching finishes enumerating work.
 	// IsCoordinationComplete() below keys off nil vs populated here.
@@ -92,9 +82,9 @@ type RAGIndexAttempt struct {
 	TotalFailuresBatchLevel int  `gorm:"not null;default:0"`
 	TotalChunks             int  `gorm:"not null;default:0"`
 
-	// Stall detection / heartbeat — Onyx models.py:2253-2264. The
-	// watchdog scans `status='in_progress' AND last_progress_time <
-	// NOW() - interval`, which is why the partial heartbeat index in
+	// Stall detection / heartbeat. The watchdog scans
+	// `status='in_progress' AND last_progress_time < NOW() -
+	// interval`, which is why the partial heartbeat index in
 	// indexes.go covers those two columns.
 	LastProgressTime          *time.Time
 	LastBatchesCompletedCount int `gorm:"not null;default:0"`
@@ -102,7 +92,7 @@ type RAGIndexAttempt struct {
 	LastHeartbeatValue        int `gorm:"not null;default:0"`
 	LastHeartbeatTime         *time.Time
 
-	// Timestamps. Onyx models.py:2266-2280.
+	// Timestamps.
 	TimeCreated time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index"`
 	TimeStarted *time.Time
 	TimeUpdated time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;autoUpdateTime"`
@@ -112,17 +102,15 @@ type RAGIndexAttempt struct {
 // rag_ prefix for namespace isolation from the core Hivy schema.
 func (RAGIndexAttempt) TableName() string { return "rag_index_attempts" }
 
-// IsFinished is the Go port of Onyx's `is_finished` method at
-// backend/onyx/db/models.py:2334-2335. Proxies to IndexingStatus's
-// IsTerminal so the two cannot drift out of sync.
+// IsFinished reports whether the attempt has reached a terminal
+// state. Proxies to IndexingStatus's IsTerminal so the two cannot
+// drift out of sync.
 func (a *RAGIndexAttempt) IsFinished() bool {
 	return a.Status.IsTerminal()
 }
 
 // IsCoordinationComplete returns true once every batch the
-// docfetcher enumerated has been fully processed downstream. Port of
-// Onyx `is_coordination_complete` at
-// backend/onyx/db/models.py:2337-2342.
+// docfetcher enumerated has been fully processed downstream.
 //
 // Subtle but load-bearing: if TotalBatches is nil the answer is
 // always false — docfetching hasn't finished enumerating work yet, so

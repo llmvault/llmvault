@@ -25,6 +25,39 @@ func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {
 	return d.do(ctx, http.MethodDelete, "/v1/sandboxes/"+externalID, nil, nil)
 }
 
+// sandboxStateResponse mirrors the control plane's lean /v1/sandboxes/states
+// projection.
+type sandboxStateResponse struct {
+	ID                    string     `json:"id"`
+	Status                string     `json:"status"`
+	SleepAfterAt          *time.Time `json:"sleep_after_at"`
+	LastGatewayActivityAt *time.Time `json:"last_gateway_activity_at"`
+	RuntimeBusy           bool       `json:"runtime_busy"`
+	LastRuntimeActivityAt *time.Time `json:"last_runtime_activity_at"`
+}
+
+// ListSandboxStates returns the control plane's liveness view of every sandbox
+// in one batch call, so the reconciler can bulk-correct the Go-API mirror.
+func (d *Driver) ListSandboxStates(ctx context.Context) ([]sandbox.SandboxState, error) {
+	var out struct {
+		Data []sandboxStateResponse `json:"data"`
+	}
+	if err := d.do(ctx, http.MethodGet, "/v1/sandboxes/states", nil, &out); err != nil {
+		return nil, err
+	}
+	states := make([]sandbox.SandboxState, 0, len(out.Data))
+	for _, s := range out.Data {
+		states = append(states, sandbox.SandboxState{
+			ExternalID:            s.ID,
+			Status:                mapStatus(s.Status),
+			LastGatewayActivityAt: s.LastGatewayActivityAt,
+			RuntimeBusy:           s.RuntimeBusy,
+			LastRuntimeActivityAt: s.LastRuntimeActivityAt,
+		})
+	}
+	return states, nil
+}
+
 func (d *Driver) GetStatus(ctx context.Context, externalID string) (sandbox.SandboxStatus, error) {
 	var out sandboxResponse
 	if err := d.do(ctx, http.MethodGet, "/v1/sandboxes/"+externalID, nil, &out); err != nil {

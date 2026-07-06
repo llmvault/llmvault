@@ -247,7 +247,5 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.ensureWebsiteRAGSource(r.Context(), &org)
-
 	writeJSON(w, http.StatusOK, h.buildOrgResponse(org))
 }

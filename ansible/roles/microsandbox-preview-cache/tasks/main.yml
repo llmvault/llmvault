@@ -66,13 +66,25 @@
     group: root
     mode: "0755"
 
-- name: Copy microsandbox gateway Python project
-  ansible.builtin.copy:
+# Sync via rsync (not copy) so local build/dev artifacts are excluded. The
+# copy module has no exclude and shipped the local .venv (~11M, ~700 files)
+# file-by-file over SSH — a 15min+ deploy. The venv is rebuilt by the pip step
+# below, so copying it was pure waste. become:false because ansible_user is
+# already root; leaving become on makes synchronize wrap rsync in sudo and fail.
+- name: Sync microsandbox gateway Python project
+  ansible.posix.synchronize:
     src: "{{ microsandbox_gateway_project_src }}/"
     dest: "{{ microsandbox_gateway_install_dir }}/"
-    owner: root
-    group: root
-    mode: preserve
+    archive: true
+    delete: true
+    rsync_opts:
+      - "--exclude=.venv"
+      - "--exclude=*.egg-info"
+      - "--exclude=__pycache__"
+      - "--exclude=.pytest_cache"
+      - "--exclude=.mypy_cache"
+      - "--exclude=*.pyc"
+  become: false
   notify: Restart microsandbox preview cache
 
 - name: Install microsandbox gateway package

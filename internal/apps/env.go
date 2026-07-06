@@ -16,6 +16,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 // Injected env contract — must match what the template's hivycore.LoadConfig
@@ -28,6 +29,9 @@ const (
 	envLaunchURL     = "HIVY_LAUNCH_URL"
 	envSessionSecret = "HIVY_SESSION_SECRET"
 	envSheetID       = "HIVY_SHEET_ID"
+	// envAppActivityURL enables hivycore's idle-activity ping. Set only for the
+	// microsandbox (production) provider, which is what makes it "production only".
+	envAppActivityURL = "HIVY_APP_ACTIVITY_URL"
 )
 
 // sessionSecretHKDFLabel is the fixed HKDF-SHA256 info label for deriving
@@ -100,6 +104,16 @@ func (s *Service) buildAppEnv(ctx context.Context, app *model.App, secret string
 	env[envSessionSecret] = sessionSecret
 	env[envSheetID] = app.SheetID.String()
 	return env, nil
+}
+
+// appActivityURL is the idle-activity ping endpoint injected into a real app
+// deploy (see Deploy) but NOT into a preview run: only microsandbox (production)
+// app sandboxes are auto-slept, and a preview must not keep the real app awake.
+func (s *Service) appActivityURL(app *model.App) string {
+	if s.provider == nil || s.provider.ID() != sandbox.ProviderMicrosandbox {
+		return ""
+	}
+	return internalAppAPIURL(s.cfg, app.ID.String()) + "/v1/activity"
 }
 
 // BuildPreviewEnv assembles the exact env the deploy path injects into an app

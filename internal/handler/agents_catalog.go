@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/middleware"
@@ -196,11 +197,29 @@ func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default agent cannot be uninstalled"})
 		return
 	}
-	err := h.db.WithContext(r.Context()).Model(&model.Agent{}).
+	var agentIDs []uuid.UUID
+	if err := h.db.WithContext(r.Context()).Model(&model.Agent{}).
 		Where("is_default = ?", false).
 		Where("org_id = ? AND agent_catalog_id = ? AND status <> ?", org.ID, catalog.ID, "archived").
-		Update("status", "archived").Error
-	if err != nil {
+		Pluck("id", &agentIDs).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall agent"})
+		return
+	}
+	if len(agentIDs) == 0 {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "uninstalled"})
+		return
+	}
+	// Archive the catalog's agents and re-home their triggers onto the default
+	// agent (disabled) together, so no trigger is stranded behind an archived
+	// agent where it would vanish from the UI and stop firing unnoticed.
+	if err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Agent{}).
+			Where("id IN ?", agentIDs).
+			Update("status", "archived").Error; err != nil {
+			return err
+		}
+		return reassignAgentTriggersToDefault(tx, org.ID, agentIDs)
+	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall agent"})
 		return
 	}

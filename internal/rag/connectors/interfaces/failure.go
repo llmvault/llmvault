@@ -6,9 +6,6 @@ import "time"
 // connector run. Exactly one of {DocumentFailure, EntityFailure} is set
 // per ConnectorFailure — see the ConnectorFailure godoc for the
 // invariant.
-//
-// Onyx analog: DocumentFailure at
-// backend/onyx/connectors/models.py:476-478.
 type DocumentFailure struct {
 	// DocID matches Document.DocID — identifies which document would
 	// have been produced had the fetch succeeded.
@@ -23,9 +20,6 @@ type DocumentFailure struct {
 // EntityFailure identifies a non-document entity (e.g. a repo, a page
 // cursor, a time range) whose retrieval failed, without pinning the
 // failure to a single document.
-//
-// Onyx analog: EntityFailure at
-// backend/onyx/connectors/models.py:481-483.
 type EntityFailure struct {
 	// EntityID is a connector-defined opaque identifier (e.g. a repo
 	// name, a Confluence space key). No format is enforced here.
@@ -43,9 +37,7 @@ type EntityFailure struct {
 // RAGIndexAttemptError rows (Phase 1B).
 //
 // Invariant: exactly one of {FailedDocument, FailedEntity} is non-nil.
-// This mirrors Onyx's model_validator at
-// backend/onyx/connectors/models.py:494-504. Go doesn't have
-// Pydantic-style constructor-time validation, so enforcement lives in
+// Go doesn't have constructor-time validation, so enforcement lives in
 // the constructor helpers below.
 //
 // Cause, if non-nil, carries the underlying error so callers can use

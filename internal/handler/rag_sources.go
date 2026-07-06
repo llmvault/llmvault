@@ -58,14 +58,30 @@ type ragSourceResponse struct {
 // dashboards: counts + status + timestamps without the full attempt
 // payload.
 type ragLatestAttemptStatus struct {
-	ID               string     `json:"id"`
-	Status           string     `json:"status"`
-	NewDocsIndexed   *int       `json:"new_docs_indexed,omitempty"`
-	TotalDocsIndexed *int       `json:"total_docs_indexed,omitempty"`
-	DocsEstimated    *int       `json:"docs_estimated,omitempty"`
-	ErrorMsg         *string    `json:"error_msg,omitempty"`
-	TimeStarted      *time.Time `json:"time_started,omitempty"`
-	TimeUpdated      time.Time  `json:"time_updated"`
+	ID               string       `json:"id"`
+	Status           string       `json:"status"`
+	NewDocsIndexed   *int         `json:"new_docs_indexed,omitempty"`
+	TotalDocsIndexed *int         `json:"total_docs_indexed,omitempty"`
+	DocsEstimated    *int         `json:"docs_estimated,omitempty"`
+	TotalBatches     *int         `json:"total_batches,omitempty"`
+	CompletedBatches int          `json:"completed_batches"`
+	Progress         ragProgress  `json:"progress"`
+	ErrorMsg         *string      `json:"error_msg,omitempty"`
+	TimeStarted      *time.Time   `json:"time_started,omitempty"`
+	TimeUpdated      time.Time    `json:"time_updated"`
+}
+
+// ragProgress is an honest sync-progress signal. Percent is set when a
+// denominator exists: docs_estimated (only some connectors estimate) or, failing
+// that, the batch counts once docfetching has enumerated the work. When neither
+// is available Percent is nil and Indeterminate is true — callers should show
+// the running DocsIndexed count instead of a bar. Basis records which
+// denominator was used ("docs_estimated", "batches", or "" when indeterminate).
+type ragProgress struct {
+	Percent       *int   `json:"percent,omitempty"`
+	Indeterminate bool   `json:"indeterminate"`
+	Basis         string `json:"basis,omitempty"`
+	DocsIndexed   int    `json:"docs_indexed"`
 }
 
 type ragSourceDetailResponse struct {
@@ -74,19 +90,22 @@ type ragSourceDetailResponse struct {
 }
 
 type ragIndexAttemptResponse struct {
-	ID                   string     `json:"id"`
-	Status               string     `json:"status"`
-	FromBeginning        bool       `json:"from_beginning"`
-	NewDocsIndexed       *int       `json:"new_docs_indexed,omitempty"`
-	TotalDocsIndexed     *int       `json:"total_docs_indexed,omitempty"`
-	DocsRemovedFromIndex *int       `json:"docs_removed_from_index,omitempty"`
-	DocsEstimated        *int       `json:"docs_estimated,omitempty"`
-	ErrorMsg             *string    `json:"error_msg,omitempty"`
-	PollRangeStart       *time.Time `json:"poll_range_start,omitempty"`
-	PollRangeEnd         *time.Time `json:"poll_range_end,omitempty"`
-	TimeStarted          *time.Time `json:"time_started,omitempty"`
-	TimeCreated          time.Time  `json:"time_created"`
-	TimeUpdated          time.Time  `json:"time_updated"`
+	ID                   string      `json:"id"`
+	Status               string      `json:"status"`
+	FromBeginning        bool        `json:"from_beginning"`
+	NewDocsIndexed       *int        `json:"new_docs_indexed,omitempty"`
+	TotalDocsIndexed     *int        `json:"total_docs_indexed,omitempty"`
+	DocsRemovedFromIndex *int        `json:"docs_removed_from_index,omitempty"`
+	DocsEstimated        *int        `json:"docs_estimated,omitempty"`
+	TotalBatches         *int        `json:"total_batches,omitempty"`
+	CompletedBatches     int         `json:"completed_batches"`
+	Progress             ragProgress `json:"progress"`
+	ErrorMsg             *string     `json:"error_msg,omitempty"`
+	PollRangeStart       *time.Time  `json:"poll_range_start,omitempty"`
+	PollRangeEnd         *time.Time  `json:"poll_range_end,omitempty"`
+	TimeStarted          *time.Time  `json:"time_started,omitempty"`
+	TimeCreated          time.Time   `json:"time_created"`
+	TimeUpdated          time.Time   `json:"time_updated"`
 }
 
 type ragAttemptDetailResponse struct {
@@ -172,6 +191,9 @@ func toRAGAttemptResponse(a *ragmodel.RAGIndexAttempt) ragIndexAttemptResponse {
 		TotalDocsIndexed:     a.TotalDocsIndexed,
 		DocsRemovedFromIndex: a.DocsRemovedFromIndex,
 		DocsEstimated:        a.DocsEstimated,
+		TotalBatches:         a.TotalBatches,
+		CompletedBatches:     a.CompletedBatches,
+		Progress:             computeRAGProgress(a),
 		ErrorMsg:             a.ErrorMsg,
 		PollRangeStart:       a.PollRangeStart,
 		PollRangeEnd:         a.PollRangeEnd,
@@ -191,10 +213,54 @@ func toRAGLatestAttemptStatus(a *ragmodel.RAGIndexAttempt) *ragLatestAttemptStat
 		NewDocsIndexed:   a.NewDocsIndexed,
 		TotalDocsIndexed: a.TotalDocsIndexed,
 		DocsEstimated:    a.DocsEstimated,
+		TotalBatches:     a.TotalBatches,
+		CompletedBatches: a.CompletedBatches,
+		Progress:         computeRAGProgress(a),
 		ErrorMsg:         a.ErrorMsg,
 		TimeStarted:      a.TimeStarted,
 		TimeUpdated:      a.TimeUpdated,
 	}
+}
+
+// computeRAGProgress turns raw attempt counters into an honest progress signal.
+// A terminal-successful attempt is 100%. Otherwise it prefers a docs_estimated
+// denominator, then batch counts, and only reports indeterminate when neither is
+// available. Percent is clamped to [0, 100].
+func computeRAGProgress(a *ragmodel.RAGIndexAttempt) ragProgress {
+	docsIndexed := 0
+	if a.TotalDocsIndexed != nil {
+		docsIndexed = *a.TotalDocsIndexed
+	}
+	p := ragProgress{DocsIndexed: docsIndexed}
+
+	if a.Status.IsSuccessful() {
+		full := 100
+		p.Percent = &full
+		p.Basis = "complete"
+		return p
+	}
+
+	if a.DocsEstimated != nil && *a.DocsEstimated > 0 && a.TotalDocsIndexed != nil {
+		p.Percent = clampPercent(*a.TotalDocsIndexed, *a.DocsEstimated)
+		p.Basis = "docs_estimated"
+		return p
+	}
+	if a.TotalBatches != nil && *a.TotalBatches > 0 {
+		p.Percent = clampPercent(a.CompletedBatches, *a.TotalBatches)
+		p.Basis = "batches"
+		return p
+	}
+
+	p.Indeterminate = true
+	return p
+}
+
+func clampPercent(done, total int) *int {
+	if total <= 0 {
+		return nil
+	}
+	pct := min(max(done*100/total, 0), 100)
+	return &pct
 }
 
 func toRAGIntegrationResponse(i *model.Integration) ragIntegrationResponse {

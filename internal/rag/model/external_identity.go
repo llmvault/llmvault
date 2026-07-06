@@ -7,18 +7,13 @@ import (
 	"github.com/lib/pq"
 )
 
-// RAGExternalIdentity is a Hivy-only addition. Onyx resolves Hivy-user
-// → source-native-identity on-demand inside its perm-sync code; we persist
-// the mapping so our sync tasks have an O(1) lookup for ACL matching.
+// RAGExternalIdentity maps a Hivy user to their source-native identity,
+// persisted so sync tasks have an O(1) lookup for ACL matching instead
+// of resolving it on demand during perm-sync.
 //
 // One row per (Hivy user, Connection). The same GitHub user in two
 // different Hivy orgs is two distinct rows — enforced by the org-scoped
 // (provider, external_user_id, org_id) unique.
-//
-// References (for the caller's context, not a direct port):
-//   - Onyx OAuthAccount: backend/onyx/db/models.py:299-303
-//   - Onyx perm-sync identity resolution: scattered across
-//     backend/onyx/external_permissions/
 type RAGExternalIdentity struct {
 	// ID is a bigserial surrogate key; this table is high-churn
 	// (one row per user per connection) and we never look up by it

@@ -14,9 +14,8 @@ import (
 // LastSyncedAt columns cache source-canonical identity metadata so
 // RAG permission sync can map a Hivy user to source-native ACL
 // entries (e.g. GitHub work email vs personal) without re-hitting
-// the provider on every search. Onyx resolves these on-demand inside
-// perm-sync code (backend/onyx/db/models.py:299-303); we cache
-// because our sync tasks need fast lookup.
+// the provider on every search. We cache this metadata because our
+// sync tasks need fast lookup rather than resolving it on demand.
 type OAuthAccount struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	UserID         uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_oauth_user_provider"`

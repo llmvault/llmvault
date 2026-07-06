@@ -14,7 +14,7 @@ import (
 )
 
 // pollOverlap absorbs clock skew + GitHub indexing latency between
-// successive fetches. Mirrors backend/onyx/connectors/github/connector.py:802.
+// successive fetches.
 const pollOverlap = 3 * time.Hour
 
 const Kind = "github"

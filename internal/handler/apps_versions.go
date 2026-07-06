@@ -132,10 +132,12 @@ func (h *AppsHandler) Versions(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if version != nil {
-			// The version row exists but the deploy failed; the app is now in
-			// status "failed". Surface the failure without discarding the row.
+			// The version row exists but the deploy failed. Deploy already rolled
+			// the app back to its pre-publish state (a first deploy tears the new
+			// sandbox down; a redeploy restores the previous version), so we just
+			// surface the failure without discarding the recorded version row.
 			logging.Capture(r.Context(), err)
-			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "version recorded but deploy failed: " + err.Error()})
+			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "version recorded but deploy failed and was rolled back: " + err.Error()})
 			return
 		}
 		writeAppsError(w, r, err)

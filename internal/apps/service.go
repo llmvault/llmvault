@@ -18,6 +18,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/storage"
@@ -201,6 +202,14 @@ func (s *Service) appSandbox(ctx context.Context, app *model.App) (*model.Sandbo
 		return nil, fmt.Errorf("load app sandbox: %w", err)
 	}
 	return &sb, nil
+}
+
+// setAppStatusBestEffort applies a terminal status on a compensation path where
+// the deploy has already failed: a write failure is logged, not surfaced.
+func (s *Service) setAppStatusBestEffort(ctx context.Context, app *model.App, status string) {
+	if err := s.setAppStatus(ctx, app, status); err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "set terminal app status after failed deploy", "app_id", app.ID, "status", status, "error", err)
+	}
 }
 
 // decryptAppSecret returns the app's plaintext runtime secret.

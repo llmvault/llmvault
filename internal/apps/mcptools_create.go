@@ -160,9 +160,14 @@ func handleAppPublish(ctx context.Context, svc *Service, token *model.Token, age
 	})
 	if err != nil {
 		if version != nil {
-			// The version row exists but the deploy failed — the app is in
-			// status "failed". Point the model at its debugger.
-			return appToolError("deploy failed: " + err.Error() + ". The version was recorded but the app is not serving it; use app_logs to inspect the failure, fix, and publish again."), nil
+			// The version row exists but the deploy failed. Deploy rolled the
+			// app back to its pre-publish state; the message depends on whose
+			// fault it was so the agent reacts correctly.
+			var infra *InfraError
+			if errors.As(err, &infra) {
+				return appToolError("The deploy failed because of an internal error on our end, not a problem with your app: " + infra.Error() + ". Your app was rolled back to its previous state (a first deploy leaves nothing running; a redeploy keeps the previous version live). This is not something to fix in your code and retrying will not help — please STOP, apologise to the user, and tell them the platform team has been alerted and is working on it."), nil
+			}
+			return appToolError("Your app failed to deploy: " + err.Error() + ". This is a problem with the app build itself, not our infrastructure — the previous version (if any) is still running unchanged. Use app_logs to inspect the failure, fix the app, and publish again."), nil
 		}
 		return appToolError("publish failed: " + err.Error()), nil
 	}

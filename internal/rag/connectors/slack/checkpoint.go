@@ -11,9 +11,6 @@ import (
 // resume across Asynq retries and worker restarts. Slack returns
 // messages newest-to-oldest, so channel_completion_map tracks the
 // oldest timestamp we've processed per channel.
-//
-// Ported from Onyx's SlackCheckpoint at
-// backend/onyx/connectors/slack/connector.py:79-91.
 type SlackCheckpoint struct {
 	interfaces.AnyCheckpoint
 

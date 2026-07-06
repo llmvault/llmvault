@@ -40,8 +40,6 @@ func shouldFilter(msg SlackMessage, includeBots bool) string {
 
 // threadToDoc converts a Slack thread into an interfaces.Document.
 // Each message in the thread becomes one Section.
-// Ported from Onyx's thread_to_doc at
-// backend/onyx/connectors/slack/connector.py:274-349.
 func (c *SlackConnector) threadToDoc(
 	channel SlackChannel,
 	messages []SlackMessage,

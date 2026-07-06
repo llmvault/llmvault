@@ -2,7 +2,9 @@ package apps
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/lib/pq"
@@ -17,13 +19,14 @@ import (
 // 0; microsandbox floors explicit resources to nano on the control plane.
 const appSandboxSize = "micro"
 
-// Deploy activates a published version: ensure the app sandbox exists
-// (created with the app image and the full env, secret included, so appd can
-// authenticate), presign the bundle, and drive appd POST /deploy — which
-// downloads, sha-verifies, extracts, rewrites the env file, and restarts the
-// app. The env rides the deploy body for existing sandboxes, so env refresh
-// and release activation land in one restart. Status transitions:
-// deploying → running on appd success, → failed on any error.
+// Deploy activates a published version: ensure the app sandbox, presign the
+// bundle, and drive appd /deploy (download, verify, extract, restart) onto it.
+// It fails closed with a hard rollback — on any error deploySandbox has already
+// restored the pre-deploy state (a newly created sandbox is torn down; a
+// redeploy is rolled back to the previously active version) and set the terminal
+// status, so a failed publish leaves no half-applied deploy behind. The returned
+// error is classified InfraError vs AppdError so callers can tell our fault from
+// the app bundle's.
 func (s *Service) Deploy(ctx context.Context, app *model.App, version *model.AppVersion) error {
 	if s.provider == nil {
 		return fmt.Errorf("apps: sandbox provider is not configured")
@@ -40,17 +43,16 @@ func (s *Service) Deploy(ctx context.Context, app *model.App, version *model.App
 	if err != nil {
 		return err
 	}
+	if url := s.appActivityURL(app); url != "" {
+		env[envAppActivityURL] = url
+	}
 
 	if err := s.setAppStatus(ctx, app, model.AppStatusDeploying); err != nil {
 		return err
 	}
 
-	deployErr := s.deploySandbox(ctx, app, version, secret, env)
-	if deployErr != nil {
-		if statusErr := s.setAppStatus(ctx, app, model.AppStatusFailed); statusErr != nil {
-			logging.FromContext(ctx).ErrorContext(ctx, "mark app deploy failed", "app_id", app.ID, "error", statusErr)
-		}
-		return deployErr
+	if deployErr := s.deploySandbox(ctx, app, version, secret, env); deployErr != nil {
+		return classifyDeployFault(deployErr)
 	}
 
 	if err := s.db.WithContext(ctx).Model(&model.App{}).
@@ -68,12 +70,28 @@ func (s *Service) Deploy(ctx context.Context, app *model.App, version *model.App
 	return nil
 }
 
+// deploySandbox ensures the app sandbox, activates the release, and on any
+// failure restores the pre-deploy state and sets the terminal status (see
+// rollbackFailedDeploy).
 func (s *Service) deploySandbox(ctx context.Context, app *model.App, version *model.AppVersion, secret string, env map[string]string) error {
 	sb, created, err := s.ensureAppSandbox(ctx, app, env)
 	if err != nil {
+		// ensureAppSandbox already deleted any half-created sandbox; nothing is
+		// deployed to roll back.
+		s.setAppStatusBestEffort(context.WithoutCancel(ctx), app, model.AppStatusFailed)
 		return err
 	}
+	if err := s.activateRelease(ctx, app, version, secret, env, sb, created); err != nil {
+		s.rollbackFailedDeploy(ctx, app, secret, env, sb, created)
+		return err
+	}
+	return nil
+}
 
+// activateRelease presigns the bundle, drives appd to download/verify/extract
+// and restart onto it, then claims (or repoints) the app's stable alias at the
+// sandbox. Any step failing returns an error; the caller compensates.
+func (s *Service) activateRelease(ctx context.Context, app *model.App, version *model.AppVersion, secret string, env map[string]string, sb *model.Sandbox, created bool) error {
 	bundleURL, err := s.store.PresignGet(ctx, version.BundleObjectKey)
 	if err != nil {
 		return fmt.Errorf("presign bundle: %w", err)
@@ -99,16 +117,77 @@ func (s *Service) deploySandbox(ctx context.Context, app *model.App, version *mo
 		return fmt.Errorf("appd deploy (sandbox %s): %w", sb.ID, err)
 	}
 
-	// Claim (or repoint) the app's stable production alias at this sandbox
-	// (silent no-op on providers without alias support; see claimAlias). This
-	// runs on every deploy, including redeploys into an existing sandbox: the
-	// control plane re-pushes both the alias route and the sandbox's preview
-	// route to the gateway, healing a route whose gateway TTL lapsed, and fails
-	// the deploy if the gateway never receives the mapping.
+	// Claim (or repoint) the app's stable alias at this sandbox and push the
+	// route to the gateway (silent no-op on providers without alias support).
+	// A claim failure fails the deploy, which the caller rolls back.
 	if err := s.claimAlias(ctx, app, sb); err != nil {
 		return err
 	}
 	return nil
+}
+
+// rollbackFailedDeploy restores the pre-deploy state after activateRelease
+// fails and sets the terminal status: a sandbox created for this attempt is torn
+// down (app back to no deployment, ready for a clean retry); a redeploy into a
+// pre-existing sandbox is rolled back to the previously active version, keeping
+// the app serving what it served before. It runs on a cancellation-detached
+// context so a client that gave up mid-publish still gets a clean rollback.
+func (s *Service) rollbackFailedDeploy(ctx context.Context, app *model.App, secret string, env map[string]string, sb *model.Sandbox, created bool) {
+	cctx := context.WithoutCancel(ctx)
+	logger := logging.FromContext(ctx)
+	if created {
+		s.cleanupFailedAppSandbox(cctx, sb, sb.ExternalID)
+		if err := s.db.WithContext(cctx).Model(&model.App{}).
+			Where("id = ? AND org_id = ?", app.ID, app.OrgID).
+			Updates(map[string]any{"sandbox_id": nil, "status": model.AppStatusFailed}).Error; err != nil {
+			logger.ErrorContext(cctx, "reset app after failed first deploy", "app_id", app.ID, "error", err)
+		}
+		app.SandboxID = nil
+		app.Status = model.AppStatusFailed
+		return
+	}
+	if s.restorePreviousVersion(cctx, app, secret, env, sb) {
+		s.setAppStatusBestEffort(cctx, app, model.AppStatusRunning)
+		return
+	}
+	s.setAppStatusBestEffort(cctx, app, model.AppStatusFailed)
+}
+
+// restorePreviousVersion drives appd back to the app's active version after a
+// failed redeploy, returning true when the app is again serving a known-good
+// release. It tries appd /rollback (a symlink swap to the already-extracted
+// release), and re-deploys from storage if that release was evicted (404).
+func (s *Service) restorePreviousVersion(ctx context.Context, app *model.App, secret string, env map[string]string, sb *model.Sandbox) bool {
+	logger := logging.FromContext(ctx)
+	if app.ActiveVersionID == nil {
+		return false
+	}
+	var prev model.AppVersion
+	if err := s.db.WithContext(ctx).
+		Where("id = ? AND app_id = ?", *app.ActiveVersionID, app.ID).
+		First(&prev).Error; err != nil {
+		logger.ErrorContext(ctx, "rollback: load previous version", "app_id", app.ID, "error", err)
+		return false
+	}
+	appdURL, err := s.endpointURL(ctx, sb, appdPort)
+	if err != nil {
+		logger.ErrorContext(ctx, "rollback: resolve appd endpoint", "app_id", app.ID, "error", err)
+		return false
+	}
+	if _, err := s.appd.rollback(ctx, appdURL, secret, prev.BundleSHA256); err != nil {
+		var appdErr *AppdError
+		if errors.As(err, &appdErr) && appdErr.StatusCode == http.StatusNotFound {
+			// Previous release pruned from disk — re-extract it from storage.
+			if rerr := s.activateRelease(ctx, app, &prev, secret, env, sb, false); rerr != nil {
+				logger.ErrorContext(ctx, "rollback: re-deploy previous version", "app_id", app.ID, "error", rerr)
+				return false
+			}
+			return true
+		}
+		logger.ErrorContext(ctx, "rollback: appd rollback", "app_id", app.ID, "error", err)
+		return false
+	}
+	return true
 }
 
 // ensureAppSandbox returns the app's sandbox, creating one when missing:

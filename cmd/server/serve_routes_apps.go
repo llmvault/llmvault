@@ -44,6 +44,7 @@ func mountInternalAppRoutes(r chi.Router, appsHandler *handler.AppsInternalHandl
 	r.Route("/internal/apps/{appID}/v1", func(r chi.Router) {
 		r.Get("/sheet", appsHandler.SheetStructure)
 		r.Get("/live", appsHandler.Live)
+		r.Post("/activity", appsHandler.Activity)
 		r.Route("/pages/{pageID}", func(r chi.Router) {
 			r.Post("/rows/query", appsHandler.QueryRows)
 			r.Post("/rows", appsHandler.InsertRows)

@@ -64,6 +64,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	}
 
 	mux.HandleFunc(TypeTokenCleanup, NewTokenCleanupHandler(deps.DB).Handle)
+	mux.HandleFunc(TypeSessionTurnWatchdog, NewSessionTurnWatchdogHandler(deps.DB).Handle)
 
 	if deps.Orchestrator != nil {
 		mux.HandleFunc(TypeSandboxResourceCheck, NewSandboxResourceCheckHandler(deps.Orchestrator).Handle)
@@ -71,6 +72,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxAutoSleep, NewSandboxAutoSleepHandler(deps.DB, deps.Orchestrator).Handle)
+		mux.HandleFunc(TypeSandboxReconcile, NewSandboxReconcileHandler(deps.DB, deps.Orchestrator).Handle)
 		// Tears down a single session's sandbox after the session is archived.
 		mux.HandleFunc(TypeSandboxDelete, NewSandboxDeleteHandler(deps.DB, deps.Orchestrator).Handle)
 	}

@@ -28,6 +28,12 @@ type Sandbox struct {
 	LastPreviewAt          *time.Time
 	StoppedAt              *time.Time // when the sandbox was last stopped (used for 24h auto-archive)
 
+	// App-sandbox idle signals (apps have no session): LastAppActivityAt is
+	// stamped by the app backend on served requests; LastGatewayActivityAt is
+	// mirrored from the control plane by the reconciler as the fallback.
+	LastAppActivityAt     *time.Time
+	LastGatewayActivityAt *time.Time
+
 	// Resource usage (populated by resource checker cron)
 	MemoryLimitBytes  int64      `gorm:"not null;default:0"`
 	MemoryUsedBytes   int64      `gorm:"not null;default:0"`

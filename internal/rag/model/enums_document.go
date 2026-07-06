@@ -1,4 +1,4 @@
-// Package model houses gorm models for the Onyx-derived RAG
+// Package model houses gorm models for the RAG
 // subsystem.
 //
 // Enums are split across multiple files by the tables they describe
@@ -9,79 +9,77 @@
 package model
 
 // DocumentSource enumerates every upstream source a document can come
-// from. Verbatim port of Onyx's DocumentSource string-enum at
-// backend/onyx/configs/constants.py:205-262. Values MUST match byte-for-byte
-// because they are persisted to the DB and because the ACL helper
-// BuildExtGroupName lowercases the source name into ACL strings written to
-// the vector index — any drift would produce silent zero-result filters.
+// from. Values MUST stay stable byte-for-byte because they are persisted
+// to the DB and because the ACL helper BuildExtGroupName lowercases the
+// source name into ACL strings written to the vector index — any drift
+// would produce silent zero-result filters.
 type DocumentSource string
 
-// DocumentSource constants — see Onyx constants.py:205-262 for the
-// authoritative list. Comment beside each constant cites the exact Onyx
-// line.
+// DocumentSource constants. The string values are a fixed contract
+// stamped into stored data and ACL strings; do not change them.
 const (
-	DocumentSourceIngestionAPI       DocumentSource = "ingestion_api"        // constants.py:207
-	DocumentSourceSlack              DocumentSource = "slack"                // constants.py:208
-	DocumentSourceWeb                DocumentSource = "web"                  // constants.py:209
-	DocumentSourceGoogleDrive        DocumentSource = "google_drive"         // constants.py:210
-	DocumentSourceGmail              DocumentSource = "gmail"                // constants.py:211
-	DocumentSourceRequestTracker     DocumentSource = "requesttracker"       // constants.py:212
-	DocumentSourceGithub             DocumentSource = "github"               // constants.py:213
-	DocumentSourceGitbook            DocumentSource = "gitbook"              // constants.py:214
-	DocumentSourceGitlab             DocumentSource = "gitlab"               // constants.py:215
-	DocumentSourceGuru               DocumentSource = "guru"                 // constants.py:216
-	DocumentSourceBookstack          DocumentSource = "bookstack"            // constants.py:217
-	DocumentSourceOutline            DocumentSource = "outline"              // constants.py:218
-	DocumentSourceConfluence         DocumentSource = "confluence"           // constants.py:219
-	DocumentSourceJira               DocumentSource = "jira"                 // constants.py:220
-	DocumentSourceSlab               DocumentSource = "slab"                 // constants.py:221
-	DocumentSourceProductboard       DocumentSource = "productboard"         // constants.py:222
-	DocumentSourceFile               DocumentSource = "file"                 // constants.py:223
-	DocumentSourceCoda               DocumentSource = "coda"                 // constants.py:224
-	DocumentSourceCanvas             DocumentSource = "canvas"               // constants.py:225
-	DocumentSourceNotion             DocumentSource = "notion"               // constants.py:226
-	DocumentSourceZulip              DocumentSource = "zulip"                // constants.py:227
-	DocumentSourceLinear             DocumentSource = "linear"               // constants.py:228
-	DocumentSourceHubspot            DocumentSource = "hubspot"              // constants.py:229
-	DocumentSourceDocument360        DocumentSource = "document360"          // constants.py:230
-	DocumentSourceGong               DocumentSource = "gong"                 // constants.py:231
-	DocumentSourceGoogleSites        DocumentSource = "google_sites"         // constants.py:232
-	DocumentSourceZendesk            DocumentSource = "zendesk"              // constants.py:233
-	DocumentSourceLoopio             DocumentSource = "loopio"               // constants.py:234
-	DocumentSourceDropbox            DocumentSource = "dropbox"              // constants.py:235
-	DocumentSourceSharepoint         DocumentSource = "sharepoint"           // constants.py:236
-	DocumentSourceTeams              DocumentSource = "teams"                // constants.py:237
-	DocumentSourceSalesforce         DocumentSource = "salesforce"           // constants.py:238
-	DocumentSourceDiscourse          DocumentSource = "discourse"            // constants.py:239
-	DocumentSourceAxero              DocumentSource = "axero"                // constants.py:240
-	DocumentSourceClickup            DocumentSource = "clickup"              // constants.py:241
-	DocumentSourceMediawiki          DocumentSource = "mediawiki"            // constants.py:242
-	DocumentSourceWikipedia          DocumentSource = "wikipedia"            // constants.py:243
-	DocumentSourceAsana              DocumentSource = "asana"                // constants.py:244
-	DocumentSourceS3                 DocumentSource = "s3"                   // constants.py:245
-	DocumentSourceR2                 DocumentSource = "r2"                   // constants.py:246
-	DocumentSourceGoogleCloudStorage DocumentSource = "google_cloud_storage" // constants.py:247
-	DocumentSourceOCIStorage         DocumentSource = "oci_storage"          // constants.py:248
-	DocumentSourceXenforo            DocumentSource = "xenforo"              // constants.py:249
-	DocumentSourceNotApplicable      DocumentSource = "not_applicable"       // constants.py:250
-	DocumentSourceDiscord            DocumentSource = "discord"              // constants.py:251
-	DocumentSourceFreshdesk          DocumentSource = "freshdesk"            // constants.py:252
-	DocumentSourceFireflies          DocumentSource = "fireflies"            // constants.py:253
-	DocumentSourceEgnyte             DocumentSource = "egnyte"               // constants.py:254
-	DocumentSourceAirtable           DocumentSource = "airtable"             // constants.py:255
-	DocumentSourceHighspot           DocumentSource = "highspot"             // constants.py:256
-	DocumentSourceDrupalWiki         DocumentSource = "drupal_wiki"          // constants.py:257
-	DocumentSourceIMAP               DocumentSource = "imap"                 // constants.py:259
-	DocumentSourceBitbucket          DocumentSource = "bitbucket"            // constants.py:260
-	DocumentSourceTestrail           DocumentSource = "testrail"             // constants.py:261
-	DocumentSourceMockConnector      DocumentSource = "mock_connector"       // constants.py:264
-	DocumentSourceUserFile           DocumentSource = "user_file"            // constants.py:266
-	DocumentSourceCraftFile          DocumentSource = "craft_file"           // constants.py:269
+	DocumentSourceIngestionAPI       DocumentSource = "ingestion_api"
+	DocumentSourceSlack              DocumentSource = "slack"
+	DocumentSourceWeb                DocumentSource = "web"
+	DocumentSourceGoogleDrive        DocumentSource = "google_drive"
+	DocumentSourceGmail              DocumentSource = "gmail"
+	DocumentSourceRequestTracker     DocumentSource = "requesttracker"
+	DocumentSourceGithub             DocumentSource = "github"
+	DocumentSourceGitbook            DocumentSource = "gitbook"
+	DocumentSourceGitlab             DocumentSource = "gitlab"
+	DocumentSourceGuru               DocumentSource = "guru"
+	DocumentSourceBookstack          DocumentSource = "bookstack"
+	DocumentSourceOutline            DocumentSource = "outline"
+	DocumentSourceConfluence         DocumentSource = "confluence"
+	DocumentSourceJira               DocumentSource = "jira"
+	DocumentSourceSlab               DocumentSource = "slab"
+	DocumentSourceProductboard       DocumentSource = "productboard"
+	DocumentSourceFile               DocumentSource = "file"
+	DocumentSourceCoda               DocumentSource = "coda"
+	DocumentSourceCanvas             DocumentSource = "canvas"
+	DocumentSourceNotion             DocumentSource = "notion"
+	DocumentSourceZulip              DocumentSource = "zulip"
+	DocumentSourceLinear             DocumentSource = "linear"
+	DocumentSourceHubspot            DocumentSource = "hubspot"
+	DocumentSourceDocument360        DocumentSource = "document360"
+	DocumentSourceGong               DocumentSource = "gong"
+	DocumentSourceGoogleSites        DocumentSource = "google_sites"
+	DocumentSourceZendesk            DocumentSource = "zendesk"
+	DocumentSourceLoopio             DocumentSource = "loopio"
+	DocumentSourceDropbox            DocumentSource = "dropbox"
+	DocumentSourceSharepoint         DocumentSource = "sharepoint"
+	DocumentSourceTeams              DocumentSource = "teams"
+	DocumentSourceSalesforce         DocumentSource = "salesforce"
+	DocumentSourceDiscourse          DocumentSource = "discourse"
+	DocumentSourceAxero              DocumentSource = "axero"
+	DocumentSourceClickup            DocumentSource = "clickup"
+	DocumentSourceMediawiki          DocumentSource = "mediawiki"
+	DocumentSourceWikipedia          DocumentSource = "wikipedia"
+	DocumentSourceAsana              DocumentSource = "asana"
+	DocumentSourceS3                 DocumentSource = "s3"
+	DocumentSourceR2                 DocumentSource = "r2"
+	DocumentSourceGoogleCloudStorage DocumentSource = "google_cloud_storage"
+	DocumentSourceOCIStorage         DocumentSource = "oci_storage"
+	DocumentSourceXenforo            DocumentSource = "xenforo"
+	DocumentSourceNotApplicable      DocumentSource = "not_applicable"
+	DocumentSourceDiscord            DocumentSource = "discord"
+	DocumentSourceFreshdesk          DocumentSource = "freshdesk"
+	DocumentSourceFireflies          DocumentSource = "fireflies"
+	DocumentSourceEgnyte             DocumentSource = "egnyte"
+	DocumentSourceAirtable           DocumentSource = "airtable"
+	DocumentSourceHighspot           DocumentSource = "highspot"
+	DocumentSourceDrupalWiki         DocumentSource = "drupal_wiki"
+	DocumentSourceIMAP               DocumentSource = "imap"
+	DocumentSourceBitbucket          DocumentSource = "bitbucket"
+	DocumentSourceTestrail           DocumentSource = "testrail"
+	DocumentSourceMockConnector      DocumentSource = "mock_connector"
+	DocumentSourceUserFile           DocumentSource = "user_file"
+	DocumentSourceCraftFile          DocumentSource = "craft_file"
 )
 
 // allDocumentSources is an internal allowlist used by IsValid. Kept in a
 // var (not a generated function) so the set lives next to the const block
-// above for auditability against Onyx.
+// above for auditability.
 var allDocumentSources = map[DocumentSource]struct{}{
 	DocumentSourceIngestionAPI:       {},
 	DocumentSourceSlack:              {},
@@ -144,8 +142,7 @@ var allDocumentSources = map[DocumentSource]struct{}{
 
 // IsValid reports whether s is a known DocumentSource. Pure function,
 // intended for admin-API input validation so typo'd source names are
-// rejected before any DB write — mirrors Onyx's pydantic Enum validation
-// which refuses unknown strings at construction time.
+// rejected before any DB write — unknown strings are refused.
 func (s DocumentSource) IsValid() bool {
 	_, ok := allDocumentSources[s]
 	return ok

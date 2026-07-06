@@ -69,7 +69,7 @@ func (h *RAGSourceHandler) ListAttempts(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// Port of cc_pair.py:499 (errors) folded into the per-attempt detail.
+// Per-attempt detail with the attempt's per-doc errors folded in.
 // @Summary Get an index-attempt with per-doc errors
 // @Description Returns the attempt's status / counts / window plus the first page of per-doc failure rows. The target agent errors page can be used to walk later pages if needed.
 // @Tags rag

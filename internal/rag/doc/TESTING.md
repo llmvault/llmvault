@@ -57,8 +57,7 @@ Phase 0 delivers two files that every subsequent tranche uses:
   `NewTestOrg(t, db)`, `NewTestUser(t, db, orgID)`,
   `NewTestIntegration(t, db)`,
   `NewTestConnection(t, db, orgID, userID, integID)`. Each registers
-  cleanup. Mirrors Onyx's
-  `backend/tests/integration/common_utils/managers/` pattern.
+  cleanup, following a shared fixture-manager pattern.
 
 ## What "real business value" means per test type
 
@@ -69,10 +68,10 @@ Phase 0 delivers two files that every subsequent tranche uses:
 | Partial index `idx_rag_document_needs_sync` exists and is used by EXPLAIN | Watchdog + sync loop depend on it; full-table scan at production scale is a P0 |
 | `IndexingStatus.IsTerminal()` branch coverage | Scheduler decides whether to spawn a retry based on this; wrong answer = stuck queues |
 | Stale-sweep pattern on `RAGUserExternalUserGroup` | Security-critical: stale rows grant outdated permissions if sweep is wrong |
-| `ACL prefix` functions produce exact Onyx-compatible strings | Filter strings must byte-match what's stored at index time; off-by-one = 0 results |
+| `ACL prefix` functions produce exact canonical strings | Filter strings must byte-match what's stored at index time; off-by-one = 0 results |
 | `goose migrations` idempotence | CI deploys run it on every boot; non-idempotent = deploy failure |
 | Seed `RAGEmbeddingModel` idempotence | Same reason |
-| Schema matches Onyx columns we ported (via migration inspection, not field assertions) | Proves we actually ported the field with the right Postgres type |
+| Schema matches expected columns (via migration inspection, not field assertions) | Proves the field is defined with the right Postgres type |
 
 ## What is explicitly NOT tested (waste of time)
 

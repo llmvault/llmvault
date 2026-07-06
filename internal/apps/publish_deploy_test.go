@@ -198,9 +198,14 @@ func TestDeployFailureMarksAppFailed(t *testing.T) {
 		SourceKey: sourceKey, BundleKey: bundleKey,
 		SourceSHA256: sourceSHA, BundleSHA256: bundleSHA,
 	})
+	// appd rejecting the bundle is the agent's fault, not infrastructure.
 	var appdErr *AppdError
 	if !errors.As(err, &appdErr) || appdErr.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("deploy error = %v, want AppdError 422", err)
+	}
+	var infra *InfraError
+	if errors.As(err, &infra) {
+		t.Fatalf("appd bundle rejection = %v, must NOT be an InfraError", err)
 	}
 	reloaded, err := h.svc.GetApp(ctx, h.org.ID, app.ID)
 	if err != nil {
@@ -208,5 +213,67 @@ func TestDeployFailureMarksAppFailed(t *testing.T) {
 	}
 	if reloaded.Status != model.AppStatusFailed {
 		t.Fatalf("status = %q, want failed", reloaded.Status)
+	}
+	// Hard rollback of a failed first deploy: sandbox torn down and unlinked.
+	if reloaded.SandboxID != nil {
+		t.Fatalf("sandbox_id = %v, want nil after teardown", reloaded.SandboxID)
+	}
+	if len(h.provider.deleted) != 1 {
+		t.Fatalf("deleted sandboxes = %v, want the created sandbox torn down", h.provider.deleted)
+	}
+}
+
+// TestRedeployFailureRollsBackToPreviousVersion verifies a failed redeploy into
+// an existing sandbox restores the previously active version in place (appd
+// /rollback) instead of tearing the sandbox down, so the app keeps serving.
+func TestRedeployFailureRollsBackToPreviousVersion(t *testing.T) {
+	h := newAppsTestHarness(t)
+	ctx := context.Background()
+	appd := newFakeAppd(t)
+	h.provider.endpoints[appdPort] = appd.server.URL
+	h.provider.endpoints[appPort] = "http://127.0.0.1:45678"
+
+	app := h.createApp(t, "Rollback On Redeploy")
+
+	// v1 deploys cleanly and becomes the active version.
+	v1 := publishOnce(t, h, app)
+
+	// v2 redeploys into the SAME sandbox but appd rejects the restart.
+	appd.forceStatus("/deploy", http.StatusInternalServerError)
+	src2, bun2, srcSHA2, bunSHA2 := h.seedDriveObjects(t, []byte("s2"), []byte("b2"))
+	_, err := h.svc.Publish(ctx, PublishParams{
+		OrgID: h.org.ID, AppID: app.ID,
+		SourceKey: src2, BundleKey: bun2,
+		SourceSHA256: srcSHA2, BundleSHA256: bunSHA2,
+	})
+	if err == nil {
+		t.Fatal("redeploy should have failed")
+	}
+
+	// appd /rollback was driven back to v1's bundle.
+	rollbacks := appd.recorded("/rollback")
+	if len(rollbacks) != 1 {
+		t.Fatalf("rollback calls = %d, want 1", len(rollbacks))
+	}
+	if rollbacks[0].Body["sha256"] != v1.BundleSHA256 {
+		t.Fatalf("rollback sha256 = %v, want v1 %q", rollbacks[0].Body["sha256"], v1.BundleSHA256)
+	}
+
+	reloaded, err := h.svc.GetApp(ctx, h.org.ID, app.ID)
+	if err != nil {
+		t.Fatalf("reload app: %v", err)
+	}
+	// The app is back to running the previous version; the sandbox is untouched.
+	if reloaded.Status != model.AppStatusRunning {
+		t.Fatalf("status = %q, want running (rolled back)", reloaded.Status)
+	}
+	if reloaded.ActiveVersionID == nil || *reloaded.ActiveVersionID != v1.ID {
+		t.Fatalf("active_version_id = %v, want v1 %v", reloaded.ActiveVersionID, v1.ID)
+	}
+	if reloaded.SandboxID == nil {
+		t.Fatal("sandbox_id cleared, but a redeploy must keep the existing sandbox")
+	}
+	if len(h.provider.deleted) != 0 {
+		t.Fatalf("deleted sandboxes = %v, want none on a redeploy rollback", h.provider.deleted)
 	}
 }

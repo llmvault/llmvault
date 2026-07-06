@@ -152,6 +152,48 @@ func deleteAgentTriggers(db *gorm.DB, agentID uuid.UUID) error {
 	return nil
 }
 
+// reassignAgentTriggersToDefault re-homes every trigger owned by the given
+// agents onto the org's default (Hivy) agent and disables it. Archiving an agent
+// otherwise orphans its triggers: both the automations list (triggerQuery) and
+// the dispatcher (matchTriggers) inner-join on non-archived agents, so a trigger
+// left pointing at an archived agent silently vanishes from the UI and stops
+// firing while still reading enabled=true in the DB. Re-pointing to the default
+// agent keeps it visible and manageable; disabling it stops it from firing until
+// the user re-homes or re-enables it deliberately.
+//
+// When no default agent exists to receive them (e.g. it is itself archived), the
+// triggers are disabled in place so they at least stop firing.
+func reassignAgentTriggersToDefault(tx *gorm.DB, orgID uuid.UUID, fromAgentIDs []uuid.UUID) error {
+	if len(fromAgentIDs) == 0 {
+		return nil
+	}
+
+	updates := map[string]any{"enabled": false}
+	var def model.Agent
+	err := tx.
+		Where("org_id = ? AND is_default = ? AND status <> ? AND parent_agent_id IS NULL", orgID, true, "archived").
+		Order("created_at ASC").
+		First(&def).Error
+	switch {
+	case err == nil:
+		updates["agent_id"] = def.ID
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// No default agent to receive the triggers; disable them in place.
+	default:
+		return fmt.Errorf("load default agent for trigger reassignment: %w", err)
+	}
+
+	q := tx.Model(&model.AgentTrigger{}).Where("org_id = ? AND agent_id IN ?", orgID, fromAgentIDs)
+	// Guard against re-homing the default agent's own triggers onto itself.
+	if id, ok := updates["agent_id"].(uuid.UUID); ok {
+		q = q.Where("agent_id <> ?", id)
+	}
+	if err := q.Updates(updates).Error; err != nil {
+		return fmt.Errorf("reassign agent triggers to default: %w", err)
+	}
+	return nil
+}
+
 func resolveAgentTriggerChannel(db *gorm.DB, orgID, agentID uuid.UUID, raw string) (*uuid.UUID, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

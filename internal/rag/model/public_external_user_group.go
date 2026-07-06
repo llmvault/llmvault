@@ -10,18 +10,16 @@ import (
 // (public_external_user_group_id) their sources have recorded, letting
 // those public shares show up in search results.
 //
-// Verbatim port of Onyx `PublicExternalUserGroup` at
-// backend/onyx/db/models.py:4352-4380. Hivy adapts `cc_pair_id` to
-// `rag_source_id`. The `stale` flag + indexes are direct ports; see
-// the stale-sweep doc on `RAGUserExternalUserGroup` for the
-// security-critical sync pattern.
+// The RAGSourceID keys the row to the top-level RAGSource that
+// discovered it. See the stale-sweep doc on `RAGUserExternalUserGroup`
+// for the security-critical sync pattern the `stale` flag + indexes
+// implement here too.
 type RAGPublicExternalUserGroup struct {
 	ExternalUserGroupID string `gorm:"type:text;primaryKey"`
 	// RAGSourceID — composite-PK column, FK to rag_sources(id).
 	RAGSourceID uuid.UUID `gorm:"type:uuid;primaryKey"`
 
-	// Stale flag for the sync pattern. Port of
-	// backend/onyx/db/models.py:4368.
+	// Stale flag for the sync pattern.
 	Stale bool `gorm:"not null;default:false"`
 }
 

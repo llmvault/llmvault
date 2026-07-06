@@ -65,6 +65,7 @@ func (s *Server) Routes() http.Handler {
 		r.Get("/v1/orgs/{orgID}/preview-password", s.getOrgPreviewPassword)
 		r.Put("/v1/orgs/{orgID}/preview-password", s.updateOrgPreviewPassword)
 		r.Get("/v1/sandboxes", s.listSandboxes)
+		r.Get("/v1/sandboxes/states", s.listSandboxStates)
 		r.Post("/v1/sandboxes", s.createSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}", s.getSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}/route", s.getSandboxRoute)

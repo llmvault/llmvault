@@ -27,6 +27,9 @@ type App struct {
 	// frameAncestors is the Content-Security-Policy for every HTML response,
 	// derived once from the launch URL (see frameAncestorsFrom).
 	frameAncestors string
+	// activity reports app usage to the platform so idle auto-sleep holds off;
+	// nil when unconfigured (docker/local).
+	activity *activityReporter
 }
 
 // New loads configuration from the environment and assembles the core.
@@ -64,6 +67,7 @@ func newApp(cfg *Config) (*App, error) {
 		live:           newLiveManager(cfg.APIBaseURL, cfg.AppSecret, log),
 		api:            http.NewServeMux(),
 		frameAncestors: frameAncestorsFrom(cfg.LaunchURL),
+		activity:       newActivityReporter(cfg.ActivityReportURL, cfg.AppSecret, log),
 	}
 	// The realtime relay is mounted inside the authed /api router, so the
 	// session cookie gates it just like every other app endpoint. Agent code

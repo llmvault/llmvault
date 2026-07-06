@@ -35,7 +35,7 @@ func setupRAGRuntime(
 		return nil, err
 	}
 	if qd != nil && embedder != nil && mcpHandler != nil {
-		mcpHandler.SetKnowledgeTools(ragtools.NewKnowledgeToolsFunc(qd, embedder, reranker, cfg.QdrantCollection))
+		mcpHandler.SetKnowledgeTools(ragtools.NewKnowledgeToolsFunc(db, qd, embedder, reranker, cfg.QdrantCollection))
 	}
 	return &ragRuntime{
 		sourceHandler: sourceHandler,

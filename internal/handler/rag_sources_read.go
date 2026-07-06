@@ -75,9 +75,8 @@ func (h *RAGSourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Port of backend/onyx/server/documents/cc_pair.py:156 detail endpoint.
-// Inlines the most-recent attempts so the admin UI doesn't need a
-// second round-trip.
+// Source detail endpoint. Inlines the most-recent attempts so the admin
+// UI doesn't need a second round-trip.
 // @Summary Get a RAG source
 // @Description Returns one RAG source by ID with the last 5 index attempts inlined. 404 on cross-org access by design.
 // @Tags rag

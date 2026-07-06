@@ -33,6 +33,23 @@ const (
 	StatusDraining SandboxStatus = "draining"
 )
 
+// SandboxState is a lean liveness snapshot for the reconciler: the control
+// plane's own view (which may diverge from ours after a gateway-driven wake)
+// plus the activity signals downstream idle logic uses.
+type SandboxState struct {
+	ExternalID            string
+	Status                SandboxStatus
+	LastGatewayActivityAt *time.Time
+	RuntimeBusy           bool
+	LastRuntimeActivityAt *time.Time
+}
+
+// SandboxStateLister is an optional provider capability: the state of every
+// sandbox in one batch call. Unimplementing providers are skipped.
+type SandboxStateLister interface {
+	ListSandboxStates(ctx context.Context) ([]SandboxState, error)
+}
+
 // CreateSandboxOpts configures a new sandbox.
 type CreateSandboxOpts struct {
 	Name         string            // human-readable name

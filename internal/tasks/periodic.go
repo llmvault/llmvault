@@ -112,6 +112,33 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 				asynq.Unique(30 * time.Second),
 			},
 		})
+
+		// Reconcile: re-syncs our sandbox status mirror with the control plane so
+		// gateway-driven wakes (which never notify the Go API) don't strand
+		// sandboxes outside the auto-sleep sweep.
+		configs = append(configs, &asynq.PeriodicTaskConfig{
+			Cronspec: "@every 2m30s",
+			Task:     asynq.NewTask(TypeSandboxReconcile, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(2 * time.Minute),
+				asynq.Unique(150 * time.Second),
+			},
+		})
+
+		// Turn watchdog: resets sessions stuck in an 'active' turn (lost terminal
+		// event) so a leaked turn stops exempting its sandbox from auto-sleep.
+		configs = append(configs, &asynq.PeriodicTaskConfig{
+			Cronspec: "@every 1m",
+			Task:     asynq.NewTask(TypeSessionTurnWatchdog, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(time.Minute),
+				asynq.Unique(time.Minute),
+			},
+		})
 	}
 
 	if sandboxPeriodicTasksConfigured(cfg) {

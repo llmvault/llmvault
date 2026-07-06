@@ -25,10 +25,11 @@ func NewRAGSearchHandler(qd *qdrant.Client, embedder *embedclient.Embedder,
 }
 
 type ragSearchRequest struct {
-	Query     string `json:"query"`
-	Rerank    bool   `json:"rerank,omitempty"`
-	Limit     uint32 `json:"limit,omitempty"`
-	BypassACL bool   `json:"bypass_acl,omitempty"`
+	Query     string   `json:"query"`
+	Rerank    bool     `json:"rerank,omitempty"`
+	Limit     uint32   `json:"limit,omitempty"`
+	BypassACL bool     `json:"bypass_acl,omitempty"`
+	SourceIDs []string `json:"source_ids,omitempty"`
 }
 
 type ragSearchHit struct {
@@ -100,7 +101,7 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	if user.Email != "" {
 		acl = append(acl, user.Email)
 	}
-	filter := qdrant.BuildACLFilter(org.ID.String(), acl, req.BypassACL)
+	filter := qdrant.BuildScopedFilter(org.ID.String(), acl, req.BypassACL, req.SourceIDs)
 
 	topK := limit
 	if req.Rerank && h.reranker != nil {

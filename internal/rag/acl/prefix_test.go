@@ -10,7 +10,7 @@ import (
 // Business value: every string emitted by these helpers ends up in
 // Qdrant at index time and in the query filter at read time. A
 // one-byte drift = 0 results (if lucky) or wrong results across users
-// (if unlucky). The Onyx reference strings are pinned byte-exactly.
+// (if unlucky). The expected strings are pinned byte-exactly.
 
 func TestPrefixUserEmail(t *testing.T) {
 	cases := []struct {
@@ -71,9 +71,9 @@ func TestPrefixExternalGroup(t *testing.T) {
 	}
 }
 
-// TestBuildExtGroupName_LowercasesAndPrefixes pins the Onyx invariant at
-// backend/onyx/access/utils.py:25-26: output is always lowercased AND
-// source-prefixed. Drift here cross-contaminates ACLs across sources
+// TestBuildExtGroupName_LowercasesAndPrefixes pins the invariant that
+// output is always lowercased AND source-prefixed. Drift here
+// cross-contaminates ACLs across sources
 // (a "payments" group in GitHub vs. the same slug in Google Drive).
 func TestBuildExtGroupName_LowercasesAndPrefixes(t *testing.T) {
 	cases := []struct {
@@ -119,10 +119,10 @@ func TestBuildExtGroupName_Idempotent(t *testing.T) {
 
 // TestPublicDocPat pins the exact byte value. Read-path query builders
 // stamp this constant into a user's ACL allow-list; write-path indexers
-// stamp it into public documents' ACL arrays. Value MUST match
-// backend/onyx/configs/constants.py:27 byte-for-byte.
+// stamp it into public documents' ACL arrays. Value MUST stay exactly
+// "PUBLIC" byte-for-byte.
 func TestPublicDocPat(t *testing.T) {
 	if acl.PublicDocPat != "PUBLIC" {
-		t.Fatalf("PublicDocPat = %q, want %q (matches onyx/configs/constants.py:27)", acl.PublicDocPat, "PUBLIC")
+		t.Fatalf("PublicDocPat = %q, want %q", acl.PublicDocPat, "PUBLIC")
 	}
 }

@@ -227,6 +227,30 @@ func (s *Server) listSandboxes(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"data": sandboxes})
 }
 
+// sandboxState is the lean per-sandbox projection the reconciler pulls in bulk
+// (no ports/env/secrets) so the whole fleet fits one cheap query.
+type sandboxState struct {
+	ID                    string     `json:"id"`
+	Status                string     `json:"status"`
+	SleepAfterAt          *time.Time `json:"sleep_after_at"`
+	LastGatewayActivityAt *time.Time `json:"last_gateway_activity_at"`
+	RuntimeBusy           bool       `json:"runtime_busy"`
+	LastRuntimeActivityAt *time.Time `json:"last_runtime_activity_at"`
+}
+
+// listSandboxStates returns every sandbox's liveness state in one batch for the
+// Go-API reconciler.
+func (s *Server) listSandboxStates(w http.ResponseWriter, r *http.Request) {
+	var states []sandboxState
+	if err := s.db.WithContext(r.Context()).Model(&model.Sandbox{}).
+		Select("id, status, sleep_after_at, last_gateway_activity_at, runtime_busy, last_runtime_activity_at").
+		Find(&states).Error; err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to list sandbox states"})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"data": states})
+}
+
 func (s *Server) getSandbox(w http.ResponseWriter, r *http.Request) {
 	var sb model.Sandbox
 	if err := s.db.First(&sb, "id = ?", chi.URLParam(r, "sandboxID")).Error; err != nil {

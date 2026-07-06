@@ -142,10 +142,6 @@ func (h *SlackChannelHandler) JoinChannels(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if result.Joined > 0 {
-		h.autoCreateSlackRAGSource(r.Context(), org.ID)
-	}
-
 	writeJSON(w, http.StatusOK, result)
 }
 

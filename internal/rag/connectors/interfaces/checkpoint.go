@@ -11,10 +11,8 @@ package interfaces
 // external callers can't accidentally pass a random struct as a
 // checkpoint and have it silently type-check.
 //
-// Onyx analog: ConnectorCheckpoint at
-// backend/onyx/connectors/models.py:462-473. Onyx uses Pydantic BaseModel
-// inheritance for the same role; Go uses a marker-method constraint
-// because Go lacks structural subtyping for structs.
+// Go uses a marker-method constraint because Go lacks structural
+// subtyping for structs.
 //
 // Checkpoint JSON-serialization contract:
 //   - Any Checkpoint MUST round-trip cleanly through encoding/json.
@@ -32,9 +30,8 @@ type Checkpoint interface {
 // Unit tests in this package also use it to prove the marker-interface
 // constraint compiles end-to-end.
 type AnyCheckpoint struct {
-	// HasMore mirrors Onyx ConnectorCheckpoint.has_more at
-	// backend/onyx/connectors/models.py:464 — the one field universal
-	// to every Onyx checkpoint.
+	// HasMore is the one field universal to every checkpoint: whether
+	// the source has more items to yield after this run.
 	HasMore bool `json:"has_more"`
 }
 

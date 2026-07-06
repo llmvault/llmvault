@@ -36,9 +36,6 @@ func (h *SlackChannelHandler) EnsureExternalChannel(ctx context.Context, orgID u
 	if !result.allReady {
 		return channelProvisionError(http.StatusBadRequest, "Slack channel is not available", nil)
 	}
-	if result.Joined > 0 {
-		h.autoCreateSlackRAGSource(ctx, orgID)
-	}
 	return nil
 }
 

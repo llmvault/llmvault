@@ -2,13 +2,11 @@ package model
 
 // Enums for the sync-state + search-settings tables.
 
-// RAGConnectionStatus — port of Onyx `ConnectorCredentialPairStatus` at
-// backend/onyx/db/enums.py:180-205.
+// RAGConnectionStatus is the lifecycle state of a connection's sync
+// state.
 //
-// Values are verbatim (uppercase) to preserve on-disk compatibility with
-// any tooling that inspects Onyx dumps; Onyx stores these via
-// `Enum(..., native_enum=False)` which writes the enum NAME (uppercase)
-// rather than the VALUE to the column.
+// Values are uppercase names (not lowercase values) to preserve on-disk
+// compatibility with existing stored data.
 type RAGConnectionStatus string
 
 const (
@@ -20,9 +18,9 @@ const (
 	RAGConnectionStatusInvalid         RAGConnectionStatus = "INVALID"
 )
 
-// ActiveStatuses — port of Onyx `active_statuses` classmethod at
-// backend/onyx/db/enums.py:188-194. Returned slice is a fresh copy so
-// callers can mutate without polluting subsequent calls.
+// ActiveStatuses returns the set of statuses considered "active" for
+// scheduling purposes. Returned slice is a fresh copy so callers can
+// mutate without polluting subsequent calls.
 func ActiveStatuses() []RAGConnectionStatus {
 	return []RAGConnectionStatus{
 		RAGConnectionStatusActive,
@@ -31,16 +29,14 @@ func ActiveStatuses() []RAGConnectionStatus {
 	}
 }
 
-// IndexableStatuses — port of Onyx `indexable_statuses` classmethod at
-// backend/onyx/db/enums.py:196-201. Superset of ActiveStatuses including
-// PAUSED (per Onyx comment: "Superset of active statuses for indexing
-// model swaps").
+// IndexableStatuses is a superset of ActiveStatuses that also includes
+// PAUSED, since paused connections still need to be indexable during
+// an embedding-model swap.
 func IndexableStatuses() []RAGConnectionStatus {
 	return append(ActiveStatuses(), RAGConnectionStatusPaused)
 }
 
-// IsActive — port of Onyx `is_active` method at
-// backend/onyx/db/enums.py:203-204.
+// IsActive reports whether s is one of the active statuses.
 func (s RAGConnectionStatus) IsActive() bool {
 	for _, v := range ActiveStatuses() {
 		if s == v {
@@ -50,8 +46,7 @@ func (s RAGConnectionStatus) IsActive() bool {
 	return false
 }
 
-// AccessType — verbatim port of Onyx `AccessType` at
-// backend/onyx/db/enums.py:207-211.
+// AccessType controls who can see documents from a source.
 type AccessType string
 
 const (
@@ -60,10 +55,9 @@ const (
 	AccessTypeSync    AccessType = "sync"
 )
 
-// ProcessingMode — verbatim port of Onyx `ProcessingMode` at
-// backend/onyx/db/enums.py:93-98. Controls the docfetching branch
-// that selects the post-fetch pipeline (full chunk -> embed -> store
-// vs FS drop vs raw binary drop).
+// ProcessingMode controls the docfetching branch that selects the
+// post-fetch pipeline (full chunk -> embed -> store vs FS drop vs raw
+// binary drop).
 type ProcessingMode string
 
 const (
@@ -72,9 +66,8 @@ const (
 	ProcessingModeRawBinary  ProcessingMode = "RAW_BINARY"
 )
 
-// EmbeddingPrecision — port of Onyx `EmbeddingPrecision` at
-// backend/onyx/db/enums.py:213-241. Vespa tensor-type echo; retained
-// verbatim for compatibility with the ported Onyx settings model.
+// EmbeddingPrecision selects the numeric precision used when writing
+// embedding vectors to the vector store.
 type EmbeddingPrecision string
 
 const (
