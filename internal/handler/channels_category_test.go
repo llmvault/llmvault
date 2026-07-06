@@ -11,9 +11,10 @@ import (
 
 type channelCategoryOut struct {
 	Channel struct {
-		ID            string `json:"id"`
-		Category      string `json:"category"`
-		MemoryMission string `json:"memory_mission"`
+		ID                   string `json:"id"`
+		Category             string `json:"category"`
+		MemoryMission        string `json:"memory_mission"`
+		DefaultMemoryMission string `json:"default_memory_mission"`
 	} `json:"channel"`
 }
 
@@ -68,6 +69,11 @@ func TestIntegration_ChannelsCreate_CategorySeedsMissionTemplate(t *testing.T) {
 	// LLM specialization.
 	if want := memory.MissionTemplate(memory.ChannelCategoryCustomerSupport); out.Channel.MemoryMission != want {
 		t.Fatalf("memory_mission=%q, want template %q", out.Channel.MemoryMission, want)
+	}
+	// The category default rides along so the UI can always show the
+	// effective mission, set or not.
+	if want := memory.MissionTemplate(memory.ChannelCategoryCustomerSupport); out.Channel.DefaultMemoryMission != want {
+		t.Fatalf("default_memory_mission=%q, want template %q", out.Channel.DefaultMemoryMission, want)
 	}
 }
 
@@ -138,7 +144,13 @@ func TestIntegration_ChannelsUpdate_CategoryAndMission(t *testing.T) {
 	if clear.Code != http.StatusOK {
 		t.Fatalf("clear status=%d body=%s", clear.Code, clear.Body.String())
 	}
-	if out := decodeChannelCategory(t, clear); out.Channel.MemoryMission != "" {
-		t.Fatalf("mission=%q, want cleared", out.Channel.MemoryMission)
+	cleared := decodeChannelCategory(t, clear)
+	if cleared.Channel.MemoryMission != "" {
+		t.Fatalf("mission=%q, want cleared", cleared.Channel.MemoryMission)
+	}
+	// A cleared mission means the channel follows its category default, which
+	// the response surfaces for the UI to display as the effective mission.
+	if want := memory.MissionTemplate(memory.ChannelCategoryOperations); cleared.Channel.DefaultMemoryMission != want {
+		t.Fatalf("default_memory_mission=%q, want operations template %q", cleared.Channel.DefaultMemoryMission, want)
 	}
 }

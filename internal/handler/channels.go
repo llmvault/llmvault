@@ -12,6 +12,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -64,11 +65,15 @@ type channelDetailResponse struct {
 }
 
 type channelResponse struct {
-	ID                       string             `json:"id"`
-	Name                     string             `json:"name"`
-	Description              string             `json:"description"`
-	Category                 string             `json:"category"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	// MemoryMission is the channel's stored mission; empty means the channel
+	// follows DefaultMemoryMission (the curated template for its category,
+	// empty for 'general'), which is what extraction actually uses then.
 	MemoryMission            string             `json:"memory_mission"`
+	DefaultMemoryMission     string             `json:"default_memory_mission"`
 	Kind                     string             `json:"kind"`
 	Visibility               string             `json:"visibility"`
 	TeamID                   *string            `json:"team_id,omitempty"`
@@ -186,6 +191,7 @@ func channelToResponse(channel model.Channel, role string, memberCount int64) ch
 		Description:          channel.Description,
 		Category:             channel.Category,
 		MemoryMission:        memoryMission,
+		DefaultMemoryMission: memory.MissionTemplate(channel.Category),
 		Kind:                 channel.Kind,
 		Visibility:           channel.Visibility,
 		TeamID:               formatUUIDPtr(channel.TeamID),

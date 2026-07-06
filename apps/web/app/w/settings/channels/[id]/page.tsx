@@ -73,6 +73,13 @@ export default function ChannelDetailPage({
   const [memoryMission, setMemoryMission] = useState("")
   const [hydratedId, setHydratedId] = useState<string | null>(null)
 
+  // The effective mission: the stored per-channel mission, or the category's
+  // curated default when unset (what extraction actually uses then). The
+  // textbox always shows the effective value so users see the mission in use
+  // even when they never set one; clearing it resets to the default.
+  const missionBaseline =
+    memorySettings.memoryMission || memorySettings.defaultMemoryMission
+
   function resetForm() {
     setName(channel?.name ?? "")
     setDescription(channel?.description ?? "")
@@ -80,7 +87,7 @@ export default function ChannelDetailPage({
     setVisibility(channel?.visibility ?? "public")
     const memory = channelMemorySettings(channel)
     setCategory(memory.category)
-    setMemoryMission(memory.memoryMission)
+    setMemoryMission(memory.memoryMission || memory.defaultMemoryMission)
   }
 
   // Hydrate the form once from the loaded channel (and re-hydrate on route
@@ -98,20 +105,25 @@ export default function ChannelDetailPage({
       agentId !== (channel.default_agent_id ?? "") ||
       visibility !== (channel.visibility ?? "public") ||
       category !== memorySettings.category ||
-      memoryMission !== memorySettings.memoryMission)
+      memoryMission !== missionBaseline)
   const canSave = dirty && name.trim().length > 0 && !updateChannel.isPending
 
   function handleSave() {
     if (!canSave) return
     // Built as a variable (not an inline literal) so `category` and
     // `memory_mission` — not yet in the generated OpenAPI schema — pass the
-    // type check.
+    // type check. memory_mission is sent only when the user actually changed
+    // it from the effective value, so a displayed category default is never
+    // silently persisted by unrelated edits (the channel keeps following the
+    // default, including future template updates).
     const body = {
       name: name.trim(),
       description,
       default_agent_id: agentId,
       visibility,
-      memory_mission: memoryMission,
+      ...(memoryMission !== missionBaseline
+        ? { memory_mission: memoryMission }
+        : {}),
       ...(category ? { category } : {}),
     }
     updateChannel.mutate(
@@ -219,6 +231,11 @@ export default function ChannelDetailPage({
           visibility={visibility}
           category={category}
           memoryMission={memoryMission}
+          missionIsDefault={
+            !memorySettings.memoryMission &&
+            memoryMission !== "" &&
+            memoryMission === memorySettings.defaultMemoryMission
+          }
           agents={agents}
           agentsLoading={agentsQuery.isLoading}
           isProtected={isProtected}
@@ -258,6 +275,7 @@ function ChannelTab({
   visibility,
   category,
   memoryMission,
+  missionIsDefault,
   agents,
   agentsLoading,
   isProtected,
@@ -279,6 +297,7 @@ function ChannelTab({
   visibility: string
   category: string
   memoryMission: string
+  missionIsDefault: boolean
   agents: SidebarAgentResponse[]
   agentsLoading: boolean
   isProtected: boolean
@@ -387,7 +406,11 @@ function ChannelTab({
 
       <FormSection
         title="Memory mission"
-        description="Steers what this channel's agent remembers. Takes priority over default rules."
+        description={
+          missionIsDefault
+            ? "This channel follows the default mission for its category, shown below. Edit to customize — clearing it returns to the default."
+            : "Steers what this channel's agent remembers. Takes priority over default rules."
+        }
       >
         <TextArea
           aria-label="Memory mission"

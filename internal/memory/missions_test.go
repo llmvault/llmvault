@@ -88,7 +88,44 @@ func TestChannelMissionEmptyWhenUnset(t *testing.T) {
 		t.Fatalf("load mission: %v", err)
 	}
 	if mission != "" {
-		t.Fatalf("mission = %q, want empty for unset mission", mission)
+		t.Fatalf("mission = %q, want empty for unset mission in a 'general' channel", mission)
+	}
+}
+
+func TestChannelMissionFallsBackToCategoryTemplate(t *testing.T) {
+	db := connectMemoryToolTestDB(t)
+	want := MissionTemplate(ChannelCategoryEngineering)
+
+	// Unset mission on a categorized channel: the category default applies.
+	unset := seedMissionChannel(t, db, ChannelCategoryEngineering, nil)
+	mission, err := ChannelMission(context.Background(), db, unset.ID)
+	if err != nil {
+		t.Fatalf("load mission: %v", err)
+	}
+	if mission != want {
+		t.Fatalf("unset mission = %q, want the engineering template", mission)
+	}
+
+	// A cleared (whitespace) mission behaves like unset: reset to default.
+	blank := "   "
+	cleared := seedMissionChannel(t, db, ChannelCategoryEngineering, &blank)
+	mission, err = ChannelMission(context.Background(), db, cleared.ID)
+	if err != nil {
+		t.Fatalf("load mission: %v", err)
+	}
+	if mission != want {
+		t.Fatalf("cleared mission = %q, want the engineering template", mission)
+	}
+
+	// A custom mission always wins over the template.
+	custom := "Only retain deploy-pipeline decisions."
+	set := seedMissionChannel(t, db, ChannelCategoryEngineering, &custom)
+	mission, err = ChannelMission(context.Background(), db, set.ID)
+	if err != nil {
+		t.Fatalf("load mission: %v", err)
+	}
+	if mission != custom {
+		t.Fatalf("custom mission = %q, want %q", mission, custom)
 	}
 }
 

@@ -67,6 +67,12 @@ export function categoryLabel(value: string): string {
 export type ChannelMemorySettings = {
   category: string
   memoryMission: string
+  /**
+   * Curated default mission for the channel's category ("" for general).
+   * When memoryMission is empty this is the mission extraction actually
+   * uses, so the UI shows it as the effective value.
+   */
+  defaultMemoryMission: string
 }
 
 export function channelMemorySettings(channel: unknown): ChannelMemorySettings {
@@ -75,6 +81,10 @@ export function channelMemorySettings(channel: unknown): ChannelMemorySettings {
     category: typeof record.category === "string" ? record.category : "",
     memoryMission:
       typeof record.memory_mission === "string" ? record.memory_mission : "",
+    defaultMemoryMission:
+      typeof record.default_memory_mission === "string"
+        ? record.default_memory_mission
+        : "",
   }
 }
 
