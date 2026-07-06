@@ -102,7 +102,7 @@ internal_core_shard_packages() {
     6) select_internal_core_packages sandbox sandbox/daytona sandbox/docker ;;
     7) select_internal_core_packages mcp mcp/catalog mcpserver skills resources providergroups ;;
     8) select_internal_core_packages agents agentsandbox ;;
-    9) select_internal_core_packages model registry db migrations testdb counter ;;
+    9) select_internal_core_packages model registry db migrations testdb counter memory ;;
     10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider enqueue email ;;
     11) select_internal_core_packages evals observability/sentry observe ;;
     *)

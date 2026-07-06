@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
@@ -22,14 +21,11 @@ type fakeRecallSource struct {
 	digestErr       error
 	observations    []model.AgentObservation
 	observationsErr error
-	memories        []model.AgentMemory
-	listErr         error
 
 	directiveScopes []memory.ChannelScope
 	obsScopes       []memory.ChannelScope
 	obsLimits       []int
 	digestCalls     int
-	listRequests    []memory.ListRequest
 }
 
 func (f *fakeRecallSource) ActiveDirectives(_ context.Context, _ uuid.UUID, scope memory.ChannelScope) ([]model.AgentDirective, error) {
@@ -46,11 +42,6 @@ func (f *fakeRecallSource) TopObservations(_ context.Context, _ uuid.UUID, scope
 	f.obsScopes = append(f.obsScopes, scope)
 	f.obsLimits = append(f.obsLimits, limit)
 	return f.observations, f.observationsErr
-}
-
-func (f *fakeRecallSource) List(_ context.Context, req memory.ListRequest) ([]model.AgentMemory, error) {
-	f.listRequests = append(f.listRequests, req)
-	return f.memories, f.listErr
 }
 
 func recallRequest() Request {
@@ -93,8 +84,8 @@ func TestMemoriesSectionRendersDirectivesThenDigest(t *testing.T) {
 	if !strings.Contains(out, "- [convention] PRs need one approval.") {
 		t.Fatalf("digest content must pass through as-is: %q", out)
 	}
-	if len(source.obsScopes) != 0 || len(source.listRequests) != 0 {
-		t.Fatalf("digest hit must not query observations (%d) or legacy list (%d)", len(source.obsScopes), len(source.listRequests))
+	if len(source.obsScopes) != 0 {
+		t.Fatalf("digest hit must not query observations (%d)", len(source.obsScopes))
 	}
 }
 
@@ -113,67 +104,50 @@ func TestMemoriesSectionFallsBackToObservations(t *testing.T) {
 		!strings.Contains(out, "- [org-fact] ACME is the largest customer.") {
 		t.Fatalf("observation fallback lines missing: %q", out)
 	}
-	if len(source.listRequests) != 0 {
-		t.Fatalf("observation fallback must not touch the legacy list")
-	}
 	if len(source.obsLimits) != 1 || source.obsLimits[0] != fallbackObservationLimit {
 		t.Fatalf("observation fallback limits = %v, want [%d]", source.obsLimits, fallbackObservationLimit)
 	}
 }
 
-func TestMemoriesSectionFallsBackToLegacyList(t *testing.T) {
-	req := recallRequest()
+func TestMemoriesSectionDegradesToObservationsWhenDigestFails(t *testing.T) {
 	source := &fakeRecallSource{
-		memories: []model.AgentMemory{{
-			Content: "Legacy fact about the Helio launch checklist.",
-			Tags:    pq.StringArray{"launch"},
-		}},
-	}
-	out := fetchRecall(t, source, req)
-
-	if !strings.Contains(out, "- [launch] Legacy fact about the Helio launch checklist.") {
-		t.Fatalf("legacy fallback rendering changed: %q", out)
-	}
-	if source.digestCalls != 1 || len(source.obsScopes) != 1 || len(source.listRequests) != 1 {
-		t.Fatalf("fallback chain calls digest=%d obs=%d list=%d, want 1/1/1",
-			source.digestCalls, len(source.obsScopes), len(source.listRequests))
-	}
-	listReq := source.listRequests[0]
-	if listReq.OrgID != req.OrgID || listReq.Limit != latestOrgMemoryLimit ||
-		listReq.Scope.ChannelID == nil || *listReq.Scope.ChannelID != req.ChannelID ||
-		!listReq.Scope.IncludeOrgMemories {
-		t.Fatalf("unexpected legacy list request: %#v", listReq)
-	}
-}
-
-func TestMemoriesSectionDegradesPastFailedLayers(t *testing.T) {
-	source := &fakeRecallSource{
-		directivesErr:   errors.New("directives table missing"),
-		digestErr:       errors.New("digest read failed"),
-		observationsErr: errors.New("observations read failed"),
-		memories:        []model.AgentMemory{{Content: "Survivor fact."}},
+		digestErr: errors.New("digest read failed"),
+		observations: []model.AgentObservation{
+			{Kind: "finding", Content: "Survivor fact."},
+		},
 	}
 	out := fetchRecall(t, source, recallRequest())
-	if !strings.Contains(out, "- Survivor fact.") || strings.Contains(out, "### Rules") {
-		t.Fatalf("degraded recall should render only the legacy fact: %q", out)
+	if !strings.Contains(out, "- [finding] Survivor fact.") {
+		t.Fatalf("digest failure must degrade to observations: %q", out)
+	}
+	if source.digestCalls != 1 || len(source.obsScopes) != 1 {
+		t.Fatalf("fallback chain calls digest=%d obs=%d, want 1/1", source.digestCalls, len(source.obsScopes))
 	}
 }
 
 func TestMemoriesSectionRendersRulesWhenRecallFails(t *testing.T) {
 	source := &fakeRecallSource{
-		directives: []model.AgentDirective{{Content: "Always require human approval for refunds."}},
-		listErr:    errors.New("db down"),
+		directives:      []model.AgentDirective{{Content: "Always require human approval for refunds."}},
+		digestErr:       errors.New("digest read failed"),
+		observationsErr: errors.New("observations read failed"),
 	}
 	out := fetchRecall(t, source, recallRequest())
 	if !strings.Contains(out, "### Rules") || !strings.Contains(out, "human approval for refunds") {
 		t.Fatalf("directives must survive a recall failure: %q", out)
 	}
+	if strings.Contains(out, memoryKnowledgeHeading) {
+		t.Fatalf("failed recall must not render a knowledge subsection: %q", out)
+	}
 
-	// Without directives the same failure surfaces so Build can drop the section.
-	source = &fakeRecallSource{listErr: errors.New("db down")}
-	service := NewService(Config{Memories: source})
-	if _, err := service.fetchMemoriesSection(context.Background(), recallRequest()); err == nil {
-		t.Fatalf("expected error when every layer is empty and legacy list fails")
+	// Without directives the same failures degrade to an omitted section, not
+	// an error: legacy agent_memories are never injected as a fallback.
+	source = &fakeRecallSource{
+		digestErr:       errors.New("digest read failed"),
+		observationsErr: errors.New("observations read failed"),
+	}
+	out = fetchRecall(t, source, recallRequest())
+	if out != "" {
+		t.Fatalf("expected empty section when every layer fails, got %q", out)
 	}
 }
 

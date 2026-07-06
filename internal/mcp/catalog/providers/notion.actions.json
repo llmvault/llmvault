@@ -12,7 +12,7 @@
       "request_config": {
         "method": "POST",
         "headers": {
-          "Notion-Version": "2022-06-28"
+          "Notion-Version": "2026-03-11"
         },
         "body_template": {
           "filter": {
@@ -35,11 +35,11 @@
       "request_config": {
         "method": "POST",
         "headers": {
-          "Notion-Version": "2022-06-28"
+          "Notion-Version": "2026-03-11"
         },
         "body_template": {
           "filter": {
-            "value": "database",
+            "value": "data_source",
             "property": "object"
           },
           "page_size": 100
@@ -74,7 +74,7 @@
           "page_size": "page_size"
         },
         "headers": {
-          "Notion-Version": "2022-06-28"
+          "Notion-Version": "2026-03-11"
         },
         "response_path": "results"
       }
@@ -99,20 +99,20 @@
         "method": "GET",
         "path": "/v1/pages/{page_id}",
         "headers": {
-          "Notion-Version": "2022-06-28"
+          "Notion-Version": "2026-03-11"
         }
       }
     },
     "query_database": {
-      "display_name": "Query Database",
-      "description": "Query a Notion database",
+      "display_name": "Query Data Source",
+      "description": "Query the rows of a Notion data source (a database's rows live in its data source under the current API)",
       "resource_type": "database",
       "parameters": {
         "type": "object",
         "properties": {
-          "database_id": {
+          "data_source_id": {
             "type": "string",
-            "description": "Database ID"
+            "description": "Data source ID (from the database's data_sources)"
           },
           "page_size": {
             "type": "integer",
@@ -120,17 +120,17 @@
           }
         },
         "required": [
-          "database_id"
+          "data_source_id"
         ]
       },
       "execution": {
         "method": "POST",
-        "path": "/v1/databases/{database_id}/query",
+        "path": "/v1/data_sources/{data_source_id}/query",
         "body_mapping": {
           "page_size": "page_size"
         },
         "headers": {
-          "Notion-Version": "2022-06-28"
+          "Notion-Version": "2026-03-11"
         },
         "response_path": "results"
       }

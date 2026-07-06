@@ -180,7 +180,8 @@ func TestIntegration_DirectivesCRUD(t *testing.T) {
 		t.Fatalf("org list=%+v, want only the org-wide directive", listOut.Data)
 	}
 
-	// Update content + deactivate.
+	// Deactivate; content is immutable, so a content field in the PATCH body
+	// is ignored (delete + re-add is the only way to change a rule's text).
 	update := h.doJSON(t, http.MethodPatch, "/v1/directives/"+channelDirective.ID, fx, fx.owner, map[string]any{
 		"content": "Deploys only on weekdays before 16:00.",
 		"active":  false,
@@ -189,8 +190,26 @@ func TestIntegration_DirectivesCRUD(t *testing.T) {
 		t.Fatalf("update status=%d body=%s", update.Code, update.Body.String())
 	}
 	updated := decodeDirective(t, update)
-	if updated.Content != "Deploys only on weekdays before 16:00." || updated.Active {
-		t.Fatalf("updated directive=%+v", updated)
+	if updated.Content != "Deploys only on weekdays." || updated.Active {
+		t.Fatalf("updated directive=%+v, want original content and active=false", updated)
+	}
+	var stored model.AgentDirective
+	if err := h.db.Where("id = ?", channelDirective.ID).First(&stored).Error; err != nil {
+		t.Fatalf("load directive: %v", err)
+	}
+	if stored.Content != "Deploys only on weekdays." || stored.Active {
+		t.Fatalf("stored directive content=%q active=%v, want immutable content and active=false", stored.Content, stored.Active)
+	}
+
+	// Reactivate.
+	reactivate := h.doJSON(t, http.MethodPatch, "/v1/directives/"+channelDirective.ID, fx, fx.owner, map[string]any{
+		"active": true,
+	})
+	if reactivate.Code != http.StatusOK {
+		t.Fatalf("reactivate status=%d body=%s", reactivate.Code, reactivate.Body.String())
+	}
+	if reactivated := decodeDirective(t, reactivate); !reactivated.Active {
+		t.Fatalf("reactivated directive=%+v, want active=true", reactivated)
 	}
 
 	// Delete removes the row.

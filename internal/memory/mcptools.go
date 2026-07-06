@@ -61,7 +61,7 @@ func registerSearchMemoriesTool(server *mcp.Server, service *Service, token *mod
 			"properties": map[string]any{
 				"query": map[string]any{
 					"type":        "string",
-					"description": "Short semantic search phrase, max 6 words and 40 characters. Example: helio launch checklist.",
+					"description": "2-6 word noun phrase (max 40 characters) worded like the remembered fact itself, naming concrete entities. Examples: helio launch checklist, refund approval policy. One concept per call; never a full question or sentence.",
 					"maxLength":   memoryToolQueryMaxChars,
 				},
 				"tags":          memoryTagsSchema("Optional exact filters using lowercase kebab-case slugs such as project-helio or billing."),
@@ -172,14 +172,18 @@ func handleSearchMemories(ctx context.Context, service *Service, token *model.To
 	if err != nil {
 		return memoryToolError("memory search failed: " + err.Error()), nil
 	}
-	return memoryToolJSON(map[string]any{
+	out := map[string]any{
 		"success":    true,
 		"query":      query,
 		"channel_id": toolCtx.ChannelID.String(),
 		"layer":      memoryLayerObservations,
 		"results":    observationToolSearchResponses(hits),
 		"total":      len(hits),
-	})
+	}
+	if len(hits) == 0 {
+		out["note"] = "No stored memory cleared the relevance threshold. Treat this as nothing being stored about the topic; do not retry with looser or broader wording. If you used tags, retry once without them."
+	}
+	return memoryToolJSON(out)
 }
 
 func handleRetainMemory(ctx context.Context, service *Service, token *model.Token, agentID uuid.UUID, args memoryRetainArgs) (*mcp.CallToolResult, error) {

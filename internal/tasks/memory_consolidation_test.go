@@ -219,7 +219,7 @@ func TestDigestRankingAndRendering(t *testing.T) {
 		t.Fatalf("lowest ranked = %s, want finding or decayed rule", ranked[len(ranked)-1].Content)
 	}
 
-	content, count := memory.RenderChannelDigest(rows, now, 25, memory.DigestByteBudget)
+	content, count := memory.RenderChannelDigest(rows, now, memory.DigestMaxObservations, memory.DigestByteBudget)
 	if count != 4 {
 		t.Fatalf("count = %d, want 4", count)
 	}
@@ -228,14 +228,15 @@ func TestDigestRankingAndRendering(t *testing.T) {
 		t.Fatalf("first line = %q, want `- [kind] content` format with the rule first", lines[0])
 	}
 
-	// K cap.
-	many := make([]model.AgentObservation, 0, 30)
-	for i := 0; i < 30; i++ {
+	// K cap: the default cap is 250 observations, so 260 short rows (well
+	// under the byte budget) must render exactly K lines.
+	many := make([]model.AgentObservation, 0, memory.DigestMaxObservations+10)
+	for i := 0; i < memory.DigestMaxObservations+10; i++ {
 		many = append(many, obs("finding", 1, 1, "Observation number filler content."))
 	}
-	_, count = memory.RenderChannelDigest(many, now, 25, memory.DigestByteBudget)
-	if count > 25 {
-		t.Fatalf("count = %d, want at most K=25", count)
+	_, count = memory.RenderChannelDigest(many, now, memory.DigestMaxObservations, memory.DigestByteBudget)
+	if count != memory.DigestMaxObservations {
+		t.Fatalf("count = %d, want K=%d", count, memory.DigestMaxObservations)
 	}
 
 	// Byte budget trims whole lines.
@@ -244,7 +245,7 @@ func TestDigestRankingAndRendering(t *testing.T) {
 		obs("rule", 4, 1, strings.Repeat("b", 100)),
 		obs("rule", 3, 1, strings.Repeat("c", 100)),
 	}
-	content, count = memory.RenderChannelDigest(long, now, 25, 250)
+	content, count = memory.RenderChannelDigest(long, now, memory.DigestMaxObservations, 250)
 	if count != 2 {
 		t.Fatalf("count = %d, want 2 lines within a 250-byte budget", count)
 	}

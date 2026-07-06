@@ -31,6 +31,13 @@ type directiveMutationRequest struct {
 	Active    *bool   `json:"active,omitempty"`
 }
 
+// directiveUpdateRequest is the PATCH body. Directive content is immutable
+// once created (delete and re-add to change a rule), so only the active flag
+// can be updated.
+type directiveUpdateRequest struct {
+	Active *bool `json:"active,omitempty"`
+}
+
 type directiveResponse struct {
 	ID              string  `json:"id"`
 	ChannelID       *string `json:"channel_id,omitempty"`
@@ -164,12 +171,12 @@ func (h *DirectiveHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // Update handles PATCH /v1/directives/{id}.
 // @Summary Update a directive
-// @Description Updates a directive's content and/or active flag. Requires an org admin/owner.
+// @Description Updates a directive's active flag. Directive content is immutable: delete and re-create a directive to change its text. Requires an org admin/owner.
 // @Tags directives
 // @Accept json
 // @Produce json
 // @Param id path string true "Directive UUID"
-// @Param request body directiveMutationRequest true "Fields to update"
+// @Param request body directiveUpdateRequest true "Fields to update"
 // @Success 200 {object} map[string]directiveResponse
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -182,34 +189,21 @@ func (h *DirectiveHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req directiveMutationRequest
+	var req directiveUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	updates := map[string]any{}
-	if req.Content != nil {
-		content := strings.TrimSpace(*req.Content)
-		if content == "" {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "content cannot be empty"})
-			return
-		}
-		updates["content"] = content
-		directive.Content = content
-	}
 	if req.Active != nil {
-		updates["active"] = *req.Active
-		directive.Active = *req.Active
-	}
-	if len(updates) > 0 {
 		if err := h.db.WithContext(r.Context()).
 			Model(&model.AgentDirective{}).
 			Where("id = ? AND org_id = ?", directive.ID, directive.OrgID).
-			Updates(updates).Error; err != nil {
+			Update("active", *req.Active).Error; err != nil {
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "update directive", "error", err, "directive_id", directive.ID)
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to update directive"})
 			return
 		}
+		directive.Active = *req.Active
 		directive.UpdatedAt = time.Now()
 	}
 	writeJSON(w, http.StatusOK, map[string]directiveResponse{"directive": directiveToResponse(directive)})

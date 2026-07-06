@@ -19,10 +19,11 @@ import (
 const (
 	// DigestMaxObservations caps how many ranked observations one channel
 	// digest may carry (K).
-	DigestMaxObservations = 25
+	DigestMaxObservations = 250
 	// DigestByteBudget caps the rendered digest block size; trimming happens
-	// on whole lines.
-	DigestByteBudget = 2048
+	// on whole lines. The memories section ceiling is 64KB and rules take
+	// priority within it, so the digest keeps a comfortable margin below.
+	DigestByteBudget = 48 * 1024
 	// digestRecencyHalfLifeDays gives the mild recency decay: an observation
 	// last mentioned 180 days ago scores half of a fresh one, all else equal.
 	digestRecencyHalfLifeDays = 180.0

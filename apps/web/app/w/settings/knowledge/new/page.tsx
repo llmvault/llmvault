@@ -4,13 +4,14 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Input, ListBox, Popover, Spinner, toast } from "@heroui/react"
+import { Button, Input, Popover, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { cn } from "@/lib/utils"
 import { ProviderIcon } from "../_provider-icon"
 import {
+  connectionForProvider,
   PROVIDERS,
   providerMeta,
   RAG_SOURCES_QUERY_KEY,
@@ -19,6 +20,7 @@ import {
 } from "../_lib"
 
 type Option = { id: string; name: string }
+type ScopeItem = Option & { type: string }
 
 const EMPTY_CONNECTIONS: Connection[] = []
 
@@ -34,14 +36,14 @@ export default function NewKnowledgeSourcePage() {
   })
 
   const connections = connectionsQuery.data?.data ?? EMPTY_CONNECTIONS
-  const connectionByProvider = useMemo(() => {
-    const map = new Map<string, Connection>()
-    for (const conn of connections) {
-      const provider = conn.provider ?? ""
-      if (!provider || conn.revoked_at || map.has(provider)) continue
-      map.set(provider, conn)
+  const connectedProviders = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of PROVIDERS) {
+      if (p.kind === "WEBSITE" || connectionForProvider(p, connections)) {
+        set.add(p.provider)
+      }
     }
-    return map
+    return set
   }, [connections])
 
   const channelOptions: Option[] = useMemo(
@@ -54,17 +56,13 @@ export default function NewKnowledgeSourcePage() {
 
   const [name, setName] = useState("")
   const [provider, setProvider] = useState<string>("")
-  // Integration scope: the chosen resource type + selected resource ids/names.
-  const [scopeType, setScopeType] = useState<string>("")
-  const [scopeItems, setScopeItems] = useState<Option[]>([])
-  // Website scope: the selected seed URLs (sections + pages).
+  const [scopeItems, setScopeItems] = useState<ScopeItem[]>([])
   const [websiteURLs, setWebsiteURLs] = useState<Option[]>([])
   const [channels, setChannels] = useState<string[]>([])
 
   const meta = provider ? providerMeta(provider) : null
-  const connectionId = provider ? connectionByProvider.get(provider)?.id : undefined
+  const connectionId = meta ? connectionForProvider(meta, connections)?.id : undefined
 
-  // Scopes available for the chosen integration connection.
   const scopesQuery = $api.useQuery(
     "get",
     "/v1/rag/connections/{connection_id}/scopes",
@@ -86,7 +84,6 @@ export default function NewKnowledgeSourcePage() {
 
   function selectProvider(next: ProviderMeta) {
     setProvider(next.provider)
-    setScopeType("")
     setScopeItems([])
     setWebsiteURLs([])
   }
@@ -103,9 +100,15 @@ export default function NewKnowledgeSourcePage() {
     } else {
       body.access_type = "PRIVATE"
       body.connection_id = connectionId
+      const resourceType = scopeTypes.length === 1 ? (scopeTypes[0].key ?? "") : ""
       body.config =
         scopeItems.length > 0
-          ? { scope: { resource_type: scopeType, items: scopeItems.map((i) => ({ id: i.id, name: i.name })) } }
+          ? {
+              scope: {
+                resource_type: resourceType,
+                items: scopeItems.map((i) => ({ id: i.id, name: i.name, type: i.type })),
+              },
+            }
           : {}
     }
 
@@ -159,7 +162,7 @@ export default function NewKnowledgeSourcePage() {
           <SourceCards
             value={provider}
             onChange={selectProvider}
-            connectedProviders={connectionByProvider}
+            connectedProviders={connectedProviders}
           />
         </Field>
 
@@ -169,11 +172,6 @@ export default function NewKnowledgeSourcePage() {
             connectionId={connectionId}
             scopesLoading={scopesQuery.isLoading}
             scopeTypes={scopeTypes.map((s) => ({ id: s.key ?? "", name: s.display_name ?? s.key ?? "" }))}
-            scopeType={scopeType}
-            onScopeType={(t) => {
-              setScopeType(t)
-              setScopeItems([])
-            }}
             items={scopeItems}
             onItems={setScopeItems}
           />
@@ -226,13 +224,13 @@ function SourceCards({
 }: {
   value: string
   onChange: (value: ProviderMeta) => void
-  connectedProviders: Map<string, Connection>
+  connectedProviders: Set<string>
 }) {
   return (
     <div className="flex flex-col gap-2">
       {PROVIDERS.map((p) => {
         const selected = value === p.provider
-        const connected = p.kind === "WEBSITE" || connectedProviders.has(p.provider)
+        const connected = connectedProviders.has(p.provider)
         return (
           <button
             key={p.provider}
@@ -281,8 +279,6 @@ function IntegrationScope({
   connectionId,
   scopesLoading,
   scopeTypes,
-  scopeType,
-  onScopeType,
   items,
   onItems,
 }: {
@@ -290,26 +286,9 @@ function IntegrationScope({
   connectionId?: string
   scopesLoading: boolean
   scopeTypes: Option[]
-  scopeType: string
-  onScopeType: (t: string) => void
-  items: Option[]
-  onItems: (items: Option[]) => void
+  items: ScopeItem[]
+  onItems: (items: ScopeItem[]) => void
 }) {
-  // Default to the first scope type once loaded.
-  const effectiveType = scopeType || scopeTypes[0]?.id || ""
-
-  // Fetch selectable resources for the chosen scope type.
-  const resourcesQuery = $api.useQuery(
-    "get",
-    "/v1/connections/{id}/resources/{type}",
-    { params: { path: { id: connectionId ?? "", type: effectiveType } } },
-    { enabled: Boolean(connectionId) && Boolean(effectiveType) }
-  )
-  const options: Option[] = (resourcesQuery.data?.resources ?? []).map((r) => ({
-    id: r.id ?? "",
-    name: r.name ?? r.id ?? "",
-  }))
-
   if (scopesLoading) {
     return (
       <Field label={meta.scopeNoun} hint="Loading available resources…">
@@ -320,7 +299,6 @@ function IntegrationScope({
     )
   }
 
-  // No scopable types → this source ingests everything the connection can see.
   if (scopeTypes.length === 0) {
     return (
       <Field label="Scope" hint="This source will ingest everything this connection can access.">
@@ -331,38 +309,61 @@ function IntegrationScope({
     )
   }
 
-  const typeMeta = scopeTypes.find((t) => t.id === effectiveType)
+  // One picker per scopable type, so a Notion source can scope pages, databases,
+  // or both. Each picker owns its type's slice of the combined items list.
   return (
-    <Field
-      label={typeMeta?.name ?? meta.scopeNoun}
-      hint={`Choose the ${(typeMeta?.name ?? meta.scopeNoun).toLowerCase()} this source ingests.`}
-    >
-      <div className="flex flex-col gap-2">
-        {scopeTypes.length > 1 ? (
-          <div className="flex items-center gap-1">
-            {scopeTypes.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => onScopeType(t.id)}
-                className={cn(
-                  "rounded-lg px-2.5 py-1 text-sm transition-colors",
-                  t.id === effectiveType ? "bg-default font-medium" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <MultiSelect
-          ariaLabel={typeMeta?.name ?? meta.scopeNoun}
-          placeholder={resourcesQuery.isLoading ? "Loading…" : `Select ${(typeMeta?.name ?? meta.scopeNoun).toLowerCase()}`}
-          options={options}
-          value={items.map((i) => i.id)}
-          onChange={(ids) => onItems(options.filter((o) => ids.includes(o.id)))}
+    <>
+      {scopeTypes.map((t) => (
+        <ScopeTypePicker
+          key={t.id}
+          connectionId={connectionId}
+          type={t.id}
+          label={t.name}
+          value={items.filter((i) => i.type === t.id)}
+          onChange={(picked) =>
+            onItems([...items.filter((i) => i.type !== t.id), ...picked])
+          }
         />
-      </div>
+      ))}
+    </>
+  )
+}
+
+function ScopeTypePicker({
+  connectionId,
+  type,
+  label,
+  value,
+  onChange,
+}: {
+  connectionId?: string
+  type: string
+  label: string
+  value: ScopeItem[]
+  onChange: (items: ScopeItem[]) => void
+}) {
+  const resourcesQuery = $api.useQuery(
+    "get",
+    "/v1/connections/{id}/resources/{type}",
+    { params: { path: { id: connectionId ?? "", type } } },
+    { enabled: Boolean(connectionId) && Boolean(type) }
+  )
+  const isRepo = type === "repository"
+  const options: ScopeItem[] = (resourcesQuery.data?.resources ?? []).map((r) => ({
+    id: r.id ?? "",
+    name: isRepo ? (r.id ?? r.name ?? "") : (r.name ?? r.id ?? ""),
+    type,
+  }))
+
+  return (
+    <Field label={label} hint={`Choose the ${label.toLowerCase()} this source ingests.`}>
+      <MultiSelect
+        ariaLabel={label}
+        placeholder={resourcesQuery.isLoading ? "Loading…" : `Select ${label.toLowerCase()}`}
+        options={options}
+        value={value.map((i) => i.id)}
+        onChange={(ids) => onChange(options.filter((o) => ids.includes(o.id)))}
+      />
     </Field>
   )
 }
@@ -382,7 +383,7 @@ function WebsiteScope({
     if (!result) return []
     const sections = (result.sections ?? []).map((s) => ({
       id: s.url ?? "",
-      name: `${s.label} · ${s.page_count} pages`,
+      name: `${s.path_prefix} · ${s.page_count} pages`,
     }))
     const pages = (result.pages ?? []).map((p) => ({
       id: p.url ?? "",
@@ -390,6 +391,14 @@ function WebsiteScope({
     }))
     return [...sections, ...pages]
   }, [result])
+
+  const pagesByURL = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const s of result?.sections ?? []) map.set(s.url ?? "", s.page_count ?? 0)
+    for (const p of result?.pages ?? []) map.set(p.url ?? "", 1)
+    return map
+  }, [result])
+  const totalPages = value.reduce((sum, v) => sum + (pagesByURL.get(v.id) ?? 1), 0)
 
   async function runDiscover() {
     if (!url.trim()) return
@@ -427,6 +436,8 @@ function WebsiteScope({
             <MultiSelect
               ariaLabel="Website sections"
               placeholder="Select sections & pages"
+              unit="pages"
+              count={totalPages}
               options={options}
               value={value.map((v) => v.id)}
               onChange={(ids) => onChange(options.filter((o) => ids.includes(o.id)))}
@@ -446,22 +457,45 @@ function MultiSelect({
   onChange,
   placeholder,
   ariaLabel,
+  unit,
+  count,
 }: {
   options: Option[]
   value: string[]
   onChange: (value: string[]) => void
   placeholder: string
   ariaLabel: string
+  unit?: string
+  count?: number
 }) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
   const summary = useMemo(() => {
     if (value.length === 0) return placeholder
-    if (value.length === 1) return options.find((o) => o.id === value[0])?.name ?? "1 selected"
-    return `${value.length} selected`
-  }, [value, options, placeholder])
+    if (count != null) return `${count} ${unit ? `${unit} ` : ""}selected`
+    if (value.length === 1) {
+      return options.find((o) => o.id === value[0])?.name ?? "1 selected"
+    }
+    return unit ? `${value.length} ${unit} selected` : `${value.length} selected`
+  }, [value, options, placeholder, unit, count])
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return options
+    return options.filter((o) => o.name.toLowerCase().includes(q))
+  }, [options, query])
+
+  function toggle(id: string) {
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id])
+  }
 
   return (
-    <Popover isOpen={open} onOpenChange={setOpen}>
+    <Popover
+      isOpen={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setQuery("")
+      }}
+    >
       <Popover.Trigger
         aria-label={ariaLabel}
         data-open={open ? "true" : undefined}
@@ -469,38 +503,52 @@ function MultiSelect({
       >
         <span className={cn(value.length === 0 && "text-muted-foreground")}>{summary}</span>
         <svg
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
           aria-hidden
-          className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+          className={cn("select__indicator h-4 w-4 transition-transform", open && "rotate-180")}
         >
           <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </Popover.Trigger>
-      <Popover.Content placement="bottom start" offset={6} className="select__popover w-[var(--trigger-width)] p-1.5">
-        <ListBox
-          aria-label={ariaLabel}
-          selectionMode="multiple"
-          selectedKeys={new Set(value)}
-          onSelectionChange={(keys) =>
-            onChange(keys === "all" ? options.map((o) => o.id) : Array.from(keys, String))
-          }
-        >
-          {options.map((option) => (
-            <ListBox.Item key={option.id} id={option.id} textValue={option.name}>
-              {({ isSelected }) => (
-                <span className="flex w-full items-center justify-between gap-2">
-                  <span className="min-w-0 truncate">{option.name}</span>
-                  {isSelected ? <AppIcon icon="tick-02" className="h-4 w-4 shrink-0" /> : null}
-                </span>
-              )}
-            </ListBox.Item>
-          ))}
-        </ListBox>
+      <Popover.Content
+        placement="bottom start"
+        offset={6}
+        className="select__popover w-[var(--trigger-width)] p-1.5"
+      >
+        <div className="flex flex-col">
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search"
+            aria-label={`Search ${ariaLabel}`}
+            className="mx-0.5 mb-1 rounded-lg border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
+          />
+          <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="px-2.5 py-2 text-sm text-muted-foreground">No matches</p>
+            ) : (
+              filtered.map((option) => {
+                const selected = value.includes(option.id)
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => toggle(option.id)}
+                    className="hover:bg-default flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+                  >
+                    <span className="min-w-0 truncate">{option.name}</span>
+                    {selected ? <AppIcon icon="tick-02" className="h-4 w-4 shrink-0" /> : null}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
       </Popover.Content>
     </Popover>
   )

@@ -93,42 +93,63 @@ func (h *RAGSourceHandler) validateScope(ctx context.Context, conn *model.Connec
 	}
 
 	provider := conn.Integration.Provider
-	if sc.ResourceType == "" {
-		return http.StatusUnprocessableEntity, "scope.resource_type is required when a scope is provided"
+
+	// Group selected ids by resource type. Items may carry their own type (a
+	// Notion source can mix pages and databases); otherwise the scope's
+	// top-level resource_type applies (single-type providers like GitHub).
+	idsByType := map[string][]string{}
+	total := 0
+	for _, item := range sc.Items {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		t := strings.TrimSpace(item.Type)
+		if t == "" {
+			t = sc.ResourceType
+		}
+		if t == "" {
+			return http.StatusUnprocessableEntity, "scope items must have a resource type"
+		}
+		idsByType[t] = append(idsByType[t], id)
+		total++
 	}
-	if h.catalog == nil || !h.catalog.IsRAGScopable(provider, sc.ResourceType) {
-		return http.StatusUnprocessableEntity, fmt.Sprintf(
-			"resource type %q is not a valid knowledge scope for %s", sc.ResourceType, provider)
+	if total == 0 {
+		return http.StatusUnprocessableEntity, "scope must select at least one resource"
 	}
 
-	ids := sc.IDs()
-	if len(ids) == 0 {
-		return http.StatusUnprocessableEntity, "scope must select at least one resource"
+	for t := range idsByType {
+		if h.catalog == nil || !h.catalog.IsRAGScopable(provider, t) {
+			return http.StatusUnprocessableEntity, fmt.Sprintf(
+				"resource type %q is not a valid knowledge scope for %s", t, provider)
+		}
 	}
 
 	if h.discovery == nil {
 		return 0, ""
 	}
-	result, err := h.discovery.Discover(ctx, provider, sc.ResourceType, conn.Integration.UniqueKey, conn.NangoConnectionID)
-	if err != nil {
-		// Best-effort: don't fail creation on a transient discovery outage.
-		logging.FromContext(ctx).WarnContext(ctx, "rag scope membership check skipped: discovery failed",
-			"provider", provider, "resource_type", sc.ResourceType, "connection_id", conn.ID, "error", err)
-		return 0, ""
-	}
-	allowed := make(map[string]struct{}, len(result.Resources))
-	for _, res := range result.Resources {
-		allowed[res.ID] = struct{}{}
-	}
-	var missing []string
-	for _, id := range ids {
-		if _, ok := allowed[id]; !ok {
-			missing = append(missing, id)
+	for t, ids := range idsByType {
+		result, err := h.discovery.Discover(ctx, provider, t, conn.Integration.UniqueKey, conn.NangoConnectionID)
+		if err != nil {
+			// Best-effort: don't fail creation on a transient discovery outage.
+			logging.FromContext(ctx).WarnContext(ctx, "rag scope membership check skipped: discovery failed",
+				"provider", provider, "resource_type", t, "connection_id", conn.ID, "error", err)
+			continue
 		}
-	}
-	if len(missing) > 0 {
-		return http.StatusUnprocessableEntity, fmt.Sprintf(
-			"these %s are not accessible via this connection: %s", sc.ResourceType, strings.Join(missing, ", "))
+		allowed := make(map[string]struct{}, len(result.Resources))
+		for _, res := range result.Resources {
+			allowed[res.ID] = struct{}{}
+		}
+		var missing []string
+		for _, id := range ids {
+			if _, ok := allowed[id]; !ok {
+				missing = append(missing, id)
+			}
+		}
+		if len(missing) > 0 {
+			return http.StatusUnprocessableEntity, fmt.Sprintf(
+				"these %s are not accessible via this connection: %s", t, strings.Join(missing, ", "))
+		}
 	}
 	return 0, ""
 }

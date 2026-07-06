@@ -26,6 +26,7 @@ import {
   confirmObservation,
   correctObservation,
   createDirective,
+  deleteDirective,
   deleteObservation,
   listDirectives,
   listObservations,
@@ -196,17 +197,20 @@ export default function MemoriesSettingsPage() {
       toast.danger(extractErrorMessage(error, "Could not add rule")),
   })
 
-  const [editRuleTarget, setEditRuleTarget] = useState<Directive | null>(null)
-  const updateRuleMutation = useMutation({
-    mutationFn: ({ id, content }: { id: string; content: string }) =>
-      updateDirective(id, { content }),
+  // Rules are immutable text: no edit action. To change a rule, delete it
+  // and add a new one.
+  const [deleteRuleTarget, setDeleteRuleTarget] = useState<Directive | null>(
+    null
+  )
+  const deleteRuleMutation = useMutation({
+    mutationFn: (id: string) => deleteDirective(id),
     onSuccess: () => {
-      toast.success("Rule updated")
-      setEditRuleTarget(null)
+      toast.success("Rule deleted")
+      setDeleteRuleTarget(null)
       invalidateDirectives()
     },
     onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not update rule")),
+      toast.danger(extractErrorMessage(error, "Could not delete rule")),
   })
 
   const deactivateRuleMutation = useMutation({
@@ -296,10 +300,10 @@ export default function MemoriesSettingsPage() {
                   <DirectiveRow
                     key={directive.id}
                     directive={directive}
-                    onEdit={() => setEditRuleTarget(directive)}
                     onDeactivate={() =>
                       deactivateRuleMutation.mutate(directive.id)
                     }
+                    onDelete={() => setDeleteRuleTarget(directive)}
                   />
                 ))}
               </div>
@@ -405,18 +409,14 @@ export default function MemoriesSettingsPage() {
         }}
       />
 
-      <EditContentModal
-        open={editRuleTarget !== null}
-        heading="Edit rule"
-        description="Rules are injected verbatim into every session in this channel."
-        initialContent={editRuleTarget?.content ?? ""}
-        pending={updateRuleMutation.isPending}
+      <DeleteRuleDialog
+        target={deleteRuleTarget}
+        pending={deleteRuleMutation.isPending}
         onOpenChange={(open) => {
-          if (!open && !updateRuleMutation.isPending) setEditRuleTarget(null)
+          if (!open && !deleteRuleMutation.isPending) setDeleteRuleTarget(null)
         }}
-        onSave={(content) => {
-          if (editRuleTarget)
-            updateRuleMutation.mutate({ id: editRuleTarget.id, content })
+        onConfirm={() => {
+          if (deleteRuleTarget) deleteRuleMutation.mutate(deleteRuleTarget.id)
         }}
       />
 
@@ -436,12 +436,12 @@ export default function MemoriesSettingsPage() {
 
 function DirectiveRow({
   directive,
-  onEdit,
   onDeactivate,
+  onDelete,
 }: {
   directive: Directive
-  onEdit: () => void
   onDeactivate: () => void
+  onDelete: () => void
 }) {
   return (
     <div className="group flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
@@ -463,13 +463,18 @@ function DirectiveRow({
       <ActionsMenu
         label="Rule options"
         items={[
-          { key: "edit", label: "Edit rule", icon: "pencil", onSelect: onEdit },
           {
             key: "deactivate",
             label: "Deactivate rule",
             icon: "circle-slash",
-            danger: true,
             onSelect: onDeactivate,
+          },
+          {
+            key: "delete",
+            label: "Delete rule",
+            icon: "trash-2",
+            danger: true,
+            onSelect: onDelete,
           },
         ]}
       />
@@ -725,6 +730,67 @@ function EditContentModalContent({
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
+  )
+}
+
+function DeleteRuleDialog({
+  target,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  target: Directive | null
+  pending: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialog.Backdrop
+        isOpen={target !== null}
+        onOpenChange={(next) => {
+          if (!pending) onOpenChange(next)
+        }}
+        className="bg-background/80 backdrop-blur-sm"
+      >
+        <AlertDialog.Container placement="center" size="sm">
+          <AlertDialog.Dialog className="p-8">
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="danger">
+                <AppIcon icon="trash-2" className="h-6 w-6" />
+              </AlertDialog.Icon>
+              <div className="flex flex-col gap-1">
+                <AlertDialog.Heading>Delete rule</AlertDialog.Heading>
+                <p className="text-sm text-muted">
+                  Rules can&apos;t be edited. To change this rule, delete it and
+                  add a new one.
+                </p>
+              </div>
+            </AlertDialog.Header>
+            <AlertDialog.Footer>
+              <Button
+                variant="tertiary"
+                size="sm"
+                isDisabled={pending}
+                onPress={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-danger text-danger-foreground hover:bg-danger/90"
+                isDisabled={pending}
+                onPress={onConfirm}
+              >
+                {pending ? <Spinner color="current" size="sm" /> : null}
+                Delete
+              </Button>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
+    </AlertDialog>
   )
 }
 

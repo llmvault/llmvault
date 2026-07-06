@@ -133,7 +133,7 @@ func extractResource(obj map[string]interface{}, resourceType string, resDef *ca
 
 	name := ""
 	if resDef.NameField != "" {
-		name = extractString(obj, resDef.NameField)
+		name = extractName(obj, resDef.NameField)
 	}
 
 	return AvailableResource{
@@ -143,12 +143,61 @@ func extractResource(obj map[string]interface{}, resourceType string, resDef *ca
 	}
 }
 
-// extractString safely extracts a string value from a map.
+// extractString safely extracts a top-level string value from a map.
 func extractString(obj map[string]interface{}, key string) string {
 	if val, ok := obj[key].(string); ok {
 		return val
 	}
 	return ""
+}
+
+// extractName resolves a resource's display name: a top-level string for most
+// providers, or a Notion title (a top-level rich-text array for data sources, a
+// title-typed property for pages).
+func extractName(obj map[string]interface{}, field string) string {
+	if field == "" {
+		return ""
+	}
+	if s, ok := obj[field].(string); ok && s != "" {
+		return s
+	}
+	if name := richTextPlain(obj[field]); name != "" {
+		return name
+	}
+	if props, ok := obj["properties"].(map[string]interface{}); ok {
+		for _, v := range props {
+			prop, ok := v.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if t, _ := prop["type"].(string); t != "title" {
+				continue
+			}
+			if name := richTextPlain(prop["title"]); name != "" {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+// richTextPlain concatenates the plain_text of a Notion rich-text array.
+func richTextPlain(v interface{}) string {
+	arr, ok := v.([]interface{})
+	if !ok {
+		return ""
+	}
+	parts := make([]string, 0, len(arr))
+	for _, item := range arr {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if pt, ok := m["plain_text"].(string); ok && pt != "" {
+			parts = append(parts, pt)
+		}
+	}
+	return strings.TrimSpace(strings.Join(parts, ""))
 }
 
 // extractPath extracts data from a nested path like "data.teams.nodes".

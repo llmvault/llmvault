@@ -108,8 +108,8 @@ func TestRequestConfig(t *testing.T) {
 	if notionPage.RequestConfig.Headers == nil {
 		t.Fatal("notion page headers are nil")
 	}
-	if notionPage.RequestConfig.Headers["Notion-Version"] != "2022-06-28" {
-		t.Errorf("notion page Notion-Version header = %q, want 2022-06-28", notionPage.RequestConfig.Headers["Notion-Version"])
+	if notionPage.RequestConfig.Headers["Notion-Version"] != "2026-03-11" {
+		t.Errorf("notion page Notion-Version header = %q, want 2026-03-11", notionPage.RequestConfig.Headers["Notion-Version"])
 	}
 	if notionPage.RequestConfig.BodyTemplate == nil {
 		t.Fatal("notion page body template is nil")

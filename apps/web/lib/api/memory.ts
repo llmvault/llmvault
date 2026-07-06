@@ -258,9 +258,13 @@ export function createDirective(
   })
 }
 
+/**
+ * Directive content is immutable once created; PATCH only toggles the active
+ * flag. Delete and re-add a directive to change its text.
+ */
 export function updateDirective(
   id: string,
-  patch: { content?: string; active?: boolean }
+  patch: { active: boolean }
 ): Promise<unknown> {
   return request("PATCH", `/v1/directives/${encodeURIComponent(id)}`, patch)
 }

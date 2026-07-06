@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
@@ -128,11 +127,11 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 func TestBuildIncludesChannelMemories(t *testing.T) {
 	orgID := uuid.New()
 	channelID := uuid.New()
-	lister := &fakeMemoryLister{list: func(req memory.ListRequest) []model.AgentMemory {
-		return []model.AgentMemory{{
+	lister := &fakeMemoryLister{observations: func() []model.AgentObservation {
+		return []model.AgentObservation{{
 			ChannelID: &channelID,
+			Kind:      "org-fact",
 			Content:   "Channel memory marker: CHANNEL_MEMORY_TEST. The launch codename is Helio.",
-			Tags:      pq.StringArray{"launch"},
 		}}
 	}}
 	service := NewService(Config{Memories: lister})
@@ -152,16 +151,15 @@ func TestBuildIncludesChannelMemories(t *testing.T) {
 		!strings.Contains(out[0], "CHANNEL_MEMORY_TEST") {
 		t.Fatalf("memory context missing: %#v", out)
 	}
-	if len(lister.requests) != 1 {
-		t.Fatalf("memory list calls=%d, want 1", len(lister.requests))
+	if len(lister.obsScopes) != 1 {
+		t.Fatalf("observation calls=%d, want 1", len(lister.obsScopes))
 	}
-	req := lister.requests[0]
-	if req.OrgID != orgID ||
-		req.Scope.ChannelID == nil || *req.Scope.ChannelID != channelID ||
-		!req.Scope.IncludeOrgMemories ||
-		req.Scope.AllChannels ||
-		req.Limit != latestOrgMemoryLimit {
-		t.Fatalf("unexpected channel memory list request: %#v", req)
+	scope := lister.obsScopes[0]
+	if scope.ChannelID == nil || *scope.ChannelID != channelID ||
+		!scope.IncludeOrgMemories ||
+		scope.AllChannels ||
+		lister.obsLimits[0] != fallbackObservationLimit {
+		t.Fatalf("unexpected observation scope %#v limit %d", scope, lister.obsLimits[0])
 	}
 }
 
@@ -173,19 +171,13 @@ func TestFormatterEnforcesTotalBudget(t *testing.T) {
 	}
 }
 
-// fakeMemoryLister has no directives, digest, or observations, so recall walks
-// the full fallback chain down to the legacy fact listing.
+// fakeMemoryLister has no directives or digest, so recall falls back to the
+// channel's top observations (the last non-empty recall layer).
 type fakeMemoryLister struct {
-	requests []memory.ListRequest
-	list     func(memory.ListRequest) []model.AgentMemory
-}
+	observations func() []model.AgentObservation
 
-func (f *fakeMemoryLister) List(_ context.Context, req memory.ListRequest) ([]model.AgentMemory, error) {
-	f.requests = append(f.requests, req)
-	if f.list != nil {
-		return f.list(req), nil
-	}
-	return nil, nil
+	obsScopes []memory.ChannelScope
+	obsLimits []int
 }
 
 func (f *fakeMemoryLister) ActiveDirectives(context.Context, uuid.UUID, memory.ChannelScope) ([]model.AgentDirective, error) {
@@ -196,7 +188,12 @@ func (f *fakeMemoryLister) ChannelMemoryDigest(context.Context, uuid.UUID, uuid.
 	return "", nil
 }
 
-func (f *fakeMemoryLister) TopObservations(context.Context, uuid.UUID, memory.ChannelScope, int) ([]model.AgentObservation, error) {
+func (f *fakeMemoryLister) TopObservations(_ context.Context, _ uuid.UUID, scope memory.ChannelScope, limit int) ([]model.AgentObservation, error) {
+	f.obsScopes = append(f.obsScopes, scope)
+	f.obsLimits = append(f.obsLimits, limit)
+	if f.observations != nil {
+		return f.observations(), nil
+	}
 	return nil, nil
 }
 
