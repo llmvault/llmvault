@@ -24,15 +24,12 @@ import {
   type SourceStatus,
 } from "./_lib"
 
-const STATUS_META: Record<
-  SourceStatus,
-  { icon: string; className: string; barClassName: string }
-> = {
-  syncing: { icon: "loader-circle", className: "text-primary", barClassName: "bg-primary" },
-  active: { icon: "circle-check", className: "text-foreground", barClassName: "bg-primary" },
-  paused: { icon: "circle-slash", className: "text-muted-foreground", barClassName: "bg-muted-foreground/50" },
-  disabled: { icon: "eye-off", className: "text-muted-foreground", barClassName: "bg-muted-foreground/40" },
-  error: { icon: "circle-alert", className: "text-danger", barClassName: "bg-danger" },
+const STATUS_META: Record<SourceStatus, { icon: string; className: string }> = {
+  syncing: { icon: "loader-circle", className: "text-primary" },
+  active: { icon: "circle-check", className: "text-foreground" },
+  paused: { icon: "circle-slash", className: "text-muted-foreground" },
+  disabled: { icon: "eye-off", className: "text-muted-foreground" },
+  error: { icon: "circle-alert", className: "text-danger" },
 }
 
 const EMPTY_SOURCES: RagSource[] = []
@@ -43,9 +40,17 @@ export default function KnowledgeSettingsPage() {
   const queryClient = useQueryClient()
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
 
-  const sourcesQuery = $api.useQuery("get", "/v1/rag/sources", {
-    params: { query: { page_size: 100 } },
-  })
+  const sourcesQuery = $api.useQuery(
+    "get",
+    "/v1/rag/sources",
+    { params: { query: { page_size: 100 } } },
+    {
+      refetchInterval: (query) => {
+        const rows = query.state.data?.data ?? []
+        return rows.some((s) => deriveStatus(s) === "syncing") ? 5000 : false
+      },
+    }
+  )
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
@@ -95,7 +100,7 @@ export default function KnowledgeSettingsPage() {
     <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Knowledge</h1>
+          <h1 className="text-lg font-semibold text-foreground">Knowledge</h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
             Connect sources so your agents can search company knowledge. Each
             source ingests a scope you choose and is available to channels.
@@ -207,29 +212,16 @@ function ProgressRow({
   syncing,
 }: {
   progress: DerivedProgress
-  statusMeta: { icon: string; className: string; barClassName: string }
+  statusMeta: { icon: string; className: string }
   syncing: boolean
 }) {
-  const indeterminate = progress.percent === null
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-default">
-        {indeterminate ? (
-          <div className={cn("h-full w-1/3 rounded-full", statusMeta.barClassName, syncing && "animate-pulse")} />
-        ) : (
-          <div
-            className={cn("h-full rounded-full transition-all", statusMeta.barClassName)}
-            style={{ width: `${progress.percent}%` }}
-          />
-        )}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <AppIcon
-          icon={statusMeta.icon}
-          className={cn("h-3.5 w-3.5", statusMeta.className, syncing && "animate-spin")}
-        />
-        <span className={cn("text-xs", statusMeta.className)}>{progress.label}</span>
-      </div>
+    <div className="flex items-center gap-1.5">
+      <AppIcon
+        icon={statusMeta.icon}
+        className={cn("h-3.5 w-3.5", statusMeta.className, syncing && "animate-spin")}
+      />
+      <span className={cn("text-xs", statusMeta.className)}>{progress.label}</span>
     </div>
   )
 }
@@ -351,7 +343,6 @@ function SourcesSkeleton() {
           <div className="flex flex-1 flex-col gap-2">
             <Skeleton className="h-4 w-40 rounded" />
             <Skeleton className="h-3 w-24 rounded" />
-            <Skeleton className="h-1.5 w-full rounded-full" />
           </div>
         </div>
       ))}

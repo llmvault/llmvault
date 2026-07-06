@@ -239,7 +239,7 @@ export default function MemoriesSettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Memories</h1>
+        <h1 className="text-lg font-semibold text-foreground">Memories</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           What this channel&apos;s agent remembers: rules you control, and
           memories it builds as it works. Confirm, correct, or delete anything.

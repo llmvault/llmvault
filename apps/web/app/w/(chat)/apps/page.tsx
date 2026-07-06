@@ -43,7 +43,7 @@ export default function AppsPage() {
           </nav>
 
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Apps</h1>
+            <h1 className="text-lg font-semibold text-foreground">Apps</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Custom apps your agents build, organised by channel
             </p>

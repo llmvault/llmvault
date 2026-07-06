@@ -71,7 +71,7 @@ export default function AgentsSettingsPage() {
     <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Agents</h1>
+          <h1 className="text-lg font-semibold text-foreground">Agents</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Install workspace agents from the catalog, or build your own.
           </p>

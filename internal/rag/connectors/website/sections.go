@@ -16,8 +16,7 @@ type DiscoveredSection struct {
 	PathPrefix  string   `json:"path_prefix"`
 	PageCount   int      `json:"page_count"`
 	SamplePaths []string `json:"sample_paths"`
-	// URLs is every page URL under this section, so a selection can be expanded
-	// into the exact list of pages to ingest.
+	// URLs is every page URL under this section (the full list, not the sample).
 	URLs []string `json:"urls"`
 }
 

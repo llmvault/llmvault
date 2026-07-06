@@ -43,7 +43,7 @@ export default function SheetsPage() {
           </nav>
 
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Sheets</h1>
+            <h1 className="text-lg font-semibold text-foreground">Sheets</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Structured data your agents keep, organised by channel
             </p>

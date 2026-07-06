@@ -101,7 +101,7 @@ export default function AutomationDetailPage({
             <div className="flex min-w-0 items-center gap-3">
               <AutomationLogo automation={automation} size="lg" />
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold text-foreground">
+                <h1 className="text-lg font-semibold text-foreground">
                   {automation.name}
                 </h1>
                 <p className="text-muted-foreground mt-1 max-w-xl text-sm leading-5">

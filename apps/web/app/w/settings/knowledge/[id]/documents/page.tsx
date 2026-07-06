@@ -65,7 +65,7 @@ export default function KnowledgeDocumentsPage() {
           Knowledge
         </Link>
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-default">
             {provider ? (
               <ProviderIcon icon={provider.icon} className="h-5 w-5" />
             ) : (
@@ -73,7 +73,7 @@ export default function KnowledgeDocumentsPage() {
             )}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
+            <h1 className="text-lg font-semibold text-foreground">
               {source?.name ?? "Documents"}
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">

@@ -185,7 +185,7 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
           <AppIcon icon="calendar" className="h-6 w-6" />
         </div>
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold text-foreground">
+          <h1 className="truncate text-lg font-semibold text-foreground">
             {schedule.name || schedule.agent_name || "Schedule"}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

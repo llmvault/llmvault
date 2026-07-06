@@ -198,7 +198,7 @@ export default function ChannelDetailPage({
       <BackLink />
 
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2 truncate text-2xl font-semibold text-foreground">
+        <h1 className="flex items-center gap-2 truncate text-lg font-semibold text-foreground">
           <AppIcon icon="hash" className="h-5 w-5 text-muted-foreground" />
           {channel.name}
         </h1>

@@ -192,7 +192,7 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
           <AppIcon icon="globe" className="h-6 w-6" />
         </div>
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold text-foreground">
+          <h1 className="truncate text-lg font-semibold text-foreground">
             {trigger.name || trigger.agent_name || "Webhook trigger"}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

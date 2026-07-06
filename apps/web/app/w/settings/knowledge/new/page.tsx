@@ -21,8 +21,7 @@ import {
 
 type Option = { id: string; name: string }
 type ScopeItem = Option & { type: string }
-// A website pick (a section or a single page) carries the exact page URLs it
-// expands to, so the source ingests those URLs directly with no crawling.
+// A website pick (section or page) carries the exact page URLs it expands to.
 type UrlOption = Option & { urls: string[] }
 
 const EMPTY_CONNECTIONS: Connection[] = []
@@ -141,7 +140,7 @@ export default function NewKnowledgeSourcePage() {
           Knowledge
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Add knowledge source</h1>
+          <h1 className="text-lg font-semibold text-foreground">Add knowledge source</h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
             Give the source a name, pick where it pulls from, scope it to specific
             resources, and choose which channels can search it.

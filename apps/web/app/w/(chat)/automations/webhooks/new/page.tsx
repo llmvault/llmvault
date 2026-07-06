@@ -118,7 +118,7 @@ export default function NewWebhookTriggerPage() {
               <AppIcon icon="globe" className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">
+              <h1 className="text-lg font-semibold text-foreground">
                 Add webhook trigger
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">

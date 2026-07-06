@@ -89,7 +89,7 @@ export default function PluginsPage() {
           </nav>
 
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Plugins</h1>
+            <h1 className="text-lg font-semibold text-foreground">Plugins</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Work with Hivy across your favorite tools
             </p>
