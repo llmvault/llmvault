@@ -261,9 +261,8 @@ definitions:
       url:
         type: string
       urls:
-        description: |-
-          URLs is every page URL under this section, so a selection can be expanded
-          into the exact list of pages to ingest.
+        description: URLs is every page URL under this section (the full list, not
+          the sample).
         items:
           type: string
         type: array
@@ -10826,6 +10825,31 @@ paths:
       tags:
       - rag
   /v1/rag/sources/{id}/channels:
+    get:
+      description: Returns the ids of the channels granted access to this knowledge
+        source.
+      parameters:
+      - description: RAG source ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sourceChannelsResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List which channels can search a source
+      tags:
+      - rag
     put:
       consumes:
       - application/json

@@ -23,6 +23,51 @@ type sourceChannelsResponse struct {
 	ChannelIDs []string `json:"channel_ids"`
 }
 
+// GetSourceChannels handles GET /v1/rag/sources/{id}/channels.
+// It returns the channels currently granted access to this source.
+// @Summary List which channels can search a source
+// @Description Returns the ids of the channels granted access to this knowledge source.
+// @Tags rag
+// @Produce json
+// @Param id path string true "RAG source ID"
+// @Success 200 {object} sourceChannelsResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/rag/sources/{id}/channels [get]
+func (h *RAGSourceHandler) GetSourceChannels(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	srcID, ok := parseSourceID(chi.URLParam(r, "id"))
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid source id"})
+		return
+	}
+	if _, err := ragdb.GetSourceForOrg(h.db, org.ID, srcID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "source not found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load source"})
+		return
+	}
+
+	var rows []model.ChannelRagSource
+	if err := h.db.WithContext(r.Context()).
+		Where("rag_source_id = ? AND org_id = ?", srcID, org.ID).
+		Find(&rows).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load channels"})
+		return
+	}
+	out := make([]string, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, row.ChannelID.String())
+	}
+	writeJSON(w, http.StatusOK, sourceChannelsResponse{ChannelIDs: out})
+}
+
 // SetSourceChannels handles PUT /v1/rag/sources/{id}/channels.
 // It replaces the full set of channels that can search this source — the
 // source-side counterpart to PUT /v1/channels/{id}/rag-sources. An empty set

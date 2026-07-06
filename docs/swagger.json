@@ -9077,6 +9077,44 @@
             }
         },
         "/v1/rag/sources/{id}/channels": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the ids of the channels granted access to this knowledge source.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rag"
+                ],
+                "summary": "List which channels can search a source",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RAG source ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sourceChannelsResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
@@ -14107,7 +14145,7 @@
                     "type": "string"
                 },
                 "urls": {
-                    "description": "URLs is every page URL under this section, so a selection can be expanded\ninto the exact list of pages to ingest.",
+                    "description": "URLs is every page URL under this section (the full list, not the sample).",
                     "type": "array",
                     "items": {
                         "type": "string"

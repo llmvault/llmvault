@@ -264,6 +264,9 @@ function SourceActionsMenu({
           className="w-56 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
+            <MenuLink href={`/w/settings/knowledge/${sourceId}/edit`}>
+              Edit source
+            </MenuLink>
             <MenuLink href={`/w/settings/knowledge/${sourceId}/documents`}>
               View documents
             </MenuLink>

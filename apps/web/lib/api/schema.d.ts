@@ -10966,7 +10966,42 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List which channels can search a source
+         * @description Returns the ids of the channels granted access to this knowledge source.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description RAG source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sourceChannelsResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         /**
          * Set which channels can search a source
          * @description Replaces the full set of channels granted access to this knowledge source. Each channel must belong to the org. An empty set removes all grants.
@@ -16239,10 +16274,7 @@ export interface components {
             path_prefix?: string;
             sample_paths?: string[];
             url?: string;
-            /**
-             * @description URLs is every page URL under this section, so a selection can be expanded
-             *     into the exact list of pages to ingest.
-             */
+            /** @description URLs is every page URL under this section (the full list, not the sample). */
             urls?: string[];
         };
         DiscoveryResult: {
