@@ -75,7 +75,7 @@ func TestThreadPermalink(t *testing.T) {
 func TestThreadToDoc_StandaloneMessage(t *testing.T) {
 	fake := newFakeSlackAPI()
 	fake.setUser("U1", "Alice", "alice@test.com")
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -99,7 +99,7 @@ func TestThreadToDoc_ThreadedMessages(t *testing.T) {
 	fake := newFakeSlackAPI()
 	fake.setUser("U1", "Alice", "alice@test.com")
 	fake.setUser("U2", "Bob", "bob@test.com")
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 

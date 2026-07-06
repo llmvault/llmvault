@@ -157,18 +157,6 @@ func makeIssue(num int, isPR bool, updated time.Time) GithubIssue {
 	}
 	return issue
 }
-func makeRepo(visibility string) GithubRepo {
-	return GithubRepo{
-		ID:         100,
-		Name:       "widget",
-		FullName:   "acme/widget",
-		Owner:      GithubRepoOwner{ID: 1, Login: "acme", Type: "Organization"},
-		Private:    visibility != "public",
-		Visibility: visibility,
-		HTMLURL:    "https://github.com/acme/widget",
-	}
-}
-
 func mustMarshal(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -216,27 +204,6 @@ func drainSlim(t *testing.T, ch <-chan interfaces.SlimDocOrFailure,
 			}
 		case <-timeout:
 			t.Fatal("drainSlim: timeout waiting for slim output")
-		}
-	}
-}
-
-func drainGroups(t *testing.T, ch <-chan interfaces.ExternalGroupOrFailure,
-) (groups []*interfaces.ExternalGroup, fails []*interfaces.ConnectorFailure) {
-	t.Helper()
-	timeout := time.After(5 * time.Second)
-	for {
-		select {
-		case ev, ok := <-ch:
-			if !ok {
-				return
-			}
-			if ev.Group != nil {
-				groups = append(groups, ev.Group)
-			} else if ev.Failure != nil {
-				fails = append(fails, ev.Failure)
-			}
-		case <-timeout:
-			t.Fatal("drainGroups: timeout waiting for group output")
 		}
 	}
 }

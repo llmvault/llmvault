@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
 
 func samplePR() GithubPR {
@@ -46,9 +44,8 @@ func sampleIssue() GithubIssue {
 
 func TestPRConvertedToDocument_FieldsMatch(t *testing.T) {
 	pr := samplePR()
-	access := &interfaces.ExternalAccess{IsPublic: true}
 
-	doc := prToDocument("acme/widget", pr, access)
+	doc := prToDocument("acme/widget", pr)
 
 	if doc.DocID != "github_pr_acme/widget_42" {
 		t.Fatalf("DocID = %q", doc.DocID)
@@ -61,9 +58,6 @@ func TestPRConvertedToDocument_FieldsMatch(t *testing.T) {
 	}
 	if len(doc.Sections) != 1 || doc.Sections[0].Text != pr.Body {
 		t.Fatalf("Sections = %+v", doc.Sections)
-	}
-	if !doc.IsPublic {
-		t.Fatalf("expected IsPublic from ExternalAccess")
 	}
 	if !reflect.DeepEqual(doc.PrimaryOwners, []string{"alice@example.com"}) {
 		t.Fatalf("PrimaryOwners = %v", doc.PrimaryOwners)
@@ -91,23 +85,14 @@ func TestPRConvertedToDocument_FieldsMatch(t *testing.T) {
 
 func TestIssueConvertedToDocument_FieldsMatch(t *testing.T) {
 	issue := sampleIssue()
-	access := &interfaces.ExternalAccess{
-		ExternalUserGroupIDs: []string{"external_group:github_42_collaborators"},
-	}
 
-	doc := issueToDocument("acme/widget", issue, access)
+	doc := issueToDocument("acme/widget", issue)
 
 	if doc.DocID != "github_issue_acme/widget_99" {
 		t.Fatalf("DocID = %q", doc.DocID)
 	}
 	if doc.SemanticID != "Sprocket spins backwards" {
 		t.Fatalf("SemanticID = %q", doc.SemanticID)
-	}
-	if doc.IsPublic {
-		t.Fatalf("private repo issue should not be IsPublic")
-	}
-	if !reflect.DeepEqual(doc.ACL, []string{"external_group:github_42_collaborators"}) {
-		t.Fatalf("ACL = %v", doc.ACL)
 	}
 	if doc.Metadata["object_type"] != "Issue" {
 		t.Fatalf("metadata.object_type = %q", doc.Metadata["object_type"])
@@ -120,7 +105,7 @@ func TestIssueConvertedToDocument_FieldsMatch(t *testing.T) {
 func TestPRConvertedToDocument_HiddenEmailFallsBackToLogin(t *testing.T) {
 	pr := samplePR()
 	pr.User = &GithubUser{Login: "alice"}
-	doc := prToDocument("acme/widget", pr, nil)
+	doc := prToDocument("acme/widget", pr)
 	if !reflect.DeepEqual(doc.PrimaryOwners, []string{"alice"}) {
 		t.Fatalf("expected login fallback; got %v", doc.PrimaryOwners)
 	}

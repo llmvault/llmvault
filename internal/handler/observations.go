@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
@@ -359,7 +360,7 @@ func (h *ObservationHandler) authorizeObservationMutation(w http.ResponseWriter,
 func (h *ObservationHandler) triggerChannelDigestRecompute(ctx context.Context, orgID uuid.UUID, channelID *uuid.UUID) {
 	service := memory.NewService(memory.Config{DB: h.db})
 	bg := context.WithoutCancel(ctx)
-	go func() {
+	goroutine.Go(bg, func(bg context.Context) {
 		if channelID != nil {
 			if err := service.RecomputeChannelDigest(bg, orgID, *channelID); err != nil {
 				logging.FromContext(bg).WarnContext(bg, "recompute channel memory digest", "error", err, "channel_id", *channelID)
@@ -378,7 +379,7 @@ func (h *ObservationHandler) triggerChannelDigestRecompute(ctx context.Context, 
 				logging.FromContext(bg).WarnContext(bg, "recompute channel memory digest", "error", err, "channel_id", id)
 			}
 		}
-	}()
+	})
 }
 
 // appendObservationAudit returns a copy of metadata with entry appended to its

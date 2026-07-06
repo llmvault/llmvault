@@ -14,15 +14,7 @@ func (c *GithubConnector) ListAllSlim(
 	goroutine.Go(ctx, func(ctx context.Context) {
 		defer close(out)
 		for _, full := range c.repoFullNames() {
-			repo, err := c.client.getRepo(ctx, full)
-			if err != nil {
-				if !interfaces.Send(ctx, out, interfaces.NewSlimFailure(entityFailure(full, "github: get repo for slim", err))) {
-					return
-				}
-				continue
-			}
-			access := mapVisibility(repo)
-			if !c.streamRepoSlim(ctx, full, access, out) {
+			if !c.streamRepoSlim(ctx, full, out) {
 				return
 			}
 		}
@@ -34,7 +26,7 @@ func (c *GithubConnector) ListAllSlim(
 // the exact same doc-id alphabet. Returns false when ctx was cancelled
 // (the caller must stop producing).
 func (c *GithubConnector) streamRepoSlim(
-	ctx context.Context, fullName string, access *interfaces.ExternalAccess,
+	ctx context.Context, fullName string,
 	out chan<- interfaces.SlimDocOrFailure,
 ) bool {
 	if c.cfg.IncludePRs {
@@ -49,8 +41,7 @@ func (c *GithubConnector) streamRepoSlim(
 			}
 			for _, pr := range prs {
 				if !interfaces.Send(ctx, out, interfaces.NewSlimResult(&interfaces.SlimDocument{
-					DocID:          docIDForPR(fullName, pr),
-					ExternalAccess: access,
+					DocID: docIDForPR(fullName, pr),
 				})) {
 					return false
 				}
@@ -76,8 +67,7 @@ func (c *GithubConnector) streamRepoSlim(
 					continue
 				}
 				if !interfaces.Send(ctx, out, interfaces.NewSlimResult(&interfaces.SlimDocument{
-					DocID:          docIDForIssue(fullName, issue),
-					ExternalAccess: access,
+					DocID: docIDForIssue(fullName, issue),
 				})) {
 					return false
 				}

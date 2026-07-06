@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sync/atomic"
 	"time"
 
 	"github.com/usehivy/hivy/internal/goroutine"
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
 
@@ -21,7 +19,6 @@ const Kind = "github"
 
 var (
 	_ interfaces.CheckpointedConnector[GithubCheckpoint] = (*GithubConnector)(nil)
-	_ interfaces.PermSyncConnector                       = (*GithubConnector)(nil)
 	_ interfaces.SlimConnector                           = (*GithubConnector)(nil)
 	_ interfaces.EstimatingConnector                     = (*GithubConnector)(nil)
 )
@@ -125,8 +122,6 @@ func (c *GithubConnector) run(
 		c.finalCp.Store(&final)
 	}()
 
-	access := map[string]*interfaces.ExternalAccess{}
-
 	for cp.Stage != StageDone {
 		if ctx.Err() != nil {
 			return
@@ -145,29 +140,13 @@ func (c *GithubConnector) run(
 		}
 
 		full := *cp.CurrentRepoFullName
-		// On visibility-fetch failure we skip the repo rather than
-		// emit PRs without ACL data.
-		acc, ok := access[full]
-		if !ok {
-			ext, err := c.computeRepoAccess(ctx, full)
-			if err != nil {
-				logging.Capture(ctx, fmt.Errorf("github visibility fetch repo=%s: %w", full, err))
-				if !interfaces.Send(ctx, out, interfaces.NewDocFailure(entityFailure(full, "github: resolve repo visibility", err))) {
-					return
-				}
-				cp.CurrentRepoFullName = nil
-				continue
-			}
-			access[full] = ext
-			acc = ext
-		}
 
 		var done bool
 		switch cp.Stage {
 		case StagePRs:
-			done = fetchPRsPage(ctx, c.client, full, c.cfg.StateFilter, &cp, start, end, acc, out)
+			done = fetchPRsPage(ctx, c.client, full, c.cfg.StateFilter, &cp, start, end, out)
 		case StageIssues:
-			done = fetchIssuesPage(ctx, c.client, full, c.cfg.StateFilter, &cp, start, end, acc, out)
+			done = fetchIssuesPage(ctx, c.client, full, c.cfg.StateFilter, &cp, start, end, out)
 		default:
 			done = true
 		}
@@ -191,14 +170,6 @@ func (c *GithubConnector) repoFullNames() []string {
 		out = append(out, c.cfg.RepoOwner+"/"+r)
 	}
 	return out
-}
-
-func (c *GithubConnector) computeRepoAccess(ctx context.Context, fullName string) (*interfaces.ExternalAccess, error) {
-	repo, err := c.client.getRepo(ctx, fullName)
-	if err != nil {
-		return nil, err
-	}
-	return mapVisibility(repo), nil
 }
 
 func Build(src interfaces.Source, deps interfaces.BuildDeps) (interfaces.Connector, error) {

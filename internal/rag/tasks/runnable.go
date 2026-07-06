@@ -25,11 +25,6 @@ type RunnableCheckpointed interface {
 	FinalCheckpoint() (json.RawMessage, error)
 }
 
-type RunnablePermSync interface {
-	interfaces.Connector
-	interfaces.PermSyncConnector
-}
-
 type RunnableSlim interface {
 	interfaces.Connector
 	interfaces.SlimConnector

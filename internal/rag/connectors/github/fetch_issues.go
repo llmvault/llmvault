@@ -14,7 +14,6 @@ func fetchIssuesPage(
 	fullName, state string,
 	cp *GithubCheckpoint,
 	start, end time.Time,
-	access *interfaces.ExternalAccess,
 	out chan<- interfaces.DocumentOrFailure,
 ) bool {
 	issues, next, err := client.listIssuesPage(ctx, fullName, state, cp.CurrPage)
@@ -48,7 +47,7 @@ func fetchIssuesPage(
 			t := issue.UpdatedAt
 			cp.LastSeenUpdatedAt = &t
 		}
-		doc := issueToDocument(fullName, issue, access)
+		doc := issueToDocument(fullName, issue)
 		if !interfaces.Send(ctx, out, interfaces.NewDocResult(&doc)) {
 			return true
 		}

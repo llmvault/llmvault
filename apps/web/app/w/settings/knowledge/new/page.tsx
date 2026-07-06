@@ -95,10 +95,8 @@ export default function NewKnowledgeSourcePage() {
       kind: meta.kind,
     }
     if (meta.kind === "WEBSITE") {
-      body.access_type = "PUBLIC"
       body.config = { urls: websiteURLs.map((u) => u.id) }
     } else {
-      body.access_type = "PRIVATE"
       body.connection_id = connectionId
       const resourceType = scopeTypes.length === 1 ? (scopeTypes[0].key ?? "") : ""
       body.config =

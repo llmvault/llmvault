@@ -7192,7 +7192,7 @@ export interface paths {
         head?: never;
         /**
          * Update a directive
-         * @description Updates a directive's content and/or active flag. Requires an org admin/owner.
+         * @description Updates a directive's active flag. Directive content is immutable: delete and re-create a directive to change its text. Requires an org admin/owner.
          */
         patch: {
             parameters: {
@@ -7207,7 +7207,7 @@ export interface paths {
             /** @description Fields to update */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["directiveMutationRequest"];
+                    "application/json": components["schemas"]["directiveUpdateRequest"];
                 };
             };
             responses: {
@@ -10738,7 +10738,7 @@ export interface paths {
         put?: never;
         /**
          * Create a RAG source
-         * @description Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune / perm-sync frequencies are validated against per-org minimums.
+         * @description Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune frequencies are validated against per-org minimums.
          */
         post: {
             parameters: {
@@ -10836,7 +10836,7 @@ export interface paths {
         head?: never;
         /**
          * Update a RAG source
-         * @description Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.
+         * @description Patches mutable fields (name, status pause/resume, refresh / prune frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.
          */
         patch: {
             parameters: {
@@ -10877,7 +10877,7 @@ export interface paths {
         };
         /**
          * List index attempts for a RAG source
-         * @description Paginated, most-recent-first. Each row covers one ingest / perm-sync / prune attempt with status, doc counts, and error summary.
+         * @description Paginated, most-recent-first. Each row covers one ingest / prune attempt with status, doc counts, and error summary.
          */
         get: {
             parameters: {
@@ -11065,48 +11065,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/rag/sources/{id}/perm-sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Trigger an immediate permission sync
-         * @description Enqueues a one-off permission-sync job. Returns 422 if the source's connector does not implement PermSyncConnector (i.e. has no external ACL model worth syncing).
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Source ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["triggerResponse"];
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -17002,12 +16960,10 @@ export interface components {
             name?: string;
         };
         createRAGSourceRequest: {
-            access_type?: string;
             config?: components["schemas"]["JSON"];
             connection_id?: string;
             kind?: string;
             name?: string;
-            perm_sync_freq_seconds?: number;
             prune_freq_seconds?: number;
             refresh_freq_seconds?: number;
         };
@@ -17164,6 +17120,9 @@ export interface components {
             id?: string;
             source?: string;
             updated_at?: string;
+        };
+        directiveUpdateRequest: {
+            active?: boolean;
         };
         discoverWebsiteSectionsRequest: {
             url?: string;
@@ -17787,7 +17746,6 @@ export interface components {
             title?: string;
         };
         ragSearchRequest: {
-            bypass_acl?: boolean;
             limit?: number;
             query?: string;
             rerank?: boolean;
@@ -17797,7 +17755,6 @@ export interface components {
             hits?: components["schemas"]["ragSearchHit"][];
         };
         ragSourceDetailResponse: {
-            access_type?: string;
             config?: number[];
             connection_id?: string;
             created_at?: string;
@@ -17808,11 +17765,9 @@ export interface components {
             kind?: string;
             last_pruned?: string;
             last_successful_index_time?: string;
-            last_time_perm_sync?: string;
             latest_attempt?: components["schemas"]["ragLatestAttemptStatus"];
             name?: string;
             org_id?: string;
-            perm_sync_freq_seconds?: number;
             prune_freq_seconds?: number;
             recent_attempts?: components["schemas"]["ragIndexAttemptResponse"][];
             refresh_freq_seconds?: number;
@@ -17821,7 +17776,6 @@ export interface components {
             updated_at?: string;
         };
         ragSourceResponse: {
-            access_type?: string;
             config?: number[];
             connection_id?: string;
             created_at?: string;
@@ -17832,11 +17786,9 @@ export interface components {
             kind?: string;
             last_pruned?: string;
             last_successful_index_time?: string;
-            last_time_perm_sync?: string;
             latest_attempt?: components["schemas"]["ragLatestAttemptStatus"];
             name?: string;
             org_id?: string;
-            perm_sync_freq_seconds?: number;
             prune_freq_seconds?: number;
             refresh_freq_seconds?: number;
             status?: string;
@@ -18526,7 +18478,6 @@ export interface components {
             enabled?: boolean;
             indexing_start?: string;
             name?: string;
-            perm_sync_freq_seconds?: number;
             prune_freq_seconds?: number;
             refresh_freq_seconds?: number;
             status?: string;

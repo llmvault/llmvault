@@ -14,7 +14,6 @@ const Kind = "slack"
 
 var (
 	_ interfaces.CheckpointedConnector[SlackCheckpoint] = (*SlackConnector)(nil)
-	_ interfaces.PermSyncConnector                      = (*SlackConnector)(nil)
 	_ interfaces.SlimConnector                          = (*SlackConnector)(nil)
 )
 

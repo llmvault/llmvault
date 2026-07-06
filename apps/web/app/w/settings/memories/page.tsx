@@ -1,24 +1,8 @@
 "use client"
 
 import { useMemo, useState, type FormEvent } from "react"
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
-import {
-  AlertDialog,
-  Button,
-  Input,
-  ListBox,
-  Modal,
-  Popover,
-  Select,
-  Skeleton,
-  Spinner,
-  TextArea,
-  toast,
-} from "@heroui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -31,12 +15,25 @@ import {
   listDirectives,
   listObservations,
   memoryQueryKeys,
-  observationKind,
   pinObservation,
   updateDirective,
   type Directive,
   type Observation,
 } from "@/lib/api/memory"
+import {
+  ChannelSelect,
+  DirectiveRow,
+  EmptyCard,
+  ErrorState,
+  LoadingState,
+  ObservationRow,
+  RowSkeletons,
+} from "./_memory-rows"
+import {
+  DeleteMemoryDialog,
+  DeleteRuleDialog,
+  EditContentModal,
+} from "./_memory-dialogs"
 
 type Channel = { id?: string; name?: string }
 
@@ -243,7 +240,7 @@ export default function MemoriesSettingsPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Memories</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           What this channel&apos;s agent remembers: rules you control, and
           memories it builds as it works. Confirm, correct, or delete anything.
         </p>
@@ -272,16 +269,16 @@ export default function MemoriesSettingsPage() {
               <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <AppIcon
                   icon="list-checks"
-                  className="h-4 w-4 text-muted-foreground"
+                  className="text-muted-foreground h-4 w-4"
                 />
                 Rules
                 {directives.length > 0 ? (
-                  <span className="text-xs font-normal text-muted-foreground">
+                  <span className="text-muted-foreground text-xs font-normal">
                     {directives.length}
                   </span>
                 ) : null}
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="text-muted-foreground mt-1 text-sm">
                 Rules are injected into every session in this channel.
               </p>
             </div>
@@ -291,7 +288,7 @@ export default function MemoriesSettingsPage() {
             ) : directivesQuery.isError ? (
               <ErrorState label="Could not load rules" />
             ) : directives.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
+              <div className="text-muted-foreground rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm">
                 No rules yet. Add one below, or pin a memory as a rule.
               </div>
             ) : (
@@ -341,11 +338,11 @@ export default function MemoriesSettingsPage() {
               <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <AppIcon
                   icon="brain"
-                  className="h-4 w-4 text-muted-foreground"
+                  className="text-muted-foreground h-4 w-4"
                 />
                 Memories
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="text-muted-foreground mt-1 text-sm">
                 Built automatically from sessions in this channel. Confirming a
                 memory strengthens it; deleting prevents re-learning.
               </p>
@@ -381,7 +378,7 @@ export default function MemoriesSettingsPage() {
                 type="button"
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="hover:bg-default flex items-center justify-center gap-2 self-start rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors disabled:opacity-60"
+                className="text-muted-foreground flex items-center justify-center gap-2 self-start rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-default disabled:opacity-60"
               >
                 {loadingMore ? (
                   <Spinner color="current" size="sm" />
@@ -432,553 +429,4 @@ export default function MemoriesSettingsPage() {
       />
     </div>
   )
-}
-
-function DirectiveRow({
-  directive,
-  onDeactivate,
-  onDelete,
-}: {
-  directive: Directive
-  onDeactivate: () => void
-  onDelete: () => void
-}) {
-  return (
-    <div className="group flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <p className="text-sm leading-5 text-foreground">{directive.content}</p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded-md bg-default px-1.5 py-0.5 text-xs text-muted-foreground">
-            {directive.source === "user-pinned"
-              ? "Pinned by you"
-              : "From memory"}
-          </span>
-          {directive.createdAt ? (
-            <span className="text-xs text-muted-foreground">
-              · {relativeTime(directive.createdAt)}
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <ActionsMenu
-        label="Rule options"
-        items={[
-          {
-            key: "deactivate",
-            label: "Deactivate rule",
-            icon: "circle-slash",
-            onSelect: onDeactivate,
-          },
-          {
-            key: "delete",
-            label: "Delete rule",
-            icon: "trash-2",
-            danger: true,
-            onSelect: onDelete,
-          },
-        ]}
-      />
-    </div>
-  )
-}
-
-function ObservationRow({
-  observation,
-  onConfirm,
-  onEdit,
-  onPin,
-  onDelete,
-}: {
-  observation: Observation
-  onConfirm: () => void
-  onEdit: () => void
-  onPin: () => void
-  onDelete: () => void
-}) {
-  const kind = observationKind(observation.kind)
-  return (
-    <div className="group flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <p className="text-sm leading-5 text-foreground">
-          {observation.content}
-        </p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span
-            className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${kind.chipClass}`}
-          >
-            {kind.label}
-          </span>
-          {observation.humanVerified ? (
-            <span className="flex items-center gap-1 rounded-md bg-success/15 px-1.5 py-0.5 text-xs text-success">
-              <AppIcon icon="shield-check" className="h-3 w-3" />
-              Verified
-            </span>
-          ) : null}
-          {observation.proofCount > 1 ? (
-            <span className="text-xs text-muted-foreground">
-              confirmed {observation.proofCount}×
-            </span>
-          ) : null}
-          {observation.entities.map((entity) => (
-            <span
-              key={entity}
-              className="rounded-md bg-default px-1.5 py-0.5 text-xs text-muted-foreground"
-            >
-              {entity}
-            </span>
-          ))}
-          {observation.expiresAt ? (
-            <span className="flex items-center gap-1 text-xs text-warning">
-              <AppIcon icon="clock-alert" className="h-3 w-3" />
-              Expires {shortDate(observation.expiresAt)}
-            </span>
-          ) : null}
-          <span className="text-xs text-muted-foreground">
-            · {relativeTime(observation.lastMentionedAt || observation.createdAt)}
-          </span>
-        </div>
-      </div>
-      <ActionsMenu
-        label="Memory options"
-        items={[
-          {
-            key: "confirm",
-            label: "Confirm",
-            icon: "check-circle",
-            onSelect: onConfirm,
-          },
-          { key: "edit", label: "Edit", icon: "pencil", onSelect: onEdit },
-          {
-            key: "pin",
-            label: "Pin as rule",
-            icon: "list-checks",
-            onSelect: onPin,
-          },
-          {
-            key: "delete",
-            label: "Delete",
-            icon: "trash-2",
-            danger: true,
-            onSelect: onDelete,
-          },
-        ]}
-      />
-    </div>
-  )
-}
-
-type MenuItem = {
-  key: string
-  label: string
-  icon: string
-  danger?: boolean
-  onSelect: () => void
-}
-
-function ActionsMenu({ label, items }: { label: string; items: MenuItem[] }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger
-        aria-label={label}
-        data-open={open ? "true" : undefined}
-        className="hover:bg-default data-[open=true]:bg-default -mr-1 flex shrink-0 items-center rounded-md p-1 text-muted-foreground transition-colors"
-      >
-        <AppIcon icon="ellipsis" className="h-4 w-4" />
-      </Popover.Trigger>
-      {open ? (
-        <Popover.Content
-          placement="bottom end"
-          offset={6}
-          className="w-52 rounded-2xl border border-border p-1.5"
-        >
-          <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            {items.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => {
-                  item.onSelect()
-                  setOpen(false)
-                }}
-                className={
-                  item.danger
-                    ? "flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
-                    : "hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-                }
-              >
-                <AppIcon icon={item.icon} className="h-4 w-4 shrink-0" />
-                {item.label}
-              </button>
-            ))}
-          </Popover.Dialog>
-        </Popover.Content>
-      ) : null}
-    </Popover>
-  )
-}
-
-function EditContentModal({
-  open,
-  heading,
-  description,
-  initialContent,
-  pending,
-  onOpenChange,
-  onSave,
-}: {
-  open: boolean
-  heading: string
-  description: string
-  initialContent: string
-  pending: boolean
-  onOpenChange: (open: boolean) => void
-  onSave: (content: string) => void
-}) {
-  if (!open) return null
-  return (
-    <EditContentModalContent
-      heading={heading}
-      description={description}
-      initialContent={initialContent}
-      pending={pending}
-      onOpenChange={onOpenChange}
-      onSave={onSave}
-    />
-  )
-}
-
-function EditContentModalContent({
-  heading,
-  description,
-  initialContent,
-  pending,
-  onOpenChange,
-  onSave,
-}: {
-  heading: string
-  description: string
-  initialContent: string
-  pending: boolean
-  onOpenChange: (open: boolean) => void
-  onSave: (content: string) => void
-}) {
-  const [content, setContent] = useState(initialContent)
-  const trimmed = content.trim()
-  const invalid = trimmed.length === 0
-  const unchanged = trimmed === initialContent.trim()
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (invalid || pending) return
-    if (unchanged) {
-      onOpenChange(false)
-      return
-    }
-    onSave(trimmed)
-  }
-
-  return (
-    <Modal isOpen onOpenChange={onOpenChange}>
-      <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
-        <Modal.Container placement="center" size="sm">
-          <Modal.Dialog className="p-8">
-            <Modal.CloseTrigger />
-            <form onSubmit={submit}>
-              <Modal.Header>
-                <Modal.Icon className="bg-default size-12 text-foreground">
-                  <AppIcon icon="pencil" className="h-6 w-6" />
-                </Modal.Icon>
-                <div className="flex flex-col gap-1">
-                  <Modal.Heading>{heading}</Modal.Heading>
-                  <p className="text-sm text-muted">{description}</p>
-                </div>
-              </Modal.Header>
-              <Modal.Body>
-                <TextArea
-                  autoFocus
-                  value={content}
-                  disabled={pending}
-                  aria-label={heading}
-                  rows={4}
-                  fullWidth
-                  onChange={(event) => setContent(event.target.value)}
-                />
-              </Modal.Body>
-              <Modal.Footer>
-                <Button
-                  type="button"
-                  variant="tertiary"
-                  size="sm"
-                  isDisabled={pending}
-                  onPress={() => onOpenChange(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isDisabled={invalid || unchanged || pending}
-                >
-                  {pending ? <Spinner color="current" size="sm" /> : null}
-                  Save
-                </Button>
-              </Modal.Footer>
-            </form>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
-  )
-}
-
-function DeleteRuleDialog({
-  target,
-  pending,
-  onOpenChange,
-  onConfirm,
-}: {
-  target: Directive | null
-  pending: boolean
-  onOpenChange: (open: boolean) => void
-  onConfirm: () => void
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialog.Backdrop
-        isOpen={target !== null}
-        onOpenChange={(next) => {
-          if (!pending) onOpenChange(next)
-        }}
-        className="bg-background/80 backdrop-blur-sm"
-      >
-        <AlertDialog.Container placement="center" size="sm">
-          <AlertDialog.Dialog className="p-8">
-            <AlertDialog.Header>
-              <AlertDialog.Icon status="danger">
-                <AppIcon icon="trash-2" className="h-6 w-6" />
-              </AlertDialog.Icon>
-              <div className="flex flex-col gap-1">
-                <AlertDialog.Heading>Delete rule</AlertDialog.Heading>
-                <p className="text-sm text-muted">
-                  Rules can&apos;t be edited. To change this rule, delete it and
-                  add a new one.
-                </p>
-              </div>
-            </AlertDialog.Header>
-            <AlertDialog.Footer>
-              <Button
-                variant="tertiary"
-                size="sm"
-                isDisabled={pending}
-                onPress={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                className="bg-danger text-danger-foreground hover:bg-danger/90"
-                isDisabled={pending}
-                onPress={onConfirm}
-              >
-                {pending ? <Spinner color="current" size="sm" /> : null}
-                Delete
-              </Button>
-            </AlertDialog.Footer>
-          </AlertDialog.Dialog>
-        </AlertDialog.Container>
-      </AlertDialog.Backdrop>
-    </AlertDialog>
-  )
-}
-
-function DeleteMemoryDialog({
-  target,
-  pending,
-  onOpenChange,
-  onConfirm,
-}: {
-  target: Observation | null
-  pending: boolean
-  onOpenChange: (open: boolean) => void
-  onConfirm: () => void
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialog.Backdrop
-        isOpen={target !== null}
-        onOpenChange={(next) => {
-          if (!pending) onOpenChange(next)
-        }}
-        className="bg-background/80 backdrop-blur-sm"
-      >
-        <AlertDialog.Container placement="center" size="sm">
-          <AlertDialog.Dialog className="p-8">
-            <AlertDialog.Header>
-              <AlertDialog.Icon status="danger">
-                <AppIcon icon="trash-2" className="h-6 w-6" />
-              </AlertDialog.Icon>
-              <div className="flex flex-col gap-1">
-                <AlertDialog.Heading>Delete memory</AlertDialog.Heading>
-                <p className="text-sm text-muted">
-                  This removes the memory and prevents the agent from
-                  re-learning it in this channel.
-                </p>
-              </div>
-            </AlertDialog.Header>
-            <AlertDialog.Footer>
-              <Button
-                variant="tertiary"
-                size="sm"
-                isDisabled={pending}
-                onPress={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                className="bg-danger text-danger-foreground hover:bg-danger/90"
-                isDisabled={pending}
-                onPress={onConfirm}
-              >
-                {pending ? <Spinner color="current" size="sm" /> : null}
-                Delete
-              </Button>
-            </AlertDialog.Footer>
-          </AlertDialog.Dialog>
-        </AlertDialog.Container>
-      </AlertDialog.Backdrop>
-    </AlertDialog>
-  )
-}
-
-function ChannelSelect({
-  options,
-  value,
-  onChange,
-}: {
-  options: { id: string; label: string }[]
-  value: string
-  onChange: (value: string) => void
-}) {
-  const selected = options.find((option) => option.id === value)
-  return (
-    <Select
-      aria-label="Channel"
-      selectedKey={value || null}
-      onSelectionChange={(key) => onChange(key === null ? "" : String(key))}
-      className="w-full sm:w-64"
-    >
-      <Select.Trigger className="h-10 w-full justify-between px-3 text-sm transition-colors">
-        <span className="flex min-w-0 items-center gap-2">
-          <AppIcon
-            icon="hash"
-            className="h-4 w-4 shrink-0 text-muted-foreground"
-          />
-          <span className="truncate">{selected?.label ?? "Select channel"}</span>
-        </span>
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover className="w-64 p-1.5">
-        <ListBox>
-          {options.map((option) => (
-            <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
-              {option.label}
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  )
-}
-
-function RowSkeletons({ count }: { count: number }) {
-  return (
-    <div className="flex flex-col gap-2">
-      {Array.from({ length: count }).map((_, row) => (
-        <div
-          key={row}
-          className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3"
-        >
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Skeleton className="h-3.5 w-full max-w-md rounded" />
-            <div className="flex items-center gap-1.5">
-              <Skeleton className="h-4 w-14 rounded-md" />
-              <Skeleton className="h-4 w-16 rounded-md" />
-            </div>
-          </div>
-          <Skeleton className="h-6 w-6 rounded-md" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <div className="flex flex-col gap-8">
-      <Skeleton className="h-10 w-64 rounded-lg" />
-      <RowSkeletons count={2} />
-      <RowSkeletons count={3} />
-    </div>
-  )
-}
-
-function ErrorState({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-32 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon="triangle-alert" className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">{label}</p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        Refresh the page to try again.
-      </p>
-    </div>
-  )
-}
-
-function EmptyCard({
-  icon,
-  title,
-  body,
-}: {
-  icon: string
-  title: string
-  body: string
-}) {
-  return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon={icon} className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{body}</p>
-    </div>
-  )
-}
-
-function relativeTime(iso: string): string {
-  if (!iso) return ""
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return ""
-  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000))
-  if (seconds < 60) return "just now"
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `${months}mo ago`
-  return `${Math.floor(months / 12)}y ago`
-}
-
-function shortDate(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  })
 }

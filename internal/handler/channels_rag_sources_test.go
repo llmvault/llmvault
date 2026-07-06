@@ -48,7 +48,6 @@ func seedWebsiteSource(t *testing.T, h *channelHarness, orgID uuid.UUID, name st
 		Name:        name,
 		Status:      ragmodel.RAGSourceStatusActive,
 		Enabled:     true,
-		AccessType:  ragmodel.AccessTypePublic,
 		ConfigValue: model.JSON{"url": "https://" + name + ".example"},
 	}
 	if err := h.db.Create(&src).Error; err != nil {

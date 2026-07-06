@@ -36,7 +36,7 @@ func TestSlim_ProducerExitsOnConsumerAbandon(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true, IncludeIssues: false,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 	// Tiny buffer so the producer blocks quickly once the consumer stops.
 	c.channelBuf = 1
 
@@ -59,49 +59,6 @@ func TestSlim_ProducerExitsOnConsumerAbandon(t *testing.T) {
 	case <-ch:
 	case <-time.After(2 * time.Second):
 		t.Fatal("no first item produced")
-	}
-	cancel()
-
-	waitGoroutinesBelow(t, baseline, 0)
-}
-
-// Covers the perm_sync producer path the same way.
-func TestSyncExternalGroups_ProducerExitsOnConsumerAbandon(t *testing.T) {
-	baseline := runtime.NumGoroutine()
-
-	cfg := GithubConfig{
-		RepoOwner: "acme", Repositories: []string{"widget"},
-		StateFilter: "all", IncludePRs: true, IncludeIssues: false,
-	}
-	c, fp := buildConnector(t, cfg, "private")
-	c.channelBuf = 1
-
-	fp.handleCollaborators = func(string) []byte {
-		users := []GithubUser{
-			{Login: "alice", Email: "alice@example.com"},
-			{Login: "bob", Email: "bob@example.com"},
-		}
-		return mustMarshal(t, users)
-	}
-	teams := []GithubTeam{
-		{ID: 1, Slug: "eng", Name: "Engineering"},
-		{ID: 2, Slug: "ops", Name: "Operations"},
-	}
-	fp.addDefault("GET", "/repos/"+repoFullName+"/teams", mustMarshal(t, teams))
-	fp.addDefault("GET", "/teams/1/members", mustMarshal(t, []GithubUser{{Login: "alice", Email: "alice@example.com"}}))
-	fp.addDefault("GET", "/teams/2/members", mustMarshal(t, []GithubUser{{Login: "bob", Email: "bob@example.com"}}))
-
-	src := &fixtureSource{cfg: json.RawMessage(`{"repo_owner":"acme","repositories":["widget"]}`)}
-	ctx, cancel := context.WithCancel(context.Background())
-	ch, err := c.SyncExternalGroups(ctx, src)
-	if err != nil {
-		t.Fatalf("SyncExternalGroups: %v", err)
-	}
-
-	select {
-	case <-ch:
-	case <-time.After(2 * time.Second):
-		t.Fatal("no first group produced")
 	}
 	cancel()
 

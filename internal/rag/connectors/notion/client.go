@@ -63,57 +63,6 @@ func preview(b []byte) string {
 	return string(b)
 }
 
-// usersMe returns the bot user record. Used as a cheap workspace-mode
-// reachability probe during config validation.
-func (c *Client) usersMe(ctx context.Context) (map[string]any, error) {
-	body, status, err := c.do(ctx, http.MethodGet, "/v1/users/me", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, fmt.Errorf("notion users/me: status %d: %s", status, preview(body))
-	}
-	var out map[string]any
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, fmt.Errorf("notion users/me: decode: %w", err)
-	}
-	return out, nil
-}
-
-// search runs a POST /v1/search. filterObject scopes results to a single
-// object type (e.g. "page"); when sortDesc is set, results come back
-// newest-edited first so callers can early-break an incremental scan.
-func (c *Client) search(ctx context.Context, filterObject string, sortDesc bool, cursor *string) (searchResult, error) {
-	reqBody := map[string]any{
-		"filter":    map[string]any{"property": "object", "value": filterObject},
-		"page_size": notionPageSize,
-	}
-	if sortDesc {
-		reqBody["sort"] = map[string]any{"timestamp": "last_edited_time", "direction": "descending"}
-	}
-	if cursor != nil && *cursor != "" {
-		reqBody["start_cursor"] = *cursor
-	}
-
-	raw, err := json.Marshal(reqBody)
-	if err != nil {
-		return searchResult{}, fmt.Errorf("notion search: encode: %w", err)
-	}
-
-	respBody, status, err := c.do(ctx, http.MethodPost, "/v1/search", "", raw)
-	if err != nil {
-		return searchResult{}, err
-	}
-	if status >= 400 {
-		return searchResult{}, fmt.Errorf("notion search: status %d: %s", status, preview(respBody))
-	}
-	var res searchResult
-	if err := json.Unmarshal(respBody, &res); err != nil {
-		return searchResult{}, fmt.Errorf("notion search: decode: %w", err)
-	}
-	return res, nil
-}
-
 // blockChildren returns one page of a block's children. The bool result
 // is false when the block is not shared with the integration (403/404),
 // in which case the caller should stop collecting children.

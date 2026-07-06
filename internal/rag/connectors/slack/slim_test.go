@@ -15,7 +15,7 @@ func TestSlimList_Basic(t *testing.T) {
 		{Type: "message", User: "U2", Text: "Msg2", TS: "1000.000001"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"general"}}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 	c.memberChannels = fake.channels

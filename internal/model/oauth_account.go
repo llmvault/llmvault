@@ -34,11 +34,10 @@ type OAuthAccount struct {
 	ProviderUserLogin *string
 
 	// VerifiedEmails is every email address the upstream provider claims
-	// is verified for this user. Used by RAG perm-sync to expand an ACL
-	// match beyond the primary email.
+	// is verified for this user.
 	VerifiedEmails pq.StringArray `gorm:"type:text[]"`
 
-	// LastSyncedAt records when the RAG identity sync task last refreshed
+	// LastSyncedAt records when the identity sync task last refreshed
 	// the three fields above from the provider.
 	LastSyncedAt *time.Time
 

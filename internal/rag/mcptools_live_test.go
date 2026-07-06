@@ -68,9 +68,7 @@ func TestKnowledgeSourceGrouping_LiveQdrant(t *testing.T) {
 				"source":        slackSource,
 				"doc_id":        "deploy-1",
 				"semantic_id":   "Deploy policy",
-				"content":       "Release owners post status before deploy.",
-				"is_public":     true,
-			},
+				"content":       "Release owners post status before deploy."},
 		},
 		{
 			ID:     qdrant.PointID(orgID, "slack-source", "deploy-2"),
@@ -81,9 +79,7 @@ func TestKnowledgeSourceGrouping_LiveQdrant(t *testing.T) {
 				"source":        slackSource,
 				"doc_id":        "deploy-2",
 				"semantic_id":   "Rollback notes",
-				"content":       "Deploys require rollback notes.",
-				"is_public":     true,
-			},
+				"content":       "Deploys require rollback notes."},
 		},
 		{
 			ID:     qdrant.PointID(orgID, "docs-source", "deploy-guide"),
@@ -94,9 +90,7 @@ func TestKnowledgeSourceGrouping_LiveQdrant(t *testing.T) {
 				"source":        docsSource,
 				"doc_id":        "deploy-guide",
 				"semantic_id":   "Deploy guide",
-				"content":       "Run smoke tests after deploy.",
-				"is_public":     true,
-			},
+				"content":       "Run smoke tests after deploy."},
 		},
 	}
 	if err := c.Upsert(ctx, collection, points, true); err != nil {
@@ -106,7 +100,7 @@ func TestKnowledgeSourceGrouping_LiveQdrant(t *testing.T) {
 	hits, err := c.Search(ctx, qdrant.SearchRequest{
 		Collection:  collection,
 		Vector:      testVector(dim, 99),
-		Filter:      qdrant.BuildACLFilter(orgID, nil, true),
+		Filter:      qdrant.BuildOrgFilter(orgID),
 		Limit:       10,
 		WithPayload: true,
 	})

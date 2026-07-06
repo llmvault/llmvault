@@ -29,8 +29,8 @@ type BuildDeps struct {
 // below via Register in its init() function.
 //
 // The returned Connector may additionally satisfy
-// CheckpointedConnector[T], PermSyncConnector, and/or SlimConnector —
-// callers type-assert for the capabilities they need.
+// CheckpointedConnector[T] and/or SlimConnector — callers type-assert
+// for the capabilities they need.
 type Factory func(src Source, deps BuildDeps) (Connector, error)
 
 // ErrUnknownKind is returned from Lookup when no factory is registered

@@ -4,18 +4,13 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestCheckpoint_MarshalRoundTrip(t *testing.T) {
-	edited := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
 	original := NotionCheckpoint{
-		Mode:           modeWorkspace,
+		Mode:           modeSubtree,
 		PendingPageIDs: []string{"page-a", "page-b"},
 		IndexedPageIDs: []string{"page-x"},
-		SearchCursor:   ptr("cursor-1"),
-		SearchDone:     true,
-		LastSeenEdited: &edited,
 	}
 	raw, err := json.Marshal(original)
 	if err != nil {

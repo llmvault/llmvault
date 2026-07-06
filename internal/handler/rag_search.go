@@ -28,7 +28,6 @@ type ragSearchRequest struct {
 	Query     string   `json:"query"`
 	Rerank    bool     `json:"rerank,omitempty"`
 	Limit     uint32   `json:"limit,omitempty"`
-	BypassACL bool     `json:"bypass_acl,omitempty"`
 	SourceIDs []string `json:"source_ids,omitempty"`
 }
 
@@ -68,11 +67,6 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
-	user, ok := middleware.UserFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing user context"})
-		return
-	}
 
 	var req ragSearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -97,11 +91,7 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl := []string{}
-	if user.Email != "" {
-		acl = append(acl, user.Email)
-	}
-	filter := qdrant.BuildScopedFilter(org.ID.String(), acl, req.BypassACL, req.SourceIDs)
+	filter := qdrant.BuildScopedFilter(org.ID.String(), req.SourceIDs)
 
 	topK := limit
 	if req.Rerank && h.reranker != nil {

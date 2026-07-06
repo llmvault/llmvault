@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/usehivy/hivy/internal/model"
 )
 
 // RAGSyncState tracks the connection lifecycle and sync bookkeeping for
@@ -14,10 +12,9 @@ import (
 // ARCHITECTURAL NOTE: identity lives on `Connection`, schedule +
 // config live on `RAGSource`, and sync state (this struct) is a 1:1
 // sibling of `RAGSource` keyed by `rag_source_id`. The uniqueness of
-// `rag_source_id` is the invariant the three-loop scheduler (docfetching,
-// docprocessing, pruning, doc-permission syncing, external-group
-// syncing) depends on: every loop picks up at most one sync state per
-// source.
+// `rag_source_id` is the invariant the scheduler (docfetching,
+// docprocessing, pruning) depends on: every loop picks up at most one
+// sync state per source.
 //
 // Identity columns (`connector_id`, `credential_id`, `name`) live on
 // Connection, not here.
@@ -43,21 +40,6 @@ type RAGSyncState struct {
 	// ACTIVE but flagged as repeatedly failing, which the UI surfaces
 	// without pausing the loop.
 	InRepeatedErrorState bool `gorm:"not null;default:false"`
-
-	// AccessType controls who can see documents from this source.
-	AccessType AccessType `gorm:"type:varchar(16);not null"`
-
-	// AutoSyncOptions (JSONB) — shape is connector-specific (e.g.
-	// `{"customer_id": "...", "company_domain": "..."}` for Google
-	// Drive perm sync).
-	AutoSyncOptions model.JSON `gorm:"type:jsonb"`
-
-	// LastTimePermSync records when permissions were last synced.
-	LastTimePermSync *time.Time `gorm:"type:timestamptz"`
-
-	// LastTimeExternalGroupSync records when external groups were last
-	// synced.
-	LastTimeExternalGroupSync *time.Time `gorm:"type:timestamptz"`
 
 	// LastSuccessfulIndexTime is the finish time (not start time) of
 	// the last successful index run.

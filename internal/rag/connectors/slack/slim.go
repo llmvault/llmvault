@@ -36,8 +36,7 @@ func (c *SlackConnector) ListAllSlim(
 		c.memberChannels = channels
 
 		for _, ch := range channels {
-			access := c.channelAccess(ch)
-			err, cancelled := c.streamChannelSlim(ctx, ch, access, out)
+			err, cancelled := c.streamChannelSlim(ctx, ch, out)
 			if cancelled {
 				return
 			}
@@ -58,7 +57,6 @@ func (c *SlackConnector) ListAllSlim(
 func (c *SlackConnector) streamChannelSlim(
 	ctx context.Context,
 	channel SlackChannel,
-	access *interfaces.ExternalAccess,
 	out chan<- interfaces.SlimDocOrFailure,
 ) (error, bool) {
 	latest := ""
@@ -79,8 +77,7 @@ func (c *SlackConnector) streamChannelSlim(
 			}
 			seen[docID] = struct{}{}
 			if !interfaces.Send(ctx, out, interfaces.NewSlimResult(&interfaces.SlimDocument{
-				DocID:          docID,
-				ExternalAccess: access,
+				DocID: docID,
 			})) {
 				return nil, true
 			}

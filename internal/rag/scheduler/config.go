@@ -8,7 +8,6 @@ import (
 
 const (
 	defaultIngestTick      = 30 * time.Minute
-	defaultPermSyncTick    = 60 * time.Minute
 	defaultPruneTick       = 90 * time.Minute
 	defaultWatchdogTick    = 90 * time.Minute
 	defaultWatchdogTimeout = 30 * time.Minute
@@ -18,7 +17,6 @@ const (
 
 type Config struct {
 	IngestTick      time.Duration
-	PermSyncTick    time.Duration
 	PruneTick       time.Duration
 	WatchdogTick    time.Duration
 	WatchdogTimeout time.Duration
@@ -29,7 +27,6 @@ type Config struct {
 func NewConfig() Config {
 	return Config{
 		IngestTick:      envDuration("RAG_INGEST_TICK", defaultIngestTick),
-		PermSyncTick:    envDuration("RAG_PERM_SYNC_TICK", defaultPermSyncTick),
 		PruneTick:       envDuration("RAG_PRUNE_TICK", defaultPruneTick),
 		WatchdogTick:    envDuration("RAG_WATCHDOG_TICK", defaultWatchdogTick),
 		WatchdogTimeout: envDuration("RAG_WATCHDOG_TIMEOUT", defaultWatchdogTimeout),

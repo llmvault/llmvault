@@ -12,7 +12,7 @@ func TestIndexingStart_FloorsTheWindow(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	floor := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	older := []GithubPR{

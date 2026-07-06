@@ -85,34 +85,6 @@ func (h *RAGSourceHandler) TriggerPrune(w http.ResponseWriter, r *http.Request) 
 	h.dispatchTrigger(r.Context(), w, src, task, ragtasks.TypeRagPrune)
 }
 
-// @Summary Trigger an immediate permission sync
-// @Description Enqueues a one-off permission-sync job. Returns 422 if the source's connector does not implement PermSyncConnector (i.e. has no external ACL model worth syncing).
-// @Tags rag
-// @Produce json
-// @Param id path string true "Source ID"
-// @Success 202 {object} triggerResponse
-// @Security BearerAuth
-// @Router /v1/rag/sources/{id}/perm-sync [post]
-func (h *RAGSourceHandler) TriggerPermSync(w http.ResponseWriter, r *http.Request) {
-	src, status := h.loadSourceForTrigger(w, r)
-	if status != 0 {
-		return
-	}
-	if h.caps == nil || !h.caps(string(src.KindValue)) {
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
-			Error: "this connector does not support permission sync",
-		})
-		return
-	}
-
-	task, err := ragtasks.NewPermSyncTask(ragtasks.PermSyncPayload{RAGSourceID: src.ID})
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to build perm_sync task"})
-		return
-	}
-	h.dispatchTrigger(r.Context(), w, src, task, ragtasks.TypeRagPermSync)
-}
-
 func (h *RAGSourceHandler) loadSourceForTrigger(w http.ResponseWriter, r *http.Request) (*ragmodel.RAGSource, int) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {

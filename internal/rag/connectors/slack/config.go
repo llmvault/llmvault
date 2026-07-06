@@ -72,13 +72,14 @@ func normaliseChannelList(in []string) []string {
 
 // channelIsAllowed returns true if the channel should be indexed. Scope IDs
 // (from the scope envelope) take precedence; otherwise the legacy name/regex
-// filter applies. When nothing is configured, all member channels are included.
+// filter applies. When nothing is configured, no channels are indexed
+// (deny-by-default — an unscoped source ingests nothing).
 func channelIsAllowed(channel SlackChannel, ids, names []string, regexEnabled bool) bool {
 	if len(ids) > 0 {
 		return channelIDInList(channel, ids)
 	}
 	if len(names) == 0 {
-		return true
+		return false
 	}
 	if regexEnabled {
 		return channelMatchesRegex(channel, names)

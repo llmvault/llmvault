@@ -34,9 +34,6 @@ func TestSubtreeScoping_SeedsFromRootsAndSkipsSearch(t *testing.T) {
 	if docs[0].DocID != "notion_page_"+rootID {
 		t.Fatalf("doc id = %q, want %q", docs[0].DocID, "notion_page_"+rootID)
 	}
-	if !docs[0].IsPublic {
-		t.Fatal("notion documents must be IsPublic (no per-page ACL)")
-	}
 	if fp.calledWith("/v1/search") {
 		t.Fatalf("SUBTREE mode must not call search; calls=%v", fp.calls)
 	}
@@ -79,42 +76,20 @@ func TestSubtreeScoping_UnsharedRootSkipped(t *testing.T) {
 	}
 }
 
-// WORKSPACE mode enumerates pages via search and indexes them.
-func TestWorkspaceMode_EnumeratesViaSearch(t *testing.T) {
-	const pageID = "cccccccc-cccc-cccc-cccc-cccccccccccc"
-
-	searchBody, _ := json.Marshal(searchResult{
-		Results: []map[string]any{
-			{
-				"object":           "page",
-				"id":               pageID,
-				"last_edited_time": "2026-04-01T12:00:00.000Z",
-				"url":              "https://notion.so/" + pageID,
-				"properties": map[string]any{
-					"Name": map[string]any{"type": "title", "title": []any{map[string]any{"plain_text": "WS Page"}}},
-				},
-			},
-		},
-		HasMore: false,
-	})
-
+// With no configured roots the source ingests nothing (deny-by-default) and
+// never calls the search API.
+func TestNoScope_IngestsNothing(t *testing.T) {
 	fp := newFakeProxy()
-	fp.set(http.MethodPost, "/v1/search", http.StatusOK, searchBody)
-	fp.set(http.MethodGet, "/v1/blocks/"+pageID+"/children", http.StatusOK, []byte(emptyChildren))
-
-	c := NewConnector(NotionConfig{IncludeDatabases: true}, fp) // no roots => workspace
+	c := NewConnector(NotionConfig{IncludeDatabases: true}, fp) // no roots
 	docs, fails := runConnector(t, c)
 	if len(fails) != 0 {
 		t.Fatalf("unexpected failures: %+v", fails)
 	}
-	if len(docs) != 1 {
-		t.Fatalf("expected 1 workspace doc, got %d", len(docs))
+	if len(docs) != 0 {
+		t.Fatalf("expected 0 docs with no scope, got %d", len(docs))
 	}
-	if docs[0].SemanticID != "WS Page" {
-		t.Fatalf("semantic id = %q, want %q", docs[0].SemanticID, "WS Page")
-	}
-	if !fp.calledWith("/v1/search") {
-		t.Fatal("WORKSPACE mode must enumerate via search")
+	if fp.calledWith("/v1/search") {
+		t.Fatal("no-scope source must not enumerate via search")
 	}
 }
 

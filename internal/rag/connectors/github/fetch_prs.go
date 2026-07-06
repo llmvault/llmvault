@@ -17,7 +17,6 @@ func fetchPRsPage(
 	fullName, state string,
 	cp *GithubCheckpoint,
 	start, end time.Time,
-	access *interfaces.ExternalAccess,
 	out chan<- interfaces.DocumentOrFailure,
 ) bool {
 	prs, next, err := client.listPullRequestsPage(ctx, fullName, state, cp.CurrPage)
@@ -48,7 +47,7 @@ func fetchPRsPage(
 			t := pr.UpdatedAt
 			cp.LastSeenUpdatedAt = &t
 		}
-		doc := prToDocument(fullName, pr, access)
+		doc := prToDocument(fullName, pr)
 		if !interfaces.Send(ctx, out, interfaces.NewDocResult(&doc)) {
 			return true
 		}

@@ -81,8 +81,7 @@ func (c *SlackConnector) threadToDoc(
 
 	owners := c.resolveSenderEmails(messages)
 
-	access := c.channelAccess(channel)
-	doc := interfaces.Document{
+	return interfaces.Document{
 		DocID:         docID(channel.ID, ts),
 		SemanticID:    semanticID,
 		Sections:      sections,
@@ -93,8 +92,6 @@ func (c *SlackConnector) threadToDoc(
 			"source_type": "slack",
 		},
 	}
-	applyAccess(&doc, access)
-	return doc
 }
 
 func truncate(s string, maxLen int) string {
@@ -152,41 +149,4 @@ func (c *SlackConnector) resolveSenderEmails(messages []SlackMessage) []string {
 		}
 	}
 	return emails
-}
-
-func (c *SlackConnector) channelAccess(channel SlackChannel) *interfaces.ExternalAccess {
-	if channel.IsPrivate {
-		members, err := c.api.conversationMembers(c.ctx, channel.ID)
-		if err != nil {
-			return &interfaces.ExternalAccess{IsPublic: false}
-		}
-		emails := make([]string, 0, len(members))
-		for _, memberID := range members {
-			u, err := c.userCache.get(c.ctx, c.api, memberID)
-			if err != nil || u == nil {
-				continue
-			}
-			if email := userEmail(u); email != "" {
-				emails = append(emails, email)
-			}
-		}
-		return &interfaces.ExternalAccess{
-			ExternalUserEmails: emails,
-			IsPublic:           false,
-		}
-	}
-	return &interfaces.ExternalAccess{IsPublic: true}
-}
-
-func applyAccess(d *interfaces.Document, a *interfaces.ExternalAccess) {
-	if a == nil {
-		return
-	}
-	d.IsPublic = a.IsPublic
-	if len(a.ExternalUserGroupIDs) > 0 {
-		d.ACL = append(d.ACL, a.ExternalUserGroupIDs...)
-	}
-	if len(a.ExternalUserEmails) > 0 {
-		d.ACL = append(d.ACL, a.ExternalUserEmails...)
-	}
 }

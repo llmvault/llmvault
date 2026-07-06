@@ -152,40 +152,6 @@ func TestSlimOrFailure_ConstructorsEnforceInvariant(t *testing.T) {
 	assertPanic(t, "NewSlimFailure(nil)", func() { NewSlimFailure(nil) })
 }
 
-func TestDocExternalAccessOrFailure_ConstructorsEnforceInvariant(t *testing.T) {
-	a := &DocExternalAccess{DocID: "x", ExternalAccess: &ExternalAccess{IsPublic: true}}
-	r := NewAccessResult(a)
-	if r.Access != a || r.Failure != nil {
-		t.Fatalf("NewAccessResult: %+v", r)
-	}
-
-	f := &ConnectorFailure{FailureMessage: "boom"}
-	ff := NewAccessFailure(f)
-	if ff.Failure != f || ff.Access != nil {
-		t.Fatalf("NewAccessFailure: %+v", ff)
-	}
-
-	assertPanic(t, "NewAccessResult(nil)", func() { NewAccessResult(nil) })
-	assertPanic(t, "NewAccessFailure(nil)", func() { NewAccessFailure(nil) })
-}
-
-func TestExternalGroupOrFailure_ConstructorsEnforceInvariant(t *testing.T) {
-	g := &ExternalGroup{GroupID: "external_group:github_acme_backend"}
-	r := NewGroupResult(g)
-	if r.Group != g || r.Failure != nil {
-		t.Fatalf("NewGroupResult: %+v", r)
-	}
-
-	f := &ConnectorFailure{FailureMessage: "boom"}
-	ff := NewGroupFailure(f)
-	if ff.Failure != f || ff.Group != nil {
-		t.Fatalf("NewGroupFailure: %+v", ff)
-	}
-
-	assertPanic(t, "NewGroupResult(nil)", func() { NewGroupResult(nil) })
-	assertPanic(t, "NewGroupFailure(nil)", func() { NewGroupFailure(nil) })
-}
-
 // TestRegistry_PanicsOnEmptyKindOrNilFactory pins the two other Register
 // failure modes documented in the godoc. Without these, Register's
 // branchful validation would be uncovered.

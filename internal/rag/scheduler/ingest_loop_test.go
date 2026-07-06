@@ -26,7 +26,6 @@ func TestScanIngestDueReservesQueuedAttempt(t *testing.T) {
 		Status:             ragmodel.RAGSourceStatusActive,
 		Enabled:            true,
 		ConfigValue:        coremodel.JSON{},
-		AccessType:         ragmodel.AccessTypePublic,
 		RefreshFreqSeconds: &refresh,
 	}
 	if err := db.Create(&src).Error; err != nil {

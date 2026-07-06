@@ -16,18 +16,17 @@ import (
 )
 
 type updateRAGSourceRequest struct {
-	Name                *string     `json:"name,omitempty"`
-	Status              *string     `json:"status,omitempty"`
-	Enabled             *bool       `json:"enabled,omitempty"`
-	Config              *model.JSON `json:"config,omitempty"`
-	IndexingStart       *time.Time  `json:"indexing_start,omitempty"`
-	RefreshFreqSeconds  *int        `json:"refresh_freq_seconds,omitempty"`
-	PruneFreqSeconds    *int        `json:"prune_freq_seconds,omitempty"`
-	PermSyncFreqSeconds *int        `json:"perm_sync_freq_seconds,omitempty"`
+	Name               *string     `json:"name,omitempty"`
+	Status             *string     `json:"status,omitempty"`
+	Enabled            *bool       `json:"enabled,omitempty"`
+	Config             *model.JSON `json:"config,omitempty"`
+	IndexingStart      *time.Time  `json:"indexing_start,omitempty"`
+	RefreshFreqSeconds *int        `json:"refresh_freq_seconds,omitempty"`
+	PruneFreqSeconds   *int        `json:"prune_freq_seconds,omitempty"`
 }
 
 // @Summary Update a RAG source
-// @Description Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.
+// @Description Patches mutable fields (name, status pause/resume, refresh / prune frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.
 // @Tags rag
 // @Accept json
 // @Produce json
@@ -153,10 +152,6 @@ func buildSourceUpdates(src *ragmodel.RAGSource, req updateRAGSourceRequest) (ma
 			return nil, http.StatusUnprocessableEntity, err.Error()
 		}
 		updates["prune_freq_seconds"] = *req.PruneFreqSeconds
-	}
-
-	if req.PermSyncFreqSeconds != nil {
-		updates["perm_sync_freq_seconds"] = *req.PermSyncFreqSeconds
 	}
 
 	return updates, 0, ""

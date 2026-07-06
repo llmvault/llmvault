@@ -53,21 +53,10 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) ([]Hit, error) {
 	return out, nil
 }
 
-// Express: org_id == X AND (is_public OR acl any-of [...]); bypassACL drops
-// the (is_public OR acl) clause, keeping only the org partition.
-func BuildACLFilter(orgID string, aclAnyOf []string, bypassACL bool) *qc.Filter {
-	must := []*qc.Condition{qc.NewMatchKeyword("org_id", orgID)}
-	if bypassACL {
-		return &qc.Filter{Must: must}
-	}
-	should := []*qc.Condition{qc.NewMatchBool("is_public", true)}
-	if len(aclAnyOf) > 0 {
-		should = append(should, qc.NewMatchKeywords("acl", aclAnyOf...))
-	}
-	must = append(must, &qc.Condition{
-		ConditionOneOf: &qc.Condition_Filter{Filter: &qc.Filter{Should: should}},
-	})
-	return &qc.Filter{Must: must}
+// BuildOrgFilter partitions results to a single org: org_id == orgID. This is
+// the base tenant isolation every RAG query carries.
+func BuildOrgFilter(orgID string) *qc.Filter {
+	return &qc.Filter{Must: []*qc.Condition{qc.NewMatchKeyword("org_id", orgID)}}
 }
 
 // org_id == X AND rag_source_id == Y.
@@ -78,12 +67,12 @@ func BuildSourceFilter(orgID, sourceID string) *qc.Filter {
 	}}
 }
 
-// BuildScopedFilter is BuildACLFilter plus an optional restriction to a set of
-// sources. When sourceIDs is non-empty it adds a mandatory
-// rag_source_id any-of [sourceIDs] clause, so results come only from those
-// sources. When sourceIDs is empty the filter is identical to BuildACLFilter.
-func BuildScopedFilter(orgID string, aclAnyOf []string, bypassACL bool, sourceIDs []string) *qc.Filter {
-	filter := BuildACLFilter(orgID, aclAnyOf, bypassACL)
+// BuildScopedFilter partitions by org and, when sourceIDs is non-empty, further
+// restricts results to that set of sources via a mandatory
+// rag_source_id any-of [sourceIDs] clause. When sourceIDs is empty the filter is
+// identical to BuildOrgFilter.
+func BuildScopedFilter(orgID string, sourceIDs []string) *qc.Filter {
+	filter := BuildOrgFilter(orgID)
 	if len(sourceIDs) > 0 {
 		filter.Must = append(filter.Must, qc.NewMatchKeywords("rag_source_id", sourceIDs...))
 	}

@@ -2,13 +2,10 @@
 // integration implements. It is the single source of truth for:
 //
 //   - The trait hierarchy (Connector, CheckpointedConnector[T],
-//     PermSyncConnector, SlimConnector).
+//     SlimConnector).
 //   - The neutral document shapes (Document, Section, SlimDocument).
-//   - The external-access shapes (ExternalAccess, DocExternalAccess,
-//     ExternalGroup).
 //   - The failure-propagation union types
-//     (ConnectorFailure, DocumentOrFailure, SlimDocOrFailure,
-//     DocExternalAccessOrFailure, ExternalGroupOrFailure).
+//     (ConnectorFailure, DocumentOrFailure, SlimDocOrFailure).
 //   - The factory registry (Register, Lookup, RegisteredKinds).
 //
 // This package is pure — no external service dependencies, no database,
@@ -18,6 +15,6 @@
 //
 // The design is Go-idiomatic (channels + generics + interface
 // constraints), with each trait — Connector, CheckpointedConnector[T],
-// PermSyncConnector, SlimConnector — carrying a precise semantic
-// contract that the concrete connectors implement.
+// SlimConnector — carrying a precise semantic contract that the
+// concrete connectors implement.
 package interfaces

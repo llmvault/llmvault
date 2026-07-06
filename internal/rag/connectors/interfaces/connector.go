@@ -104,29 +104,6 @@ type CheckpointedConnector[T Checkpoint] interface {
 	UnmarshalCheckpoint(raw json.RawMessage) (T, error)
 }
 
-// PermSyncConnector refreshes per-document ACLs and syncs external
-// group membership without re-ingesting document content. Called
-// periodically by the scheduler (Tranche 3C) at
-// Source.PermSyncFreqSeconds; results are streamed through channels so
-// large result sets don't have to fit in memory.
-//
-// Document-permission sync and external-group sync are unified under
-// one trait because both operations share the same connector instance +
-// Nango auth and typically reuse the same HTTP client state.
-type PermSyncConnector interface {
-	Connector
-
-	// SyncDocPermissions streams the current ACL for every document
-	// this source owns. The scheduler merges results into Rust-side
-	// ACL via UpdateACL (Phase 2 gRPC).
-	SyncDocPermissions(ctx context.Context, src Source) (<-chan DocExternalAccessOrFailure, error)
-
-	// SyncExternalGroups streams the current external group catalog
-	// for this source (e.g. GitHub org teams). The scheduler upserts
-	// into RAGExternalUserGroup + junction tables (Phase 1D).
-	SyncExternalGroups(ctx context.Context, src Source) (<-chan ExternalGroupOrFailure, error)
-}
-
 // EstimatingConnector is optional — implement only when the upstream
 // can answer cheaply. Falls back to indeterminate progress when absent.
 type EstimatingConnector interface {
@@ -141,10 +118,6 @@ type EstimatingConnector interface {
 type SlimConnector interface {
 	Connector
 
-	// ListAllSlim streams every current document ID. The emitted
-	// SlimDocument.ExternalAccess MAY be populated if the slim
-	// listing can cheaply surface permission info — the scheduler
-	// will treat a non-nil ExternalAccess as an authoritative ACL
-	// update and skip a separate perm_sync pass for that document.
+	// ListAllSlim streams every current document ID.
 	ListAllSlim(ctx context.Context, src Source) (<-chan SlimDocOrFailure, error)
 }

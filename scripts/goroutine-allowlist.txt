@@ -28,8 +28,8 @@ internal/precontext/service.go:96              # wg fan-out (3 goroutines); each
 # closes the channel, unblocking any blocked consumer. The caller propagates
 # cancellation via ctx.Done().
 
-internal/rag/connectors/website/runnable.go:36 # channel producer; ctx.Done() + channel close bound the lifetime
-internal/rag/connectors/slack/connector.go:138 # channel producer (runIngest); channel close bounds the lifetime
+internal/rag/connectors/website/runnable.go:25 # channel producer; ctx.Done() + channel close bound the lifetime
+internal/rag/connectors/slack/connector.go:137 # channel producer (runIngest); channel close bounds the lifetime
 internal/spider/stream.go:34                   # channel producer; ctx embedded in request; channel close bounds lifetime
 
 # --- Infrastructure / SDK bridging goroutines ---
@@ -48,5 +48,6 @@ internal/evals/runner.go:79                    # fixed-size worker pool; wg.Done
 
 # --- App template (standalone hivyapp module; cannot import internal/goroutine) ---
 
-global/apps/template/hivycore/app.go:122       # bounded single-send producer to buffered errCh; Run() blocks on select until send or ctx cancel
+global/apps/template/hivycore/app.go:126       # bounded single-send producer to buffered errCh; Run() blocks on select until send or ctx cancel
+global/apps/template/hivycore/activity.go:54   # debounced fire-and-forget activity ping; own 5s-timeout ctx bounds it; failure logged only
 global/apps/template/hivycore/live.go:126      # single upstream SSE reader; lifetime bounded by ctx cancel (last subscriber leaves or Close); deferred recover inside

@@ -23,8 +23,8 @@ const channelBufSize = 200
 var _ interfaces.CheckpointedConnector[NotionCheckpoint] = (*NotionConnector)(nil)
 
 // NotionConnector indexes Notion pages via Nango-proxied API calls. It
-// implements only the checkpointed surface: Notion exposes no per-page
-// ACL (so no permission sync) and no cheap total count (so no estimate).
+// implements only the checkpointed surface: Notion exposes no cheap
+// total count (so no estimate).
 type NotionConnector struct {
 	cfg        NotionConfig
 	client     *Client
@@ -45,19 +45,13 @@ func NewConnector(cfg NotionConfig, p proxyClient) *NotionConnector {
 
 func (c *NotionConnector) Kind() string { return Kind }
 
-// ValidateConfig parses the config and probes reachability. Workspace
-// sources are validated against the bot-user endpoint; subtree sources
-// probe each configured root (page, falling back to database).
+// ValidateConfig parses the config and probes that each configured root is
+// reachable and shared with the integration. A source with no roots ingests
+// nothing, so there is nothing to validate.
 func (c *NotionConnector) ValidateConfig(ctx context.Context, src interfaces.Source) error {
 	cfg, err := LoadConfig(src.Config())
 	if err != nil {
 		return err
-	}
-	if len(cfg.RootPageIDs) == 0 {
-		if _, err := c.client.usersMe(ctx); err != nil {
-			return fmt.Errorf("notion: workspace not reachable: %w", err)
-		}
-		return nil
 	}
 	for _, id := range cfg.RootPageIDs {
 		_, ok, err := c.client.page(ctx, id)
@@ -77,43 +71,35 @@ func (c *NotionConnector) UnmarshalCheckpoint(raw json.RawMessage) (NotionCheckp
 	return unmarshalCheckpoint(raw)
 }
 
-// LoadFromCheckpoint starts or resumes a run. A fresh checkpoint is
-// classified into SUBTREE (roots configured) or WORKSPACE mode and, for
-// subtree mode, seeded with the configured roots. The run streams
-// documents on a buffered channel and stores the final checkpoint for
-// FinalCheckpoint to read.
+// LoadFromCheckpoint starts or resumes a run seeded with the configured roots.
+// A source with no roots has an empty frontier and ingests nothing (scope is
+// deny-by-default). The run streams documents on a buffered channel and stores
+// the final checkpoint for FinalCheckpoint to read.
 func (c *NotionConnector) LoadFromCheckpoint(
 	ctx context.Context,
-	src interfaces.Source,
+	_ interfaces.Source,
 	cp NotionCheckpoint,
-	start, end time.Time,
+	_, _ time.Time,
 ) (<-chan interfaces.DocumentOrFailure, error) {
 	if cp.Mode == "" {
-		if len(c.cfg.RootPageIDs) > 0 {
-			cp.Mode = modeSubtree
-			cp.PendingPageIDs = append([]string(nil), c.cfg.RootPageIDs...)
-		} else {
-			cp.Mode = modeWorkspace
-		}
+		cp.Mode = modeSubtree
+		cp.PendingPageIDs = append([]string(nil), c.cfg.RootPageIDs...)
 		cp.HasMore = true
 	}
 
 	out := make(chan interfaces.DocumentOrFailure, c.channelBuf)
 	goroutine.Go(ctx, func(ctx context.Context) {
-		c.run(ctx, cp, start, end, out)
+		c.run(ctx, cp, out)
 	})
 	return out, nil
 }
 
-// run drives the whole traversal. In workspace mode it first enumerates
-// pages via search (honouring the incremental window client-side), then
-// drains the page frontier that both modes accumulate. Every emitted
-// page can queue further child pages; the indexed set prevents cycles
-// and re-work.
+// run drains the page frontier seeded from the configured roots. Every emitted
+// page can queue further child pages; the indexed set prevents cycles and
+// re-work.
 func (c *NotionConnector) run(
 	ctx context.Context,
 	cp NotionCheckpoint,
-	start, end time.Time,
 	out chan<- interfaces.DocumentOrFailure,
 ) {
 	defer close(out)
@@ -132,14 +118,8 @@ func (c *NotionConnector) run(
 
 	w := newWalker(c.client, c.cfg.IncludeDatabases)
 
-	if cp.Mode == modeWorkspace && !cp.SearchDone {
-		if !c.enumerateWorkspace(ctx, w, &cp, indexed, start, end, out) {
-			return // context cancelled mid-enumeration
-		}
-	}
-
-	// Drain the frontier: pages seeded from roots (subtree) or queued as
-	// children during processing (both modes).
+	// Drain the frontier: pages seeded from the configured roots, plus any
+	// child pages queued during processing.
 	for len(cp.PendingPageIDs) > 0 {
 		if ctx.Err() != nil {
 			return
@@ -169,75 +149,6 @@ func (c *NotionConnector) run(
 	}
 
 	cp.HasMore = false
-}
-
-// enumerateWorkspace pages through search results, processing each page
-// inline and advancing the search cursor on the checkpoint. Search
-// returns newest-edited first, so an incremental window early-breaks
-// once results predate start. Returns false if the context was
-// cancelled.
-func (c *NotionConnector) enumerateWorkspace(
-	ctx context.Context,
-	w *walker,
-	cp *NotionCheckpoint,
-	indexed map[string]struct{},
-	start, end time.Time,
-	out chan<- interfaces.DocumentOrFailure,
-) bool {
-	for {
-		if ctx.Err() != nil {
-			return false
-		}
-		res, err := c.client.search(ctx, "page", true, cp.SearchCursor)
-		if err != nil {
-			// Search is the enumeration spine — a failure here can't be
-			// attributed to one document, so report it as an entity
-			// failure and stop enumerating (the frontier still drains).
-			interfaces.Send(ctx, out, interfaces.NewDocFailure(
-				entityFailure("notion:search", "notion: page search failed", err)))
-			cp.SearchDone = true
-			return true
-		}
-
-		olderThanStart := false
-		for _, raw := range res.Results {
-			var page NotionPage
-			if !decodeInto(raw, &page) || page.ID == "" {
-				continue
-			}
-			edited := parseNotionTime(page.LastEditedTime)
-			if edited != nil {
-				if !end.IsZero() && edited.After(end) {
-					continue
-				}
-				if !start.IsZero() && edited.Before(start) {
-					olderThanStart = true
-					break
-				}
-				if cp.LastSeenEdited == nil || edited.After(*cp.LastSeenEdited) {
-					cp.LastSeenEdited = edited
-				}
-			}
-			if _, seen := indexed[page.ID]; seen {
-				continue
-			}
-			if !c.processPage(ctx, w, page, indexed, cp, out) {
-				return false
-			}
-		}
-
-		if olderThanStart {
-			cp.SearchDone = true
-			return true
-		}
-		if res.HasMore && res.NextCursor != nil && *res.NextCursor != "" {
-			cursor := *res.NextCursor
-			cp.SearchCursor = &cursor
-			continue
-		}
-		cp.SearchDone = true
-		return true
-	}
 }
 
 // processPage walks a page's blocks, emits its document, and queues any
@@ -291,16 +202,6 @@ func sortedSet(set map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-// decodeInto re-decodes a loosely-typed search result into a struct via
-// a JSON round-trip.
-func decodeInto(raw map[string]any, dst any) bool {
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return false
-	}
-	return json.Unmarshal(b, dst) == nil
 }
 
 // Build constructs a connector bound to a source and its Nango

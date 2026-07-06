@@ -5889,7 +5889,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates a directive's content and/or active flag. Requires an org admin/owner.",
+                "description": "Updates a directive's active flag. Directive content is immutable: delete and re-create a directive to change its text. Requires an org admin/owner.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5914,7 +5914,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/directiveMutationRequest"
+                            "$ref": "#/definitions/directiveUpdateRequest"
                         }
                     }
                 ],
@@ -8853,7 +8853,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune / perm-sync frequencies are validated against per-org minimums.",
+                "description": "Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune frequencies are validated against per-org minimums.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8953,7 +8953,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.",
+                "description": "Patches mutable fields (name, status pause/resume, refresh / prune frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8999,7 +8999,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Paginated, most-recent-first. Each row covers one ingest / perm-sync / prune attempt with status, doc counts, and error summary.",
+                "description": "Paginated, most-recent-first. Each row covers one ingest / prune attempt with status, doc counts, and error summary.",
                 "produces": [
                     "application/json"
                 ],
@@ -9178,40 +9178,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/ragDocumentsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/rag/sources/{id}/perm-sync": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Enqueues a one-off permission-sync job. Returns 422 if the source's connector does not implement PermSyncConnector (i.e. has no external ACL model worth syncing).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rag"
-                ],
-                "summary": "Trigger an immediate permission sync",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Source ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted",
-                        "schema": {
-                            "$ref": "#/definitions/triggerResponse"
                         }
                     }
                 }
@@ -16365,9 +16331,6 @@ const docTemplate = `{
         "createRAGSourceRequest": {
             "type": "object",
             "properties": {
-                "access_type": {
-                    "type": "string"
-                },
                 "config": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -16379,9 +16342,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "perm_sync_freq_seconds": {
-                    "type": "integer"
                 },
                 "prune_freq_seconds": {
                     "type": "integer"
@@ -16802,6 +16762,14 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "directiveUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
                 }
             }
         },
@@ -18728,9 +18696,6 @@ const docTemplate = `{
         "ragSearchRequest": {
             "type": "object",
             "properties": {
-                "bypass_acl": {
-                    "type": "boolean"
-                },
                 "limit": {
                     "type": "integer"
                 },
@@ -18762,9 +18727,6 @@ const docTemplate = `{
         "ragSourceDetailResponse": {
             "type": "object",
             "properties": {
-                "access_type": {
-                    "type": "string"
-                },
                 "config": {
                     "type": "array",
                     "items": {
@@ -18798,9 +18760,6 @@ const docTemplate = `{
                 "last_successful_index_time": {
                     "type": "string"
                 },
-                "last_time_perm_sync": {
-                    "type": "string"
-                },
                 "latest_attempt": {
                     "$ref": "#/definitions/ragLatestAttemptStatus"
                 },
@@ -18809,9 +18768,6 @@ const docTemplate = `{
                 },
                 "org_id": {
                     "type": "string"
-                },
-                "perm_sync_freq_seconds": {
-                    "type": "integer"
                 },
                 "prune_freq_seconds": {
                     "type": "integer"
@@ -18839,9 +18795,6 @@ const docTemplate = `{
         "ragSourceResponse": {
             "type": "object",
             "properties": {
-                "access_type": {
-                    "type": "string"
-                },
                 "config": {
                     "type": "array",
                     "items": {
@@ -18875,9 +18828,6 @@ const docTemplate = `{
                 "last_successful_index_time": {
                     "type": "string"
                 },
-                "last_time_perm_sync": {
-                    "type": "string"
-                },
                 "latest_attempt": {
                     "$ref": "#/definitions/ragLatestAttemptStatus"
                 },
@@ -18886,9 +18836,6 @@ const docTemplate = `{
                 },
                 "org_id": {
                     "type": "string"
-                },
-                "perm_sync_freq_seconds": {
-                    "type": "integer"
                 },
                 "prune_freq_seconds": {
                     "type": "integer"
@@ -20862,9 +20809,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "perm_sync_freq_seconds": {
-                    "type": "integer"
                 },
                 "prune_freq_seconds": {
                     "type": "integer"

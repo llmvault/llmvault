@@ -29,7 +29,7 @@ func (s *Service) fetchKnowledgeSection(ctx context.Context, req Request) (strin
 	hits, err := s.cfg.Searcher.Search(ctx, qdrant.SearchRequest{
 		Collection:  s.cfg.Collection,
 		Vector:      vectors[0],
-		Filter:      qdrant.BuildACLFilter(req.OrgID.String(), nil, true),
+		Filter:      qdrant.BuildOrgFilter(req.OrgID.String()),
 		Limit:       topK,
 		WithPayload: true,
 	})

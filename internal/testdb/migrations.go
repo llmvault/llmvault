@@ -223,16 +223,12 @@ var migratedTables = []string{
 	"plugins",
 	"plans",
 	"rag_embedding_models",
-	"rag_external_identities",
-	"rag_external_user_groups",
 	"rag_index_attempt_errors",
 	"rag_index_attempts",
-	"rag_public_external_user_groups",
 	"rag_search_settings",
 	"rag_sources",
 	"rag_sync_records",
 	"rag_sync_states",
-	"rag_user_external_user_groups",
 	"refresh_tokens",
 	"sandbox_templates",
 	"sandbox_warm_slots",
@@ -261,4 +257,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 75
+const latestMigrationVersion = 76

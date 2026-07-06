@@ -8,10 +8,9 @@ import (
 	"time"
 )
 
-func buildConnector(t *testing.T, cfg GithubConfig, repoVisibility string) (*GithubConnector, *fakeProxy) {
+func buildConnector(t *testing.T, cfg GithubConfig) (*GithubConnector, *fakeProxy) {
 	t.Helper()
 	fp := newFakeProxy()
-	fp.addDefault("GET", "/repos/"+repoFullName, mustMarshal(t, makeRepo(repoVisibility)))
 	c := NewConnector(cfg, fp)
 	return c, fp
 }
@@ -28,9 +27,8 @@ func runIngest(t *testing.T, c *GithubConnector, start, end time.Time) (
 	rawDocs, rawFails := drainIngest(t, ch)
 	for _, d := range rawDocs {
 		docs = append(docs, docDigest{
-			docID:    d.DocID,
-			isPublic: d.IsPublic,
-			body:     d.Sections[0].Text,
+			docID: d.DocID,
+			body:  d.Sections[0].Text,
 		})
 	}
 	for _, f := range rawFails {
@@ -47,9 +45,8 @@ func runIngest(t *testing.T, c *GithubConnector, start, end time.Time) (
 }
 
 type docDigest struct {
-	docID    string
-	isPublic bool
-	body     string
+	docID string
+	body  string
 }
 type failDigest struct {
 	docID  string
@@ -62,7 +59,7 @@ func TestFetchPRs_PaginatesUntilExhausted(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true, IncludeIssues: false,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	base := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	page1 := make([]GithubPR, 10)
@@ -97,7 +94,7 @@ func TestFetchPRs_StateFilterOpenSkipsClosed(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "open", IncludePRs: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	base := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	openPRs := make([]GithubPR, 15)
@@ -123,7 +120,7 @@ func TestFetchPRs_TimeWindowEarlyBreak(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	now := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	inWindow := make([]GithubPR, 5)
@@ -159,7 +156,7 @@ func TestFetchPRs_OverlapWindowCatchesLateUpdates(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	now := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	prInOverlap := makePR(1, "open", now.Add(-1*time.Hour))
@@ -180,7 +177,7 @@ func TestFetchIssues_SkipsPRShapedIssues(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: false, IncludeIssues: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	now := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	mixed := []GithubIssue{
@@ -207,7 +204,7 @@ func TestPerDocFailure_ContinuesBatch(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	base := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	page1 := make([]GithubPR, 10)

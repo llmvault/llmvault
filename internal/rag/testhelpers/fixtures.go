@@ -167,7 +167,6 @@ func NewTestRAGSource(
 		Status:       ragmodel.RAGSourceStatusActive,
 		Enabled:      true,
 		ConnectionID: &connID,
-		AccessType:   ragmodel.AccessTypePrivate,
 	}
 	if err := db.Create(src).Error; err != nil {
 		t.Fatalf("NewTestRAGSource: %v", err)

@@ -32,15 +32,6 @@ func (d *Deps) Configs() []*asynq.PeriodicTaskConfig {
 			},
 		},
 		{
-			Cronspec: fmt.Sprintf("@every %s", cfg.PermSyncTick),
-			Task:     asynq.NewTask(ragtasks.TypeRagScanPermSyncDue, nil),
-			Opts: []asynq.Option{
-				asynq.Queue(ragtasks.QueueRagWork),
-				asynq.MaxRetry(0),
-				asynq.Timeout(cfg.PermSyncTick - 1),
-			},
-		},
-		{
 			Cronspec: fmt.Sprintf("@every %s", cfg.PruneTick),
 			Task:     asynq.NewTask(ragtasks.TypeRagScanPruneDue, nil),
 			Opts: []asynq.Option{
@@ -63,7 +54,6 @@ func (d *Deps) Configs() []*asynq.PeriodicTaskConfig {
 
 func (d *Deps) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(ragtasks.TypeRagScanIngestDue, d.handleScanIngest)
-	mux.HandleFunc(ragtasks.TypeRagScanPermSyncDue, d.handleScanPermSync)
 	mux.HandleFunc(ragtasks.TypeRagScanPruneDue, d.handleScanPrune)
 	mux.HandleFunc(ragtasks.TypeRagWatchdog, d.handleWatchdog)
 }
@@ -71,14 +61,6 @@ func (d *Deps) Register(mux *asynq.ServeMux) {
 func (d *Deps) handleScanIngest(ctx context.Context, _ *asynq.Task) error {
 	if _, err := ScanIngestDue(ctx, d.DB, d.Enq, d.Cfg); err != nil {
 		logging.Capture(ctx, fmt.Errorf("rag scheduler ingest scan: %w", err))
-		return err
-	}
-	return nil
-}
-
-func (d *Deps) handleScanPermSync(ctx context.Context, _ *asynq.Task) error {
-	if _, err := ScanPermSyncDue(ctx, d.DB, d.Enq, d.Cfg, d.Supports); err != nil {
-		logging.Capture(ctx, fmt.Errorf("rag scheduler perm_sync scan: %w", err))
 		return err
 	}
 	return nil

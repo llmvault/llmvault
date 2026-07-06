@@ -8,35 +8,6 @@ import (
 	"time"
 )
 
-func TestChannelAccess_Public(t *testing.T) {
-	fake := newFakeSlackAPI()
-	c := newConnectorWithAPI(SlackConfig{}, fake)
-	c.ctx = context.Background()
-	ch := makeChannel("C1", "general", true, false)
-	access := c.channelAccess(ch)
-	if access == nil || !access.IsPublic {
-		t.Error("public channel should have IsPublic=true")
-	}
-}
-
-func TestChannelAccess_Private(t *testing.T) {
-	fake := newFakeSlackAPI()
-	fake.setMembers("C1", []string{"U1", "U2"})
-	fake.setUser("U1", "Alice", "alice@test.com")
-	fake.setUser("U2", "Bob", "bob@test.com")
-
-	c := newConnectorWithAPI(SlackConfig{}, fake)
-	c.ctx = context.Background()
-	ch := makeChannel("C1", "private-stuff", true, true)
-	access := c.channelAccess(ch)
-	if access == nil || access.IsPublic {
-		t.Error("private channel should have IsPublic=false")
-	}
-	if len(access.ExternalUserEmails) != 2 {
-		t.Errorf("expected 2 member emails, got %d", len(access.ExternalUserEmails))
-	}
-}
-
 func TestChannelMembershipFilter(t *testing.T) {
 	channels := []SlackChannel{
 		makeChannel("C1", "general", true, false),
@@ -76,7 +47,7 @@ func TestFetchMemberChannels_OnlyMembers(t *testing.T) {
 		makeChannel("C3", "private", true, true),
 	)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	chs, err := c.fetchMemberChannels(context.Background())
 	if err != nil {
@@ -114,7 +85,7 @@ func TestRunnable_Run(t *testing.T) {
 		{Type: "message", User: "U1", Text: "Hello", TS: "1000.000001"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -136,7 +107,7 @@ func TestRunnable_FinalCheckpoint(t *testing.T) {
 		{Type: "message", User: "U1", Text: "Hello", TS: "1000.000001"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 

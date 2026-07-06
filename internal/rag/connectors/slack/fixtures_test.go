@@ -140,50 +140,6 @@ func drainDocs(t *testing.T, ch <-chan interfaces.DocumentOrFailure) ([]*interfa
 	}
 }
 
-func drainAccesses(t *testing.T, ch <-chan interfaces.DocExternalAccessOrFailure) ([]*interfaces.DocExternalAccess, []*interfaces.ConnectorFailure) {
-	t.Helper()
-	var acc []*interfaces.DocExternalAccess
-	var fails []*interfaces.ConnectorFailure
-	timeout := time.After(5 * time.Second)
-	for {
-		select {
-		case ev, ok := <-ch:
-			if !ok {
-				return acc, fails
-			}
-			if ev.Access != nil {
-				acc = append(acc, ev.Access)
-			} else if ev.Failure != nil {
-				fails = append(fails, ev.Failure)
-			}
-		case <-timeout:
-			t.Fatal("drainAccesses: timeout")
-		}
-	}
-}
-
-func drainGroups(t *testing.T, ch <-chan interfaces.ExternalGroupOrFailure) ([]*interfaces.ExternalGroup, []*interfaces.ConnectorFailure) {
-	t.Helper()
-	var groups []*interfaces.ExternalGroup
-	var fails []*interfaces.ConnectorFailure
-	timeout := time.After(5 * time.Second)
-	for {
-		select {
-		case ev, ok := <-ch:
-			if !ok {
-				return groups, fails
-			}
-			if ev.Group != nil {
-				groups = append(groups, ev.Group)
-			} else if ev.Failure != nil {
-				fails = append(fails, ev.Failure)
-			}
-		case <-timeout:
-			t.Fatal("drainGroups: timeout")
-		}
-	}
-}
-
 func drainSlims(t *testing.T, ch <-chan interfaces.SlimDocOrFailure) ([]*interfaces.SlimDocument, []*interfaces.ConnectorFailure) {
 	t.Helper()
 	var slims []*interfaces.SlimDocument

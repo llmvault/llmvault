@@ -3,15 +3,15 @@ package qdrant
 import "testing"
 
 func TestBuildScopedFilter(t *testing.T) {
-	// With no source IDs the scoped filter matches the plain ACL filter shape.
-	base := BuildACLFilter("org-1", nil, true)
-	none := BuildScopedFilter("org-1", nil, true, nil)
+	// With no source IDs the scoped filter matches the plain org filter shape.
+	base := BuildOrgFilter("org-1")
+	none := BuildScopedFilter("org-1", nil)
 	if len(none.Must) != len(base.Must) {
 		t.Fatalf("empty sourceIDs: Must len = %d, want %d", len(none.Must), len(base.Must))
 	}
 
 	// With source IDs it adds exactly one extra Must clause matching rag_source_id.
-	scoped := BuildScopedFilter("org-1", nil, true, []string{"src-a", "src-b"})
+	scoped := BuildScopedFilter("org-1", []string{"src-a", "src-b"})
 	if len(scoped.Must) != len(base.Must)+1 {
 		t.Fatalf("scoped Must len = %d, want %d", len(scoped.Must), len(base.Must)+1)
 	}

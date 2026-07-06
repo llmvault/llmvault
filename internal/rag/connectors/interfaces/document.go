@@ -9,8 +9,6 @@ type Document struct {
 	SemanticID      string            `json:"semantic_id"`
 	Link            string            `json:"link"`
 	Sections        []Section         `json:"sections"`
-	ACL             []string          `json:"acl,omitempty"`
-	IsPublic        bool              `json:"is_public"`
 	DocUpdatedAt    *time.Time        `json:"doc_updated_at,omitempty"`
 	Metadata        map[string]string `json:"metadata,omitempty"`
 	PrimaryOwners   []string          `json:"primary_owners,omitempty"`
@@ -27,6 +25,5 @@ type Section struct {
 // SlimDocument is the minimal shape produced by SlimConnector.ListAllSlim,
 // used by the prune loop to diff against the indexed set.
 type SlimDocument struct {
-	DocID          string          `json:"doc_id"`
-	ExternalAccess *ExternalAccess `json:"external_access,omitempty"`
+	DocID string `json:"doc_id"`
 }

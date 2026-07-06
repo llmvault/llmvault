@@ -9,7 +9,7 @@ import (
 
 func TestIngest_ChannelNotFound_ClosesGracefully(t *testing.T) {
 	fake := newFakeSlackAPI()
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -40,7 +40,7 @@ func TestIngest_SingleChannel_BasicFlow(t *testing.T) {
 		{Type: "message", User: "U2", Text: "Thread reply", TS: "1000.000004", ThreadTS: "1000.000001"},
 	})
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -67,7 +67,7 @@ func TestIngest_FiltersBotsByDefault(t *testing.T) {
 		{Type: "message", BotID: "B1", Text: "Bot message", TS: "1000.000001"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -87,7 +87,7 @@ func TestIngest_IncludesBotsWhenConfigured(t *testing.T) {
 		{Type: "message", BotID: "B1", BotProfile: &BotProfile{Name: "TestBot"}, Text: "Bot message", TS: "1000.000001"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{IncludeBotMessages: true}, fake)
+	c := newConnectorWithAPI(SlackConfig{IncludeBotMessages: true, ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -107,7 +107,7 @@ func TestIngest_CheckpointSave(t *testing.T) {
 		{Type: "message", User: "U1", Text: "Message 1", TS: "1000.000001"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 
@@ -137,7 +137,7 @@ func TestIngest_MultipleChannels(t *testing.T) {
 		{Type: "message", User: "U1", Text: "C2 msg", TS: "1000.000002"},
 	}, false)
 
-	c := newConnectorWithAPI(SlackConfig{}, fake)
+	c := newConnectorWithAPI(SlackConfig{ChannelNames: []string{"*"}, ChannelRegexEnabled: true}, fake)
 	c.ctx = context.Background()
 	c.workspaceURL = "https://test.slack.com"
 

@@ -43,10 +43,11 @@ func randomVector(dim int, seed uint64) []float32 {
 	return v
 }
 
-// Exercises the contract perm_sync, ingest_batch, prune, and search depend on:
+// Exercises the contract ingest_batch, prune, and search depend on:
 // - upsert with payload survives a scroll and a vector search
-// - org-partitioned + (is_public OR acl any-of) filter does what BuildACLFilter says
+// - org-partitioned filter does what BuildOrgFilter says
 // - tenant isolation: foreign org_id returns nothing
+// - scoped filter (org_id + rag_source_id any-of) returns only those sources' points
 // - prune-style scroll filter (org_id + rag_source_id) returns only that source's points
 // - DeleteByIDs removes points end-to-end
 func TestQdrantContract_Live(t *testing.T) {
@@ -68,15 +69,13 @@ func TestQdrantContract_Live(t *testing.T) {
 
 	type fixture struct {
 		org, src, doc string
-		isPublic      bool
-		acl           []string
 	}
 	fixtures := []fixture{
-		{orgA, srcX, "d1", true, nil},
-		{orgA, srcX, "d2", false, []string{"alice@example.com"}},
-		{orgA, srcX, "d3", false, []string{"bob@example.com"}},
-		{orgA, srcY, "d4", true, nil},
-		{orgB, srcX, "d5", true, nil},
+		{orgA, srcX, "d1"},
+		{orgA, srcX, "d2"},
+		{orgA, srcX, "d3"},
+		{orgA, srcY, "d4"},
+		{orgB, srcX, "d5"},
 	}
 
 	points := make([]qdrant.Point, len(fixtures))
@@ -88,8 +87,6 @@ func TestQdrantContract_Live(t *testing.T) {
 				"org_id":        f.org,
 				"rag_source_id": f.src,
 				"doc_id":        f.doc,
-				"is_public":     f.isPublic,
-				"acl":           append([]string(nil), f.acl...),
 			},
 		}
 	}
@@ -105,8 +102,8 @@ func TestQdrantContract_Live(t *testing.T) {
 		t.Fatalf("count = %d, want %d", cnt, len(fixtures))
 	}
 
-	t.Run("public-only filter excludes private docs", func(t *testing.T) {
-		filter := qdrant.BuildACLFilter(orgA, []string{"nobody@example.com"}, false)
+	t.Run("org filter surfaces every doc in the org", func(t *testing.T) {
+		filter := qdrant.BuildOrgFilter(orgA)
 		hits, err := c.Search(ctx, qdrant.SearchRequest{
 			Collection: collection, Vector: randomVector(dim, 999),
 			Filter: filter, Limit: 10, WithPayload: true,
@@ -115,14 +112,14 @@ func TestQdrantContract_Live(t *testing.T) {
 			t.Fatalf("search: %v", err)
 		}
 		for _, h := range hits {
-			if pub, _ := h.Payload["is_public"].(bool); !pub {
-				t.Errorf("private doc leaked: %v", h.Payload)
+			if org, _ := h.Payload["org_id"].(string); org != orgA {
+				t.Errorf("foreign org doc leaked: %v", h.Payload)
 			}
 		}
 	})
 
-	t.Run("alice's ACL surfaces her private doc", func(t *testing.T) {
-		filter := qdrant.BuildACLFilter(orgA, []string{"alice@example.com"}, false)
+	t.Run("scoped filter restricts to the source set", func(t *testing.T) {
+		filter := qdrant.BuildScopedFilter(orgA, []string{srcY})
 		hits, err := c.Search(ctx, qdrant.SearchRequest{
 			Collection: collection, Vector: randomVector(dim, 999),
 			Filter: filter, Limit: 10, WithPayload: true,
@@ -130,19 +127,15 @@ func TestQdrantContract_Live(t *testing.T) {
 		if err != nil {
 			t.Fatalf("search: %v", err)
 		}
-		var sawAlice bool
 		for _, h := range hits {
-			if id, _ := h.Payload["doc_id"].(string); id == "d2" {
-				sawAlice = true
+			if src, _ := h.Payload["rag_source_id"].(string); src != srcY {
+				t.Errorf("scoped filter surfaced doc from wrong source: %v", h.Payload)
 			}
-		}
-		if !sawAlice {
-			t.Fatalf("alice's private doc d2 missing from hits")
 		}
 	})
 
 	t.Run("tenant isolation: orgB sees only its own", func(t *testing.T) {
-		filter := qdrant.BuildACLFilter(orgB, nil, true)
+		filter := qdrant.BuildOrgFilter(orgB)
 		hits, err := c.Search(ctx, qdrant.SearchRequest{
 			Collection: collection, Vector: randomVector(dim, 999),
 			Filter: filter, Limit: 10, WithPayload: true,

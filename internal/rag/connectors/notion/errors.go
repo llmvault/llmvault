@@ -9,9 +9,3 @@ import (
 func docFailure(docID, link, msg string, cause error) *interfaces.ConnectorFailure {
 	return interfaces.NewDocumentFailure(docID, link, msg, cause)
 }
-
-// entityFailure builds a non-document failure (e.g. a search page whose
-// fetch failed and can't be attributed to a single document).
-func entityFailure(entityID, msg string, cause error) *interfaces.ConnectorFailure {
-	return interfaces.NewEntityFailure(entityID, msg, nil, nil, cause)
-}

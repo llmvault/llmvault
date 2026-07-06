@@ -50,8 +50,6 @@ func TestDocument_JSONRoundtrip(t *testing.T) {
 			{Text: "body", Link: "https://github.com/acme/foo/pull/42", Title: "PR body"},
 			{Text: "comment one", Link: "https://github.com/acme/foo/pull/42#c1"},
 		},
-		ACL:             []string{"user_email:alice@example.com", "external_group:github_acme_backend"},
-		IsPublic:        false,
 		DocUpdatedAt:    &updated,
 		Metadata:        map[string]string{"state": "closed", "repo": "acme/foo"},
 		PrimaryOwners:   []string{"alice@example.com"},
@@ -81,70 +79,5 @@ func TestDocument_JSONRoundtrip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------
-// 9. ExternalAccess: IsPublic with empty user scope is legal
-// ---------------------------------------------------------------------
-
-func TestExternalAccess_PublicDocAllowsEmptyUserScope(t *testing.T) {
-	ea := ExternalAccess{IsPublic: true}
-	if !ea.IsPublic {
-		t.Fatalf("IsPublic should be true")
-	}
-	if len(ea.ExternalUserEmails) != 0 {
-		t.Fatalf("expected empty emails, got %v", ea.ExternalUserEmails)
-	}
-	if len(ea.ExternalUserGroupIDs) != 0 {
-		t.Fatalf("expected empty group ids, got %v", ea.ExternalUserGroupIDs)
-	}
-
-	// Round-trip: public-empty-scope must survive JSON unchanged.
-	raw, err := json.Marshal(ea)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var back ExternalAccess
-	if err := json.Unmarshal(raw, &back); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if !back.IsPublic {
-		t.Fatalf("round-trip dropped IsPublic; raw=%s", string(raw))
-	}
-}
-
-// ---------------------------------------------------------------------
-// 10. DocExternalAccess round-trips
-// ---------------------------------------------------------------------
-
-func TestExternalAccess_DocExternalAccessLinksToDoc(t *testing.T) {
-	dea := DocExternalAccess{
-		DocID: "gh-pr-42",
-		ExternalAccess: &ExternalAccess{
-			ExternalUserEmails:   []string{"alice@example.com"},
-			ExternalUserGroupIDs: []string{"external_group:github_acme_backend"},
-			IsPublic:             false,
-		},
-	}
-
-	raw, err := json.Marshal(dea)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var back DocExternalAccess
-	if err := json.Unmarshal(raw, &back); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if back.DocID != dea.DocID {
-		t.Fatalf("DocID lost: %q vs %q", back.DocID, dea.DocID)
-	}
-	if back.ExternalAccess == nil {
-		t.Fatalf("ExternalAccess pointer lost")
-	}
-	if !reflect.DeepEqual(back.ExternalAccess, dea.ExternalAccess) {
-		t.Fatalf("ExternalAccess mismatch:\norig=%+v\nback=%+v", dea.ExternalAccess, back.ExternalAccess)
-	}
-}
-
-// ---------------------------------------------------------------------
-// 11. Checkpoint marker interface composes with generics
+// 9. Checkpoint marker interface composes with generics
 // ---------------------------------------------------------------------

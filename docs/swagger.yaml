@@ -1723,8 +1723,6 @@ definitions:
     type: object
   createRAGSourceRequest:
     properties:
-      access_type:
-        type: string
       config:
         $ref: '#/definitions/JSON'
       connection_id:
@@ -1733,8 +1731,6 @@ definitions:
         type: string
       name:
         type: string
-      perm_sync_freq_seconds:
-        type: integer
       prune_freq_seconds:
         type: integer
       refresh_freq_seconds:
@@ -2016,6 +2012,11 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  directiveUpdateRequest:
+    properties:
+      active:
+        type: boolean
     type: object
   discoverWebsiteSectionsRequest:
     properties:
@@ -3271,8 +3272,6 @@ definitions:
     type: object
   ragSearchRequest:
     properties:
-      bypass_acl:
-        type: boolean
       limit:
         type: integer
       query:
@@ -3293,8 +3292,6 @@ definitions:
     type: object
   ragSourceDetailResponse:
     properties:
-      access_type:
-        type: string
       config:
         items:
           type: integer
@@ -3317,16 +3314,12 @@ definitions:
         type: string
       last_successful_index_time:
         type: string
-      last_time_perm_sync:
-        type: string
       latest_attempt:
         $ref: '#/definitions/ragLatestAttemptStatus'
       name:
         type: string
       org_id:
         type: string
-      perm_sync_freq_seconds:
-        type: integer
       prune_freq_seconds:
         type: integer
       recent_attempts:
@@ -3344,8 +3337,6 @@ definitions:
     type: object
   ragSourceResponse:
     properties:
-      access_type:
-        type: string
       config:
         items:
           type: integer
@@ -3368,16 +3359,12 @@ definitions:
         type: string
       last_successful_index_time:
         type: string
-      last_time_perm_sync:
-        type: string
       latest_attempt:
         $ref: '#/definitions/ragLatestAttemptStatus'
       name:
         type: string
       org_id:
         type: string
-      perm_sync_freq_seconds:
-        type: integer
       prune_freq_seconds:
         type: integer
       refresh_freq_seconds:
@@ -4670,8 +4657,6 @@ definitions:
         type: string
       name:
         type: string
-      perm_sync_freq_seconds:
-        type: integer
       prune_freq_seconds:
         type: integer
       refresh_freq_seconds:
@@ -8740,8 +8725,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Updates a directive's content and/or active flag. Requires an org
-        admin/owner.
+      description: 'Updates a directive''s active flag. Directive content is immutable:
+        delete and re-create a directive to change its text. Requires an org admin/owner.'
       parameters:
       - description: Directive UUID
         in: path
@@ -8753,7 +8738,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/directiveMutationRequest'
+          $ref: '#/definitions/directiveUpdateRequest'
       produces:
       - application/json
       responses:
@@ -10674,8 +10659,8 @@ paths:
       - application/json
       description: Creates a new RAG source that the scheduler will pick up on the
         next tick. Kind=integration requires a valid connection_id pointing at an
-        integration whose supports_rag_source flag is true. Refresh / prune / perm-sync
-        frequencies are validated against per-org minimums.
+        integration whose supports_rag_source flag is true. Refresh / prune frequencies
+        are validated against per-org minimums.
       parameters:
       - description: Source definition
         in: body
@@ -10741,8 +10726,8 @@ paths:
       consumes:
       - application/json
       description: Patches mutable fields (name, status pause/resume, refresh / prune
-        / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions
-        are client-settable; DELETING is server-managed.
+        frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable;
+        DELETING is server-managed.
       parameters:
       - description: Source ID
         in: path
@@ -10769,8 +10754,8 @@ paths:
       - rag
   /v1/rag/sources/{id}/attempts:
     get:
-      description: Paginated, most-recent-first. Each row covers one ingest / perm-sync
-        / prune attempt with status, doc counts, and error summary.
+      description: Paginated, most-recent-first. Each row covers one ingest / prune
+        attempt with status, doc counts, and error summary.
       parameters:
       - description: Source ID
         in: path
@@ -10891,29 +10876,6 @@ paths:
       security:
       - BearerAuth: []
       summary: List documents ingested for a RAG source
-      tags:
-      - rag
-  /v1/rag/sources/{id}/perm-sync:
-    post:
-      description: Enqueues a one-off permission-sync job. Returns 422 if the source's
-        connector does not implement PermSyncConnector (i.e. has no external ACL model
-        worth syncing).
-      parameters:
-      - description: Source ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "202":
-          description: Accepted
-          schema:
-            $ref: '#/definitions/triggerResponse'
-      security:
-      - BearerAuth: []
-      summary: Trigger an immediate permission sync
       tags:
       - rag
   /v1/rag/sources/{id}/prune:

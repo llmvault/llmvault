@@ -32,6 +32,5 @@ func responseToDocument(r spider.Response) interfaces.Document {
 		SemanticID: r.URL,
 		Link:       r.URL,
 		Sections:   []interfaces.Section{{Text: r.Content}},
-		IsPublic:   true,
 	}
 }

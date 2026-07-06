@@ -19,21 +19,14 @@ import (
 type RAGSourceHandler struct {
 	db        *gorm.DB
 	enq       enqueue.TaskEnqueuer
-	caps      RAGCapabilityCheck
 	credits   *billing.CreditsService
 	discovery *resources.Discovery
 	catalog   *catalog.Catalog
 	spider    *spider.Client
 }
 
-// RAGCapabilityCheck answers "can a connector of this kind perform
-// permission sync?". Production wires scheduler.HasPermSyncCapability;
-// tests inject a fake whose answer is fixed per-kind so the test
-// doesn't depend on a real connector being registered.
-type RAGCapabilityCheck func(kind string) bool
-
-func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, caps RAGCapabilityCheck, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog, spiderClient *spider.Client) *RAGSourceHandler {
-	return &RAGSourceHandler{db: db, enq: enq, caps: caps, credits: credits, discovery: discovery, catalog: cat, spider: spiderClient}
+func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog, spiderClient *spider.Client) *RAGSourceHandler {
+	return &RAGSourceHandler{db: db, enq: enq, credits: credits, discovery: discovery, catalog: cat, spider: spiderClient}
 }
 
 type ragSourceResponse struct {
@@ -44,15 +37,12 @@ type ragSourceResponse struct {
 	Status                  string                  `json:"status"`
 	Enabled                 bool                    `json:"enabled"`
 	ConnectionID            *string                 `json:"connection_id,omitempty"`
-	AccessType              string                  `json:"access_type"`
 	Config                  json.RawMessage         `json:"config"`
 	IndexingStart           *time.Time              `json:"indexing_start,omitempty"`
 	LastSuccessfulIndexTime *time.Time              `json:"last_successful_index_time,omitempty"`
-	LastTimePermSync        *time.Time              `json:"last_time_perm_sync,omitempty"`
 	LastPruned              *time.Time              `json:"last_pruned,omitempty"`
 	RefreshFreqSeconds      *int                    `json:"refresh_freq_seconds,omitempty"`
 	PruneFreqSeconds        *int                    `json:"prune_freq_seconds,omitempty"`
-	PermSyncFreqSeconds     *int                    `json:"perm_sync_freq_seconds,omitempty"`
 	TotalDocsIndexed        int                     `json:"total_docs_indexed"`
 	InRepeatedErrorState    bool                    `json:"in_repeated_error_state"`
 	LatestAttempt           *ragLatestAttemptStatus `json:"latest_attempt,omitempty"`
@@ -167,15 +157,12 @@ func toRAGSourceResponse(s *ragmodel.RAGSource) ragSourceResponse {
 		Name:                    s.Name,
 		Status:                  string(s.Status),
 		Enabled:                 s.Enabled,
-		AccessType:              string(s.AccessType),
 		Config:                  s.Config(),
 		IndexingStart:           s.IndexingStart,
 		LastSuccessfulIndexTime: s.LastSuccessfulIndexTime,
-		LastTimePermSync:        s.LastTimePermSync,
 		LastPruned:              s.LastPruned,
 		RefreshFreqSeconds:      s.RefreshFreqSeconds,
 		PruneFreqSeconds:        s.PruneFreqSeconds,
-		PermSyncFreqSeconds:     s.PermSyncFreqSeconds,
 		TotalDocsIndexed:        s.TotalDocsIndexed,
 		InRepeatedErrorState:    s.InRepeatedErrorState,
 		CreatedAt:               s.CreatedAt,

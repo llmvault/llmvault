@@ -24,18 +24,16 @@ import (
 const defaultRefreshFreqSeconds = 600
 
 type createRAGSourceRequest struct {
-	Kind                string     `json:"kind"`
-	Name                string     `json:"name"`
-	ConnectionID        *string    `json:"connection_id,omitempty"`
-	AccessType          string     `json:"access_type"`
-	Config              model.JSON `json:"config,omitempty"`
-	RefreshFreqSeconds  *int       `json:"refresh_freq_seconds,omitempty"`
-	PruneFreqSeconds    *int       `json:"prune_freq_seconds,omitempty"`
-	PermSyncFreqSeconds *int       `json:"perm_sync_freq_seconds,omitempty"`
+	Kind               string     `json:"kind"`
+	Name               string     `json:"name"`
+	ConnectionID       *string    `json:"connection_id,omitempty"`
+	Config             model.JSON `json:"config,omitempty"`
+	RefreshFreqSeconds *int       `json:"refresh_freq_seconds,omitempty"`
+	PruneFreqSeconds   *int       `json:"prune_freq_seconds,omitempty"`
 }
 
 // @Summary Create a RAG source
-// @Description Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune / perm-sync frequencies are validated against per-org minimums.
+// @Description Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune frequencies are validated against per-org minimums.
 // @Tags rag
 // @Accept json
 // @Produce json
@@ -71,14 +69,6 @@ func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	access := ragmodel.AccessType(req.AccessType)
-	switch access {
-	case ragmodel.AccessTypePublic, ragmodel.AccessTypePrivate, ragmodel.AccessTypeSync:
-	default:
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid access_type"})
-		return
-	}
-
 	refresh := req.RefreshFreqSeconds
 	if refresh == nil {
 
@@ -87,18 +77,16 @@ func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	src := &ragmodel.RAGSource{
-		ID:                  uuid.New(),
-		OrgIDValue:          org.ID,
-		KindValue:           kind,
-		Name:                req.Name,
-		Status:              ragmodel.RAGSourceStatusInitialIndexing,
-		Enabled:             true,
-		ConfigValue:         req.Config,
-		AccessType:          access,
-		RefreshFreqSeconds:  refresh,
-		PruneFreqSeconds:    req.PruneFreqSeconds,
-		PermSyncFreqSeconds: req.PermSyncFreqSeconds,
-		CreatorID:           &user.ID,
+		ID:                 uuid.New(),
+		OrgIDValue:         org.ID,
+		KindValue:          kind,
+		Name:               req.Name,
+		Status:             ragmodel.RAGSourceStatusInitialIndexing,
+		Enabled:            true,
+		ConfigValue:        req.Config,
+		RefreshFreqSeconds: refresh,
+		PruneFreqSeconds:   req.PruneFreqSeconds,
+		CreatorID:          &user.ID,
 	}
 
 	if err := src.ValidateRefreshFreq(); err != nil {

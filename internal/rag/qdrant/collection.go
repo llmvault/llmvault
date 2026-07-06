@@ -82,10 +82,8 @@ func (c *Client) EnsureCollection(ctx context.Context, cfg CollectionConfig) err
 		params    *qc.PayloadIndexParams
 	}{
 		{"org_id", qc.FieldType_FieldTypeKeyword, keywordTenantParams},
-		{"acl", qc.FieldType_FieldTypeKeyword, nil},
 		{"doc_id", qc.FieldType_FieldTypeKeyword, nil},
 		{"rag_source_id", qc.FieldType_FieldTypeKeyword, nil},
-		{"is_public", qc.FieldType_FieldTypeBool, nil},
 		{"doc_updated_at", qc.FieldType_FieldTypeInteger, nil},
 	}
 	for _, idx := range indices {

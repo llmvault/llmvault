@@ -14,7 +14,6 @@ import (
 	ragtools "github.com/usehivy/hivy/internal/rag"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
-	ragscheduler "github.com/usehivy/hivy/internal/rag/scheduler"
 	"github.com/usehivy/hivy/internal/resources"
 	"github.com/usehivy/hivy/internal/spider"
 )
@@ -37,7 +36,7 @@ func setupRAGRuntime(
 	spiderClient *spider.Client,
 ) (*ragRuntime, error) {
 	discovery := resources.NewDiscovery(cat, nangoClient)
-	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, ragscheduler.HasPermSyncCapability, billing.NewCreditsService(db), discovery, cat, spiderClient)
+	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, billing.NewCreditsService(db), discovery, cat, spiderClient)
 	searchHandler, qd, embedder, reranker, err := buildRAGSearch(cfg)
 	if err != nil {
 		return nil, err

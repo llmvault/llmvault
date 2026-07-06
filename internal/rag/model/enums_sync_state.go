@@ -46,15 +46,6 @@ func (s RAGConnectionStatus) IsActive() bool {
 	return false
 }
 
-// AccessType controls who can see documents from a source.
-type AccessType string
-
-const (
-	AccessTypePublic  AccessType = "public"
-	AccessTypePrivate AccessType = "private"
-	AccessTypeSync    AccessType = "sync"
-)
-
 // ProcessingMode controls the docfetching branch that selects the
 // post-fetch pipeline (full chunk -> embed -> store vs FS drop vs raw
 // binary drop).

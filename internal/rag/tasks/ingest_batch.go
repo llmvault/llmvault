@@ -214,8 +214,6 @@ func buildPayload(src *ragmodel.RAGSource, d *interfaces.Document, content strin
 		"part_index":     partIndex,
 		"semantic_id":    d.SemanticID,
 		"link":           d.Link,
-		"acl":            append([]string(nil), d.ACL...),
-		"is_public":      d.IsPublic,
 		"content":        content,
 		"primary_owners": append([]string(nil), d.PrimaryOwners...),
 	}

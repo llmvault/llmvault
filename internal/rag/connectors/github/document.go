@@ -17,9 +17,9 @@ func docIDForIssue(repoFullName string, issue GithubIssue) string {
 	return "github_issue_" + repoFullName + "_" + strconv.Itoa(issue.Number)
 }
 
-func prToDocument(repoFullName string, pr GithubPR, access *interfaces.ExternalAccess) interfaces.Document {
+func prToDocument(repoFullName string, pr GithubPR) interfaces.Document {
 	updatedAt := pr.UpdatedAt
-	doc := interfaces.Document{
+	return interfaces.Document{
 		DocID:           docIDForPR(repoFullName, pr),
 		SemanticID:      pr.Title,
 		Link:            pr.HTMLURL,
@@ -29,13 +29,11 @@ func prToDocument(repoFullName string, pr GithubPR, access *interfaces.ExternalA
 		SecondaryOwners: ownerEmailsList(pr.Assignees),
 		Metadata:        prMetadata(pr),
 	}
-	applyAccess(&doc, access)
-	return doc
 }
 
-func issueToDocument(repoFullName string, issue GithubIssue, access *interfaces.ExternalAccess) interfaces.Document {
+func issueToDocument(repoFullName string, issue GithubIssue) interfaces.Document {
 	updatedAt := issue.UpdatedAt
-	doc := interfaces.Document{
+	return interfaces.Document{
 		DocID:           docIDForIssue(repoFullName, issue),
 		SemanticID:      issue.Title,
 		Link:            issue.HTMLURL,
@@ -44,21 +42,6 @@ func issueToDocument(repoFullName string, issue GithubIssue, access *interfaces.
 		PrimaryOwners:   ownerEmails(issue.User),
 		SecondaryOwners: ownerEmailsList(issue.Assignees),
 		Metadata:        issueMetadata(issue),
-	}
-	applyAccess(&doc, access)
-	return doc
-}
-
-func applyAccess(d *interfaces.Document, a *interfaces.ExternalAccess) {
-	if a == nil {
-		return
-	}
-	d.IsPublic = a.IsPublic
-	if len(a.ExternalUserGroupIDs) > 0 {
-		d.ACL = append(d.ACL, a.ExternalUserGroupIDs...)
-	}
-	if len(a.ExternalUserEmails) > 0 {
-		d.ACL = append(d.ACL, a.ExternalUserEmails...)
 	}
 }
 

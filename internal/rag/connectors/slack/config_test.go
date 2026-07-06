@@ -95,10 +95,10 @@ func TestConfig_IncludeBotMessages(t *testing.T) {
 	}
 }
 
-func TestChannelIsAllowed_NoFilter(t *testing.T) {
+func TestChannelIsAllowed_NoScopeIngestsNothing(t *testing.T) {
 	ch := makeChannel("C1", "general", true, false)
-	if !channelIsAllowed(ch, nil, nil, false) {
-		t.Error("channel should be allowed with no filter")
+	if channelIsAllowed(ch, nil, nil, false) {
+		t.Error("with no scope configured, no channel should be indexed")
 	}
 }
 

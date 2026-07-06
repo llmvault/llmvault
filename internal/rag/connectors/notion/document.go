@@ -16,8 +16,7 @@ func docIDForPage(pageID string) string {
 // pageToDocument renders a page and its walked blocks into the neutral
 // Document shape. Each block becomes one section linking to that block's
 // anchor; an empty page falls back to a single section carrying the
-// title and a property dump. Notion has no per-page ACL, so every
-// document is org-wide readable (IsPublic, empty ACL).
+// title and a property dump.
 func pageToDocument(page NotionPage, blocks []NotionBlock) interfaces.Document {
 	rawTitle := readPageTitle(page)
 	title := rawTitle
@@ -43,7 +42,6 @@ func pageToDocument(page NotionPage, blocks []NotionBlock) interfaces.Document {
 		SemanticID:   title,
 		Link:         page.URL,
 		Sections:     sections,
-		IsPublic:     true,
 		DocUpdatedAt: parseNotionTime(page.LastEditedTime),
 		Metadata:     map[string]string{"object_type": "page"},
 	}

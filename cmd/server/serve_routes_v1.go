@@ -270,35 +270,7 @@ func setupV1Routes(
 				})
 			})
 
-			if ragSourceHandler != nil {
-				r.Route("/rag", func(r chi.Router) {
-					r.Use(middleware.ResolveUser(database))
-					// Reads stay visible to any org member.
-					r.Get("/integrations", ragSourceHandler.ListIntegrations)
-					r.Get("/connections/{connection_id}/scopes", ragSourceHandler.ListConnectionScopes)
-					r.Get("/sources", ragSourceHandler.List)
-					r.Get("/sources/{id}", ragSourceHandler.Get)
-					r.Get("/sources/{id}/attempts", ragSourceHandler.ListAttempts)
-					r.Get("/sources/{id}/attempts/{attempt_id}", ragSourceHandler.GetAttempt)
-					if ragSearchHandler != nil {
-						r.Post("/search", ragSearchHandler.Search)
-						r.Get("/sources/{id}/documents", ragSearchHandler.ListDocuments)
-					}
-					// Mutations (sources, sync/prune jobs) are admin-only: a non-admin
-					// must not reconfigure org-wide RAG ingestion.
-					r.Group(func(r chi.Router) {
-						r.Use(middleware.RequireOrgAdmin(database))
-						r.Post("/sources", ragSourceHandler.Create)
-						r.Patch("/sources/{id}", ragSourceHandler.Update)
-						r.Delete("/sources/{id}", ragSourceHandler.Delete)
-						r.Put("/sources/{id}/channels", ragSourceHandler.SetSourceChannels)
-						r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
-						r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
-						r.Post("/sources/{id}/perm-sync", ragSourceHandler.TriggerPermSync)
-						r.Post("/website/discover-sections", ragSourceHandler.DiscoverWebsiteSections)
-					})
-				})
-			}
+			mountRAGRoutes(r, database, ragSourceHandler, ragSearchHandler)
 
 			mountUploadRoutes(r, database, uploadsHandler, imageDescribeHandler, transcriptionHandler)
 		})

@@ -14,7 +14,7 @@ import (
 )
 
 // @Summary List index attempts for a RAG source
-// @Description Paginated, most-recent-first. Each row covers one ingest / perm-sync / prune attempt with status, doc counts, and error summary.
+// @Description Paginated, most-recent-first. Each row covers one ingest / prune attempt with status, doc counts, and error summary.
 // @Tags rag
 // @Produce json
 // @Param id path string true "Source ID"

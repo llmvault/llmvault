@@ -96,8 +96,6 @@ type RAGSource struct {
 	// Preload required for SourceKind()/Nango* methods to work.
 	Connection *model.Connection `gorm:"foreignKey:ConnectionID;references:ID"`
 
-	AccessType AccessType `gorm:"type:varchar(16);not null"`
-
 	// IndexingStart caps the initial-index window for pathological
 	// sources (large mirrors). NULL = no floor.
 	IndexingStart *time.Time `gorm:"type:timestamptz"`
@@ -106,16 +104,12 @@ type RAGSource struct {
 	// the most recent successful attempt.
 	LastSuccessfulIndexTime *time.Time `gorm:"type:timestamptz"`
 
-	LastTimePermSync *time.Time `gorm:"type:timestamptz"`
-
 	LastPruned *time.Time `gorm:"type:timestamptz"`
 
 	// RefreshFreqSeconds: null = run on demand only.
 	RefreshFreqSeconds *int `gorm:"type:integer"`
 
 	PruneFreqSeconds *int `gorm:"type:integer"`
-
-	PermSyncFreqSeconds *int `gorm:"type:integer"`
 
 	TotalDocsIndexed int `gorm:"not null;default:0"`
 

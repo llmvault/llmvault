@@ -36,7 +36,6 @@ func RegisterHandlers(mux *asynq.ServeMux, deps *Deps) {
 		return
 	}
 	mux.HandleFunc(TypeRagIngest, deps.HandleIngest)
-	mux.HandleFunc(TypeRagPermSync, deps.HandlePermSync)
 	mux.HandleFunc(TypeRagPrune, deps.HandlePrune)
 }
 

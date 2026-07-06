@@ -12,7 +12,7 @@ func TestSlimDocs_ReturnsIDsOnly(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true, IncludeIssues: false,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	base := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	page1 := make([]GithubPR, 10)
@@ -46,9 +46,6 @@ func TestSlimDocs_ReturnsIDsOnly(t *testing.T) {
 	for _, s := range slims {
 		if s.DocID == "" {
 			t.Fatalf("slim doc with empty DocID: %+v", s)
-		}
-		if s.ExternalAccess == nil {
-			t.Fatalf("expected ExternalAccess on slim, got nil")
 		}
 	}
 }

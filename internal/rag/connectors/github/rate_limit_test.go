@@ -75,7 +75,7 @@ func TestRateLimit_ConnectorRetriesPage(t *testing.T) {
 		RepoOwner: "acme", Repositories: []string{"widget"},
 		StateFilter: "all", IncludePRs: true,
 	}
-	c, fp := buildConnector(t, cfg, "public")
+	c, fp := buildConnector(t, cfg)
 
 	now := time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC)
 	prs := []GithubPR{makePR(1, "open", now)}
