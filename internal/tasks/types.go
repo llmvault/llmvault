@@ -26,6 +26,8 @@ const (
 	TypeAgentScheduleDeliver      = "agent_schedule:deliver"
 	TypeOrgHivyAgentProvision     = "org:hivy_agent_provision"
 	TypeMemoryEmbed               = "memory:embed"
+	TypeMemoryConsolidate         = "memory:consolidate"
+	TypeObservationEmbed          = "observation:embed"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
 	TypeSandboxMarkRunning        = "sandbox:mark_running"
@@ -45,6 +47,11 @@ const (
 	TypeSandboxAutoSleep      = "periodic:sandbox_auto_sleep"
 	TypeSandboxReconcile      = "periodic:sandbox_reconcile"
 	TypeSessionTurnWatchdog   = "periodic:session_turn_watchdog"
+	// Sweep for reflection facts that missed their post-reflection
+	// consolidation enqueue (stranded unconsolidated facts).
+	TypeMemoryConsolidationSweep = "periodic:memory_consolidation_sweep"
+	// Nightly archive of observations whose expires_at has passed.
+	TypeMemoryObservationExpire = "periodic:memory_observation_expire"
 
 	// On-demand task enqueued by the sweep for each due subscription.
 	TypeBillingRenewSubscription = "billing:renew_subscription"

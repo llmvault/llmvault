@@ -12,6 +12,7 @@ import {
   type ChannelResponse,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import { AgentSelect } from "@/components/agent-select"
+import { CHANNEL_CATEGORIES, type ChannelCategory } from "@/lib/api/memory"
 import { cn } from "@/lib/utils"
 
 type Connection = components["schemas"]["connectionResponse"]
@@ -49,6 +50,9 @@ function ChannelCreateModalContent({
   const [selectedConnectionID, setSelectedConnectionID] = useState("")
   const [selectedChannelID, setSelectedChannelID] = useState("")
   const [selectedAgentID, setSelectedAgentID] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<
+    ChannelCategory | ""
+  >("")
   const [search, setSearch] = useState("")
   const connectionsQuery = $api.useQuery(
     "get",
@@ -125,21 +129,28 @@ function ChannelCreateModalContent({
   }
 
   function handleCreate() {
-    if (!selectedConnection?.id || !selectedResource?.id || !activeAgentID)
+    if (
+      !selectedConnection?.id ||
+      !selectedResource?.id ||
+      !activeAgentID ||
+      !selectedCategory
+    )
       return
+    // Built as a variable (not an inline literal) so the `category` field —
+    // not yet in the generated OpenAPI schema — passes the type check.
+    const body = {
+      origin: "external",
+      external_provider: "slack",
+      external_connection_id: selectedConnection.id,
+      external_workspace_key: selectedConnection.nango_connection_id,
+      external_resource_type: SLACK_CHANNEL_RESOURCE_TYPE,
+      external_resource_key: selectedResource.id,
+      external_resource_name: selectedResource.name || selectedResource.id,
+      default_agent_id: activeAgentID,
+      category: selectedCategory,
+    }
     createChannel.mutate(
-      {
-        body: {
-          origin: "external",
-          external_provider: "slack",
-          external_connection_id: selectedConnection.id,
-          external_workspace_key: selectedConnection.nango_connection_id,
-          external_resource_type: SLACK_CHANNEL_RESOURCE_TYPE,
-          external_resource_key: selectedResource.id,
-          external_resource_name: selectedResource.name || selectedResource.id,
-          default_agent_id: activeAgentID,
-        },
-      },
+      { body },
       {
         onSuccess: (response) => {
           if (response.channel) {
@@ -159,7 +170,7 @@ function ChannelCreateModalContent({
     <Modal isOpen onOpenChange={close}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="w-full max-w-lg overflow-hidden p-0">
+          <Modal.Dialog className="flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden p-0">
             <Modal.CloseTrigger />
             <div className="flex min-h-0 flex-col">
               <div className="border-b border-border px-6 pt-6 pb-4">
@@ -176,7 +187,7 @@ function ChannelCreateModalContent({
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-col gap-5 px-6 py-5">
+              <div className="flex min-h-0 flex-col gap-5 overflow-y-auto px-6 py-5">
                 <section className="flex flex-col gap-2">
                   <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
                     Provider
@@ -286,6 +297,49 @@ function ChannelCreateModalContent({
 
                 <section className="flex flex-col gap-2">
                   <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
+                    Category
+                  </h3>
+                  <p className="text-sm text-muted">
+                    Sets what this channel&apos;s agent remembers.
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {CHANNEL_CATEGORIES.map((category) => {
+                      const selected = category.value === selectedCategory
+                      return (
+                        <button
+                          key={category.value}
+                          type="button"
+                          aria-pressed={selected}
+                          className={cn(
+                            "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
+                            selected
+                              ? "border-primary/40 bg-primary/10"
+                              : "border-border hover:bg-default"
+                          )}
+                          onClick={() => setSelectedCategory(category.value)}
+                        >
+                          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <span className="min-w-0 flex-1 truncate">
+                              {category.label}
+                            </span>
+                            {selected ? (
+                              <AppIcon
+                                icon="check"
+                                className="text-primary h-4 w-4 shrink-0"
+                              />
+                            ) : null}
+                          </span>
+                          <span className="text-xs text-muted">
+                            {category.description}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+
+                <section className="flex flex-col gap-2">
+                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
                     Agent
                   </h3>
                   <p className="text-sm text-muted">
@@ -315,6 +369,7 @@ function ChannelCreateModalContent({
                   isDisabled={
                     !selectedResource?.id ||
                     !activeAgentID ||
+                    !selectedCategory ||
                     createChannel.isPending ||
                     resourcesQuery.isLoading
                   }

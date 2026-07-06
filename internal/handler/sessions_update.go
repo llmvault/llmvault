@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 // Update handles PATCH /v1/sessions/{id}.
@@ -55,6 +56,13 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// A PATCH that archives the session tears down its sandbox, same as DELETE.
 	if req.Status != nil && strings.TrimSpace(*req.Status) == "archived" {
 		h.enqueueSessionSandboxTeardown(r.Context(), &session)
+	}
+	// Archiving or ending a session triggers a final reflection pass over any
+	// unreflected event tail.
+	if req.Status != nil {
+		if status := strings.TrimSpace(*req.Status); status == "archived" || status == "ended" {
+			_ = tasks.EnqueueSessionReflection(r.Context(), h.enqueuer, session.ID)
+		}
 	}
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusOK, sessionMutationResponse{

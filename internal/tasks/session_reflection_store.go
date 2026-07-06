@@ -11,19 +11,33 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// storeMemories persists the kept candidates and returns how many new
+// memories were actually created (skipped duplicates do not count).
 func (h *SessionReflectionHandler) storeMemories(
 	ctx context.Context,
 	session model.Session,
 	events []model.SessionEvent,
 	identities map[uuid.UUID]reflectionIdentity,
 	candidates []reflectionMemoryCandidate,
-) error {
+) (int, error) {
 	if len(candidates) == 0 {
-		return nil
+		return 0, nil
+	}
+	// Candidates were normalized at parse time (confidence >= 0.7, known
+	// kinds only); the cap is re-asserted here so no caller can store an
+	// unbounded batch.
+	if len(candidates) > sessionReflectionMaxMemories {
+		logging.FromContext(ctx).WarnContext(ctx, "session reflection store exceeded memory cap; truncating",
+			"session_id", session.ID.String(),
+			"candidates", len(candidates),
+			"cap", sessionReflectionMaxMemories,
+		)
+		candidates = candidates[:sessionReflectionMaxMemories]
 	}
 	service := memory.NewService(memory.Config{
 		DB:           h.db,
@@ -38,16 +52,21 @@ func (h *SessionReflectionHandler) storeMemories(
 	for _, event := range events {
 		byID[event.ID] = event
 	}
+	stored := 0
 	for _, candidate := range candidates {
 		req := h.memoryCreateRequest(session, byID, identities, candidate)
 		if req.MemoryFingerprint == "" || h.memoryExists(ctx, req) {
 			continue
 		}
-		if _, err := service.Create(ctx, req); err != nil && !isReflectionDuplicate(err) {
-			return err
+		if _, err := service.Create(ctx, req); err != nil {
+			if isReflectionDuplicate(err) {
+				continue
+			}
+			return stored, err
 		}
+		stored++
 	}
-	return nil
+	return stored, nil
 }
 
 func (h *SessionReflectionHandler) memoryCreateRequest(
@@ -64,6 +83,8 @@ func (h *SessionReflectionHandler) memoryCreateRequest(
 		"source":             "reflection",
 		"kind":               candidate.Kind,
 		"confidence":         candidate.Confidence,
+		"entities":           candidate.Entities,
+		"expires_at":         candidate.ExpiresAt,
 		"source_event_ids":   candidate.SourceEventIDs,
 		"actor_display_name": firstNonEmptyString(candidate.ActorDisplayName, identity.DisplayName),
 		"actor_external_ref": firstNonEmptyString(candidate.ActorExternalRef, identity.ExternalRef),

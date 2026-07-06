@@ -2,7 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -24,6 +26,25 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		value := cleanStringPtr(req.Description)
 		updates["description"] = value
 		channel.Description = value
+	}
+	if req.Category != nil {
+		value := strings.ToLower(cleanStringPtr(req.Category))
+		if !memory.ValidChannelCategory(value) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: channelCategoryError})
+			return false
+		}
+		updates["category"] = value
+		channel.Category = value
+	}
+	if req.MemoryMission != nil {
+		value := strings.TrimSpace(*req.MemoryMission)
+		if value == "" {
+			updates["memory_mission"] = nil
+			channel.MemoryMission = nil
+		} else {
+			updates["memory_mission"] = value
+			channel.MemoryMission = &value
+		}
 	}
 	if req.Visibility != nil {
 		value := cleanStringPtr(req.Visibility)

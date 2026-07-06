@@ -23,7 +23,13 @@ type Channel struct {
 	IsDefault        bool       `gorm:"not null;default:false;index"`
 	// ExposeOrgMemories folds org-wide (channel-less) memories into this
 	// channel's recall/search for its agents when true.
-	ExposeOrgMemories    bool        `gorm:"not null;default:true"`
+	ExposeOrgMemories bool `gorm:"not null;default:true"`
+	// Category classifies the channel (customer-support, account, engineering,
+	// operations, sales, marketing, people, general) and seeds MemoryMission.
+	Category string `gorm:"type:text;not null;default:'general'"`
+	// MemoryMission steers what memory extraction/consolidation retains for
+	// this channel. NULL/empty = the base extraction guidelines apply.
+	MemoryMission        *string     `gorm:"type:text"`
 	Origin               string      `gorm:"type:text;not null;default:'native';index;uniqueIndex:idx_channels_org_source_name,priority:2,where:archived_at IS NULL"`
 	ExternalProvider     string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_source_name,priority:3,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:2,where:external_resource_key <> ''"`
 	ExternalConnectionID *uuid.UUID  `gorm:"type:uuid;index"`

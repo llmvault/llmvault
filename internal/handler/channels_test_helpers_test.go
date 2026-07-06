@@ -17,6 +17,7 @@ func createChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, us
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, user, map[string]any{
 		"name":             name,
 		"visibility":       visibility,
+		"category":         "general",
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if rr.Code != http.StatusCreated {
@@ -102,6 +103,7 @@ func createTeamChannelForTest(t *testing.T, h *channelHarness, fx channelFixture
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":             name,
 		"team_id":          teamID.String(),
+		"category":         "general",
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if rr.Code != http.StatusCreated {

@@ -2,12 +2,14 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -37,25 +39,41 @@ func handleManageSearch(ctx context.Context, service *Service, token *model.Toke
 	}
 	searchCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	hits, err := service.Search(searchCtx, SearchRequest{
+	searchReq := SearchRequest{
 		OrgID: token.OrgID,
 		Scope: scope,
 		Query: query,
 		Tags:  tags,
 		Limit: limit,
-	})
-	if err != nil {
-		return memoryToolError("memory search failed: " + err.Error()), nil
-	}
-	names, err := service.channelNames(ctx, token.OrgID, hits)
-	if err != nil {
-		return memoryToolError("memory search failed: " + err.Error()), nil
 	}
 	out := map[string]any{
 		"success": true,
 		"query":   query,
-		"results": manageSearchResponses(hits, names),
-		"total":   len(hits),
+	}
+	if args.IncludeFacts {
+		hits, err := service.Search(searchCtx, searchReq)
+		if err != nil {
+			return memoryToolError("memory search failed: " + err.Error()), nil
+		}
+		names, err := service.channelNames(ctx, token.OrgID, memoryChannelIDs(hits))
+		if err != nil {
+			return memoryToolError("memory search failed: " + err.Error()), nil
+		}
+		out["layer"] = memoryLayerFacts
+		out["results"] = manageSearchResponses(hits, names)
+		out["total"] = len(hits)
+	} else {
+		hits, err := service.SearchObservations(searchCtx, searchReq)
+		if err != nil {
+			return memoryToolError("memory search failed: " + err.Error()), nil
+		}
+		names, err := service.channelNames(ctx, token.OrgID, observationChannelIDs(hits))
+		if err != nil {
+			return memoryToolError("memory search failed: " + err.Error()), nil
+		}
+		out["layer"] = memoryLayerObservations
+		out["results"] = manageObservationResponses(hits, names)
+		out["total"] = len(hits)
 	}
 	if explicit {
 		if channelID == nil {
@@ -72,31 +90,64 @@ func manageSearchResponses(hits []SearchHit, names map[uuid.UUID]string) []map[s
 	for _, hit := range hits {
 		similarity := hit.Similarity
 		item := memoryToolMemoryResponse(hit.Memory, &similarity)
-		if hit.Memory.ChannelID != nil {
-			item["org_wide"] = false
-			if name, ok := names[*hit.Memory.ChannelID]; ok {
-				item["channel_name"] = name
-			} else {
-				item["channel_name"] = nil
-			}
-		} else {
-			item["org_wide"] = true
-			item["channel_name"] = nil
-		}
+		annotateManageChannel(item, hit.Memory.ChannelID, names)
 		out = append(out, item)
 	}
 	return out
 }
 
-func (s *Service) channelNames(ctx context.Context, orgID uuid.UUID, hits []SearchHit) (map[uuid.UUID]string, error) {
-	ids := make([]uuid.UUID, 0, len(hits))
-	seen := map[uuid.UUID]bool{}
+func manageObservationResponses(hits []ObservationHit, names map[uuid.UUID]string) []map[string]any {
+	out := make([]map[string]any, 0, len(hits))
 	for _, hit := range hits {
-		if hit.Memory.ChannelID == nil || seen[*hit.Memory.ChannelID] {
+		similarity := hit.Similarity
+		item := observationToolResponse(hit.Observation, &similarity)
+		annotateManageChannel(item, hit.Observation.ChannelID, names)
+		out = append(out, item)
+	}
+	return out
+}
+
+// annotateManageChannel adds the manage view's owning-channel fields: org_wide
+// plus the channel name when the result belongs to a channel.
+func annotateManageChannel(item map[string]any, channelID *uuid.UUID, names map[uuid.UUID]string) {
+	if channelID == nil {
+		item["org_wide"] = true
+		item["channel_name"] = nil
+		return
+	}
+	item["org_wide"] = false
+	if name, ok := names[*channelID]; ok {
+		item["channel_name"] = name
+	} else {
+		item["channel_name"] = nil
+	}
+}
+
+func memoryChannelIDs(hits []SearchHit) []*uuid.UUID {
+	out := make([]*uuid.UUID, 0, len(hits))
+	for _, hit := range hits {
+		out = append(out, hit.Memory.ChannelID)
+	}
+	return out
+}
+
+func observationChannelIDs(hits []ObservationHit) []*uuid.UUID {
+	out := make([]*uuid.UUID, 0, len(hits))
+	for _, hit := range hits {
+		out = append(out, hit.Observation.ChannelID)
+	}
+	return out
+}
+
+func (s *Service) channelNames(ctx context.Context, orgID uuid.UUID, channelIDs []*uuid.UUID) (map[uuid.UUID]string, error) {
+	ids := make([]uuid.UUID, 0, len(channelIDs))
+	seen := map[uuid.UUID]bool{}
+	for _, channelID := range channelIDs {
+		if channelID == nil || seen[*channelID] {
 			continue
 		}
-		seen[*hit.Memory.ChannelID] = true
-		ids = append(ids, *hit.Memory.ChannelID)
+		seen[*channelID] = true
+		ids = append(ids, *channelID)
 	}
 	names := map[uuid.UUID]string{}
 	if len(ids) == 0 {
@@ -123,12 +174,29 @@ func handleManageForget(ctx context.Context, service *Service, token *model.Toke
 	if err != nil || memoryID == uuid.Nil {
 		return memoryToolError("memory_id must be a valid UUID"), nil
 	}
+	// Search returns consolidated observations, so the ID is usually an
+	// observation ID: try that layer first (org-scoped, any channel — this is
+	// the privileged manager tool), falling back to the raw facts layer.
+	if obs, err := service.GetObservation(ctx, token.OrgID, memoryID); err == nil {
+		if err := service.ForgetObservation(ctx, obs); err != nil {
+			return memoryToolError("forget failed: " + err.Error()), nil
+		}
+		return memoryToolJSON(map[string]any{
+			"success":   true,
+			"memory_id": memoryID.String(),
+			"layer":     memoryLayerObservations,
+			"status":    "archived",
+		})
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return memoryToolError("forget failed: " + err.Error()), nil
+	}
 	if err := service.Archive(ctx, ArchiveRequest{OrgID: token.OrgID, ID: memoryID}); err != nil {
 		return memoryToolError("forget failed: " + memoryToolLoadMessage(err)), nil
 	}
 	return memoryToolJSON(map[string]any{
 		"success":   true,
 		"memory_id": memoryID.String(),
+		"layer":     memoryLayerFacts,
 		"status":    "archived",
 	})
 }

@@ -114,13 +114,20 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			mux.HandleFunc(TypeSessionName, handler.Handle)
 		}
 		mux.HandleFunc(TypeMemoryEmbed, NewMemoryEmbedHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
+		mux.HandleFunc(TypeObservationEmbed,
+			NewObservationEmbedHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
+		mux.HandleFunc(TypeMemoryObservationExpire,
+			NewMemoryObservationExpireHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
 		if deps.Enqueuer != nil {
 			mux.HandleFunc(TypeSessionReflection,
 				NewSessionReflectionHandler(deps.DB, deps.CacheManager, deps.Enqueuer, memoryEmbeddingConfigFromDeps(deps)).Handle)
+			mux.HandleFunc(TypeMemoryConsolidate,
+				NewMemoryConsolidationHandler(deps.DB, deps.CacheManager, deps.Enqueuer, memoryEmbeddingConfigFromDeps(deps)).Handle)
 		}
 	}
 	if deps.Enqueuer != nil {
 		mux.HandleFunc(TypeSessionReflectionScan, NewSessionReflectionScanHandler(deps.DB, deps.Enqueuer).Handle)
+		mux.HandleFunc(TypeMemoryConsolidationSweep, NewMemoryConsolidationSweepHandler(deps.DB, deps.Enqueuer).Handle)
 	}
 
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {

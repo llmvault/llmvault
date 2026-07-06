@@ -3,12 +3,14 @@ package memory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -62,7 +64,8 @@ func registerSearchMemoriesTool(server *mcp.Server, service *Service, token *mod
 					"description": "Short semantic search phrase, max 6 words and 40 characters. Example: helio launch checklist.",
 					"maxLength":   memoryToolQueryMaxChars,
 				},
-				"tags": memoryTagsSchema("Optional exact filters using lowercase kebab-case slugs such as project-helio or billing."),
+				"tags":          memoryTagsSchema("Optional exact filters using lowercase kebab-case slugs such as project-helio or billing."),
+				"include_facts": memoryIncludeFactsSchema(),
 			},
 			"required": []string{"query"},
 		},
@@ -144,13 +147,28 @@ func handleSearchMemories(ctx context.Context, service *Service, token *model.To
 	}
 	searchCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	hits, err := service.Search(searchCtx, SearchRequest{
+	searchReq := SearchRequest{
 		OrgID: token.OrgID,
 		Scope: toolCtx.searchScope(),
 		Query: query,
 		Tags:  tags,
 		Limit: memoryToolSearchLimit,
-	})
+	}
+	if args.IncludeFacts {
+		hits, err := service.Search(searchCtx, searchReq)
+		if err != nil {
+			return memoryToolError("memory search failed: " + err.Error()), nil
+		}
+		return memoryToolJSON(map[string]any{
+			"success":    true,
+			"query":      query,
+			"channel_id": toolCtx.ChannelID.String(),
+			"layer":      memoryLayerFacts,
+			"results":    memoryToolSearchResponses(hits),
+			"total":      len(hits),
+		})
+	}
+	hits, err := service.SearchObservations(searchCtx, searchReq)
 	if err != nil {
 		return memoryToolError("memory search failed: " + err.Error()), nil
 	}
@@ -158,7 +176,8 @@ func handleSearchMemories(ctx context.Context, service *Service, token *model.To
 		"success":    true,
 		"query":      query,
 		"channel_id": toolCtx.ChannelID.String(),
-		"results":    memoryToolSearchResponses(hits),
+		"layer":      memoryLayerObservations,
+		"results":    observationToolSearchResponses(hits),
 		"total":      len(hits),
 	})
 }
@@ -203,6 +222,25 @@ func handleForgetMemory(ctx context.Context, service *Service, token *model.Toke
 	if err != nil {
 		return memoryToolError(err.Error()), nil
 	}
+	// search_memories returns consolidated observations, so the ID the agent
+	// holds is usually an observation ID: try that layer first, falling back
+	// to the raw facts layer (legacy agent memories).
+	if obs, err := service.GetObservation(ctx, token.OrgID, memoryID); err == nil {
+		if err := toolCtx.canForgetObservation(*obs); err != nil {
+			return memoryToolError(err.Error()), nil
+		}
+		if err := service.ForgetObservation(ctx, obs); err != nil {
+			return memoryToolError("forget_memory failed: " + err.Error()), nil
+		}
+		return memoryToolJSON(map[string]any{
+			"success":   true,
+			"memory_id": memoryID.String(),
+			"layer":     memoryLayerObservations,
+			"status":    "archived",
+		})
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return memoryToolError("forget_memory failed: " + err.Error()), nil
+	}
 	mem, err := service.loadToolMemory(ctx, token.OrgID, memoryID)
 	if err != nil {
 		return memoryToolError(memoryToolLoadMessage(err)), nil
@@ -216,6 +254,7 @@ func handleForgetMemory(ctx context.Context, service *Service, token *model.Toke
 	return memoryToolJSON(map[string]any{
 		"success":   true,
 		"memory_id": memoryID.String(),
+		"layer":     memoryLayerFacts,
 		"status":    "archived",
 	})
 }

@@ -14,6 +14,7 @@ import (
 type memorySearchArgs struct {
 	Query         string   `json:"query"`
 	Tags          []string `json:"tags"`
+	IncludeFacts  bool     `json:"include_facts"`
 	HivySessionID string   `json:"_hivy_session_id"`
 }
 
@@ -110,6 +111,19 @@ func (toolCtx memoryToolContext) canForget(mem model.AgentMemory) error {
 		return nil
 	}
 	if mem.ChannelID == nil && toolCtx.ExposeOrgMemories {
+		return nil
+	}
+	return fmt.Errorf("forget_memory can only archive memories in this channel")
+}
+
+// canForgetObservation mirrors canForget for the consolidated observation
+// layer: the session channel, or an org-wide observation when the channel is
+// allowed to see them.
+func (toolCtx memoryToolContext) canForgetObservation(obs model.AgentObservation) error {
+	if obs.ChannelID != nil && *obs.ChannelID == toolCtx.ChannelID {
+		return nil
+	}
+	if obs.ChannelID == nil && toolCtx.ExposeOrgMemories {
 		return nil
 	}
 	return fmt.Errorf("forget_memory can only archive memories in this channel")

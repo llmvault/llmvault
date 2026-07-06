@@ -59,6 +59,32 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
+			// Stranded-facts sweep: finds channels with unconsolidated reflection
+			// facts (consolidated_at IS NULL) and re-enqueues consolidation. The
+			// primary trigger is the immediate post-reflection enqueue; this
+			// catches anything that slipped through.
+			Cronspec: "@every 5m",
+			Task:     asynq.NewTask(TypeMemoryConsolidationSweep, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(2 * time.Minute),
+				asynq.Unique(5 * time.Minute),
+			},
+		},
+		{
+			// Nightly observation expiry: archives observations whose expires_at
+			// has passed and refreshes the affected channel memory digests.
+			Cronspec: "0 3 * * *",
+			Task:     asynq.NewTask(TypeMemoryObservationExpire, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(2),
+				asynq.Timeout(10 * time.Minute),
+				asynq.Unique(time.Hour),
+			},
+		},
+		{
 			// Subscription renewal sweep: enqueues per-sub tasks that own the attempt
 			// counter. Filtering on last_renewal_attempt_at caps attempts per interval.
 			Cronspec: "@every 1h",

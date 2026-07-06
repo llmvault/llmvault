@@ -22,9 +22,16 @@ func TestIntegration_ChannelDeleteArchivesSessionsAndQueuesMemoryDeletion(t *tes
 
 	// An idle session (with a sandbox) and a channel memory.
 	session := seedChannelRecentSession(t, h, fx, channelUUID, fx.owner.ID, nil, time.Now())
-	sandboxID := uuid.New()
+	sandbox := model.Sandbox{
+		OrgID: &fx.org.ID, AgentID: &fx.agent.ID, ProviderID: "docker",
+		ExternalID: "chan-del-" + uuid.NewString(), RuntimeURL: "http://x",
+		EncryptedRuntimeSecret: []byte("x"), Status: "running",
+	}
+	if err := h.db.Create(&sandbox).Error; err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
 	if err := h.db.Model(&model.Session{}).Where("id = ?", session.ID).
-		Update("sandbox_id", sandboxID).Error; err != nil {
+		Update("sandbox_id", sandbox.ID).Error; err != nil {
 		t.Fatalf("attach sandbox: %v", err)
 	}
 	if err := h.db.Create(&model.AgentMemory{

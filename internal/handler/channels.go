@@ -36,6 +36,8 @@ func NewChannelHandler(db *gorm.DB, opts ...ChannelHandlerOption) *ChannelHandle
 type channelMutationRequest struct {
 	Name                 *string     `json:"name,omitempty"`
 	Description          *string     `json:"description,omitempty"`
+	Category             *string     `json:"category,omitempty"`
+	MemoryMission        *string     `json:"memory_mission,omitempty"`
 	Visibility           *string     `json:"visibility,omitempty"`
 	TeamID               *string     `json:"team_id,omitempty"`
 	DefaultAgentID       *string     `json:"default_agent_id,omitempty"`
@@ -65,6 +67,8 @@ type channelResponse struct {
 	ID                       string             `json:"id"`
 	Name                     string             `json:"name"`
 	Description              string             `json:"description"`
+	Category                 string             `json:"category"`
+	MemoryMission            string             `json:"memory_mission"`
 	Kind                     string             `json:"kind"`
 	Visibility               string             `json:"visibility"`
 	TeamID                   *string            `json:"team_id,omitempty"`
@@ -172,10 +176,16 @@ func formatTimePtr(t *time.Time) *string {
 }
 
 func channelToResponse(channel model.Channel, role string, memberCount int64) channelResponse {
+	memoryMission := ""
+	if channel.MemoryMission != nil {
+		memoryMission = *channel.MemoryMission
+	}
 	return channelResponse{
 		ID:                   channel.ID.String(),
 		Name:                 channel.Name,
 		Description:          channel.Description,
+		Category:             channel.Category,
+		MemoryMission:        memoryMission,
 		Kind:                 channel.Kind,
 		Visibility:           channel.Visibility,
 		TeamID:               formatUUIDPtr(channel.TeamID),

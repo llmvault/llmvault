@@ -164,7 +164,7 @@ func setupV1Routes(
 				mountSessionRoutes(r, sessionHandler)
 			}
 			if memoryHandler != nil {
-				mountMemoryRoutes(r, memoryHandler)
+				mountMemoryRoutes(r, database, memoryHandler)
 			}
 
 			r.Group(func(r chi.Router) {
@@ -291,9 +291,11 @@ func setupV1Routes(
 						r.Post("/sources", ragSourceHandler.Create)
 						r.Patch("/sources/{id}", ragSourceHandler.Update)
 						r.Delete("/sources/{id}", ragSourceHandler.Delete)
+						r.Put("/sources/{id}/channels", ragSourceHandler.SetSourceChannels)
 						r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
 						r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
 						r.Post("/sources/{id}/perm-sync", ragSourceHandler.TriggerPermSync)
+						r.Post("/website/discover-sections", ragSourceHandler.DiscoverWebsiteSections)
 					})
 				})
 			}

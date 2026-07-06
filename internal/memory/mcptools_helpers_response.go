@@ -32,6 +32,39 @@ func memoryToolMetadata(metadata model.JSON, agentID uuid.UUID) model.JSON {
 	return out
 }
 
+const (
+	memoryLayerObservations = "observations"
+	memoryLayerFacts        = "facts"
+)
+
+func observationToolSearchResponses(hits []ObservationHit) []map[string]any {
+	out := make([]map[string]any, 0, len(hits))
+	for _, hit := range hits {
+		similarity := hit.Similarity
+		out = append(out, observationToolResponse(hit.Observation, &similarity))
+	}
+	return out
+}
+
+func observationToolResponse(obs model.AgentObservation, similarity *float64) map[string]any {
+	out := map[string]any{
+		"id":                obs.ID.String(),
+		"content":           obs.Content,
+		"kind":              obs.Kind,
+		"entities":          []string(obs.Entities),
+		"proof_count":       obs.ProofCount,
+		"last_mentioned_at": obs.LastMentionedAt,
+		"human_verified":    obs.HumanVerified,
+		"channel_id":        channelIDValue(obs.ChannelID),
+		"created_at":        obs.CreatedAt,
+		"updated_at":        obs.UpdatedAt,
+	}
+	if similarity != nil {
+		out["similarity"] = *similarity
+	}
+	return out
+}
+
 func memoryToolSearchResponses(hits []SearchHit) []map[string]any {
 	out := make([]map[string]any, 0, len(hits))
 	for _, hit := range hits {

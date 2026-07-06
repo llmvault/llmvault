@@ -83,6 +83,9 @@ func (c *AnthropicCompletionClient) ChatCompletion(ctx context.Context, req Comp
 		Messages:  messages,
 		Tools:     tools,
 	}
+	if req.Temperature != nil {
+		params.Temperature = anthropic.Float(float64(*req.Temperature))
+	}
 	if systemPrompt != "" {
 		params.System = []anthropic.TextBlockParam{
 			{Text: systemPrompt},

@@ -28,6 +28,7 @@ type CompletionRequest struct {
 	Tools          []ToolDef       `json:"tools,omitempty"`
 	ToolChoice     string          `json:"tool_choice,omitempty"` // "required" forces tool calls, "auto" allows text
 	MaxTokens      int             `json:"max_tokens,omitempty"`
+	Temperature    *float32        `json:"temperature,omitempty"` // nil = provider default; 0 is transmitted as an effective 0.0
 	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
 }
 

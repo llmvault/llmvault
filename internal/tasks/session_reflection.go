@@ -16,6 +16,8 @@ import (
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/trigger/hivy"
@@ -33,7 +35,7 @@ type SessionReflectionHandler struct {
 	enqueuer            enqueue.TaskEnqueuer
 	memoryCfg           MemoryEmbeddingConfig
 	reg                 *registry.Registry
-	loadCredential      sessionNameCredentialLoader
+	loadCredential      reflectionCredentialLoader
 	newCompletionClient sessionNameClientFactory
 	now                 func() time.Time
 }
@@ -53,7 +55,7 @@ func NewSessionReflectionHandler(db *gorm.DB, cacheManager *cache.Manager, enque
 		enqueuer:            enqueuer,
 		memoryCfg:           memoryCfg,
 		reg:                 registry.Global(),
-		loadCredential:      loadSessionNameCredential,
+		loadCredential:      loadReflectionCredential,
 		newCompletionClient: hivy.NewCompletionClient,
 	}
 }
@@ -80,23 +82,32 @@ func (h *SessionReflectionHandler) Handle(ctx context.Context, task *asynq.Task)
 		return h.release(ctx, payload.SessionID)
 	}
 	userNames := h.loadReflectionUserNames(ctx, claim.Session, events)
-	transcript, identities := renderSessionReflectionTranscript(claim.Session, events, userNames)
+	channelName := h.loadReflectionChannelName(ctx, claim.Session)
+	transcript, identities := renderSessionReflectionTranscript(claim.Session, channelName, events, userNames)
 	existing := h.loadExistingMemories(ctx, claim.Session.ID)
 	cred, err := h.reflectionCredential(ctx)
 	if err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("session reflection credential unavailable: %w", err), map[string]any{
+			"session_id": payload.SessionID.String(),
+		})
 		lockUntil := now.Add(sessionReflectionRetryBackoff)
 		_ = h.markFailed(ctx, payload.SessionID, err, &lockUntil)
 		return reflectionCredentialError(err)
 	}
 	client := h.completionClient(cred)
-	result, err := generateSessionReflection(ctx, client, cred.modelID, transcript, existing)
+	channelMission := h.loadChannelMission(ctx, claim.Session)
+	result, _, err := generateSessionReflection(ctx, client, cred.modelID, cred.temperature, transcript, existing, channelMission)
 	if err != nil {
 		_ = h.markFailed(ctx, payload.SessionID, err, nil)
 		return err
 	}
-	if err := h.storeMemories(ctx, claim.Session, events, identities, result.Memories); err != nil {
+	stored, err := h.storeMemories(ctx, claim.Session, events, identities, result.Memories)
+	if err != nil {
 		_ = h.markFailed(ctx, payload.SessionID, err, nil)
 		return err
+	}
+	if stored > 0 {
+		h.enqueueConsolidation(ctx, claim.Session)
 	}
 	return h.complete(ctx, payload.SessionID, events[len(events)-1])
 }
@@ -120,8 +131,7 @@ func (h *SessionReflectionHandler) claim(ctx context.Context, sessionID uuid.UUI
 			out.Skip = !ok
 			return err
 		}
-		if session.Status != "active" || session.AgentTurnStatus != model.SessionAgentTurnIdle ||
-			latest.EventAt.After(now.Add(-sessionReflectionIdleDelay)) {
+		if skipReflectionForSessionState(session, latest, now) {
 			out.Skip = true
 			return nil
 		}
@@ -157,6 +167,22 @@ func (h *SessionReflectionHandler) claim(ctx context.Context, sessionID uuid.UUI
 		return nil
 	})
 	return out, err
+}
+
+// skipReflectionForSessionState gates the near-real-time idle loop: active
+// sessions must be turn-idle and quiet for the idle delay. Archived/ended
+// sessions run a final pass over their unreflected tail immediately — their
+// events are settled by definition.
+func skipReflectionForSessionState(session model.Session, latest model.SessionEvent, now time.Time) bool {
+	switch session.Status {
+	case "active":
+		return session.AgentTurnStatus != model.SessionAgentTurnIdle ||
+			latest.EventAt.After(now.Add(-sessionReflectionIdleDelay))
+	case "archived", "ended":
+		return false
+	default:
+		return true
+	}
 }
 
 func claimReflectionState(tx *gorm.DB, session model.Session, now time.Time) (model.SessionReflectionState, error) {
@@ -208,15 +234,55 @@ func (h *SessionReflectionHandler) loadEvents(ctx context.Context, claim session
 	return events, nil
 }
 
-func (h *SessionReflectionHandler) reflectionCredential(ctx context.Context) (*sessionNameCredential, error) {
+func (h *SessionReflectionHandler) loadReflectionChannelName(ctx context.Context, session model.Session) string {
+	if session.ChannelID == uuid.Nil {
+		return ""
+	}
+	var channel model.Channel
+	if err := h.db.WithContext(ctx).Select("id", "name").
+		First(&channel, "id = ?", session.ChannelID).Error; err != nil {
+		return ""
+	}
+	return strings.TrimSpace(channel.Name)
+}
+
+// loadChannelMission fetches the channel's memory mission for the extraction
+// prompt. Errors degrade to the base guidelines ("" mission) — the reflection
+// run must not fail because the mission lookup did.
+func (h *SessionReflectionHandler) loadChannelMission(ctx context.Context, session model.Session) string {
+	if session.ChannelID == uuid.Nil {
+		return ""
+	}
+	mission, err := memory.ChannelMission(ctx, h.db, session.ChannelID)
+	if err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "load channel memory mission failed; using base guidelines",
+			"channel_id", session.ChannelID.String(), "error", err)
+		return ""
+	}
+	return mission
+}
+
+// enqueueConsolidation chains a consolidation run after new memories were
+// stored. Log-and-continue: reflection success never depends on the enqueue.
+func (h *SessionReflectionHandler) enqueueConsolidation(ctx context.Context, session model.Session) {
+	if h.enqueuer == nil || session.ChannelID == uuid.Nil {
+		return
+	}
+	if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, session.OrgID, session.ChannelID); err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "enqueue memory consolidation after reflection failed",
+			"org_id", session.OrgID.String(), "channel_id", session.ChannelID.String(), "error", err)
+	}
+}
+
+func (h *SessionReflectionHandler) reflectionCredential(ctx context.Context) (*reflectionCredential, error) {
 	loader := h.loadCredential
 	if loader == nil {
-		loader = loadSessionNameCredential
+		loader = loadReflectionCredential
 	}
 	return loader(ctx, h.db, h.cacheManager, h.registry())
 }
 
-func (h *SessionReflectionHandler) completionClient(cred *sessionNameCredential) hivy.CompletionClient {
+func (h *SessionReflectionHandler) completionClient(cred *reflectionCredential) hivy.CompletionClient {
 	factory := h.newCompletionClient
 	if factory == nil {
 		factory = hivy.NewCompletionClient
@@ -231,8 +297,12 @@ func (h *SessionReflectionHandler) registry() *registry.Registry {
 	return registry.Global()
 }
 
+// reflectionCredentialError decides whether a credential failure should also
+// fail the asynq task. A missing system credential is already logged and
+// recorded on session_reflection_states (status=failed, last_error, retry
+// backoff); retrying the task immediately cannot fix it, so asynq sees nil.
 func reflectionCredentialError(err error) error {
-	if errors.Is(err, credentials.ErrNoSystemCredential) || errors.Is(err, errSessionNameModelUnavailable) {
+	if errors.Is(err, credentials.ErrNoSystemCredential) {
 		return nil
 	}
 	return err

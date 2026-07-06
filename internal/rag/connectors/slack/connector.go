@@ -161,7 +161,7 @@ func (c *SlackConnector) fetchMemberChannels(ctx context.Context) ([]SlackChanne
 		if !ch.IsMember || ch.IsArchived {
 			continue
 		}
-		if !channelIsAllowed(ch, c.cfg.ChannelNames, c.cfg.ChannelRegexEnabled) {
+		if !channelIsAllowed(ch, c.cfg.ChannelIDs, c.cfg.ChannelNames, c.cfg.ChannelRegexEnabled) {
 			continue
 		}
 		filtered = append(filtered, ch)

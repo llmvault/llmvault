@@ -57,6 +57,7 @@ func newChannelEnvHarness(t *testing.T) *channelEnvHarness {
 	harness := &channelEnvHarness{db: db, router: r, key: key, fx: fx}
 	rr := harness.do(t, fx.owner, http.MethodPost, "/v1/channels", map[string]any{
 		"name":             "#engineering",
+		"category":         "engineering",
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if rr.Code != http.StatusCreated {

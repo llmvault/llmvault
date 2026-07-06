@@ -97,27 +97,52 @@ func TestConfig_IncludeBotMessages(t *testing.T) {
 
 func TestChannelIsAllowed_NoFilter(t *testing.T) {
 	ch := makeChannel("C1", "general", true, false)
-	if !channelIsAllowed(ch, nil, false) {
+	if !channelIsAllowed(ch, nil, nil, false) {
 		t.Error("channel should be allowed with no filter")
 	}
 }
 
 func TestChannelIsAllowed_ByName(t *testing.T) {
 	ch := makeChannel("C1", "general", true, false)
-	if !channelIsAllowed(ch, []string{"general"}, false) {
+	if !channelIsAllowed(ch, nil, []string{"general"}, false) {
 		t.Error("channel should be allowed by name match")
 	}
-	if channelIsAllowed(ch, []string{"random"}, false) {
+	if channelIsAllowed(ch, nil, []string{"random"}, false) {
 		t.Error("channel should NOT be allowed by non-matching name")
 	}
 }
 
 func TestChannelIsAllowed_Regex(t *testing.T) {
 	ch := makeChannel("C1", "eng-team", true, false)
-	if !channelIsAllowed(ch, []string{"eng-*"}, true) {
+	if !channelIsAllowed(ch, nil, []string{"eng-*"}, true) {
 		t.Error("channel should match eng-* glob")
 	}
-	if channelIsAllowed(ch, []string{"ops-*"}, true) {
+	if channelIsAllowed(ch, nil, []string{"ops-*"}, true) {
 		t.Error("channel should NOT match ops-* glob")
+	}
+}
+
+func TestChannelIsAllowed_ByScopeID(t *testing.T) {
+	ch := makeChannel("C1", "general", true, false)
+	// Scope IDs take precedence over names and match by channel ID.
+	if !channelIsAllowed(ch, []string{"C1"}, nil, false) {
+		t.Error("channel should be allowed by scope id match")
+	}
+	if channelIsAllowed(ch, []string{"C2"}, nil, false) {
+		t.Error("channel should NOT be allowed by non-matching scope id")
+	}
+	// IDs win even if a (non-matching) name filter is also present.
+	if !channelIsAllowed(ch, []string{"C1"}, []string{"random"}, false) {
+		t.Error("scope ids should take precedence over name filter")
+	}
+}
+
+func TestLoadConfig_ScopeEnvelopeChannelIDs(t *testing.T) {
+	cfg, err := LoadConfig([]byte(`{"scope":{"resource_type":"slack_channel","items":[{"id":"C1","name":"general"},{"id":"C2"}]}}`))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if len(cfg.ChannelIDs) != 2 || cfg.ChannelIDs[0] != "C1" || cfg.ChannelIDs[1] != "C2" {
+		t.Fatalf("ChannelIDs = %v, want [C1 C2]", cfg.ChannelIDs)
 	}
 }

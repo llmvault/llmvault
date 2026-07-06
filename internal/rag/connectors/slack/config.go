@@ -4,8 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
+
+	"github.com/usehivy/hivy/internal/rag/connectors/scope"
 )
+
+// slackScopeResourceType is the resource-catalog key for a Slack channel scope.
+const slackScopeResourceType = "slack_channel"
 
 // SlackConfig is the connector-specific configuration stored in
 // RAGSource.ConfigValue (JSONB). The user selects which channels to
@@ -14,6 +20,11 @@ type SlackConfig struct {
 	ChannelNames        []string `json:"channel_names,omitempty"`
 	IncludeBotMessages  bool     `json:"include_bot_messages"`
 	ChannelRegexEnabled bool     `json:"channel_regex_enabled"`
+
+	// ChannelIDs is the set of channel IDs selected via the scope envelope
+	// (config.scope). When non-empty it takes precedence over ChannelNames.
+	// Not part of the JSON contract.
+	ChannelIDs []string `json:"-"`
 }
 
 func LoadConfig(raw json.RawMessage) (SlackConfig, error) {
@@ -24,6 +35,14 @@ func LoadConfig(raw json.RawMessage) (SlackConfig, error) {
 		}
 	}
 	cfg.ChannelNames = normaliseChannelList(cfg.ChannelNames)
+
+	sc, present, err := scope.Parse(raw)
+	if err != nil {
+		return SlackConfig{}, fmt.Errorf("slack: %w", err)
+	}
+	if present && sc.ResourceType == slackScopeResourceType {
+		cfg.ChannelIDs = sc.IDs()
+	}
 	return cfg, nil
 }
 
@@ -51,9 +70,13 @@ func normaliseChannelList(in []string) []string {
 	return out
 }
 
-// channelIsAllowed returns true if the channel should be indexed.
-// When no channel filter is configured, all member channels are included.
-func channelIsAllowed(channel SlackChannel, names []string, regexEnabled bool) bool {
+// channelIsAllowed returns true if the channel should be indexed. Scope IDs
+// (from the scope envelope) take precedence; otherwise the legacy name/regex
+// filter applies. When nothing is configured, all member channels are included.
+func channelIsAllowed(channel SlackChannel, ids, names []string, regexEnabled bool) bool {
+	if len(ids) > 0 {
+		return channelIDInList(channel, ids)
+	}
 	if len(names) == 0 {
 		return true
 	}
@@ -63,13 +86,12 @@ func channelIsAllowed(channel SlackChannel, names []string, regexEnabled bool) b
 	return channelInList(channel, names)
 }
 
+func channelIDInList(channel SlackChannel, ids []string) bool {
+	return slices.Contains(ids, channel.ID)
+}
+
 func channelInList(channel SlackChannel, names []string) bool {
-	for _, n := range names {
-		if channel.Name == n {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(names, channel.Name)
 }
 
 func channelMatchesRegex(channel SlackChannel, patterns []string) bool {

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	sessionReflectionIdleDelay = 3 * time.Minute
+	sessionReflectionIdleDelay = 2 * time.Minute
 	sessionReflectionScanLimit = 100
 )
 

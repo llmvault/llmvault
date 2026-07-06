@@ -173,6 +173,8 @@ func TestFormatterEnforcesTotalBudget(t *testing.T) {
 	}
 }
 
+// fakeMemoryLister has no directives, digest, or observations, so recall walks
+// the full fallback chain down to the legacy fact listing.
 type fakeMemoryLister struct {
 	requests []memory.ListRequest
 	list     func(memory.ListRequest) []model.AgentMemory
@@ -183,6 +185,18 @@ func (f *fakeMemoryLister) List(_ context.Context, req memory.ListRequest) ([]mo
 	if f.list != nil {
 		return f.list(req), nil
 	}
+	return nil, nil
+}
+
+func (f *fakeMemoryLister) ActiveDirectives(context.Context, uuid.UUID, memory.ChannelScope) ([]model.AgentDirective, error) {
+	return nil, nil
+}
+
+func (f *fakeMemoryLister) ChannelMemoryDigest(context.Context, uuid.UUID, uuid.UUID) (string, error) {
+	return "", nil
+}
+
+func (f *fakeMemoryLister) TopObservations(context.Context, uuid.UUID, memory.ChannelScope, int) ([]model.AgentObservation, error) {
 	return nil, nil
 }
 

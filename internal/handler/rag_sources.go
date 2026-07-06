@@ -13,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/resources"
+	"github.com/usehivy/hivy/internal/spider"
 )
 
 type RAGSourceHandler struct {
@@ -22,6 +23,7 @@ type RAGSourceHandler struct {
 	credits   *billing.CreditsService
 	discovery *resources.Discovery
 	catalog   *catalog.Catalog
+	spider    *spider.Client
 }
 
 // RAGCapabilityCheck answers "can a connector of this kind perform
@@ -30,8 +32,8 @@ type RAGSourceHandler struct {
 // doesn't depend on a real connector being registered.
 type RAGCapabilityCheck func(kind string) bool
 
-func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, caps RAGCapabilityCheck, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog) *RAGSourceHandler {
-	return &RAGSourceHandler{db: db, enq: enq, caps: caps, credits: credits, discovery: discovery, catalog: cat}
+func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, caps RAGCapabilityCheck, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog, spiderClient *spider.Client) *RAGSourceHandler {
+	return &RAGSourceHandler{db: db, enq: enq, caps: caps, credits: credits, discovery: discovery, catalog: cat, spider: spiderClient}
 }
 
 type ragSourceResponse struct {
@@ -62,17 +64,17 @@ type ragSourceResponse struct {
 // dashboards: counts + status + timestamps without the full attempt
 // payload.
 type ragLatestAttemptStatus struct {
-	ID               string       `json:"id"`
-	Status           string       `json:"status"`
-	NewDocsIndexed   *int         `json:"new_docs_indexed,omitempty"`
-	TotalDocsIndexed *int         `json:"total_docs_indexed,omitempty"`
-	DocsEstimated    *int         `json:"docs_estimated,omitempty"`
-	TotalBatches     *int         `json:"total_batches,omitempty"`
-	CompletedBatches int          `json:"completed_batches"`
-	Progress         ragProgress  `json:"progress"`
-	ErrorMsg         *string      `json:"error_msg,omitempty"`
-	TimeStarted      *time.Time   `json:"time_started,omitempty"`
-	TimeUpdated      time.Time    `json:"time_updated"`
+	ID               string      `json:"id"`
+	Status           string      `json:"status"`
+	NewDocsIndexed   *int        `json:"new_docs_indexed,omitempty"`
+	TotalDocsIndexed *int        `json:"total_docs_indexed,omitempty"`
+	DocsEstimated    *int        `json:"docs_estimated,omitempty"`
+	TotalBatches     *int        `json:"total_batches,omitempty"`
+	CompletedBatches int         `json:"completed_batches"`
+	Progress         ragProgress `json:"progress"`
+	ErrorMsg         *string     `json:"error_msg,omitempty"`
+	TimeStarted      *time.Time  `json:"time_started,omitempty"`
+	TimeUpdated      time.Time   `json:"time_updated"`
 }
 
 // ragProgress is an honest sync-progress signal. Percent is set when a

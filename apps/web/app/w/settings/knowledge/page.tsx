@@ -1,70 +1,94 @@
 "use client"
 
-import { useState, type ComponentProps } from "react"
+import { useMemo, useState, type ComponentProps } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Button, Popover, toast } from "@heroui/react"
+import { useQueryClient } from "@tanstack/react-query"
+import { Button, Popover, Skeleton, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { $api } from "@/lib/api/hooks"
+import { extractErrorMessage } from "@/lib/api/error"
 import { cn } from "@/lib/utils"
 import { ProviderIcon } from "./_provider-icon"
 import {
+  deriveProgress,
+  deriveProvider,
+  deriveStatus,
   providerMeta,
-  STATIC_SOURCES,
-  type KnowledgeSource,
+  RAG_SOURCES_QUERY_KEY,
+  scopeSummary,
+  type Connection,
+  type DerivedProgress,
+  type RagSource,
   type SourceStatus,
-} from "./_data"
+} from "./_lib"
 
 const STATUS_META: Record<
   SourceStatus,
-  { label: string; icon: string; className: string; barClassName: string }
+  { icon: string; className: string; barClassName: string }
 > = {
-  syncing: {
-    label: "Syncing",
-    icon: "loader-circle",
-    className: "text-primary",
-    barClassName: "bg-primary",
-  },
-  active: {
-    label: "Up to date",
-    icon: "circle-check",
-    className: "text-foreground",
-    barClassName: "bg-primary",
-  },
-  paused: {
-    label: "Paused",
-    icon: "circle-slash",
-    className: "text-muted-foreground",
-    barClassName: "bg-muted-foreground/50",
-  },
-  disabled: {
-    label: "Disabled",
-    icon: "eye-off",
-    className: "text-muted-foreground",
-    barClassName: "bg-muted-foreground/40",
-  },
-  error: {
-    label: "Sync failed",
-    icon: "circle-alert",
-    className: "text-danger",
-    barClassName: "bg-danger",
-  },
+  syncing: { icon: "loader-circle", className: "text-primary", barClassName: "bg-primary" },
+  active: { icon: "circle-check", className: "text-foreground", barClassName: "bg-primary" },
+  paused: { icon: "circle-slash", className: "text-muted-foreground", barClassName: "bg-muted-foreground/50" },
+  disabled: { icon: "eye-off", className: "text-muted-foreground", barClassName: "bg-muted-foreground/40" },
+  error: { icon: "circle-alert", className: "text-danger", barClassName: "bg-danger" },
 }
+
+const EMPTY_SOURCES: RagSource[] = []
+const EMPTY_CONNECTIONS: Connection[] = []
 
 export default function KnowledgeSettingsPage() {
   const router = useRouter()
-  const [sources, setSources] = useState<KnowledgeSource[]>(STATIC_SOURCES)
+  const queryClient = useQueryClient()
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
 
-  function remove(id: string) {
-    const source = sources.find((s) => s.id === id)
-    setSources((current) => current.filter((s) => s.id !== id))
-    if (source) toast.success(`Removed ${source.name}`)
+  const sourcesQuery = $api.useQuery("get", "/v1/rag/sources", {
+    params: { query: { page_size: 100 } },
+  })
+  const connectionsQuery = $api.useQuery("get", "/v1/connections", {
+    params: { query: { limit: 100 } },
+  })
+
+  const sources = sourcesQuery.data?.data ?? EMPTY_SOURCES
+  const connections = connectionsQuery.data?.data ?? EMPTY_CONNECTIONS
+  const connectionsById = useMemo(() => {
+    const map = new Map<string, Connection>()
+    for (const conn of connections) if (conn.id) map.set(conn.id, conn)
+    return map
+  }, [connections])
+
+  const invalidateSources = () =>
+    queryClient.invalidateQueries({ queryKey: RAG_SOURCES_QUERY_KEY })
+
+  const updateSource = $api.useMutation("patch", "/v1/rag/sources/{id}", {
+    onSuccess: invalidateSources,
+    onError: (error) => toast.danger(extractErrorMessage(error, "Could not update source")),
+  })
+  const deleteSource = $api.useMutation("delete", "/v1/rag/sources/{id}", {
+    onSuccess: invalidateSources,
+    onError: (error) => toast.danger(extractErrorMessage(error, "Could not remove source")),
+  })
+
+  function patchSource(id: string, name: string, body: Record<string, unknown>, ok: string) {
+    updateSource.mutate(
+      { params: { path: { id } }, body },
+      { onSuccess: () => toast.success(ok.replace("{name}", name)) }
+    )
   }
 
-  function setStatus(id: string, status: SourceStatus, message: string) {
-    setSources((current) =>
-      current.map((s) => (s.id === id ? { ...s, status } : s))
+  function confirmRemove() {
+    if (!removeTarget) return
+    const { name } = removeTarget
+    deleteSource.mutate(
+      { params: { path: { id: removeTarget.id } } },
+      {
+        onSuccess: () => {
+          toast.success(`Removed ${name}`)
+          setRemoveTarget(null)
+        },
+      }
     )
-    toast.success(message)
   }
 
   return (
@@ -74,7 +98,7 @@ export default function KnowledgeSettingsPage() {
           <h1 className="text-2xl font-semibold text-foreground">Knowledge</h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
             Connect sources so your agents can search company knowledge. Each
-            source ingests a scope you choose and is available to a channel.
+            source ingests a scope you choose and is available to channels.
           </p>
         </div>
         <Button
@@ -88,7 +112,11 @@ export default function KnowledgeSettingsPage() {
         </Button>
       </div>
 
-      {sources.length === 0 ? (
+      {sourcesQuery.isLoading ? (
+        <SourcesSkeleton />
+      ) : sourcesQuery.isError ? (
+        <ErrorState onRetry={() => sourcesQuery.refetch()} />
+      ) : sources.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="flex flex-col gap-2">
@@ -96,29 +124,48 @@ export default function KnowledgeSettingsPage() {
             <SourceCard
               key={source.id}
               source={source}
-              onRemove={() => remove(source.id)}
-              onSetStatus={(status, message) =>
-                setStatus(source.id, status, message)
-              }
+              connectionsById={connectionsById}
+              onRemove={() => setRemoveTarget({ id: source.id!, name: source.name ?? "source" })}
+              onPatch={(body, ok) => patchSource(source.id!, source.name ?? "source", body, ok)}
             />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        pending={deleteSource.isPending}
+        heading="Remove knowledge source?"
+        description={
+          removeTarget
+            ? `“${removeTarget.name}” and its indexed documents will be removed. Agents will no longer be able to search it. This can’t be undone.`
+            : ""
+        }
+        confirmLabel="Remove source"
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null)
+        }}
+        onConfirm={confirmRemove}
+      />
     </div>
   )
 }
 
 function SourceCard({
   source,
+  connectionsById,
   onRemove,
-  onSetStatus,
+  onPatch,
 }: {
-  source: KnowledgeSource
+  source: RagSource
+  connectionsById: Map<string, Connection>
   onRemove: () => void
-  onSetStatus: (status: SourceStatus, message: string) => void
+  onPatch: (body: Record<string, unknown>, ok: string) => void
 }) {
-  const provider = providerMeta(source.provider)
-  const status = STATUS_META[source.status]
+  const provider = providerMeta(deriveProvider(source, connectionsById))
+  const status = deriveStatus(source)
+  const statusMeta = STATUS_META[status]
+  const progress = deriveProgress(source, status)
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
@@ -136,86 +183,73 @@ function SourceCard({
               {provider.label}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <span className="truncate">{source.scopeSummary}</span>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1">
-              <AppIcon icon="hash" className="h-3 w-3" />
-              {source.channel}
-            </span>
+          <div className="text-xs text-muted-foreground">
+            <span className="truncate">{scopeSummary(source, provider)}</span>
           </div>
         </div>
 
-        <ProgressRow source={source} statusMeta={status} />
+        <ProgressRow progress={progress} statusMeta={statusMeta} syncing={status === "syncing"} />
       </div>
 
       <SourceActionsMenu
-        source={source}
+        sourceId={source.id!}
+        status={status}
         onRemove={onRemove}
-        onSetStatus={onSetStatus}
+        onPatch={onPatch}
       />
     </div>
   )
 }
 
 function ProgressRow({
-  source,
+  progress,
   statusMeta,
+  syncing,
 }: {
-  source: KnowledgeSource
-  statusMeta: (typeof STATUS_META)[SourceStatus]
+  progress: DerivedProgress
+  statusMeta: { icon: string; className: string; barClassName: string }
+  syncing: boolean
 }) {
-  const { percent } = source.progress
-  const indeterminate = percent === null
+  const indeterminate = progress.percent === null
   return (
     <div className="flex flex-col gap-1.5">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-default">
         {indeterminate ? (
-          <div
-            className={cn(
-              "h-full w-1/3 rounded-full",
-              statusMeta.barClassName,
-              source.status === "syncing" && "animate-pulse"
-            )}
-          />
+          <div className={cn("h-full w-1/3 rounded-full", statusMeta.barClassName, syncing && "animate-pulse")} />
         ) : (
           <div
             className={cn("h-full rounded-full transition-all", statusMeta.barClassName)}
-            style={{ width: `${percent}%` }}
+            style={{ width: `${progress.percent}%` }}
           />
         )}
       </div>
       <div className="flex items-center gap-1.5">
         <AppIcon
           icon={statusMeta.icon}
-          className={cn(
-            "h-3.5 w-3.5",
-            statusMeta.className,
-            source.status === "syncing" && "animate-spin"
-          )}
+          className={cn("h-3.5 w-3.5", statusMeta.className, syncing && "animate-spin")}
         />
-        <span className={cn("text-xs", statusMeta.className)}>
-          {source.progress.label}
-        </span>
+        <span className={cn("text-xs", statusMeta.className)}>{progress.label}</span>
       </div>
     </div>
   )
 }
 
 function SourceActionsMenu({
-  source,
+  sourceId,
+  status,
   onRemove,
-  onSetStatus,
+  onPatch,
   placement = "bottom end",
 }: {
-  source: KnowledgeSource
+  sourceId: string
+  status: SourceStatus
   onRemove: () => void
-  onSetStatus: (status: SourceStatus, message: string) => void
+  onPatch: (body: Record<string, unknown>, ok: string) => void
   placement?: ComponentProps<typeof Popover.Content>["placement"]
 }) {
   const [open, setOpen] = useState(false)
-  const disabled = source.status === "disabled"
-  const paused = source.status === "paused"
+  const disabled = status === "disabled"
+  const paused = status === "paused"
 
   function act(fn: () => void) {
     fn()
@@ -238,34 +272,26 @@ function SourceActionsMenu({
           className="w-56 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            <MenuLink href={`/w/settings/knowledge/${source.id}/documents`}>
+            <MenuLink href={`/w/settings/knowledge/${sourceId}/documents`}>
               View documents
             </MenuLink>
 
             {paused ? (
-              <MenuButton
-                onClick={() => act(() => onSetStatus("syncing", `Resumed ${source.name}`))}
-              >
+              <MenuButton onClick={() => act(() => onPatch({ status: "ACTIVE" }, "Resumed {name}"))}>
                 Resume ingestion
               </MenuButton>
             ) : (
-              <MenuButton
-                onClick={() => act(() => onSetStatus("paused", `Paused ${source.name}`))}
-              >
+              <MenuButton onClick={() => act(() => onPatch({ status: "PAUSED" }, "Paused {name}"))}>
                 Pause ingestion
               </MenuButton>
             )}
 
             {disabled ? (
-              <MenuButton
-                onClick={() => act(() => onSetStatus("active", `Enabled ${source.name}`))}
-              >
+              <MenuButton onClick={() => act(() => onPatch({ enabled: true }, "Enabled {name}"))}>
                 Enable source
               </MenuButton>
             ) : (
-              <MenuButton
-                onClick={() => act(() => onSetStatus("disabled", `Disabled ${source.name}`))}
-              >
+              <MenuButton onClick={() => act(() => onPatch({ enabled: false }, "Disabled {name}"))}>
                 Disable source
               </MenuButton>
             )}
@@ -297,9 +323,7 @@ function MenuButton({
       onClick={onClick}
       className={cn(
         "flex items-center rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors",
-        danger
-          ? "text-danger hover:bg-danger/10"
-          : "hover:bg-default text-foreground"
+        danger ? "text-danger hover:bg-danger/10" : "hover:bg-default text-foreground"
       )}
     >
       {children}
@@ -307,13 +331,7 @@ function MenuButton({
   )
 }
 
-function MenuLink({
-  href,
-  children,
-}: {
-  href: string
-  children: React.ReactNode
-}) {
+function MenuLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
@@ -324,13 +342,43 @@ function MenuLink({
   )
 }
 
+function SourcesSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="flex flex-1 flex-col gap-2">
+            <Skeleton className="h-4 w-40 rounded" />
+            <Skeleton className="h-3 w-24 rounded" />
+            <Skeleton className="h-1.5 w-full rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
+      <AppIcon icon="circle-alert" className="h-7 w-7 text-danger" />
+      <p className="mt-3 text-sm font-medium text-foreground">Couldn’t load sources</p>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Something went wrong fetching your knowledge sources.
+      </p>
+      <Button variant="tertiary" size="sm" className="mt-4" onPress={onRetry}>
+        Try again
+      </Button>
+    </div>
+  )
+}
+
 function EmptyState() {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
       <AppIcon icon="folder-open" className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">
-        No knowledge sources yet
-      </p>
+      <p className="mt-3 text-sm font-medium text-foreground">No knowledge sources yet</p>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         Add a source to let your agents search company knowledge from GitHub,
         Notion, Slack, or your website.

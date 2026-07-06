@@ -137,6 +137,7 @@
       "description": "GitHub repositories the AI can access",
       "id_field": "full_name",
       "name_field": "name",
+      "rag_scopable": true,
       "icon": "repo",
       "configurable": true,
       "list_action": "/installation/repositories",

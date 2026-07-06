@@ -81,11 +81,11 @@ func TestSessionReflectionHandlerStoresMemoriesAndSuppressesDuplicates(t *testin
 	mock.SetFallback(hivy.CompletionResponse{Message: hivy.Message{Content: `{
 		"memories": [{
 			"content": "Dana prefers concise implementation plans.",
-			"scope": "user",
-			"visibility": "all_agents",
 			"kind": "preference",
 			"tags": ["workflow"],
 			"confidence": 0.92,
+			"entities": ["Dana"],
+			"expires_at": "",
 			"source_event_ids": ["` + fx.event.ID.String() + `"]
 		}]
 	}`}})
@@ -119,6 +119,59 @@ func TestSessionReflectionHandlerStoresMemoriesAndSuppressesDuplicates(t *testin
 	}
 	if mem.Metadata["source"] != "reflection" || mem.Metadata["actor_display_name"] != "Dana" {
 		t.Fatalf("memory metadata=%#v", mem.Metadata)
+	}
+	entities, ok := mem.Metadata["entities"].([]any)
+	if !ok || len(entities) != 1 || entities[0] != "Dana" {
+		t.Fatalf("memory metadata entities=%#v", mem.Metadata["entities"])
+	}
+	if expiresAt, ok := mem.Metadata["expires_at"].(string); !ok || expiresAt != "" {
+		t.Fatalf("memory metadata expires_at=%#v", mem.Metadata["expires_at"])
+	}
+	var state model.SessionReflectionState
+	if err := db.First(&state, "session_id = ?", fx.session.ID).Error; err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+	if state.LastReflectedEventAt == nil || state.Status != model.SessionReflectionStatusIdle {
+		t.Fatalf("state=%#v", state)
+	}
+}
+
+func TestSessionReflectionHandlerRunsFinalPassOnArchivedSession(t *testing.T) {
+	db := connectTestDB(t)
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	// Event 30s ago: an active session would be skipped by the idle delay,
+	// an archived one gets its final pass immediately.
+	fx := seedReflectionFixture(t, db, now.Add(-30*time.Second))
+	if err := db.Model(&model.Session{}).Where("id = ?", fx.session.ID).
+		Update("status", "archived").Error; err != nil {
+		t.Fatalf("archive session: %v", err)
+	}
+	mock := hivy.NewMockCompletionClient()
+	mock.SetFallback(hivy.CompletionResponse{Message: hivy.Message{Content: `{
+		"memories": [{
+			"content": "Dana prefers concise implementation plans.",
+			"kind": "preference",
+			"tags": ["workflow"],
+			"confidence": 0.92,
+			"entities": ["Dana"],
+			"expires_at": "",
+			"source_event_ids": ["` + fx.event.ID.String() + `"]
+		}]
+	}`}})
+	handler := reflectionTestHandler(db, &enqueue.MockClient{}, mock, now)
+	task, _, err := NewSessionReflectionTask(SessionReflectionPayload{SessionID: fx.session.ID})
+	if err != nil {
+		t.Fatalf("new task: %v", err)
+	}
+	if err := handler.Handle(context.Background(), task); err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	var memories []model.AgentMemory
+	if err := db.Where("source_session_id = ?", fx.session.ID).Find(&memories).Error; err != nil {
+		t.Fatalf("load memories: %v", err)
+	}
+	if len(memories) != 1 {
+		t.Fatalf("memories len=%d want 1: %#v", len(memories), memories)
 	}
 	var state model.SessionReflectionState
 	if err := db.First(&state, "session_id = ?", fx.session.ID).Error; err != nil {
@@ -166,11 +219,12 @@ func reflectionTestHandler(db *gorm.DB, enq *enqueue.MockClient, mock *hivy.Mock
 		enqueuer:     enq,
 		reg:          registry.Global(),
 		cacheManager: &cache.Manager{},
-		loadCredential: func(context.Context, *gorm.DB, *cache.Manager, *registry.Registry) (*sessionNameCredential, error) {
-			return &sessionNameCredential{
-				credential: &model.Credential{ProviderID: sessionNameProviderID},
-				apiKey:     "sk-test",
-				modelID:    "openai/gpt-4o-mini",
+		loadCredential: func(context.Context, *gorm.DB, *cache.Manager, *registry.Registry) (*reflectionCredential, error) {
+			return &reflectionCredential{
+				credential:  &model.Credential{ProviderID: reflectionDefaultProviderID},
+				apiKey:      "sk-test",
+				modelID:     "openai/gpt-5-mini",
+				temperature: reflectionDefaultTemperature,
 			}, nil
 		},
 		newCompletionClient: func(*model.Credential, string) hivy.CompletionClient { return mock },

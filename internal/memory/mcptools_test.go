@@ -44,10 +44,16 @@ func TestMemoryMCPToolsChannelScoping(t *testing.T) {
 	otherMem := seedReadyMemory(t, service, fixture.org.ID, &otherChannel.ID, "A different channel's private note.")
 
 	// Search is auto-scoped: this channel plus org-wide (channel exposes them).
+	// include_facts pins the legacy facts layer; the default observations layer
+	// has its own coverage in mcptools_observations_test.go.
 	results := callMemoryTool(t, ctx, client, "search_memories", map[string]any{
 		"query":            "release checklist",
+		"include_facts":    true,
 		"_hivy_session_id": fixture.session.ID.String(),
 	})
+	if results["layer"] != memoryLayerFacts {
+		t.Fatalf("include_facts search layer = %v, want %q", results["layer"], memoryLayerFacts)
+	}
 	ids := resultIDSet(results)
 	if len(ids) != 2 || !ids[channelMem.String()] || !ids[orgMem.String()] {
 		t.Fatalf("channel search = %#v, want channel + org-wide memories", results)
@@ -101,6 +107,7 @@ func TestMemoryMCPToolsExposeOrgMemoriesToggle(t *testing.T) {
 
 	results := callMemoryTool(t, ctx, client, "search_memories", map[string]any{
 		"query":            "release note",
+		"include_facts":    true,
 		"_hivy_session_id": fixture.session.ID.String(),
 	})
 	ids := resultIDSet(results)

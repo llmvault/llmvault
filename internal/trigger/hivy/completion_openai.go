@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -86,6 +87,15 @@ func (c *OpenAICompletionClient) ChatCompletion(ctx context.Context, req Complet
 	}
 	if req.MaxTokens > 0 {
 		oaiReq.MaxTokens = req.MaxTokens
+	}
+	if req.Temperature != nil {
+		temperature := *req.Temperature
+		if temperature <= 0 {
+			// go-openai omits a zero temperature; the smallest positive float
+			// is the documented way to transmit an effective 0.0.
+			temperature = math.SmallestNonzeroFloat32
+		}
+		oaiReq.Temperature = temperature
 	}
 	if req.ResponseFormat != nil {
 		responseFormat, err := openAIResponseFormat(req.ResponseFormat)

@@ -11,7 +11,10 @@ import (
 	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
-const reflectionTranscriptMaxText = 1600
+const (
+	reflectionTranscriptMaxText    = 1600
+	reflectionTranscriptMaxSummary = 120
+)
 
 type reflectionIdentity struct {
 	UserID      *uuid.UUID
@@ -19,7 +22,7 @@ type reflectionIdentity struct {
 	ExternalRef string
 }
 
-func renderSessionReflectionTranscript(session model.Session, events []model.SessionEvent, userNames map[uuid.UUID]string) (string, map[uuid.UUID]reflectionIdentity) {
+func renderSessionReflectionTranscript(session model.Session, channelName string, events []model.SessionEvent, userNames map[uuid.UUID]string) (string, map[uuid.UUID]reflectionIdentity) {
 	identities := resolveReflectionIdentities(session, events, userNames)
 	var b strings.Builder
 	b.WriteString("# Session transcript\n\n")
@@ -29,6 +32,16 @@ func renderSessionReflectionTranscript(session model.Session, events []model.Ses
 	b.WriteString(session.AgentID.String())
 	b.WriteString("\nSource: ")
 	b.WriteString(session.Source)
+	// Session Date is the temporal anchor the extraction prompt resolves
+	// relative dates against ("yesterday" → an absolute date).
+	if len(events) > 0 {
+		b.WriteString("\nSession Date: ")
+		b.WriteString(events[len(events)-1].EventAt.UTC().Format("2006-01-02"))
+	}
+	if channelName = strings.TrimSpace(channelName); channelName != "" {
+		b.WriteString("\nChannel: ")
+		b.WriteString(channelName)
+	}
 	b.WriteString("\n\n")
 	for _, event := range events {
 		if !shouldRenderReflectionEvent(event.EventType) {
@@ -91,9 +104,15 @@ func writeReflectionEvent(b *strings.Builder, event model.SessionEvent, identity
 		b.WriteString(formatSlackReflectionContext(slack))
 		b.WriteString("\n")
 	}
-	if text := reflectionEventText(event); text != "" {
+	if isReflectionMessageEvent(event.EventType) {
+		if text := reflectionEventText(event); text != "" {
+			b.WriteString("\n")
+			b.WriteString(text)
+			b.WriteString("\n")
+		}
+	} else if summary := reflectionEventSummary(event); summary != "" {
 		b.WriteString("\n")
-		b.WriteString(text)
+		b.WriteString(summary)
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
@@ -102,10 +121,70 @@ func writeReflectionEvent(b *strings.Builder, event model.SessionEvent, identity
 func shouldRenderReflectionEvent(eventType string) bool {
 	switch eventType {
 	case runtimeevents.EventThinking, runtimeevents.EventReasoningDelta, runtimeevents.EventReasoningStarted,
-		runtimeevents.EventReasoningCompleted, runtimeevents.EventToken, runtimeevents.EventResponseChunk:
+		runtimeevents.EventReasoningCompleted, runtimeevents.EventToken, runtimeevents.EventResponseChunk,
+		runtimeevents.EventModelUsage:
 		return false
 	default:
 		return true
+	}
+}
+
+// isReflectionMessageEvent reports whether the event carries a human or agent
+// message whose full text belongs in the transcript. Everything else (tool
+// results, lifecycle events) is reduced to a one-line summary — the junk
+// memories provably originate in raw tool output.
+func isReflectionMessageEvent(eventType string) bool {
+	switch eventType {
+	case runtimeevents.EventUserMessageReceived, runtimeevents.EventMessageReceived,
+		runtimeevents.EventFinal, runtimeevents.EventResponseCompleted,
+		runtimeevents.EventQuestionRequested, runtimeevents.EventQuestionAnswered:
+		return true
+	default:
+		return false
+	}
+}
+
+// reflectionEventSummary renders a non-message event as a single line:
+// tool/event name, ok/error, and the first ~120 characters of its output.
+func reflectionEventSummary(event model.SessionEvent) string {
+	name := firstNonEmptyString(
+		payloadString(event.Payload, "tool_name"),
+		payloadString(event.Payload, "tool"),
+		payloadString(event.Payload, "name"),
+		event.EventType,
+	)
+	errText := strings.TrimSpace(payloadString(event.Payload, "error"))
+	status := "ok"
+	if errText != "" || isReflectionErrorEventType(event.EventType) ||
+		payloadString(event.Payload, "status") == "error" || payloadString(event.Payload, "status") == "failed" {
+		status = "error"
+	}
+	preview := errText
+	if preview == "" {
+		for _, key := range []string{"text", "content", "message", "result", "output", "summary"} {
+			if value := strings.TrimSpace(payloadString(event.Payload, key)); value != "" {
+				preview = value
+				break
+			}
+		}
+	}
+	if preview == "" {
+		preview = formatSmallPayload(event.Payload)
+	}
+	line := "Result: " + name + " " + status
+	if preview = trimReflectionTextTo(preview, reflectionTranscriptMaxSummary); preview != "" {
+		line += " — " + preview
+	}
+	return line
+}
+
+func isReflectionErrorEventType(eventType string) bool {
+	switch eventType {
+	case runtimeevents.EventError, runtimeevents.EventAgentError, runtimeevents.EventTurnFailed,
+		runtimeevents.EventSubagentErrored:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -196,9 +275,13 @@ func formatSmallPayload(payload model.JSON) string {
 }
 
 func trimReflectionText(value string) string {
+	return trimReflectionTextTo(value, reflectionTranscriptMaxText)
+}
+
+func trimReflectionTextTo(value string, max int) string {
 	value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
-	if len(value) > reflectionTranscriptMaxText {
-		value = strings.TrimSpace(value[:reflectionTranscriptMaxText]) + "..."
+	if len(value) > max {
+		value = strings.TrimSpace(value[:max]) + "..."
 	}
 	return value
 }

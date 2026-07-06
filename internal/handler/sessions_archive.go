@@ -101,6 +101,12 @@ func (h *SessionHandler) archiveSession(ctx context.Context, session *model.Sess
 		Updates(updates).Error; err != nil {
 		return err
 	}
+	// Final reflection pass over the session's unreflected event tail.
+	if err := tasks.EnqueueSessionReflection(ctx, h.enqueuer, session.ID); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("enqueue session reflection on archive: %w", err), map[string]any{
+			"session_id": session.ID.String(),
+		})
+	}
 	h.enqueueSessionSandboxTeardown(ctx, session)
 	return nil
 }

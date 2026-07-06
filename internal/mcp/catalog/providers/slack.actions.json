@@ -28,6 +28,7 @@
       "description": "A Slack channel, private group, DM, or multi-party DM. Channel-level events (member joined, channel created) use this resource. No resource_key_template — these events don't naturally continue a conversation.",
       "id_field": "id",
       "name_field": "name_normalized",
+      "rag_scopable": true,
       "icon": "hash",
       "list_action": "/conversations.list",
       "request_config": {

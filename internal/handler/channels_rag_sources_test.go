@@ -62,6 +62,7 @@ func createTestChannel(t *testing.T, h *channelHarness, fx channelFixture) strin
 	t.Helper()
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":             "#eng",
+		"category":         "engineering",
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if rr.Code != http.StatusCreated {

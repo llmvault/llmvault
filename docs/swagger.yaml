@@ -239,6 +239,28 @@ definitions:
       webhook_secret:
         type: string
     type: object
+  DiscoveredPage:
+    properties:
+      path:
+        type: string
+      url:
+        type: string
+    type: object
+  DiscoveredSection:
+    properties:
+      label:
+        type: string
+      page_count:
+        type: integer
+      path_prefix:
+        type: string
+      sample_paths:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+    type: object
   DiscoveryResult:
     properties:
       resources:
@@ -462,6 +484,19 @@ definitions:
     properties:
       $ref:
         type: string
+    type: object
+  SectionDiscovery:
+    properties:
+      base_url:
+        type: string
+      pages:
+        items:
+          $ref: '#/definitions/DiscoveredPage'
+        type: array
+      sections:
+        items:
+          $ref: '#/definitions/DiscoveredSection'
+        type: array
     type: object
   Sort:
     properties:
@@ -1278,6 +1313,10 @@ definitions:
     properties:
       created_at:
         type: string
+      email:
+        type: string
+      name:
+        type: string
       role:
         type: string
       user_id:
@@ -1285,6 +1324,8 @@ definitions:
     type: object
   channelMutationRequest:
     properties:
+      category:
+        type: string
       default_agent_id:
         type: string
       description:
@@ -1306,6 +1347,8 @@ definitions:
       external_workspace_key:
         type: string
       image_model:
+        type: string
+      memory_mission:
         type: string
       name:
         type: string
@@ -1345,6 +1388,8 @@ definitions:
     properties:
       archived_at:
         type: string
+      category:
+        type: string
       created_at:
         type: string
       created_by:
@@ -1379,6 +1424,8 @@ definitions:
         type: string
       member_count:
         type: integer
+      memory_mission:
+        type: string
       name:
         type: string
       origin:
@@ -1935,6 +1982,46 @@ definitions:
       mutation_id:
         type: string
     type: object
+  directiveListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/directiveResponse'
+        type: array
+    type: object
+  directiveMutationRequest:
+    properties:
+      active:
+        type: boolean
+      channel_id:
+        type: string
+      content:
+        type: string
+    type: object
+  directiveResponse:
+    properties:
+      active:
+        type: boolean
+      channel_id:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      created_by_user_id:
+        type: string
+      id:
+        type: string
+      source:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  discoverWebsiteSectionsRequest:
+    properties:
+      url:
+        type: string
+    type: object
   errorRate:
     properties:
       date:
@@ -2372,6 +2459,49 @@ definitions:
         type: boolean
       tool_call:
         type: boolean
+    type: object
+  observationCorrectRequest:
+    properties:
+      content:
+        type: string
+    type: object
+  observationListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/observationResponse'
+        type: array
+      has_more:
+        type: boolean
+    type: object
+  observationResponse:
+    properties:
+      archived_at:
+        type: string
+      channel_id:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      entities:
+        items:
+          type: string
+        type: array
+      expires_at:
+        type: string
+      human_verified:
+        type: boolean
+      id:
+        type: string
+      kind:
+        type: string
+      last_mentioned_at:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      proof_count:
+        type: integer
     type: object
   orgInviteAcceptResponse:
     properties:
@@ -3726,6 +3856,13 @@ definitions:
           type: string
         type: array
     type: object
+  setSourceChannelsRequest:
+    properties:
+      channel_ids:
+        items:
+          type: string
+        type: array
+    type: object
   sheetArchivedRowsResponse:
     properties:
       archived:
@@ -4010,6 +4147,13 @@ definitions:
       channels:
         items:
           $ref: '#/definitions/slackChannelResponse'
+        type: array
+    type: object
+  sourceChannelsResponse:
+    properties:
+      channel_ids:
+        items:
+          type: string
         type: array
     type: object
   spendOverTime:
@@ -7313,7 +7457,9 @@ paths:
       - channels
   /v1/channels/{id}:
     delete:
-      description: Archives a non-default, non-personal channel.
+      description: 'Deletes a non-default, non-personal channel: it archives the channel
+        and all its sessions, then queues deletion of the channel''s memories. Rejected
+        with 409 if any session has an in-progress agent turn.'
       parameters:
       - description: Channel ID
         in: path
@@ -7343,13 +7489,17 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Archive a channel
+      summary: Delete a channel
       tags:
       - channels
     get:
@@ -8483,6 +8633,157 @@ paths:
       summary: Test database integration
       tags:
       - database-integrations
+  /v1/directives:
+    get:
+      description: 'Lists agent directives. channel_id filters: a channel UUID returns
+        that channel''s directives plus org-wide ones (the injected set for the channel),
+        "org" returns org-wide only, omitted returns all.'
+      parameters:
+      - description: 'Filter: channel UUID (channel + org-wide), \'
+        in: query
+        name: channel_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/directiveListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List directives
+      tags:
+      - directives
+    post:
+      consumes:
+      - application/json
+      description: Creates a manual (user-pinned) directive in a channel (channel_id)
+        or org-wide (omit channel_id). Requires an org admin/owner.
+      parameters:
+      - description: Directive content and optional channel_id
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/directiveMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/directiveResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a directive
+      tags:
+      - directives
+  /v1/directives/{id}:
+    delete:
+      description: Permanently deletes a directive so it is no longer injected into
+        prompts. Requires an org admin/owner.
+      parameters:
+      - description: Directive UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a directive
+      tags:
+      - directives
+    patch:
+      consumes:
+      - application/json
+      description: Updates a directive's content and/or active flag. Requires an org
+        admin/owner.
+      parameters:
+      - description: Directive UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/directiveMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/directiveResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a directive
+      tags:
+      - directives
   /v1/generations:
     get:
       description: Returns generation records for the current organization with cursor
@@ -9042,6 +9343,202 @@ paths:
       summary: List user-selectable models across providers
       tags:
       - providers
+  /v1/observations:
+    get:
+      description: 'Lists consolidated memory observations, non-archived first. channel_id
+        filters: a channel UUID for that channel, "org" for org-wide, omitted for
+        all. Paginate with limit/offset.'
+      parameters:
+      - description: 'Filter: channel UUID, \'
+        in: query
+        name: channel_id
+        type: string
+      - description: Max items (1-100, default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/observationListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List memory observations
+      tags:
+      - observations
+  /v1/observations/{id}:
+    delete:
+      description: Archives the observation and records its content fingerprint in
+        the per-channel suppression list so consolidation cannot resurrect it. Requires
+        an org admin/owner.
+      parameters:
+      - description: Observation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete an observation
+      tags:
+      - observations
+  /v1/observations/{id}/confirm:
+    post:
+      description: 'Human confirmation: increments proof_count and refreshes last_mentioned_at.
+        Requires an org admin/owner.'
+      parameters:
+      - description: Observation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/observationResponse'
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Confirm an observation
+      tags:
+      - observations
+  /v1/observations/{id}/correct:
+    post:
+      consumes:
+      - application/json
+      description: 'Human edit: creates a new human-verified observation with the
+        corrected content (proof count carried over) and archives the old one with
+        a supersession link. Requires an org admin/owner.'
+      parameters:
+      - description: Observation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Corrected content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/observationCorrectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/observationResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Correct an observation
+      tags:
+      - observations
+  /v1/observations/{id}/pin:
+    post:
+      description: Promotes the observation into an agent directive (source extracted-confirmed)
+        in the observation's scope, and marks the observation as pinned. Requires
+        an org admin/owner.
+      parameters:
+      - description: Observation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Pin an observation to a directive
+      tags:
+      - observations
   /v1/orgs:
     post:
       consumes:
@@ -10328,6 +10825,44 @@ paths:
       summary: Get an index-attempt with per-doc errors
       tags:
       - rag
+  /v1/rag/sources/{id}/channels:
+    put:
+      consumes:
+      - application/json
+      description: Replaces the full set of channels granted access to this knowledge
+        source. Each channel must belong to the org. An empty set removes all grants.
+      parameters:
+      - description: RAG source ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel IDs
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/setSourceChannelsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sourceChannelsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set which channels can search a source
+      tags:
+      - rag
   /v1/rag/sources/{id}/documents:
     get:
       description: Lists the documents ingested into the knowledge base for a source,
@@ -10431,6 +10966,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Trigger an immediate ingest
+      tags:
+      - rag
+  /v1/rag/website/discover-sections:
+    post:
+      consumes:
+      - application/json
+      description: Crawls a site's links via Spider and groups them into sections
+        (path clusters) and individual pages, so a website knowledge source can be
+        scoped to a set of URLs.
+      parameters:
+      - description: Website URL
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/discoverWebsiteSectionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SectionDiscovery'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Discover the sections of a website
       tags:
       - rag
   /v1/reporting:

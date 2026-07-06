@@ -1,139 +1,238 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ComponentProps } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMemo, useState, type FormEvent } from "react"
 import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import {
+  AlertDialog,
+  Button,
   Input,
   ListBox,
+  Modal,
   Popover,
   Select,
   Skeleton,
   Spinner,
+  TextArea,
   toast,
 } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { api } from "@/lib/api/client"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import {
+  confirmObservation,
+  correctObservation,
+  createDirective,
+  deleteObservation,
+  listDirectives,
+  listObservations,
+  memoryQueryKeys,
+  observationKind,
+  pinObservation,
+  updateDirective,
+  type Directive,
+  type Observation,
+} from "@/lib/api/memory"
 
-type Memory = {
-  id: string
-  content: string
-  tags: string[]
-  createdAt: string
-  channelId: string | null
-}
+type Channel = { id?: string; name?: string }
 
-type GroupState = {
-  key: string // channelId, or "global"
-  channelId: string | null
-  channelName: string
-  memories: Memory[]
+const PAGE_SIZE = 30
+
+type ExtraPages = {
+  channelId: string
+  observations: Observation[]
   hasMore: boolean
-  cursor: string | null
-  loadingMore: boolean
 }
-
-const PER_CHANNEL = 10
 
 export default function MemoriesSettingsPage() {
   const queryClient = useQueryClient()
-  const groupedQuery = $api.useQuery("get", "/v1/memories/grouped", {
-    params: { query: { per_channel: PER_CHANNEL } },
+
+  const channelsQuery = $api.useQuery("get", "/v1/channels", {
+    params: { query: { limit: 200 } },
   })
-  const [groups, setGroups] = useState<GroupState[]>([])
-  const [query, setQuery] = useState("")
-  const [channel, setChannel] = useState("all")
+  const channels = useMemo(
+    () => (channelsQuery.data?.data ?? []) as Channel[],
+    [channelsQuery.data?.data]
+  )
+  const [selectedChannelId, setSelectedChannelId] = useState("")
+  const channelId = selectedChannelId || channels[0]?.id || ""
 
-  useEffect(() => {
-    if (!groupedQuery.data?.groups) return
-    setGroups(groupedQuery.data.groups.map(toGroupState))
-  }, [groupedQuery.data])
+  const directivesQuery = useQuery({
+    queryKey: memoryQueryKeys.directives(channelId),
+    queryFn: () => listDirectives(channelId),
+    enabled: Boolean(channelId),
+  })
+  const observationsQuery = useQuery({
+    queryKey: memoryQueryKeys.observations(channelId),
+    queryFn: () => listObservations(channelId, { limit: PAGE_SIZE }),
+    enabled: Boolean(channelId),
+  })
 
-  const invalidate = () =>
+  // Pages beyond the first, accumulated locally; reset whenever the first
+  // page refetches (mutations invalidate) or the channel changes.
+  const [extraPages, setExtraPages] = useState<ExtraPages | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const extra = extraPages?.channelId === channelId ? extraPages : null
+
+  const observations = useMemo(() => {
+    const first = observationsQuery.data?.observations ?? []
+    if (!extra) return first
+    const seen = new Set(first.map((observation) => observation.id))
+    return [
+      ...first,
+      ...extra.observations.filter((observation) => !seen.has(observation.id)),
+    ]
+  }, [observationsQuery.data, extra])
+  const hasMore = extra?.hasMore ?? Boolean(observationsQuery.data?.hasMore)
+
+  const directives = useMemo(
+    () => (directivesQuery.data ?? []).filter((directive) => directive.active),
+    [directivesQuery.data]
+  )
+
+  function invalidateObservations() {
+    setExtraPages(null)
     queryClient.invalidateQueries({
-      queryKey: ["get", "/v1/memories/grouped"],
+      queryKey: memoryQueryKeys.observations(channelId),
     })
-
-  const forgetMutation = $api.useMutation("delete", "/v1/memories/{id}")
-  const updateMutation = $api.useMutation("patch", "/v1/memories/{id}")
-
-  function forget(memoryId: string) {
-    forgetMutation.mutate(
-      { params: { path: { id: memoryId } } },
-      {
-        onSuccess: () => {
-          toast.success("Memory forgotten")
-          invalidate()
-        },
-        onError: (error) =>
-          toast.danger(extractErrorMessage(error, "Could not forget memory")),
-      }
-    )
+  }
+  function invalidateDirectives() {
+    queryClient.invalidateQueries({
+      queryKey: memoryQueryKeys.directives(channelId),
+    })
   }
 
-  function makeGlobal(memoryId: string) {
-    updateMutation.mutate(
-      { params: { path: { id: memoryId } }, body: { channel_id: "org" } },
-      {
-        onSuccess: () => {
-          toast.success("Memory is now global")
-          invalidate()
-        },
-        onError: (error) =>
-          toast.danger(extractErrorMessage(error, "Could not update memory")),
-      }
-    )
-  }
-
-  async function loadMore(key: string) {
-    const group = groups.find((g) => g.key === key)
-    if (!group || group.loadingMore) return
-    setGroups((current) =>
-      current.map((g) => (g.key === key ? { ...g, loadingMore: true } : g))
-    )
+  async function loadMore() {
+    if (!channelId || !hasMore || loadingMore) return
+    setLoadingMore(true)
     try {
-      const { data, error } = await api.GET(
-        "/v1/memories/channels/{channelId}",
-        {
-          params: {
-            path: { channelId: group.channelId ?? "global" },
-            query: { cursor: group.cursor ?? undefined, limit: PER_CHANNEL },
-          },
-        }
-      )
-      if (error) throw error
-      setGroups((current) =>
-        current.map((g) =>
-          g.key === key
-            ? {
-                ...g,
-                memories: [...g.memories, ...(data?.data ?? []).map(toMemory)],
-                cursor: data?.next_cursor ?? null,
-                hasMore: Boolean(data?.has_more),
-                loadingMore: false,
-              }
-            : g
-        )
-      )
+      // Offset pagination: skip everything already fetched (raw page counts,
+      // before display-side dedupe).
+      const offset =
+        (observationsQuery.data?.observations.length ?? 0) +
+        (extra?.observations.length ?? 0)
+      const page = await listObservations(channelId, {
+        offset,
+        limit: PAGE_SIZE,
+      })
+      setExtraPages({
+        channelId,
+        observations: [...(extra?.observations ?? []), ...page.observations],
+        hasMore: page.hasMore,
+      })
     } catch (error) {
-      setGroups((current) =>
-        current.map((g) => (g.key === key ? { ...g, loadingMore: false } : g))
-      )
       toast.danger(extractErrorMessage(error, "Could not load more memories"))
+    } finally {
+      setLoadingMore(false)
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Observation actions
+  // -------------------------------------------------------------------------
+
+  const confirmMutation = useMutation({
+    mutationFn: (id: string) => confirmObservation(id),
+    onSuccess: () => {
+      toast.success("Memory confirmed")
+      invalidateObservations()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not confirm memory")),
+  })
+
+  const [editTarget, setEditTarget] = useState<Observation | null>(null)
+  const correctMutation = useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) =>
+      correctObservation(id, content),
+    onSuccess: () => {
+      toast.success("Memory corrected")
+      setEditTarget(null)
+      invalidateObservations()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not update memory")),
+  })
+
+  const [deleteTarget, setDeleteTarget] = useState<Observation | null>(null)
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteObservation(id),
+    onSuccess: () => {
+      toast.success("Memory deleted")
+      setDeleteTarget(null)
+      invalidateObservations()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not delete memory")),
+  })
+
+  const pinMutation = useMutation({
+    mutationFn: (id: string) => pinObservation(id),
+    onSuccess: () => {
+      toast.success("Pinned as rule")
+      invalidateObservations()
+      invalidateDirectives()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not pin memory")),
+  })
+
+  // -------------------------------------------------------------------------
+  // Directive actions
+  // -------------------------------------------------------------------------
+
+  const [newRule, setNewRule] = useState("")
+  const addRuleMutation = useMutation({
+    mutationFn: (content: string) => createDirective(channelId, content),
+    onSuccess: () => {
+      toast.success("Rule added")
+      setNewRule("")
+      invalidateDirectives()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not add rule")),
+  })
+
+  const [editRuleTarget, setEditRuleTarget] = useState<Directive | null>(null)
+  const updateRuleMutation = useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) =>
+      updateDirective(id, { content }),
+    onSuccess: () => {
+      toast.success("Rule updated")
+      setEditRuleTarget(null)
+      invalidateDirectives()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not update rule")),
+  })
+
+  const deactivateRuleMutation = useMutation({
+    mutationFn: (id: string) => updateDirective(id, { active: false }),
+    onSuccess: () => {
+      toast.success("Rule deactivated")
+      invalidateDirectives()
+    },
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not deactivate rule")),
+  })
+
+  function submitRule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const content = newRule.trim()
+    if (!content || !channelId || addRuleMutation.isPending) return
+    addRuleMutation.mutate(content)
+  }
+
   const channelOptions = useMemo(
-    () => [
-      { id: "all", label: "All channels" },
-      ...groups.map((group) => ({ id: group.key, label: group.channelName })),
-    ],
-    [groups]
-  )
-  const filtered = useMemo(
-    () => filterGroups(groups, query, channel),
-    [groups, query, channel]
+    () =>
+      channels.map((channel) => ({
+        id: channel.id ?? "",
+        label: channel.name ?? "Channel",
+      })),
+    [channels]
   )
 
   return (
@@ -141,168 +240,342 @@ export default function MemoriesSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Memories</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Durable facts your agents remember, grouped by the channel they belong
-          to. Global memories are shared with every channel set to expose them.
+          What this channel&apos;s agent remembers: rules you control, and
+          memories it builds as it works. Confirm, correct, or delete anything.
         </p>
       </div>
 
-      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 flex-1">
-          <AppIcon
-            icon="search"
-            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search loaded memories"
-            className="h-10 w-full rounded-md bg-card pl-9"
-          />
-        </div>
-        <ChannelSelect
-          options={channelOptions}
-          value={channel}
-          onChange={setChannel}
-        />
-      </div>
-
-      {groupedQuery.isLoading ? (
+      {channelsQuery.isLoading ? (
         <LoadingState />
-      ) : groupedQuery.isError ? (
-        <ErrorState />
-      ) : filtered.length === 0 ? (
-        <EmptyState query={query} hasAny={groups.length > 0} />
-      ) : (
-        <div className="flex flex-col gap-8">
-          {filtered.map((group) => (
-            <ChannelSection
-              key={group.key}
-              group={group}
-              onForget={forget}
-              onMakeGlobal={makeGlobal}
-              onLoadMore={() => loadMore(group.key)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ChannelSection({
-  group,
-  onForget,
-  onMakeGlobal,
-  onLoadMore,
-}: {
-  group: GroupState
-  onForget: (memoryId: string) => void
-  onMakeGlobal: (memoryId: string) => void
-  onLoadMore: () => void
-}) {
-  const orgWide = group.channelId === null
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <AppIcon
-          icon={orgWide ? "globe" : "hash"}
-          className="h-4 w-4 text-muted-foreground"
+      ) : channelsQuery.isError ? (
+        <ErrorState label="Could not load channels" />
+      ) : channels.length === 0 ? (
+        <EmptyCard
+          icon="hash"
+          title="No channels yet"
+          body="Create a channel and its memories will appear here."
         />
-        <h2 className="text-sm font-medium text-foreground">
-          {group.channelName}
-        </h2>
-        <span className="text-xs text-muted-foreground">{group.memories.length}</span>
-      </div>
-      <div className="flex flex-col gap-2">
-        {group.memories.map((memory) => (
-          <MemoryCard
-            key={memory.id}
-            memory={memory}
-            orgWide={orgWide}
-            onForget={() => onForget(memory.id)}
-            onMakeGlobal={() => onMakeGlobal(memory.id)}
+      ) : (
+        <>
+          <ChannelSelect
+            options={channelOptions}
+            value={channelId}
+            onChange={setSelectedChannelId}
           />
-        ))}
-      </div>
-      {group.hasMore ? (
-        <button
-          type="button"
-          onClick={onLoadMore}
-          disabled={group.loadingMore}
-          className="hover:bg-default flex items-center justify-center gap-2 self-start rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors disabled:opacity-60"
-        >
-          {group.loadingMore ? (
-            <Spinner color="current" size="sm" />
-          ) : (
-            <AppIcon icon="chevron-down" className="h-4 w-4" />
-          )}
-          Load more
-        </button>
-      ) : null}
-    </section>
-  )
-}
 
-function MemoryCard({
-  memory,
-  orgWide,
-  onForget,
-  onMakeGlobal,
-}: {
-  memory: Memory
-  orgWide: boolean
-  onForget: () => void
-  onMakeGlobal: () => void
-}) {
-  return (
-    <div className="group flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <p className="text-xs leading-5 text-foreground">{memory.content}</p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {memory.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-md bg-default px-1.5 py-0.5 text-xs text-muted-foreground"
-            >
-              {tag}
-            </span>
-          ))}
-          <span className="text-xs text-muted-foreground">
-            {memory.tags.length > 0 ? "· " : ""}
-            {relativeTime(memory.createdAt)}
-          </span>
-        </div>
-      </div>
-      <MemoryActionsMenu
-        orgWide={orgWide}
-        onForget={onForget}
-        onMakeGlobal={onMakeGlobal}
+          <section className="flex flex-col gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <AppIcon
+                  icon="list-checks"
+                  className="h-4 w-4 text-muted-foreground"
+                />
+                Rules
+                {directives.length > 0 ? (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {directives.length}
+                  </span>
+                ) : null}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Rules are injected into every session in this channel.
+              </p>
+            </div>
+
+            {directivesQuery.isLoading ? (
+              <RowSkeletons count={2} />
+            ) : directivesQuery.isError ? (
+              <ErrorState label="Could not load rules" />
+            ) : directives.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
+                No rules yet. Add one below, or pin a memory as a rule.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {directives.map((directive) => (
+                  <DirectiveRow
+                    key={directive.id}
+                    directive={directive}
+                    onEdit={() => setEditRuleTarget(directive)}
+                    onDeactivate={() =>
+                      deactivateRuleMutation.mutate(directive.id)
+                    }
+                  />
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={submitRule} className="flex items-center gap-2">
+              <Input
+                value={newRule}
+                onChange={(event) => setNewRule(event.target.value)}
+                placeholder="Add a rule, e.g. Always reply in English"
+                aria-label="New rule"
+                className="h-10 min-w-0 flex-1"
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                isDisabled={
+                  !newRule.trim() || !channelId || addRuleMutation.isPending
+                }
+              >
+                {addRuleMutation.isPending ? (
+                  <Spinner color="current" size="sm" />
+                ) : (
+                  <AppIcon icon="plus" className="h-4 w-4" />
+                )}
+                Add rule
+              </Button>
+            </form>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <AppIcon
+                  icon="brain"
+                  className="h-4 w-4 text-muted-foreground"
+                />
+                Memories
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Built automatically from sessions in this channel. Confirming a
+                memory strengthens it; deleting prevents re-learning.
+              </p>
+            </div>
+
+            {observationsQuery.isLoading ? (
+              <RowSkeletons count={3} />
+            ) : observationsQuery.isError ? (
+              <ErrorState label="Could not load memories" />
+            ) : observations.length === 0 ? (
+              <EmptyCard
+                icon="brain"
+                title="No memories yet"
+                body="Memories appear here as the agent works — durable facts, decisions, and preferences it learns from sessions in this channel."
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {observations.map((observation) => (
+                  <ObservationRow
+                    key={observation.id}
+                    observation={observation}
+                    onConfirm={() => confirmMutation.mutate(observation.id)}
+                    onEdit={() => setEditTarget(observation)}
+                    onPin={() => pinMutation.mutate(observation.id)}
+                    onDelete={() => setDeleteTarget(observation)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="hover:bg-default flex items-center justify-center gap-2 self-start rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <Spinner color="current" size="sm" />
+                ) : (
+                  <AppIcon icon="chevron-down" className="h-4 w-4" />
+                )}
+                Load more
+              </button>
+            ) : null}
+          </section>
+        </>
+      )}
+
+      <EditContentModal
+        open={editTarget !== null}
+        heading="Edit memory"
+        description="Your correction becomes the verified version of this memory."
+        initialContent={editTarget?.content ?? ""}
+        pending={correctMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open && !correctMutation.isPending) setEditTarget(null)
+        }}
+        onSave={(content) => {
+          if (editTarget) correctMutation.mutate({ id: editTarget.id, content })
+        }}
+      />
+
+      <EditContentModal
+        open={editRuleTarget !== null}
+        heading="Edit rule"
+        description="Rules are injected verbatim into every session in this channel."
+        initialContent={editRuleTarget?.content ?? ""}
+        pending={updateRuleMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open && !updateRuleMutation.isPending) setEditRuleTarget(null)
+        }}
+        onSave={(content) => {
+          if (editRuleTarget)
+            updateRuleMutation.mutate({ id: editRuleTarget.id, content })
+        }}
+      />
+
+      <DeleteMemoryDialog
+        target={deleteTarget}
+        pending={deleteMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setDeleteTarget(null)
+        }}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
+        }}
       />
     </div>
   )
 }
 
-function MemoryActionsMenu({
-  orgWide,
-  onForget,
-  onMakeGlobal,
-  placement = "bottom end",
+function DirectiveRow({
+  directive,
+  onEdit,
+  onDeactivate,
 }: {
-  orgWide: boolean
-  onForget: () => void
-  onMakeGlobal: () => void
-  placement?: ComponentProps<typeof Popover.Content>["placement"]
+  directive: Directive
+  onEdit: () => void
+  onDeactivate: () => void
 }) {
+  return (
+    <div className="group flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <p className="text-sm leading-5 text-foreground">{directive.content}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-md bg-default px-1.5 py-0.5 text-xs text-muted-foreground">
+            {directive.source === "user-pinned"
+              ? "Pinned by you"
+              : "From memory"}
+          </span>
+          {directive.createdAt ? (
+            <span className="text-xs text-muted-foreground">
+              · {relativeTime(directive.createdAt)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <ActionsMenu
+        label="Rule options"
+        items={[
+          { key: "edit", label: "Edit rule", icon: "pencil", onSelect: onEdit },
+          {
+            key: "deactivate",
+            label: "Deactivate rule",
+            icon: "circle-slash",
+            danger: true,
+            onSelect: onDeactivate,
+          },
+        ]}
+      />
+    </div>
+  )
+}
+
+function ObservationRow({
+  observation,
+  onConfirm,
+  onEdit,
+  onPin,
+  onDelete,
+}: {
+  observation: Observation
+  onConfirm: () => void
+  onEdit: () => void
+  onPin: () => void
+  onDelete: () => void
+}) {
+  const kind = observationKind(observation.kind)
+  return (
+    <div className="group flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <p className="text-sm leading-5 text-foreground">
+          {observation.content}
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${kind.chipClass}`}
+          >
+            {kind.label}
+          </span>
+          {observation.humanVerified ? (
+            <span className="flex items-center gap-1 rounded-md bg-success/15 px-1.5 py-0.5 text-xs text-success">
+              <AppIcon icon="shield-check" className="h-3 w-3" />
+              Verified
+            </span>
+          ) : null}
+          {observation.proofCount > 1 ? (
+            <span className="text-xs text-muted-foreground">
+              confirmed {observation.proofCount}×
+            </span>
+          ) : null}
+          {observation.entities.map((entity) => (
+            <span
+              key={entity}
+              className="rounded-md bg-default px-1.5 py-0.5 text-xs text-muted-foreground"
+            >
+              {entity}
+            </span>
+          ))}
+          {observation.expiresAt ? (
+            <span className="flex items-center gap-1 text-xs text-warning">
+              <AppIcon icon="clock-alert" className="h-3 w-3" />
+              Expires {shortDate(observation.expiresAt)}
+            </span>
+          ) : null}
+          <span className="text-xs text-muted-foreground">
+            · {relativeTime(observation.lastMentionedAt || observation.createdAt)}
+          </span>
+        </div>
+      </div>
+      <ActionsMenu
+        label="Memory options"
+        items={[
+          {
+            key: "confirm",
+            label: "Confirm",
+            icon: "check-circle",
+            onSelect: onConfirm,
+          },
+          { key: "edit", label: "Edit", icon: "pencil", onSelect: onEdit },
+          {
+            key: "pin",
+            label: "Pin as rule",
+            icon: "list-checks",
+            onSelect: onPin,
+          },
+          {
+            key: "delete",
+            label: "Delete",
+            icon: "trash-2",
+            danger: true,
+            onSelect: onDelete,
+          },
+        ]}
+      />
+    </div>
+  )
+}
+
+type MenuItem = {
+  key: string
+  label: string
+  icon: string
+  danger?: boolean
+  onSelect: () => void
+}
+
+function ActionsMenu({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false)
-  function select(action: "global" | "forget") {
-    if (action === "global") onMakeGlobal()
-    else onForget()
-    setOpen(false)
-  }
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Popover.Trigger
-        aria-label="Memory options"
+        aria-label={label}
         data-open={open ? "true" : undefined}
         className="hover:bg-default data-[open=true]:bg-default -mr-1 flex shrink-0 items-center rounded-md p-1 text-muted-foreground transition-colors"
       >
@@ -310,33 +583,209 @@ function MemoryActionsMenu({
       </Popover.Trigger>
       {open ? (
         <Popover.Content
-          placement={placement}
+          placement="bottom end"
           offset={6}
           className="w-52 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            {!orgWide ? (
+            {items.map((item) => (
               <button
+                key={item.key}
                 type="button"
-                onClick={() => select("global")}
-                className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+                onClick={() => {
+                  item.onSelect()
+                  setOpen(false)
+                }}
+                className={
+                  item.danger
+                    ? "flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
+                    : "hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+                }
               >
-                <AppIcon icon="globe" className="h-4 w-4 shrink-0" />
-                Make global
+                <AppIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                {item.label}
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => select("forget")}
-              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
-            >
-              <AppIcon icon="trash-2" className="h-4 w-4 shrink-0" />
-              Forget memory
-            </button>
+            ))}
           </Popover.Dialog>
         </Popover.Content>
       ) : null}
     </Popover>
+  )
+}
+
+function EditContentModal({
+  open,
+  heading,
+  description,
+  initialContent,
+  pending,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean
+  heading: string
+  description: string
+  initialContent: string
+  pending: boolean
+  onOpenChange: (open: boolean) => void
+  onSave: (content: string) => void
+}) {
+  if (!open) return null
+  return (
+    <EditContentModalContent
+      heading={heading}
+      description={description}
+      initialContent={initialContent}
+      pending={pending}
+      onOpenChange={onOpenChange}
+      onSave={onSave}
+    />
+  )
+}
+
+function EditContentModalContent({
+  heading,
+  description,
+  initialContent,
+  pending,
+  onOpenChange,
+  onSave,
+}: {
+  heading: string
+  description: string
+  initialContent: string
+  pending: boolean
+  onOpenChange: (open: boolean) => void
+  onSave: (content: string) => void
+}) {
+  const [content, setContent] = useState(initialContent)
+  const trimmed = content.trim()
+  const invalid = trimmed.length === 0
+  const unchanged = trimmed === initialContent.trim()
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (invalid || pending) return
+    if (unchanged) {
+      onOpenChange(false)
+      return
+    }
+    onSave(trimmed)
+  }
+
+  return (
+    <Modal isOpen onOpenChange={onOpenChange}>
+      <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
+        <Modal.Container placement="center" size="sm">
+          <Modal.Dialog className="p-8">
+            <Modal.CloseTrigger />
+            <form onSubmit={submit}>
+              <Modal.Header>
+                <Modal.Icon className="bg-default size-12 text-foreground">
+                  <AppIcon icon="pencil" className="h-6 w-6" />
+                </Modal.Icon>
+                <div className="flex flex-col gap-1">
+                  <Modal.Heading>{heading}</Modal.Heading>
+                  <p className="text-sm text-muted">{description}</p>
+                </div>
+              </Modal.Header>
+              <Modal.Body>
+                <TextArea
+                  autoFocus
+                  value={content}
+                  disabled={pending}
+                  aria-label={heading}
+                  rows={4}
+                  fullWidth
+                  onChange={(event) => setContent(event.target.value)}
+                />
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  type="button"
+                  variant="tertiary"
+                  size="sm"
+                  isDisabled={pending}
+                  onPress={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isDisabled={invalid || unchanged || pending}
+                >
+                  {pending ? <Spinner color="current" size="sm" /> : null}
+                  Save
+                </Button>
+              </Modal.Footer>
+            </form>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  )
+}
+
+function DeleteMemoryDialog({
+  target,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  target: Observation | null
+  pending: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialog.Backdrop
+        isOpen={target !== null}
+        onOpenChange={(next) => {
+          if (!pending) onOpenChange(next)
+        }}
+        className="bg-background/80 backdrop-blur-sm"
+      >
+        <AlertDialog.Container placement="center" size="sm">
+          <AlertDialog.Dialog className="p-8">
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="danger">
+                <AppIcon icon="trash-2" className="h-6 w-6" />
+              </AlertDialog.Icon>
+              <div className="flex flex-col gap-1">
+                <AlertDialog.Heading>Delete memory</AlertDialog.Heading>
+                <p className="text-sm text-muted">
+                  This removes the memory and prevents the agent from
+                  re-learning it in this channel.
+                </p>
+              </div>
+            </AlertDialog.Header>
+            <AlertDialog.Footer>
+              <Button
+                variant="tertiary"
+                size="sm"
+                isDisabled={pending}
+                onPress={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-danger text-danger-foreground hover:bg-danger/90"
+                isDisabled={pending}
+                onPress={onConfirm}
+              >
+                {pending ? <Spinner color="current" size="sm" /> : null}
+                Delete
+              </Button>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
+    </AlertDialog>
   )
 }
 
@@ -349,18 +798,25 @@ function ChannelSelect({
   value: string
   onChange: (value: string) => void
 }) {
+  const selected = options.find((option) => option.id === value)
   return (
     <Select
-      aria-label="Filter by channel"
-      value={value}
-      onChange={(key) => onChange(String(key))}
-      className="w-full sm:w-52"
+      aria-label="Channel"
+      selectedKey={value || null}
+      onSelectionChange={(key) => onChange(key === null ? "" : String(key))}
+      className="w-full sm:w-64"
     >
       <Select.Trigger className="h-10 w-full justify-between px-3 text-sm transition-colors">
-        <Select.Value />
+        <span className="flex min-w-0 items-center gap-2">
+          <AppIcon
+            icon="hash"
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+          />
+          <span className="truncate">{selected?.label ?? "Select channel"}</span>
+        </span>
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="w-52 p-1.5">
+      <Select.Popover className="w-64 p-1.5">
         <ListBox>
           {options.map((option) => (
             <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
@@ -373,45 +829,43 @@ function ChannelSelect({
   )
 }
 
-function LoadingState() {
+function RowSkeletons({ count }: { count: number }) {
   return (
-    <div className="flex flex-col gap-8">
-      {Array.from({ length: 2 }).map((_, section) => (
-        <section key={section} className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-4 rounded" />
-            <Skeleton className="h-4 w-32 rounded" />
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: count }).map((_, row) => (
+        <div
+          key={row}
+          className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Skeleton className="h-3.5 w-full max-w-md rounded" />
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="h-4 w-14 rounded-md" />
+              <Skeleton className="h-4 w-16 rounded-md" />
+            </div>
           </div>
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: section === 0 ? 2 : 3 }).map((_, row) => (
-              <div
-                key={row}
-                className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3"
-              >
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <Skeleton className="h-3.5 w-full max-w-md rounded" />
-                  <div className="flex items-center gap-1.5">
-                    <Skeleton className="h-4 w-14 rounded-md" />
-                    <Skeleton className="h-4 w-16 rounded-md" />
-                  </div>
-                </div>
-                <Skeleton className="h-6 w-6 rounded-md" />
-              </div>
-            ))}
-          </div>
-        </section>
+          <Skeleton className="h-6 w-6 rounded-md" />
+        </div>
       ))}
     </div>
   )
 }
 
-function ErrorState() {
+function LoadingState() {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
+    <div className="flex flex-col gap-8">
+      <Skeleton className="h-10 w-64 rounded-lg" />
+      <RowSkeletons count={2} />
+      <RowSkeletons count={3} />
+    </div>
+  )
+}
+
+function ErrorState({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-32 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
       <AppIcon icon="triangle-alert" className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">
-        Could not load memories
-      </p>
+      <p className="mt-3 text-sm font-medium text-foreground">{label}</p>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         Refresh the page to try again.
       </p>
@@ -419,84 +873,22 @@ function ErrorState() {
   )
 }
 
-function EmptyState({ query, hasAny }: { query: string; hasAny: boolean }) {
+function EmptyCard({
+  icon,
+  title,
+  body,
+}: {
+  icon: string
+  title: string
+  body: string
+}) {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon="brain" className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">
-        {query ? "No matching memories" : "No memories yet"}
-      </p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        {query
-          ? "Try a different search."
-          : hasAny
-            ? "All memories were removed."
-            : "Your agents will remember durable facts here as they work in each channel."}
-      </p>
+      <AppIcon icon={icon} className="h-7 w-7 text-muted-foreground" />
+      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{body}</p>
     </div>
   )
-}
-
-type ApiGroup = {
-  channel_id?: string
-  channel_name?: string
-  memories?: ApiMemory[]
-  has_more?: boolean
-  total?: number
-  next_cursor?: string
-}
-type ApiMemory = {
-  id?: string
-  content?: string
-  tags?: string[]
-  created_at?: string
-  channel_id?: string
-}
-
-function toGroupState(group: ApiGroup): GroupState {
-  const channelId = group.channel_id ?? null
-  return {
-    key: channelId ?? "global",
-    channelId,
-    channelName: group.channel_name ?? "Global",
-    memories: (group.memories ?? []).map(toMemory),
-    hasMore: Boolean(group.has_more),
-    cursor: group.next_cursor ?? null,
-    loadingMore: false,
-  }
-}
-
-function toMemory(memory: ApiMemory): Memory {
-  return {
-    id: memory.id ?? "",
-    content: memory.content ?? "",
-    tags: memory.tags ?? [],
-    createdAt: memory.created_at ?? "",
-    channelId: memory.channel_id ?? null,
-  }
-}
-
-function filterGroups(
-  groups: GroupState[],
-  query: string,
-  channel: string
-): GroupState[] {
-  const q = query.trim().toLowerCase()
-  return groups
-    .filter((group) => channel === "all" || group.key === channel)
-    .map((group) => ({
-      ...group,
-      memories: !q
-        ? group.memories
-        : group.memories.filter(
-            (memory) =>
-              memory.content.toLowerCase().includes(q) ||
-              memory.tags.some((tag) => tag.toLowerCase().includes(q))
-          ),
-    }))
-    .filter(
-      (group) => group.memories.length > 0 || (channel === group.key && !q)
-    )
 }
 
 function relativeTime(iso: string): string {
@@ -514,4 +906,13 @@ function relativeTime(iso: string): string {
   const months = Math.floor(days / 30)
   if (months < 12) return `${months}mo ago`
   return `${Math.floor(months / 12)}y ago`
+}
+
+function shortDate(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ""
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  })
 }

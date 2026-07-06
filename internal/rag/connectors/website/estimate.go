@@ -23,16 +23,65 @@ func (c *WebsiteConnector) EstimateTotal(ctx context.Context, src interfaces.Sou
 	if err != nil {
 		return 0, err
 	}
-	base, err := url.Parse(cfg.URL)
+	base, err := url.Parse(cfg.URLs[0])
 	if err != nil || base.Host == "" {
 		return 0, nil
 	}
 
+	// Derive path prefixes from the seed URLs. A root seed ("/" or empty path)
+	// means "count the whole site"; otherwise count only sitemap URLs whose path
+	// falls under one of the selected sections/pages.
+	countAll := false
+	var prefixes []string
+	for _, seed := range cfg.URLs {
+		u, err := url.Parse(seed)
+		if err != nil {
+			continue
+		}
+		p := strings.TrimRight(u.Path, "/")
+		if p == "" {
+			countAll = true
+			break
+		}
+		prefixes = append(prefixes, p)
+	}
+
+	// Gather broadly when filtering by prefix (the sitemap holds the whole site);
+	// when counting everything, stop at MaxPages.
+	gatherCap := cfg.MaxPages
+	if !countAll {
+		gatherCap = 5000
+	}
 	sitemapURL := base.Scheme + "://" + base.Host + "/sitemap.xml"
 	seen := make(map[string]struct{})
-	countSitemapURLs(ctx, sitemapURL, seen, cfg.MaxPages, 0)
+	countSitemapURLs(ctx, sitemapURL, seen, gatherCap, 0)
 
-	return min(len(seen), cfg.MaxPages), nil
+	if countAll {
+		return min(len(seen), cfg.MaxPages), nil
+	}
+	matched := 0
+	for u := range seen {
+		if matchesAnyPrefix(u, prefixes) {
+			matched++
+		}
+	}
+	return min(matched, cfg.MaxPages), nil
+}
+
+// matchesAnyPrefix reports whether the URL's path starts with any of the given
+// path prefixes.
+func matchesAnyPrefix(rawURL string, prefixes []string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	path := u.Path
+	for _, p := range prefixes {
+		if path == p || strings.HasPrefix(path, p+"/") || strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
 }
 
 type sitemapDoc struct {

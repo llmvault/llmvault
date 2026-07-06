@@ -55,6 +55,10 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "visibility must be public or private"})
 		return
 	}
+	category, ok := channelCategoryFromCreate(w, &req, source)
+	if !ok {
+		return
+	}
 	defaultAgentID, ok := h.resolveDefaultAgentID(ctx, w, org.ID, req.DefaultAgentID)
 	if !ok {
 		return
@@ -82,6 +86,8 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		OrgID:                org.ID,
 		Name:                 name,
 		Description:          cleanStringPtr(req.Description),
+		Category:             category,
+		MemoryMission:        channelMissionForCreate(&req, category),
 		Kind:                 "standard",
 		Visibility:           visibility,
 		TeamID:               teamID,

@@ -184,6 +184,7 @@ var migratedTables = []string{
 	"brand_assets",
 	"brands",
 	"channel_members",
+	"channel_memory_digests",
 	"channels",
 	"connections",
 	"canvas_artifact_files",
@@ -194,7 +195,9 @@ var migratedTables = []string{
 	"database_connections",
 	"email_verifications",
 	"agent_assets",
+	"agent_directives",
 	"agent_memories",
+	"agent_observations",
 	"agent_plugin_installs",
 	"agent_schedule_runs",
 	"agent_schedules",
@@ -206,6 +209,7 @@ var migratedTables = []string{
 	"generations",
 	"github_pull_request_sessions",
 	"integrations",
+	"memory_suppressions",
 	"oauth_accounts",
 	"oauth_exchange_tokens",
 	"org_plugin_installs",
@@ -257,4 +261,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 73
+const latestMigrationVersion = 75

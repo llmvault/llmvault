@@ -39,11 +39,11 @@ func (s *Service) requireOrgManagerActor(ctx context.Context, orgID uuid.UUID, r
 
 const manageMemoriesDescription = `Org-wide memory manager across ALL channels and organization-wide memories. Available only to the org's default agent.
 
-action search runs a semantic search across every channel's memories plus organization-wide memories, with the owning channel identified per result. Pass channel_id to narrow to one channel, or channel_id "org" for organization-wide memories only. query is a 2-6 word phrase; tags are optional exact lowercase slug filters.
+action search runs a semantic search over consolidated observations across every channel plus organization-wide memories, with the owning channel identified per result. Pass channel_id to narrow to one channel, or channel_id "org" for organization-wide memories only. query is a 2-6 word phrase; tags are optional exact lowercase slug filters. Set include_facts true to debug the raw extracted facts layer instead.
 
 action overview returns aggregate counts: total memories, organization-wide count, per-channel counts, and top tags.
 
-action forget archives any memory in the organization by memory_id.
+action forget archives any memory in the organization by memory_id. Observation IDs (what search returns) are archived and suppressed from being re-learned; raw fact IDs are archived.
 
 action retain stores a memory into a specific channel (channel_id) or organization-wide (omit channel_id or pass "org").`
 
@@ -52,6 +52,7 @@ type manageMemoriesArgs struct {
 	ChannelID       string     `json:"channel_id"`
 	Query           string     `json:"query"`
 	Tags            []string   `json:"tags"`
+	IncludeFacts    bool       `json:"include_facts"`
 	Content         string     `json:"content"`
 	Metadata        model.JSON `json:"metadata"`
 	MemoryID        string     `json:"memory_id"`
@@ -116,9 +117,10 @@ func registerManageMemoriesTool(server *mcp.Server, service *Service, token *mod
 				},
 				"memory_id": map[string]any{
 					"type":        "string",
-					"description": "Required for action forget. UUID of the memory to archive.",
+					"description": "Required for action forget. UUID of the observation or raw fact memory to archive.",
 				},
-				"tags": memoryTagsSchema("Optional lowercase kebab-case slugs. Filter for search; labels for retain."),
+				"tags":          memoryTagsSchema("Optional lowercase kebab-case slugs. Filter for search; labels for retain."),
+				"include_facts": memoryIncludeFactsSchema(),
 				"metadata": map[string]any{
 					"type":        "object",
 					"description": "Optional for action retain. Small JSON object of non-sensitive source metadata.",

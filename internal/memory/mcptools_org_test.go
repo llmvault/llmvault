@@ -95,7 +95,12 @@ func TestManageMemoriesSearchAndOverview(t *testing.T) {
 
 	client := connectMemoryToolClient(t, ctx, service, defaultToken)
 
-	all := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "service inventory"})
+	// include_facts pins the legacy facts layer; the default observations layer
+	// has its own coverage in mcptools_observations_test.go.
+	all := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "service inventory", "include_facts": true})
+	if all["layer"] != memoryLayerFacts {
+		t.Fatalf("include_facts manage search layer = %v, want %q", all["layer"], memoryLayerFacts)
+	}
 	ids := resultIDSet(all)
 	if len(ids) != 3 || !ids[orgWideID.String()] || !ids[channelAID.String()] || !ids[channelBID.String()] {
 		t.Fatalf("manage search across all channels = %#v, want 3 spanning both channels + org-wide", all)
@@ -112,19 +117,19 @@ func TestManageMemoriesSearchAndOverview(t *testing.T) {
 		t.Fatalf("channel A result mismatch: %#v", a)
 	}
 
-	filtered := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "deploy target", "channel_id": channelB.ID.String()})
+	filtered := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "deploy target", "channel_id": channelB.ID.String(), "include_facts": true})
 	fids := resultIDSet(filtered)
 	if len(fids) != 1 || !fids[channelBID.String()] {
 		t.Fatalf("channel_id filter = %#v, want only channel B's memory", filtered)
 	}
 
-	orgOnly := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "billing policy", "channel_id": "org"})
+	orgOnly := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "billing policy", "channel_id": "org", "include_facts": true})
 	oids := resultIDSet(orgOnly)
 	if len(oids) != 1 || !oids[orgWideID.String()] {
 		t.Fatalf("channel_id=org filter = %#v, want only org-wide memory", orgOnly)
 	}
 
-	tagged := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "railway deploys", "tags": []string{"railway"}})
+	tagged := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "railway deploys", "tags": []string{"railway"}, "include_facts": true})
 	tids := resultIDSet(tagged)
 	if len(tids) != 1 || !tids[channelBID.String()] {
 		t.Fatalf("tags filter = %#v, want only channel B's memory", tagged)

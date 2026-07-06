@@ -16,6 +16,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 	fx := h.seed(t)
 	base := map[string]any{
 		"name":             "#engineering",
+		"category":         "engineering",
 		"default_agent_id": fx.agent.ID.String(),
 	}
 
@@ -262,6 +263,7 @@ func TestIntegration_ChannelsRejectReservedSystemName(t *testing.T) {
 
 	create := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":             "#system",
+		"category":         "general",
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if create.Code != http.StatusBadRequest {
