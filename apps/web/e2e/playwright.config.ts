@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: [['html'], ['list']],
   timeout: 30_000,
   use: {
-    baseURL: 'https://usehivy.com',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://usehivy.com',
     actionTimeout: 10_000,
     navigationTimeout: 20_000,
     trace: 'on-first-retry',
