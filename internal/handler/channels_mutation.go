@@ -9,6 +9,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 // Create handles POST /v1/channels.
@@ -181,8 +182,8 @@ func (h *ChannelHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Archive handles DELETE /v1/channels/{id}.
-// @Summary Archive a channel
-// @Description Archives a non-default, non-personal channel.
+// @Summary Delete a channel
+// @Description Deletes a non-default, non-personal channel: it archives the channel and all its sessions, then queues deletion of the channel's memories. Rejected with 409 if any session has an in-progress agent turn.
 // @Tags channels
 // @Produce json
 // @Param id path string true "Channel ID"
@@ -191,6 +192,7 @@ func (h *ChannelHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/channels/{id} [delete]
@@ -200,19 +202,67 @@ func (h *ChannelHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if channel.IsDefault || channel.Kind == "personal" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default and personal channels cannot be archived"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default and personal channels cannot be deleted"})
 		return
 	}
+	ctx := r.Context()
+
+	// Load the channel's live (non-archived) sessions. Deleting tears their
+	// sandboxes down, which would abort a live turn, so refuse while any turn is
+	// in progress — the same idle rule single-session archive enforces.
+	var sessions []model.Session
+	if err := h.db.WithContext(ctx).
+		Where("channel_id = ? AND org_id = ? AND status <> ?", channel.ID, channel.OrgID, "archived").
+		Find(&sessions).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load channel sessions"})
+		return
+	}
+	for _, session := range sessions {
+		if session.AgentTurnStatus == model.SessionAgentTurnActive {
+			writeJSON(w, http.StatusConflict, errorResponse{Error: "channel has a session with an in-progress turn; wait for it to finish, then try again"})
+			return
+		}
+	}
+
 	now := time.Now()
-	if err := h.db.WithContext(r.Context()).
-		Model(&model.Channel{}).
-		Where("id = ? AND org_id = ?", channel.ID, channel.OrgID).
-		Update("archived_at", &now).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to archive channel"})
+	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Channel{}).
+			Where("id = ? AND org_id = ?", channel.ID, channel.OrgID).
+			Update("archived_at", &now).Error; err != nil {
+			return err
+		}
+		if len(sessions) == 0 {
+			return nil
+		}
+		return tx.Model(&model.Session{}).
+			Where("channel_id = ? AND org_id = ? AND status <> ?", channel.ID, channel.OrgID, "archived").
+			Updates(map[string]any{
+				"status":   "archived",
+				"ended_at": gorm.Expr("COALESCE(ended_at, ?)", now),
+			}).Error
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to delete channel"})
 		return
 	}
+
+	// Tear down each archived session's sandbox and queue removal of the
+	// channel's memories. Best effort: the channel is already deleted, so a
+	// failed enqueue is logged, not surfaced.
+	for i := range sessions {
+		if sessions[i].SandboxID == nil {
+			continue
+		}
+		if err := tasks.EnqueueSandboxDelete(ctx, h.enqueuer, *sessions[i].SandboxID); err != nil {
+			logging.FromContext(ctx).ErrorContext(ctx, "enqueue sandbox teardown on channel delete", "session_id", sessions[i].ID, "error", err)
+		}
+	}
+	if err := tasks.EnqueueChannelMemoriesDelete(ctx, h.enqueuer, channel.OrgID, channel.ID); err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "enqueue channel memories delete", "channel_id", channel.ID, "error", err)
+	}
+
 	channel.ArchivedAt = &now
 	writeJSON(w, http.StatusOK, channelMutationResponse{
-		Channel: channelToResponse(channel, role, h.memberCount(r.Context(), channel.ID)),
+		Channel: channelToResponse(channel, role, h.memberCount(ctx, channel.ID)),
 	})
 }

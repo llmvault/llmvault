@@ -125,15 +125,24 @@ func (h *ChannelHandler) channelRoles(ctx context.Context, channelIDs []uuid.UUI
 }
 
 func (h *ChannelHandler) channelMembers(ctx context.Context, channelID uuid.UUID) []channelMemberResponse {
-	var members []model.ChannelMember
+	var rows []struct {
+		model.ChannelMember
+		Name  string `gorm:"column:name"`
+		Email string `gorm:"column:email"`
+	}
 	_ = h.db.WithContext(ctx).
-		Where("channel_id = ?", channelID).
-		Order("created_at ASC").
-		Find(&members).Error
-	out := make([]channelMemberResponse, len(members))
-	for i, member := range members {
+		Table("channel_members").
+		Select("channel_members.*, users.name AS name, users.email AS email").
+		Joins("LEFT JOIN users ON users.id = channel_members.user_id").
+		Where("channel_members.channel_id = ?", channelID).
+		Order("channel_members.created_at ASC").
+		Scan(&rows).Error
+	out := make([]channelMemberResponse, len(rows))
+	for i, member := range rows {
 		out[i] = channelMemberResponse{
 			UserID:    member.UserID.String(),
+			Name:      member.Name,
+			Email:     member.Email,
 			Role:      member.Role,
 			CreatedAt: member.CreatedAt.Format(http.TimeFormat),
 		}

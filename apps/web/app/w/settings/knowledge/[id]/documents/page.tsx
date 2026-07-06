@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Input } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { ProviderIcon } from "../../_provider-icon"
 import {
   providerMeta,
   sourceById,
@@ -40,7 +41,7 @@ export default function KnowledgeDocumentsPage() {
         <div className="flex items-center gap-3">
           {provider ? (
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
-              <AppIcon icon={provider.icon} className="h-5 w-5" />
+              <ProviderIcon icon={provider.icon} className="h-5 w-5" />
             </div>
           ) : null}
           <div>

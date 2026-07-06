@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -19,6 +20,14 @@ import (
 func WithChannelEnvEncryptionKey(key *crypto.SymmetricKey) ChannelHandlerOption {
 	return func(h *ChannelHandler) {
 		h.envEncKey = key
+	}
+}
+
+// WithChannelEnqueuer wires the async task enqueuer used to schedule
+// post-delete cleanup (channel memory deletion).
+func WithChannelEnqueuer(enq enqueue.TaskEnqueuer) ChannelHandlerOption {
+	return func(h *ChannelHandler) {
+		h.enqueuer = enq
 	}
 }
 

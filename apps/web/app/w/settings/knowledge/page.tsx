@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button, Popover, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
+import { ProviderIcon } from "./_provider-icon"
 import {
   providerMeta,
   STATIC_SOURCES,
@@ -122,7 +123,7 @@ function SourceCard({
   return (
     <div className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
       <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
-        <AppIcon icon={provider.icon} className="h-5 w-5" />
+        <ProviderIcon icon={provider.icon} className="h-5 w-5" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">

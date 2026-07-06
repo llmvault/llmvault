@@ -1,11 +1,12 @@
 "use client"
 
-import { useMemo, useState, type ComponentProps } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Button, Input, ListBox, Popover, Select, toast } from "@heroui/react"
+import { Button, Input, ListBox, Popover, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
+import { ProviderIcon } from "../_provider-icon"
 import { CHANNELS, PROVIDERS, providerMeta, type Provider } from "../_data"
 
 export default function NewKnowledgeSourcePage() {
@@ -14,14 +15,14 @@ export default function NewKnowledgeSourcePage() {
   const [name, setName] = useState("")
   const [provider, setProvider] = useState<Provider | "">("")
   const [resourceIds, setResourceIds] = useState<string[]>([])
-  const [channel, setChannel] = useState("")
+  const [channels, setChannels] = useState<string[]>([])
 
   const meta = provider ? providerMeta(provider) : null
   const canSubmit =
     name.trim() !== "" &&
     provider !== "" &&
     resourceIds.length > 0 &&
-    channel !== ""
+    channels.length > 0
 
   function selectProvider(next: Provider) {
     setProvider(next)
@@ -52,7 +53,7 @@ export default function NewKnowledgeSourcePage() {
           </h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
             Give the source a name, pick where it pulls from, scope it to
-            specific resources, and choose which channel can search it.
+            specific resources, and choose which channels can search it.
           </p>
         </div>
       </div>
@@ -73,8 +74,10 @@ export default function NewKnowledgeSourcePage() {
 
         {meta ? (
           <Field label={meta.resourceLabel} hint={meta.resourceHint}>
-            <ResourceMultiSelect
-              meta={meta}
+            <MultiSelect
+              ariaLabel={meta.resourceLabel}
+              placeholder={`Select ${meta.resourceLabel.toLowerCase()}`}
+              options={meta.resources}
               value={resourceIds}
               onChange={setResourceIds}
             />
@@ -82,10 +85,16 @@ export default function NewKnowledgeSourcePage() {
         ) : null}
 
         <Field
-          label="Channel"
-          hint="The channel whose agents can search this source."
+          label="Channels"
+          hint="The channels whose agents can search this source."
         >
-          <ChannelSelect value={channel} onChange={setChannel} />
+          <MultiSelect
+            ariaLabel="Channels"
+            placeholder="Select channels"
+            options={CHANNELS}
+            value={channels}
+            onChange={setChannels}
+          />
         </Field>
       </div>
 
@@ -157,7 +166,7 @@ function SourceCards({
             )}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
-              <AppIcon icon={p.icon} className="h-5 w-5" />
+              <ProviderIcon icon={p.icon} className="h-5 w-5" />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="text-sm font-medium text-foreground">
@@ -167,14 +176,12 @@ function SourceCards({
                 Scoped by {p.resourceLabel.toLowerCase()}
               </span>
             </div>
-            <span
-              className={cn(
-                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-                selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
-              )}
-            >
-              {selected ? <AppIcon icon="check" className="h-3 w-3" /> : null}
-            </span>
+            {selected ? (
+              <AppIcon
+                icon="circle-check"
+                className="h-5 w-5 shrink-0 text-success"
+              />
+            ) : null}
           </button>
         )
       })}
@@ -182,122 +189,88 @@ function SourceCards({
   )
 }
 
-function ChannelSelect({
+function MultiSelect({
+  options,
   value,
   onChange,
+  placeholder,
+  ariaLabel,
 }: {
-  value: string
-  onChange: (value: string) => void
-}) {
-  const selected = CHANNELS.find((c) => c.id === value)
-  return (
-    <Select
-      aria-label="Channel"
-      value={value}
-      onChange={(key) => onChange(String(key))}
-      className="w-full"
-    >
-      <Select.Trigger className="h-10 w-full justify-between px-3 text-sm">
-        <span className="flex items-center gap-2">
-          {selected ? (
-            <>
-              <AppIcon icon="hash" className="h-4 w-4 text-muted-foreground" />
-              {selected.name}
-            </>
-          ) : (
-            <span className="text-muted-foreground">Select a channel</span>
-          )}
-        </span>
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover className="w-[var(--trigger-width)] p-1.5">
-        <ListBox>
-          {CHANNELS.map((c) => (
-            <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
-              <span className="flex items-center gap-2">
-                <AppIcon icon="hash" className="h-4 w-4 text-muted-foreground" />
-                {c.name}
-              </span>
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  )
-}
-
-function ResourceMultiSelect({
-  meta,
-  value,
-  onChange,
-  placement = "bottom start",
-}: {
-  meta: ReturnType<typeof providerMeta>
+  options: { id: string; name: string }[]
   value: string[]
   onChange: (value: string[]) => void
-  placement?: ComponentProps<typeof Popover.Content>["placement"]
+  placeholder: string
+  ariaLabel: string
 }) {
   const [open, setOpen] = useState(false)
   const summary = useMemo(() => {
-    if (value.length === 0) return `Select ${meta.resourceLabel.toLowerCase()}`
+    if (value.length === 0) return placeholder
     if (value.length === 1) {
-      return meta.resources.find((r) => r.id === value[0])?.name ?? "1 selected"
+      return options.find((o) => o.id === value[0])?.name ?? "1 selected"
     }
     return `${value.length} selected`
-  }, [value, meta])
-
-  function toggle(id: string) {
-    onChange(
-      value.includes(id) ? value.filter((v) => v !== id) : [...value, id]
-    )
-  }
+  }, [value, options, placeholder])
 
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
+      {/* Reuses heroui's own select trigger/indicator/popover classes so it is
+          visually identical to a native Select, while a real multiple ListBox
+          drives selection. */}
       <Popover.Trigger
+        aria-label={ariaLabel}
         data-open={open ? "true" : undefined}
-        className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-card px-3 text-sm transition-colors hover:border-muted-foreground/40"
+        className="select__trigger select__trigger--full-width h-10 w-full justify-between px-3 text-sm transition-colors"
       >
         <span className={cn(value.length === 0 && "text-muted-foreground")}>
           {summary}
         </span>
-        <AppIcon icon="chevron-down" className="h-4 w-4 text-muted-foreground" />
-      </Popover.Trigger>
-      {open ? (
-        <Popover.Content
-          placement={placement}
-          offset={6}
-          className="w-[var(--trigger-width)] rounded-2xl border border-border p-1.5"
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          aria-hidden
+          className={cn(
+            "shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180"
+          )}
         >
-          <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
-            {meta.resources.map((resource) => {
-              const checked = value.includes(resource.id)
-              return (
-                <button
-                  key={resource.id}
-                  type="button"
-                  onClick={() => toggle(resource.id)}
-                  className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                      checked
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border"
-                    )}
-                  >
-                    {checked ? (
-                      <AppIcon icon="check" className="h-3 w-3" />
-                    ) : null}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{resource.name}</span>
-                </button>
-              )
-            })}
-          </Popover.Dialog>
-        </Popover.Content>
-      ) : null}
+          <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Popover.Trigger>
+      <Popover.Content
+        placement="bottom start"
+        offset={6}
+        className="select__popover w-[var(--trigger-width)] p-1.5"
+      >
+        <ListBox
+          aria-label={ariaLabel}
+          selectionMode="multiple"
+          selectedKeys={new Set(value)}
+          onSelectionChange={(keys) =>
+            onChange(
+              keys === "all"
+                ? options.map((o) => o.id)
+                : Array.from(keys, String)
+            )
+          }
+        >
+          {options.map((option) => (
+            <ListBox.Item key={option.id} id={option.id} textValue={option.name}>
+              {({ isSelected }) => (
+                <span className="flex w-full items-center justify-between gap-2">
+                  <span className="min-w-0 truncate">{option.name}</span>
+                  {isSelected ? (
+                    <AppIcon icon="tick-02" className="h-4 w-4 shrink-0" />
+                  ) : null}
+                </span>
+              )}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Popover.Content>
     </Popover>
   )
 }

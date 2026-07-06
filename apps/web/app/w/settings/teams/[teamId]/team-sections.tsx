@@ -108,79 +108,77 @@ export function TeamMembersSection({
         </Button>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-border">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-end">
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <span className="text-sm font-medium">Add existing member</span>
-            <Select
-              aria-label="Add existing member"
-              selectedKey={selectedUserId || null}
-              onSelectionChange={(key) =>
-                setSelectedUserId(key === null ? "" : String(key))
-              }
-              isDisabled={addMember.isPending || candidates.length === 0}
-              className="w-full"
-            >
-              <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
-                {selectedCandidate ? (
-                  <span className="truncate">
-                    {memberLabel(selectedCandidate)}
-                  </span>
-                ) : (
-                  <Select.Value />
-                )}
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover className="p-1.5">
-                <ListBox>
-                  {candidates.map((member) => (
-                    <ListBox.Item
-                      key={member.user_id}
-                      id={member.user_id}
-                      textValue={memberLabel(member)}
-                    >
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-sm">
-                          {memberLabel(member)}
-                        </span>
-                        <span className="truncate text-xs text-muted">
-                          {member.email}
-                        </span>
-                      </span>
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </label>
-          <Button
-            variant="primary"
-            size="sm"
-            isDisabled={!selectedUserId || addMember.isPending}
-            onPress={handleAddMember}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="text-sm font-medium">Add existing member</span>
+          <Select
+            aria-label="Add existing member"
+            selectedKey={selectedUserId || null}
+            onSelectionChange={(key) =>
+              setSelectedUserId(key === null ? "" : String(key))
+            }
+            isDisabled={addMember.isPending || candidates.length === 0}
+            className="w-full"
           >
-            {addMember.isPending ? <Spinner color="current" size="sm" /> : null}
-            Add
-          </Button>
-        </div>
+            <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
+              {selectedCandidate ? (
+                <span className="truncate">
+                  {memberLabel(selectedCandidate)}
+                </span>
+              ) : (
+                <Select.Value />
+              )}
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover className="p-1.5">
+              <ListBox>
+                {candidates.map((member) => (
+                  <ListBox.Item
+                    key={member.user_id}
+                    id={member.user_id}
+                    textValue={memberLabel(member)}
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm">
+                        {memberLabel(member)}
+                      </span>
+                      <span className="truncate text-xs text-muted">
+                        {member.email}
+                      </span>
+                    </span>
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        </label>
+        <Button
+          variant="primary"
+          size="sm"
+          isDisabled={!selectedUserId || addMember.isPending}
+          onPress={handleAddMember}
+        >
+          {addMember.isPending ? <Spinner color="current" size="sm" /> : null}
+          Add
+        </Button>
+      </div>
 
-        <div className="overflow-hidden">
-          {isLoading ? (
-            <RowSkeleton />
-          ) : members.length === 0 ? (
-            <EmptyRow text="No members in this team yet." />
-          ) : (
-            members.map((member, index) => (
-              <TeamMemberRow
-                key={member.user_id ?? index}
-                member={member}
-                last={index === members.length - 1}
-                isBusy={removeMember.isPending}
-                onRemove={() => handleRemoveMember(member)}
-              />
-            ))
-          )}
-        </div>
+      <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+        {isLoading ? (
+          <RowSkeleton />
+        ) : members.length === 0 ? (
+          <EmptyRow text="No members in this team yet." />
+        ) : (
+          members.map((member, index) => (
+            <TeamMemberRow
+              key={member.user_id ?? index}
+              member={member}
+              last={index === members.length - 1}
+              isBusy={removeMember.isPending}
+              onRemove={() => handleRemoveMember(member)}
+            />
+          ))
+        )}
       </div>
     </section>
   )
@@ -295,76 +293,74 @@ export function TeamChannelsSection({
         </p>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-border">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-end">
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <span className="text-sm font-medium">Assign public channel</span>
-            <Select
-              aria-label="Assign public channel"
-              selectedKey={selectedChannelId || null}
-              onSelectionChange={(key) =>
-                setSelectedChannelId(key === null ? "" : String(key))
-              }
-              isDisabled={
-                updateChannel.isPending || availableChannels.length === 0
-              }
-              className="w-full"
-            >
-              <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
-                {selectedChannel ? (
-                  <span className="truncate">
-                    #{channelLabel(selectedChannel)}
-                  </span>
-                ) : (
-                  <Select.Value />
-                )}
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover className="p-1.5">
-                <ListBox>
-                  {availableChannels.map((channel) => (
-                    <ListBox.Item
-                      key={channel.id}
-                      id={channel.id}
-                      textValue={channelLabel(channel)}
-                    >
-                      #{channelLabel(channel)}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </label>
-          <Button
-            variant="primary"
-            size="sm"
-            isDisabled={!selectedChannelId || updateChannel.isPending}
-            onPress={handleAssign}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="text-sm font-medium">Assign public channel</span>
+          <Select
+            aria-label="Assign public channel"
+            selectedKey={selectedChannelId || null}
+            onSelectionChange={(key) =>
+              setSelectedChannelId(key === null ? "" : String(key))
+            }
+            isDisabled={
+              updateChannel.isPending || availableChannels.length === 0
+            }
+            className="w-full"
           >
-            {updateChannel.isPending ? (
-              <Spinner color="current" size="sm" />
-            ) : null}
-            Assign
-          </Button>
-        </div>
+            <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
+              {selectedChannel ? (
+                <span className="truncate">
+                  #{channelLabel(selectedChannel)}
+                </span>
+              ) : (
+                <Select.Value />
+              )}
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover className="p-1.5">
+              <ListBox>
+                {availableChannels.map((channel) => (
+                  <ListBox.Item
+                    key={channel.id}
+                    id={channel.id}
+                    textValue={channelLabel(channel)}
+                  >
+                    #{channelLabel(channel)}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        </label>
+        <Button
+          variant="primary"
+          size="sm"
+          isDisabled={!selectedChannelId || updateChannel.isPending}
+          onPress={handleAssign}
+        >
+          {updateChannel.isPending ? (
+            <Spinner color="current" size="sm" />
+          ) : null}
+          Assign
+        </Button>
+      </div>
 
-        <div className="overflow-hidden">
-          {isLoading ? (
-            <RowSkeleton />
-          ) : assignedChannels.length === 0 ? (
-            <EmptyRow text="No channels are assigned to this team." />
-          ) : (
-            assignedChannels.map((channel, index) => (
-              <ChannelRow
-                key={channel.id ?? index}
-                channel={channel}
-                last={index === assignedChannels.length - 1}
-                isBusy={updateChannel.isPending}
-                onRemove={() => handleRemove(channel)}
-              />
-            ))
-          )}
-        </div>
+      <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+        {isLoading ? (
+          <RowSkeleton />
+        ) : assignedChannels.length === 0 ? (
+          <EmptyRow text="No channels are assigned to this team." />
+        ) : (
+          assignedChannels.map((channel, index) => (
+            <ChannelRow
+              key={channel.id ?? index}
+              channel={channel}
+              last={index === assignedChannels.length - 1}
+              isBusy={updateChannel.isPending}
+              onRemove={() => handleRemove(channel)}
+            />
+          ))
+        )}
       </div>
     </section>
   )

@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -19,6 +20,7 @@ type ChannelHandler struct {
 	db                  *gorm.DB
 	externalProvisioner ChannelExternalProvisioner
 	envEncKey           *crypto.SymmetricKey
+	enqueuer            enqueue.TaskEnqueuer
 }
 
 func NewChannelHandler(db *gorm.DB, opts ...ChannelHandlerOption) *ChannelHandler {
@@ -92,6 +94,8 @@ type channelResponse struct {
 
 type channelMemberResponse struct {
 	UserID    string `json:"user_id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
 	Role      string `json:"role"`
 	CreatedAt string `json:"created_at"`
 }
