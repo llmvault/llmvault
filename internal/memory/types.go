@@ -57,6 +57,10 @@ type UpdateRequest struct {
 	Content  *string
 	Tags     *[]string
 	Metadata *model.JSON
+	// UpdateChannel re-scopes the memory when true: ChannelID nil = org-wide,
+	// otherwise that channel. Leave false to keep the current channel.
+	UpdateChannel bool
+	ChannelID     *uuid.UUID
 }
 
 type ArchiveRequest struct {

@@ -86,6 +86,13 @@ func (s *Service) Update(ctx context.Context, req UpdateRequest) (*model.AgentMe
 	}
 	updates := map[string]any{"updated_at": time.Now()}
 	reembed := false
+	if req.UpdateChannel {
+		if err := s.validateChannel(ctx, req.OrgID, req.ChannelID); err != nil {
+			return nil, err
+		}
+		updates["channel_id"] = req.ChannelID
+		mem.ChannelID = req.ChannelID
+	}
 	if req.Content != nil {
 		content, err := normalizeContent(*req.Content)
 		if err != nil {

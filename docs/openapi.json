@@ -5750,6 +5750,159 @@
         }
       }
     },
+    "/v1/channels/{id}/rag-sources": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists the RAG sources a channel is granted access to. Agents in the channel can only search these sources.",
+        "tags": [
+          "channels"
+        ],
+        "summary": "List a channel's knowledge sources",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/channelRAGSourcesResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Replaces the full set of RAG sources a channel can search. Each source must belong to the org. An empty set removes all knowledge access.",
+        "tags": [
+          "channels"
+        ],
+        "summary": "Set a channel's knowledge sources",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/setChannelRAGSourcesRequest"
+              }
+            }
+          },
+          "description": "Source IDs",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/channelRAGSourcesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/channels/{id}/sessions": {
       "get": {
         "security": [
@@ -7581,6 +7734,452 @@
             "description": "Not Found",
             "content": {
               "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memories": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists memories, optionally filtered by channel_id (\"org\" for organization-wide, a UUID for one channel, omitted for all). Pass q to semantic-search instead.",
+        "tags": [
+          "memories"
+        ],
+        "summary": "List memories",
+        "parameters": [
+          {
+            "description": "Filter: channel UUID, \\",
+            "name": "channel_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Semantic search query",
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Comma-separated tag filters",
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max items (1-100, default 50)",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/memoryListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Stores a memory in a channel (channel_id) or organization-wide (omit channel_id). Requires an org admin/owner. Content is embedded asynchronously.",
+        "tags": [
+          "memories"
+        ],
+        "summary": "Create a memory",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/memoryMutationRequest"
+              }
+            }
+          },
+          "description": "Memory content, optional channel_id and tags",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/memoryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memories/channels/{channelId}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Cursor-paginated memories for a single channel, newest first. Use channelId \"global\" for channel-less organization memories, or a channel UUID. Pass the previous response's next_cursor to fetch the next page.",
+        "tags": [
+          "memories"
+        ],
+        "summary": "Page one channel's memories",
+        "parameters": [
+          {
+            "description": "Channel UUID or \\",
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Pagination cursor from a previous response",
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max items per page (1-50, default 10)",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/paginatedResponse-memoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memories/grouped": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns the newest memories for every channel in one call (default 10 per channel) with a per-channel has_more flag. Global (channel-less) memories are the first group. Use the per-channel endpoint to page past the initial slice.",
+        "tags": [
+          "memories"
+        ],
+        "summary": "List memories grouped by channel",
+        "parameters": [
+          {
+            "description": "Max memories per channel (1-50, default 10)",
+            "name": "per_channel",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/memoryGroupedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memories/{id}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Archives a memory so agents no longer recall it. Requires an org admin/owner.",
+        "tags": [
+          "memories"
+        ],
+        "summary": "Forget a memory",
+        "parameters": [
+          {
+            "description": "Memory UUID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Updates a memory's content, tags, or metadata. Editing content re-embeds it. Requires an org admin/owner.",
+        "tags": [
+          "memories"
+        ],
+        "summary": "Update a memory",
+        "parameters": [
+          {
+            "description": "Memory UUID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/memoryMutationRequest"
+              }
+            }
+          },
+          "description": "Fields to update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/memoryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
                 }
@@ -9593,6 +10192,43 @@
         }
       }
     },
+    "/v1/rag/connections/{connection_id}/scopes": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns the resource types a knowledge source on this connection can be scoped to.",
+        "tags": [
+          "rag"
+        ],
+        "summary": "List the scope types for a connection",
+        "parameters": [
+          {
+            "description": "Connection ID",
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ragScopesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/rag/integrations": {
       "get": {
         "security": [
@@ -9954,6 +10590,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ragAttemptDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rag/sources/{id}/documents": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists the documents ingested into the knowledge base for a source, read directly from the vector store. Paginated via an opaque cursor.",
+        "tags": [
+          "rag"
+        ],
+        "summary": "List documents ingested for a RAG source",
+        "parameters": [
+          {
+            "description": "RAG source ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max documents to return (default 50, max 200)",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque pagination cursor from a previous response",
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ragDocumentsResponse"
                 }
               }
             }
@@ -17672,6 +18361,34 @@
           }
         }
       },
+      "channelRAGSourceResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "channelRAGSourcesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/channelRAGSourceResponse"
+            }
+          }
+        }
+      },
       "channelResponse": {
         "type": "object",
         "properties": {
@@ -19013,6 +19730,127 @@
           }
         }
       },
+      "memoryGroupResponse": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_name": {
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "memories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/memoryResponse"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "memoryGroupedResponse": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/memoryGroupResponse"
+            }
+          }
+        }
+      },
+      "memoryListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/memoryResponse"
+            }
+          }
+        }
+      },
+      "memoryMutationRequest": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "memoryResponse": {
+        "type": "object",
+        "properties": {
+          "archived_at": {
+            "type": "string"
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "embedded_at": {
+            "type": "string"
+          },
+          "embedding_error": {
+            "type": "string"
+          },
+          "embedding_model": {
+            "type": "string"
+          },
+          "embedding_revision": {
+            "type": "integer"
+          },
+          "embedding_status": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "similarity": {
+            "type": "number"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "mintTokenRequest": {
         "type": "object",
         "properties": {
@@ -19507,6 +20345,23 @@
           }
         }
       },
+      "paginatedResponse-memoryResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/memoryResponse"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
       "paginatedResponse-sandboxTemplateResponse": {
         "type": "object",
         "properties": {
@@ -19932,6 +20787,9 @@
       "ragAttemptDetailResponse": {
         "type": "object",
         "properties": {
+          "completed_batches": {
+            "type": "integer"
+          },
           "docs_estimated": {
             "type": "integer"
           },
@@ -19968,6 +20826,9 @@
           "poll_range_start": {
             "type": "string"
           },
+          "progress": {
+            "$ref": "#/components/schemas/ragProgress"
+          },
           "status": {
             "type": "string"
           },
@@ -19979,6 +20840,9 @@
           },
           "time_updated": {
             "type": "string"
+          },
+          "total_batches": {
+            "type": "integer"
           },
           "total_docs_indexed": {
             "type": "integer"
@@ -20040,9 +20904,43 @@
           }
         }
       },
+      "ragDocument": {
+        "type": "object",
+        "properties": {
+          "doc_id": {
+            "type": "string"
+          },
+          "doc_updated_at": {
+            "type": "integer"
+          },
+          "link": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ragDocumentsResponse": {
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ragDocument"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
       "ragIndexAttemptResponse": {
         "type": "object",
         "properties": {
+          "completed_batches": {
+            "type": "integer"
+          },
           "docs_estimated": {
             "type": "integer"
           },
@@ -20067,6 +20965,9 @@
           "poll_range_start": {
             "type": "string"
           },
+          "progress": {
+            "$ref": "#/components/schemas/ragProgress"
+          },
           "status": {
             "type": "string"
           },
@@ -20078,6 +20979,9 @@
           },
           "time_updated": {
             "type": "string"
+          },
+          "total_batches": {
+            "type": "integer"
           },
           "total_docs_indexed": {
             "type": "integer"
@@ -20115,6 +21019,9 @@
       "ragLatestAttemptStatus": {
         "type": "object",
         "properties": {
+          "completed_batches": {
+            "type": "integer"
+          },
           "docs_estimated": {
             "type": "integer"
           },
@@ -20127,6 +21034,9 @@
           "new_docs_indexed": {
             "type": "integer"
           },
+          "progress": {
+            "$ref": "#/components/schemas/ragProgress"
+          },
           "status": {
             "type": "string"
           },
@@ -20135,6 +21045,9 @@
           },
           "time_updated": {
             "type": "string"
+          },
+          "total_batches": {
+            "type": "integer"
           },
           "total_docs_indexed": {
             "type": "integer"
@@ -20158,6 +21071,34 @@
           },
           "total": {
             "type": "integer"
+          }
+        }
+      },
+      "ragProgress": {
+        "type": "object",
+        "properties": {
+          "basis": {
+            "type": "string"
+          },
+          "docs_indexed": {
+            "type": "integer"
+          },
+          "indeterminate": {
+            "type": "boolean"
+          },
+          "percent": {
+            "type": "integer"
+          }
+        }
+      },
+      "ragScopesResponse": {
+        "type": "object",
+        "properties": {
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigurableResourceSummary"
+            }
           }
         }
       },
@@ -20204,6 +21145,12 @@
           },
           "rerank": {
             "type": "boolean"
+          },
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -21065,6 +22012,17 @@
           },
           "credits": {
             "type": "integer"
+          }
+        }
+      },
+      "setChannelRAGSourcesRequest": {
+        "type": "object",
+        "properties": {
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

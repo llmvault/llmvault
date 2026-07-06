@@ -5653,6 +5653,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/channels/{id}/rag-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a channel's knowledge sources
+         * @description Lists the RAG sources a channel is granted access to. Agents in the channel can only search these sources.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelRAGSourcesResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Set a channel's knowledge sources
+         * @description Replaces the full set of RAG sources a channel can search. Each source must belong to the org. An empty set removes all knowledge access.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Source IDs */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["setChannelRAGSourcesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelRAGSourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/channels/{id}/sessions": {
         parameters: {
             query?: never;
@@ -7441,6 +7577,403 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/memories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List memories
+         * @description Lists memories, optionally filtered by channel_id ("org" for organization-wide, a UUID for one channel, omitted for all). Pass q to semantic-search instead.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter: channel UUID, \ */
+                    channel_id?: string;
+                    /** @description Semantic search query */
+                    q?: string;
+                    /** @description Comma-separated tag filters */
+                    tags?: string;
+                    /** @description Max items (1-100, default 50) */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["memoryListResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a memory
+         * @description Stores a memory in a channel (channel_id) or organization-wide (omit channel_id). Requires an org admin/owner. Content is embedded asynchronously.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Memory content, optional channel_id and tags */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["memoryMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: components["schemas"]["memoryResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/memories/channels/{channelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page one channel's memories
+         * @description Cursor-paginated memories for a single channel, newest first. Use channelId "global" for channel-less organization memories, or a channel UUID. Pass the previous response's next_cursor to fetch the next page.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Pagination cursor from a previous response */
+                    cursor?: string;
+                    /** @description Max items per page (1-50, default 10) */
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Channel UUID or \ */
+                    channelId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-memoryResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/memories/grouped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List memories grouped by channel
+         * @description Returns the newest memories for every channel in one call (default 10 per channel) with a per-channel has_more flag. Global (channel-less) memories are the first group. Use the per-channel endpoint to page past the initial slice.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Max memories per channel (1-50, default 10) */
+                    per_channel?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["memoryGroupedResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/memories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget a memory
+         * @description Archives a memory so agents no longer recall it. Requires an org admin/owner.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Memory UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a memory
+         * @description Updates a memory's content, tags, or metadata. Editing content re-embeds it. Requires an org admin/owner.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Memory UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["memoryMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: components["schemas"]["memoryResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/v1/models": {
@@ -9409,6 +9942,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/rag/connections/{connection_id}/scopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the scope types for a connection
+         * @description Returns the resource types a knowledge source on this connection can be scoped to.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    connection_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragScopesResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rag/integrations": {
         parameters: {
             query?: never;
@@ -9744,6 +10319,53 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ragAttemptDetailResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List documents ingested for a RAG source
+         * @description Lists the documents ingested into the knowledge base for a source, read directly from the vector store. Paginated via an opaque cursor.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Max documents to return (default 50, max 200) */
+                    limit?: number;
+                    /** @description Opaque pagination cursor from a previous response */
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    /** @description RAG source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragDocumentsResponse"];
                     };
                 };
             };
@@ -15424,6 +16046,15 @@ export interface components {
         channelMutationResponse: {
             channel?: components["schemas"]["channelResponse"];
         };
+        channelRAGSourceResponse: {
+            id?: string;
+            kind?: string;
+            name?: string;
+            status?: string;
+        };
+        channelRAGSourcesResponse: {
+            data?: components["schemas"]["channelRAGSourceResponse"][];
+        };
         channelResponse: {
             archived_at?: string;
             created_at?: string;
@@ -15892,6 +16523,43 @@ export interface components {
             orgs?: components["schemas"]["orgMemberDTO"][];
             user?: components["schemas"]["userResponse"];
         };
+        memoryGroupResponse: {
+            channel_id?: string;
+            channel_name?: string;
+            has_more?: boolean;
+            memories?: components["schemas"]["memoryResponse"][];
+            next_cursor?: string;
+            total?: number;
+        };
+        memoryGroupedResponse: {
+            groups?: components["schemas"]["memoryGroupResponse"][];
+        };
+        memoryListResponse: {
+            data?: components["schemas"]["memoryResponse"][];
+        };
+        memoryMutationRequest: {
+            channel_id?: string;
+            content?: string;
+            metadata?: components["schemas"]["JSON"];
+            tags?: string[];
+        };
+        memoryResponse: {
+            archived_at?: string;
+            channel_id?: string;
+            content?: string;
+            created_at?: string;
+            embedded_at?: string;
+            embedding_error?: string;
+            embedding_model?: string;
+            embedding_revision?: number;
+            embedding_status?: string;
+            id?: string;
+            metadata?: components["schemas"]["JSON"];
+            org_id?: string;
+            similarity?: number;
+            tags?: string[];
+            updated_at?: string;
+        };
         mintTokenRequest: {
             credential_id?: string;
             meta?: components["schemas"]["JSON"];
@@ -16049,6 +16717,11 @@ export interface components {
             has_more?: boolean;
             next_cursor?: string;
         };
+        "paginatedResponse-memoryResponse": {
+            data?: components["schemas"]["memoryResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
         "paginatedResponse-sandboxTemplateResponse": {
             data?: components["schemas"]["sandboxTemplateResponse"][];
             has_more?: boolean;
@@ -16181,6 +16854,7 @@ export interface components {
             tags?: components["schemas"]["JSON"];
         };
         ragAttemptDetailResponse: {
+            completed_batches?: number;
             docs_estimated?: number;
             docs_removed_from_index?: number;
             error_count?: number;
@@ -16192,10 +16866,12 @@ export interface components {
             new_docs_indexed?: number;
             poll_range_end?: string;
             poll_range_start?: string;
+            progress?: components["schemas"]["ragProgress"];
             status?: string;
             time_created?: string;
             time_started?: string;
             time_updated?: string;
+            total_batches?: number;
             total_docs_indexed?: number;
         };
         ragAttemptErrorPayload: {
@@ -16216,7 +16892,18 @@ export interface components {
             page_size?: number;
             total?: number;
         };
+        ragDocument: {
+            doc_id?: string;
+            doc_updated_at?: number;
+            link?: string;
+            title?: string;
+        };
+        ragDocumentsResponse: {
+            documents?: components["schemas"]["ragDocument"][];
+            next_cursor?: string;
+        };
         ragIndexAttemptResponse: {
+            completed_batches?: number;
             docs_estimated?: number;
             docs_removed_from_index?: number;
             error_msg?: string;
@@ -16225,10 +16912,12 @@ export interface components {
             new_docs_indexed?: number;
             poll_range_end?: string;
             poll_range_start?: string;
+            progress?: components["schemas"]["ragProgress"];
             status?: string;
             time_created?: string;
             time_started?: string;
             time_updated?: string;
+            total_batches?: number;
             total_docs_indexed?: number;
         };
         ragIntegrationResponse: {
@@ -16241,13 +16930,16 @@ export interface components {
             data?: components["schemas"]["ragIntegrationResponse"][];
         };
         ragLatestAttemptStatus: {
+            completed_batches?: number;
             docs_estimated?: number;
             error_msg?: string;
             id?: string;
             new_docs_indexed?: number;
+            progress?: components["schemas"]["ragProgress"];
             status?: string;
             time_started?: string;
             time_updated?: string;
+            total_batches?: number;
             total_docs_indexed?: number;
         };
         ragListResponse: {
@@ -16255,6 +16947,15 @@ export interface components {
             page?: number;
             page_size?: number;
             total?: number;
+        };
+        ragProgress: {
+            basis?: string;
+            docs_indexed?: number;
+            indeterminate?: boolean;
+            percent?: number;
+        };
+        ragScopesResponse: {
+            scopes?: components["schemas"]["ConfigurableResourceSummary"][];
         };
         ragSearchHit: {
             blurb?: string;
@@ -16271,6 +16972,7 @@ export interface components {
             limit?: number;
             query?: string;
             rerank?: boolean;
+            source_ids?: string[];
         };
         ragSearchResponse: {
             hits?: components["schemas"]["ragSearchHit"][];
@@ -16560,6 +17262,9 @@ export interface components {
         sessionUsageResponse: {
             cost_usd?: number;
             credits?: number;
+        };
+        setChannelRAGSourcesRequest: {
+            source_ids?: string[];
         };
         sheetArchivedRowsResponse: {
             archived?: number;

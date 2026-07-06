@@ -1323,6 +1323,24 @@ definitions:
       channel:
         $ref: '#/definitions/channelResponse'
     type: object
+  channelRAGSourceResponse:
+    properties:
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+    type: object
+  channelRAGSourcesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/channelRAGSourceResponse'
+        type: array
+    type: object
   channelResponse:
     properties:
       archived_at:
@@ -2206,6 +2224,85 @@ definitions:
       user:
         $ref: '#/definitions/userResponse'
     type: object
+  memoryGroupResponse:
+    properties:
+      channel_id:
+        type: string
+      channel_name:
+        type: string
+      has_more:
+        type: boolean
+      memories:
+        items:
+          $ref: '#/definitions/memoryResponse'
+        type: array
+      next_cursor:
+        type: string
+      total:
+        type: integer
+    type: object
+  memoryGroupedResponse:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/memoryGroupResponse'
+        type: array
+    type: object
+  memoryListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/memoryResponse'
+        type: array
+    type: object
+  memoryMutationRequest:
+    properties:
+      channel_id:
+        type: string
+      content:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  memoryResponse:
+    properties:
+      archived_at:
+        type: string
+      channel_id:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      embedded_at:
+        type: string
+      embedding_error:
+        type: string
+      embedding_model:
+        type: string
+      embedding_revision:
+        type: integer
+      embedding_status:
+        type: string
+      id:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      org_id:
+        type: string
+      similarity:
+        type: number
+      tags:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+    type: object
   mintTokenRequest:
     properties:
       credential_id:
@@ -2528,6 +2625,17 @@ definitions:
       next_cursor:
         type: string
     type: object
+  paginatedResponse-memoryResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/memoryResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
   paginatedResponse-sandboxTemplateResponse:
     properties:
       data:
@@ -2806,6 +2914,8 @@ definitions:
     type: object
   ragAttemptDetailResponse:
     properties:
+      completed_batches:
+        type: integer
       docs_estimated:
         type: integer
       docs_removed_from_index:
@@ -2830,6 +2940,8 @@ definitions:
         type: string
       poll_range_start:
         type: string
+      progress:
+        $ref: '#/definitions/ragProgress'
       status:
         type: string
       time_created:
@@ -2838,6 +2950,8 @@ definitions:
         type: string
       time_updated:
         type: string
+      total_batches:
+        type: integer
       total_docs_indexed:
         type: integer
     type: object
@@ -2877,8 +2991,30 @@ definitions:
       total:
         type: integer
     type: object
+  ragDocument:
+    properties:
+      doc_id:
+        type: string
+      doc_updated_at:
+        type: integer
+      link:
+        type: string
+      title:
+        type: string
+    type: object
+  ragDocumentsResponse:
+    properties:
+      documents:
+        items:
+          $ref: '#/definitions/ragDocument'
+        type: array
+      next_cursor:
+        type: string
+    type: object
   ragIndexAttemptResponse:
     properties:
+      completed_batches:
+        type: integer
       docs_estimated:
         type: integer
       docs_removed_from_index:
@@ -2895,6 +3031,8 @@ definitions:
         type: string
       poll_range_start:
         type: string
+      progress:
+        $ref: '#/definitions/ragProgress'
       status:
         type: string
       time_created:
@@ -2903,6 +3041,8 @@ definitions:
         type: string
       time_updated:
         type: string
+      total_batches:
+        type: integer
       total_docs_indexed:
         type: integer
     type: object
@@ -2926,6 +3066,8 @@ definitions:
     type: object
   ragLatestAttemptStatus:
     properties:
+      completed_batches:
+        type: integer
       docs_estimated:
         type: integer
       error_msg:
@@ -2934,12 +3076,16 @@ definitions:
         type: string
       new_docs_indexed:
         type: integer
+      progress:
+        $ref: '#/definitions/ragProgress'
       status:
         type: string
       time_started:
         type: string
       time_updated:
         type: string
+      total_batches:
+        type: integer
       total_docs_indexed:
         type: integer
     type: object
@@ -2955,6 +3101,24 @@ definitions:
         type: integer
       total:
         type: integer
+    type: object
+  ragProgress:
+    properties:
+      basis:
+        type: string
+      docs_indexed:
+        type: integer
+      indeterminate:
+        type: boolean
+      percent:
+        type: integer
+    type: object
+  ragScopesResponse:
+    properties:
+      scopes:
+        items:
+          $ref: '#/definitions/ConfigurableResourceSummary'
+        type: array
     type: object
   ragSearchHit:
     properties:
@@ -2985,6 +3149,10 @@ definitions:
         type: string
       rerank:
         type: boolean
+      source_ids:
+        items:
+          type: string
+        type: array
     type: object
   ragSearchResponse:
     properties:
@@ -3550,6 +3718,13 @@ definitions:
         type: number
       credits:
         type: integer
+    type: object
+  setChannelRAGSourcesRequest:
+    properties:
+      source_ids:
+        items:
+          type: string
+        type: array
     type: object
   sheetArchivedRowsResponse:
     properties:
@@ -7589,6 +7764,85 @@ paths:
       summary: Add or update a channel member
       tags:
       - channels
+  /v1/channels/{id}/rag-sources:
+    get:
+      description: Lists the RAG sources a channel is granted access to. Agents in
+        the channel can only search these sources.
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/channelRAGSourcesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List a channel's knowledge sources
+      tags:
+      - channels
+    put:
+      consumes:
+      - application/json
+      description: Replaces the full set of RAG sources a channel can search. Each
+        source must belong to the org. An empty set removes all knowledge access.
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Source IDs
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/setChannelRAGSourcesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/channelRAGSourcesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set a channel's knowledge sources
+      tags:
+      - channels
   /v1/channels/{id}/sessions:
     get:
       description: Lists sessions in a visible channel.
@@ -8536,6 +8790,242 @@ paths:
       summary: Decline an invitation
       tags:
       - org-invites
+  /v1/memories:
+    get:
+      description: Lists memories, optionally filtered by channel_id ("org" for organization-wide,
+        a UUID for one channel, omitted for all). Pass q to semantic-search instead.
+      parameters:
+      - description: 'Filter: channel UUID, \'
+        in: query
+        name: channel_id
+        type: string
+      - description: Semantic search query
+        in: query
+        name: q
+        type: string
+      - description: Comma-separated tag filters
+        in: query
+        name: tags
+        type: string
+      - description: Max items (1-100, default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memoryListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List memories
+      tags:
+      - memories
+    post:
+      consumes:
+      - application/json
+      description: Stores a memory in a channel (channel_id) or organization-wide
+        (omit channel_id). Requires an org admin/owner. Content is embedded asynchronously.
+      parameters:
+      - description: Memory content, optional channel_id and tags
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/memoryMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/memoryResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a memory
+      tags:
+      - memories
+  /v1/memories/{id}:
+    delete:
+      description: Archives a memory so agents no longer recall it. Requires an org
+        admin/owner.
+      parameters:
+      - description: Memory UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Forget a memory
+      tags:
+      - memories
+    patch:
+      consumes:
+      - application/json
+      description: Updates a memory's content, tags, or metadata. Editing content
+        re-embeds it. Requires an org admin/owner.
+      parameters:
+      - description: Memory UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/memoryMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/memoryResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a memory
+      tags:
+      - memories
+  /v1/memories/channels/{channelId}:
+    get:
+      description: Cursor-paginated memories for a single channel, newest first. Use
+        channelId "global" for channel-less organization memories, or a channel UUID.
+        Pass the previous response's next_cursor to fetch the next page.
+      parameters:
+      - description: Channel UUID or \
+        in: path
+        name: channelId
+        required: true
+        type: string
+      - description: Pagination cursor from a previous response
+        in: query
+        name: cursor
+        type: string
+      - description: Max items per page (1-50, default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-memoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Page one channel's memories
+      tags:
+      - memories
+  /v1/memories/grouped:
+    get:
+      description: Returns the newest memories for every channel in one call (default
+        10 per channel) with a per-channel has_more flag. Global (channel-less) memories
+        are the first group. Use the per-channel endpoint to page past the initial
+        slice.
+      parameters:
+      - description: Max memories per channel (1-50, default 10)
+        in: query
+        name: per_channel
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memoryGroupedResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List memories grouped by channel
+      tags:
+      - memories
   /v1/models:
     get:
       description: Returns models from providers that have at least one active system
@@ -9586,6 +10076,28 @@ paths:
       summary: List models for a provider
       tags:
       - providers
+  /v1/rag/connections/{connection_id}/scopes:
+    get:
+      description: Returns the resource types a knowledge source on this connection
+        can be scoped to.
+      parameters:
+      - description: Connection ID
+        in: path
+        name: connection_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ragScopesResponse'
+      security:
+      - BearerAuth: []
+      summary: List the scope types for a connection
+      tags:
+      - rag
   /v1/rag/integrations:
     get:
       description: Returns the platform integrations that can be used as RAG sources
@@ -9814,6 +10326,36 @@ paths:
       security:
       - BearerAuth: []
       summary: Get an index-attempt with per-doc errors
+      tags:
+      - rag
+  /v1/rag/sources/{id}/documents:
+    get:
+      description: Lists the documents ingested into the knowledge base for a source,
+        read directly from the vector store. Paginated via an opaque cursor.
+      parameters:
+      - description: RAG source ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Max documents to return (default 50, max 200)
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque pagination cursor from a previous response
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ragDocumentsResponse'
+      security:
+      - BearerAuth: []
+      summary: List documents ingested for a RAG source
       tags:
       - rag
   /v1/rag/sources/{id}/perm-sync:
