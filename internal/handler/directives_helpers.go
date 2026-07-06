@@ -29,8 +29,10 @@ func (h *DirectiveHandler) authorizeDirectiveMutation(w http.ResponseWriter, r *
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "admin role required to manage directives"})
 		return directive, false
 	}
+	// Soft-deleted rules are history: they cannot be mutated (a PATCH could
+	// otherwise resurrect one into the injected set).
 	err = h.db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ?", id, org.ID).
+		Where("id = ? AND org_id = ? AND deleted_at IS NULL", id, org.ID).
 		First(&directive).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "directive not found"})

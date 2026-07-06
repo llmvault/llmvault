@@ -58,7 +58,7 @@ func (h *MemoryConsolidationHandler) applyCreate(
 	if !memory.ValidObservationKind(kind) {
 		kind = "finding"
 	}
-	metadata := appendObservationAudit(model.JSON{"source": "consolidation"}, "create", create.Op.Reason, create.SourceFactIDs, now)
+	metadata := appendObservationAudit(model.JSON{"source": "consolidation"}, "create", create.Op.Reason, create.SourceFactIDs, now, "")
 	obs, err := svc.CreateObservation(ctx, memory.CreateObservationRequest{
 		OrgID:           payload.OrgID,
 		ChannelID:       obsChannelID,
@@ -117,7 +117,7 @@ func (h *MemoryConsolidationHandler) applyDelete(
 	if err != nil {
 		return err
 	}
-	obs.Metadata = appendObservationAudit(obs.Metadata, "delete", del.Op.Reason, nil, now)
+	obs.Metadata = appendObservationAudit(obs.Metadata, "delete", del.Op.Reason, nil, now, "")
 	if err := svc.SaveObservationChanges(ctx, obs, false); err != nil {
 		return err
 	}

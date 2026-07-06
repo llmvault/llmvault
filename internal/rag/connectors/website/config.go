@@ -7,10 +7,8 @@ import (
 	"strings"
 )
 
-// defaultMaxPages caps a crawl (total across all seed URLs). Sites larger than
-// this fall back to BFS-with-budget, which naturally prefers shallower (more
-// central) pages. Sitemap discovery is enabled in the connector so curated URLs
-// fill the budget first.
+// defaultMaxPages caps how many URLs a single source will scrape, as a
+// safety limit on a pathologically large URL list.
 const defaultMaxPages = 500
 
 type WebsiteConfig struct {
@@ -71,21 +69,4 @@ func LoadConfig(raw json.RawMessage) (WebsiteConfig, error) {
 		cfg.MaxPages = defaultMaxPages
 	}
 	return cfg, nil
-}
-
-// seedWhitelist returns the Spider path whitelist for a seed URL so a section
-// root (e.g. https://site/docs) only crawls its own subtree. A root seed
-// ("/" or empty path) returns nil — crawl the whole site.
-func seedWhitelist(seed string) []string {
-	u, err := url.Parse(seed)
-	if err != nil {
-		return nil
-	}
-	path := strings.TrimRight(u.Path, "/")
-	if path == "" {
-		return nil
-	}
-	// Spider matches whitelist entries against the URL path; anchoring the
-	// prefix keeps the crawl inside the section (e.g. "^/docs").
-	return []string{"^" + path}
 }

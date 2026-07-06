@@ -273,6 +273,11 @@ VALUES (?, ?, ?, ?, ?, 'user-pinned', ?, ?, ?)`,
 	first := seedDirective(&fixture.channel.ID, "Always deploy through Railway.", true, now.Add(-2*time.Hour))
 	second := seedDirective(nil, "Escalate outages within 15 minutes.", true, now.Add(-time.Hour))
 	seedDirective(&fixture.channel.ID, "Inactive rule.", false, now)
+	// Soft-deleted rules are history, never injected — even when still active.
+	softDeleted := seedDirective(&fixture.channel.ID, "Deleted rule.", true, now.Add(-3*time.Hour))
+	if err := db.Exec(`UPDATE agent_directives SET deleted_at = now() WHERE id = ?`, softDeleted).Error; err != nil {
+		t.Fatalf("soft-delete directive: %v", err)
+	}
 
 	channelID := fixture.channel.ID
 	directives, err := service.ActiveDirectives(ctx, fixture.org.ID, ChannelScope{ChannelID: &channelID, IncludeOrgMemories: true})

@@ -21,6 +21,9 @@ import {
 
 type Option = { id: string; name: string }
 type ScopeItem = Option & { type: string }
+// A website pick (a section or a single page) carries the exact page URLs it
+// expands to, so the source ingests those URLs directly with no crawling.
+type UrlOption = Option & { urls: string[] }
 
 const EMPTY_CONNECTIONS: Connection[] = []
 
@@ -57,7 +60,7 @@ export default function NewKnowledgeSourcePage() {
   const [name, setName] = useState("")
   const [provider, setProvider] = useState<string>("")
   const [scopeItems, setScopeItems] = useState<ScopeItem[]>([])
-  const [websiteURLs, setWebsiteURLs] = useState<Option[]>([])
+  const [websiteURLs, setWebsiteURLs] = useState<UrlOption[]>([])
   const [channels, setChannels] = useState<string[]>([])
 
   const meta = provider ? providerMeta(provider) : null
@@ -95,7 +98,7 @@ export default function NewKnowledgeSourcePage() {
       kind: meta.kind,
     }
     if (meta.kind === "WEBSITE") {
-      body.config = { urls: websiteURLs.map((u) => u.id) }
+      body.config = { urls: Array.from(new Set(websiteURLs.flatMap((u) => u.urls))) }
     } else {
       body.connection_id = connectionId
       const resourceType = scopeTypes.length === 1 ? (scopeTypes[0].key ?? "") : ""
@@ -370,33 +373,29 @@ function WebsiteScope({
   value,
   onChange,
 }: {
-  value: Option[]
-  onChange: (urls: Option[]) => void
+  value: UrlOption[]
+  onChange: (urls: UrlOption[]) => void
 }) {
   const [url, setUrl] = useState("")
   const discover = $api.useMutation("post", "/v1/rag/website/discover-sections")
   const result = discover.data
 
-  const options: Option[] = useMemo(() => {
+  const options: UrlOption[] = useMemo(() => {
     if (!result) return []
     const sections = (result.sections ?? []).map((s) => ({
-      id: s.url ?? "",
+      id: s.path_prefix ?? s.url ?? "",
       name: `${s.path_prefix} · ${s.page_count} pages`,
+      urls: s.urls ?? [],
     }))
     const pages = (result.pages ?? []).map((p) => ({
       id: p.url ?? "",
       name: p.path ?? p.url ?? "",
+      urls: [p.url ?? ""],
     }))
     return [...sections, ...pages]
   }, [result])
 
-  const pagesByURL = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const s of result?.sections ?? []) map.set(s.url ?? "", s.page_count ?? 0)
-    for (const p of result?.pages ?? []) map.set(p.url ?? "", 1)
-    return map
-  }, [result])
-  const totalPages = value.reduce((sum, v) => sum + (pagesByURL.get(v.id) ?? 1), 0)
+  const totalPages = new Set(value.flatMap((v) => v.urls)).size
 
   async function runDiscover() {
     if (!url.trim()) return

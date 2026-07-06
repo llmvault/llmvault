@@ -85,7 +85,8 @@ func (h *DirectiveHandler) List(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	query := h.db.WithContext(r.Context()).Where("org_id = ?", org.ID)
+	query := h.db.WithContext(r.Context()).
+		Where("org_id = ? AND deleted_at IS NULL", org.ID)
 	switch raw := strings.TrimSpace(r.URL.Query().Get("channel_id")); raw {
 	case "":
 	case "org":
@@ -209,7 +210,7 @@ func (h *DirectiveHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 // Delete handles DELETE /v1/directives/{id}.
 // @Summary Delete a directive
-// @Description Permanently deletes a directive so it is no longer injected into prompts. Requires an org admin/owner.
+// @Description Soft-deletes a directive so it is no longer injected into prompts or listed. The row is retained as history for as-of temporal audits (rule content is immutable, so the deleted wording is preserved verbatim). Requires an org admin/owner.
 // @Tags directives
 // @Produce json
 // @Param id path string true "Directive UUID"
@@ -224,9 +225,11 @@ func (h *DirectiveHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	now := time.Now()
 	if err := h.db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ?", directive.ID, directive.OrgID).
-		Delete(&model.AgentDirective{}).Error; err != nil {
+		Model(&model.AgentDirective{}).
+		Where("id = ? AND org_id = ? AND deleted_at IS NULL", directive.ID, directive.OrgID).
+		Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "delete directive", "error", err, "directive_id", directive.ID)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to delete directive"})
 		return

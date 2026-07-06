@@ -260,6 +260,13 @@ definitions:
         type: array
       url:
         type: string
+      urls:
+        description: |-
+          URLs is every page URL under this section, so a selection can be expanded
+          into the exact list of pages to ingest.
+        items:
+          type: string
+        type: array
     type: object
   DiscoveryResult:
     properties:
@@ -1396,6 +1403,8 @@ definitions:
         type: string
       default_agent_id:
         type: string
+      default_memory_mission:
+        type: string
       description:
         type: string
       external_connection_id:
@@ -1425,6 +1434,10 @@ definitions:
       member_count:
         type: integer
       memory_mission:
+        description: |-
+          MemoryMission is the channel's stored mission; empty means the channel
+          follows DefaultMemoryMission (the curated template for its category,
+          empty for 'general'), which is what extraction actually uses then.
         type: string
       name:
         type: string
@@ -8688,8 +8701,10 @@ paths:
       - directives
   /v1/directives/{id}:
     delete:
-      description: Permanently deletes a directive so it is no longer injected into
-        prompts. Requires an org admin/owner.
+      description: Soft-deletes a directive so it is no longer injected into prompts
+        or listed. The row is retained as history for as-of temporal audits (rule
+        content is immutable, so the deleted wording is preserved verbatim). Requires
+        an org admin/owner.
       parameters:
       - description: Directive UUID
         in: path

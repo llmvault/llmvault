@@ -37,6 +37,20 @@ func TestGroupLinks(t *testing.T) {
 	if docs.PageCount != 4 { // /docs, /docs/getting-started, /docs/api, /docs/api/auth
 		t.Fatalf("docs PageCount = %d, want 4", docs.PageCount)
 	}
+	// URLs holds the full page list (not just the sample) so a section selection
+	// expands to exactly these pages.
+	if len(docs.URLs) != 4 {
+		t.Fatalf("docs URLs = %d, want 4 (full page list): %v", len(docs.URLs), docs.URLs)
+	}
+	foundAuth := false
+	for _, u := range docs.URLs {
+		if u == "https://acme.com/docs/api/auth" {
+			foundAuth = true
+		}
+	}
+	if !foundAuth {
+		t.Fatalf("docs URLs missing https://acme.com/docs/api/auth: %v", docs.URLs)
+	}
 	blog, ok := sectionByPrefix["/blog"]
 	if !ok || blog.PageCount != 3 {
 		t.Fatalf("expected /blog section with 3 pages; got %+v", blog)

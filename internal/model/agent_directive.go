@@ -28,8 +28,13 @@ type AgentDirective struct {
 	CreatedBy       *User      `gorm:"foreignKey:CreatedByUserID;constraint:OnDelete:SET NULL"`
 	Source          string     `gorm:"type:text;not null;default:'user-pinned'"`
 	Active          bool       `gorm:"not null;default:true"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// DeletedAt soft-deletes the rule. Content is immutable, so deleted rows
+	// are kept verbatim as history — "which rules were in force at time T"
+	// stays answerable for as-of temporal audits. Every read path filters
+	// deleted_at IS NULL.
+	DeletedAt *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (AgentDirective) TableName() string { return "agent_directives" }

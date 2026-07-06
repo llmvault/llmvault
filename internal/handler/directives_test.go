@@ -212,16 +212,34 @@ func TestIntegration_DirectivesCRUD(t *testing.T) {
 		t.Fatalf("reactivated directive=%+v, want active=true", reactivated)
 	}
 
-	// Delete removes the row.
+	// Delete is a soft delete: the row survives as immutable history (as-of
+	// temporal audit) but leaves every read path.
 	del := h.doJSON(t, http.MethodDelete, "/v1/directives/"+channelDirective.ID, fx, fx.owner, nil)
 	if del.Code != http.StatusOK {
 		t.Fatalf("delete status=%d body=%s", del.Code, del.Body.String())
 	}
-	var count int64
-	if err := h.db.Model(&model.AgentDirective{}).Where("id = ?", channelDirective.ID).Count(&count).Error; err != nil {
-		t.Fatalf("count: %v", err)
+	var deleted model.AgentDirective
+	if err := h.db.Where("id = ?", channelDirective.ID).First(&deleted).Error; err != nil {
+		t.Fatalf("soft-deleted row must survive: %v", err)
 	}
-	if count != 0 {
-		t.Fatal("directive should be hard-deleted")
+	if deleted.DeletedAt == nil || deleted.Content != "Deploys only on weekdays." {
+		t.Fatalf("soft-deleted directive deleted_at=%v content=%q, want timestamp + preserved content", deleted.DeletedAt, deleted.Content)
+	}
+
+	// Deleted rules leave the list and cannot be mutated back to life.
+	afterDelete := h.doJSON(t, http.MethodGet, "/v1/directives?channel_id="+channel.ID.String(), fx, fx.owner, nil)
+	if err := json.Unmarshal(afterDelete.Body.Bytes(), &listOut); err != nil {
+		t.Fatalf("decode list after delete: %v", err)
+	}
+	for _, directive := range listOut.Data {
+		if directive.ID == channelDirective.ID {
+			t.Fatalf("soft-deleted directive still listed: %+v", directive)
+		}
+	}
+	resurrect := h.doJSON(t, http.MethodPatch, "/v1/directives/"+channelDirective.ID, fx, fx.owner, map[string]any{
+		"active": true,
+	})
+	if resurrect.Code != http.StatusNotFound {
+		t.Fatalf("patch on deleted directive status=%d, want 404", resurrect.Code)
 	}
 }

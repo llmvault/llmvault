@@ -58,82 +58,93 @@ func (client *Client) Transform(ctx context.Context, params TransformParams) (*T
 	return doPostJSON[TransformResponse](client, ctx, "/v1/transform", params)
 }
 
+// Scrape fetches a single URL and returns its markdown content. It POSTs to
+// /v1/crawl with limit=1 so no links are followed — one page in, one page out.
+func (client *Client) Scrape(ctx context.Context, pageURL string) (Response, error) {
+	limit := 1
+	results, err := client.doPost(ctx, "/v1/crawl", SpiderParams{
+		URL:          pageURL,
+		Limit:        &limit,
+		ReturnFormat: "markdown",
+		RequestType:  "smart",
+		Readability:  boolPtr(true),
+	})
+	if err != nil {
+		return Response{}, err
+	}
+	if len(results) == 0 {
+		return Response{}, fmt.Errorf("spider scrape: empty response for %s", pageURL)
+	}
+	return results[0], nil
+}
+
 func (client *Client) doPost(ctx context.Context, path string, body any) ([]Response, error) {
-	jsonBody, err := json.Marshal(body)
+	respBody, err := client.execute(ctx, path, body)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling request body: %w", err)
+		return nil, err
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.endpoint+path, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+client.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("spider API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
 	var results []Response
 	if err := json.Unmarshal(respBody, &results); err != nil {
 		return nil, fmt.Errorf("decoding response: %w (body: %s)", err, truncate(string(respBody), 500))
 	}
-
 	return results, nil
 }
 
 // doPostJSON is a generic helper for endpoints that return non-array responses.
 func doPostJSON[T any](client *Client, ctx context.Context, path string, body any) (*T, error) {
+	respBody, err := client.execute(ctx, path, body)
+	if err != nil {
+		return nil, err
+	}
+	var result T
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w (body: %s)", err, truncate(string(respBody), 500))
+	}
+	return &result, nil
+}
+
+// execute POSTs body to path and returns the raw response bytes, retrying once
+// on a transient failure (transport error or 5xx). 4xx returns immediately.
+func (client *Client) execute(ctx context.Context, path string, body any) ([]byte, error) {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request body: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.endpoint+path, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+	const maxAttempts = 2
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.endpoint+path, bytes.NewReader(jsonBody))
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+client.apiKey)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := client.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("executing request: %w", err)
+			continue // transport error — retry once
+		}
+		respBody, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("reading response body: %w", readErr)
+		}
+		if resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("spider API error %d: %s", resp.StatusCode, string(respBody))
+			continue // server error — retry once
+		}
+		if resp.StatusCode >= 400 {
+			return nil, fmt.Errorf("spider API error %d: %s", resp.StatusCode, string(respBody))
+		}
+		return respBody, nil
 	}
-
-	req.Header.Set("Authorization", "Bearer "+client.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("spider API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var result T
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w (body: %s)", err, truncate(string(respBody), 500))
-	}
-
-	return &result, nil
+	return nil, lastErr
 }
+
+func boolPtr(b bool) *bool { return &b }
 
 func truncate(str string, maxLen int) string {
 	if len(str) <= maxLen {

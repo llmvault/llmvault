@@ -48,7 +48,7 @@ func (s *Service) ActiveDirectives(ctx context.Context, orgID uuid.UUID, scope C
 		return nil, fmt.Errorf("org_id is required")
 	}
 	q := s.cfg.DB.WithContext(ctx).
-		Where("org_id = ? AND active", orgID).
+		Where("org_id = ? AND active AND deleted_at IS NULL", orgID).
 		Order("created_at ASC, id ASC")
 	if clause, args := scope.whereSQL(); clause != "" {
 		q = q.Where(clause, args...)

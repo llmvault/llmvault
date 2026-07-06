@@ -3,7 +3,6 @@ package website
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,29 +19,40 @@ func (s *stubSource) OrgID() string           { return "org-1" }
 func (s *stubSource) SourceKind() string      { return Kind }
 func (s *stubSource) Config() json.RawMessage { return s.cfg }
 
-func TestRun_StreamsResponsesAsDocsAndFailures(t *testing.T) {
-	pages := []spider.Response{
-		{URL: "https://example.com/", Content: "# Home", StatusCode: 200},
-		{URL: "https://example.com/a", Content: "", StatusCode: 200},
-		{URL: "https://example.com/b", Content: "", StatusCode: 500, Error: "bad gateway"},
-		{URL: "https://example.com/c", Content: "## C body", StatusCode: 200},
+func TestRun_ScrapesEachURL(t *testing.T) {
+	// One scrape (POST /v1/crawl, limit=1) per configured URL: /  -> doc,
+	// /a -> empty content (skipped), /b -> 5xx (failure), /c -> doc.
+	byURL := map[string]spider.Response{
+		"https://example.com/":  {URL: "https://example.com/", Content: "# Home", StatusCode: 200},
+		"https://example.com/a": {URL: "https://example.com/a", Content: "", StatusCode: 200},
+		"https://example.com/b": {URL: "https://example.com/b", Content: "", StatusCode: 500, Error: "bad gateway"},
+		"https://example.com/c": {URL: "https://example.com/c", Content: "## C body", StatusCode: 200},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/jsonl")
-		flusher, _ := w.(http.Flusher)
-		for _, p := range pages {
-			b, _ := json.Marshal(p)
-			fmt.Fprintf(w, "%s\n", b)
-			if flusher != nil {
-				flusher.Flush()
-			}
+		var p spider.SpiderParams
+		_ = json.NewDecoder(r.Body).Decode(&p)
+		resp, ok := byURL[p.URL]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
+		if resp.StatusCode >= 500 {
+			w.WriteHeader(resp.StatusCode)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]spider.Response{resp})
 	}))
 	defer srv.Close()
 
 	cli := spider.NewClient(srv.URL, "k")
-	c := NewConnector(WebsiteConfig{URL: "https://example.com", MaxPages: 100}, cli)
+	c := NewConnector(WebsiteConfig{URLs: []string{
+		"https://example.com/",
+		"https://example.com/a",
+		"https://example.com/b",
+		"https://example.com/c",
+	}}, cli)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

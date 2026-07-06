@@ -36,7 +36,9 @@ func (h *MemoryConsolidationHandler) mergeObservations(
 	}
 	mergedText := strings.TrimSpace(decision.Text)
 	contentChanged := false
+	previousContent := ""
 	if mergedText != "" && mergedText != keep.Content && !keep.HumanVerified {
+		previousContent = keep.Content
 		keep.Content = mergedText
 		contentChanged = true
 	}
@@ -46,7 +48,7 @@ func (h *MemoryConsolidationHandler) mergeObservations(
 	if drop.LastMentionedAt.After(keep.LastMentionedAt) {
 		keep.LastMentionedAt = drop.LastMentionedAt
 	}
-	keep.Metadata = appendObservationAudit(keep.Metadata, "merge", decision.Reason, nil, now)
+	keep.Metadata = appendObservationAudit(keep.Metadata, "merge", decision.Reason, nil, now, previousContent)
 	if err := svc.SaveObservationChanges(ctx, keep, contentChanged); err != nil {
 		return err
 	}
@@ -207,18 +209,24 @@ func applyConsolidationUpdate(
 	obs.ProofCount += added
 	obs.LastMentionedAt = now
 	contentChanged := false
+	previousContent := ""
 	text = strings.TrimSpace(text)
 	if !obs.HumanVerified && text != "" && text != obs.Content {
+		previousContent = obs.Content
 		obs.Content = text
 		contentChanged = true
 	}
-	obs.Metadata = appendObservationAudit(obs.Metadata, "update", reason, newFactIDs, now)
+	obs.Metadata = appendObservationAudit(obs.Metadata, "update", reason, newFactIDs, now, previousContent)
 	return contentChanged
 }
 
 // appendObservationAudit appends one {op, reason, fact_ids, at} entry to
-// metadata.audit — every applied consolidation op is audited.
-func appendObservationAudit(meta model.JSON, op, reason string, factIDs []uuid.UUID, at time.Time) model.JSON {
+// metadata.audit — every applied consolidation op is audited. previousContent
+// carries the pre-op wording whenever the op rewrites content ("" omits the
+// key): together with created_at/archived_at timestamps this makes the audit
+// trail lossless, so any past belief state can be reconstructed by rewinding
+// entries (as-of temporal queries).
+func appendObservationAudit(meta model.JSON, op, reason string, factIDs []uuid.UUID, at time.Time, previousContent string) model.JSON {
 	if meta == nil {
 		meta = model.JSON{}
 	}
@@ -227,6 +235,9 @@ func appendObservationAudit(meta model.JSON, op, reason string, factIDs []uuid.U
 		"reason":   reason,
 		"fact_ids": sortedUUIDStrings(factIDs),
 		"at":       at.UTC().Format(time.RFC3339),
+	}
+	if previousContent != "" {
+		entry["previous_content"] = previousContent
 	}
 	audit, _ := meta["audit"].([]any)
 	meta["audit"] = append(audit, entry)

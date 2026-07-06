@@ -7134,7 +7134,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a directive
-         * @description Permanently deletes a directive so it is no longer injected into prompts. Requires an org admin/owner.
+         * @description Soft-deletes a directive so it is no longer injected into prompts or listed. The row is retained as history for as-of temporal audits (rule content is immutable, so the deleted wording is preserved verbatim). Requires an org admin/owner.
          */
         delete: {
             parameters: {
@@ -16239,6 +16239,11 @@ export interface components {
             path_prefix?: string;
             sample_paths?: string[];
             url?: string;
+            /**
+             * @description URLs is every page URL under this section, so a selection can be expanded
+             *     into the exact list of pages to ingest.
+             */
+            urls?: string[];
         };
         DiscoveryResult: {
             resources?: components["schemas"]["AvailableResource"][];
@@ -16794,6 +16799,7 @@ export interface components {
             created_at?: string;
             created_by?: string;
             default_agent_id?: string;
+            default_memory_mission?: string;
             description?: string;
             external_connection_id?: string;
             external_metadata?: components["schemas"]["JSON"];
@@ -16808,6 +16814,11 @@ export interface components {
             is_default?: boolean;
             kind?: string;
             member_count?: number;
+            /**
+             * @description MemoryMission is the channel's stored mission; empty means the channel
+             *     follows DefaultMemoryMission (the curated template for its category,
+             *     empty for 'general'), which is what extraction actually uses then.
+             */
             memory_mission?: string;
             name?: string;
             origin?: string;

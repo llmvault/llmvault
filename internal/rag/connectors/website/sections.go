@@ -16,6 +16,9 @@ type DiscoveredSection struct {
 	PathPrefix  string   `json:"path_prefix"`
 	PageCount   int      `json:"page_count"`
 	SamplePaths []string `json:"sample_paths"`
+	// URLs is every page URL under this section, so a selection can be expanded
+	// into the exact list of pages to ingest.
+	URLs []string `json:"urls"`
 }
 
 // DiscoveredPage is a single page that didn't cluster into a section — the user
@@ -91,12 +94,17 @@ func GroupLinks(baseURL string, links []string, minSize int) (SectionDiscovery, 
 			}
 			continue
 		}
+		urls := make([]string, len(g.paths))
+		for i, p := range g.paths {
+			urls[i] = origin + p
+		}
 		out.Sections = append(out.Sections, DiscoveredSection{
 			Label:       humanizeSegment(g.segment),
 			URL:         origin + "/" + g.segment,
 			PathPrefix:  "/" + g.segment,
 			PageCount:   len(g.paths),
 			SamplePaths: g.paths[:min(len(g.paths), maxSamplePaths)],
+			URLs:        urls,
 		})
 	}
 

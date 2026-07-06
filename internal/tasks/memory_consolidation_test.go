@@ -158,6 +158,9 @@ func TestApplyConsolidationUpdateHumanVerifiedProtection(t *testing.T) {
 	if entry["op"] != "update" || entry["reason"] != "restated" {
 		t.Fatalf("audit entry = %v, want op=update reason=restated", entry)
 	}
+	if _, ok := entry["previous_content"]; ok {
+		t.Fatalf("audit entry = %v, previous_content must be omitted when content was not rewritten", entry)
+	}
 
 	unverified := &model.AgentObservation{
 		Content:       "Old wording.",
@@ -173,6 +176,16 @@ func TestApplyConsolidationUpdateHumanVerifiedProtection(t *testing.T) {
 	}
 	if len(unverified.SourceFactIDs) != 1 {
 		t.Fatalf("source_fact_ids = %v, duplicate fact must not be appended twice", unverified.SourceFactIDs)
+	}
+	// Lossless capture for as-of reconstruction: a rewrite must record the
+	// prior wording in the audit entry.
+	audit, _ = unverified.Metadata["audit"].([]any)
+	if len(audit) != 1 {
+		t.Fatalf("audit entries = %d, want 1", len(audit))
+	}
+	entry, _ = audit[0].(map[string]any)
+	if entry["previous_content"] != "Old wording." {
+		t.Fatalf("audit entry = %v, want previous_content=%q", entry, "Old wording.")
 	}
 }
 

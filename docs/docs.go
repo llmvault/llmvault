@@ -5836,7 +5836,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Permanently deletes a directive so it is no longer injected into prompts. Requires an org admin/owner.",
+                "description": "Soft-deletes a directive so it is no longer injected into prompts or listed. The row is retained as history for as-of temporal audits (rule content is immutable, so the deleted wording is preserved verbatim). Requires an org admin/owner.",
                 "produces": [
                     "application/json"
                 ],
@@ -14108,6 +14108,13 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                },
+                "urls": {
+                    "description": "URLs is every page URL under this section, so a selection can be expanded\ninto the exact list of pages to ingest.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -15833,6 +15840,9 @@ const docTemplate = `{
                 "default_agent_id": {
                     "type": "string"
                 },
+                "default_memory_mission": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -15876,6 +15886,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "memory_mission": {
+                    "description": "MemoryMission is the channel's stored mission; empty means the channel\nfollows DefaultMemoryMission (the curated template for its category,\nempty for 'general'), which is what extraction actually uses then.",
                     "type": "string"
                 },
                 "name": {
