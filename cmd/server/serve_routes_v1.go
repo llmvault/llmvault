@@ -275,6 +275,7 @@ func setupV1Routes(
 					r.Use(middleware.ResolveUser(database))
 					// Reads stay visible to any org member.
 					r.Get("/integrations", ragSourceHandler.ListIntegrations)
+					r.Get("/connections/{connection_id}/scopes", ragSourceHandler.ListConnectionScopes)
 					r.Get("/sources", ragSourceHandler.List)
 					r.Get("/sources/{id}", ragSourceHandler.Get)
 					r.Get("/sources/{id}/attempts", ragSourceHandler.ListAttempts)

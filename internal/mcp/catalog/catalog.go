@@ -41,6 +41,11 @@ type ResourceDef struct {
 	// When true, users can pick specific instances (e.g., specific repos) to
 	// grant an agent access to.
 	Configurable bool `json:"configurable,omitempty"`
+
+	// RAGScopable marks this resource type as selectable when scoping a RAG
+	// source. When true, users can pick specific instances (e.g. specific
+	// repos, Notion pages, Linear teams) that a source will ingest.
+	RAGScopable bool `json:"rag_scopable,omitempty"`
 }
 
 // ProviderActions describes a provider and its available actions.

@@ -6,6 +6,7 @@
       "description": "Notion pages the AI can access",
       "id_field": "id",
       "name_field": "title",
+      "rag_scopable": true,
       "icon": "page",
       "list_action": "/v1/search",
       "request_config": {
@@ -28,6 +29,7 @@
       "description": "Notion databases the AI can query",
       "id_field": "id",
       "name_field": "title",
+      "rag_scopable": true,
       "icon": "database",
       "list_action": "/v1/search",
       "request_config": {

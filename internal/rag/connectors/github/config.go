@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/usehivy/hivy/internal/rag/connectors/scope"
 )
 
 type GithubConfig struct {
@@ -12,7 +14,15 @@ type GithubConfig struct {
 	StateFilter   string   `json:"state_filter,omitempty"`
 	IncludePRs    bool     `json:"include_prs"`
 	IncludeIssues bool     `json:"include_issues"`
+
+	// FullNames is the resolved set of "owner/repo" identifiers to index,
+	// computed by LoadConfig from either the scope envelope (multi-owner) or
+	// the legacy RepoOwner+Repositories fields. Not part of the JSON contract.
+	FullNames []string `json:"-"`
 }
+
+// githubScopeResourceType is the resource-catalog key for a GitHub repo scope.
+const githubScopeResourceType = "repository"
 
 // validStateFilters: "merged" is a frequent admin mistake — it's not a
 // real GitHub state (merged PRs surface as closed), so we reject it
@@ -35,11 +45,6 @@ func LoadConfig(raw json.RawMessage) (GithubConfig, error) {
 		}
 	}
 
-	cfg.RepoOwner = strings.TrimSpace(cfg.RepoOwner)
-	if cfg.RepoOwner == "" {
-		return GithubConfig{}, fmt.Errorf("github: repo_owner is required")
-	}
-
 	cfg.StateFilter = strings.ToLower(strings.TrimSpace(cfg.StateFilter))
 	if cfg.StateFilter == "" {
 		cfg.StateFilter = "all"
@@ -50,8 +55,48 @@ func LoadConfig(raw json.RawMessage) (GithubConfig, error) {
 		)
 	}
 
+	fullNames, err := resolveRepoFullNames(raw, cfg)
+	if err != nil {
+		return GithubConfig{}, err
+	}
+	cfg.FullNames = fullNames
 	cfg.Repositories = normaliseRepoList(cfg.Repositories)
 	return cfg, nil
+}
+
+// resolveRepoFullNames computes the "owner/repo" set to index. Preference order:
+//  1. the scope envelope (config.scope, resource_type "repository") — each item
+//     id is already a full "owner/repo", so multiple owners are supported.
+//  2. the legacy RepoOwner + Repositories fields (single owner).
+//
+// An empty result is allowed here (mirrors the original parse-time leniency);
+// the "at least one repository" requirement is enforced at LoadFromCheckpoint.
+func resolveRepoFullNames(raw json.RawMessage, cfg GithubConfig) ([]string, error) {
+	sc, present, err := scope.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("github: %w", err)
+	}
+	if present && sc.ResourceType == githubScopeResourceType && len(sc.Items) > 0 {
+		full := make([]string, 0, len(sc.Items))
+		for _, id := range sc.IDs() {
+			if !strings.Contains(id, "/") {
+				return nil, fmt.Errorf("github: scope repository %q must be in owner/repo form", id)
+			}
+			full = append(full, id)
+		}
+		return full, nil
+	}
+
+	owner := strings.TrimSpace(cfg.RepoOwner)
+	if owner == "" {
+		return nil, fmt.Errorf("github: repo_owner is required (or provide a repository scope)")
+	}
+	repos := normaliseRepoList(cfg.Repositories)
+	full := make([]string, 0, len(repos))
+	for _, r := range repos {
+		full = append(full, owner+"/"+r)
+	}
+	return full, nil
 }
 
 // normaliseRepoList re-splits comma-joined entries — admins occasionally

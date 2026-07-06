@@ -15,13 +15,12 @@ func (c *GithubConnector) EstimateTotal(ctx context.Context, src interfaces.Sour
 	if err != nil {
 		return 0, err
 	}
-	if len(cfg.Repositories) == 0 {
+	if len(cfg.FullNames) == 0 {
 		return 0, nil
 	}
 
 	total := 0
-	for _, repo := range cfg.Repositories {
-		fullName := cfg.RepoOwner + "/" + repo
+	for _, fullName := range cfg.FullNames {
 		if cfg.IncludePRs {
 			n, err := c.client.searchCount(ctx, fullName, "pr", cfg.StateFilter)
 			if err != nil {

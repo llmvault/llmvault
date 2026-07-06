@@ -9,15 +9,19 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
+	"github.com/usehivy/hivy/internal/resources"
 )
 
 type RAGSourceHandler struct {
-	db      *gorm.DB
-	enq     enqueue.TaskEnqueuer
-	caps    RAGCapabilityCheck
-	credits *billing.CreditsService
+	db        *gorm.DB
+	enq       enqueue.TaskEnqueuer
+	caps      RAGCapabilityCheck
+	credits   *billing.CreditsService
+	discovery *resources.Discovery
+	catalog   *catalog.Catalog
 }
 
 // RAGCapabilityCheck answers "can a connector of this kind perform
@@ -26,8 +30,8 @@ type RAGSourceHandler struct {
 // doesn't depend on a real connector being registered.
 type RAGCapabilityCheck func(kind string) bool
 
-func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, caps RAGCapabilityCheck, credits *billing.CreditsService) *RAGSourceHandler {
-	return &RAGSourceHandler{db: db, enq: enq, caps: caps, credits: credits}
+func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, caps RAGCapabilityCheck, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog) *RAGSourceHandler {
+	return &RAGSourceHandler{db: db, enq: enq, caps: caps, credits: credits, discovery: discovery, catalog: cat}
 }
 
 type ragSourceResponse struct {

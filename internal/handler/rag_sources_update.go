@@ -69,6 +69,27 @@ func (h *RAGSourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, errorResponse{Error: msg})
 		return
 	}
+
+	// Re-validate the scope when the config is being changed.
+	if req.Config != nil && src.ConnectionID != nil {
+		rawConfig, err := json.Marshal(*req.Config)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid config"})
+			return
+		}
+		var conn model.Connection
+		if err := h.db.Preload("Integration").
+			Where("id = ? AND org_id = ?", *src.ConnectionID, org.ID).
+			First(&conn).Error; err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load connection"})
+			return
+		}
+		if status, msg := h.validateScope(r.Context(), &conn, rawConfig); status != 0 {
+			writeJSON(w, status, errorResponse{Error: msg})
+			return
+		}
+	}
+
 	if len(updates) == 0 {
 		writeJSON(w, http.StatusOK, toRAGSourceResponse(src))
 		return

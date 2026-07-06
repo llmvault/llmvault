@@ -110,6 +110,7 @@
       "description": "Linear teams within the workspace",
       "id_field": "id",
       "name_field": "name",
+      "rag_scopable": true,
       "icon": "people",
       "list_action": "/graphql",
       "request_config": {

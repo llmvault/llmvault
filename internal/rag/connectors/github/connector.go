@@ -67,13 +67,11 @@ func (c *GithubConnector) LoadFromCheckpoint(
 		cp = dummyCheckpoint()
 	}
 	if cp.Stage == StageStart {
-		if len(c.cfg.Repositories) == 0 {
+		full := c.repoFullNames()
+		if len(full) == 0 {
 			return nil, errors.New("github: at least one repository must be configured")
 		}
-		cp.RepoIDsRemaining = make([]string, 0, len(c.cfg.Repositories))
-		for _, repo := range c.cfg.Repositories {
-			cp.RepoIDsRemaining = append(cp.RepoIDsRemaining, c.cfg.RepoOwner+"/"+repo)
-		}
+		cp.RepoIDsRemaining = full
 		cp.Stage = c.firstEnabledStage()
 		cp.CurrPage = 1
 	}
@@ -183,6 +181,11 @@ func (c *GithubConnector) run(
 }
 
 func (c *GithubConnector) repoFullNames() []string {
+	if len(c.cfg.FullNames) > 0 {
+		return append([]string(nil), c.cfg.FullNames...)
+	}
+	// Fallback for configs constructed without LoadConfig (e.g. tests):
+	// derive "owner/repo" from the legacy single-owner fields.
 	out := make([]string, 0, len(c.cfg.Repositories))
 	for _, r := range c.cfg.Repositories {
 		out = append(out, c.cfg.RepoOwner+"/"+r)

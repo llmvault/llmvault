@@ -110,7 +110,13 @@ func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if status, msg := h.attachConnection(src, kind, req.ConnectionID, org.ID); status != 0 {
+	conn, status, msg := h.attachConnection(src, kind, req.ConnectionID, org.ID)
+	if status != 0 {
+		writeJSON(w, status, errorResponse{Error: msg})
+		return
+	}
+
+	if status, msg := h.validateScope(r.Context(), conn, src.Config()); status != 0 {
 		writeJSON(w, status, errorResponse{Error: msg})
 		return
 	}
@@ -121,10 +127,6 @@ func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.Create(src).Error; err != nil {
-		if isDuplicateKeyError(err) {
-			writeJSON(w, http.StatusConflict, errorResponse{Error: "a RAG source already exists for this connection"})
-			return
-		}
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to create rag source", "error", err, "org_id", org.ID)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create source"})
 		return
@@ -177,24 +179,27 @@ func (h *RAGSourceHandler) precheckWebsiteCredits(ctx context.Context, src *ragm
 	return 0, ""
 }
 
+// attachConnection validates and links the connection for an INTEGRATION
+// source. It returns the loaded connection (nil for non-integration kinds) so
+// callers can run scope validation against it.
 func (h *RAGSourceHandler) attachConnection(
 	src *ragmodel.RAGSource,
 	kind ragmodel.RAGSourceKind,
 	rawID *string,
 	orgID uuid.UUID,
-) (int, string) {
+) (*model.Connection, int, string) {
 	if kind != ragmodel.RAGSourceKindIntegration {
 		if rawID != nil {
-			return http.StatusBadRequest, "connection_id is only valid when kind=INTEGRATION"
+			return nil, http.StatusBadRequest, "connection_id is only valid when kind=INTEGRATION"
 		}
-		return 0, ""
+		return nil, 0, ""
 	}
 	if rawID == nil || *rawID == "" {
-		return http.StatusBadRequest, "connection_id is required when kind=INTEGRATION"
+		return nil, http.StatusBadRequest, "connection_id is required when kind=INTEGRATION"
 	}
 	connID, err := uuid.Parse(*rawID)
 	if err != nil {
-		return http.StatusBadRequest, "invalid connection_id"
+		return nil, http.StatusBadRequest, "invalid connection_id"
 	}
 
 	var conn model.Connection
@@ -202,17 +207,17 @@ func (h *RAGSourceHandler) attachConnection(
 		Where("id = ? AND org_id = ? AND revoked_at IS NULL", connID, orgID).
 		First(&conn).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return http.StatusNotFound, "connection not found"
+			return nil, http.StatusNotFound, "connection not found"
 		}
-		return http.StatusInternalServerError, "failed to load connection"
+		return nil, http.StatusInternalServerError, "failed to load connection"
 	}
 	if conn.Integration.DeletedAt != nil {
-		return http.StatusNotFound, "connection not found"
+		return nil, http.StatusNotFound, "connection not found"
 	}
 	if !conn.Integration.SupportsRAGSource {
-		return http.StatusUnprocessableEntity, "this integration does not support being used as a RAG source"
+		return nil, http.StatusUnprocessableEntity, "this integration does not support being used as a RAG source"
 	}
 
 	src.ConnectionID = &conn.ID
-	return 0, ""
+	return &conn, 0, ""
 }

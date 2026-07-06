@@ -71,7 +71,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	sheetsService := core.sheetsService
 	runtimeCompileDeps := core.runtimeCompileDeps
 
-	ragRuntime, err := setupRAGRuntime(cfg, database, enqueuer, mcpHandler)
+	ragRuntime, err := setupRAGRuntime(cfg, database, enqueuer, mcpHandler, nangoClient, deps.ActionsCatalog)
 	if err != nil {
 		return nil, err
 	}

@@ -58,6 +58,33 @@ func (c *Catalog) GetConfigurableResources(provider string) []ConfigurableResour
 	return result
 }
 
+// GetRAGScopableResources returns the resource types marked rag_scopable: true
+// for a provider — the scopes a user can select when creating a RAG source.
+func (c *Catalog) GetRAGScopableResources(provider string) []ConfigurableResourceSummary {
+	p, ok := c.providers[provider]
+	if !ok {
+		return nil
+	}
+	var result []ConfigurableResourceSummary
+	for key, resDef := range p.Resources {
+		if resDef.RAGScopable {
+			result = append(result, ConfigurableResourceSummary{
+				Key:         key,
+				DisplayName: resDef.DisplayName,
+				Description: resDef.Description,
+			})
+		}
+	}
+	return result
+}
+
+// IsRAGScopable reports whether the given resource type is a valid RAG scope
+// for the provider.
+func (c *Catalog) IsRAGScopable(provider, resourceType string) bool {
+	def, ok := c.GetResourceDef(provider, resourceType)
+	return ok && def.RAGScopable
+}
+
 // ValidateResources checks that every resource type key in the resources map
 // matches the resource_type of at least one action in the given action list,
 // and that each resource ID is in the allowed set from the connection.

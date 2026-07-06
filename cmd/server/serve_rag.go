@@ -9,10 +9,13 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
+	"github.com/usehivy/hivy/internal/nango"
 	ragtools "github.com/usehivy/hivy/internal/rag"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 	ragscheduler "github.com/usehivy/hivy/internal/rag/scheduler"
+	"github.com/usehivy/hivy/internal/resources"
 )
 
 type ragRuntime struct {
@@ -28,8 +31,11 @@ func setupRAGRuntime(
 	db *gorm.DB,
 	enqueuer enqueue.TaskEnqueuer,
 	mcpHandler *handler.MCPHandler,
+	nangoClient *nango.Client,
+	cat *catalog.Catalog,
 ) (*ragRuntime, error) {
-	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, ragscheduler.HasPermSyncCapability, billing.NewCreditsService(db))
+	discovery := resources.NewDiscovery(cat, nangoClient)
+	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, ragscheduler.HasPermSyncCapability, billing.NewCreditsService(db), discovery, cat)
 	searchHandler, qd, embedder, reranker, err := buildRAGSearch(cfg)
 	if err != nil {
 		return nil, err
