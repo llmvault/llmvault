@@ -110,7 +110,13 @@ func readSlackFinalText(ctx context.Context, body io.Reader) (string, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		return "", fmt.Errorf("read slack runtime stream: %w", err)
+	}
+	if ctx.Err() != nil {
+		return "", ctx.Err()
 	}
 	return "", errSlackNoFinalText
 }
