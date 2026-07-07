@@ -14,3 +14,6 @@ All payloads sourced from https://github.com/octokit/webhooks/tree/main/payload-
 | `workflow_run.completed.json` | `workflow_run/completed.payload.json` | conclusion=success |
 | `workflow_run.completed.failure.json` | derived | conclusion field patched to `failure` |
 | `release.published.json` | `release/published.payload.json` | Release `0.0.1`, id=17372790 |
+| `check_suite.completed.json` | `check_suite/completed.payload.json` | conclusion=success, suite id=118578147, one PR (#2) in `pull_requests[]` |
+| `pull_request_review.submitted.json` | `pull_request_review/submitted.payload.json` | state=commented, review id=237895671, PR #2 |
+| `pull_request_review_comment.created.json` | `pull_request_review_comment/created.payload.json` | comment id=284312630 on README.md line 265, PR #2 |

@@ -45,6 +45,10 @@ func inferEventFromHeaders(provider string, headers map[string]string) (eventTyp
 // forwarding, so these payload keys are the reliable fallback. Actions that
 // can recur on the same object (edited, synchronize, labeled, ...) must NOT
 // be added here — a payload key would wrongly collapse distinct events.
+//
+// check_suite.completed is the one recurring exception: a re-run completes the
+// SAME suite id again, so the key includes the conclusion — a re-run that
+// changes the outcome re-delivers, identical redeliveries dedup.
 func stableGitHubDeliveryID(eventType, eventAction string, body []byte) string {
 	key := eventType + "." + eventAction
 	var idPath string
@@ -55,6 +59,12 @@ func stableGitHubDeliveryID(eventType, eventAction string, body []byte) string {
 		idPath = "issue"
 	case "pull_request.opened":
 		idPath = "pull_request"
+	case "pull_request_review.submitted":
+		idPath = "review"
+	case "pull_request_review_comment.created":
+		idPath = "comment"
+	case "check_suite.completed":
+		idPath = "check_suite"
 	default:
 		return ""
 	}
@@ -67,10 +77,14 @@ func stableGitHubDeliveryID(eventType, eventAction string, body []byte) string {
 		return ""
 	}
 	var obj struct {
-		ID int64 `json:"id"`
+		ID         int64  `json:"id"`
+		Conclusion string `json:"conclusion"`
 	}
 	if err := json.Unmarshal(raw, &obj); err != nil || obj.ID == 0 {
 		return ""
+	}
+	if key == "check_suite.completed" {
+		return fmt.Sprintf("github:%s:%d:%s", key, obj.ID, obj.Conclusion)
 	}
 	return fmt.Sprintf("github:%s:%d", key, obj.ID)
 }

@@ -3606,7 +3606,7 @@
     },
     "issues_list_for_repo": {
       "display_name": "List repository issues",
-      "description": "List issues in a repository. Only open issues will be listed. > [!NOTE] > GitHub's REST API considers every pull request an issue, but not every issue is a pull request. For this reason, \"Issues\" e...",
+      "description": "List issues in a repository. Only open issues will be listed. > [!NOTE] > GitHub's REST API considers every pull request an issue, but not every issue is a pull request. For this reason, \"Issues\" e... To find issues by topic, check search_knowledge_base first: synced GitHub issues are indexed there. Use this tool for live current state (e.g. what is open right now), repos that are not synced, or very recent issues (sync lag).",
       "access": "read",
       "resource_type": "issue",
       "parameters": {
@@ -6123,7 +6123,7 @@
     },
     "pulls_list": {
       "display_name": "List pull requests",
-      "description": "Lists pull requests in a specified repository. Draft pull requests are available in public repositories with GitHub Free and GitHub Free for organizations, GitHub Pro, and legacy per-repository bil...",
+      "description": "Lists pull requests in a specified repository. Draft pull requests are available in public repositories with GitHub Free and GitHub Free for organizations, GitHub Pro, and legacy per-repository bil... To find pull requests by topic, check search_knowledge_base first: synced pull requests are indexed there. Use this tool for live current state (e.g. what is open right now), repos that are not synced, or very recent PRs (sync lag).",
       "access": "read",
       "resource_type": "pull_request",
       "parameters": {
@@ -11369,7 +11369,7 @@
     },
     "search_issues_and_pull_requests": {
       "display_name": "Search issues and pull requests",
-      "description": "Find issues by state and keyword. This method returns up to 100 results [per page](https://docs.github.com/rest/guides/using-pagination-in-the-rest-api). When searching for issues, you can get text...",
+      "description": "Find issues by state and keyword. This method returns up to 100 results [per page](https://docs.github.com/rest/guides/using-pagination-in-the-rest-api). When searching for issues, you can get text... Check search_knowledge_base first: synced GitHub issues and pull requests (including comments) are indexed there for semantic search. Fall back to this direct search for repos that are not synced, very recent activity (sync lag), or when you need live state such as current issue or PR status.",
       "access": "read",
       "resource_type": "issue",
       "parameters": {

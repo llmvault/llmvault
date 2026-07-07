@@ -67,7 +67,7 @@
   "actions": {
     "conversations_history": {
       "display_name": "Get channel history",
-      "description": "Fetch recent messages from a public or private channel, DM, or multi-party DM. Returns up to 1000 messages. Use 'oldest' and 'latest' cursors for pagination.",
+      "description": "Fetch recent messages from a public or private channel, DM, or multi-party DM. Returns up to 1000 messages. Use 'oldest' and 'latest' cursors for pagination. To find older or topical discussion, check search_knowledge_base first: synced Slack conversations are indexed there. Use this tool for very recent messages (sync lag), channels that are not synced, or when you need exact live message data.",
       "access": "read",
       "resource_type": "slack_thread",
       "parameters": {
@@ -297,7 +297,7 @@
 
     "search_messages": {
       "display_name": "Search messages",
-      "description": "Full-text search across workspace messages. Query supports operators like 'in:#channel', 'from:@user', 'has:link'.",
+      "description": "Full-text search across workspace messages. Query supports operators like 'in:#channel', 'from:@user', 'has:link'. Check search_knowledge_base first: synced Slack conversations are indexed there for semantic search. Fall back to this direct search when the knowledge base does not have what you need: channels that are not synced, very recent messages (sync lag), or when you need exact live results.",
       "access": "read",
       "resource_type": "",
       "parameters": {

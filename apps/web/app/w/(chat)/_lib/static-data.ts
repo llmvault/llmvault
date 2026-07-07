@@ -51,6 +51,10 @@ export interface UserConversationBlock {
   attachments?: MediaAttachment[]
   codeLineComments?: CodeLineCommentReference[]
   author?: Collaborator
+  /** Event source: "web" | "external" | "trigger" | "schedule". */
+  source?: string
+  /** Integration provider for automated (trigger) messages, e.g. "github-app", "slack". */
+  provider?: string
 }
 
 export interface ErrorConversationBlock {

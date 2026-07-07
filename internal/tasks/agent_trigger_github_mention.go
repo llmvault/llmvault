@@ -53,7 +53,7 @@ type githubMentionEvent struct {
 	IsComment    bool
 }
 
-func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, webhookPayload map[string]any) error {
+func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, webhookPayload map[string]any, routed map[uuid.UUID]string) error {
 	event, ok := parseGitHubMentionEvent(payload, webhookPayload)
 	skipReason := ""
 	switch {
@@ -92,6 +92,12 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		return nil
 	}
 
+	// The skip-ladder already guarantees a Hivy mention, so acknowledge the
+	// event with an eyes reaction before any delivery work — the human sees it
+	// was noticed instantly. Mention triggers match per-connection, so this
+	// fires once per event under the delivering connection's identity.
+	h.addGitHubEyesReaction(ctx, payload, mentionReactionTarget(event))
+
 	agent, err := h.loadTriggerAgent(ctx, trigger)
 	if err != nil {
 		return err
@@ -103,6 +109,11 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 	// trigger's own PR-scoped session only when no mapping is found.
 	if event.IsPR {
 		if session, ok := h.lookupPRSession(ctx, payload.OrgID, event.Repo, event.Number); ok {
+			if _, already := routed[session.ID]; already {
+				logging.FromContext(ctx).InfoContext(ctx, "github mention delivery skipped, event already auto-routed",
+					"trigger_id", trigger.ID, "session_id", session.ID, "delivery_id", payload.DeliveryID)
+				return nil
+			}
 			logging.FromContext(ctx).InfoContext(ctx, "github mention routed to originating session",
 				"trigger_id", trigger.ID, "session_id", session.ID,
 				"repo", event.Repo, "pr_number", event.Number)

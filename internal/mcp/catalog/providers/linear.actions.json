@@ -1685,7 +1685,7 @@
     },
     "issue": {
       "display_name": "Issue",
-      "description": "One specific issue.",
+      "description": "One specific issue. To find issues by topic or keyword, use search_knowledge_base first: synced Linear issues and their comments are indexed there. Use this tool to fetch the live, current state of a known issue (the knowledge base may trail very recent edits).",
       "access": "read",
       "resource_type": "issue",
       "parameters": {

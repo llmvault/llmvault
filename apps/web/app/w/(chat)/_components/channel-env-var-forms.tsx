@@ -7,6 +7,7 @@ import {
   FieldError,
   Input,
   Label,
+  Popover,
   Skeleton,
   Spinner,
   TextArea,
@@ -206,48 +207,28 @@ export function EnvironmentVariableRow({
   onEdit: () => void
   onSubmitEdit: (newName: string, value: string, description: string) => void
 }) {
+  if (editing) {
+    return (
+      <EditVariableForm
+        name={name}
+        description={description}
+        pending={updatePending}
+        submitError={updateError}
+        onCancel={onCancelEdit}
+        onSubmit={onSubmitEdit}
+      />
+    )
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-surface px-4 py-3.5">
-      {editing ? (
-        <EditVariableForm
-          name={name}
-          description={description}
-          pending={updatePending}
-          submitError={updateError}
-          onCancel={onCancelEdit}
-          onSubmit={onSubmitEdit}
-        />
-      ) : (
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-mono text-sm font-medium">{name}</p>
-            <p className="mt-1 font-mono text-sm text-muted">••••••••</p>
-            {description ? (
-              <p className="text-muted-foreground mt-1.5 text-sm">
-                {description}
-              </p>
-            ) : null}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            isIconOnly
-            aria-label={`Edit ${name}`}
-            onPress={onEdit}
-          >
-            <AppIcon icon="pencil" className="h-4 w-4 text-muted" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            isIconOnly
-            aria-label={`Delete ${name}`}
-            onPress={onDelete}
-          >
-            <AppIcon icon="trash-2" className="h-4 w-4 text-muted" />
-          </Button>
-        </div>
-      )}
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-mono text-sm font-medium">{name}</p>
+        {description ? (
+          <p className="text-muted-foreground mt-1 text-xs">{description}</p>
+        ) : null}
+      </div>
+      <EnvVarActionsMenu name={name} onEdit={onEdit} onDelete={onDelete} />
 
       {deleting ? (
         <AlertDialog>
@@ -299,6 +280,61 @@ export function EnvironmentVariableRow({
         </AlertDialog>
       ) : null}
     </div>
+  )
+}
+
+function EnvVarActionsMenu({
+  name,
+  onEdit,
+  onDelete,
+}: {
+  name: string
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover isOpen={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        aria-label={`${name} options`}
+        data-open={open ? "true" : undefined}
+        className="hover:bg-default data-[open=true]:bg-default -mr-1 flex shrink-0 items-center rounded-md p-1 text-muted-foreground transition-colors"
+      >
+        <AppIcon icon="ellipsis" className="h-4 w-4" />
+      </Popover.Trigger>
+      {open ? (
+        <Popover.Content
+          placement="bottom end"
+          offset={6}
+          className="w-44 rounded-2xl border border-border p-1.5"
+        >
+          <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
+            <button
+              type="button"
+              onClick={() => {
+                onEdit()
+                setOpen(false)
+              }}
+              className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+            >
+              <AppIcon icon="pencil" className="h-4 w-4 shrink-0" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onDelete()
+                setOpen(false)
+              }}
+              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
+            >
+              <AppIcon icon="trash-2" className="h-4 w-4 shrink-0" />
+              Delete
+            </button>
+          </Popover.Dialog>
+        </Popover.Content>
+      ) : null}
+    </Popover>
   )
 }
 

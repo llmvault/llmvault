@@ -66,7 +66,7 @@ func TestDeliverGitHubMentionSkips(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := h.deliverGitHubMention(context.Background(), dispatch, trigger, tc.payload); err != nil {
+			if err := h.deliverGitHubMention(context.Background(), dispatch, trigger, tc.payload, nil); err != nil {
 				t.Fatalf("expected skip, got err=%v", err)
 			}
 		})
@@ -97,7 +97,7 @@ func TestDeliverGitHubMentionEntityGate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := h.deliverGitHubMention(context.Background(), dispatch, tc.trigger, tc.payload); err != nil {
+			if err := h.deliverGitHubMention(context.Background(), dispatch, tc.trigger, tc.payload, nil); err != nil {
 				t.Fatalf("expected skip, got err=%v", err)
 			}
 		})

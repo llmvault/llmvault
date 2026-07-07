@@ -9,7 +9,12 @@ import {
   toolBody,
   toolFailed,
 } from "@/app/w/(chat)/_components/tool-block-helpers"
+import { KnowledgeSearchDetail } from "@/app/w/(chat)/_components/tool-knowledge-search-detail"
 import { WebSearchDetail } from "@/app/w/(chat)/_components/tool-web-search-detail"
+import {
+  isKnowledgeSearchTool,
+  summarizeKnowledgeSearchOutput,
+} from "@/app/w/(chat)/_lib/knowledge-search-summary"
 import type { ToolCallDetail } from "@/app/w/(chat)/_lib/static-data"
 
 export function ToolDetail({
@@ -29,6 +34,15 @@ export function ToolDetail({
 
   if (detail.category === "web_search" && detail.searchResults?.length) {
     return <WebSearchDetail detail={detail} />
+  }
+
+  if (detail.tool && isKnowledgeSearchTool(detail.tool)) {
+    // Falls through to the raw rendering when the output doesn't parse into
+    // the expected shape (tool error, schema drift, still running).
+    const lines = summarizeKnowledgeSearchOutput(detail.output)
+    if (lines) {
+      return <KnowledgeSearchDetail lines={lines} />
+    }
   }
 
   const body = toolBody(detail)

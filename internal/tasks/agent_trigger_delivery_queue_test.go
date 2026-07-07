@@ -85,6 +85,23 @@ func TestTriggerDeliverySameResourceSharesSessionAndQueues(t *testing.T) {
 		t.Fatalf("queued text = %q,%q", queued[0].MessageText, queued[1].MessageText)
 	}
 
+	// Delivered trigger messages now persist to the transcript (visible in the
+	// UI and to the naming task) with each queue row linked to its event.
+	var events []model.SessionEvent
+	if err := db.Where("session_id = ? AND event_type = ? AND source = ?",
+		issueSession.ID, "user.message.received", triggerConversationSource).
+		Find(&events).Error; err != nil {
+		t.Fatalf("load events: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("transcript events = %d, want 2", len(events))
+	}
+	for _, q := range queued {
+		if q.SessionEventID == nil {
+			t.Fatalf("queue row %d missing SessionEventID link", q.SequenceNumber)
+		}
+	}
+
 	// Redelivery of the first event (same delivery id) dedups: no third row.
 	if err := handler.deliverCompiled(ctx, p1, trigger, agent, compiledMessage(issueKey, "first mention")); err != nil {
 		t.Fatalf("redeliver: %v", err)

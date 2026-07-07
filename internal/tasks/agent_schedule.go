@@ -23,6 +23,10 @@ import (
 
 const scheduleScanLimit = 50
 
+// scheduleSource labels sessions and transcript events created by the agent
+// scheduler, mirroring triggerConversationSource for the trigger path.
+const scheduleSource = "schedule"
+
 func init() {
 	RegisterTaskBuilder(TypeAgentScheduleDeliver, func(payload []byte) (*asynq.Task, []asynq.Option, error) {
 		var p AgentScheduleDeliverPayload
@@ -102,9 +106,23 @@ func (h *AgentScheduleDeliverHandler) Handle(ctx context.Context, task *asynq.Ta
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal schedule deliver payload: %w", err)
 	}
-	sessionID, err := h.ensureRunSession(ctx, payload.RunID)
+	sessionID, created, err := h.ensureRunSession(ctx, payload.RunID)
 	if err != nil {
 		return err
+	}
+	// Best-effort auto-naming for freshly created schedule sessions, same as
+	// trigger/web/Slack; replaces the interim scheduledSessionName placeholder.
+	// The naming handler guards on session_name_auto_generated_at and reads the
+	// first user.message.received event we just persisted, so ordering (event
+	// committed before this enqueue) matters.
+	if created && h.enqueuer != nil {
+		if task, opts, nameErr := NewSessionNameTask(sessionID); nameErr != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "build schedule session naming task",
+				"session_id", sessionID, "error", nameErr)
+		} else if _, nameErr := h.enqueuer.Enqueue(task, opts...); nameErr != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "enqueue schedule session naming",
+				"session_id", sessionID, "error", nameErr)
+		}
 	}
 	if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, sessionID); err != nil {
 		return fmt.Errorf("enqueue scheduled session delivery: %w", err)
@@ -112,8 +130,9 @@ func (h *AgentScheduleDeliverHandler) Handle(ctx context.Context, task *asynq.Ta
 	return nil
 }
 
-func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runID uuid.UUID) (uuid.UUID, error) {
+func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runID uuid.UUID) (uuid.UUID, bool, error) {
 	var sessionID uuid.UUID
+	var created bool
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var run model.AgentScheduleRun
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -143,7 +162,7 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 			AgentID:           run.AgentID,
 			Model:             agent.Model,
 			ReasoningEffort:   "high",
-			Source:            "schedule",
+			Source:            scheduleSource,
 			SourceID:          &run.ScheduleID,
 			SourceResourceKey: run.RunKey,
 			Name:              scheduledSessionName(run.Schedule),
@@ -155,9 +174,18 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 			return fmt.Errorf("create schedule session: %w", err)
 		}
 		messagePayload := scheduledMessagePayload(run, now)
+		// Persist the scheduled prompt to the transcript so it is visible in the
+		// session UI and available to the naming task, which reads the first
+		// user.message.received event. Idempotent on (session_id, event_id).
+		event, err := ensureAutomatedSessionEvent(tx, session, "schedule:"+run.RunKey, scheduleSource, messagePayload)
+		if err != nil {
+			return err
+		}
+		sessionEventID := event.ID
 		queue := model.SessionMessageQueue{
 			OrgID:          run.OrgID,
 			SessionID:      sessionID,
+			SessionEventID: &sessionEventID,
 			MessageText:    run.Schedule.TaskPrompt,
 			MessagePayload: messagePayload,
 			SequenceNumber: 1,
@@ -166,6 +194,7 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		if err := tx.Create(&queue).Error; err != nil {
 			return fmt.Errorf("create schedule message queue: %w", err)
 		}
+		created = true
 		updates := map[string]any{
 			"session_id":   sessionID,
 			"sandbox_id":   nil,
@@ -180,7 +209,7 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		}
 		return nil
 	})
-	return sessionID, err
+	return sessionID, created, err
 }
 
 func scheduledSessionName(schedule model.AgentSchedule) string {

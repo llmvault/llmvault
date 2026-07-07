@@ -462,6 +462,8 @@ function userBlock(
   const text = stripAttachmentTags(eventText(event))
   const attachments = eventAttachments(event)
   const codeLineComments = eventCodeLineComments(event)
+  const source = event.source
+  const provider = stringValue(payloadRecord(event), "provider")
 
   return {
     type: "user",
@@ -469,6 +471,8 @@ function userBlock(
     text,
     ...(attachments.length ? { attachments } : {}),
     ...(codeLineComments.length ? { codeLineComments } : {}),
+    ...(source ? { source } : {}),
+    ...(provider ? { provider } : {}),
     author: currentCollaborator,
   }
 }

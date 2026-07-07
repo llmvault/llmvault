@@ -147,15 +147,16 @@ func TestMemoriesSectionRendersRulesWhenRecallFails(t *testing.T) {
 		t.Fatalf("failed recall must not render a knowledge subsection: %q", out)
 	}
 
-	// Without directives the same failures degrade to an omitted section, not
-	// an error: legacy agent_memories are never injected as a fallback.
+	// Without directives the same failures degrade to a preamble-only section,
+	// not an error: legacy agent_memories are never injected as a fallback, but
+	// the acknowledge note still renders (see memoriesSection).
 	source = &fakeRecallSource{
 		digestErr:       errors.New("digest read failed"),
 		observationsErr: errors.New("observations read failed"),
 	}
 	out = fetchRecall(t, source, recallRequest())
-	if out != "" {
-		t.Fatalf("expected empty section when every layer fails, got %q", out)
+	if out != memoriesSectionTitle+"\n"+memoriesSectionPreamble {
+		t.Fatalf("expected preamble-only section when every layer fails, got %q", out)
 	}
 }
 
@@ -204,9 +205,34 @@ func TestMemoriesSectionBudgetPrefersDirectives(t *testing.T) {
 	}
 }
 
-func TestMemoriesSectionEmptyWhenNoLayersHaveContent(t *testing.T) {
+// TestMemoriesSectionCarriesRememberAcknowledgeNote pins the section preamble:
+// whenever the memories section renders, it opens with the note telling the
+// agent to acknowledge "remember this" requests and reassure the user that
+// capture is automatic.
+func TestMemoriesSectionCarriesRememberAcknowledgeNote(t *testing.T) {
+	source := &fakeRecallSource{
+		directives: []model.AgentDirective{{Content: "Always deploy through Railway."}},
+	}
+	out := fetchRecall(t, source, recallRequest())
+	if !strings.HasPrefix(out, memoriesSectionTitle+"\n"+memoriesSectionPreamble+"\n\n") {
+		t.Fatalf("acknowledge note must open the memories section: %q", out)
+	}
+	if !strings.Contains(out, "remembered automatically") {
+		t.Fatalf("note must reassure that capture is automatic: %q", out)
+	}
+}
+
+// TestMemoriesSectionPreambleRendersWithoutMemories pins the intentional
+// convention change scoped to this section: with zero rules and zero
+// knowledge, the section still renders as just the title + acknowledge note.
+// Fresh channels are where "remember this" requests happen most, so the
+// guidance must be present before any memory exists.
+func TestMemoriesSectionPreambleRendersWithoutMemories(t *testing.T) {
 	out := fetchRecall(t, &fakeRecallSource{}, recallRequest())
-	if out != "" {
-		t.Fatalf("expected empty section, got %q", out)
+	if out != memoriesSectionTitle+"\n"+memoriesSectionPreamble {
+		t.Fatalf("expected preamble-only section for a fresh channel, got %q", out)
+	}
+	if strings.Contains(out, memoryRulesHeading) || strings.Contains(out, memoryKnowledgeHeading) {
+		t.Fatalf("preamble-only section must not render empty subsections: %q", out)
 	}
 }

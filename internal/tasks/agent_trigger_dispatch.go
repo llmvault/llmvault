@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
@@ -69,6 +70,24 @@ func (h *AgentTriggerDispatchHandler) Handle(ctx context.Context, task *asynq.Ta
 		webhookPayload = map[string]any{}
 	}
 
+	// Auto-route PR-scoped events (CI results, reviews, comments) back into the
+	// session that opened the PR, no installed trigger required. Runs before the
+	// trigger loop; user triggers still fire afterwards. A routing error is
+	// returned so asynq retries — the enqueue is idempotent, so retries are safe.
+	var routed map[uuid.UUID]string
+	if isPRRouteEventKey(payload.Provider, eventKey(payload.EventType, payload.EventAction)) {
+		routes, err := h.maybeRoutePREvent(ctx, payload, webhookPayload)
+		if err != nil {
+			logging.CaptureWithFields(ctx, fmt.Errorf("route github pr event: %w", err), map[string]any{
+				"org_id":      payload.OrgID.String(),
+				"delivery_id": payload.DeliveryID,
+				"event_key":   eventKey(payload.EventType, payload.EventAction),
+			})
+			return err
+		}
+		routed = routes
+	}
+
 	triggers, err := h.matchTriggers(ctx, payload)
 	if err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("agent trigger match failed: %w", err), map[string]any{
@@ -82,7 +101,7 @@ func (h *AgentTriggerDispatchHandler) Handle(ctx context.Context, task *asynq.Ta
 		// Curated triggers own their event handling end-to-end; the generic
 		// catalog filters/conditions/prompt below do not apply to them.
 		if isGitHubMentionTrigger(payload.Provider, trigger) {
-			if err := h.deliverGitHubMention(ctx, payload, trigger, webhookPayload); err != nil {
+			if err := h.deliverGitHubMention(ctx, payload, trigger, webhookPayload, routed); err != nil {
 				logging.CaptureWithFields(ctx, fmt.Errorf("deliver github mention trigger %s: %w", trigger.ID, err), map[string]any{
 					"org_id":      payload.OrgID.String(),
 					"agent_id":    trigger.AgentID.String(),
@@ -127,6 +146,15 @@ func (h *AgentTriggerDispatchHandler) Handle(ctx context.Context, task *asynq.Ta
 			})
 			return err
 		}
+	}
+	// Close the silent-drop gap from the original incident: an event that
+	// matched no triggers and was not auto-routed left no trace at all.
+	if len(triggers) == 0 && len(routed) == 0 {
+		logging.FromContext(ctx).InfoContext(ctx, "agent trigger event matched no triggers",
+			"org_id", payload.OrgID,
+			"event_key", eventKey(payload.EventType, payload.EventAction),
+			"delivery_id", payload.DeliveryID,
+			"provider", payload.Provider)
 	}
 	return nil
 }

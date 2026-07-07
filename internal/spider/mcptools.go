@@ -60,6 +60,8 @@ func registerWebSearch(server *mcp.Server, client *Client) {
 - Research a topic before answering a question
 - Find URLs to then fetch with web_fetch for deeper reading
 
+For content from the company's own synced websites or docs, check search_knowledge_base first: crawled pages of synced sites are indexed there. Use web search for the open web, sites that are not synced, or freshly published pages (sync lag).
+
 Returns an array of search results, each with url, title, and description.`,
 			InputSchema: map[string]any{
 				"type": "object",
@@ -89,7 +91,7 @@ func registerWebCrawl(server *mcp.Server, client *Client) {
 - Explore a site broadly rather than reading a single known page
 - Collect a corpus of related pages for deeper research
 
-Prefer web_search to discover URLs and web_fetch to read one known page. Reach for web_crawl only when you need breadth across a site. Returns an array of pages, each with url, content, and status.`,
+Prefer web_search to discover URLs and web_fetch to read one known page. Reach for web_crawl only when you need breadth across a site. If the site is already synced into the knowledge base, prefer search_knowledge_base over re-crawling; crawl sites that are not synced or when you need live page content. Returns an array of pages, each with url, content, and status.`,
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{

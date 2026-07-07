@@ -51,7 +51,7 @@
   "actions": {
     "search": {
       "display_name": "Search",
-      "description": "Search pages and databases in Notion",
+      "description": "Search pages and databases in Notion. Check search_knowledge_base first: synced Notion pages and database rows are indexed there for semantic full-content search. Fall back to this direct search when content is not synced, was edited very recently (sync lag), or you need the live workspace state.",
       "resource_type": "",
       "parameters": {
         "type": "object",
@@ -105,7 +105,7 @@
     },
     "query_database": {
       "display_name": "Query Data Source",
-      "description": "Query the rows of a Notion data source (a database's rows live in its data source under the current API)",
+      "description": "Query the rows of a Notion data source (a database's rows live in its data source under the current API). For topical questions over synced database rows, check search_knowledge_base first. Use this tool for structured live queries (filters, sorts, current values) or data sources that are not synced.",
       "resource_type": "database",
       "parameters": {
         "type": "object",

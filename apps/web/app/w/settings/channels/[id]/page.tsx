@@ -2,7 +2,7 @@
 
 import { use, useMemo, useState } from "react"
 import NextLink from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   Button,
@@ -35,6 +35,14 @@ type ChannelMember = {
 
 type ChannelTab = "channel" | "members" | "knowledge" | "env"
 
+const CHANNEL_TABS: ChannelTab[] = ["channel", "members", "knowledge", "env"]
+
+function toChannelTab(raw: string | null): ChannelTab {
+  return CHANNEL_TABS.includes(raw as ChannelTab)
+    ? (raw as ChannelTab)
+    : "channel"
+}
+
 export default function ChannelDetailPage({
   params,
 }: {
@@ -42,8 +50,18 @@ export default function ChannelDetailPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<ChannelTab>("channel")
+  // The active tab is derived from the URL (?tab=), so refresh and deep links
+  // land on the same tab. Clicking a tab replaces the query without a new
+  // history entry.
+  const tab = toChannelTab(searchParams.get("tab"))
+  function setTab(next: ChannelTab) {
+    const query = new URLSearchParams(searchParams.toString())
+    query.set("tab", next)
+    router.replace(`${pathname}?${query.toString()}`, { scroll: false })
+  }
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const channelQuery = $api.useQuery("get", "/v1/channels/{id}", {

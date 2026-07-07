@@ -61,7 +61,7 @@ func TestGitHubMentionRoutesToOriginatingSession(t *testing.T) {
 	}
 	webhook := githubIssueCommentPayload("acme/repo", "bob", "hey @hivy take a look", true)
 
-	if err := h.deliverGitHubMention(ctx, payload, trigger, webhook); err != nil {
+	if err := h.deliverGitHubMention(ctx, payload, trigger, webhook, nil); err != nil {
 		t.Fatalf("deliver: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestGitHubMentionFallsBackWhenNoMapping(t *testing.T) {
 	}
 	webhook := githubIssueCommentPayload("acme/repo", "bob", "hey @hivy take a look", true)
 
-	if err := h.deliverGitHubMention(ctx, payload, trigger, webhook); err != nil {
+	if err := h.deliverGitHubMention(ctx, payload, trigger, webhook, nil); err != nil {
 		t.Fatalf("deliver: %v", err)
 	}
 
