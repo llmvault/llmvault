@@ -59,6 +59,9 @@ jobs:
         run: pnpm run test:e2e
         working-directory: apps/web
         timeout-minutes: 5
+        env:
+          QA_EMAIL_LOGIN_PROD: ${{ secrets.QA_EMAIL_LOGIN_PROD }}
+          QA_PASSWORD_LOGIN_PROD: ${{ secrets.QA_PASSWORD_LOGIN_PROD }}
 
       - name: upload test report
         if: always()
