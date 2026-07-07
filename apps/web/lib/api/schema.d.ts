@@ -16778,6 +16778,7 @@ export interface components {
             members?: components["schemas"]["channelMemberResponse"][];
         };
         channelEnvironmentVariableResponse: {
+            description?: string;
             name?: string;
         };
         channelEnvironmentVariablesResponse: {
@@ -16939,6 +16940,7 @@ export interface components {
             voice?: number[];
         };
         createChannelEnvironmentVariableRequest: {
+            description?: string;
             name?: string;
             value?: string;
         };
@@ -18476,6 +18478,7 @@ export interface components {
             agent?: components["schemas"]["agentResponse"];
         };
         updateChannelEnvironmentVariableRequest: {
+            description?: string;
             name?: string;
             value?: string;
         };

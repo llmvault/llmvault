@@ -136,7 +136,17 @@ func TestManageMemoriesSearchAndOverview(t *testing.T) {
 	}
 
 	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "search"}, "query is required")
-	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "prune"}, "action must be search")
+	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "prune"}, "action must be search or overview")
+
+	// The write actions were removed: memory is read-only to agents.
+	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{
+		"action":  "retain",
+		"content": "Agents may no longer store memories.",
+	}, "action must be search or overview")
+	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{
+		"action":    "forget",
+		"memory_id": orgWideID.String(),
+	}, "action must be search or overview")
 
 	overview := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "overview"})
 	if overview["total"].(float64) != 3 || overview["org_wide_count"].(float64) != 1 {
@@ -160,38 +170,14 @@ func TestManageMemoriesSearchAndOverview(t *testing.T) {
 	}
 }
 
-func TestManageMemoriesForgetRetainAndActorGate(t *testing.T) {
+func TestManageMemoriesActorGate(t *testing.T) {
 	ctx := context.Background()
 	db := connectMemoryToolTestDB(t)
 	fixture := seedMemoryToolFixture(t, db)
 	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
 
-	_, defaultToken := createManageAgent(t, db, fixture.org.ID, "Manage Forget Default", true)
-	channelB := createManageChannel(t, db, fixture.org.ID, fixture.agent.ID, "manage-forget-b")
+	_, defaultToken := createManageAgent(t, db, fixture.org.ID, "Manage Gate Default", true)
 	client := connectMemoryToolClient(t, ctx, service, defaultToken)
-
-	// forget archives any memory in the org, regardless of channel.
-	bMem := seedReadyMemory(t, service, fixture.org.ID, &channelB.ID, "Channel B memory awaiting cleanup.")
-	callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "forget", "memory_id": bMem.String()})
-	assertMemoryArchived(t, db, bMem)
-
-	// retain to a specific channel.
-	retainedB := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{
-		"action":     "retain",
-		"channel_id": channelB.ID.String(),
-		"content":    "Channel B deploys go through the release pipeline.",
-		"tags":       []string{"deploy"},
-	})
-	retainedBID := uuid.MustParse(retainedB["memory"].(map[string]any)["id"].(string))
-	assertMemoryChannel(t, db, retainedBID, &channelB.ID)
-
-	// retain org-wide when channel_id is omitted.
-	retainedOrg := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{
-		"action":  "retain",
-		"content": "Org-wide policy: escalate outages within 15 minutes.",
-	})
-	retainedOrgID := uuid.MustParse(retainedOrg["memory"].(map[string]any)["id"].(string))
-	assertMemoryChannel(t, db, retainedOrgID, nil)
 
 	// Actor gate: a non-manager human is refused; an admin and no-actor pass.
 	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{

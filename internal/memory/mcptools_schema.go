@@ -10,15 +10,7 @@ How to write effective queries:
 - Search one concept per call; make separate calls for separate topics instead of combining them.
 - Leave tags empty on the first call. tags are exact lowercase slug filters matched against observation entities, and a wrong slug silently returns nothing — narrow with a tag only after seeing it in results.
 
-Most channel memory is already injected into your context (rules + memory digest); search for long-tail facts beyond the digest, for precedent before decisions, to dedupe before retain_memory, or to find a memory_id for forget_memory. Set include_facts true only to debug the raw extracted facts behind the observations.`
-
-const retainMemoryDescription = `Store one stable memory for future work in this channel.
-
-Use content for one durable fact, preference, rule, or decision. The memory is saved to the current channel; other agents working in this channel will recall it. tags are optional lowercase slugs for filtering later. Do not store secrets, raw logs, guesses, or transient status.`
-
-const forgetMemoryDescription = `Archive a memory that is wrong, stale, duplicated, unsafe, or no longer useful.
-
-Call search_memories first if you need the memory_id; the IDs it returns are consolidated observations, and forgetting one archives it and suppresses it from being re-learned. Raw fact IDs (from include_facts) are archived too. You can only forget memories in this channel (or organization-wide memories when this channel is allowed to see them). reason is a brief note on why the memory should go.`
+Most channel memory is already injected into your context (rules + memory digest); search for long-tail facts beyond the digest or for precedent before decisions. Memory is read-only to you: new memories are written automatically by background reflection over your sessions, and corrections or deletions happen in the memories UI — there is no tool to store or delete a memory. Set include_facts true only to debug the raw extracted facts behind the observations.`
 
 func memoryIncludeFactsSchema() map[string]any {
 	return map[string]any{

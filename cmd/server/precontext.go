@@ -52,6 +52,9 @@ func buildPreContextService(
 		Reranker: reranker,
 		Memories: memories,
 	}
+	if db != nil {
+		pcCfg.EnvVars = precontext.NewGormEnvVarLister(db)
+	}
 	if cfg != nil {
 		pcCfg.Collection = cfg.QdrantCollection
 	}

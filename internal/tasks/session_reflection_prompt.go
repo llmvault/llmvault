@@ -109,7 +109,7 @@ MEMORY QUALITY:
 - Contextually rich, not atomic: 1–2 sentences (15–60 words) with who/what/why.
   Capture transitions ("switched from Vercel to Railway in June 2026 after preview-deploy
   limits"), not just end states.
-- Preserve specifics exactly: names, numbers, versions, titles. Never generalize.
+- Preserve specifics exactly: names, ids, numbers, versions, titles. Never generalize.
 - Resolve ALL relative dates against the Session Date to absolute dates
   ("yesterday" → "on July 5, 2026"). Never write relative time into a memory.
 - Resolve coreferences: "the client" + "ACME" → "ACME (client)".

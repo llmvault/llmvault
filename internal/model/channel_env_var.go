@@ -19,8 +19,12 @@ type ChannelEnvVar struct {
 	Channel        Channel   `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
 	Name           string    `gorm:"type:text;not null"`
 	EncryptedValue []byte    `gorm:"type:bytea;not null"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// Description is an optional human note describing when the agent should use
+	// this variable. Unlike the value it is not a secret: it is surfaced to the
+	// agent's prompt so it knows the variable exists and when to reach for it.
+	Description string `gorm:"type:text;not null;default:''"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (ChannelEnvVar) TableName() string { return "channel_env_vars" }

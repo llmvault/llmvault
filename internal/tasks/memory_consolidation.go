@@ -83,6 +83,9 @@ type MemoryConsolidationHandler struct {
 	modelCfg     consolidationModelConfig
 	complete     consolidationCompletionFunc
 	now          func() time.Time
+	// memorySvc is a test seam: production builds the service from db/cache
+	// config; tests inject one carrying a stub embedder.
+	memorySvc *memory.Service
 }
 
 func NewMemoryConsolidationHandler(
@@ -101,6 +104,9 @@ func NewMemoryConsolidationHandler(
 }
 
 func (h *MemoryConsolidationHandler) memoryService() *memory.Service {
+	if h.memorySvc != nil {
+		return h.memorySvc
+	}
 	return memory.NewService(memory.Config{
 		DB:             h.db,
 		CacheManager:   h.cacheManager,

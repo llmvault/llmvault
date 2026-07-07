@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -61,7 +62,7 @@ func (h *ChannelHandler) ListChannelEnvironmentVariables(w http.ResponseWriter, 
 
 	data := make([]channelEnvironmentVariableResponse, 0, len(vars))
 	for _, v := range vars {
-		data = append(data, channelEnvironmentVariableResponse{Name: v.Name})
+		data = append(data, channelEnvironmentVariableResponse{Name: v.Name, Description: v.Description})
 	}
 	sort.Slice(data, func(i, j int) bool { return data[i].Name < data[j].Name })
 	writeJSON(w, http.StatusOK, channelEnvironmentVariablesResponse{Data: data})
@@ -114,11 +115,17 @@ func (h *ChannelHandler) CreateChannelEnvironmentVariable(w http.ResponseWriter,
 		return
 	}
 
+	description := strings.TrimSpace(req.Description)
+	if len(description) > maxChannelEnvDescriptionLen {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "description is too long"})
+		return
+	}
 	envVar := model.ChannelEnvVar{
 		OrgID:          channel.OrgID,
 		ChannelID:      channel.ID,
 		Name:           name,
 		EncryptedValue: encrypted,
+		Description:    description,
 	}
 	if err := h.db.WithContext(r.Context()).Create(&envVar).Error; err != nil {
 		if isDuplicateKeyError(err) {
@@ -129,7 +136,7 @@ func (h *ChannelHandler) CreateChannelEnvironmentVariable(w http.ResponseWriter,
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to save environment variable"})
 		return
 	}
-	writeJSON(w, http.StatusCreated, channelEnvironmentVariableResponse{Name: name})
+	writeJSON(w, http.StatusCreated, channelEnvironmentVariableResponse{Name: name, Description: description})
 }
 
 // UpdateChannelEnvironmentVariable handles PATCH /v1/channels/{id}/environment-variables/{name}.
@@ -169,12 +176,16 @@ func (h *ChannelHandler) UpdateChannelEnvironmentVariable(w http.ResponseWriter,
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	if req.Name == nil && req.Value == nil {
+	if req.Name == nil && req.Value == nil && req.Description == nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "no fields to update"})
 		return
 	}
 	if req.Value != nil && *req.Value == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "value cannot be empty"})
+		return
+	}
+	if req.Description != nil && len(strings.TrimSpace(*req.Description)) > maxChannelEnvDescriptionLen {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "description is too long"})
 		return
 	}
 
@@ -200,6 +211,7 @@ func (h *ChannelHandler) UpdateChannelEnvironmentVariable(w http.ResponseWriter,
 		return
 	}
 
+	description := envVar.Description
 	updates := map[string]any{}
 	if newName != currentName {
 		updates["name"] = newName
@@ -213,8 +225,12 @@ func (h *ChannelHandler) UpdateChannelEnvironmentVariable(w http.ResponseWriter,
 		}
 		updates["encrypted_value"] = encrypted
 	}
+	if req.Description != nil {
+		description = strings.TrimSpace(*req.Description)
+		updates["description"] = description
+	}
 	if len(updates) == 0 {
-		writeJSON(w, http.StatusOK, channelEnvironmentVariableResponse{Name: newName})
+		writeJSON(w, http.StatusOK, channelEnvironmentVariableResponse{Name: newName, Description: description})
 		return
 	}
 
@@ -230,7 +246,7 @@ func (h *ChannelHandler) UpdateChannelEnvironmentVariable(w http.ResponseWriter,
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to save environment variable"})
 		return
 	}
-	writeJSON(w, http.StatusOK, channelEnvironmentVariableResponse{Name: newName})
+	writeJSON(w, http.StatusOK, channelEnvironmentVariableResponse{Name: newName, Description: description})
 }
 
 // DeleteChannelEnvironmentVariable handles DELETE /v1/channels/{id}/environment-variables/{name}.

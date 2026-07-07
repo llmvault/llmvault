@@ -1,36 +1,15 @@
 package memory
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
-
-func (s *Service) loadToolMemory(ctx context.Context, orgID, memoryID uuid.UUID) (model.AgentMemory, error) {
-	var mem model.AgentMemory
-	err := s.cfg.DB.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", memoryID, orgID).
-		First(&mem).Error
-	return mem, err
-}
-
-func memoryToolMetadata(metadata model.JSON, agentID uuid.UUID) model.JSON {
-	out := model.JSON{}
-	for key, value := range metadata {
-		out[key] = value
-	}
-	out["source"] = "mcp_memory_tool"
-	out["created_by_agent_id"] = agentID.String()
-	return out
-}
 
 const (
 	memoryLayerObservations = "observations"
@@ -155,11 +134,4 @@ func memoryToolJSON(v any) (*mcp.CallToolResult, error) {
 		return memoryToolError("failed to serialize response"), nil
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(b)}}}, nil
-}
-
-func memoryToolLoadMessage(err error) string {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return "memory not found"
-	}
-	return "failed to load memory: " + err.Error()
 }

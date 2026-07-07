@@ -57,6 +57,23 @@ func finalizeAttempt(
 		return fmt.Errorf("finalize attempt %s: %w", a.ID, err)
 	}
 
+	// A run with per-doc failures, or a full/initial index that produced nothing,
+	// never returns a task error — so it's invisible to Sentry unless we report
+	// it here. (A normal empty incremental refresh is not flagged.)
+	fullOrInitial := a.FromBeginning || src.Status == ragmodel.RAGSourceStatusInitialIndexing
+	if terminal != ragmodel.IndexingStatusFailed &&
+		(stats.failures > 0 || (stats.docsBatched == 0 && fullOrInitial)) {
+		logging.CaptureWithFields(ctx,
+			fmt.Errorf("rag ingest finished unhealthy: source=%s %d docs, %d failures", src.ID, stats.docsBatched, stats.failures),
+			map[string]any{
+				"source_id":   src.ID.String(),
+				"source_kind": src.SourceKind(),
+				"docs":        stats.docsBatched,
+				"failures":    stats.failures,
+				"status":      string(terminal),
+			})
+	}
+
 	if terminal == ragmodel.IndexingStatusFailed {
 
 		if src.Status == ragmodel.RAGSourceStatusInitialIndexing {

@@ -18,8 +18,13 @@ const hivyReservedEnvPrefix = "HIVY_"
 
 var channelEnvNamePattern = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
 
+// maxChannelEnvDescriptionLen caps the optional per-variable description that is
+// surfaced to the agent's prompt, keeping the prompt segment bounded.
+const maxChannelEnvDescriptionLen = 500
+
 type channelEnvironmentVariableResponse struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type channelEnvironmentVariablesResponse struct {
@@ -27,13 +32,15 @@ type channelEnvironmentVariablesResponse struct {
 }
 
 type createChannelEnvironmentVariableRequest struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
 }
 
 type updateChannelEnvironmentVariableRequest struct {
-	Name  *string `json:"name,omitempty"`
-	Value *string `json:"value,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Value       *string `json:"value,omitempty"`
+	Description *string `json:"description,omitempty"`
 }
 
 // normalizeChannelEnvName uppercases and validates a user-supplied env var name.

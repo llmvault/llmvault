@@ -132,7 +132,7 @@ For `sub_agents`, replacement means **delete-and-recreate the whole set.** To ke
 - The read-only MCP floor: `skills_list`, `skill_view` (how it reads its skills — granting `skills` alone is enough) and `list_channels`.
 - `subagent_task`, added automatically whenever the agent has `sub_agents`.
 
-**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `remix_image`, `search_memories`, `retain_memory`, `forget_memory`, `search_knowledge_base`, `cron`, `create_http_trigger`. The schema's `tools` enum is authoritative. Grant only what the job needs.
+**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `remix_image`, `search_memories`, `search_knowledge_base`, `cron`, `create_http_trigger`. The schema's `tools` enum is authoritative. Grant only what the job needs. (Memory is read-only to agents: `search_memories` is the only memory tool — writes happen automatically via background reflection.)
 
 Sub-agents' `tools` accept the full set (baseline included), so a deliberately narrow read-only sub-agent is expressible; a sub-agent with no `tools` defaults to read-only file tools.
 

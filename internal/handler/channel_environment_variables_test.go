@@ -186,6 +186,49 @@ func TestChannelEnvVars_CRUD(t *testing.T) {
 	}
 }
 
+func TestChannelEnvVars_Description(t *testing.T) {
+	h := newChannelEnvHarness(t)
+
+	// Create with a description.
+	rr := h.do(t, h.fx.owner, http.MethodPost, h.envPath(), map[string]any{
+		"name": "database_url", "value": "postgres://a",
+		"description": "  Primary analytics DB connection string. ",
+	})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create: status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// Stored trimmed, and surfaced in the list (values still never leak).
+	var stored model.ChannelEnvVar
+	if err := h.db.Where("channel_id = ? AND name = ?", h.channelID, "DATABASE_URL").First(&stored).Error; err != nil {
+		t.Fatalf("load stored var: %v", err)
+	}
+	if stored.Description != "Primary analytics DB connection string." {
+		t.Fatalf("stored description = %q", stored.Description)
+	}
+	if body := h.do(t, h.fx.owner, http.MethodGet, h.envPath(), nil).Body.String(); !bytesContains(body, "Primary analytics DB connection string.") {
+		t.Fatalf("list missing description: %s", body)
+	}
+
+	// Update only the description.
+	if rr := h.do(t, h.fx.owner, http.MethodPatch, h.envPath()+"/DATABASE_URL", map[string]any{"description": "Read replica URL."}); rr.Code != http.StatusOK {
+		t.Fatalf("update description: status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	_ = h.db.Where("channel_id = ? AND name = ?", h.channelID, "DATABASE_URL").First(&stored)
+	if stored.Description != "Read replica URL." {
+		t.Fatalf("updated description = %q", stored.Description)
+	}
+
+	// Rename preserves the description.
+	if rr := h.do(t, h.fx.owner, http.MethodPatch, h.envPath()+"/DATABASE_URL", map[string]any{"name": "db_url"}); rr.Code != http.StatusOK {
+		t.Fatalf("rename: status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	_ = h.db.Where("channel_id = ? AND name = ?", h.channelID, "DB_URL").First(&stored)
+	if stored.Description != "Read replica URL." {
+		t.Fatalf("description after rename = %q", stored.Description)
+	}
+}
+
 func TestChannelEnvVars_NameValidation(t *testing.T) {
 	h := newChannelEnvHarness(t)
 

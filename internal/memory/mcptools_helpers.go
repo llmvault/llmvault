@@ -18,23 +18,10 @@ type memorySearchArgs struct {
 	HivySessionID string   `json:"_hivy_session_id"`
 }
 
-type memoryRetainArgs struct {
-	Content       string     `json:"content"`
-	Tags          []string   `json:"tags"`
-	Metadata      model.JSON `json:"metadata"`
-	HivySessionID string     `json:"_hivy_session_id"`
-}
-
-type memoryForgetArgs struct {
-	MemoryID      string `json:"memory_id"`
-	Reason        string `json:"reason"`
-	HivySessionID string `json:"_hivy_session_id"`
-}
-
 // memoryToolContext is the per-call scope for the regular agent tools. Every
 // call runs inside a session, and the session's channel is the only memory
-// scope the agent may read or write: sessionChannelID plus (when the channel
-// allows it) org-wide memories.
+// scope the agent may read: sessionChannelID plus (when the channel allows
+// it) org-wide memories. Agents never write memory through tools.
 type memoryToolContext struct {
 	OrgID             uuid.UUID
 	AgentID           uuid.UUID
@@ -102,29 +89,4 @@ func (s *Service) memoryToolContext(ctx context.Context, token *model.Token, age
 // in org-wide memories only when the channel exposes them.
 func (toolCtx memoryToolContext) searchScope() ChannelScope {
 	return ChannelScope{ChannelID: &toolCtx.ChannelID, IncludeOrgMemories: toolCtx.ExposeOrgMemories}
-}
-
-// canForget reports whether mem falls within this channel's scope: the session
-// channel, or an org-wide memory when the channel is allowed to see them.
-func (toolCtx memoryToolContext) canForget(mem model.AgentMemory) error {
-	if mem.ChannelID != nil && *mem.ChannelID == toolCtx.ChannelID {
-		return nil
-	}
-	if mem.ChannelID == nil && toolCtx.ExposeOrgMemories {
-		return nil
-	}
-	return fmt.Errorf("forget_memory can only archive memories in this channel")
-}
-
-// canForgetObservation mirrors canForget for the consolidated observation
-// layer: the session channel, or an org-wide observation when the channel is
-// allowed to see them.
-func (toolCtx memoryToolContext) canForgetObservation(obs model.AgentObservation) error {
-	if obs.ChannelID != nil && *obs.ChannelID == toolCtx.ChannelID {
-		return nil
-	}
-	if obs.ChannelID == nil && toolCtx.ExposeOrgMemories {
-		return nil
-	}
-	return fmt.Errorf("forget_memory can only archive memories in this channel")
 }

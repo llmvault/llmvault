@@ -29,8 +29,6 @@ var AssignableMCPTools = []string{
 	"generate_vector_image",
 	"remix_image",
 	"search_memories",
-	"retain_memory",
-	"forget_memory",
 	"skills_list",
 	"skill_view",
 	"search_knowledge_base",
@@ -99,8 +97,8 @@ var parentAssignableMCPToolSet = stringSet(parentAssignableMCPTools())
 // skill/channel floor are always granted and are intentionally excluded, so they
 // never appear in the parent schema enum. Derived from the source lists by set
 // subtraction. In practice: lsp, web_search, web_fetch, generate_image,
-// generate_vector_image, remix_image, search_memories, retain_memory,
-// forget_memory, search_knowledge_base, cron, create_http_trigger.
+// generate_vector_image, remix_image, search_memories, search_knowledge_base,
+// cron, create_http_trigger.
 func ParentAssignableToolIDs() []string {
 	runtime := optionalRuntimeToolIDs()
 	mcp := parentAssignableMCPTools()

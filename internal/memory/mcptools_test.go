@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -25,14 +24,12 @@ func TestMemoryMCPToolsChannelScoping(t *testing.T) {
 	}
 	assertMemoryToolDescriptions(t, tools.Tools)
 
-	// retain writes to the session's channel, no target argument required.
-	retained := callMemoryTool(t, ctx, client, "retain_memory", map[string]any{
-		"content":          "The team uses the Helio launch checklist before release planning.",
-		"tags":             []string{"launch", "preference"},
-		"_hivy_session_id": fixture.session.ID.String(),
-	})
-	retainedID := uuid.MustParse(retained["memory"].(map[string]any)["id"].(string))
-	assertMemoryChannel(t, db, retainedID, &fixture.channel.ID)
+	// Agents are read-only on memory: the write tools must not register.
+	for _, tool := range tools.Tools {
+		if tool.Name == "retain_memory" || tool.Name == "forget_memory" {
+			t.Fatalf("removed memory write tool %s is still registered", tool.Name)
+		}
+	}
 
 	otherChannel := model.Channel{ID: uuid.New(), OrgID: fixture.org.ID, Name: "memory-mcp-other-" + uuid.NewString(), DefaultAgentID: fixture.agent.ID, ExposeOrgMemories: true}
 	if err := db.Create(&otherChannel).Error; err != nil {
@@ -66,30 +63,11 @@ func TestMemoryMCPToolsChannelScoping(t *testing.T) {
 		"query":            "this query has far too many words",
 		"_hivy_session_id": fixture.session.ID.String(),
 	}, "query must be at most")
-	assertMemoryToolError(t, ctx, client, "retain_memory", map[string]any{
-		"content":          "The agent should remember this malformed tag test.",
+	assertMemoryToolError(t, ctx, client, "search_memories", map[string]any{
+		"query":            "release checklist",
 		"tags":             []string{"Project Helio"},
 		"_hivy_session_id": fixture.session.ID.String(),
 	}, "lowercase kebab-case")
-
-	// forget refuses a memory that belongs to another channel.
-	assertMemoryToolError(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        otherMem.String(),
-		"_hivy_session_id": fixture.session.ID.String(),
-	}, "only archive memories in this channel")
-	assertMemoryNotArchived(t, db, otherMem)
-
-	// forget allows this channel's memory and org-wide memories (channel exposes them).
-	callMemoryTool(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        channelMem.String(),
-		"_hivy_session_id": fixture.session.ID.String(),
-	})
-	assertMemoryArchived(t, db, channelMem)
-	callMemoryTool(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        orgMem.String(),
-		"_hivy_session_id": fixture.session.ID.String(),
-	})
-	assertMemoryArchived(t, db, orgMem)
 }
 
 func TestMemoryMCPToolsExposeOrgMemoriesToggle(t *testing.T) {
@@ -117,13 +95,6 @@ func TestMemoryMCPToolsExposeOrgMemoriesToggle(t *testing.T) {
 	if ids[orgMem.String()] {
 		t.Fatalf("search leaked org-wide memory despite exposure off: %#v", results)
 	}
-
-	// With exposure off, org-wide memories are out of this channel's forget scope.
-	assertMemoryToolError(t, ctx, client, "forget_memory", map[string]any{
-		"memory_id":        orgMem.String(),
-		"_hivy_session_id": fixture.session.ID.String(),
-	}, "only archive memories in this channel")
-	assertMemoryNotArchived(t, db, orgMem)
 }
 
 func TestMemoryMCPToolsSessionRequired(t *testing.T) {
@@ -135,9 +106,6 @@ func TestMemoryMCPToolsSessionRequired(t *testing.T) {
 
 	assertMemoryToolError(t, ctx, client, "search_memories", map[string]any{
 		"query": "release checklist",
-	}, "_hivy_session_id is required")
-	assertMemoryToolError(t, ctx, client, "retain_memory", map[string]any{
-		"content": "This should be rejected without a session.",
 	}, "_hivy_session_id is required")
 	assertMemoryToolError(t, ctx, client, "search_memories", map[string]any{
 		"query":            "release checklist",
@@ -153,23 +121,6 @@ func resultIDSet(resp map[string]any) map[string]bool {
 	return out
 }
 
-func assertMemoryChannel(t *testing.T, db *gorm.DB, memoryID uuid.UUID, want *uuid.UUID) {
-	t.Helper()
-	var mem model.AgentMemory
-	if err := db.First(&mem, "id = ?", memoryID).Error; err != nil {
-		t.Fatalf("load memory: %v", err)
-	}
-	if want == nil {
-		if mem.ChannelID != nil {
-			t.Fatalf("memory %s channel = %v, want org-wide (nil)", memoryID, mem.ChannelID)
-		}
-		return
-	}
-	if mem.ChannelID == nil || *mem.ChannelID != *want {
-		t.Fatalf("memory %s channel = %v, want %s", memoryID, mem.ChannelID, want)
-	}
-}
-
 func assertMemoryToolError(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any, want string) {
 	t.Helper()
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
@@ -178,27 +129,5 @@ func assertMemoryToolError(t *testing.T, ctx context.Context, client *mcp.Client
 	}
 	if !result.IsError || !strings.Contains(memoryToolText(result), want) {
 		t.Fatalf("%s error = %v text %q, want %q", name, result.IsError, memoryToolText(result), want)
-	}
-}
-
-func assertMemoryArchived(t *testing.T, db *gorm.DB, memoryID uuid.UUID) {
-	t.Helper()
-	var archived model.AgentMemory
-	if err := db.First(&archived, "id = ?", memoryID).Error; err != nil {
-		t.Fatalf("load archived memory: %v", err)
-	}
-	if archived.ArchivedAt == nil {
-		t.Fatalf("memory %s was not archived", memoryID)
-	}
-}
-
-func assertMemoryNotArchived(t *testing.T, db *gorm.DB, memoryID uuid.UUID) {
-	t.Helper()
-	var mem model.AgentMemory
-	if err := db.First(&mem, "id = ?", memoryID).Error; err != nil {
-		t.Fatalf("load memory: %v", err)
-	}
-	if mem.ArchivedAt != nil {
-		t.Fatalf("memory %s was archived but should not be", memoryID)
 	}
 }

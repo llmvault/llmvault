@@ -134,21 +134,6 @@
       "prompt": {
         "instructions": "./sub_agents/business-logic-validator/instructions.md"
       }
-    },
-    "memory-pass": {
-      "name": "Memory Pass",
-      "description": "Runs after a review is posted. Reads the review, verdict, and any author feedback, then persists durable review conventions, confirmed false-positive patterns, and author preferences to Zuko's memory (and forgets contradicted ones). Never stores secrets or diffs.",
-      "model": "glm-5.2",
-      "tools": {
-        "read_file": true,
-        "file_search": true,
-        "grep": true,
-        "search_sessions": true,
-        "update_plan": true
-      },
-      "prompt": {
-        "instructions": "./sub_agents/memory-pass/instructions.md"
-      }
     }
   },
   "plugins": {

@@ -15718,6 +15718,9 @@
         "channelEnvironmentVariableResponse": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }
@@ -16205,6 +16208,9 @@
         "createChannelEnvironmentVariableRequest": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -20730,6 +20736,9 @@
         "updateChannelEnvironmentVariableRequest": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },

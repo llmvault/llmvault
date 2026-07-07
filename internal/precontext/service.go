@@ -33,6 +33,7 @@ type Config struct {
 	Embedder   Embedder
 	Reranker   Reranker
 	Memories   MemoryLister
+	EnvVars    EnvVarLister
 	Collection string
 	CacheTTL   time.Duration
 }
@@ -41,6 +42,7 @@ type Service struct {
 	cfg      Config
 	sessions SourceFetcher
 	memories SourceFetcher
+	envVars  SourceFetcher
 }
 
 func NewService(cfg Config) *Service {
@@ -50,6 +52,7 @@ func NewService(cfg Config) *Service {
 	s := &Service{cfg: cfg}
 	s.sessions = s.fetchSessionsSection
 	s.memories = s.fetchMemoriesSection
+	s.envVars = s.fetchEnvVarsSection
 	return s
 }
 
@@ -61,7 +64,7 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		index int
 		text  string
 	}
-	results := make(chan result, 2)
+	results := make(chan result, 3)
 	run := func(index int, name string, fetch SourceFetcher) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
@@ -75,13 +78,14 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		}
 		results <- result{index: index, text: text}
 	}
-	fetchers := pool.New().WithMaxGoroutines(2)
+	fetchers := pool.New().WithMaxGoroutines(3)
 	fetchers.Go(func() { run(0, "sessions", s.cached(SessionsCacheKey(req.OrgID, req.AgentID), s.sessions)) })
 	fetchers.Go(func() { run(1, "memories", s.memories) })
+	fetchers.Go(func() { run(2, "env vars", s.envVars) })
 	fetchers.Wait()
 	close(results)
 
-	ordered := make([]string, 2)
+	ordered := make([]string, 3)
 	for res := range results {
 		ordered[res.index] = res.text
 	}

@@ -79,6 +79,9 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
+	if err := appendChannelEnvVarPromptDoc(ctx, deps, def, opts.ChannelID); err != nil {
+		return ConfigUpdateRequest{}, err
+	}
 	phaseLog.log("compile definition",
 		"tool_count", len(def.Tools),
 		"mcp_server_count", len(def.McpServers),

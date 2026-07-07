@@ -15721,6 +15721,9 @@ const docTemplate = `{
         "channelEnvironmentVariableResponse": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }
@@ -16208,6 +16211,9 @@ const docTemplate = `{
         "createChannelEnvironmentVariableRequest": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -20733,6 +20739,9 @@ const docTemplate = `{
         "updateChannelEnvironmentVariableRequest": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },

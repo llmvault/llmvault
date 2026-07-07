@@ -9,8 +9,8 @@ import (
 const (
 	defaultIngestTick      = 30 * time.Minute
 	defaultPruneTick       = 90 * time.Minute
-	defaultWatchdogTick    = 90 * time.Minute
-	defaultWatchdogTimeout = 30 * time.Minute
+	defaultWatchdogTick    = 30 * time.Minute
+	defaultWatchdogTimeout = 15 * time.Minute
 	defaultUniqueSlack     = 30 * time.Second
 	defaultEnqueueLimit    = 500
 )

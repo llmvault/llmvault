@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -138,8 +139,18 @@ type observationSearchRow struct {
 	Similarity float64 `gorm:"column:similarity"`
 }
 
-// ListUnconsolidatedFacts returns the oldest reflection facts in a channel
-// that consolidation has not folded into observations yet.
+// consolidationFactSources are the agent_memories sources that flow into
+// consolidation: reflection-extracted facts and legacy memories agents stored
+// via the (since removed) retain_memory MCP tool. The tool is gone — agents
+// are read-only on memory — but historical "mcp_memory_tool" facts still
+// exist and must keep flowing into the observations layer: it is the only
+// layer recall injects and search reads, so a source left out of this list is
+// written but never recalled.
+var consolidationFactSources = []string{"reflection", "mcp_memory_tool"}
+
+// ListUnconsolidatedFacts returns the oldest facts in a channel that
+// consolidation has not folded into observations yet (reflection-extracted
+// and agent-retained).
 func (s *Service) ListUnconsolidatedFacts(ctx context.Context, orgID, channelID uuid.UUID, limit int) ([]model.AgentMemory, error) {
 	if s == nil || s.cfg.DB == nil {
 		return nil, fmt.Errorf("memory service is not configured")
@@ -150,7 +161,7 @@ func (s *Service) ListUnconsolidatedFacts(ctx context.Context, orgID, channelID 
 	var rows []model.AgentMemory
 	err := s.cfg.DB.WithContext(ctx).
 		Where("org_id = ? AND channel_id = ? AND archived_at IS NULL AND consolidated_at IS NULL", orgID, channelID).
-		Where("metadata->>'source' = ?", "reflection").
+		Where("metadata->>'source' IN ?", consolidationFactSources).
 		Order("created_at ASC, id ASC").
 		Limit(limit).
 		Find(&rows).Error
@@ -227,8 +238,8 @@ type OrgChannel struct {
 	ChannelID uuid.UUID
 }
 
-// ChannelsWithUnconsolidatedFacts finds channels holding reflection facts the
-// consolidation worker has not processed (the stranded-facts sweep source).
+// ChannelsWithUnconsolidatedFacts finds channels holding unprocessed facts
+// (reflection-extracted or agent-retained) — the stranded-facts sweep source.
 func (s *Service) ChannelsWithUnconsolidatedFacts(ctx context.Context, limit int) ([]OrgChannel, error) {
 	if s == nil || s.cfg.DB == nil {
 		return nil, fmt.Errorf("memory service is not configured")
@@ -243,8 +254,8 @@ FROM agent_memories
 WHERE archived_at IS NULL
 	AND consolidated_at IS NULL
 	AND channel_id IS NOT NULL
-	AND metadata->>'source' = 'reflection'
-LIMIT ?`, limit).Scan(&rows).Error
+	AND metadata->>'source' = ANY(?)
+LIMIT ?`, pq.StringArray(consolidationFactSources), limit).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("scan unconsolidated channels: %w", err)
 	}

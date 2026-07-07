@@ -2,14 +2,11 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -167,66 +164,6 @@ func (s *Service) channelNames(ctx context.Context, orgID uuid.UUID, channelIDs 
 		names[row.ID] = row.Name
 	}
 	return names, nil
-}
-
-func handleManageForget(ctx context.Context, service *Service, token *model.Token, args manageMemoriesArgs) (*mcp.CallToolResult, error) {
-	memoryID, err := uuid.Parse(strings.TrimSpace(args.MemoryID))
-	if err != nil || memoryID == uuid.Nil {
-		return memoryToolError("memory_id must be a valid UUID"), nil
-	}
-	// Search returns consolidated observations, so the ID is usually an
-	// observation ID: try that layer first (org-scoped, any channel — this is
-	// the privileged manager tool), falling back to the raw facts layer.
-	if obs, err := service.GetObservation(ctx, token.OrgID, memoryID); err == nil {
-		if err := service.ForgetObservation(ctx, obs); err != nil {
-			return memoryToolError("forget failed: " + err.Error()), nil
-		}
-		return memoryToolJSON(map[string]any{
-			"success":   true,
-			"memory_id": memoryID.String(),
-			"layer":     memoryLayerObservations,
-			"status":    "archived",
-		})
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return memoryToolError("forget failed: " + err.Error()), nil
-	}
-	if err := service.Archive(ctx, ArchiveRequest{OrgID: token.OrgID, ID: memoryID}); err != nil {
-		return memoryToolError("forget failed: " + memoryToolLoadMessage(err)), nil
-	}
-	return memoryToolJSON(map[string]any{
-		"success":   true,
-		"memory_id": memoryID.String(),
-		"layer":     memoryLayerFacts,
-		"status":    "archived",
-	})
-}
-
-func handleManageRetain(ctx context.Context, service *Service, token *model.Token, args manageMemoriesArgs) (*mcp.CallToolResult, error) {
-	tags, err := normalizeMemoryToolTags(args.Tags)
-	if err != nil {
-		return memoryToolError(err.Error()), nil
-	}
-	channelID, _, err := resolveManageChannel(args.ChannelID)
-	if err != nil {
-		return memoryToolError(err.Error()), nil
-	}
-	createCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	mem, err := service.Create(createCtx, CreateRequest{
-		OrgID:     token.OrgID,
-		ChannelID: channelID,
-		Content:   args.Content,
-		Tags:      tags,
-		Metadata:  args.Metadata,
-	})
-	if err != nil {
-		return memoryToolError("retain failed: " + err.Error()), nil
-	}
-	return memoryToolJSON(map[string]any{
-		"success": true,
-		"memory":  memoryToolMemoryResponse(*mem, nil),
-		"note":    "Embedding is queued asynchronously; semantic search becomes available after embedding_status is ready.",
-	})
 }
 
 func handleManageOverview(ctx context.Context, service *Service, token *model.Token) (*mcp.CallToolResult, error) {

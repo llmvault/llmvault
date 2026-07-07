@@ -113,7 +113,7 @@ func assertMemoryToolDescriptions(t *testing.T, tools []*mcp.Tool) {
 	for _, tool := range tools {
 		byName[tool.Name] = tool
 	}
-	for _, name := range []string{"search_memories", "retain_memory", "forget_memory"} {
+	for _, name := range []string{"search_memories"} {
 		if byName[name] == nil {
 			t.Fatalf("tool %s not registered", name)
 		}
@@ -141,10 +141,8 @@ func assertMemoryToolSchemas(t *testing.T, tools []*mcp.Tool) {
 			t.Fatalf("search_memories exposes agent-controlled limit: %s", schema)
 		}
 		// Regular agent tools must not carry any scope/owner concept anymore.
-		for _, name := range []string{"search_memories", "retain_memory", "forget_memory"} {
-			if tool.Name == name && strings.Contains(string(schema), "target") {
-				t.Fatalf("tool %s still exposes a target argument: %s", tool.Name, schema)
-			}
+		if tool.Name == "search_memories" && strings.Contains(string(schema), "target") {
+			t.Fatalf("tool %s still exposes a target argument: %s", tool.Name, schema)
 		}
 	}
 }
