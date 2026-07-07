@@ -249,8 +249,17 @@ RUN npm config set fetch-retries 5 \
     printf '%s\n' '#!/bin/sh' 'exec /usr/local/bin/agent-browser --executable-path /usr/bin/chromium "$@"' >/usr/local/bin/browser \
     && chmod +x /usr/local/bin/browser; \
   else \
-    ln -sf /usr/local/bin/agent-browser /usr/local/bin/browser \
-    && HOME=/workspace agent-browser install; \
+    # amd64: Debian's chromium 150 crashes on the prod runner, so bake agent-browser's
+    # own Chrome-for-Testing into this persistent /opt layer and pin the browser CLI to it.
+    # It MUST NOT live under /workspace -- that path is a fresh volume mounted at sandbox
+    # boot, so anything installed there at build time is gone at runtime. The chrome path is
+    # pinned into the wrapper because agent-browser's auto-resolution falls through to the
+    # broken Debian chromium on amd64. Do not "simplify" this back to a symlink.
+    HOME=/opt/agent-browser agent-browser install \
+    && CHROME="$(ls -d /opt/agent-browser/.agent-browser/browsers/chrome-*/chrome 2>/dev/null | head -n1)" \
+    && test -x "$CHROME" \
+    && printf '%s\n' '#!/bin/sh' "exec /usr/local/bin/agent-browser --executable-path $CHROME \"\$@\"" >/usr/local/bin/browser \
+    && chmod +x /usr/local/bin/browser; \
   fi \
   && npm cache clean --force
 
