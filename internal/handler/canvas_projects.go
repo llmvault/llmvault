@@ -14,7 +14,9 @@ import (
 // @Description Returns Canvas artifact projects for the current organization.
 // @Tags canvas
 // @Produce json
+// @Param session_id query string false "Filter by source session ID (uuid)"
 // @Success 200 {object} canvasartifact.ProjectListResponse
+// @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Failure 503 {object} errorResponse
@@ -35,7 +37,12 @@ func (h *CanvasHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		}
 		sessionID = &parsed
 	}
-	result, err := h.artifactSvc.ListProjectsForOrg(r.Context(), org.ID, sessionID)
+	visibleSessions, err := h.visibleSessionScope(r.Context(), org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
+		return
+	}
+	result, err := h.artifactSvc.ListProjectsForOrg(r.Context(), org.ID, sessionID, visibleSessions)
 	if err != nil {
 		logging.Capture(r.Context(), err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list canvas projects"})

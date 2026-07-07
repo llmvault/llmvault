@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -111,6 +112,10 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := tx.Create(&channel).Error; err != nil {
 			return err
 		}
+		// The channel's default agent is always one of its assigned agents.
+		if err := channelagents.Assign(ctx, tx, channel.OrgID, channel.ID, channel.DefaultAgentID, userID); err != nil {
+			return err
+		}
 		if hasUser {
 			return tx.Create(&model.ChannelMember{
 				ChannelID: channel.ID,
@@ -169,11 +174,22 @@ func (h *ChannelHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !h.applyChannelUpdates(w, r, &channel, &req, updates) {
 		return
 	}
+	userID, _ := currentRequestUserID(r.Context())
 	if len(updates) > 0 {
-		if err := h.db.WithContext(r.Context()).
-			Model(&model.Channel{}).
-			Where("id = ? AND org_id = ?", channel.ID, channel.OrgID).
-			Updates(updates).Error; err != nil {
+		// Changing default_agent_id must keep the "default is always assigned"
+		// invariant: auto-assign the new default in the same transaction.
+		err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&model.Channel{}).
+				Where("id = ? AND org_id = ?", channel.ID, channel.OrgID).
+				Updates(updates).Error; err != nil {
+				return err
+			}
+			if req.DefaultAgentID != nil {
+				return channelagents.Assign(r.Context(), tx, channel.OrgID, channel.ID, channel.DefaultAgentID, userID)
+			}
+			return nil
+		})
+		if err != nil {
 			if isDuplicateKeyError(err) {
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "channel already exists for this source"})
 				return

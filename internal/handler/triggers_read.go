@@ -26,20 +26,22 @@ func (h *TriggerHandler) triggerResponse(trigger model.AgentTrigger) triggerAuto
 }
 
 // actorCanAccessTrigger reports whether the actor may see/manage a trigger.
-// Provider (webhook) triggers keep their existing visibility; HTTP ("webhook")
-// triggers are channel-scoped — the actor must be an org manager or able to use
-// the trigger's channel.
+// Every trigger — provider (webhook) and HTTP alike — is channel-scoped for
+// read: an org manager sees all, otherwise the actor must be able to use the
+// trigger's channel. A trigger with no channel is visible only to managers
+// (mirrors how schedules treat a channel they cannot resolve).
 func (h *TriggerHandler) actorCanAccessTrigger(ctx context.Context, actor *access.Actor, trigger model.AgentTrigger) bool {
-	if trigger.TriggerType != "http" {
-		return true
-	}
 	if actor.IsOrgManager() {
 		return true
 	}
-	if trigger.Channel == nil {
+	if trigger.Channel != nil {
+		return actor.CanUseChannel(ctx, h.db, *trigger.Channel)
+	}
+	if trigger.ChannelID == nil {
 		return false
 	}
-	return actor.CanUseChannel(ctx, h.db, *trigger.Channel)
+	allowed, err := actor.CanUseChannelID(ctx, h.db, *trigger.ChannelID)
+	return err == nil && allowed
 }
 
 // List handles GET /v1/triggers.
@@ -70,9 +72,10 @@ func (h *TriggerHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list triggers"})
 		return
 	}
+	seeAll := isAPIKeyRequest(r.Context())
 	data := make([]triggerAutomationResponse, 0, len(triggers))
 	for i := range triggers {
-		if !h.actorCanAccessTrigger(r.Context(), actor, triggers[i]) {
+		if !seeAll && !h.actorCanAccessTrigger(r.Context(), actor, triggers[i]) {
 			continue
 		}
 		data = append(data, h.triggerResponse(triggers[i]))
@@ -109,7 +112,11 @@ func (h *TriggerHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor, err := access.Resolve(r.Context(), h.db, org.ID, middleware.UserID(r.Context()))
-	if err != nil || !h.actorCanAccessTrigger(r.Context(), actor, trigger) {
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
+		return
+	}
+	if !isAPIKeyRequest(r.Context()) && !h.actorCanAccessTrigger(r.Context(), actor, trigger) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "trigger not found"})
 		return
 	}

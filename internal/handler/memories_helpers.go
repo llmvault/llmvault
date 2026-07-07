@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -62,6 +64,38 @@ func (h *MemoryHandler) authorizeMemoryMutation(w http.ResponseWriter, r *http.R
 	}
 	writeJSON(w, http.StatusForbidden, errorResponse{Error: "memory access denied"})
 	return mem, false
+}
+
+// listVisibility builds the channel-visibility constraint for a list read: org
+// managers and API-key callers see every channel (Restrict false); everyone
+// else is limited to global (channel_id IS NULL) rows plus channels they may
+// use. It reuses actorSeesOrgWide so the role/api-key gate cannot drift from the
+// rest of the channel-visibility surfaces.
+func listVisibility(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (memory.Visibility, error) {
+	seesAll, userID, err := actorSeesOrgWide(ctx, db, orgID)
+	if err != nil {
+		return memory.Visibility{}, err
+	}
+	if seesAll {
+		return memory.Visibility{}, nil
+	}
+	return memory.Visibility{Restrict: true, UserID: userID}, nil
+}
+
+// applyChannelVisibility constrains a gorm query on a channel_id-bearing table
+// (observations, directives) to rows the actor may see: global (channel_id IS
+// NULL) rows plus channels usable under the team-based visibility predicate. It
+// is a no-op for org managers and API-key callers, who see every channel.
+func applyChannelVisibility(ctx context.Context, db, q *gorm.DB, orgID uuid.UUID) (*gorm.DB, error) {
+	seesAll, userID, err := actorSeesOrgWide(ctx, db, orgID)
+	if err != nil {
+		return q, err
+	}
+	if seesAll {
+		return q, nil
+	}
+	return q.Where("channel_id IS NULL OR channel_id IN (?)",
+		channelagents.VisibleChannelIDsSubquery(db, orgID, userID)), nil
 }
 
 func (h *MemoryHandler) canManageOrgMemory(r *http.Request, orgID uuid.UUID, userID *uuid.UUID) bool {

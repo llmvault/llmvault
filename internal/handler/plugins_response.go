@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	pluginstore "github.com/usehivy/hivy/internal/plugins"
@@ -84,7 +85,23 @@ type pluginInstallConflictResponse struct {
 	MissingRequirements []pluginConnectionRequirement `json:"missing_requirements"`
 }
 
-func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, plugin model.Plugin) (pluginResponse, error) {
+// pluginActorScope carries whether the request sees agents org-wide (manager or
+// API-key caller) and, for non-managers, the acting user id used to filter
+// enabled_agent_ids down to agents the member may see.
+type pluginActorScope struct {
+	orgWide bool
+	userID  *uuid.UUID
+}
+
+func (h *PluginHandler) actorScope(ctx context.Context, orgID uuid.UUID) (pluginActorScope, error) {
+	orgWide, userID, err := actorSeesOrgWide(ctx, h.db, orgID)
+	if err != nil {
+		return pluginActorScope{}, err
+	}
+	return pluginActorScope{orgWide: orgWide, userID: userID}, nil
+}
+
+func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, plugin model.Plugin, scope pluginActorScope) (pluginResponse, error) {
 	var skills []model.Skill
 	if err := h.db.WithContext(ctx).
 		Where("plugin_id = ? AND status = ?", plugin.ID, model.SkillStatusPublished).
@@ -102,8 +119,14 @@ func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, p
 		Count(&installCount).Error; err != nil {
 		return pluginResponse{}, err
 	}
+	// enabled_agent_ids must not reveal agents the caller cannot see: a
+	// non-manager member only learns about agents visible to them.
+	enabledQ := h.db.WithContext(ctx).Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID)
+	if !scope.orgWide {
+		enabledQ = enabledQ.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, scope.userID))
+	}
 	var enabled []model.AgentPluginInstall
-	if err := h.db.WithContext(ctx).Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).Find(&enabled).Error; err != nil {
+	if err := enabledQ.Find(&enabled).Error; err != nil {
 		return pluginResponse{}, err
 	}
 	enabledIDs := make([]string, 0, len(enabled))
@@ -227,9 +250,20 @@ func (h *PluginHandler) loadAgentFromRoute(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
 		return model.Org{}, model.Agent{}, false
 	}
+	scope, err := h.actorScope(r.Context(), org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return *org, model.Agent{}, false
+	}
 	agentID := chi.URLParam(r, "id")
+	q := h.db.Preload("AgentCatalog").Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived")
+	if !scope.orgWide {
+		// A non-manager must not act on — or even confirm the existence of — an
+		// agent they cannot see; treat it as not found.
+		q = q.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, scope.userID))
+	}
 	var agent model.Agent
-	if err := h.db.Preload("AgentCatalog").Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived").First(&agent).Error; err != nil {
+	if err := q.First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
 			return *org, model.Agent{}, false

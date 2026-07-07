@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -9,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -38,6 +41,33 @@ type triggerDeliveryResponse struct {
 	CreatedAt        string          `json:"created_at"`
 }
 
+// agentVisibleToCaller reports whether the caller may see trigger deliveries for
+// the target agent. Managers and API-key callers see every agent; a regular
+// member may only reach an agent assigned to a channel they can use, matching
+// the /v1/agents visibility rule. Returns (false, nil) for a hidden or missing
+// agent so callers 404 rather than confirm its existence.
+func (h *TriggerDeliveryHandler) agentVisibleToCaller(ctx context.Context, orgID, agentID uuid.UUID) (bool, error) {
+	if isAPIKeyRequest(ctx) {
+		return true, nil
+	}
+	actor, err := access.Resolve(ctx, h.db, orgID, middleware.UserID(ctx))
+	if err != nil {
+		return false, err
+	}
+	if actor.IsOrgManager() {
+		return true, nil
+	}
+	userID, _ := currentRequestUserID(ctx)
+	var count int64
+	if err := h.db.WithContext(ctx).Model(&model.Agent{}).
+		Where("id = ? AND org_id = ?", agentID, orgID).
+		Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, userID)).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func (h *TriggerDeliveryHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -47,6 +77,10 @@ func (h *TriggerDeliveryHandler) List(w http.ResponseWriter, r *http.Request) {
 	agentID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent ID"})
+		return
+	}
+	if visible, err := h.agentVisibleToCaller(r.Context(), org.ID, agentID); err != nil || !visible {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
 		return
 	}
 	limit, cursor, err := parsePagination(r)
@@ -108,6 +142,10 @@ func (h *TriggerDeliveryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	deliveryID, err := uuid.Parse(chi.URLParam(r, "deliveryID"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid delivery ID"})
+		return
+	}
+	if visible, err := h.agentVisibleToCaller(r.Context(), org.ID, agentID); err != nil || !visible {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "trigger delivery not found"})
 		return
 	}
 	var row model.AgentTriggerDelivery

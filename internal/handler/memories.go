@@ -137,16 +137,22 @@ func (h *MemoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid channel_id"})
 		return
 	}
+	vis, err := listVisibility(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve channel visibility"})
+		return
+	}
 	limit := parseMemoryLimit(r.URL.Query().Get("limit"), 50)
 	if query := strings.TrimSpace(r.URL.Query().Get("q")); query != "" {
-		h.search(w, r, org.ID, scope, query, limit)
+		h.search(w, r, org.ID, scope, vis, query, limit)
 		return
 	}
 	rows, err := h.service().List(r.Context(), memory.ListRequest{
-		OrgID: org.ID,
-		Scope: scope,
-		Tags:  splitTags(r.URL.Query().Get("tags")),
-		Limit: limit,
+		OrgID:      org.ID,
+		Scope:      scope,
+		Visibility: vis,
+		Tags:       splitTags(r.URL.Query().Get("tags")),
+		Limit:      limit,
 	})
 	if err != nil {
 		writeMemoryError(w, err)
@@ -253,13 +259,14 @@ func (h *MemoryHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "archived"})
 }
 
-func (h *MemoryHandler) search(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, scope memory.ChannelScope, query string, limit int) {
+func (h *MemoryHandler) search(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, scope memory.ChannelScope, vis memory.Visibility, query string, limit int) {
 	hits, err := h.service().Search(r.Context(), memory.SearchRequest{
-		OrgID: orgID,
-		Scope: scope,
-		Query: query,
-		Tags:  splitTags(r.URL.Query().Get("tags")),
-		Limit: limit,
+		OrgID:      orgID,
+		Scope:      scope,
+		Visibility: vis,
+		Query:      query,
+		Tags:       splitTags(r.URL.Query().Get("tags")),
+		Limit:      limit,
 	})
 	if err != nil {
 		writeMemoryError(w, err)

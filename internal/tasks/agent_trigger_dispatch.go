@@ -113,6 +113,22 @@ func (h *AgentTriggerDispatchHandler) Handle(ctx context.Context, task *asynq.Ta
 			}
 			continue
 		}
+		// Sibling curated branch: auto-review on PR open. Like the mention path
+		// it owns its event handling end-to-end (own guard ladder, eyes ack, and
+		// resource-keyed session), so it skips the generic filter/condition path.
+		if isGitHubPROpenedTrigger(payload.Provider, trigger) {
+			if err := h.deliverGitHubPROpened(ctx, payload, trigger, webhookPayload); err != nil {
+				logging.CaptureWithFields(ctx, fmt.Errorf("deliver github pr-opened trigger %s: %w", trigger.ID, err), map[string]any{
+					"org_id":      payload.OrgID.String(),
+					"agent_id":    trigger.AgentID.String(),
+					"trigger_id":  trigger.ID.String(),
+					"delivery_id": payload.DeliveryID,
+					"event_key":   eventKey(payload.EventType, payload.EventAction),
+				})
+				return err
+			}
+			continue
+		}
 		skip, reason, err := h.shouldSkipTriggerDelivery(ctx, payload, webhookPayload)
 		if err != nil {
 			logging.CaptureWithFields(ctx, fmt.Errorf("agent trigger filter failed: %w", err), map[string]any{

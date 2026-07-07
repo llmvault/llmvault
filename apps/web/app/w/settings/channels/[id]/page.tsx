@@ -16,15 +16,14 @@ import {
   toast,
 } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { AgentSelect } from "@/components/agent-select"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import type { SidebarAgentResponse } from "@/app/w/(chat)/_lib/sidebar-data"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { CHANNEL_CATEGORIES, channelMemorySettings } from "@/lib/api/memory"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
 import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
 import { KnowledgeSourcesTab } from "./_knowledge-sources-tab"
+import { AgentsTab } from "./_agents-tab"
 
 type ChannelMember = {
   user_id?: string
@@ -33,9 +32,15 @@ type ChannelMember = {
   role?: string
 }
 
-type ChannelTab = "channel" | "members" | "knowledge" | "env"
+type ChannelTab = "channel" | "agents" | "members" | "knowledge" | "env"
 
-const CHANNEL_TABS: ChannelTab[] = ["channel", "members", "knowledge", "env"]
+const CHANNEL_TABS: ChannelTab[] = [
+  "channel",
+  "agents",
+  "members",
+  "knowledge",
+  "env",
+]
 
 function toChannelTab(raw: string | null): ChannelTab {
   return CHANNEL_TABS.includes(raw as ChannelTab)
@@ -67,9 +72,6 @@ export default function ChannelDetailPage({
   const channelQuery = $api.useQuery("get", "/v1/channels/{id}", {
     params: { path: { id } },
   })
-  const agentsQuery = $api.useQuery("get", "/v1/agents", {
-    params: { query: { status: "active", limit: 200 } },
-  })
   const updateChannel = $api.useMutation("patch", "/v1/channels/{id}")
   const deleteChannel = $api.useMutation("delete", "/v1/channels/{id}")
 
@@ -78,16 +80,11 @@ export default function ChannelDetailPage({
     () => (channelQuery.data?.members ?? []) as ChannelMember[],
     [channelQuery.data?.members]
   )
-  const agents = useMemo(
-    () => (agentsQuery.data?.data ?? []) as SidebarAgentResponse[],
-    [agentsQuery.data?.data]
-  )
 
   const memorySettings = channelMemorySettings(channel)
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [agentId, setAgentId] = useState("")
   const [visibility, setVisibility] = useState("public")
   const [category, setCategory] = useState("")
   const [memoryMission, setMemoryMission] = useState("")
@@ -103,7 +100,6 @@ export default function ChannelDetailPage({
   function resetForm() {
     setName(channel?.name ?? "")
     setDescription(channel?.description ?? "")
-    setAgentId(channel?.default_agent_id ?? "")
     setVisibility(channel?.visibility ?? "public")
     const memory = channelMemorySettings(channel)
     setCategory(memory.category)
@@ -122,7 +118,6 @@ export default function ChannelDetailPage({
     channel != null &&
     (name.trim() !== (channel.name ?? "") ||
       description !== (channel.description ?? "") ||
-      agentId !== (channel.default_agent_id ?? "") ||
       visibility !== (channel.visibility ?? "public") ||
       category !== memorySettings.category ||
       memoryMission !== missionBaseline)
@@ -139,7 +134,6 @@ export default function ChannelDetailPage({
     const body = {
       name: name.trim(),
       description,
-      default_agent_id: agentId,
       visibility,
       ...(memoryMission !== missionBaseline
         ? { memory_mission: memoryMission }
@@ -237,6 +231,11 @@ export default function ChannelDetailPage({
           onClick={() => setTab("channel")}
         />
         <TabButton
+          active={tab === "agents"}
+          label="Agents"
+          onClick={() => setTab("agents")}
+        />
+        <TabButton
           active={tab === "members"}
           label={members.length ? `Members ${members.length}` : "Members"}
           onClick={() => setTab("members")}
@@ -257,7 +256,6 @@ export default function ChannelDetailPage({
         <ChannelTab
           name={name}
           description={description}
-          agentId={agentId}
           visibility={visibility}
           category={category}
           memoryMission={memoryMission}
@@ -266,20 +264,22 @@ export default function ChannelDetailPage({
             memoryMission !== "" &&
             memoryMission === memorySettings.defaultMemoryMission
           }
-          agents={agents}
-          agentsLoading={agentsQuery.isLoading}
           isProtected={isProtected}
           canSave={canSave}
           saving={updateChannel.isPending}
           deleting={deleteChannel.isPending}
           onName={setName}
           onDescription={setDescription}
-          onAgent={setAgentId}
           onVisibility={setVisibility}
           onCategory={setCategory}
           onMemoryMission={setMemoryMission}
           onSave={handleSave}
           onDelete={() => setConfirmOpen(true)}
+        />
+      ) : tab === "agents" ? (
+        <AgentsTab
+          channelId={id}
+          defaultAgentId={channel.default_agent_id ?? ""}
         />
       ) : tab === "members" ? (
         <MembersTab members={members} />
@@ -305,20 +305,16 @@ export default function ChannelDetailPage({
 function ChannelTab({
   name,
   description,
-  agentId,
   visibility,
   category,
   memoryMission,
   missionIsDefault,
-  agents,
-  agentsLoading,
   isProtected,
   canSave,
   saving,
   deleting,
   onName,
   onDescription,
-  onAgent,
   onVisibility,
   onCategory,
   onMemoryMission,
@@ -327,20 +323,16 @@ function ChannelTab({
 }: {
   name: string
   description: string
-  agentId: string
   visibility: string
   category: string
   memoryMission: string
   missionIsDefault: boolean
-  agents: SidebarAgentResponse[]
-  agentsLoading: boolean
   isProtected: boolean
   canSave: boolean
   saving: boolean
   deleting: boolean
   onName: (value: string) => void
   onDescription: (value: string) => void
-  onAgent: (value: string) => void
   onVisibility: (value: string) => void
   onCategory: (value: string) => void
   onMemoryMission: (value: string) => void
@@ -365,19 +357,6 @@ function ChannelTab({
           onChange={(event) => onDescription(event.target.value)}
           placeholder="Optional"
           className="h-9 w-full rounded-md"
-        />
-      </FormSection>
-
-      <FormSection
-        title="Assigned agent"
-        description="Handles mentions in this channel."
-      >
-        <AgentSelect
-          agents={agents}
-          selectedAgentID={agentId}
-          isLoading={agentsLoading}
-          onChange={onAgent}
-          variant="field"
         />
       </FormSection>
 

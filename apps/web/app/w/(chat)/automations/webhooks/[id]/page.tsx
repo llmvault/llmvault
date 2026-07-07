@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
@@ -8,6 +8,10 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import {
+  resolveScopedAgentID,
+  useChannelScopedAgents,
+} from "@/lib/api/channel-scoped-agents"
 import { AgentSelect } from "@/components/agent-select"
 import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
 import {
@@ -73,16 +77,8 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
   const id = trigger.id ?? ""
 
   const { channels, isLoading: channelsLoading } = useHivyChannels()
-  const agentsQuery = $api.useQuery("get", "/v1/agents", {
-    params: { query: { status: "active", limit: 100 } },
-  })
   const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
   const deleteTrigger = $api.useMutation("delete", "/v1/triggers/{id}")
-
-  const agents = useMemo(
-    () => (agentsQuery.data?.data ?? []).filter((agent) => agent.id),
-    [agentsQuery.data?.data]
-  )
 
   const [name, setName] = useState(trigger.name ?? "")
   const [channelID, setChannelID] = useState(trigger.channel_id ?? "")
@@ -91,9 +87,16 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const activeChannelID = channelID || channels[0]?.id || ""
-  const activeAgentID = agents.some((agent) => agent.id === agentID)
-    ? agentID
-    : (agentID || agents[0]?.id || "")
+  const activeChannel = channels.find((c) => c.id === activeChannelID)
+  const {
+    agents,
+    isLoading: agentsLoading,
+  } = useChannelScopedAgents(activeChannelID)
+  const activeAgentID = resolveScopedAgentID(
+    agents,
+    agentID,
+    activeChannel?.default_agent_id
+  )
 
   const enabled = trigger.enabled ?? true
   const lastRunHref =
@@ -101,7 +104,6 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
       ? `/w/channels/${slugify(trigger.channel_name)}/${trigger.last_run_session_id}`
       : null
 
-  const isLoading = channelsLoading || agentsQuery.isLoading
   const canSave = Boolean(
     !updateTrigger.isPending &&
       name.trim() &&
@@ -295,19 +297,25 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
 
         <FormSection
           title="Agent"
-          description="The agent that handles inbound webhook requests."
+          description="The agent that handles inbound webhook requests. Only agents assigned to the chosen channel can run here."
         >
-          {agents.length === 0 && !isLoading ? (
+          {!activeChannelID ? (
             <InlineNotice
               icon="bot"
-              title="No active agents"
-              body="Create or activate an agent to handle this webhook."
+              title="Select a channel first"
+              body="Agents are scoped to the channel this webhook runs in."
+            />
+          ) : agents.length === 0 && !agentsLoading ? (
+            <InlineNotice
+              icon="bot"
+              title="No agents in this channel"
+              body="Assign an agent to the selected channel to handle this webhook."
             />
           ) : (
             <AgentSelect
               agents={agents}
               selectedAgentID={activeAgentID}
-              isLoading={agentsQuery.isLoading}
+              isLoading={agentsLoading}
               onChange={setAgentID}
               variant="field"
             />

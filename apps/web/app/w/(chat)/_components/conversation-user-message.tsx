@@ -11,9 +11,9 @@ import type {
 type AutomatedBadge = { label: string; icon: string }
 
 /**
- * Automated (backend-injected) messages carry a `source` of "trigger" or
- * "schedule". Attribute them to the automation that produced them instead of
- * the viewing user. Returns null for regular user messages.
+ * Automated (backend-injected) messages carry a `source` of "trigger",
+ * "schedule", or "system". Attribute them to the automation that produced them
+ * instead of the viewing user. Returns null for regular user messages.
  */
 export function automatedMessageBadge(
   source?: string,
@@ -21,6 +21,9 @@ export function automatedMessageBadge(
 ): AutomatedBadge | null {
   if (source === "schedule") {
     return { label: "Automated · Schedule", icon: "clock" }
+  }
+  if (source === "system") {
+    return { label: "Automated · System", icon: "sparkles" }
   }
   if (source !== "trigger") return null
 

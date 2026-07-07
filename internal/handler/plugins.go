@@ -39,6 +39,11 @@ func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
 		return
 	}
+	scope, err := h.actorScope(r.Context(), org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
 	var plugins []model.Plugin
 	if err := h.db.Where("status = ? AND (org_id IS NULL OR org_id = ?)", model.PluginStatusActive, org.ID).Order("name ASC").Find(&plugins).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list plugins"})
@@ -46,7 +51,7 @@ func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := make([]pluginResponse, 0, len(plugins))
 	for _, plugin := range plugins {
-		item, err := h.toPluginResponse(r.Context(), org.ID, plugin)
+		item, err := h.toPluginResponse(r.Context(), org.ID, plugin, scope)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 			return
@@ -77,7 +82,12 @@ func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	resp, err := h.toPluginResponse(r.Context(), org.ID, plugin)
+	scope, err := h.actorScope(r.Context(), org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
+	resp, err := h.toPluginResponse(r.Context(), org.ID, plugin, scope)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 		return
@@ -150,7 +160,12 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to install plugin"})
 		return
 	}
-	resp, err := h.toPluginResponse(ctx, org.ID, plugin)
+	scope, err := h.actorScope(ctx, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
+	resp, err := h.toPluginResponse(ctx, org.ID, plugin, scope)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 		return

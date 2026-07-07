@@ -497,6 +497,9 @@ jobs:
       - name: quality checks
         run: make ci-quality
         timeout-minutes: 5
+      - name: test shard coverage completeness
+        run: ./scripts/ci-test-shard.sh coverage-check
+        timeout-minutes: 2
 
   result:
     name: ci result

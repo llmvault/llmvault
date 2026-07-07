@@ -82,6 +82,20 @@ var triggerTemplates = []triggerTemplate{
 		requiredProviders:   githubCodeReviewsToolingProviders,
 		requiredPluginLabel: "GitHub Code Reviews",
 	},
+	// Auto-review every new pull request. Code-reviews app only — the primary
+	// app must never carry this key, so a build agent's PRs are reviewed by
+	// usehivy-reviews, not re-run through the primary app. It fires on
+	// pull_request.opened with no mention, so unlike pr_mention it subscribes to
+	// just that one event key.
+	{
+		provider:            githubAppCodeReviewsProvider,
+		key:                 model.TriggerKeyGitHubPROpened,
+		resourceType:        "github_repo",
+		triggerKeys:         model.GitHubPROpenedEventKeys,
+		valueFromResource:   true,
+		requiredProviders:   githubCodeReviewsToolingProviders,
+		requiredPluginLabel: "GitHub Code Reviews",
+	},
 }
 
 func resolveTriggerTemplate(provider, key string) (triggerTemplate, bool) {

@@ -68,17 +68,30 @@ type ArchiveRequest struct {
 	ID    uuid.UUID
 }
 
+// Visibility optionally restricts a list read to channels the actor may use.
+// When Restrict is false (org managers and API-key callers) every channel is
+// visible. When true, results are limited to global (channel_id IS NULL)
+// memories plus channels usable by UserID under the team-based channel
+// visibility predicate (see channelagents.VisibleChannelIDsSubquery). A nil
+// UserID with Restrict true yields only global rows.
+type Visibility struct {
+	Restrict bool
+	UserID   *uuid.UUID
+}
+
 type ListRequest struct {
-	OrgID   uuid.UUID
-	Scope   ChannelScope
-	Tags    []string
-	Limit   int
-	NoLimit bool
+	OrgID      uuid.UUID
+	Scope      ChannelScope
+	Visibility Visibility
+	Tags       []string
+	Limit      int
+	NoLimit    bool
 }
 
 type SearchRequest struct {
 	OrgID       uuid.UUID
 	Scope       ChannelScope
+	Visibility  Visibility
 	Query       string
 	QueryVector []float32
 	Tags        []string

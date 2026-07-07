@@ -28,7 +28,7 @@ func TestListAndGetAgent(t *testing.T) {
 	token := &model.Token{OrgID: org.ID}
 
 	// list_agents returns the top-level agent, not the sub-agent.
-	listRes, _ := handleListAgents(ctx, db, token)
+	listRes, _ := handleListAgents(ctx, db, token, "")
 	if listRes.IsError {
 		t.Fatalf("list_agents error: %s", errResultText(listRes))
 	}
@@ -41,7 +41,7 @@ func TestListAndGetAgent(t *testing.T) {
 	}
 
 	// get_agent returns full config incl. instructions, tools (runtime+mcp), sub-agents.
-	getRes, _ := handleGetAgent(ctx, db, token, "https://app.test", getAgentArgs{AgentID: agent.ID.String()})
+	getRes, _ := handleGetAgent(ctx, db, token, "https://app.test", "", getAgentArgs{AgentID: agent.ID.String()})
 	if getRes.IsError {
 		t.Fatalf("get_agent error: %s", errResultText(getRes))
 	}
@@ -62,14 +62,14 @@ func TestListAndGetAgent(t *testing.T) {
 	}
 
 	// Unknown id → helpful not-found error.
-	nf, _ := handleGetAgent(ctx, db, token, "", getAgentArgs{AgentID: "not-a-uuid"})
+	nf, _ := handleGetAgent(ctx, db, token, "", "", getAgentArgs{AgentID: "not-a-uuid"})
 	if nf == nil || !nf.IsError {
 		t.Fatalf("expected error for invalid agent_id")
 	}
 
 	// Org scoping: another org cannot fetch this agent.
 	otherToken := &model.Token{OrgID: testOrg(t, db).ID}
-	scoped, _ := handleGetAgent(ctx, db, otherToken, "", getAgentArgs{AgentID: agent.ID.String()})
+	scoped, _ := handleGetAgent(ctx, db, otherToken, "", "", getAgentArgs{AgentID: agent.ID.String()})
 	if scoped == nil || !scoped.IsError || !strings.Contains(errResultText(scoped), "not found") {
 		t.Fatalf("cross-org get_agent should be not found, got: %#v", scoped)
 	}

@@ -95,7 +95,12 @@ func setupV1Routes(
 			if dashboardHandler != nil {
 				r.Get("/dashboard", dashboardHandler.Get)
 			}
-			r.Get("/audit", auditHandler.List)
+			// Audit log is admin-only: it exposes org-wide request paths,
+			// resource ids, and IP addresses that a non-admin member must not read.
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireOrgAdmin(database))
+				r.Get("/audit", auditHandler.List)
+			})
 			r.Get("/reporting", reportingHandler.Get)
 			r.Get("/generations", generationHandler.List)
 			r.Get("/generations/{id}", generationHandler.Get)
@@ -155,6 +160,9 @@ func setupV1Routes(
 					r.Delete("/channels/{id}/environment-variables/{name}", channelHandler.DeleteChannelEnvironmentVariable)
 					r.Get("/channels/{id}/rag-sources", channelHandler.ListChannelRAGSources)
 					r.Put("/channels/{id}/rag-sources", channelHandler.SetChannelRAGSources)
+					r.Get("/channels/{id}/agents", channelHandler.ListChannelAgents)
+					r.Post("/channels/{id}/agents", channelHandler.AssignChannelAgent)
+					r.Delete("/channels/{id}/agents/{agentID}", channelHandler.UnassignChannelAgent)
 					if sessionHandler != nil {
 						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
 					}

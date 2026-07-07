@@ -26,6 +26,8 @@ func TestTriggerHandlerListSlackReactionTriggers(t *testing.T) {
 	trigger := seedSlackReactionTrigger(t, db, org.ID, conn, channel, agent, "eyes")
 	req := httptest.NewRequest(http.MethodGet, "/v1/triggers", nil)
 	req = middleware.WithOrg(req, &org)
+	// An API-key caller sees org-wide triggers (no per-user channel gating).
+	req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db).List(rr, req)

@@ -34,6 +34,11 @@ func TestIntegration_SessionsCreateRespectsAgentChannelRestrictions(t *testing.T
 	}
 
 	unrestricted := seedSessionAgent(t, h.db, fx.org.ID)
+	// Under hard channel-agent enforcement the explicit agent must also be
+	// assigned to the target channel, not merely unrestricted by agent_channels.
+	if err := h.db.Create(&model.ChannelAgent{OrgID: fx.org.ID, ChannelID: other.ID, AgentID: unrestricted.ID}).Error; err != nil {
+		t.Fatalf("assign unrestricted agent to channel: %v", err)
+	}
 	explicit := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
 		"channel_id": other.ID.String(),
 		"agent_id":   unrestricted.ID.String(),
@@ -75,6 +80,9 @@ func seedSessionChannel(t *testing.T, h *sessionHarness, fx sessionFixture, name
 	}
 	if err := h.db.Create(&channel).Error; err != nil {
 		t.Fatalf("create session channel: %v", err)
+	}
+	if err := h.db.Create(&model.ChannelAgent{OrgID: fx.org.ID, ChannelID: channel.ID, AgentID: agentID}).Error; err != nil {
+		t.Fatalf("assign default agent to session channel: %v", err)
 	}
 	return channel
 }

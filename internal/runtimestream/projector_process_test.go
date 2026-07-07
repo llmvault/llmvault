@@ -20,11 +20,12 @@ func TestProjectSessionStateReleasesQueueOnlyForTurnTerminalEvents(t *testing.T)
 	db := newRuntimeStreamSQLiteDB(t)
 
 	tests := []struct {
-		name       string
-		eventType  string
-		wantStatus string
-		wantResult string
-		wantTask   bool
+		name           string
+		eventType      string
+		wantStatus     string
+		wantResult     string
+		wantTask       bool
+		wantPlanRemind bool
 	}{
 		{
 			name:       "final does not release",
@@ -42,21 +43,22 @@ func TestProjectSessionStateReleasesQueueOnlyForTurnTerminalEvents(t *testing.T)
 			wantStatus: model.SessionAgentTurnActive,
 		},
 		{
-			name:       "turn completed releases",
-			eventType:  runtimeevents.EventTurnCompleted,
-			wantStatus: model.SessionAgentTurnIdle,
-			wantResult: model.SessionAgentTurnOutcomeDone,
-			wantTask:   true,
+			name:           "turn completed releases and reminds",
+			eventType:      runtimeevents.EventTurnCompleted,
+			wantStatus:     model.SessionAgentTurnIdle,
+			wantResult:     model.SessionAgentTurnOutcomeDone,
+			wantTask:       true,
+			wantPlanRemind: true,
 		},
 		{
-			name:       "turn failed releases",
+			name:       "turn failed releases without reminding",
 			eventType:  runtimeevents.EventTurnFailed,
 			wantStatus: model.SessionAgentTurnIdle,
 			wantResult: model.SessionAgentTurnOutcomeFailed,
 			wantTask:   true,
 		},
 		{
-			name:       "turn interrupted releases",
+			name:       "turn interrupted releases without reminding",
 			eventType:  runtimeevents.EventTurnInterrupted,
 			wantStatus: model.SessionAgentTurnIdle,
 			wantResult: model.SessionAgentTurnOutcomeStopped,
@@ -90,11 +92,16 @@ func TestProjectSessionStateReleasesQueueOnlyForTurnTerminalEvents(t *testing.T)
 				t.Fatalf("agent_turn_last_outcome = %q, want %q", stored.AgentTurnLastOutcome, tc.wantResult)
 			}
 			gotTask := false
+			gotPlanRemind := false
 			for _, task := range enq.Tasks() {
 				gotTask = gotTask || task.TypeName == tasks.TypeSessionMessageDeliver
+				gotPlanRemind = gotPlanRemind || task.TypeName == tasks.TypePlanTurnReminder
 			}
 			if gotTask != tc.wantTask {
 				t.Fatalf("session delivery task enqueued = %t, want %t", gotTask, tc.wantTask)
+			}
+			if gotPlanRemind != tc.wantPlanRemind {
+				t.Fatalf("plan reminder task enqueued = %t, want %t", gotPlanRemind, tc.wantPlanRemind)
 			}
 		})
 	}

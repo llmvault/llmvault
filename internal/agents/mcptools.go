@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -86,6 +87,23 @@ func loadOrgAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (*
 	if err := db.WithContext(ctx).
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
 		First(&agent).Error; err != nil {
+		return nil, err
+	}
+	return &agent, nil
+}
+
+// loadVisibleOrgAgent is loadOrgAgent with actor-scoped visibility: when userID
+// is non-nil the agent must also be assigned to a channel that user can use, so
+// a hidden agent returns gorm.ErrRecordNotFound and never leaks its existence. A
+// nil userID (manager or automated run) keeps org-wide access.
+func loadVisibleOrgAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, userID *uuid.UUID) (*model.Agent, error) {
+	q := db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived")
+	if userID != nil {
+		q = q.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(db, orgID, userID))
+	}
+	var agent model.Agent
+	if err := q.First(&agent).Error; err != nil {
 		return nil, err
 	}
 	return &agent, nil

@@ -129,6 +129,9 @@ func seedTriggerChannel(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, nam
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}
+	if err := db.Create(&model.ChannelAgent{OrgID: orgID, ChannelID: channel.ID, AgentID: agentID}).Error; err != nil {
+		t.Fatalf("assign default agent to channel: %v", err)
+	}
 	return channel
 }
 

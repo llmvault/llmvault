@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/storage"
@@ -67,6 +68,12 @@ type ArtifactFilter struct {
 	ProjectID   *uuid.UUID
 	ProjectSlug string
 	SessionID   *uuid.UUID
+	// VisibleSessionIDs, when non-nil, restricts results to artifacts whose
+	// source_session_id is in the subquery — the set of sessions a non-manager
+	// member may view. Nil means org-wide (manager or API-key caller). Artifacts
+	// with a NULL source_session_id are excluded when this filter is active,
+	// since their channel scope cannot be established.
+	VisibleSessionIDs *gorm.DB
 }
 
 type SyncRequest struct {

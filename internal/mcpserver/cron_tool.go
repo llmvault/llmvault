@@ -162,14 +162,22 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		if err != nil {
 			return cronToolError(err.Error()), nil
 		}
+		// A non-manager actor only sees schedules in channels they can use;
+		// nil-actor (automated) and managers see all.
 		out := make([]map[string]any, 0, len(rows))
 		for _, row := range rows {
+			if !actorCanAccessCronSchedule(ctx, db, actor, row) {
+				continue
+			}
 			out = append(out, cronScheduleResponse(row))
 		}
 		return cronToolJSON(map[string]any{"jobs": out, "total": len(out)})
 	case "update":
 		if strings.TrimSpace(args.JobID) == "" {
 			return cronToolError("job_id is required"), nil
+		}
+		if errResult := enforceActorCronSchedule(ctx, db, actor, agent, args.JobID); errResult != nil {
+			return errResult, nil
 		}
 		if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
 			return errResult, nil
@@ -194,11 +202,11 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		}
 		return cronToolJSON(map[string]any{"job": cronScheduleResponse(*schedule)})
 	case "pause":
-		return cronToolSetStatus(ctx, db, agent, args.JobID, agentschedule.StatusPaused)
+		return cronToolSetStatus(ctx, db, actor, agent, args.JobID, agentschedule.StatusPaused)
 	case "resume":
-		return cronToolSetStatus(ctx, db, agent, args.JobID, agentschedule.StatusActive)
+		return cronToolSetStatus(ctx, db, actor, agent, args.JobID, agentschedule.StatusActive)
 	case "cancel":
-		return cronToolSetStatus(ctx, db, agent, args.JobID, agentschedule.StatusCancelled)
+		return cronToolSetStatus(ctx, db, actor, agent, args.JobID, agentschedule.StatusCancelled)
 	default:
 		return cronToolError("action must be one of create, list, update, pause, resume, cancel"), nil
 	}
@@ -227,9 +235,12 @@ func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agen
 	return &target, nil
 }
 
-func cronToolSetStatus(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID, status string) (*mcp.CallToolResult, error) {
+func cronToolSetStatus(ctx context.Context, db *gorm.DB, actor *access.Actor, agent *model.Agent, jobID, status string) (*mcp.CallToolResult, error) {
 	if strings.TrimSpace(jobID) == "" {
 		return cronToolError("job_id is required"), nil
+	}
+	if errResult := enforceActorCronSchedule(ctx, db, actor, agent, jobID); errResult != nil {
+		return errResult, nil
 	}
 	schedule, err := agentschedule.SetStatus(ctx, db, agent, jobID, status)
 	if err != nil {

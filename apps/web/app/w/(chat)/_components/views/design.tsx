@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react"
 import { Button } from "@heroui/react"
-import { useQuery } from "@tanstack/react-query"
 import {
-  fetchCanvasArtifact,
-  fetchCanvasArtifactPreviewURL,
-  fetchCanvasProjects,
+  useCanvasArtifact,
+  useCanvasArtifactPreviewURL,
+  useCanvasProjects,
   type CanvasViewportMode,
 } from "@/app/w/(chat)/_lib/canvas-artifacts"
 import { extractErrorMessage as errorMessage } from "@/lib/api/error"
@@ -29,12 +28,7 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   )
   const [viewport, setViewport] = useState<CanvasViewportMode>("desktop")
 
-  const projectsQuery = useQuery({
-    queryKey: ["canvas-artifact-projects", activeSessionId],
-    queryFn: ({ signal }) =>
-      fetchCanvasProjects({ sessionId: activeSessionId }, signal),
-    retry: false,
-  })
+  const projectsQuery = useCanvasProjects(activeSessionId)
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const selectedProject = useMemo(
     () =>
@@ -56,26 +50,11 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
     [artifacts, selectedArtifactId]
   )
 
-  const detailQuery = useQuery({
-    enabled: Boolean(listedArtifact?.id),
-    queryKey: ["canvas-artifact", listedArtifact?.id],
-    queryFn: ({ signal }) =>
-      fetchCanvasArtifact(listedArtifact?.id ?? "", signal),
-    retry: false,
-  })
+  const detailQuery = useCanvasArtifact(listedArtifact?.id)
   const activeArtifact = detailQuery.data ?? listedArtifact
-  const previewQuery = useQuery({
-    enabled: Boolean(activeArtifact?.id && activeSessionId),
-    queryKey: ["canvas-artifact-preview", activeArtifact?.id, activeSessionId],
-    queryFn: ({ signal }) =>
-      fetchCanvasArtifactPreviewURL(
-        {
-          artifactId: activeArtifact?.id ?? "",
-          sessionId: activeSessionId,
-        },
-        signal
-      ),
-    retry: false,
+  const previewQuery = useCanvasArtifactPreviewURL({
+    artifactId: activeArtifact?.id,
+    sessionId: activeSessionId,
   })
 
   if (projectsQuery.isPending) return <CanvasBrowserSkeleton />

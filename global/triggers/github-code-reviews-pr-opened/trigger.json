@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "slug": "github-code-reviews-pr-opened",
+  "name": "Review every new pull request",
+  "description": "Run a code-review agent automatically when a pull request is opened.",
+  "category": "Development",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app-code-reviews",
+    "required": true
+  },
+  "plugins": {
+    "required": [
+      "github-code-reviews"
+    ],
+    "recommended": []
+  },
+  "trigger": {
+    "key": "pr_opened",
+    "defaults": {
+      "value": "",
+      "instructions": "./instructions.md"
+    }
+  },
+  "install": {
+    "enabled": true
+  }
+}

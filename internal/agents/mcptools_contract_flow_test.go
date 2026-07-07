@@ -58,7 +58,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	).Replace
 
 	// 3. The documented empty payloads for the two list tools.
-	if res, _ := handleListAgents(ctx, db, token); res == nil || res.IsError {
+	if res, _ := handleListAgents(ctx, db, token, ""); res == nil || res.IsError {
 		t.Fatalf("list_agents with documented %s payload failed", abPayloadListEmpty)
 	}
 	pluginsOut := map[string]any{}
@@ -155,7 +155,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	if err := json.Unmarshal([]byte(idReplace(abPayloadGetAgent)), &gArgs); err != nil {
 		t.Fatalf("get payload: %v", err)
 	}
-	getRes, _ := handleGetAgent(ctx, db, token, frontend, gArgs)
+	getRes, _ := handleGetAgent(ctx, db, token, frontend, "", gArgs)
 	builderResultJSON(t, getRes)
 
 	// 6-8. The documented updates: description patch, add-one-tool (full list
@@ -222,7 +222,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	createErr(createAgentArgs{Name: "Sub Missing", SubAgents: []subAgentToolArgs{{Name: " "}}}, "sub-agent name is required")
 	createErr(createAgentArgs{Name: "Sub Dup", SubAgents: []subAgentToolArgs{{Name: "Twin"}, {Name: "Twin"}}}, "duplicate sub-agent name")
 
-	badGet, _ := handleGetAgent(ctx, db, token, frontend, getAgentArgs{AgentID: "not-a-uuid"})
+	badGet, _ := handleGetAgent(ctx, db, token, frontend, "", getAgentArgs{AgentID: "not-a-uuid"})
 	assertBuilderToolError(t, badGet, "agent_id must be a valid UUID")
 
 	strPtr := func(s string) *string { return &s }
@@ -243,7 +243,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 
 	// 10. Archive with the documented payload; the agent leaves list_agents.
 	runUpdate(idReplace(abPayloadUpdateArchive))
-	listRes, _ := handleListAgents(ctx, db, token)
+	listRes, _ := handleListAgents(ctx, db, token, "")
 	if strings.Contains(errResultText(listRes), agentID) {
 		t.Fatalf("archived agent still listed by list_agents")
 	}

@@ -36,6 +36,16 @@ func isGitHubCodeReviews(provider string) bool {
 	return provider == githubCodeReviewsProvider
 }
 
+// isGitHubPROpenedTrigger reports whether the trigger is the curated
+// auto-review trigger (fire on pull_request.opened, no mention required). It is
+// code-reviews-only: only the github-app-code-reviews app opens review sessions
+// on every PR, and binding it to the primary app would double-fire review runs
+// against build sessions. Kept separate from isGitHubMentionTrigger so the
+// mention guard ladder (which requires an @handle) never runs for it.
+func isGitHubPROpenedTrigger(provider string, trigger model.AgentTrigger) bool {
+	return trigger.TriggerKey == model.TriggerKeyGitHubPROpened && isGitHubCodeReviews(provider)
+}
+
 // githubHivyBotHandles are Hivy's two surviving GitHub App bot logins,
 // normalized ([bot] stripped, lowercased). Used only as a static loop guard —
 // isGitHubBotAuthor already skips every bot, so this is defense in depth against

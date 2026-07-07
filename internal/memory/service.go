@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/cache"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -163,6 +164,7 @@ func (s *Service) List(ctx context.Context, req ListRequest) ([]model.AgentMemor
 	if clause, args := req.Scope.whereSQL(); clause != "" {
 		q = q.Where(clause, args...)
 	}
+	q = s.applyVisibility(q, req.OrgID, req.Visibility)
 	if tags := NormalizeTags(req.Tags); len(tags) > 0 {
 		q = q.Where("tags && ?", pq.StringArray(tags))
 	}
@@ -224,6 +226,18 @@ func (s *Service) enqueueEmbed(ctx context.Context, id uuid.UUID, revision int) 
 		return nil
 	}
 	return s.cfg.EnqueueEmbed(ctx, id, revision)
+}
+
+// applyVisibility constrains q to memories the actor may see: global
+// (channel_id IS NULL) rows plus channels usable under the team-based channel
+// visibility predicate. It is a no-op when v.Restrict is false (managers and
+// API-key callers see every channel).
+func (s *Service) applyVisibility(q *gorm.DB, orgID uuid.UUID, v Visibility) *gorm.DB {
+	if !v.Restrict {
+		return q
+	}
+	sub := channelagents.VisibleChannelIDsSubquery(s.cfg.DB, orgID, v.UserID)
+	return q.Where("channel_id IS NULL OR channel_id IN (?)", sub)
 }
 
 func (s *Service) validateChannel(ctx context.Context, orgID uuid.UUID, channelID *uuid.UUID) error {

@@ -97,14 +97,14 @@ internal_core_shard_packages() {
     1) select_internal_core_packages billing billing/plancatalog billing/subscription ;;
     2) select_internal_core_packages billing/fake billing/paystack ;;
     3) select_internal_core_packages bootstrap cache config goroutine system system/tasks logging ;;
-    4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp ;;
-    5) select_internal_core_packages agentruntime agentprompts sandboxruntime ;;
+    4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp slackworkflow providerheaders ;;
+    5) select_internal_core_packages agentruntime agentprompts sandboxruntime runtimestream ;;
     6) select_internal_core_packages sandbox sandbox/daytona sandbox/docker ;;
     7) select_internal_core_packages mcp mcp/catalog mcpserver skills resources providergroups ;;
-    8) select_internal_core_packages agents agentsandbox ;;
+    8) select_internal_core_packages agents agentsandbox apps ;;
     9) select_internal_core_packages model registry db migrations testdb counter memory ;;
     10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider enqueue email ;;
-    11) select_internal_core_packages evals observability/sentry observe ;;
+    11) select_internal_core_packages evals observability/sentry observe sheets ;;
     *)
       echo "invalid internal-core shard index: $shard_index" >&2
       exit 2
@@ -112,7 +112,74 @@ internal_core_shard_packages() {
   esac
 }
 
+internal_extra_packages() {
+  printf '%s\n' \
+    github.com/usehivy/hivy/internal/agentcatalog \
+    github.com/usehivy/hivy/internal/agentrouter \
+    github.com/usehivy/hivy/internal/agentschedule \
+    github.com/usehivy/hivy/internal/automationcatalog \
+    github.com/usehivy/hivy/internal/channelagents \
+    github.com/usehivy/hivy/internal/connectionaccess \
+    github.com/usehivy/hivy/internal/databaseintegration \
+    github.com/usehivy/hivy/internal/keyedlock \
+    github.com/usehivy/hivy/internal/microsandbox/api \
+    github.com/usehivy/hivy/internal/microsandbox/control \
+    github.com/usehivy/hivy/internal/microsandbox/runner \
+    github.com/usehivy/hivy/internal/microsandbox/security \
+    github.com/usehivy/hivy/internal/netguard \
+    github.com/usehivy/hivy/internal/plugins \
+    github.com/usehivy/hivy/internal/precontext \
+    github.com/usehivy/hivy/internal/quiver \
+    github.com/usehivy/hivy/internal/railway \
+    github.com/usehivy/hivy/internal/reve \
+    github.com/usehivy/hivy/internal/sandbox/microsandbox \
+    github.com/usehivy/hivy/internal/sandbox/railway \
+    github.com/usehivy/hivy/internal/token \
+    github.com/usehivy/hivy/internal/transcription
+}
+
+# coverage_check_selected prints every package that some CI shard/suite runs.
+# It MUST stay in sync with the suite dispatch below: internal-core shards
+# 0-11 (forced to shard_total=12), plus the named suites (handler, rag, tasks,
+# integrations+nango, storage) and the internal-extra list.
+coverage_check_selected() {
+  local saved_index="$shard_index" saved_total="$shard_total" i
+  shard_total=12
+  for i in $(seq 0 11); do
+    shard_index="$i"
+    internal_core_shard_packages
+  done
+  shard_index="$saved_index"
+  shard_total="$saved_total"
+
+  echo github.com/usehivy/hivy/internal/handler
+  internal_test_packages | grep -E 'internal/rag(/|$)'
+  echo github.com/usehivy/hivy/internal/tasks
+  printf '%s\n' \
+    github.com/usehivy/hivy/internal/integrations \
+    github.com/usehivy/hivy/internal/nango
+  echo github.com/usehivy/hivy/internal/storage
+  internal_extra_packages
+}
+
+coverage_check() {
+  local selected missing
+  selected="$(coverage_check_selected | sort -u)"
+  missing="$(comm -23 <(internal_test_packages | sort -u) <(printf '%s\n' "$selected"))"
+  if [[ -n "$missing" ]]; then
+    echo "coverage-check FAILED: packages contain *_test.go but are not run by any CI shard/suite:" >&2
+    printf '%s\n' "$missing" >&2
+    echo >&2
+    echo "Add each package to a shard in internal_core_shard_packages() or to internal_extra_packages() in scripts/ci-test-shard.sh." >&2
+    return 1
+  fi
+  echo "coverage-check OK: all $(internal_test_packages | wc -l | tr -d ' ') internal test packages are covered by a CI shard/suite."
+}
+
 case "$suite" in
+  coverage-check)
+    coverage_check
+    ;;
   internal-core)
     run_packages "$(internal_core_shard_packages)"
     ;;
@@ -132,22 +199,7 @@ case "$suite" in
     run_packages "$(printf '%s\n' github.com/usehivy/hivy/internal/storage | shard_lines)"
     ;;
   internal-extra)
-    run_packages "$(printf '%s\n' \
-      github.com/usehivy/hivy/internal/agentcatalog \
-      github.com/usehivy/hivy/internal/agentschedule \
-      github.com/usehivy/hivy/internal/connectionaccess \
-      github.com/usehivy/hivy/internal/databaseintegration \
-      github.com/usehivy/hivy/internal/microsandbox/api \
-      github.com/usehivy/hivy/internal/microsandbox/control \
-      github.com/usehivy/hivy/internal/microsandbox/runner \
-      github.com/usehivy/hivy/internal/microsandbox/security \
-      github.com/usehivy/hivy/internal/netguard \
-      github.com/usehivy/hivy/internal/plugins \
-      github.com/usehivy/hivy/internal/precontext \
-      github.com/usehivy/hivy/internal/railway \
-      github.com/usehivy/hivy/internal/sandbox/microsandbox \
-      github.com/usehivy/hivy/internal/sandbox/railway \
-      github.com/usehivy/hivy/internal/token | shard_lines)" -skip '^TestLiveProviderTemplateE2E$'
+    run_packages "$(internal_extra_packages | shard_lines)" -skip '^TestLiveProviderTemplateE2E$'
     ;;
   e2e)
     run_test_names ./e2e

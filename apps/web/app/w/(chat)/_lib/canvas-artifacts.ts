@@ -1,3 +1,19 @@
+"use client"
+
+/**
+ * Canvas artifacts API — projects, artifacts, sandbox preview URLs, and the
+ * artifact-comment session message.
+ *
+ * Every backend call goes through the generated `$api` hooks (openapi-react-query
+ * over openapi-fetch); there is no hand-written fetch or `/api/proxy` URL here.
+ * Request/response shapes come from the OpenAPI `paths`, so backend contract
+ * drift fails typecheck. The only bespoke layer is the pure normalizers that map
+ * the generated response into the camelCase domain shapes the Canvas UI consumes.
+ */
+
+import { useMemo } from "react"
+import { $api } from "@/lib/api/hooks"
+
 export type CanvasArtifactType = "web_page" | "presentation" | string
 export type CanvasViewportMode = "desktop" | "tablet" | "mobile"
 
@@ -27,7 +43,10 @@ export interface CanvasArtifactPreviewURL {
   expiresIn?: number
 }
 
-export interface CanvasArtifactCommentPayload {
+// Declared as a type alias (not an interface) so it carries an implicit index
+// signature and is assignable to the generated `JSON` body element type when
+// posted as an artifact comment.
+export type CanvasArtifactCommentPayload = {
   artifact_id: string
   artifact_name: string
   artifact_slug?: string
@@ -42,83 +61,131 @@ export interface CanvasArtifactCommentPayload {
   created_at: string
 }
 
-export async function fetchCanvasProjects(
-  input: { sessionId?: string | null } = {},
-  signal?: AbortSignal
-): Promise<CanvasArtifactProject[]> {
-  const params: Record<string, string> = {}
-  if (input.sessionId) params.session_id = input.sessionId
-  const data = await requestJSON<unknown>("/v1/canvas/projects", {
-    params,
-    signal,
-  })
-  return normalizeCanvasProjectList(data)
-}
+// ---------------------------------------------------------------------------
+// Hooks (thin composition over the generated `$api` hooks)
+// ---------------------------------------------------------------------------
 
-export async function fetchCanvasArtifacts(
-  input: { projectId?: string | null; sessionId?: string | null },
-  signal?: AbortSignal
-): Promise<CanvasArtifact[]> {
-  const params: Record<string, string> = {}
-  if (input.projectId) params.project_id = input.projectId
-  if (input.sessionId) params.session_id = input.sessionId
-
-  const data = await requestJSON<unknown>("/v1/canvas/artifacts", {
-    params,
-    signal,
-  })
-  return normalizeCanvasArtifactList(data)
-}
-
-export async function fetchCanvasArtifact(
-  artifactId: string,
-  signal?: AbortSignal
-): Promise<CanvasArtifact> {
-  const data = await requestJSON<unknown>(
-    `/v1/canvas/artifacts/${encodeURIComponent(artifactId)}`,
-    { signal }
+/**
+ * Canvas projects (with embedded artifacts) for the active session, mapped to
+ * the domain shape. `data` is always a normalized array. Pass `sessionId` null
+ * to load the org-wide project list.
+ */
+export function useCanvasProjects(
+  sessionId: string | null,
+  options?: { enabled?: boolean }
+) {
+  const query = $api.useQuery(
+    "get",
+    "/v1/canvas/projects",
+    sessionId ? { params: { query: { session_id: sessionId } } } : {},
+    { enabled: options?.enabled ?? true, retry: false }
   )
-  const artifact = normalizeCanvasArtifact(unwrapRecord(data, "artifact"))
-  if (!artifact) throw new Error("Canvas artifact response was incomplete.")
-  return artifact
-}
-
-export async function fetchCanvasArtifactPreviewURL(
-  input: { artifactId: string; sessionId?: string | null },
-  signal?: AbortSignal
-): Promise<CanvasArtifactPreviewURL> {
-  const params = input.sessionId ? { session_id: input.sessionId } : undefined
-  const data = await requestJSON<unknown>(
-    `/v1/canvas/artifacts/${encodeURIComponent(input.artifactId)}/preview-url`,
-    {
-      method: "POST",
-      params,
-      body: input.sessionId ? { session_id: input.sessionId } : {},
-      signal,
-    }
+  const projects = useMemo(
+    () => normalizeCanvasProjectList(query.data),
+    [query.data]
   )
-  const preview = normalizeCanvasPreviewURL(data)
-  if (!preview) throw new Error("Canvas preview response was incomplete.")
-  return preview
+  return { ...query, data: projects }
 }
 
-export async function sendCanvasArtifactComment(
-  sessionId: string,
-  comment: CanvasArtifactCommentPayload,
-  signal?: AbortSignal
-): Promise<unknown> {
-  return requestJSON<unknown>(
-    `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+/**
+ * Canvas artifacts for the org, optionally filtered by project/session, mapped
+ * to the domain shape. `data` is always a normalized array.
+ */
+export function useCanvasArtifacts(
+  input: { projectId?: string | null; sessionId?: string | null } = {},
+  options?: { enabled?: boolean }
+) {
+  const query = $api.useQuery(
+    "get",
+    "/v1/canvas/artifacts",
     {
-      method: "POST",
-      body: {
-        text: comment.body,
-        artifact_comments: [comment],
+      params: {
+        query: {
+          ...(input.projectId ? { project_id: input.projectId } : {}),
+          ...(input.sessionId ? { session_id: input.sessionId } : {}),
+        },
       },
-      signal,
+    },
+    { enabled: options?.enabled ?? true, retry: false }
+  )
+  const artifacts = useMemo(
+    () => normalizeCanvasArtifactList(query.data),
+    [query.data]
+  )
+  return { ...query, data: artifacts }
+}
+
+/**
+ * A single Canvas artifact, mapped to the domain shape. `data` is null until the
+ * artifact loads; the query is disabled until an `artifactId` is provided.
+ */
+export function useCanvasArtifact(
+  artifactId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  const query = $api.useQuery(
+    "get",
+    "/v1/canvas/artifacts/{artifactID}",
+    { params: { path: { artifactID: artifactId ?? "" } } },
+    { enabled: (options?.enabled ?? true) && Boolean(artifactId), retry: false }
+  )
+  const artifact = useMemo(
+    () => normalizeCanvasArtifact(query.data),
+    [query.data]
+  )
+  return { ...query, data: artifact }
+}
+
+/**
+ * Mints a short-lived sandbox preview URL for an artifact. Modeled as a query so
+ * the URL is fetched-on-mount and cached; disabled until both an artifact and a
+ * session are known. `data.url` is the ready-to-embed preview URL.
+ */
+export function useCanvasArtifactPreviewURL(
+  input: { artifactId: string | null | undefined; sessionId: string | null },
+  options?: { enabled?: boolean }
+) {
+  const query = $api.useQuery(
+    "post",
+    "/v1/canvas/artifacts/{artifactID}/preview-url",
+    {
+      params: { path: { artifactID: input.artifactId ?? "" } },
+      body: { session_id: input.sessionId ?? "" },
+    },
+    {
+      enabled:
+        (options?.enabled ?? true) &&
+        Boolean(input.artifactId && input.sessionId),
+      retry: false,
     }
   )
+  const preview = useMemo(
+    () => normalizeCanvasPreviewURL(query.data),
+    [query.data]
+  )
+  return { ...query, data: preview }
 }
+
+/**
+ * Sends an artifact comment as a structured session message. Returns the raw
+ * mutation plus a `sendComment` helper that wraps the comment into the message
+ * body; it throws when there is no active session.
+ */
+export function useSendCanvasArtifactComment(sessionId: string | null) {
+  const mutation = $api.useMutation("post", "/v1/sessions/{id}/messages")
+  const sendComment = (comment: CanvasArtifactCommentPayload) => {
+    if (!sessionId) throw new Error("No active session.")
+    return mutation.mutateAsync({
+      params: { path: { id: sessionId } },
+      body: { text: comment.body, artifact_comments: [comment] },
+    })
+  }
+  return { ...mutation, sendComment }
+}
+
+// ---------------------------------------------------------------------------
+// Pure transforms (domain mappers + payload builder)
+// ---------------------------------------------------------------------------
 
 export function canvasArtifactCommentPayload(input: {
   artifact: CanvasArtifact
@@ -240,58 +307,6 @@ function normalizeCanvasPreviewURL(
       expiresAt ??
       (expiresIn === undefined ? undefined : Date.now() + expiresIn * 1000),
   }
-}
-
-async function requestJSON<T>(
-  path: string,
-  options: {
-    method?: string
-    params?: Record<string, string>
-    body?: unknown
-    signal?: AbortSignal
-  } = {}
-): Promise<T> {
-  const response = await fetch(apiProxyPath(path, options.params), {
-    method: options.method ?? "GET",
-    headers: {
-      Accept: "application/json",
-      ...(options.body === undefined
-        ? {}
-        : { "Content-Type": "application/json" }),
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    signal: options.signal,
-  })
-
-  if (!response.ok) throw await requestError(response)
-  return (await response.json()) as T
-}
-
-function apiProxyPath(path: string, params?: Record<string, string>): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`
-  const url = new URL(`/api/proxy${normalizedPath}`, "http://localhost")
-  for (const [key, value] of Object.entries(params ?? {})) {
-    if (value) url.searchParams.set(key, value)
-  }
-  return `${url.pathname}${url.search}`
-}
-
-async function requestError(response: Response): Promise<Error> {
-  let message = `Request failed with ${response.status}`
-  try {
-    const payload = recordValue(await response.json())
-    message =
-      stringValue(payload?.message, payload?.error, payload?.detail) || message
-  } catch {
-    const text = await response.text().catch(() => "")
-    if (text.trim()) message = text.trim()
-  }
-  return new Error(message)
-}
-
-function unwrapRecord(value: unknown, key: string): unknown {
-  const record = recordValue(value)
-  return record?.[key] ?? value
 }
 
 function recordValue(value: unknown): Record<string, unknown> | null {

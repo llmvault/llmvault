@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -28,7 +29,7 @@ type GroupedChannel struct {
 // query (a per-partition window), so the settings view renders all channels at
 // once without N round-trips. Global (channel-less) memories come first, then
 // channels by name. Use ListChannelPage to page past perChannel for one channel.
-func (s *Service) GroupedByChannel(ctx context.Context, orgID uuid.UUID, perChannel int) ([]GroupedChannel, error) {
+func (s *Service) GroupedByChannel(ctx context.Context, orgID uuid.UUID, perChannel int, vis Visibility) ([]GroupedChannel, error) {
 	if s == nil || s.cfg.DB == nil {
 		return nil, fmt.Errorf("memory service is not configured")
 	}
@@ -38,6 +39,15 @@ func (s *Service) GroupedByChannel(ctx context.Context, orgID uuid.UUID, perChan
 	if perChannel <= 0 || perChannel > 50 {
 		perChannel = 10
 	}
+	// When restricted, hide memories referencing channels the actor cannot use;
+	// global (channel_id IS NULL) memories stay visible to everyone in the org.
+	visClause := ""
+	args := []any{orgID}
+	if vis.Restrict {
+		visClause = " AND (m.channel_id IS NULL OR m.channel_id IN (?))"
+		args = append(args, channelagents.VisibleChannelIDsSubquery(s.cfg.DB, orgID, vis.UserID))
+	}
+	args = append(args, perChannel)
 	var rows []groupedRow
 	query := `
 SELECT id, org_id, channel_id, content, memory_fingerprint, tags, metadata,
@@ -54,11 +64,11 @@ FROM (
          count(*) OVER (PARTITION BY m.channel_id) AS channel_total
   FROM agent_memories m
   LEFT JOIN channels c ON c.id = m.channel_id
-  WHERE m.org_id = ? AND m.archived_at IS NULL
+  WHERE m.org_id = ? AND m.archived_at IS NULL` + visClause + `
 ) t
 WHERE t.rn <= ?
 ORDER BY (t.channel_id IS NOT NULL), channel_name, t.created_at DESC, t.id DESC`
-	if err := s.cfg.DB.WithContext(ctx).Raw(query, orgID, perChannel).Scan(&rows).Error; err != nil {
+	if err := s.cfg.DB.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("group memories by channel: %w", err)
 	}
 

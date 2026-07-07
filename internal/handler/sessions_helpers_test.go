@@ -156,6 +156,9 @@ func (h *sessionHarness) seed(t *testing.T) sessionFixture {
 	if err := h.db.Create(&model.ChannelMember{ChannelID: channel.ID, UserID: owner.ID, Role: "owner"}).Error; err != nil {
 		t.Fatalf("create channel owner: %v", err)
 	}
+	if err := h.db.Create(&model.ChannelAgent{OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID}).Error; err != nil {
+		t.Fatalf("assign default agent to channel: %v", err)
+	}
 	t.Cleanup(func() { cleanupSessionFixture(h.db, org.ID, owner.ID, member.ID, viewer.ID) })
 	return sessionFixture{org: org, owner: owner, member: member, viewer: viewer, agent: agent, channel: channel}
 }

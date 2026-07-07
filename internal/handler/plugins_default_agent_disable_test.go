@@ -44,6 +44,7 @@ func TestDisableForAgent_DefaultAgentInstallLockedOnDefaultAgent(t *testing.T) {
 	disable := func(agentID uuid.UUID) int {
 		req := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agentID.String()+"/plugins/"+plugin.Slug, nil)
 		req = middleware.WithOrg(req, &org)
+		req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 		return rr.Code

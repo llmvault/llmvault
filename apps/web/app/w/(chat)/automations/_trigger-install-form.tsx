@@ -7,7 +7,13 @@ import {
 } from "@/app/w/(chat)/automations/_data"
 import { SlackReactionInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form-slack"
 import { GithubMentionInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form-github"
+import { GithubCodeReviewsInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form-github-code-reviews"
+import { GithubCodeReviewsPrOpenedInstallForm } from "@/app/w/(chat)/automations/_trigger-install-form-github-code-reviews-pr-opened"
 import {
+  githubAppProvider,
+  githubCodeReviewsProvider,
+  githubPrMentionKey,
+  githubPrOpenedKey,
   isGithubMentionKey,
   slackReactionKey,
 } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
@@ -27,8 +33,29 @@ export function TriggerInstallForm({
     )
   }
 
-  if (automation.provider === "github-app" && isGithubMentionKey(triggerKey)) {
+  if (automation.provider === githubAppProvider && isGithubMentionKey(triggerKey)) {
     return <GithubMentionInstallForm automation={automation} trigger={trigger} />
+  }
+
+  if (
+    automation.provider === githubCodeReviewsProvider &&
+    triggerKey === githubPrMentionKey
+  ) {
+    return (
+      <GithubCodeReviewsInstallForm automation={automation} trigger={trigger} />
+    )
+  }
+
+  if (
+    automation.provider === githubCodeReviewsProvider &&
+    triggerKey === githubPrOpenedKey
+  ) {
+    return (
+      <GithubCodeReviewsPrOpenedInstallForm
+        automation={automation}
+        trigger={trigger}
+      />
+    )
   }
 
   return (

@@ -67,9 +67,10 @@ type reactionCapture struct {
 }
 
 type reactionCall struct {
-	method string
-	path   string // path after the /proxy prefix
-	body   string
+	method            string
+	path              string // path after the /proxy prefix
+	body              string
+	providerConfigKey string // Provider-Config-Key header = integration UniqueKey
 }
 
 func (c *reactionCapture) count() int {
@@ -87,9 +88,10 @@ func newReactionCapture(t *testing.T) (*nango.Client, *reactionCapture) {
 		body, _ := io.ReadAll(r.Body)
 		rc.mu.Lock()
 		rc.calls = append(rc.calls, reactionCall{
-			method: r.Method,
-			path:   strings.TrimPrefix(r.URL.Path, "/proxy"),
-			body:   strings.TrimSpace(string(body)),
+			method:            r.Method,
+			path:              strings.TrimPrefix(r.URL.Path, "/proxy"),
+			body:              strings.TrimSpace(string(body)),
+			providerConfigKey: r.Header.Get("Provider-Config-Key"),
 		})
 		rc.mu.Unlock()
 		w.WriteHeader(http.StatusCreated) // 201 = created

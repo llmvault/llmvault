@@ -1,12 +1,16 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import {
+  resolveScopedAgentID,
+  useChannelScopedAgents,
+} from "@/lib/api/channel-scoped-agents"
 import { AgentSelect } from "@/components/agent-select"
 import {
   ChannelSelect,
@@ -25,15 +29,7 @@ export default function NewWebhookTriggerPage() {
   const queryClient = useQueryClient()
 
   const { channels, isLoading: channelsLoading } = useHivyChannels()
-  const agentsQuery = $api.useQuery("get", "/v1/agents", {
-    params: { query: { status: "active", limit: 100 } },
-  })
   const createTrigger = $api.useMutation("post", "/v1/triggers")
-
-  const agents = useMemo(
-    () => (agentsQuery.data?.data ?? []).filter((agent) => agent.id),
-    [agentsQuery.data?.data]
-  )
 
   const [name, setName] = useState("")
   const [channelID, setChannelID] = useState("")
@@ -42,11 +38,17 @@ export default function NewWebhookTriggerPage() {
   const [secret, setSecret] = useState("")
 
   const activeChannelID = channelID || channels[0]?.id || ""
-  const activeAgentID = agents.some((agent) => agent.id === agentID)
-    ? agentID
-    : (agents[0]?.id ?? "")
+  const activeChannel = channels.find((c) => c.id === activeChannelID)
+  const {
+    agents,
+    isLoading: agentsLoading,
+  } = useChannelScopedAgents(activeChannelID)
+  const activeAgentID = resolveScopedAgentID(
+    agents,
+    agentID,
+    activeChannel?.default_agent_id
+  )
 
-  const isLoading = channelsLoading || agentsQuery.isLoading
   const isSaving = createTrigger.isPending
   const canSubmit = Boolean(
     !isSaving &&
@@ -163,19 +165,25 @@ export default function NewWebhookTriggerPage() {
 
             <FormSection
               title="Agent"
-              description="Select the agent that should handle inbound webhook requests."
+              description="Select the agent that should handle inbound webhook requests. Only agents assigned to the chosen channel can run here."
             >
-              {agents.length === 0 && !isLoading ? (
+              {!activeChannelID ? (
                 <InlineNotice
                   icon="bot"
-                  title="No active agents"
-                  body="Create or activate an agent before adding a webhook trigger."
+                  title="Select a channel first"
+                  body="Agents are scoped to the channel this webhook runs in."
+                />
+              ) : agents.length === 0 && !agentsLoading ? (
+                <InlineNotice
+                  icon="bot"
+                  title="No agents in this channel"
+                  body="Assign an agent to the selected channel before adding a webhook trigger."
                 />
               ) : (
                 <AgentSelect
                   agents={agents}
                   selectedAgentID={activeAgentID}
-                  isLoading={agentsQuery.isLoading}
+                  isLoading={agentsLoading}
                   onChange={setAgentID}
                   variant="field"
                 />

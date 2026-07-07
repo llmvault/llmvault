@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
@@ -24,11 +25,21 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 	if err != nil {
 		return agentCatalogResponse{}, err
 	}
+	// installed_agent_id points at a live agent; a non-manager must not learn
+	// the id of an installed agent they cannot see. Managers and API-key callers
+	// see it whenever an install exists.
+	orgWide, userID, err := actorSeesOrgWide(ctx, h.db, orgID)
+	if err != nil {
+		return agentCatalogResponse{}, err
+	}
 	var installedID *string
+	installedQ := h.db.WithContext(ctx).
+		Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, c.ID, "archived")
+	if !orgWide {
+		installedQ = installedQ.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, userID))
+	}
 	var agent model.Agent
-	err = h.db.WithContext(ctx).
-		Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, c.ID, "archived").
-		First(&agent).Error
+	err = installedQ.First(&agent).Error
 	if err == nil {
 		value := agent.ID.String()
 		installedID = &value

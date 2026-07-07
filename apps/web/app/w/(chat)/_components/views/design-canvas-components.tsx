@@ -3,11 +3,10 @@
 import { useState } from "react"
 import type { ReactNode } from "react"
 import { Button, Skeleton, Spinner } from "@heroui/react"
-import { useMutation } from "@tanstack/react-query"
 import { AppIcon } from "@/components/icon"
 import {
   canvasArtifactCommentPayload,
-  sendCanvasArtifactComment,
+  useSendCanvasArtifactComment,
   type CanvasArtifact,
   type CanvasArtifactProject,
   type CanvasArtifactType,
@@ -281,12 +280,7 @@ export function CanvasCommentComposer({
   const [selector, setSelector] = useState("")
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
-  const commentMutation = useMutation({
-    mutationFn: (comment: ReturnType<typeof canvasArtifactCommentPayload>) => {
-      if (!sessionId) throw new Error("No active session.")
-      return sendCanvasArtifactComment(sessionId, comment)
-    },
-  })
+  const commentMutation = useSendCanvasArtifactComment(sessionId)
   const disabled = !sessionId || !artifact || commentMutation.isPending
   const trimmedBody = body.trim()
 
@@ -295,7 +289,7 @@ export function CanvasCommentComposer({
     setError("")
     setSent(false)
     try {
-      await commentMutation.mutateAsync(
+      await commentMutation.sendComment(
         canvasArtifactCommentPayload({
           artifact,
           project,

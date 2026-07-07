@@ -46,7 +46,7 @@ func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row
 		return channel, agent, err
 	}
 	if found {
-		agent, err := h.loadAgent(ctx, channel.OrgID, channel.DefaultAgentID)
+		agent, err := h.routeChannelAgent(ctx, row, channel)
 		return channel, agent, err
 	}
 	agent, err := h.ensureOrgAgent(ctx, row.OrgID)

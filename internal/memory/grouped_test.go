@@ -21,7 +21,7 @@ func TestGroupedByChannelAndPagination(t *testing.T) {
 	seedReadyMemory(t, service, fx.org.ID, nil, "global memory one")
 	seedReadyMemory(t, service, fx.org.ID, nil, "global memory two")
 
-	groups, err := service.GroupedByChannel(ctx, fx.org.ID, 10)
+	groups, err := service.GroupedByChannel(ctx, fx.org.ID, 10, Visibility{})
 	if err != nil {
 		t.Fatalf("grouped: %v", err)
 	}

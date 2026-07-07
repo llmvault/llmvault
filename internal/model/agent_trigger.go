@@ -41,6 +41,18 @@ const TriggerKeyGitHubIssueMention = "issue_mention"
 // TriggerKeyGitHubPRMention fires only when Hivy is @mentioned on a pull request.
 const TriggerKeyGitHubPRMention = "pr_mention"
 
+// TriggerKeyGitHubPROpened fires whenever a pull request is opened — no mention
+// required. It drives the code-reviews app's automatic review-on-open feature
+// and is deliberately NOT a mention key (IsGitHubMentionKey stays false for it).
+const TriggerKeyGitHubPROpened = "pr_opened"
+
+// GitHubPROpenedEventKeys subscribes an auto-review trigger to just the
+// pull_request.opened webhook. Unlike the mention keys it does not share
+// issue_comment.created, so no issue/PR entity gate is needed.
+var GitHubPROpenedEventKeys = []string{
+	"pull_request.opened",
+}
+
 // GitHubIssueMentionEventKeys subscribes an issue-only mention trigger. It shares
 // issue_comment.created with pull requests, so the dispatch gate drops comments
 // whose issue is actually a PR (issue.pull_request present).

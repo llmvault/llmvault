@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -44,6 +45,10 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]SearchHit, e
 	if clause, scopeArgs := req.Scope.whereSQL(); clause != "" {
 		where = append(where, clause)
 		args = append(args, scopeArgs...)
+	}
+	if req.Visibility.Restrict {
+		where = append(where, "(channel_id IS NULL OR channel_id IN (?))")
+		args = append(args, channelagents.VisibleChannelIDsSubquery(s.cfg.DB, req.OrgID, req.Visibility.UserID))
 	}
 	if tags := NormalizeTags(req.Tags); len(tags) > 0 {
 		where = append(where, "tags && ?")

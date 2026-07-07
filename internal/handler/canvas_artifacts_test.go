@@ -234,6 +234,8 @@ func (h *canvasArtifactHarness) doOrgJSON(t *testing.T, method, path string, bod
 	}
 	req := httptest.NewRequest(method, path, &buf)
 	req = middleware.WithOrg(req, &h.org)
+	// API-key callers see org-wide; these tests assert org-scoped behavior.
+	req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{OrgID: h.org.ID.String()})
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)
 	return rr

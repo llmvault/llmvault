@@ -1,22 +1,20 @@
 "use client"
 
 import { useMemo, useState, type FormEvent } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import {
-  confirmObservation,
-  correctObservation,
-  createDirective,
-  deleteDirective,
-  deleteObservation,
-  listDirectives,
-  listObservations,
-  memoryQueryKeys,
-  pinObservation,
-  updateDirective,
+  useConfirmObservation,
+  useCorrectObservation,
+  useCreateDirective,
+  useDeleteDirective,
+  useDeleteObservation,
+  useDirectives,
+  useObservations,
+  usePinObservation,
+  useUpdateDirective,
   type Directive,
   type Observation,
 } from "@/lib/api/memory"
@@ -37,17 +35,7 @@ import {
 
 type Channel = { id?: string; name?: string }
 
-const PAGE_SIZE = 30
-
-type ExtraPages = {
-  channelId: string
-  observations: Observation[]
-  hasMore: boolean
-}
-
 export default function MemoriesSettingsPage() {
-  const queryClient = useQueryClient()
-
   const channelsQuery = $api.useQuery("get", "/v1/channels", {
     params: { query: { limit: 200 } },
   })
@@ -58,173 +46,137 @@ export default function MemoriesSettingsPage() {
   const [selectedChannelId, setSelectedChannelId] = useState("")
   const channelId = selectedChannelId || channels[0]?.id || ""
 
-  const directivesQuery = useQuery({
-    queryKey: memoryQueryKeys.directives(channelId),
-    queryFn: () => listDirectives(channelId),
-    enabled: Boolean(channelId),
-  })
-  const observationsQuery = useQuery({
-    queryKey: memoryQueryKeys.observations(channelId),
-    queryFn: () => listObservations(channelId, { limit: PAGE_SIZE }),
-    enabled: Boolean(channelId),
-  })
+  const directivesQuery = useDirectives(channelId)
+  const observationsQuery = useObservations(channelId)
 
-  // Pages beyond the first, accumulated locally; reset whenever the first
-  // page refetches (mutations invalidate) or the channel changes.
-  const [extraPages, setExtraPages] = useState<ExtraPages | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const extra = extraPages?.channelId === channelId ? extraPages : null
-
-  const observations = useMemo(() => {
-    const first = observationsQuery.data?.observations ?? []
-    if (!extra) return first
-    const seen = new Set(first.map((observation) => observation.id))
-    return [
-      ...first,
-      ...extra.observations.filter((observation) => !seen.has(observation.id)),
-    ]
-  }, [observationsQuery.data, extra])
-  const hasMore = extra?.hasMore ?? Boolean(observationsQuery.data?.hasMore)
+  const observations = observationsQuery.observations
+  const hasMore = observationsQuery.hasMore
+  const loadingMore = observationsQuery.isLoadingMore
 
   const directives = useMemo(
-    () => (directivesQuery.data ?? []).filter((directive) => directive.active),
-    [directivesQuery.data]
+    () =>
+      directivesQuery.directives.filter((directive) => directive.active),
+    [directivesQuery.directives]
   )
-
-  function invalidateObservations() {
-    setExtraPages(null)
-    queryClient.invalidateQueries({
-      queryKey: memoryQueryKeys.observations(channelId),
-    })
-  }
-  function invalidateDirectives() {
-    queryClient.invalidateQueries({
-      queryKey: memoryQueryKeys.directives(channelId),
-    })
-  }
-
-  async function loadMore() {
-    if (!channelId || !hasMore || loadingMore) return
-    setLoadingMore(true)
-    try {
-      // Offset pagination: skip everything already fetched (raw page counts,
-      // before display-side dedupe).
-      const offset =
-        (observationsQuery.data?.observations.length ?? 0) +
-        (extra?.observations.length ?? 0)
-      const page = await listObservations(channelId, {
-        offset,
-        limit: PAGE_SIZE,
-      })
-      setExtraPages({
-        channelId,
-        observations: [...(extra?.observations ?? []), ...page.observations],
-        hasMore: page.hasMore,
-      })
-    } catch (error) {
-      toast.danger(extractErrorMessage(error, "Could not load more memories"))
-    } finally {
-      setLoadingMore(false)
-    }
-  }
 
   // -------------------------------------------------------------------------
   // Observation actions
   // -------------------------------------------------------------------------
 
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) => confirmObservation(id),
-    onSuccess: () => {
-      toast.success("Memory confirmed")
-      invalidateObservations()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not confirm memory")),
-  })
-
+  const confirmMutation = useConfirmObservation(channelId)
   const [editTarget, setEditTarget] = useState<Observation | null>(null)
-  const correctMutation = useMutation({
-    mutationFn: ({ id, content }: { id: string; content: string }) =>
-      correctObservation(id, content),
-    onSuccess: () => {
-      toast.success("Memory corrected")
-      setEditTarget(null)
-      invalidateObservations()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not update memory")),
-  })
-
+  const correctMutation = useCorrectObservation(channelId)
   const [deleteTarget, setDeleteTarget] = useState<Observation | null>(null)
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteObservation(id),
-    onSuccess: () => {
-      toast.success("Memory deleted")
-      setDeleteTarget(null)
-      invalidateObservations()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not delete memory")),
-  })
+  const deleteMutation = useDeleteObservation(channelId)
+  const pinMutation = usePinObservation(channelId)
 
-  const pinMutation = useMutation({
-    mutationFn: (id: string) => pinObservation(id),
-    onSuccess: () => {
-      toast.success("Pinned as rule")
-      invalidateObservations()
-      invalidateDirectives()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not pin memory")),
-  })
+  function confirmObservation(id: string) {
+    confirmMutation.mutate(
+      { params: { path: { id } } },
+      {
+        onSuccess: () => toast.success("Memory confirmed"),
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not confirm memory")),
+      }
+    )
+  }
+
+  function correctObservation(id: string, content: string) {
+    correctMutation.mutate(
+      { params: { path: { id } }, body: { content } },
+      {
+        onSuccess: () => {
+          toast.success("Memory corrected")
+          setEditTarget(null)
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not update memory")),
+      }
+    )
+  }
+
+  function deleteObservation(id: string) {
+    deleteMutation.mutate(
+      { params: { path: { id } } },
+      {
+        onSuccess: () => {
+          toast.success("Memory deleted")
+          setDeleteTarget(null)
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not delete memory")),
+      }
+    )
+  }
+
+  function pinObservation(id: string) {
+    pinMutation.mutate(
+      { params: { path: { id } } },
+      {
+        onSuccess: () => toast.success("Pinned as rule"),
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not pin memory")),
+      }
+    )
+  }
 
   // -------------------------------------------------------------------------
   // Directive actions
   // -------------------------------------------------------------------------
 
   const [newRule, setNewRule] = useState("")
-  const addRuleMutation = useMutation({
-    mutationFn: (content: string) => createDirective(channelId, content),
-    onSuccess: () => {
-      toast.success("Rule added")
-      setNewRule("")
-      invalidateDirectives()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not add rule")),
-  })
+  const addRuleMutation = useCreateDirective(channelId)
 
   // Rules are immutable text: no edit action. To change a rule, delete it
   // and add a new one.
   const [deleteRuleTarget, setDeleteRuleTarget] = useState<Directive | null>(
     null
   )
-  const deleteRuleMutation = useMutation({
-    mutationFn: (id: string) => deleteDirective(id),
-    onSuccess: () => {
-      toast.success("Rule deleted")
-      setDeleteRuleTarget(null)
-      invalidateDirectives()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not delete rule")),
-  })
+  const deleteRuleMutation = useDeleteDirective(channelId)
+  const deactivateRuleMutation = useUpdateDirective(channelId)
 
-  const deactivateRuleMutation = useMutation({
-    mutationFn: (id: string) => updateDirective(id, { active: false }),
-    onSuccess: () => {
-      toast.success("Rule deactivated")
-      invalidateDirectives()
-    },
-    onError: (error) =>
-      toast.danger(extractErrorMessage(error, "Could not deactivate rule")),
-  })
+  function deleteDirective(id: string) {
+    deleteRuleMutation.mutate(
+      { params: { path: { id } } },
+      {
+        onSuccess: () => {
+          toast.success("Rule deleted")
+          setDeleteRuleTarget(null)
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not delete rule")),
+      }
+    )
+  }
+
+  function deactivateDirective(id: string) {
+    deactivateRuleMutation.mutate(
+      { params: { path: { id } }, body: { active: false } },
+      {
+        onSuccess: () => toast.success("Rule deactivated"),
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not deactivate rule")
+          ),
+      }
+    )
+  }
 
   function submitRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = newRule.trim()
     if (!content || !channelId || addRuleMutation.isPending) return
-    addRuleMutation.mutate(content)
+    addRuleMutation.mutate(
+      { body: { channel_id: channelId, content } },
+      {
+        onSuccess: () => {
+          toast.success("Rule added")
+          setNewRule("")
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not add rule")),
+      }
+    )
   }
 
   const channelOptions = useMemo(
@@ -297,9 +249,7 @@ export default function MemoriesSettingsPage() {
                   <DirectiveRow
                     key={directive.id}
                     directive={directive}
-                    onDeactivate={() =>
-                      deactivateRuleMutation.mutate(directive.id)
-                    }
+                    onDeactivate={() => deactivateDirective(directive.id)}
                     onDelete={() => setDeleteRuleTarget(directive)}
                   />
                 ))}
@@ -364,9 +314,9 @@ export default function MemoriesSettingsPage() {
                   <ObservationRow
                     key={observation.id}
                     observation={observation}
-                    onConfirm={() => confirmMutation.mutate(observation.id)}
+                    onConfirm={() => confirmObservation(observation.id)}
                     onEdit={() => setEditTarget(observation)}
-                    onPin={() => pinMutation.mutate(observation.id)}
+                    onPin={() => pinObservation(observation.id)}
                     onDelete={() => setDeleteTarget(observation)}
                   />
                 ))}
@@ -376,7 +326,7 @@ export default function MemoriesSettingsPage() {
             {hasMore ? (
               <button
                 type="button"
-                onClick={loadMore}
+                onClick={() => observationsQuery.loadMore()}
                 disabled={loadingMore}
                 className="text-muted-foreground flex items-center justify-center gap-2 self-start rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-default disabled:opacity-60"
               >
@@ -402,7 +352,7 @@ export default function MemoriesSettingsPage() {
           if (!open && !correctMutation.isPending) setEditTarget(null)
         }}
         onSave={(content) => {
-          if (editTarget) correctMutation.mutate({ id: editTarget.id, content })
+          if (editTarget) correctObservation(editTarget.id, content)
         }}
       />
 
@@ -413,7 +363,7 @@ export default function MemoriesSettingsPage() {
           if (!open && !deleteRuleMutation.isPending) setDeleteRuleTarget(null)
         }}
         onConfirm={() => {
-          if (deleteRuleTarget) deleteRuleMutation.mutate(deleteRuleTarget.id)
+          if (deleteRuleTarget) deleteDirective(deleteRuleTarget.id)
         }}
       />
 
@@ -424,7 +374,7 @@ export default function MemoriesSettingsPage() {
           if (!open && !deleteMutation.isPending) setDeleteTarget(null)
         }}
         onConfirm={() => {
-          if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
+          if (deleteTarget) deleteObservation(deleteTarget.id)
         }}
       />
     </div>

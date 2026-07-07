@@ -10,6 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -18,21 +20,33 @@ import (
 func registerListAgents(server *mcp.Server, db *gorm.DB, token *model.Token) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolListAgents,
-		Description: "List the top-level agents in this organization (id, name, description, model, status). Use get_agent to inspect one before calling update_agent.",
+		Description: "List the agents visible to you in this organization (id, name, description, model, status). Use get_agent to inspect one before calling update_agent.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 			"properties":           map[string]any{},
 		},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleListAgents(ctx, db, token)
+	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return handleListAgents(ctx, db, token, actorUserIDFromRequest(req))
 	})
 }
 
-func handleListAgents(ctx context.Context, db *gorm.DB, token *model.Token) (*mcp.CallToolResult, error) {
+func handleListAgents(ctx context.Context, db *gorm.DB, token *model.Token, actorRaw string) (*mcp.CallToolResult, error) {
+	// When a human is behind the turn, a non-manager only sees agents assigned
+	// to channels they can use. No actor (automated run) or a manager keeps the
+	// org-wide view, consistent with list_channels' no-actor path.
+	actor, err := access.Resolve(ctx, db, token.OrgID, actorRaw)
+	if err != nil {
+		return toolError(err.Error()), nil
+	}
+	q := db.WithContext(ctx).
+		Where("org_id = ? AND parent_agent_id IS NULL AND status <> ?", token.OrgID, "archived")
+	if actor != nil && !actor.IsOrgManager() {
+		uid := actor.UserID
+		q = q.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(db, token.OrgID, &uid))
+	}
 	var rows []model.Agent
-	if err := db.WithContext(ctx).
-		Where("org_id = ? AND parent_agent_id IS NULL AND status <> ?", token.OrgID, "archived").
+	if err := q.
 		Order("is_default DESC, name ASC").
 		Find(&rows).Error; err != nil {
 		return toolError("failed to list agents: " + err.Error()), nil
@@ -75,16 +89,28 @@ func registerGetAgent(server *mcp.Server, db *gorm.DB, token *model.Token, front
 		if errResult := decodeArgs(req, &args); errResult != nil {
 			return errResult, nil
 		}
-		return handleGetAgent(ctx, db, token, frontendURL, args)
+		return handleGetAgent(ctx, db, token, frontendURL, actorUserIDFromRequest(req), args)
 	})
 }
 
-func handleGetAgent(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string, args getAgentArgs) (*mcp.CallToolResult, error) {
+func handleGetAgent(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL, actorRaw string, args getAgentArgs) (*mcp.CallToolResult, error) {
 	agentID, err := uuid.Parse(strings.TrimSpace(args.AgentID))
 	if err != nil || agentID == uuid.Nil {
 		return toolError("agent_id must be a valid UUID"), nil
 	}
-	agent, err := loadOrgAgent(ctx, db, token.OrgID, agentID)
+	// A non-manager human can only inspect agents assigned to channels they can
+	// use; a hidden agent is reported as not found so its existence never leaks.
+	// No actor (automated run) or a manager keeps org-wide access.
+	actor, err := access.Resolve(ctx, db, token.OrgID, actorRaw)
+	if err != nil {
+		return toolError(err.Error()), nil
+	}
+	var userID *uuid.UUID
+	if actor != nil && !actor.IsOrgManager() {
+		uid := actor.UserID
+		userID = &uid
+	}
+	agent, err := loadVisibleOrgAgent(ctx, db, token.OrgID, agentID, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return toolError("agent not found"), nil

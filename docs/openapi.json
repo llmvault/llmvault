@@ -1694,7 +1694,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns all agents in the org with skills (metadata only \u2014 no bundle content),\nand triggers.",
+        "description": "Returns the agents visible to the caller with skills (metadata only \u2014 no bundle content),\nand triggers. Org managers and API-key callers see every agent in the org; a regular\nmember sees only agents assigned to channels they can use.",
         "tags": [
           "agents"
         ],
@@ -2138,7 +2138,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns one agent in the org with skills (metadata only \u2014 no bundle content),\nand triggers.",
+        "description": "Returns one agent visible to the caller with skills (metadata only \u2014 no bundle content),\nand triggers. A regular member can only fetch agents assigned to channels they can use;\nan agent they cannot see returns 404.",
         "tags": [
           "agents"
         ],
@@ -4337,6 +4337,283 @@
         }
       }
     },
+    "/v1/canvas/artifacts": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns Canvas artifacts for the current organization, optionally filtered by project or session.",
+        "tags": [
+          "canvas"
+        ],
+        "summary": "List Canvas artifacts",
+        "parameters": [
+          {
+            "description": "Filter by project ID (uuid)",
+            "name": "project_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by project slug",
+            "name": "project_slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by source session ID (uuid)",
+            "name": "session_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/canvas/artifacts/{artifactID}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns a single Canvas artifact for the current organization.",
+        "tags": [
+          "canvas"
+        ],
+        "summary": "Get a Canvas artifact",
+        "parameters": [
+          {
+            "description": "Artifact ID (uuid)",
+            "name": "artifactID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/canvas/artifacts/{artifactID}/preview-url": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Mints a short-lived sandbox preview URL for a Canvas artifact tied to a session.",
+        "tags": [
+          "canvas"
+        ],
+        "summary": "Mint a Canvas artifact preview URL",
+        "parameters": [
+          {
+            "description": "Artifact ID (uuid)",
+            "name": "artifactID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/canvasArtifactPreviewRequest"
+              }
+            }
+          },
+          "description": "Preview request payload",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/canvasArtifactPreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/canvas/projects": {
       "get": {
         "security": [
@@ -4349,6 +4626,16 @@
           "canvas"
         ],
         "summary": "List Canvas projects",
+        "parameters": [
+          {
+            "description": "Filter by source session ID (uuid)",
+            "name": "session_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -4356,6 +4643,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
                 }
               }
             }
@@ -5108,6 +5405,225 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/channels/{id}/agents": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ],
+        "summary": "List agents assigned to a channel",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/channelAgentsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ],
+        "summary": "Assign an agent to a channel",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/assignChannelAgentRequest"
+              }
+            }
+          },
+          "description": "Agent to assign",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/assignChannelAgentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/channels/{id}/agents/{agentID}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ],
+        "summary": "Unassign an agent from a channel",
+        "parameters": [
+          {
+            "description": "Channel ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Agent ID",
+            "name": "agentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -17287,6 +17803,17 @@
           }
         }
       },
+      "ArtifactListResponse": {
+        "type": "object",
+        "properties": {
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactResponse"
+            }
+          }
+        }
+      },
       "ArtifactResponse": {
         "type": "object",
         "properties": {
@@ -18852,6 +19379,22 @@
           }
         }
       },
+      "assignChannelAgentRequest": {
+        "type": "object",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          }
+        }
+      },
+      "assignChannelAgentResponse": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/agentResponse"
+          }
+        }
+      },
       "attachmentDownloadURLRequest": {
         "type": "object",
         "properties": {
@@ -19092,6 +19635,31 @@
           }
         }
       },
+      "canvasArtifactPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        }
+      },
+      "canvasArtifactPreviewResponse": {
+        "type": "object",
+        "properties": {
+          "expires_at": {
+            "type": "string"
+          },
+          "sandbox_base_url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "changePasswordRequest": {
         "type": "object",
         "properties": {
@@ -19100,6 +19668,17 @@
           },
           "new_password": {
             "type": "string"
+          }
+        }
+      },
+      "channelAgentsResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/agentResponse"
+            }
           }
         }
       },

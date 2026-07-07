@@ -37,6 +37,11 @@ func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request)
 	for _, install := range installs {
 		enabled[install.PluginID] = true
 	}
+	scope, err := h.actorScope(r.Context(), org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
 	var orgInstalls []model.OrgPluginInstall
 	if err := h.db.Preload("Plugin").
 		Where("org_id = ? AND revoked_at IS NULL", org.ID).
@@ -46,7 +51,7 @@ func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request)
 	}
 	resp := make([]pluginResponse, 0, len(orgInstalls))
 	for _, install := range orgInstalls {
-		item, err := h.toPluginResponse(r.Context(), org.ID, install.Plugin)
+		item, err := h.toPluginResponse(r.Context(), org.ID, install.Plugin, scope)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 			return
@@ -103,7 +108,12 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enable plugin for agent"})
 		return
 	}
-	resp, err := h.toPluginResponse(ctx, org.ID, plugin)
+	scope, err := h.actorScope(ctx, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
+	resp, err := h.toPluginResponse(ctx, org.ID, plugin, scope)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 		return

@@ -79,6 +79,9 @@ func newChannelHarness(t *testing.T, opts ...handler.ChannelHandlerOption) *chan
 		r.Post("/channels/{id}/join", h.Join)
 		r.Put("/channels/{id}/members/{userID}", h.PutMember)
 		r.Delete("/channels/{id}/members/{userID}", h.DeleteMember)
+		r.Get("/channels/{id}/agents", h.ListChannelAgents)
+		r.Post("/channels/{id}/agents", h.AssignChannelAgent)
+		r.Delete("/channels/{id}/agents/{agentID}", h.UnassignChannelAgent)
 	})
 	return &channelHarness{db: db, router: r}
 }
@@ -110,6 +113,8 @@ func (h *channelHarness) seed(t *testing.T) channelFixture {
 	}
 	t.Cleanup(func() {
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Connection{})
+		h.db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
+		h.db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})

@@ -37,7 +37,7 @@ func setupRAGRuntime(
 ) (*ragRuntime, error) {
 	discovery := resources.NewDiscovery(cat, nangoClient)
 	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, billing.NewCreditsService(db), discovery, cat, spiderClient)
-	searchHandler, qd, embedder, reranker, err := buildRAGSearch(cfg)
+	searchHandler, qd, embedder, reranker, err := buildRAGSearch(cfg, db)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func setupRAGRuntime(
 	}, nil
 }
 
-func buildRAGSearch(cfg *config.Config) (*handler.RAGSearchHandler, *qdrant.Client, *embedclient.Embedder, *embedclient.Reranker, error) {
+func buildRAGSearch(cfg *config.Config, db *gorm.DB) (*handler.RAGSearchHandler, *qdrant.Client, *embedclient.Embedder, *embedclient.Reranker, error) {
 	if cfg.QdrantHost == "" || cfg.LLMAPIURL == "" || cfg.LLMAPIKey == "" || cfg.LLMModel == "" {
 		slog.Warn("rag search: qdrant or LLM not configured — /v1/rag/search disabled")
 		return nil, nil, nil, nil, nil
@@ -84,5 +84,5 @@ func buildRAGSearch(cfg *config.Config) (*handler.RAGSearchHandler, *qdrant.Clie
 		})
 	}
 
-	return handler.NewRAGSearchHandler(qd, embedder, reranker, cfg.QdrantCollection), qd, embedder, reranker, nil
+	return handler.NewRAGSearchHandler(db, qd, embedder, reranker, cfg.QdrantCollection), qd, embedder, reranker, nil
 }

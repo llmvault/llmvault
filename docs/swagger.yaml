@@ -89,6 +89,13 @@ definitions:
       size_bytes:
         type: integer
     type: object
+  ArtifactListResponse:
+    properties:
+      artifacts:
+        items:
+          $ref: '#/definitions/ArtifactResponse'
+        type: array
+    type: object
   ArtifactResponse:
     properties:
       files:
@@ -1125,6 +1132,16 @@ definitions:
       updated_at:
         type: string
     type: object
+  assignChannelAgentRequest:
+    properties:
+      agent_id:
+        type: string
+    type: object
+  assignChannelAgentResponse:
+    properties:
+      agent:
+        $ref: '#/definitions/agentResponse'
+    type: object
   attachmentDownloadURLRequest:
     properties:
       keys:
@@ -1282,12 +1299,35 @@ definitions:
       status:
         type: string
     type: object
+  canvasArtifactPreviewRequest:
+    properties:
+      session_id:
+        type: string
+    type: object
+  canvasArtifactPreviewResponse:
+    properties:
+      expires_at:
+        type: string
+      sandbox_base_url:
+        type: string
+      token:
+        type: string
+      url:
+        type: string
+    type: object
   changePasswordRequest:
     properties:
       current_password:
         type: string
       new_password:
         type: string
+    type: object
+  channelAgentsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/agentResponse'
+        type: array
     type: object
   channelDetailResponse:
     properties:
@@ -5826,8 +5866,9 @@ paths:
   /v1/agents:
     get:
       description: |-
-        Returns all agents in the org with skills (metadata only — no bundle content),
-        and triggers.
+        Returns the agents visible to the caller with skills (metadata only — no bundle content),
+        and triggers. Org managers and API-key callers see every agent in the org; a regular
+        member sees only agents assigned to channels they can use.
       parameters:
       - description: Filter by status (draft, active, archived)
         in: query
@@ -5953,8 +5994,9 @@ paths:
       - agents
     get:
       description: |-
-        Returns one agent in the org with skills (metadata only — no bundle content),
-        and triggers.
+        Returns one agent visible to the caller with skills (metadata only — no bundle content),
+        and triggers. A regular member can only fetch agents assigned to channels they can use;
+        an agent they cannot see returns 404.
       parameters:
       - description: Agent agent ID
         in: path
@@ -7189,9 +7231,150 @@ paths:
       summary: Verify checkout completed
       tags:
       - billing
+  /v1/canvas/artifacts:
+    get:
+      description: Returns Canvas artifacts for the current organization, optionally
+        filtered by project or session.
+      parameters:
+      - description: Filter by project ID (uuid)
+        in: query
+        name: project_id
+        type: string
+      - description: Filter by project slug
+        in: query
+        name: project_slug
+        type: string
+      - description: Filter by source session ID (uuid)
+        in: query
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ArtifactListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List Canvas artifacts
+      tags:
+      - canvas
+  /v1/canvas/artifacts/{artifactID}:
+    get:
+      description: Returns a single Canvas artifact for the current organization.
+      parameters:
+      - description: Artifact ID (uuid)
+        in: path
+        name: artifactID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ArtifactResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a Canvas artifact
+      tags:
+      - canvas
+  /v1/canvas/artifacts/{artifactID}/preview-url:
+    post:
+      consumes:
+      - application/json
+      description: Mints a short-lived sandbox preview URL for a Canvas artifact tied
+        to a session.
+      parameters:
+      - description: Artifact ID (uuid)
+        in: path
+        name: artifactID
+        required: true
+        type: string
+      - description: Preview request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/canvasArtifactPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/canvasArtifactPreviewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mint a Canvas artifact preview URL
+      tags:
+      - canvas
   /v1/canvas/projects:
     get:
       description: Returns Canvas artifact projects for the current organization.
+      parameters:
+      - description: Filter by source session ID (uuid)
+        in: query
+        name: session_id
+        type: string
       produces:
       - application/json
       responses:
@@ -7199,6 +7382,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/ProjectListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -7596,6 +7783,116 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a channel
+      tags:
+      - channels
+  /v1/channels/{id}/agents:
+    get:
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/channelAgentsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List agents assigned to a channel
+      tags:
+      - channels
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent to assign
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/assignChannelAgentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/assignChannelAgentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Assign an agent to a channel
+      tags:
+      - channels
+  /v1/channels/{id}/agents/{agentID}:
+    delete:
+      parameters:
+      - description: Channel ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent ID
+        in: path
+        name: agentID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Unassign an agent from a channel
       tags:
       - channels
   /v1/channels/{id}/environment-variables:

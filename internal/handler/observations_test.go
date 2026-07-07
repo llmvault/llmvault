@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -61,6 +62,51 @@ func loadObservation(t *testing.T, db *gorm.DB, id uuid.UUID) observationFields 
 		t.Fatalf("decode metadata: %v", err)
 	}
 	return out
+}
+
+// TestIntegration_ObservationsListVisibility covers L6: a member must not
+// receive observations referencing channels they cannot use; global and
+// usable-channel observations remain, and owners see everything.
+func TestIntegration_ObservationsListVisibility(t *testing.T) {
+	h := newMemoryControlHarness(t)
+	fx, _ := h.seed(t)
+	ch := seedTeamVisibility(t, h.db, fx)
+
+	global := seedObservation(t, h.db, fx.org.ID, nil, "global observation", 1)
+	usable := seedObservation(t, h.db, fx.org.ID, &ch.usable.ID, "usable channel observation", 1)
+	unusable := seedObservation(t, h.db, fx.org.ID, &ch.unusable.ID, "unusable channel observation", 1)
+
+	decode := func(rr *httptest.ResponseRecorder) map[string]bool {
+		if rr.Code != http.StatusOK {
+			t.Fatalf("list status=%d body=%s", rr.Code, rr.Body.String())
+		}
+		var out struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode list: %v", err)
+		}
+		got := map[string]bool{}
+		for _, d := range out.Data {
+			got[d.ID] = true
+		}
+		return got
+	}
+
+	memberGot := decode(h.doJSON(t, http.MethodGet, "/v1/observations?limit=100", fx, fx.member, nil))
+	if !memberGot[global.String()] || !memberGot[usable.String()] {
+		t.Fatalf("member should see global + usable observations: %v", memberGot)
+	}
+	if memberGot[unusable.String()] {
+		t.Fatalf("LEAK: member saw observation in unusable channel")
+	}
+
+	ownerGot := decode(h.doJSON(t, http.MethodGet, "/v1/observations?limit=100", fx, fx.owner, nil))
+	if !ownerGot[global.String()] || !ownerGot[usable.String()] || !ownerGot[unusable.String()] {
+		t.Fatalf("owner should see all observations: %v", ownerGot)
+	}
 }
 
 func TestIntegration_ObservationsConfirm(t *testing.T) {

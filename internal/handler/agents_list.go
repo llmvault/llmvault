@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -18,8 +19,9 @@ type agentListItem struct {
 }
 
 // @Summary List AI agents
-// @Description Returns all agents in the org with skills (metadata only — no bundle content),
-// @Description and triggers.
+// @Description Returns the agents visible to the caller with skills (metadata only — no bundle content),
+// @Description and triggers. Org managers and API-key callers see every agent in the org; a regular
+// @Description member sees only agents assigned to channels they can use.
 // @Tags agents
 // @Produce json
 // @Param status query string false "Filter by status (draft, active, archived)"
@@ -43,10 +45,24 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := h.db.WithContext(r.Context()).
+	ctx := r.Context()
+	userID, _ := currentRequestUserID(ctx)
+	orgRole, err := h.actorOrgRole(ctx, org.ID, userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load org membership"})
+		return
+	}
+
+	q := h.db.WithContext(ctx).
 		Preload("AgentCatalog").
 		Where("agents.org_id = ?", org.ID).
 		Where("agents.parent_agent_id IS NULL")
+
+	// Managers and API-key callers see org-wide; a regular member sees only
+	// agents assigned to channels they can use (mirrors channel visibility).
+	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
+		q = q.Where("agents.id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+	}
 
 	if status := r.URL.Query().Get("status"); status != "" {
 		q = q.Where("agents.status = ?", status)
@@ -94,8 +110,9 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 // Get handles GET /v1/agents/{id}.
 // @Summary Get an AI agent
-// @Description Returns one agent in the org with skills (metadata only — no bundle content),
-// @Description and triggers.
+// @Description Returns one agent visible to the caller with skills (metadata only — no bundle content),
+// @Description and triggers. A regular member can only fetch agents assigned to channels they can use;
+// @Description an agent they cannot see returns 404.
 // @Tags agents
 // @Produce json
 // @Param id path string true "Agent agent ID"
@@ -119,11 +136,26 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var agent model.Agent
-	if err := h.db.WithContext(r.Context()).
+	ctx := r.Context()
+	userID, _ := currentRequestUserID(ctx)
+	orgRole, err := h.actorOrgRole(ctx, org.ID, userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load org membership"})
+		return
+	}
+
+	q := h.db.WithContext(ctx).
 		Preload("AgentCatalog").
-		Where("agents.id = ? AND agents.org_id = ? AND agents.status <> ?", agentID, org.ID, "archived").
-		First(&agent).Error; err != nil {
+		Where("agents.id = ? AND agents.org_id = ? AND agents.status <> ?", agentID, org.ID, "archived")
+	// A non-visible agent must be indistinguishable from a missing one (404,
+	// not 403) so we never leak the existence of agents outside the caller's
+	// channels. Managers and API-key callers keep org-wide access.
+	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
+		q = q.Where("agents.id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+	}
+
+	var agent model.Agent
+	if err := q.First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
 			return
@@ -138,6 +170,24 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
 	base.SubAgents = h.loadSubAgentResponses(r.Context(), agent.ID)
 	writeJSON(w, http.StatusOK, agentListItem{agentResponse: base})
+}
+
+// actorOrgRole returns the caller's org role, or "" when there is no user
+// (API-key/proxy) or the user is not a member. It mirrors
+// ChannelHandler.currentUserOrgRole so the agents surface applies the same
+// manager check as channels without depending on the channel handler.
+func (h *AgentHandler) actorOrgRole(ctx context.Context, orgID uuid.UUID, userID *uuid.UUID) (string, error) {
+	if userID == nil {
+		return "", nil
+	}
+	var membership model.OrgMembership
+	err := h.db.WithContext(ctx).
+		Where("org_id = ? AND user_id = ?", orgID, *userID).
+		First(&membership).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	return membership.Role, err
 }
 
 func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {

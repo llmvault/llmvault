@@ -15,6 +15,13 @@ describe("automatedMessageBadge", () => {
     })
   })
 
+  it("labels system automated messages", () => {
+    expect(automatedMessageBadge("system")).toEqual({
+      label: "Automated · System",
+      icon: "sparkles",
+    })
+  })
+
   it("labels github-provider trigger messages", () => {
     expect(automatedMessageBadge("trigger", "github-app")).toEqual({
       label: "Automated · GitHub",

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -18,6 +19,16 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 	channelID, err := h.resolveTriggerChannel(ctx, agent, trigger.ChannelID)
 	if err != nil {
 		return nil, err
+	}
+	// Hard enforcement: the agent must be assigned to the trigger's channel.
+	// System channels (the default when no channel is configured) are exempt via
+	// channelagents.Assigned, so scheduled/system jobs keep working.
+	assigned, err := channelagents.Assigned(ctx, h.db, *agent.OrgID, channelID, agent.ID)
+	if err != nil {
+		return nil, fmt.Errorf("check trigger channel agent: %w", err)
+	}
+	if !assigned {
+		return nil, fmt.Errorf("agent is not assigned to this channel")
 	}
 	var session model.Session
 	err = h.db.WithContext(ctx).

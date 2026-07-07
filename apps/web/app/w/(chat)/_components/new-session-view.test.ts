@@ -52,6 +52,25 @@ vi.mock("@/lib/api/hooks", () => ({
   },
 }))
 
+// The channel-scoped agent list drives the composer's agent picker. Mock it to
+// return the same single assigned agent the org list used to provide.
+vi.mock("@/lib/api/channel-agents", () => ({
+  useChannelAgents: () => ({
+    data: {
+      data: [
+        {
+          id: "agent-1",
+          name: "Hivy",
+          model: "test-model",
+          catalog: { id: "catalog-1", slug: "hivy" },
+        },
+      ],
+    },
+    isError: false,
+    isLoading: false,
+  }),
+}))
+
 vi.mock("@tanstack/react-query", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-query")>()
   return {

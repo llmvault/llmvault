@@ -145,6 +145,8 @@ func (h *canvasProjectHarness) doCanvasProjects(t *testing.T, org model.Org, que
 	}
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req = middleware.WithOrg(req, &org)
+	// API-key callers see org-wide; these tests assert org-scoped listing.
+	req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)
 	return rr

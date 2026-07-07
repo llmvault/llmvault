@@ -1,14 +1,21 @@
+"use client"
+
 /**
- * Memory rework API client — observations, directives, and channel memory
- * settings (category + mission).
+ * Memory rework API — observations, directives, and channel memory settings
+ * (category + mission).
  *
- * All endpoint paths for the memory rework live HERE and only here, so they
- * can be reconciled with the backend in one place. Paths and shapes are
- * reconciled against the server routes: observations list uses
- * GET /v1/observations?channel_id=&limit=&offset= (offset pagination),
- * corrections use POST /v1/observations/{id}/correct, and directives list
- * uses GET /v1/directives?channel_id=.
+ * Every backend call goes through the generated `$api` hooks (openapi-react-query
+ * over openapi-fetch); there is no hand-written fetch or `/api/proxy` URL here.
+ * Request/response shapes are derived from the OpenAPI `paths`, so backend
+ * contract drift fails typecheck. The only bespoke layer is a pure transform
+ * from the generated snake_case response into the camelCase domain shapes
+ * (`Observation`/`Directive`) the UI consumes.
  */
+
+import { useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { $api } from "@/lib/api/hooks"
+import type { components } from "./schema"
 
 export const CHANNEL_CATEGORIES = [
   {
@@ -130,6 +137,13 @@ export function observationKind(kind: string): {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Domain shapes + normalizers (pure transform over the generated responses)
+// ---------------------------------------------------------------------------
+
+type ObservationResponse = components["schemas"]["observationResponse"]
+type DirectiveResponse = components["schemas"]["directiveResponse"]
+
 export type Observation = {
   id: string
   content: string
@@ -143,11 +157,6 @@ export type Observation = {
   archivedAt: string | null
 }
 
-export type ObservationPage = {
-  observations: Observation[]
-  hasMore: boolean
-}
-
 export type DirectiveSource = "user-pinned" | "extracted-confirmed"
 
 export type Directive = {
@@ -159,112 +168,205 @@ export type Directive = {
   createdAt: string
 }
 
-export const memoryQueryKeys = {
-  observations: (channelId: string) =>
-    ["memory", "observations", channelId] as const,
-  directives: (channelId: string) =>
-    ["memory", "directives", channelId] as const,
+function toObservation(raw: ObservationResponse): Observation {
+  return {
+    id: raw.id ?? "",
+    content: raw.content ?? "",
+    kind: raw.kind ?? "",
+    entities: (raw.entities ?? []).filter(
+      (entity): entity is string => typeof entity === "string"
+    ),
+    proofCount: typeof raw.proof_count === "number" ? raw.proof_count : 1,
+    lastMentionedAt: raw.last_mentioned_at ?? "",
+    expiresAt: raw.expires_at || null,
+    humanVerified: Boolean(raw.human_verified),
+    createdAt: raw.created_at ?? "",
+    archivedAt: raw.archived_at || null,
+  }
+}
+
+function toDirective(raw: DirectiveResponse): Directive {
+  const source = raw.source ?? ""
+  return {
+    id: raw.id ?? "",
+    channelId: raw.channel_id || null,
+    content: raw.content ?? "",
+    source: source === "extracted-confirmed" ? source : "user-pinned",
+    active: raw.active === undefined ? true : Boolean(raw.active),
+    createdAt: raw.created_at ?? "",
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Requests
+// Query keys + invalidation (openapi-react-query `[method, path, init]` shape)
 // ---------------------------------------------------------------------------
 
-const PROXY_BASE = "/api/proxy"
+/** Observations page size for the paginated list. */
+export const OBSERVATIONS_PAGE_SIZE = 30
 
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown
-): Promise<T> {
-  const response = await fetch(`${PROXY_BASE}${path}`, {
-    method,
-    headers:
-      body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
-  const text = await response.text()
-  const data = text ? safeParseJSON(text) : null
-  if (!response.ok) {
-    throw data ?? new Error(`Request failed (${response.status})`)
-  }
-  return (data ?? {}) as T
+/**
+ * openapi-react-query cache-key prefix for a channel's observation list. The
+ * generated hooks key on `["get", path, init]`; scoping the init to the channel
+ * lets a mutation invalidate exactly that channel's list (any page size / page).
+ */
+function observationsKey(channelId: string) {
+  return [
+    "get",
+    "/v1/observations",
+    { params: { query: { channel_id: channelId } } },
+  ] as const
 }
 
-function safeParseJSON(text: string): unknown {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
+function directivesKey(channelId: string) {
+  return [
+    "get",
+    "/v1/directives",
+    { params: { query: { channel_id: channelId } } },
+  ] as const
 }
 
 // ---------------------------------------------------------------------------
 // Observations
 // ---------------------------------------------------------------------------
 
-export async function listObservations(
-  channelId: string,
-  options: { offset?: number; limit?: number } = {}
-): Promise<ObservationPage> {
-  const params = new URLSearchParams()
-  params.set("channel_id", channelId)
-  if (options.offset) params.set("offset", String(options.offset))
-  if (options.limit) params.set("limit", String(options.limit))
-  const data = await request<{
-    data?: unknown[]
-    has_more?: boolean
-  }>("GET", `/v1/observations?${params.toString()}`)
+export type ObservationsController = {
+  observations: Observation[]
+  hasMore: boolean
+  isLoading: boolean
+  isError: boolean
+  isLoadingMore: boolean
+  loadMore: () => void
+}
+
+/**
+ * Paginated observations for a channel, flattened + mapped to the domain shape.
+ * Offset pagination is handled by openapi-react-query's infinite query: each
+ * page's `offset` is derived from the running count of already-loaded rows.
+ */
+export function useObservations(channelId: string): ObservationsController {
+  const query = $api.useInfiniteQuery(
+    "get",
+    "/v1/observations",
+    {
+      params: {
+        query: { channel_id: channelId, limit: OBSERVATIONS_PAGE_SIZE },
+      },
+    },
+    {
+      pageParamName: "offset",
+      initialPageParam: 0,
+      getNextPageParam: (lastPage, allPages) => {
+        if (!lastPage.has_more) return undefined
+        return allPages.reduce(
+          (total, page) => total + (page.data?.length ?? 0),
+          0
+        )
+      },
+      enabled: Boolean(channelId),
+    }
+  )
+
+  const observations = useMemo(() => {
+    const seen = new Set<string>()
+    const result: Observation[] = []
+    for (const page of query.data?.pages ?? []) {
+      for (const raw of page.data ?? []) {
+        const observation = toObservation(raw)
+        if (observation.id) {
+          if (seen.has(observation.id)) continue
+          seen.add(observation.id)
+        }
+        result.push(observation)
+      }
+    }
+    return result
+  }, [query.data])
+
   return {
-    observations: (data.data ?? []).map(toObservation),
-    hasMore: Boolean(data.has_more),
+    observations,
+    hasMore: Boolean(query.hasNextPage),
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isLoadingMore: query.isFetchingNextPage,
+    loadMore: () => {
+      if (query.hasNextPage && !query.isFetchingNextPage) {
+        void query.fetchNextPage()
+      }
+    },
   }
 }
 
-export function confirmObservation(id: string): Promise<unknown> {
-  return request("POST", `/v1/observations/${encodeURIComponent(id)}/confirm`)
+export function useConfirmObservation(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("post", "/v1/observations/{id}/confirm", {
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: observationsKey(channelId) }),
+  })
 }
 
-export function correctObservation(
-  id: string,
-  content: string
-): Promise<unknown> {
-  return request(
-    "POST",
-    `/v1/observations/${encodeURIComponent(id)}/correct`,
-    { content }
-  )
+export function useCorrectObservation(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("post", "/v1/observations/{id}/correct", {
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: observationsKey(channelId) }),
+  })
 }
 
-export function deleteObservation(id: string): Promise<unknown> {
-  return request("DELETE", `/v1/observations/${encodeURIComponent(id)}`)
+export function useDeleteObservation(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("delete", "/v1/observations/{id}", {
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: observationsKey(channelId) }),
+  })
 }
 
-export function pinObservation(id: string): Promise<unknown> {
-  return request("POST", `/v1/observations/${encodeURIComponent(id)}/pin`)
+/** Pinning promotes an observation to a directive, so both lists refresh. */
+export function usePinObservation(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("post", "/v1/observations/{id}/pin", {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: observationsKey(channelId) })
+      queryClient.invalidateQueries({ queryKey: directivesKey(channelId) })
+    },
+  })
 }
 
 // ---------------------------------------------------------------------------
 // Directives
 // ---------------------------------------------------------------------------
 
-export async function listDirectives(channelId: string): Promise<Directive[]> {
-  const params = new URLSearchParams()
-  params.set("channel_id", channelId)
-  const data = await request<{ data?: unknown[] }>(
-    "GET",
-    `/v1/directives?${params.toString()}`
-  )
-  return (data.data ?? []).map(toDirective)
+export type DirectivesController = {
+  directives: Directive[]
+  isLoading: boolean
+  isError: boolean
 }
 
-export function createDirective(
-  channelId: string,
-  content: string
-): Promise<unknown> {
-  return request("POST", "/v1/directives", {
-    channel_id: channelId,
-    content,
+/** Channel directives, mapped to the domain shape. */
+export function useDirectives(channelId: string): DirectivesController {
+  const query = $api.useQuery(
+    "get",
+    "/v1/directives",
+    { params: { query: { channel_id: channelId } } },
+    { enabled: Boolean(channelId) }
+  )
+
+  const directives = useMemo(
+    () => (query.data?.data ?? []).map(toDirective),
+    [query.data]
+  )
+
+  return {
+    directives,
+    isLoading: query.isLoading,
+    isError: query.isError,
+  }
+}
+
+export function useCreateDirective(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("post", "/v1/directives", {
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: directivesKey(channelId) }),
   })
 }
 
@@ -272,55 +374,18 @@ export function createDirective(
  * Directive content is immutable once created; PATCH only toggles the active
  * flag. Delete and re-add a directive to change its text.
  */
-export function updateDirective(
-  id: string,
-  patch: { active: boolean }
-): Promise<unknown> {
-  return request("PATCH", `/v1/directives/${encodeURIComponent(id)}`, patch)
+export function useUpdateDirective(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("patch", "/v1/directives/{id}", {
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: directivesKey(channelId) }),
+  })
 }
 
-export function deleteDirective(id: string): Promise<unknown> {
-  return request("DELETE", `/v1/directives/${encodeURIComponent(id)}`)
-}
-
-// ---------------------------------------------------------------------------
-// Normalizers
-// ---------------------------------------------------------------------------
-
-function toObservation(raw: unknown): Observation {
-  const record = (raw ?? {}) as Record<string, unknown>
-  return {
-    id: stringField(record.id),
-    content: stringField(record.content),
-    kind: stringField(record.kind),
-    entities: Array.isArray(record.entities)
-      ? record.entities.filter(
-          (entity): entity is string => typeof entity === "string"
-        )
-      : [],
-    proofCount:
-      typeof record.proof_count === "number" ? record.proof_count : 1,
-    lastMentionedAt: stringField(record.last_mentioned_at),
-    expiresAt: stringField(record.expires_at) || null,
-    humanVerified: Boolean(record.human_verified),
-    createdAt: stringField(record.created_at),
-    archivedAt: stringField(record.archived_at) || null,
-  }
-}
-
-function toDirective(raw: unknown): Directive {
-  const record = (raw ?? {}) as Record<string, unknown>
-  const source = stringField(record.source)
-  return {
-    id: stringField(record.id),
-    channelId: stringField(record.channel_id) || null,
-    content: stringField(record.content),
-    source: source === "extracted-confirmed" ? source : "user-pinned",
-    active: record.active === undefined ? true : Boolean(record.active),
-    createdAt: stringField(record.created_at),
-  }
-}
-
-function stringField(value: unknown): string {
-  return typeof value === "string" ? value : ""
+export function useDeleteDirective(channelId: string) {
+  const queryClient = useQueryClient()
+  return $api.useMutation("delete", "/v1/directives/{id}", {
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: directivesKey(channelId) }),
+  })
 }

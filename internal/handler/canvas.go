@@ -15,10 +15,10 @@ import (
 type CanvasArtifactService interface {
 	CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, req canvasartifact.ProjectCreateRequest) (*canvasartifact.ProjectResponse, error)
 	ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*canvasartifact.ProjectListResponse, error)
-	ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessionID *uuid.UUID) (*canvasartifact.ProjectListResponse, error)
+	ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessionID *uuid.UUID, visibleSessions *gorm.DB) (*canvasartifact.ProjectListResponse, error)
 	ListArtifactsForAgent(ctx context.Context, agentID uuid.UUID, filter canvasartifact.ArtifactFilter) (*canvasartifact.ArtifactListResponse, error)
 	ListArtifactsForOrg(ctx context.Context, orgID uuid.UUID, filter canvasartifact.ArtifactFilter) (*canvasartifact.ArtifactListResponse, error)
-	GetArtifactForOrg(ctx context.Context, orgID, artifactID uuid.UUID) (*canvasartifact.ArtifactResponse, error)
+	GetArtifactForOrg(ctx context.Context, orgID, artifactID uuid.UUID, visibleSessions *gorm.DB) (*canvasartifact.ArtifactResponse, error)
 	SyncArtifactForAgent(ctx context.Context, agentID uuid.UUID, req canvasartifact.SyncRequest) (*canvasartifact.SyncResponse, error)
 	SnapshotForAgent(ctx context.Context, agentID uuid.UUID) (*canvasartifact.SnapshotResponse, error)
 }
@@ -40,6 +40,20 @@ func NewCanvasHandler(db *gorm.DB, encKey *crypto.SymmetricKey) *CanvasHandler {
 func (h *CanvasHandler) WithArtifactService(svc CanvasArtifactService) *CanvasHandler {
 	h.artifactSvc = svc
 	return h
+}
+
+// visibleSessionScope returns the subquery of sessions a non-manager member may
+// view (used to scope canvas artifacts by their source session), or nil for an
+// org-wide caller (manager or API-key).
+func (h *CanvasHandler) visibleSessionScope(ctx context.Context, orgID uuid.UUID) (*gorm.DB, error) {
+	orgWide, userID, err := actorSeesOrgWide(ctx, h.db, orgID)
+	if err != nil {
+		return nil, err
+	}
+	if orgWide {
+		return nil, nil
+	}
+	return visibleSessionIDSubquery(h.db, orgID, userID), nil
 }
 
 func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Request) {

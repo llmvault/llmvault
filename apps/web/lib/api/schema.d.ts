@@ -1809,8 +1809,9 @@ export interface paths {
         };
         /**
          * List AI agents
-         * @description Returns all agents in the org with skills (metadata only — no bundle content),
-         *     and triggers.
+         * @description Returns the agents visible to the caller with skills (metadata only — no bundle content),
+         *     and triggers. Org managers and API-key callers see every agent in the org; a regular
+         *     member sees only agents assigned to channels they can use.
          */
         get: {
             parameters: {
@@ -2261,8 +2262,9 @@ export interface paths {
         };
         /**
          * Get an AI agent
-         * @description Returns one agent in the org with skills (metadata only — no bundle content),
-         *     and triggers.
+         * @description Returns one agent visible to the caller with skills (metadata only — no bundle content),
+         *     and triggers. A regular member can only fetch agents assigned to channels they can use;
+         *     an agent they cannot see returns 404.
          */
         get: {
             parameters: {
@@ -4304,6 +4306,267 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/canvas/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Canvas artifacts
+         * @description Returns Canvas artifacts for the current organization, optionally filtered by project or session.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by project ID (uuid) */
+                    project_id?: string;
+                    /** @description Filter by project slug */
+                    project_slug?: string;
+                    /** @description Filter by source session ID (uuid) */
+                    session_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ArtifactListResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/canvas/artifacts/{artifactID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a Canvas artifact
+         * @description Returns a single Canvas artifact for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Artifact ID (uuid) */
+                    artifactID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ArtifactResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/canvas/artifacts/{artifactID}/preview-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a Canvas artifact preview URL
+         * @description Mints a short-lived sandbox preview URL for a Canvas artifact tied to a session.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Artifact ID (uuid) */
+                    artifactID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Preview request payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["canvasArtifactPreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["canvasArtifactPreviewResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/canvas/projects": {
         parameters: {
             query?: never;
@@ -4317,7 +4580,10 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Filter by source session ID (uuid) */
+                    session_id?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -4331,6 +4597,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ProjectListResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -5103,6 +5378,202 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/v1/channels/{id}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List agents assigned to a channel */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelAgentsResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Assign an agent to a channel */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Agent to assign */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["assignChannelAgentRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["assignChannelAgentResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/channels/{id}/agents/{agentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unassign an agent from a channel */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                    /** @description Agent ID */
+                    agentID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/channels/{id}/environment-variables": {
@@ -16184,6 +16655,9 @@ export interface components {
             sha256?: string;
             size_bytes?: number;
         };
+        ArtifactListResponse: {
+            artifacts?: components["schemas"]["ArtifactResponse"][];
+        };
         ArtifactResponse: {
             files?: components["schemas"]["ArtifactFileResponse"][];
             id?: string;
@@ -16694,6 +17168,12 @@ export interface components {
             path?: string;
             updated_at?: string;
         };
+        assignChannelAgentRequest: {
+            agent_id?: string;
+        };
+        assignChannelAgentResponse: {
+            agent?: components["schemas"]["agentResponse"];
+        };
         attachmentDownloadURLRequest: {
             keys?: string[];
         };
@@ -16769,9 +17249,21 @@ export interface components {
             canceled_at?: string;
             status?: string;
         };
+        canvasArtifactPreviewRequest: {
+            session_id?: string;
+        };
+        canvasArtifactPreviewResponse: {
+            expires_at?: string;
+            sandbox_base_url?: string;
+            token?: string;
+            url?: string;
+        };
         changePasswordRequest: {
             current_password?: string;
             new_password?: string;
+        };
+        channelAgentsResponse: {
+            data?: components["schemas"]["agentResponse"][];
         };
         channelDetailResponse: {
             channel?: components["schemas"]["channelResponse"];

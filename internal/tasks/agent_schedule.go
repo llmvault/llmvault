@@ -15,6 +15,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/agentschedule"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -152,6 +153,15 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		channelID, err := uuid.Parse(strings.TrimSpace(run.Schedule.Channel))
 		if err != nil || channelID == uuid.Nil {
 			return fmt.Errorf("scheduled channel_id is invalid")
+		}
+		// Hard enforcement: the agent must be assigned to the schedule's channel
+		// (system channels are exempt via channelagents.Assigned).
+		assigned, err := channelagents.Assigned(ctx, tx, run.OrgID, channelID, run.AgentID)
+		if err != nil {
+			return fmt.Errorf("check schedule channel agent: %w", err)
+		}
+		if !assigned {
+			return fmt.Errorf("agent is not assigned to this channel")
 		}
 		now := time.Now().UTC()
 		sessionID = uuid.New()

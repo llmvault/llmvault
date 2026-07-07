@@ -8,6 +8,7 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useChannelScopedAgents } from "@/lib/api/channel-scoped-agents"
 import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
 import {
   ChannelSelect,
@@ -93,6 +94,23 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
   const active = schedule.status === "active"
   const activeChannelID = channelID || channels[0]?.id || ""
 
+  // The schedule's agent is fixed. When the user retargets it to a different
+  // channel the backend rejects the save (422) if that agent isn't assigned to
+  // the new channel. Pre-check the channel's assigned agents so we can warn and
+  // block Save before the round-trip. When the channel-agents endpoint is
+  // unavailable we fall back to the org list (isFallback) and can't verify — so
+  // we don't block, and let the server's error message surface instead.
+  const {
+    agents: channelAgents,
+    isLoading: channelAgentsLoading,
+    isFallback: channelAgentsFallback,
+  } = useChannelScopedAgents(activeChannelID)
+  const agentAssignedToChannel =
+    channelAgentsFallback ||
+    channelAgentsLoading ||
+    !schedule.agent_id ||
+    channelAgents.some((agent) => agent.id === schedule.agent_id)
+
   const channel = channels.find((c) => c.id === schedule.channel_id)
   const lastRunHref =
     schedule.last_run_session_id && channel?.name
@@ -105,7 +123,8 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
       name.trim() &&
       activeChannelID &&
       taskPrompt.trim() &&
-      cadenceValid
+      cadenceValid &&
+      agentAssignedToChannel
   )
 
   function invalidate() {
@@ -278,6 +297,19 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
               {schedule.agent_name || "Agent"}
             </span>
           </div>
+          {!agentAssignedToChannel ? (
+            <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-warning">
+              <AppIcon
+                icon="triangle-alert"
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span>
+                {schedule.agent_name || "This agent"} isn&apos;t assigned to the
+                selected channel. Pick a channel it belongs to, or assign it
+                there first.
+              </span>
+            </p>
+          ) : null}
         </FormSection>
 
         <FormSection

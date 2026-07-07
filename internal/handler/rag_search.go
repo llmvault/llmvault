@@ -7,21 +7,24 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 )
 
 type RAGSearchHandler struct {
+	db         *gorm.DB
 	qd         *qdrant.Client
 	embedder   *embedclient.Embedder
 	reranker   *embedclient.Reranker
 	collection string
 }
 
-func NewRAGSearchHandler(qd *qdrant.Client, embedder *embedclient.Embedder,
+func NewRAGSearchHandler(db *gorm.DB, qd *qdrant.Client, embedder *embedclient.Embedder,
 	reranker *embedclient.Reranker, collection string) *RAGSearchHandler {
-	return &RAGSearchHandler{qd: qd, embedder: embedder, reranker: reranker, collection: collection}
+	return &RAGSearchHandler{db: db, qd: qd, embedder: embedder, reranker: reranker, collection: collection}
 }
 
 type ragSearchRequest struct {
@@ -82,6 +85,30 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		limit = 10
 	}
 
+	// Channel-scope the search for non-manager members: they may only reach
+	// sources granted to channels they can use. Managers and API-key callers
+	// keep org-wide reach. Any caller-supplied source_ids are intersected with
+	// the usable set so a member cannot widen their scope by asking.
+	sourceIDs := req.SourceIDs
+	orgWide, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
+		return
+	}
+	if !orgWide {
+		usable, err := usableRagSourceIDs(r.Context(), h.db, org.ID, userID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve knowledge access"})
+			return
+		}
+		sourceIDs = intersectSourceIDs(usable, req.SourceIDs)
+		// Deny-by-default: no usable source means no results.
+		if len(sourceIDs) == 0 {
+			writeJSON(w, http.StatusOK, ragSearchResponse{Hits: []ragSearchHit{}})
+			return
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
@@ -91,7 +118,7 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := qdrant.BuildScopedFilter(org.ID.String(), req.SourceIDs)
+	filter := qdrant.BuildScopedFilter(org.ID.String(), sourceIDs)
 
 	topK := limit
 	if req.Rerank && h.reranker != nil {
@@ -121,6 +148,25 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		out.Hits = out.Hits[:limit]
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// intersectSourceIDs restricts the caller-requested source ids to the usable
+// set. An empty request means "all usable", so it returns the full usable set.
+func intersectSourceIDs(usable, requested []string) []string {
+	if len(requested) == 0 {
+		return usable
+	}
+	allowed := make(map[string]struct{}, len(usable))
+	for _, id := range usable {
+		allowed[id] = struct{}{}
+	}
+	out := make([]string, 0, len(requested))
+	for _, id := range requested {
+		if _, ok := allowed[id]; ok {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 func hitsToResponse(hits []qdrant.Hit) []ragSearchHit {

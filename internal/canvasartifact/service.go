@@ -48,7 +48,7 @@ func (s *Service) CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, 
 	if err := s.db.WithContext(ctx).Create(&project).Error; err != nil {
 		return nil, fmt.Errorf("create canvas project: %w", err)
 	}
-	return s.projectResponse(ctx, project, nil)
+	return s.projectResponse(ctx, project, nil, nil)
 }
 
 func (s *Service) ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*ProjectListResponse, error) {
@@ -56,10 +56,15 @@ func (s *Service) ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	return s.ListProjectsForOrg(ctx, org.ID, nil)
+	return s.ListProjectsForOrg(ctx, org.ID, nil, nil)
 }
 
-func (s *Service) ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessionID *uuid.UUID) (*ProjectListResponse, error) {
+// ListProjectsForOrg lists an org's canvas projects. When visibleSessions is
+// non-nil (a non-manager member), each project's artifacts are restricted to
+// those whose source session the member may view, and projects left with no
+// visible artifacts are dropped so their metadata does not leak. Nil means
+// org-wide (manager or API-key caller).
+func (s *Service) ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessionID *uuid.UUID, visibleSessions *gorm.DB) (*ProjectListResponse, error) {
 	var projects []model.CanvasProject
 	q := s.db.WithContext(ctx).Where("org_id = ? AND archived_at IS NULL AND slug <> ''", orgID)
 	if err := q.Order("updated_at DESC").Find(&projects).Error; err != nil {
@@ -67,9 +72,13 @@ func (s *Service) ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessi
 	}
 	out := &ProjectListResponse{Projects: make([]ProjectResponse, 0, len(projects))}
 	for _, project := range projects {
-		resp, err := s.projectResponse(ctx, project, sessionID)
+		resp, err := s.projectResponse(ctx, project, sessionID, visibleSessions)
 		if err != nil {
 			return nil, err
+		}
+		// Drop projects with no member-visible artifacts.
+		if visibleSessions != nil && resp.ArtifactCount == 0 {
+			continue
 		}
 		out.Projects = append(out.Projects, *resp)
 	}
@@ -99,6 +108,9 @@ func (s *Service) ListArtifactsForOrg(ctx context.Context, orgID uuid.UUID, filt
 	if filter.SessionID != nil {
 		q = q.Where("source_session_id = ?", *filter.SessionID)
 	}
+	if filter.VisibleSessionIDs != nil {
+		q = q.Where("source_session_id IN (?)", filter.VisibleSessionIDs)
+	}
 	if err := q.Order("canvas_artifacts.updated_at DESC").Find(&artifacts).Error; err != nil {
 		return nil, fmt.Errorf("list canvas artifacts: %w", err)
 	}
@@ -113,11 +125,17 @@ func (s *Service) ListArtifactsForOrg(ctx context.Context, orgID uuid.UUID, filt
 	return out, nil
 }
 
-func (s *Service) GetArtifactForOrg(ctx context.Context, orgID, artifactID uuid.UUID) (*ArtifactResponse, error) {
+// GetArtifactForOrg loads one artifact. When visibleSessions is non-nil (a
+// non-manager member), the artifact must also belong to a session the member
+// may view, else it returns gorm.ErrRecordNotFound (handler maps that to 404).
+func (s *Service) GetArtifactForOrg(ctx context.Context, orgID, artifactID uuid.UUID, visibleSessions *gorm.DB) (*ArtifactResponse, error) {
+	q := s.db.WithContext(ctx).
+		Where("org_id = ? AND id = ? AND archived_at IS NULL", orgID, artifactID)
+	if visibleSessions != nil {
+		q = q.Where("source_session_id IN (?)", visibleSessions)
+	}
 	var artifact model.CanvasArtifact
-	if err := s.db.WithContext(ctx).
-		Where("org_id = ? AND id = ? AND archived_at IS NULL", orgID, artifactID).
-		First(&artifact).Error; err != nil {
+	if err := q.First(&artifact).Error; err != nil {
 		return nil, err
 	}
 	return s.artifactResponse(ctx, artifact, true)
@@ -146,8 +164,8 @@ func (s *Service) loadAgentOrg(ctx context.Context, agentID uuid.UUID) (model.Ag
 	return agent, org, nil
 }
 
-func (s *Service) projectResponse(ctx context.Context, project model.CanvasProject, sessionID *uuid.UUID) (*ProjectResponse, error) {
-	artifacts, err := s.projectArtifactResponses(ctx, project.OrgID, project.ID, sessionID)
+func (s *Service) projectResponse(ctx context.Context, project model.CanvasProject, sessionID *uuid.UUID, visibleSessions *gorm.DB) (*ProjectResponse, error) {
+	artifacts, err := s.projectArtifactResponses(ctx, project.OrgID, project.ID, sessionID, visibleSessions)
 	if err != nil {
 		return nil, err
 	}
@@ -162,12 +180,15 @@ func (s *Service) projectResponse(ctx context.Context, project model.CanvasProje
 	}, nil
 }
 
-func (s *Service) projectArtifactResponses(ctx context.Context, orgID, projectID uuid.UUID, sessionID *uuid.UUID) ([]ArtifactResponse, error) {
+func (s *Service) projectArtifactResponses(ctx context.Context, orgID, projectID uuid.UUID, sessionID *uuid.UUID, visibleSessions *gorm.DB) ([]ArtifactResponse, error) {
 	var artifacts []model.CanvasArtifact
 	q := s.db.WithContext(ctx).
 		Where("org_id = ? AND canvas_project_id = ? AND archived_at IS NULL", orgID, projectID)
 	if sessionID != nil {
 		q = q.Where("source_session_id = ?", *sessionID)
+	}
+	if visibleSessions != nil {
+		q = q.Where("source_session_id IN (?)", visibleSessions)
 	}
 	if err := q.Order("updated_at DESC").Find(&artifacts).Error; err != nil {
 		return nil, fmt.Errorf("list project canvas artifacts: %w", err)

@@ -1,5 +1,10 @@
 import type { components } from "@/lib/api/schema"
-import { isGithubMentionKey } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
+import {
+  githubCodeReviewsProvider,
+  githubPrOpenedKey,
+  isGithubMentionKey,
+  isGithubMentionProvider,
+} from "@/app/w/(chat)/automations/_trigger-install-form-shared"
 
 export type CatalogAutomation = components["schemas"]["CatalogItem"]
 export type InstalledTrigger =
@@ -33,6 +38,11 @@ type ProviderMeta = {
 const PROVIDER_META: Record<string, ProviderMeta> = {
   "github-app": {
     label: "GitHub",
+    icon: "github",
+    color: "#181717",
+  },
+  "github-app-code-reviews": {
+    label: "GitHub Code Reviews",
     icon: "github",
     color: "#181717",
   },
@@ -83,15 +93,26 @@ export function automationFromInstalledTrigger(
   const providerMeta = PROVIDER_META[provider]
   const triggerKey = trigger.trigger_key || ""
   const isSlackReaction = provider === "slack" && triggerKey === "reaction_added"
+  const isGithubCodeReview =
+    provider === githubCodeReviewsProvider && isGithubMentionKey(triggerKey)
   const isGithubMention =
-    provider === "github-app" && isGithubMentionKey(triggerKey)
+    isGithubMentionProvider(provider) && isGithubMentionKey(triggerKey)
+  // The code-reviews app's auto-review trigger fires on every PR open, so it
+  // renders with review copy rather than the @mention copy.
+  const isGithubPrOpened =
+    provider === githubCodeReviewsProvider && triggerKey === githubPrOpenedKey
+  const mentionBot = isGithubCodeReview ? "@usehivy-reviews" : "Hivy"
   const name =
     trigger.name?.trim() ||
     (isSlackReaction
       ? "React with emoji"
-      : isGithubMention
-        ? "Mentioned on GitHub"
-        : humanizeSlug(triggerKey) || "Trigger")
+      : isGithubPrOpened
+        ? "Reviews new pull requests"
+        : isGithubCodeReview
+          ? "Code review requested"
+          : isGithubMention
+            ? "Mentioned on GitHub"
+            : humanizeSlug(triggerKey) || "Trigger")
   const channel = trigger.external_resource_name || trigger.channel_name || ""
   const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
   const agent = trigger.agent_name || "Agent"
@@ -104,14 +125,17 @@ export function automationFromInstalledTrigger(
     name,
     description: isSlackReaction
       ? `${statusPrefix}${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
-      : isGithubMention
-        ? `${statusPrefix}${agent} runs when Hivy is @mentioned${repo ? ` in ${repo}` : ""}.`
-        : trigger.instructions || "Installed trigger.",
-    category: isSlackReaction
-      ? "Communication"
-      : isGithubMention
-        ? "Development"
-        : "Other",
+      : isGithubPrOpened
+        ? `${statusPrefix}${agent} reviews new pull requests${repo ? ` in ${repo}` : ""}.`
+        : isGithubMention
+          ? `${statusPrefix}${agent} runs when ${mentionBot} is @mentioned${repo ? ` in ${repo}` : ""}.`
+          : trigger.instructions || "Installed trigger.",
+    category:
+      isSlackReaction
+        ? "Communication"
+        : isGithubMention || isGithubPrOpened
+          ? "Development"
+          : "Other",
     icon: providerMeta?.icon ?? "workflow",
     iconColor: providerMeta?.color ?? "#64748B",
     provider,

@@ -116,43 +116,56 @@ type BuiltInToolDefinition struct {
 	Locked      bool   `json:"locked"` // true = cannot be toggled off by the user
 }
 
-// ValidBuiltInTools is the canonical list of all built-in tools available in Runtime.
-// Used for: the frontend tool picker, permission key validation, and forge tool mocking.
+// ValidBuiltInTools is the canonical list of every tool an agent can be granted:
+// the Rust runtime's native built-in tools plus the Hivy MCP tools its runtime
+// surfaces. Consumed for permission-key validation (ValidatePermissionKeys /
+// IsValidPermissionKey), default permission seeding (BuiltInToolIDs), and
+// prompt-writer tool display names/descriptions (internal/system/tasks).
+//
+// Ground truth — keep this list in sync with:
+//   - Runtime-native tools ("runtime.*" categories below): the ToolSpec enum in
+//     sandboxes/runtime/crates/domain/src/tool_specs.rs (serde `builtin.<id>`),
+//     mirrored Go-side by RuntimeBuiltInToolIDs. The runtime's openapi.json also
+//     enumerates the same `builtin.*` ids.
+//   - MCP tools ("mcp.*" categories below): the curated grantable set
+//     AssignableMCPTools in internal/agents/tools.go, registered on the "hivy"
+//     MCP server (internal/mcpserver/builder.go and the per-package mcptools.go
+//     files). Runtime-surfaced-but-not-independently-grantable MCP tools
+//     (web_crawl, manage_memories) and plugin-gated tools (sheets/apps/agent-
+//     builder/skill-manager) are intentionally excluded.
+//
+// TestValidBuiltInToolsMatchesRuntimeAndMCP pins this to those sources so drift
+// surfaces as a deliberate test edit.
 var ValidBuiltInTools = []BuiltInToolDefinition{
-	{ID: "Read", Name: "Read file", Description: "Read file contents with optional line range and hash-based caching.", Category: "filesystem"},
-	{ID: "write", Name: "Write file", Description: "Create or overwrite a file with new content.", Category: "filesystem"},
-	{ID: "edit", Name: "Edit file", Description: "Apply targeted edits to a file using search-and-replace.", Category: "filesystem"},
-	{ID: "multiedit", Name: "Multi-edit file", Description: "Apply multiple edits to a single file in one call.", Category: "filesystem"},
-	{ID: "apply_patch", Name: "Apply patch", Description: "Apply a multi-file patch using the runtime patch format.", Category: "filesystem"},
-	{ID: "file_search", Name: "File search", Description: "Fuzzy file path search using FFF typo-tolerant ranking.", Category: "filesystem"},
-	{ID: "glob", Name: "Glob", Description: "Find files matching a glob pattern using the FFF index.", Category: "filesystem"},
-	{ID: "grep", Name: "Grep", Description: "Search file contents using FFF plain, regex, or fuzzy matching.", Category: "filesystem"},
-	{ID: "multi_grep", Name: "Multi grep", Description: "Search file contents for several patterns in one FFF pass.", Category: "filesystem"},
-	{ID: "AstGrep", Name: "AstGrep", Description: "Structural code search using ast-grep patterns (syntax-aware match/rewrite).", Category: "filesystem"},
-	{ID: "LS", Name: "List directory", Description: "List files and directories at a given path.", Category: "filesystem"},
+	// Runtime-native built-in tools (RuntimeBuiltInToolIDs / ToolSpec enum).
+	{ID: "bash", Name: "Bash", Description: "Execute shell commands in the sandbox and return their output.", Category: "runtime.shell"},
+	{ID: "check_bash_status", Name: "Bash status", Description: "Check the status and output of a running or completed background bash command.", Category: "runtime.shell"},
+	{ID: "read_file", Name: "Read file", Description: "Read file contents with an optional line range.", Category: "runtime.filesystem"},
+	{ID: "write_file", Name: "Write file", Description: "Create or overwrite a file with new content.", Category: "runtime.filesystem"},
+	{ID: "apply_patch", Name: "Apply patch", Description: "Apply a multi-file patch to create, update, or delete files.", Category: "runtime.filesystem"},
+	{ID: "file_search", Name: "File search", Description: "Fuzzy-search for file paths by name.", Category: "runtime.search"},
+	{ID: "glob", Name: "Glob", Description: "Find files matching a glob pattern.", Category: "runtime.search"},
+	{ID: "grep", Name: "Grep", Description: "Search file contents by pattern (plain, regex, or fuzzy).", Category: "runtime.search"},
+	{ID: "multi_grep", Name: "Multi grep", Description: "Search file contents for several patterns in one pass.", Category: "runtime.search"},
+	{ID: "lsp", Name: "LSP", Description: "Language Server Protocol operations for code navigation and diagnostics.", Category: "runtime.code_intelligence"},
+	{ID: "subagent_task", Name: "Delegate to sub-agent", Description: "Delegate a task to one of the agent's sub-agents.", Category: "runtime.orchestration"},
+	{ID: "search_sessions", Name: "Search sessions", Description: "Search prior sessions for relevant context.", Category: "runtime.orchestration"},
+	{ID: "request_user_input", Name: "Ask user", Description: "Ask the user a question and wait for their reply.", Category: "runtime.orchestration"},
+	{ID: "update_plan", Name: "Update plan", Description: "Create and update the structured task plan for the current session.", Category: "runtime.orchestration"},
 
-	{ID: "bash", Name: "Bash", Description: "Execute shell commands and return output.", Category: "shell"},
-
-	{ID: "web_fetch", Name: "Fetch URL", Description: "Fetch content from a URL and convert to markdown, text, or HTML.", Category: "web"},
-	{ID: "web_search", Name: "Web search", Description: "Search the web and return results with titles, descriptions, and URLs.", Category: "web"},
-	{ID: "web_crawl", Name: "Crawl website", Description: "Crawl a website following links from a starting URL.", Category: "web"},
-	{ID: "web_get_links", Name: "Get links", Description: "Extract all links from a webpage.", Category: "web"},
-	{ID: "web_screenshot", Name: "Screenshot", Description: "Take a screenshot of a webpage as base64-encoded PNG.", Category: "web"},
-	{ID: "web_transform", Name: "Transform HTML", Description: "Convert HTML to markdown or plain text without HTTP requests.", Category: "web"},
-
-	{ID: "batch", Name: "Batch", Description: "Execute multiple independent tool calls concurrently.", Category: "orchestration"},
-
-	{ID: "todowrite", Name: "Write tasks", Description: "Create and manage a structured task list for the current session.", Category: "tasks"},
-	{ID: "todoread", Name: "Read tasks", Description: "Read the current task list with statuses and priorities.", Category: "tasks"},
-
-	{ID: "journal_write", Name: "Write journal", Description: "Write an entry to the persistent conversation journal.", Category: "journal"},
-	{ID: "journal_read", Name: "Read journal", Description: "Read all journal entries including checkpoint summaries.", Category: "journal"},
-
-	{ID: "ping_me_back_in", Name: "Ping me back", Description: "Schedule a delayed self-reminder. After the specified seconds, the agent receives a notification with a custom message. Returns a ping ID for cancellation.", Category: "scheduling"},
-	{ID: "cancel_ping_me_back", Name: "Cancel ping", Description: "Cancel a pending ping by its ID (returned by ping_me_back_in).", Category: "scheduling"},
-
-	{ID: "lsp", Name: "LSP", Description: "Language Server Protocol operations for code navigation and diagnostics.", Category: "code_intelligence"},
-	{ID: "skill", Name: "Skill", Description: "Execute a skill within the conversation.", Category: "code_intelligence"},
+	// Hivy MCP tools surfaced to the agent runtime (AssignableMCPTools).
+	{ID: "web_search", Name: "Web search", Description: "Search the web and return results with titles, descriptions, and URLs.", Category: "mcp.web"},
+	{ID: "web_fetch", Name: "Fetch URL", Description: "Fetch a URL and return its content as markdown, text, or HTML.", Category: "mcp.web"},
+	{ID: "generate_image", Name: "Generate image", Description: "Generate a raster image from a text prompt.", Category: "mcp.image"},
+	{ID: "generate_vector_image", Name: "Generate vector image", Description: "Generate an SVG vector image from a text prompt.", Category: "mcp.image"},
+	{ID: "remix_image", Name: "Remix image", Description: "Generate a new image from a text prompt and one or more reference images.", Category: "mcp.image"},
+	{ID: "search_memories", Name: "Search memories", Description: "Search the agent's long-term memory for relevant observations.", Category: "mcp.memory"},
+	{ID: "skills_list", Name: "List skills", Description: "List the skills available to the agent.", Category: "mcp.skills"},
+	{ID: "skill_view", Name: "View skill", Description: "View the full contents of a skill.", Category: "mcp.skills"},
+	{ID: "search_knowledge_base", Name: "Search knowledge base", Description: "Search the organization's synced knowledge base (Slack, GitHub, Linear, Notion, websites, and uploaded files).", Category: "mcp.knowledge"},
+	{ID: "cron", Name: "Cron jobs", Description: "Create, list, update, pause, resume, and cancel recurring cron jobs.", Category: "mcp.automation"},
+	{ID: "create_http_trigger", Name: "Create HTTP trigger", Description: "Create an HTTP trigger URL that runs an agent when POSTed to.", Category: "mcp.automation"},
+	{ID: "list_channels", Name: "List channels", Description: "List the organization's channels and their HIVY channel UUIDs.", Category: "mcp.channels"},
 }
 
 // validBuiltInToolIDs is a set for fast validation lookups.

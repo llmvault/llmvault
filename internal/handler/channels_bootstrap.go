@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -42,6 +43,11 @@ func createDefaultGeneralChannelTx(ctx context.Context, tx *gorm.DB, orgID, user
 	}
 	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&member).Error; err != nil {
 		return nil, fmt.Errorf("create #general channel member: %w", err)
+	}
+	// The default agent must be assigned to the channel (hard channel-agent
+	// enforcement); without this row new orgs could not start sessions.
+	if err := channelagents.Assign(ctx, tx, orgID, channel.ID, channel.DefaultAgentID, &userID); err != nil {
+		return nil, fmt.Errorf("assign #general default agent: %w", err)
 	}
 	return &channel, nil
 }

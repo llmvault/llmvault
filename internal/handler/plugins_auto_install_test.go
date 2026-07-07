@@ -132,6 +132,7 @@ func TestPluginHandlerRejectsRemovingAutoInstallPlugin(t *testing.T) {
 
 	agentReq := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agent.ID.String()+"/plugins/"+plugin.Slug, nil)
 	agentReq = middleware.WithOrg(agentReq, &org)
+	agentReq = middleware.WithAPIKeyClaims(agentReq, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 	agentRR := httptest.NewRecorder()
 	r.ServeHTTP(agentRR, agentReq)
 	if agentRR.Code != http.StatusConflict {
@@ -184,6 +185,7 @@ func TestPluginHandlerRejectsDisablingCatalogRequiredPlugin(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agent.ID.String()+"/plugins/"+plugin.Slug, nil)
 	req = middleware.WithOrg(req, &org)
+	req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 	if rr.Code != http.StatusConflict {

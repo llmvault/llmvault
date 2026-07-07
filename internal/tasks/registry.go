@@ -128,6 +128,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	if deps.Enqueuer != nil {
 		mux.HandleFunc(TypeSessionReflectionScan, NewSessionReflectionScanHandler(deps.DB, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeMemoryConsolidationSweep, NewMemoryConsolidationSweepHandler(deps.DB, deps.Enqueuer).Handle)
+		mux.HandleFunc(TypePlanTurnReminder, NewPlanTurnReminderHandler(deps.DB, deps.Enqueuer).Handle)
 	}
 
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {
@@ -143,7 +144,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSlackAppMention,
 			NewSlackAppMentionHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer,
-				WithSlackMediaEnricher(deps.SlackMediaEnricher)).Handle)
+				WithSlackMediaEnricher(deps.SlackMediaEnricher), WithSlackRouterCache(deps.CacheManager)).Handle)
 		mux.HandleFunc(TypeSlackReactionTrigger,
 			NewSlackReactionTriggerHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer,
 				WithSlackMediaEnricher(deps.SlackMediaEnricher)).Handle)

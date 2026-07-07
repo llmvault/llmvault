@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
+import { useChannelScopedAgents } from "@/lib/api/channel-scoped-agents"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { LogoMark } from "@/components/logo"
@@ -49,12 +50,6 @@ export function SessionView({
     { params: { query: { limit: 100 } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
-  const agentsQuery = $api.useQuery(
-    "get",
-    "/v1/agents",
-    { params: { query: { status: "active", limit: 100 } } },
-    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
-  )
   const agentModelsQuery = $api.useQuery(
     "get",
     "/v1/agents/models",
@@ -77,14 +72,35 @@ export function SessionView({
     routeChannel ??
     channels.find((channel) => channel.is_default) ??
     channels[0]
-  const agents = useMemo(
-    () => agentsQuery.data?.data ?? [],
-    [agentsQuery.data?.data]
-  )
+  const [selectedChannelChoice, setSelectedChannelChoice] = useState<{
+    routeSlug: string
+    channelID: string
+  } | null>(null)
+  const selectedRouteSlug = channelSlug ?? ""
+  const selectedChannel =
+    selectedChannelChoice?.routeSlug === selectedRouteSlug
+      ? channels.find(
+          (channel) => channel.id === selectedChannelChoice.channelID
+        )
+      : undefined
+  const activeChannel = selectedChannel ?? defaultChannel
+
+  // Agent options are scoped to the ones assigned to the active channel — only
+  // those can run sessions here. The shared hook falls back to the full org
+  // agent list if that endpoint is unavailable so the composer keeps working.
+  const {
+    agents,
+    isLoading: agentsLoading,
+    isError: agentsError,
+  } = useChannelScopedAgents(activeChannel?.id ?? "")
   const [selectedAgentID, setSelectedAgentID] = useState<string | null>(null)
+  // Default to the channel's configured default agent, then the first assigned
+  // agent. A prior explicit pick (selectedAgentID) wins while it's still one of
+  // the channel's agents; after switching channels it falls through to the new
+  // channel's default.
   const selectedAgent =
     agents.find((agent) => agent.id === selectedAgentID) ??
-    agents.find((agent) => agent.is_default) ??
+    agents.find((agent) => agent.id === activeChannel?.default_agent_id) ??
     agents[0]
   const modelSummaries = useMemo(
     () => agentModelsQuery.data ?? [],
@@ -105,18 +121,6 @@ export function SessionView({
     selectedModelID && modelIds.includes(selectedModelID)
       ? selectedModelID
       : defaultModelId
-  const [selectedChannelChoice, setSelectedChannelChoice] = useState<{
-    routeSlug: string
-    channelID: string
-  } | null>(null)
-  const selectedRouteSlug = channelSlug ?? ""
-  const selectedChannel =
-    selectedChannelChoice?.routeSlug === selectedRouteSlug
-      ? channels.find(
-          (channel) => channel.id === selectedChannelChoice.channelID
-        )
-      : undefined
-  const activeChannel = selectedChannel ?? defaultChannel
   const draftKey = `new:${channelSlug ?? "root"}`
   const setComposerUploads = useSessionWorkspaceStore(
     (state) => state.setComposerUploads
@@ -215,8 +219,8 @@ export function SessionView({
           agentSelectable
           agent={selectedAgent}
           agents={agents}
-          agentsLoading={agentsQuery.isLoading}
-          agentsError={agentsQuery.isError}
+          agentsLoading={agentsLoading}
+          agentsError={agentsError}
           onAgentChange={(agent) => {
             setSelectedAgentID(agent.id ?? null)
             setSelectedModelID(null)

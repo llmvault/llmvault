@@ -38,6 +38,30 @@ func TestTriggerTemplatesGitHubAppSplit(t *testing.T) {
 		t.Fatal("code-reviews app must not expose an issue-mention template")
 	}
 
+	// pr_opened (auto-review on open) resolves for the code-reviews app with the
+	// single pull_request.opened event key — and NOT for the primary app.
+	crOpened, ok := resolveTriggerTemplate(githubAppCodeReviewsProvider, model.TriggerKeyGitHubPROpened)
+	if !ok {
+		t.Fatal("code-reviews pr_opened template not found")
+	}
+	if crOpened.resourceType != "github_repo" || !crOpened.valueFromResource {
+		t.Fatalf("code-reviews pr_opened template = %+v", crOpened)
+	}
+	if len(crOpened.triggerKeys) != len(model.GitHubPROpenedEventKeys) {
+		t.Fatalf("code-reviews pr_opened event keys = %v, want %v", crOpened.triggerKeys, model.GitHubPROpenedEventKeys)
+	}
+	for i, key := range model.GitHubPROpenedEventKeys {
+		if crOpened.triggerKeys[i] != key {
+			t.Fatalf("code-reviews pr_opened event keys = %v, want %v", crOpened.triggerKeys, model.GitHubPROpenedEventKeys)
+		}
+	}
+	if len(crOpened.requiredProviders) != 1 || crOpened.requiredProviders[0] != githubAppCodeReviewsProvider {
+		t.Fatalf("code-reviews pr_opened requiredProviders = %v", crOpened.requiredProviders)
+	}
+	if _, ok := resolveTriggerTemplate(githubAppProvider, model.TriggerKeyGitHubPROpened); ok {
+		t.Fatal("primary app must not expose a pr_opened auto-review template")
+	}
+
 	// The primary app keeps both mention templates.
 	if _, ok := resolveTriggerTemplate(githubAppProvider, model.TriggerKeyGitHubPRMention); !ok {
 		t.Fatal("primary pr_mention template missing")

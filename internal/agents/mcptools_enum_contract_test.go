@@ -65,6 +65,46 @@ func TestSubAgentEnumIsFullUnion(t *testing.T) {
 	}
 }
 
+// TestValidBuiltInToolsMatchesRuntimeAndMCP pins model.ValidBuiltInTools to its
+// two ground-truth sources so drift shows up as a deliberate test edit:
+//   - the runtime-native tools (model.RuntimeBuiltInToolIDs, itself the Go mirror
+//     of the ToolSpec enum in sandboxes/runtime/crates/domain/src/tool_specs.rs),
+//   - the curated grantable Hivy MCP tools (AssignableMCPTools).
+//
+// ValidBuiltInTools must contain exactly the union of those two sets: every id an
+// agent can be granted, and nothing fictional.
+func TestValidBuiltInToolsMatchesRuntimeAndMCP(t *testing.T) {
+	want := map[string]bool{}
+	for _, id := range model.RuntimeBuiltInToolIDs {
+		want[id] = true
+	}
+	for _, id := range AssignableMCPTools {
+		want[id] = true
+	}
+
+	got := map[string]bool{}
+	for _, id := range model.BuiltInToolIDs() {
+		if got[id] {
+			t.Fatalf("ValidBuiltInTools has duplicate id %q", id)
+		}
+		got[id] = true
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("ValidBuiltInTools has %d ids, want %d (RuntimeBuiltInToolIDs ∪ AssignableMCPTools)", len(got), len(want))
+	}
+	for id := range want {
+		if !got[id] {
+			t.Fatalf("ValidBuiltInTools is missing id %q", id)
+		}
+	}
+	for id := range got {
+		if !want[id] {
+			t.Fatalf("ValidBuiltInTools has stale id %q not in RuntimeBuiltInToolIDs or AssignableMCPTools", id)
+		}
+	}
+}
+
 func TestSharedConstantSubsets(t *testing.T) {
 	// ReadOnlyMCPToolFloor must be a subset of AssignableMCPTools so every floor
 	// tool is a real, assignable MCP tool.

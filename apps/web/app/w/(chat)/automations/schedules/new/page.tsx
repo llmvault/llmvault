@@ -1,12 +1,16 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import {
+  resolveScopedAgentID,
+  useChannelScopedAgents,
+} from "@/lib/api/channel-scoped-agents"
 import { AgentSelect } from "@/components/agent-select"
 import {
   ChannelSelect,
@@ -29,15 +33,7 @@ export default function NewSchedulePage() {
   const queryClient = useQueryClient()
 
   const { channels, isLoading: channelsLoading } = useHivyChannels()
-  const agentsQuery = $api.useQuery("get", "/v1/agents", {
-    params: { query: { status: "active", limit: 100 } },
-  })
   const createSchedule = $api.useMutation("post", "/v1/schedules")
-
-  const agents = useMemo(
-    () => (agentsQuery.data?.data ?? []).filter((agent) => agent.id),
-    [agentsQuery.data?.data]
-  )
 
   const [name, setName] = useState("")
   const [channelID, setChannelID] = useState("")
@@ -46,11 +42,17 @@ export default function NewSchedulePage() {
   const [cadence, setCadence] = useState<Cadence | null>(null)
 
   const activeChannelID = channelID || channels[0]?.id || ""
-  const activeAgentID = agents.some((agent) => agent.id === agentID)
-    ? agentID
-    : (agents[0]?.id ?? "")
+  const activeChannel = channels.find((c) => c.id === activeChannelID)
+  const {
+    agents,
+    isLoading: agentsLoading,
+  } = useChannelScopedAgents(activeChannelID)
+  const activeAgentID = resolveScopedAgentID(
+    agents,
+    agentID,
+    activeChannel?.default_agent_id
+  )
 
-  const isLoading = channelsLoading || agentsQuery.isLoading
   const isSaving = createSchedule.isPending
   const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSubmit = Boolean(
@@ -171,19 +173,25 @@ export default function NewSchedulePage() {
 
             <FormSection
               title="Agent"
-              description="Select the agent that should run on this schedule."
+              description="Select the agent that should run on this schedule. Only agents assigned to the chosen channel can run here."
             >
-              {agents.length === 0 && !isLoading ? (
+              {!activeChannelID ? (
                 <InlineNotice
                   icon="bot"
-                  title="No active agents"
-                  body="Create or activate an agent before adding a schedule."
+                  title="Select a channel first"
+                  body="Agents are scoped to the channel this schedule runs in."
+                />
+              ) : agents.length === 0 && !agentsLoading ? (
+                <InlineNotice
+                  icon="bot"
+                  title="No agents in this channel"
+                  body="Assign an agent to the selected channel before adding a schedule."
                 />
               ) : (
                 <AgentSelect
                   agents={agents}
                   selectedAgentID={activeAgentID}
-                  isLoading={agentsQuery.isLoading}
+                  isLoading={agentsLoading}
                   onChange={setAgentID}
                   variant="field"
                 />

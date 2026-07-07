@@ -183,6 +183,7 @@ var migratedTables = []string{
 	"audit_log",
 	"brand_assets",
 	"brands",
+	"channel_agents",
 	"channel_members",
 	"channel_memory_digests",
 	"channels",
@@ -257,4 +258,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 79
+const latestMigrationVersion = 80

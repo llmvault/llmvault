@@ -39,4 +39,28 @@ func TestLoadTriggersIncludesShippedTemplates(t *testing.T) {
 			t.Fatalf("%s plugins=%+v", slug, mention.Plugins)
 		}
 	}
+
+	cr, ok := bySlug["github-code-reviews-pr-mention"]
+	if !ok {
+		t.Fatal("github-code-reviews-pr-mention template missing")
+	}
+	if cr.Integration.Provider != "github-app-code-reviews" ||
+		cr.Trigger.Key != "pr_mention" || cr.Trigger.Defaults.Instructions == "" {
+		t.Fatalf("github-code-reviews-pr-mention=%+v", cr)
+	}
+	if len(cr.Plugins.Required) != 1 || cr.Plugins.Required[0] != "github-code-reviews" {
+		t.Fatalf("github-code-reviews-pr-mention plugins=%+v", cr.Plugins)
+	}
+
+	crOpened, ok := bySlug["github-code-reviews-pr-opened"]
+	if !ok {
+		t.Fatal("github-code-reviews-pr-opened template missing")
+	}
+	if crOpened.Integration.Provider != "github-app-code-reviews" ||
+		crOpened.Trigger.Key != "pr_opened" || crOpened.Trigger.Defaults.Instructions == "" {
+		t.Fatalf("github-code-reviews-pr-opened=%+v", crOpened)
+	}
+	if len(crOpened.Plugins.Required) != 1 || crOpened.Plugins.Required[0] != "github-code-reviews" {
+		t.Fatalf("github-code-reviews-pr-opened plugins=%+v", crOpened.Plugins)
+	}
 }

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "slug": "github-code-reviews-pr-mention",
+  "name": "Code review requested on a pull request",
+  "description": "Run a code-review agent when someone @mentions @usehivy-reviews on a GitHub pull request.",
+  "category": "Development",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app-code-reviews",
+    "required": true
+  },
+  "plugins": {
+    "required": [
+      "github-code-reviews"
+    ],
+    "recommended": []
+  },
+  "trigger": {
+    "key": "pr_mention",
+    "defaults": {
+      "value": "",
+      "instructions": "./instructions.md"
+    }
+  },
+  "install": {
+    "enabled": true
+  }
+}

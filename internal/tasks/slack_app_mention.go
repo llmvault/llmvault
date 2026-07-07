@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -30,6 +31,10 @@ type SlackAppMentionHandler struct {
 	slackClientFactory func(string) slackapp.Client
 	waitFinal          func(context.Context, *agentruntime.Client, model.Session, string) (string, error)
 	mediaEnricher      SlackMediaEnricher
+	// cacheManager decrypts the platform credential the layered agent router
+	// uses for its fast LLM call. Nil disables the LLM layer; routing then
+	// resolves to the channel default agent (deterministic layers still run).
+	cacheManager *cache.Manager
 }
 
 // enqueueSlackSessionName requests an async LLM-generated title for a
@@ -64,6 +69,15 @@ type SlackAppMentionOption func(*SlackAppMentionHandler)
 func WithSlackMediaEnricher(enricher SlackMediaEnricher) SlackAppMentionOption {
 	return func(h *SlackAppMentionHandler) {
 		h.mediaEnricher = enricher
+	}
+}
+
+// WithSlackRouterCache supplies the cache manager the layered agent router uses
+// to decrypt the platform credential for its fast LLM routing call. Without it,
+// multi-agent channels route to the channel default agent.
+func WithSlackRouterCache(cacheManager *cache.Manager) SlackAppMentionOption {
+	return func(h *SlackAppMentionHandler) {
+		h.cacheManager = cacheManager
 	}
 }
 

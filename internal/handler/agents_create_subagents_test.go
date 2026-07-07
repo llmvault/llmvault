@@ -145,9 +145,12 @@ func TestCreateAgent_SubAgentsExcludedFromListAndReturnedByGet(t *testing.T) {
 	}
 	parentID := decodeCreateAgent(t, create).Agent.ID
 
-	// List: only the parent, never the sub-agent.
+	// List: only the parent, never the sub-agent. An org-scoped (API-key)
+	// caller sees the whole org, isolating this assertion from actor-scoped
+	// visibility.
 	listReq := httptest.NewRequest(http.MethodGet, "/v1/agents?status=active&limit=100", nil)
 	listReq = middleware.WithOrg(listReq, &org)
+	listReq = middleware.WithAPIKeyClaims(listReq, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 	listRR := httptest.NewRecorder()
 	h.List(listRR, listReq)
 	if listRR.Code != http.StatusOK {
@@ -172,6 +175,7 @@ func TestCreateAgent_SubAgentsExcludedFromListAndReturnedByGet(t *testing.T) {
 	getReq := httptest.NewRequest(http.MethodGet, "/v1/agents/"+parentID, nil)
 	getReq = withChiURLParam(getReq, "id", parentID)
 	getReq = middleware.WithOrg(getReq, &org)
+	getReq = middleware.WithAPIKeyClaims(getReq, &middleware.APIKeyClaims{OrgID: org.ID.String()})
 	getRR := httptest.NewRecorder()
 	h.Get(getRR, getReq)
 	if getRR.Code != http.StatusOK {

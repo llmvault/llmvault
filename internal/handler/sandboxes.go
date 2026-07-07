@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -129,7 +130,20 @@ func (h *SandboxHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A sandbox embeds its agent id and preview URLs. Sandboxes are only linked
+	// to an agent (no session/channel column), so scope non-managers to
+	// sandboxes whose agent is visible to them; this also hides agent-less
+	// sandboxes (e.g. app sandboxes) from members. Managers and API-key callers
+	// see the whole org.
+	orgWide, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
 	q := h.db.Where("org_id = ?", org.ID)
+	if !orgWide {
+		q = q.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+	}
 	if status := r.URL.Query().Get("status"); status != "" {
 		q = q.Where("status = ?", status)
 	}
@@ -177,9 +191,20 @@ func (h *SandboxHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgWide, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return
+	}
 	id := chi.URLParam(r, "id")
+	q := h.db.Where("id = ? AND org_id = ?", id, org.ID)
+	if !orgWide {
+		// Hidden-agent (or agent-less) sandboxes are indistinguishable from a
+		// nonexistent one for a member: 404.
+		q = q.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+	}
 	var sb model.Sandbox
-	if err := h.db.Where("id = ? AND org_id = ?", id, org.ID).First(&sb).Error; err != nil {
+	if err := q.First(&sb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found"})
 			return

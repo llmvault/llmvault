@@ -87,6 +87,11 @@ func (h *DirectiveHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	query := h.db.WithContext(r.Context()).
 		Where("org_id = ? AND deleted_at IS NULL", org.ID)
+	query, err := applyChannelVisibility(r.Context(), h.db, query, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve channel visibility"})
+		return
+	}
 	switch raw := strings.TrimSpace(r.URL.Query().Get("channel_id")); raw {
 	case "":
 	case "org":

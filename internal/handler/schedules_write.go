@@ -9,6 +9,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/agentschedule"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -69,6 +70,15 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		if !allowed {
 			writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
+			return
+		}
+		assigned, aerr := channelagents.Assigned(r.Context(), h.db, org.ID, channelID, agentID)
+		if aerr != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
+			return
+		}
+		if !assigned {
+			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent is not assigned to this channel"})
 			return
 		}
 	}
@@ -144,6 +154,15 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 			allowed, cerr := actor.CanUseChannelID(r.Context(), h.db, channelID)
 			if cerr != nil || !allowed {
 				writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
+				return
+			}
+			assigned, aerr := channelagents.Assigned(r.Context(), h.db, org.ID, channelID, schedule.AgentID)
+			if aerr != nil {
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
+				return
+			}
+			if !assigned {
+				writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent is not assigned to this channel"})
 				return
 			}
 		}

@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -37,6 +38,13 @@ func (h *TriggerHandler) resolveProviderTriggerChannel(r *http.Request, orgID uu
 		if !allowed {
 			return uuid.Nil, http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel access denied")
 		}
+		assigned, err := channelagents.Assigned(r.Context(), h.db, orgID, cid, agentID)
+		if err != nil {
+			return uuid.Nil, http.StatusInternalServerError, "failed to check channel agents", err
+		}
+		if !assigned {
+			return uuid.Nil, http.StatusUnprocessableEntity, "agent is not assigned to this channel", fmt.Errorf("agent not assigned")
+		}
 		return cid, http.StatusOK, "", nil
 	}
 	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
@@ -50,6 +58,11 @@ func (h *TriggerHandler) resolveProviderTriggerChannel(r *http.Request, orgID uu
 	if err != nil {
 		status, message := triggerCreateError(err)
 		return uuid.Nil, status, message, err
+	}
+	// The channel was resolved/created with this agent as its default; keep the
+	// "default is always assigned" invariant so the trigger can actually fire.
+	if err := channelagents.Assign(r.Context(), h.db, orgID, channel.ID, agentID, nil); err != nil {
+		return uuid.Nil, http.StatusInternalServerError, "failed to assign agent to channel", err
 	}
 	return channel.ID, http.StatusOK, "", nil
 }
@@ -80,6 +93,13 @@ func (h *TriggerHandler) createHTTP(r *http.Request, orgID uuid.UUID, req create
 	}
 	if !allowed {
 		return model.AgentTrigger{}, "", http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel access denied")
+	}
+	assigned, err := channelagents.Assigned(r.Context(), h.db, orgID, channelID, agentID)
+	if err != nil {
+		return model.AgentTrigger{}, "", http.StatusInternalServerError, "failed to check channel agents", err
+	}
+	if !assigned {
+		return model.AgentTrigger{}, "", http.StatusUnprocessableEntity, "agent is not assigned to this channel", fmt.Errorf("agent not assigned")
 	}
 
 	var trigger model.AgentTrigger

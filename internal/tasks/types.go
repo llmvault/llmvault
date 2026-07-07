@@ -17,6 +17,7 @@ const (
 	TypeAgentTriggerDispatch      = "agent_trigger:dispatch"
 	TypeAgentTriggerStoreDelivery = "agent_trigger:store_delivery"
 	TypeSessionMessageDeliver     = "session:message_deliver"
+	TypePlanTurnReminder          = "session:plan_turn_reminder"
 	TypeSessionReflection         = "session:reflect"
 	TypeSlackAppMention           = "slack:app_mention"
 	TypeSlackReactionTrigger      = "slack:reaction_trigger"

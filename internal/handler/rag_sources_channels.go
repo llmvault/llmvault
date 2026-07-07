@@ -54,10 +54,22 @@ func (h *RAGSourceHandler) GetSourceChannels(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Non-manager members only learn about grants to channels they can use;
+	// managers and API-key callers see every grant.
+	orgWide, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
+		return
+	}
+	q := h.db.WithContext(r.Context()).
+		Where("channel_rag_sources.rag_source_id = ? AND channel_rag_sources.org_id = ?", srcID, org.ID)
+	if !orgWide {
+		q = q.Joins("JOIN channels ON channels.id = channel_rag_sources.channel_id AND channels.archived_at IS NULL").
+			Where("channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?)",
+				"external", visibleTeamSubquery(h.db, userID))
+	}
 	var rows []model.ChannelRagSource
-	if err := h.db.WithContext(r.Context()).
-		Where("rag_source_id = ? AND org_id = ?", srcID, org.ID).
-		Find(&rows).Error; err != nil {
+	if err := q.Find(&rows).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load channels"})
 		return
 	}
