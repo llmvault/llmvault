@@ -192,5 +192,5 @@ func (h *AgentHandler) enqueueConnectionResourceReconcile(ctx context.Context, a
 
 func isGitHubProvider(provider string) bool {
 	provider = strings.TrimSpace(provider)
-	return provider == "github-app" || provider == "github-app-oauth" || provider == "github" || provider == "github-pat"
+	return provider == "github-app" || provider == "github-app-code-reviews"
 }

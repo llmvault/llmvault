@@ -27,7 +27,7 @@ func TestPRRouteIssueCommentMentionReactsOnce(t *testing.T) {
 		OrgID: org.ID, ConnectionID: connID,
 		DeliveryID: prRouteDeliveryID("conn-a", "issue_comment.created", "492700400"),
 	}
-	webhook := githubIssueCommentPayload("acme/repo", "human", "hey @hivy can you rebase?", true)
+	webhook := githubIssueCommentPayload("acme/repo", "human", "hey @usehivy can you rebase?", true)
 
 	if _, err := h.maybeRoutePREvent(context.Background(), payload, webhook); err != nil {
 		t.Fatalf("route: %v", err)
@@ -64,7 +64,7 @@ func TestPRRouteReviewCommentMentionReacts(t *testing.T) {
 		OrgID: org.ID, ConnectionID: connID,
 		DeliveryID: prRouteDeliveryID("conn-a", "pull_request_review_comment.created", "555000333"),
 	}
-	webhook := githubReviewCommentPayload("acme/repo", 11, "human", "@hivy please fix", "usehivy[bot]")
+	webhook := githubReviewCommentPayload("acme/repo", 11, "human", "@usehivy please fix", "usehivy[bot]")
 
 	if _, err := h.maybeRoutePREvent(context.Background(), payload, webhook); err != nil {
 		t.Fatalf("route: %v", err)
@@ -117,7 +117,7 @@ func TestPRRouteReviewSubmittedDoesNotReact(t *testing.T) {
 		OrgID: org.ID, ConnectionID: connID,
 		DeliveryID: prRouteDeliveryID("conn-a", "pull_request_review.submitted", "777000222"),
 	}
-	webhook := githubReviewPayload("acme/repo", 7, "human", "changes_requested", "@hivy please fix", "usehivy[bot]")
+	webhook := githubReviewPayload("acme/repo", 7, "human", "changes_requested", "@usehivy please fix", "usehivy[bot]")
 
 	if _, err := h.maybeRoutePREvent(context.Background(), payload, webhook); err != nil {
 		t.Fatalf("route: %v", err)

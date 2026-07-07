@@ -177,5 +177,5 @@ func NangoProviderConfigKey(uniqueKey string) string {
 
 func IsGitHubProvider(provider string) bool {
 	provider = strings.TrimSpace(provider)
-	return provider == "github-app" || provider == "github-app-oauth" || provider == "github" || provider == "github-pat"
+	return provider == "github-app" || provider == "github-app-code-reviews"
 }

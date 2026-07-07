@@ -76,12 +76,16 @@ func (t githubReactionTarget) reactionPath(owner, name string) string {
 // caller, so acknowledging never fails or delays delivery. GitHub reactions are
 // idempotent per identity+content, so a duplicate call is a harmless 200.
 // reactToRoutedComment acknowledges an auto-routed PR event with an eyes
-// reaction when it is a comment that @mentions Hivy. Only the two comment
-// shapes have a reactions endpoint and only mentioning comments warrant an ack:
+// reaction when it is a comment that @mentions the PRIMARY handle. Auto-route is
+// primary-only, so primaryHandle is the delivering (primary) connection's bot
+// handle; the code-reviews app acks its own mentions via its own trigger path
+// under its own identity, so this path acks only primary-handle mentions and
+// there is no cross-identity double-eyes. Only the two comment shapes have a
+// reactions endpoint and only mentioning comments warrant an ack:
 // pull_request_review.submitted has no reactions endpoint (skipped) and
 // check_suite carries no mention (skipped).
-func (h *AgentTriggerDispatchHandler) reactToRoutedComment(ctx context.Context, payload AgentTriggerDispatchPayload, event prRouteEvent) {
-	if !githubTextMentionsHivy(event.Body) {
+func (h *AgentTriggerDispatchHandler) reactToRoutedComment(ctx context.Context, payload AgentTriggerDispatchPayload, event prRouteEvent, primaryHandle string) {
+	if !githubTextMentionsHandle(event.Body, primaryHandle) {
 		return
 	}
 	var kind githubReactionKind

@@ -56,6 +56,33 @@ func TestAdminCredentialFieldsFromManifest(t *testing.T) {
 	}
 }
 
+func TestGlobalGitHubManifestsCarryBotHandles(t *testing.T) {
+	manifests, err := loadManifests("global/integrations")
+	if err != nil {
+		t.Fatalf("load global manifests: %v", err)
+	}
+	want := map[string]string{
+		"github-app":              "usehivy",
+		"github-app-code-reviews": "usehivy-reviews",
+	}
+	got := map[string]string{}
+	for _, manifest := range manifests {
+		if _, ok := want[manifest.ID]; ok {
+			got[manifest.ID] = manifest.BotHandle
+		}
+		// Legacy providers must no longer ship as manifests.
+		switch manifest.ID {
+		case "github-app-oauth", "github-pat", "github":
+			t.Fatalf("legacy provider manifest %q still present at %s", manifest.ID, manifest.SourcePath)
+		}
+	}
+	for id, handle := range want {
+		if got[id] != handle {
+			t.Fatalf("manifest %q bot_handle = %q, want %q", id, got[id], handle)
+		}
+	}
+}
+
 func assertManifestAdminFields(t *testing.T, manifest Manifest) {
 	t.Helper()
 	switch manifest.ID {

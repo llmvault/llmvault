@@ -9,6 +9,11 @@ commit OAuth client secrets, app private keys, API keys, or webhook secrets.
 `required: true` makes missing env vars or Nango sync failures fail startup.
 Optional integrations are skipped when their env vars are absent.
 
+`bot_handle` (GitHub App manifests only) records the login of the app's bot
+account (`usehivy` for `github-app`, `usehivy-reviews` for
+`github-app-code-reviews`). Seeding upserts it onto the `integrations` row so
+runtime mention/@-handle matching stays data-driven per app.
+
 Provider requirements checked against real Nango `/providers`:
 
 | Manifest | Nango provider | Auth mode | Startup env refs | Scopes | End-user connection config |

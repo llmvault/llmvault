@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -95,6 +96,10 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return enablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
 	}); err != nil {
+		if errors.Is(err, pluginstore.ErrGitHubIdentityExclusive) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": pluginstore.ErrGitHubIdentityExclusive.Error()})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enable plugin for agent"})
 		return
 	}

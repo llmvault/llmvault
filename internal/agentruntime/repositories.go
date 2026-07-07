@@ -72,7 +72,7 @@ func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, ag
 		return nil, nil
 	}
 
-	providers := []string{"github-app", "github-app-oauth", "github", "github-pat"}
+	providers := []string{"github-app", "github-app-code-reviews"}
 	var conns []model.Connection
 	if err := db.WithContext(ctx).
 		Preload("Integration").

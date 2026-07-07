@@ -1,0 +1,174 @@
+{
+  "display_name": "GitHub Code Reviews",
+  "description": "Trimmed webhook trigger set for the code-reviews GitHub App (bot login usehivy-reviews). This app exists only to answer @usehivy-reviews mentions, so it subscribes to just the two shapes a mention trigger needs: issue_comment.created (comments on issues and PRs) and pull_request.opened. Refs are dot-paths evaluated against the payload; numeric segments index arrays. Everything else (the full event catalog) belongs to the primary github-app provider.",
+  "triggers": {
+    "issue_comment.created": {
+      "display_name": "Issue or PR Comment Created",
+      "description": "A comment was added to an issue or pull request conversation. GitHub does NOT emit a separate pull_request_comment event for PR conversation comments — they arrive as issue_comment.created with issue.pull_request populated. pr_url is set only for PR comments and empty for pure issue comments; use it to scope a trigger to one side (path=pr_url operator=exists or not_exists).",
+      "resource_type": "issue_or_pr",
+      "payload_schema": "issue_comment_event",
+      "resource_key_template": "github/{owner}/{repo}/{issue_or_pr_slug}/{issue_number}",
+      "refs": {
+        "owner": "repository.owner.login",
+        "repo": "repository.name",
+        "repository": "repository.full_name",
+        "organization": "organization.login",
+        "sender": "sender.login",
+        "sender_type": "sender.type",
+        "issue_number": "issue.number",
+        "issue_title": "issue.title",
+        "issue_state": "issue.state",
+        "issue_or_pr_slug": "?issue.pull_request:pull:issue",
+        "pr_url": "issue.pull_request.url",
+        "pr_html_url": "issue.pull_request.html_url",
+        "comment_id": "comment.id",
+        "comment_body": "comment.body",
+        "comment_author": "comment.user.login",
+        "comment_author_type": "comment.user.type",
+        "comment_author_association": "comment.author_association",
+        "comment_html_url": "comment.html_url",
+        "comment_created_at": "comment.created_at"
+      },
+      "summary_refs": {
+        "issue_title": "issue.title",
+        "issue_or_pr": "issue.pull_request.url",
+        "comment": "comment.body",
+        "author": "comment.user.login",
+        "url": "comment.html_url"
+      }
+    },
+    "pull_request.opened": {
+      "display_name": "Pull Request Opened",
+      "description": "A new PR is opened. Fires for both drafts and non-drafts — check pr_draft to distinguish. Does NOT fire when a draft is promoted (that's ready_for_review).",
+      "resource_type": "pull_request",
+      "payload_schema": "pull_request_event",
+      "resource_key_template": "github/{owner}/{repo}/pull/{pr_number}",
+      "refs": {
+        "owner": "repository.owner.login",
+        "repo": "repository.name",
+        "repository": "repository.full_name",
+        "repository_id": "repository.id",
+        "default_branch": "repository.default_branch",
+        "organization": "organization.login",
+        "sender": "sender.login",
+        "sender_id": "sender.id",
+        "sender_type": "sender.type",
+        "pr_number": "pull_request.number",
+        "pr_id": "pull_request.id",
+        "pr_title": "pull_request.title",
+        "pr_body": "pull_request.body",
+        "pr_state": "pull_request.state",
+        "pr_draft": "pull_request.draft",
+        "pr_merged": "pull_request.merged",
+        "pr_author": "pull_request.user.login",
+        "pr_author_association": "pull_request.author_association",
+        "pr_head_ref": "pull_request.head.ref",
+        "pr_head_sha": "pull_request.head.sha",
+        "pr_head_repo": "pull_request.head.repo.full_name",
+        "pr_head_user": "pull_request.head.user.login",
+        "pr_base_ref": "pull_request.base.ref",
+        "pr_base_sha": "pull_request.base.sha",
+        "pr_base_repo": "pull_request.base.repo.full_name",
+        "pr_html_url": "pull_request.html_url",
+        "pr_diff_url": "pull_request.diff_url",
+        "pr_additions": "pull_request.additions",
+        "pr_deletions": "pull_request.deletions",
+        "pr_changed_files": "pull_request.changed_files",
+        "pr_commits": "pull_request.commits",
+        "pr_first_label": "pull_request.labels.0.name",
+        "pr_first_assignee": "pull_request.assignees.0.login",
+        "pr_first_requested_reviewer": "pull_request.requested_reviewers.0.login",
+        "pr_milestone_title": "pull_request.milestone.title",
+        "pr_created_at": "pull_request.created_at"
+      },
+      "summary_refs": {
+        "title": "pull_request.title",
+        "body": "pull_request.body",
+        "author": "pull_request.user.login",
+        "draft": "pull_request.draft",
+        "base_ref": "pull_request.base.ref",
+        "head_ref": "pull_request.head.ref",
+        "first_label": "pull_request.labels.0.name",
+        "first_requested_reviewer": "pull_request.requested_reviewers.0.login",
+        "url": "pull_request.html_url"
+      }
+    }
+  },
+  "schemas": {
+    "issue_comment_event": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "created, edited, or deleted"
+        },
+        "issue": {
+          "type": "object",
+          "description": "The issue OR pull request. issue.pull_request.url is populated when the comment is on a PR — use it as the issue-vs-PR discriminator.",
+          "schema_ref": "issue"
+        },
+        "comment": {
+          "type": "object",
+          "description": "id, body, user, created_at, updated_at, html_url, author_association, reactions, performed_via_github_app",
+          "schema_ref": "issue-comment"
+        },
+        "changes": {
+          "type": "object",
+          "description": "changes.body.from for edited action"
+        },
+        "repository": {
+          "type": "object",
+          "schema_ref": "repository"
+        },
+        "organization": {
+          "type": "object",
+          "schema_ref": "organization-full"
+        },
+        "sender": {
+          "type": "object",
+          "schema_ref": "simple-user"
+        },
+        "installation": {
+          "type": "object"
+        }
+      }
+    },
+    "pull_request_event": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "opened, edited, closed, reopened, assigned, unassigned, review_requested, review_request_removed, labeled, unlabeled, synchronize, converted_to_draft, ready_for_review, locked, unlocked, auto_merge_enabled, auto_merge_disabled, enqueued, dequeued, milestoned, demilestoned"
+        },
+        "number": {
+          "type": "integer",
+          "description": "PR number"
+        },
+        "pull_request": {
+          "type": "object",
+          "description": "id, number, title, body, state, draft, merged, merged_at, merged_by, merge_commit_sha, user, head (ref/sha/repo), base (ref/sha/repo), labels[], assignees[], requested_reviewers[], requested_teams[], milestone, created_at, updated_at, closed_at, html_url, diff_url, patch_url, additions, deletions, changed_files, commits, comments, review_comments, mergeable, mergeable_state, auto_merge, author_association",
+          "schema_ref": "pull-request"
+        },
+        "changes": {
+          "type": "object",
+          "description": "Prior values for edited action: changes.title.from, changes.body.from, changes.base.ref.from, changes.base.sha.from"
+        },
+        "repository": {
+          "type": "object",
+          "schema_ref": "repository"
+        },
+        "organization": {
+          "type": "object",
+          "schema_ref": "organization-full"
+        },
+        "sender": {
+          "type": "object",
+          "schema_ref": "simple-user"
+        },
+        "installation": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

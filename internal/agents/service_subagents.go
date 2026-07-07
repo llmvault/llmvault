@@ -92,7 +92,11 @@ func subAgentFilter(allow, deny []string) *model.ToolFilter {
 
 // attachPlugins enables each requested plugin on the agent (idempotent).
 func attachPlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, pluginIDs []uuid.UUID) error {
-	for _, pluginID := range dedupeUUIDs(pluginIDs) {
+	ids := dedupeUUIDs(pluginIDs)
+	if err := pluginstore.CheckGitHubIdentityExclusiveOnAdd(ctx, tx, orgID, agentID, ids...); err != nil {
+		return err
+	}
+	for _, pluginID := range ids {
 		install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}
 		if err := tx.WithContext(ctx).
 			Clauses(onConflictDoNothing()).
@@ -122,6 +126,16 @@ func replacePlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, 
 	}
 	for id := range protected {
 		want[id] = true
+	}
+
+	// The final install set must not carry two GitHub identities. Check it after
+	// folding in protected plugins so a forced-in GitHub plugin is accounted for.
+	wantIDs := make([]uuid.UUID, 0, len(want))
+	for id := range want {
+		wantIDs = append(wantIDs, id)
+	}
+	if err := pluginstore.CheckGitHubIdentityExclusive(ctx, tx, wantIDs); err != nil {
+		return err
 	}
 
 	var existing []model.AgentPluginInstall

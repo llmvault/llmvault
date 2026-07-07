@@ -24,11 +24,6 @@
     {
       "provider": "github-app",
       "kind": "integration"
-    },
-    {
-      "provider": "github-app-code-reviews",
-      "kind": "integration",
-      "required": false
     }
   ]
 }

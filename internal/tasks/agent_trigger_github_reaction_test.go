@@ -99,13 +99,28 @@ func newReactionCapture(t *testing.T) (*nango.Client, *reactionCapture) {
 	return nango.NewClient(srv.URL, "secret"), rc
 }
 
+// seedGitHubConnection seeds the PRIMARY GitHub App connection (bot handle
+// "usehivy"). Use seedGitHubAppConnection for a specific provider/handle.
 func seedGitHubConnection(t *testing.T, db *gorm.DB, orgID uuid.UUID) uuid.UUID {
+	t.Helper()
+	return seedGitHubAppConnection(t, db, orgID, "github-app", "usehivy")
+}
+
+// seedGitHubAppConnection seeds a GitHub App connection for the given provider
+// with its bot handle populated on the integration (the column the exact
+// per-app mention matcher reads).
+func seedGitHubAppConnection(t *testing.T, db *gorm.DB, orgID uuid.UUID, provider, botHandle string) uuid.UUID {
 	t.Helper()
 	user := model.User{Email: "gh-react-" + uuid.NewString() + "@example.com"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	integration := model.Integration{UniqueKey: "github-app-" + uuid.NewString(), Provider: "github-app", DisplayName: "GitHub"}
+	integration := model.Integration{
+		UniqueKey:   provider + "-" + uuid.NewString(),
+		Provider:    provider,
+		DisplayName: "GitHub",
+		BotHandle:   botHandle,
+	}
 	if err := db.Create(&integration).Error; err != nil {
 		t.Fatalf("create integration: %v", err)
 	}

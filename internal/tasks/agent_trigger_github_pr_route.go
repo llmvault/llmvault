@@ -2,9 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -43,9 +40,12 @@ type prRouteEvent struct {
 
 // isPRRouteEventKey reports whether an event is one of the PR-scoped GitHub
 // events that auto-route back into the session that opened the PR, no installed
-// trigger required.
+// trigger required. Auto-route is PRIMARY-app only: the code-reviews app
+// receives its own copy of every PR event, and that copy must never be
+// auto-routed into a build session (review feedback reaches the build agent
+// through the primary app's copy).
 func isPRRouteEventKey(provider, key string) bool {
-	if !strings.HasPrefix(provider, "github") {
+	if !isGitHubPrimary(provider) {
 		return false
 	}
 	switch key {
@@ -73,9 +73,16 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 		return nil, nil
 	}
 	log := logging.FromContext(ctx)
+	// Auto-route is primary-only, so payload.ConnectionID IS the primary
+	// connection; load its bot handle once to drive the self-guard and the
+	// eyes-reaction gate. A comment authored by the primary bot ("usehivy") or
+	// the PR author itself must not loop back; a comment authored by the
+	// code-reviews bot ("usehivy-reviews") is NOT self and MUST route (review
+	// feedback to the build agent is the whole point).
+	primaryHandle := h.githubConnectionBotHandle(ctx, payload)
 	// check_suite has no author; comments and reviews must not loop back on
-	// content Hivy or the PR author itself produced.
-	if event.guardAuthor && prRouteSelfAuthored(event.Author, event.PRAuthor) {
+	// content the primary bot or the PR author itself produced.
+	if event.guardAuthor && prRouteSelfAuthored(event.Author, event.PRAuthor, primaryHandle) {
 		log.InfoContext(ctx, "github pr event self-authored, skipping",
 			"repo", event.Repo, "event_key", key, "author", event.Author)
 		return nil, nil
@@ -105,7 +112,7 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 		// pull_request_review.submitted has no reactions endpoint, so both are
 		// skipped here.
 		if created {
-			h.reactToRoutedComment(ctx, payload, event)
+			h.reactToRoutedComment(ctx, payload, event, primaryHandle)
 		}
 		routed[session.ID] = eventID
 		log.InfoContext(ctx, "github pr event routed to originating session",
@@ -132,16 +139,17 @@ func prRouteEventID(payload AgentTriggerDispatchPayload, key, stableID string) s
 	return triggerSessionEventID(payload)
 }
 
-// prRouteSelfAuthored reports whether an event was authored by Hivy itself or
-// by the PR author (the bot that opened the PR), which must not trigger a run.
-// Unlike isHivyIdentityValue it does not substring-match "hivy", so a separate
-// code-review app never counts as self.
-func prRouteSelfAuthored(author, prAuthor string) bool {
+// prRouteSelfAuthored reports whether an event was authored by the primary bot
+// itself or by the PR author (the bot that opened the PR), which must not
+// trigger a run. It matches the primary bot handle exactly (not a substring),
+// so the code-reviews bot ("usehivy-reviews") never counts as self and its
+// review feedback still routes into the build session.
+func prRouteSelfAuthored(author, prAuthor, primaryHandle string) bool {
 	a := normalizeGitHubLogin(author)
 	if a == "" {
 		return false
 	}
-	if a == "usehivy" {
+	if githubLoginMatchesHandle(author, primaryHandle) {
 		return true
 	}
 	pr := normalizeGitHubLogin(prAuthor)
@@ -255,42 +263,4 @@ func commentLine(wp map[string]any) string {
 		return line
 	}
 	return payloadNumber(wp, "comment.original_line")
-}
-
-func payloadText(wp map[string]any, path string) string {
-	value, ok := lookupTriggerPayloadPath(wp, path)
-	if !ok {
-		return ""
-	}
-	return scalarString(value)
-}
-
-// payloadNumber formats a numeric payload field as an integer string. JSON
-// numbers decode to float64, whose default formatting switches to scientific
-// notation for large ids — so ids are formatted explicitly here.
-func payloadNumber(wp map[string]any, path string) string {
-	value, ok := lookupTriggerPayloadPath(wp, path)
-	if !ok {
-		return ""
-	}
-	return payloadNumberValue(value)
-}
-
-func payloadNumberValue(value any) string {
-	switch typed := value.(type) {
-	case float64:
-		return strconv.FormatInt(int64(typed), 10)
-	case json.Number:
-		return typed.String()
-	case int:
-		return strconv.Itoa(typed)
-	case int64:
-		return strconv.FormatInt(typed, 10)
-	case string:
-		return strings.TrimSpace(typed)
-	case nil:
-		return ""
-	default:
-		return strings.TrimSpace(fmt.Sprint(typed))
-	}
 }

@@ -257,4 +257,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 78
+const latestMigrationVersion = 79

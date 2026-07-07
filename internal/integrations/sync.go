@@ -79,6 +79,7 @@ func (s *Seeder) upsertDB(ctx context.Context, m Manifest, cfg model.JSON, hash 
 			UniqueKey:         m.UniqueKey,
 			Provider:          m.Provider,
 			DisplayName:       m.DisplayName,
+			BotHandle:         m.BotHandle,
 			Meta:              m.Meta,
 			NangoConfig:       cfg,
 			SupportsRAGSource: m.SupportsRAGSource,
@@ -96,6 +97,7 @@ func (s *Seeder) upsertDB(ctx context.Context, m Manifest, cfg model.JSON, hash 
 		"unique_key":          m.UniqueKey,
 		"provider":            m.Provider,
 		"display_name":        m.DisplayName,
+		"bot_handle":          m.BotHandle,
 		"meta":                m.Meta,
 		"nango_config":        cfg,
 		"supports_rag_source": m.SupportsRAGSource,
@@ -118,6 +120,7 @@ func integrationMatches(existing model.Integration, m Manifest, cfg model.JSON) 
 	return existing.UniqueKey == m.UniqueKey &&
 		existing.Provider == m.Provider &&
 		existing.DisplayName == m.DisplayName &&
+		existing.BotHandle == m.BotHandle &&
 		existing.SupportsRAGSource == m.SupportsRAGSource &&
 		existing.ManagedBy == managedBy &&
 		existing.ManagedID == m.ID &&

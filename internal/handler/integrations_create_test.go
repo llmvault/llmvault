@@ -17,8 +17,8 @@ func TestIntegrationHandler_Create_Success(t *testing.T) {
 	user := createTestUser(t, h.db, fmt.Sprintf("admin-%s@test.com", uuid.New().String()[:8]))
 
 	rr := h.doRequest(t, http.MethodPost, "/v1/integrations", map[string]any{
-		"provider":     "github",
-		"display_name": "GitHub Built-in",
+		"provider":     "linear",
+		"display_name": "Linear Built-in",
 		"credentials": map[string]any{
 			"type":          "OAUTH2",
 			"client_id":     "test-client-id",
@@ -32,11 +32,11 @@ func TestIntegrationHandler_Create_Success(t *testing.T) {
 
 	var resp map[string]any
 	_ = json.NewDecoder(rr.Body).Decode(&resp)
-	if resp["provider"] != "github" {
-		t.Fatalf("expected provider=github, got %v", resp["provider"])
+	if resp["provider"] != "linear" {
+		t.Fatalf("expected provider=linear, got %v", resp["provider"])
 	}
-	if resp["display_name"] != "GitHub Built-in" {
-		t.Fatalf("expected display_name=GitHub Built-in, got %v", resp["display_name"])
+	if resp["display_name"] != "Linear Built-in" {
+		t.Fatalf("expected display_name=Linear Built-in, got %v", resp["display_name"])
 	}
 
 	h.mockCfg.mu.Lock()
@@ -55,8 +55,8 @@ func TestIntegrationHandler_Create_Success(t *testing.T) {
 	if err := h.db.Where("id = ?", resp["id"]).First(&integ).Error; err != nil {
 		t.Fatalf("integration not found in DB: %v", err)
 	}
-	if !strings.HasPrefix(integ.UniqueKey, "github-") {
-		t.Fatalf("expected unique_key to start with github-, got %s", integ.UniqueKey)
+	if !strings.HasPrefix(integ.UniqueKey, "linear-") {
+		t.Fatalf("expected unique_key to start with linear-, got %s", integ.UniqueKey)
 	}
 }
 
@@ -66,8 +66,8 @@ func TestIntegrationHandler_Create_NangoFailure(t *testing.T) {
 	user := createTestUser(t, h.db, fmt.Sprintf("admin-%s@test.com", uuid.New().String()[:8]))
 
 	rr := h.doRequest(t, http.MethodPost, "/v1/integrations", map[string]any{
-		"provider":     "github",
-		"display_name": "GitHub Built-in",
+		"provider":     "linear",
+		"display_name": "Linear Built-in",
 		"credentials": map[string]any{
 			"type":          "OAUTH2",
 			"client_id":     "test-client-id",

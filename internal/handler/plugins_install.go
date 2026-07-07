@@ -9,9 +9,13 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 func enablePluginForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID, pluginID uuid.UUID) error {
+	if err := pluginstore.CheckGitHubIdentityExclusiveOnAdd(ctx, tx, orgID, agentID, pluginID); err != nil {
+		return err
+	}
 	install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}
 	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&install).Error; err != nil {
 		return fmt.Errorf("enable plugin for agent: %w", err)

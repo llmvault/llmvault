@@ -5,6 +5,7 @@
   "nango_provider": "github-app",
   "unique_key": "github-app-code-reviews",
   "display_name": "GitHub Code Reviews",
+  "bot_handle": "usehivy-reviews",
   "enabled": true,
   "required": false,
   "supports_rag_source": false,

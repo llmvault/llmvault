@@ -34,7 +34,9 @@ func (h *AgentTriggerDispatchHandler) shouldSkipTriggerDelivery(ctx context.Cont
 }
 
 func isGitHubCheckSuiteCompleted(payload AgentTriggerDispatchPayload) bool {
-	if payload.Provider != "github" && !strings.HasPrefix(payload.Provider, "github") {
+	// Primary-app only: check_suite is a build-CI signal. The code-reviews app's
+	// copy of the same event carries no routing policy here.
+	if !isGitHubPrimary(payload.Provider) {
 		return false
 	}
 	return eventKey(payload.EventType, payload.EventAction) == "check_suite.completed"
@@ -74,8 +76,12 @@ func (h *AgentTriggerDispatchHandler) githubCheckSuitePullRequestCreatedByHivy(c
 	if err != nil {
 		return false, fmt.Errorf("fetch check suite pull request author: %w", err)
 	}
+	// The PR must have been opened by THIS app's bot for its check_suite to route
+	// into a build session. Match the connection's exact bot handle rather than a
+	// fuzzy "hivy" substring, so a code-reviews-authored PR (were it ever primary)
+	// is not mistaken for a build PR.
 	author, ok := lookupTriggerPayloadPath(resp, "user.login")
-	return ok && isHivyIdentityValue(scalarString(author)), nil
+	return ok && githubLoginMatchesHandle(scalarString(author), conn.Integration.BotHandle), nil
 }
 
 func githubCheckSuiteHasPullRequest(payload map[string]any) bool {
@@ -128,21 +134,4 @@ func scalarString(value any) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(typed))
 	}
-}
-
-func isHivyIdentityValue(value string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	if normalized == "" {
-		return false
-	}
-	normalized = strings.TrimSuffix(normalized, "[bot]")
-	normalized = strings.Trim(normalized, " /_-")
-	return normalized == "usehivy" ||
-		normalized == "hivy" ||
-		strings.HasPrefix(normalized, "usehivy/") ||
-		strings.HasPrefix(normalized, "hivy/") ||
-		strings.HasPrefix(normalized, "usehivy-") ||
-		strings.HasPrefix(normalized, "hivy-") ||
-		strings.Contains(normalized, "usehivy") ||
-		strings.Contains(normalized, "hivy")
 }

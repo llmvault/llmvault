@@ -49,6 +49,7 @@ func TestGitHubMentionRoutesToOriginatingSession(t *testing.T) {
 
 	trigger := seedMentionTrigger(t, db, org.ID, agent.ID, "acme/repo")
 	orig := seedActiveSession(t, db, org.ID, agent.ID)
+	connID := seedGitHubAppConnection(t, db, org.ID, "github-app", "usehivy")
 	if err := db.Create(&model.GitHubPullRequestSession{
 		OrgID: org.ID, Repo: "acme/repo", PRNumber: 42, SessionID: orig.ID,
 	}).Error; err != nil {
@@ -57,9 +58,9 @@ func TestGitHubMentionRoutesToOriginatingSession(t *testing.T) {
 
 	payload := AgentTriggerDispatchPayload{
 		Provider: "github-app", EventType: "issue_comment", EventAction: "created",
-		DeliveryID: "gh-1", OrgID: org.ID,
+		DeliveryID: "gh-1", OrgID: org.ID, ConnectionID: connID,
 	}
-	webhook := githubIssueCommentPayload("acme/repo", "bob", "hey @hivy take a look", true)
+	webhook := githubIssueCommentPayload("acme/repo", "bob", "hey @usehivy take a look", true)
 
 	if err := h.deliverGitHubMention(ctx, payload, trigger, webhook, nil); err != nil {
 		t.Fatalf("deliver: %v", err)
@@ -91,12 +92,13 @@ func TestGitHubMentionFallsBackWhenNoMapping(t *testing.T) {
 	ctx := context.Background()
 
 	trigger := seedMentionTrigger(t, db, org.ID, agent.ID, "acme/repo")
+	connID := seedGitHubAppConnection(t, db, org.ID, "github-app", "usehivy")
 
 	payload := AgentTriggerDispatchPayload{
 		Provider: "github-app", EventType: "issue_comment", EventAction: "created",
-		DeliveryID: "gh-2", OrgID: org.ID,
+		DeliveryID: "gh-2", OrgID: org.ID, ConnectionID: connID,
 	}
-	webhook := githubIssueCommentPayload("acme/repo", "bob", "hey @hivy take a look", true)
+	webhook := githubIssueCommentPayload("acme/repo", "bob", "hey @usehivy take a look", true)
 
 	if err := h.deliverGitHubMention(ctx, payload, trigger, webhook, nil); err != nil {
 		t.Fatalf("deliver: %v", err)

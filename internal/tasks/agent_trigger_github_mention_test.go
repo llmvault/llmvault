@@ -10,23 +10,45 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestGithubTextMentionsHivy(t *testing.T) {
+func TestGithubTextMentionsHandle(t *testing.T) {
 	cases := []struct {
-		text string
-		want bool
+		text   string
+		handle string
+		want   bool
 	}{
-		{"hey @hivy can you fix this?", true},
-		{"cc @usehivy", true},
-		{"ping @hivy-agent please", true},
-		{"@UseHivy look", true},
-		{"no mention of hivy here without an at-sign", false},
-		{"email me at bob@hivy.example", true}, // handle scan is intentionally permissive
-		{"talk to @octocat instead", false},
+		{"hey @usehivy can you fix this?", "usehivy", true},
+		{"cc @UseHivy", "usehivy", true},                   // case-insensitive
+		{"@usehivy-reviews please review", "usehivy-reviews", true},
+		{"@usehivy-reviews please review", "usehivy", false}, // reviews handle must NOT fire primary
+		{"@usehivy look", "usehivy-reviews", false},          // primary handle must NOT fire reviews
+		{"ping @hivy please", "usehivy", false},              // exact only — no fuzzy contains
+		{"talk to @octocat instead", "usehivy", false},
+		{"no at-sign usehivy here", "usehivy", false},
+		{"@usehivy", "", false}, // empty handle never matches (misconfigured integration)
+		{"", "usehivy", false},
+	}
+	for _, tc := range cases {
+		if got := githubTextMentionsHandle(tc.text, tc.handle); got != tc.want {
+			t.Errorf("githubTextMentionsHandle(%q,%q)=%v want %v", tc.text, tc.handle, got, tc.want)
+		}
+	}
+}
+
+func TestIsGitHubHivyBotLogin(t *testing.T) {
+	cases := []struct {
+		login string
+		want  bool
+	}{
+		{"usehivy[bot]", true},
+		{"usehivy-reviews[bot]", true},
+		{"USEHIVY[bot]", true},
+		{"hivy-code-reviews[bot]", false}, // contains "hivy" but is not one of ours
+		{"octocat", false},
 		{"", false},
 	}
 	for _, tc := range cases {
-		if got := githubTextMentionsHivy(tc.text); got != tc.want {
-			t.Errorf("githubTextMentionsHivy(%q)=%v want %v", tc.text, got, tc.want)
+		if got := isGitHubHivyBotLogin(tc.login); got != tc.want {
+			t.Errorf("isGitHubHivyBotLogin(%q)=%v want %v", tc.login, got, tc.want)
 		}
 	}
 }
@@ -54,14 +76,17 @@ func TestDeliverGitHubMentionSkips(t *testing.T) {
 	}
 	dispatch := AgentTriggerDispatchPayload{Provider: "github-app", EventType: "issue_comment", EventAction: "created"}
 
+	// Every case here resolves BEFORE the exact-match gate touches the DB, so
+	// the nil-db handler never panics. (Exact @handle matching is covered by the
+	// DB-backed tests in agent_trigger_github_mention_exact_test.go.)
 	cases := []struct {
 		name    string
 		payload map[string]any
 	}{
-		{"no hivy mention", githubIssueCommentPayload("usehivy/hivy", "bob", "just chatting with @octocat", false)},
-		{"different repository", githubIssueCommentPayload("acme/other", "bob", "hey @hivy", false)},
-		{"authored by hivy", githubIssueCommentPayload("usehivy/hivy", "usehivy[bot]", "done! cc @hivy", false)},
-		{"authored by another bot", githubIssueCommentPayload("usehivy/hivy", "dependabot[bot]", "hey @hivy", false)},
+		{"different repository", githubIssueCommentPayload("acme/other", "bob", "hey @usehivy", false)},
+		{"authored by primary bot", githubIssueCommentPayload("usehivy/hivy", "usehivy[bot]", "done! cc @usehivy", false)},
+		{"authored by code-reviews bot", githubIssueCommentPayload("usehivy/hivy", "usehivy-reviews[bot]", "done! cc @usehivy", false)},
+		{"authored by another bot", githubIssueCommentPayload("usehivy/hivy", "dependabot[bot]", "hey @usehivy", false)},
 		{"unsupported shape", map[string]any{"action": "created"}},
 	}
 	for _, tc := range cases {

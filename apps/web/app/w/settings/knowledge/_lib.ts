@@ -19,7 +19,8 @@ export type ProviderMeta = {
   // what the user selects to scope this source (used as the label + empty hint)
   scopeNoun: string
   // the actual connection.provider values that map to this source. A GitHub
-  // connection reports its variant (github-app / -oauth / -pat), not "github".
+  // connection reports its variant (github-app / github-app-code-reviews),
+  // not "github".
   connectionProviders: string[]
 }
 
@@ -30,7 +31,7 @@ export const PROVIDERS: ProviderMeta[] = [
     icon: "github",
     kind: "INTEGRATION",
     scopeNoun: "repositories",
-    connectionProviders: ["github-app", "github-app-oauth", "github", "github-pat"],
+    connectionProviders: ["github-app", "github-app-code-reviews"],
   },
   { provider: "notion", label: "Notion", icon: "notion", kind: "INTEGRATION", scopeNoun: "pages & databases", connectionProviders: ["notion"] },
   { provider: "slack", label: "Slack", icon: "slack", kind: "INTEGRATION", scopeNoun: "channels", connectionProviders: ["slack"] },

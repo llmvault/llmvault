@@ -11,7 +11,7 @@ import (
 )
 
 func githubConn() *model.Connection {
-	return &model.Connection{Integration: model.Integration{Provider: "github"}}
+	return &model.Connection{Integration: model.Integration{Provider: "github-app"}}
 }
 
 func notionConn() *model.Connection {

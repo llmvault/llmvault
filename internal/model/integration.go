@@ -11,6 +11,7 @@ type Integration struct {
 	UniqueKey   string     `gorm:"not null;uniqueIndex"`
 	Provider    string     `gorm:"not null;index"`
 	DisplayName string     `gorm:"not null"`
+	BotHandle   string     `gorm:"type:text;not null;default:''" json:"bot_handle,omitempty"`
 	OrgID       *uuid.UUID `gorm:"type:uuid;index"`
 	Org         *Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
 	AgentID     *uuid.UUID `gorm:"type:uuid;index"`

@@ -155,6 +155,17 @@ func (c *Catalog) parseSubscribableResources() {
 	}
 }
 
+// aliasGitHubAppCodeReviews mirrors the primary github-app ACTIONS and
+// SUBSCRIBABLE RESOURCES onto the github-app-code-reviews provider. The
+// code-reviews app is a second GitHub App installation with the identical gh
+// tool surface (same actions) over the same repositories (same subscribable
+// repos), so aliasing them is intentional — there is deliberately no separate
+// github-app-code-reviews.actions.json / .resources.json.
+//
+// TRIGGERS are NOT aliased here: each app ships its own <provider>.triggers.json
+// (github-app.triggers.json is the full catalog; github-app-code-reviews.triggers.json
+// is the trimmed mention-only set). The filename is the provider key
+// (parseTriggers), so both resolve exactly without any aliasing.
 func (c *Catalog) aliasGitHubAppCodeReviews() {
 	if p, ok := c.providers["github-app"]; ok {
 		c.providers["github-app-code-reviews"] = p

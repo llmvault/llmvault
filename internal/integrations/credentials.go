@@ -38,15 +38,6 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials) erro
 		if provider.Name == "github-app" && creds.AppLink == "" {
 			return fmt.Errorf("app_link is required for provider %q", provider.Name)
 		}
-	case "CUSTOM":
-		if provider.Name == "github-app-oauth" {
-			if creds.Type != "APP" {
-				return fmt.Errorf("credentials.type must be \"APP\" for provider %q", provider.Name)
-			}
-			if creds.AppID == "" || creds.AppLink == "" || creds.PrivateKey == "" {
-				return fmt.Errorf("app_id, app_link, and private_key are required for provider %q", provider.Name)
-			}
-		}
 	}
 	return nil
 }

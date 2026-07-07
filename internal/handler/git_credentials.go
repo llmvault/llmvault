@@ -164,7 +164,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GitCredentialsHandler) resolveGitHubTokenConnection(ctx context.Context, orgID uuid.UUID, agent model.Agent) (gitHubTokenConnection, error) {
-	result, err := connectionaccess.ResolveAgentProviderAny(ctx, h.db, orgID, agent.ID, "github-app", "github-app-oauth", "github", "github-pat")
+	result, err := connectionaccess.ResolveAgentProviderAny(ctx, h.db, orgID, agent.ID, "github-app", "github-app-code-reviews")
 	if err != nil {
 		return gitHubTokenConnection{}, err
 	}

@@ -11,16 +11,19 @@ import (
 // Comments/reviews Hivy or the PR author itself authored must not loop back;
 // a distinct code-review bot's review must still route.
 func TestPRRouteSelfAuthoredGuard(t *testing.T) {
-	t.Run("usehivy bot comment skips", func(t *testing.T) {
+	t.Run("primary bot comment skips", func(t *testing.T) {
 		db := connectTestDB(t)
 		org, agent, _ := seedTriggerSessionFixture(t, db)
 		orig := seedActiveSession(t, db, org.ID, agent.ID)
 		seedPRMapping(t, db, org.ID, "acme/repo", 42, orig.ID)
+		// The primary connection's bot handle ("usehivy") drives the self-guard.
+		connID := seedGitHubAppConnection(t, db, org.ID, "github-app", "usehivy")
 		h := newPRRouteHandler(db)
 
 		payload := AgentTriggerDispatchPayload{
 			Provider: "github-app", EventType: "issue_comment", EventAction: "created",
-			OrgID: org.ID, DeliveryID: prRouteDeliveryID("conn-a", "issue_comment.created", "492700400"),
+			OrgID: org.ID, ConnectionID: connID,
+			DeliveryID: prRouteDeliveryID("conn-a", "issue_comment.created", "492700400"),
 		}
 		webhook := githubIssueCommentPayload("acme/repo", "usehivy[bot]", "pushed a fix", true)
 
@@ -57,27 +60,31 @@ func TestPRRouteSelfAuthoredGuard(t *testing.T) {
 		}
 	})
 
-	t.Run("distinct review bot routes", func(t *testing.T) {
+	t.Run("code-reviews bot review routes", func(t *testing.T) {
 		db := connectTestDB(t)
 		org, agent, _ := seedTriggerSessionFixture(t, db)
 		orig := seedActiveSession(t, db, org.ID, agent.ID)
 		seedPRMapping(t, db, org.ID, "acme/repo", 9, orig.ID)
+		// Primary connection: the event is the primary app's copy of the review.
+		connID := seedGitHubAppConnection(t, db, org.ID, "github-app", "usehivy")
 		h := newPRRouteHandler(db)
 
 		payload := AgentTriggerDispatchPayload{
 			Provider: "github-app", EventType: "pull_request_review", EventAction: "submitted",
-			OrgID: org.ID, DeliveryID: prRouteDeliveryID("conn-a", "pull_request_review.submitted", "777000222"),
+			OrgID: org.ID, ConnectionID: connID,
+			DeliveryID: prRouteDeliveryID("conn-a", "pull_request_review.submitted", "777000222"),
 		}
-		// "hivy-code-reviews[bot]" contains "hivy" — the broad isHivyIdentityValue
-		// would wrongly skip it; the login-equality guard must route it.
-		webhook := githubReviewPayload("acme/repo", 9, "hivy-code-reviews[bot]", "commented", "LGTM with nits", "usehivy[bot]")
+		// "usehivy-reviews[bot]" is the code-reviews app's bot. It is NOT the
+		// primary handle ("usehivy") and NOT the PR author, so its review
+		// feedback MUST route into the build session — that is the whole point.
+		webhook := githubReviewPayload("acme/repo", 9, "usehivy-reviews[bot]", "changes_requested", "please fix the nil check", "usehivy[bot]")
 
 		routed, err := h.maybeRoutePREvent(context.Background(), payload, webhook)
 		if err != nil {
 			t.Fatalf("route: %v", err)
 		}
 		if _, ok := routed[orig.ID]; !ok {
-			t.Fatalf("distinct review bot not routed: %v", routed)
+			t.Fatalf("code-reviews bot review not routed: %v", routed)
 		}
 		assertRoutedOnce(t, db, org.ID, orig.ID)
 	})
@@ -182,14 +189,16 @@ func TestPRRouteMentionOverrideNoDuplicate(t *testing.T) {
 	orig := seedActiveSession(t, db, org.ID, agent.ID)
 	seedPRMapping(t, db, org.ID, "acme/repo", 42, orig.ID)
 	trigger := seedMentionTrigger(t, db, org.ID, agent.ID, "acme/repo")
+	connID := seedGitHubAppConnection(t, db, org.ID, "github-app", "usehivy")
 	h := newPRRouteHandler(db)
 	ctx := context.Background()
 
 	payload := AgentTriggerDispatchPayload{
 		Provider: "github-app", EventType: "issue_comment", EventAction: "created",
-		OrgID: org.ID, DeliveryID: prRouteDeliveryID("conn-a", "issue_comment.created", "492700400"),
+		OrgID: org.ID, ConnectionID: connID,
+		DeliveryID: prRouteDeliveryID("conn-a", "issue_comment.created", "492700400"),
 	}
-	webhook := githubIssueCommentPayload("acme/repo", "human-commenter", "hey @hivy please review", true)
+	webhook := githubIssueCommentPayload("acme/repo", "human-commenter", "hey @usehivy please review", true)
 
 	// Reproduce Handle's ordering: auto-route first, then the mention trigger.
 	routed, err := h.maybeRoutePREvent(ctx, payload, webhook)

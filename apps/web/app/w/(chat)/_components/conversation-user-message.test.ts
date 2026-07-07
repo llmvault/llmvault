@@ -20,7 +20,7 @@ describe("automatedMessageBadge", () => {
       label: "Automated · GitHub",
       icon: "github",
     })
-    expect(automatedMessageBadge("trigger", "github-app-oauth")?.label).toBe(
+    expect(automatedMessageBadge("trigger", "github-app-code-reviews")?.label).toBe(
       "Automated · GitHub"
     )
   })

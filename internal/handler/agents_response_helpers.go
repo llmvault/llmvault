@@ -2,12 +2,10 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
@@ -159,63 +157,6 @@ func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]ag
 		}
 	}
 	return result
-}
-
-// errGitHubAppExclusive is returned when an agent's integrations payload
-// attaches both GitHub Apps to the same agent. We restrict agents to a single
-// GitHub App identity so it's unambiguous which app authored a given action
-// (the primary opens PRs, the code-reviews app reviews them on a different
-// agent).
-var errGitHubAppExclusive = errors.New("an agent can connect to only one of github-app or github-app-code-reviews, not both")
-
-// validateAgentIntegrationsExclusivity checks the proposed integrations map
-// against mutually-exclusive provider rules. integrations is keyed by
-// connection UUID (matching the JSONB shape on agents.integrations); we
-// resolve those connections to providers via connections → integrations
-// scoped to the org.
-func validateAgentIntegrationsExclusivity(db *gorm.DB, orgID uuid.UUID, integrations model.JSON) error {
-	if len(integrations) == 0 {
-		return nil
-	}
-	connectionIDs := make([]uuid.UUID, 0, len(integrations))
-	for key := range integrations {
-		id, err := uuid.Parse(key)
-		if err != nil {
-			continue
-		}
-		connectionIDs = append(connectionIDs, id)
-	}
-	if len(connectionIDs) == 0 {
-		return nil
-	}
-
-	type row struct {
-		Provider string
-	}
-	var rows []row
-	err := db.
-		Table("connections").
-		Select("DISTINCT integrations.provider AS provider").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.id IN ? AND connections.org_id = ? AND connections.revoked_at IS NULL", connectionIDs, orgID).
-		Scan(&rows).Error
-	if err != nil {
-		return fmt.Errorf("resolving integration providers: %w", err)
-	}
-
-	hasPrimary, hasReviews := false, false
-	for _, r := range rows {
-		switch r.Provider {
-		case "github-app":
-			hasPrimary = true
-		case "github-app-code-reviews":
-			hasReviews = true
-		}
-	}
-	if hasPrimary && hasReviews {
-		return errGitHubAppExclusive
-	}
-	return nil
 }
 
 func validateAgentModel(reg *registry.Registry, modelID string) error {

@@ -7,13 +7,22 @@ import (
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
-const githubAppProvider = "github-app"
+const (
+	githubAppProvider            = "github-app"
+	githubAppCodeReviewsProvider = "github-app-code-reviews"
+)
 
-// githubToolingProviders are the connection providers that grant an agent
-// working GitHub tooling (the `gh` CLI is authenticated from any of these via
-// the git-credentials helper). Matches internal/handler/git_credentials.go so
-// the install check reflects the same capability the runtime relies on.
-var githubToolingProviders = []string{"github-app", "github-app-oauth", "github", "github-pat"}
+// Per-app tooling requirements: a trigger's playbook runs under the identity
+// of ONE GitHub App, so the target agent must resolve that app's connection
+// through its installed plugin (github vs github-code-reviews) — resolved with
+// the same ResolveAgentProviderAny call the runtime's git-credentials helper
+// uses. A primary-app agent must not receive code-review triggers or vice
+// versa. The legacy github/github-app-oauth/github-pat providers were removed
+// in the GitHub App split.
+var (
+	githubPrimaryToolingProviders     = []string{githubAppProvider}
+	githubCodeReviewsToolingProviders = []string{githubAppCodeReviewsProvider}
+)
 
 // triggerTemplate describes a curated installable trigger. Delivery code is
 // provider-specific and lives with the webhook pipeline; this registry only
@@ -47,7 +56,7 @@ var triggerTemplates = []triggerTemplate{
 		resourceType:        "github_repo",
 		triggerKeys:         model.GitHubIssueMentionEventKeys,
 		valueFromResource:   true,
-		requiredProviders:   githubToolingProviders,
+		requiredProviders:   githubPrimaryToolingProviders,
 		requiredPluginLabel: "GitHub",
 	},
 	{
@@ -56,8 +65,22 @@ var triggerTemplates = []triggerTemplate{
 		resourceType:        "github_repo",
 		triggerKeys:         model.GitHubPRMentionEventKeys,
 		valueFromResource:   true,
-		requiredProviders:   githubToolingProviders,
+		requiredProviders:   githubPrimaryToolingProviders,
 		requiredPluginLabel: "GitHub",
+	},
+	// The code-reviews app answers @usehivy-reviews on pull requests. It reuses
+	// the pr_mention trigger_key and PR mention event keys — the connection
+	// binding (a github-app-code-reviews connection) is what differentiates it
+	// from the primary pr_mention template above. There is deliberately no
+	// issue-mention template for the code-reviews app: it reviews PRs only.
+	{
+		provider:            githubAppCodeReviewsProvider,
+		key:                 model.TriggerKeyGitHubPRMention,
+		resourceType:        "github_repo",
+		triggerKeys:         model.GitHubPRMentionEventKeys,
+		valueFromResource:   true,
+		requiredProviders:   githubCodeReviewsToolingProviders,
+		requiredPluginLabel: "GitHub Code Reviews",
 	},
 }
 

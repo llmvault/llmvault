@@ -31,7 +31,11 @@ This event came from GitHub. You are required to respond on GitHub itself before
 </system_message>`
 
 func isGitHubMentionTrigger(provider string, trigger model.AgentTrigger) bool {
-	return model.IsGitHubMentionKey(trigger.TriggerKey) && strings.HasPrefix(provider, "github")
+	// Both apps may carry mention triggers — triggers are connection-bound, so
+	// the connection (hence app) that owns the trigger decides which handle
+	// matches. Keep this matching both providers.
+	return model.IsGitHubMentionKey(trigger.TriggerKey) &&
+		(isGitHubPrimary(provider) || isGitHubCodeReviews(provider))
 }
 
 // githubMentionEvent is the normalized view of the three webhook shapes a
@@ -69,8 +73,8 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		// issue_comment.created is shared with issues; drop plain-issue events
 		// for the pull-request-only split trigger.
 		skipReason = "issue event on pull-request-only mention trigger"
-	case isHivyIdentityValue(event.MentionedBy):
-		// Loop protection: never respond to content Hivy itself authored.
+	case isGitHubHivyBotLogin(event.MentionedBy):
+		// Loop protection: never respond to content either Hivy bot authored.
 		skipReason = "event author is Hivy"
 	case isGitHubBotAuthor(event.MentionedBy, event.AuthorType):
 		// Loop protection: two bots can ping-pong through mentions, so no
@@ -79,8 +83,6 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		// performed_via_github_app here: comments humans post via GitHub
 		// Mobile set that field too.
 		skipReason = "event author is a bot"
-	case !githubTextMentionsHivy(event.Body):
-		skipReason = "no Hivy mention in body"
 	}
 	if skipReason != "" {
 		logging.FromContext(ctx).InfoContext(ctx, "github mention trigger skipped event",
@@ -92,7 +94,33 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		return nil
 	}
 
-	// The skip-ladder already guarantees a Hivy mention, so acknowledge the
+	// Exact per-app mention gate. Load the delivering connection's bot handle
+	// and require an exact @<handle> token — "@usehivy-reviews" must not fire a
+	// primary trigger and "@usehivy" must not fire a code-reviews trigger. This
+	// runs after the cheap DB-free gates so unsupported shapes / wrong repo /
+	// bot authors never touch the database. An empty handle means the
+	// integration is misconfigured; skip and warn rather than fire.
+	botHandle := h.githubConnectionBotHandle(ctx, payload)
+	if botHandle == "" {
+		logging.FromContext(ctx).WarnContext(ctx, "github mention trigger skipped: connection has no bot handle",
+			"trigger_id", trigger.ID,
+			"agent_id", trigger.AgentID,
+			"delivery_id", payload.DeliveryID,
+			"connection_id", payload.ConnectionID)
+		return nil
+	}
+	if !githubTextMentionsHandle(event.Body, botHandle) {
+		logging.FromContext(ctx).InfoContext(ctx, "github mention trigger skipped event",
+			"trigger_id", trigger.ID,
+			"agent_id", trigger.AgentID,
+			"delivery_id", payload.DeliveryID,
+			"event_key", eventKey(payload.EventType, payload.EventAction),
+			"reason", "no @"+botHandle+" mention in body")
+		return nil
+	}
+
+	// The skip-ladder already guarantees a mention of this app's handle, so
+	// acknowledge the
 	// event with an eyes reaction before any delivery work — the human sees it
 	// was noticed instantly. Mention triggers match per-connection, so this
 	// fires once per event under the delivering connection's identity.
@@ -104,10 +132,17 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 	}
 	compiled := h.compileGitHubMentionMessage(ctx, payload, trigger, event)
 
-	// If this event is on a PR that a Hivy session opened, route the message
-	// into that same session so the conversation continues. Fall back to the
-	// trigger's own PR-scoped session only when no mapping is found.
-	if event.IsPR {
+	// If this event is on a PR that a Hivy build session opened, route the
+	// message into that same session so the conversation continues. Fall back to
+	// the trigger's own PR-scoped session only when no mapping is found.
+	//
+	// This originating-session override is PRIMARY-app only: a code-reviews
+	// mention must NEVER be hijacked into the build agent's session — it always
+	// creates/reuses its own resource-keyed review session (deliverCompiled
+	// below). We decide the app from payload.Provider, which is the delivering
+	// connection's provider and therefore this trigger's app (triggers are
+	// connection-bound: matchTriggers filters by connection_id).
+	if event.IsPR && isGitHubPrimary(payload.Provider) {
 		if session, ok := h.lookupPRSession(ctx, payload.OrgID, event.Repo, event.Number); ok {
 			if _, already := routed[session.ID]; already {
 				logging.FromContext(ctx).InfoContext(ctx, "github mention delivery skipped, event already auto-routed",
@@ -153,17 +188,6 @@ func (h *AgentTriggerDispatchHandler) lookupPRSession(ctx context.Context, orgID
 func isGitHubBotAuthor(login, userType string) bool {
 	return strings.HasSuffix(strings.ToLower(strings.TrimSpace(login)), "[bot]") ||
 		strings.EqualFold(strings.TrimSpace(userType), "Bot")
-}
-
-// githubTextMentionsHivy reports whether any @handle in the text belongs to
-// the Hivy GitHub App identity.
-func githubTextMentionsHivy(text string) bool {
-	for _, match := range githubHandlePattern.FindAllStringSubmatch(text, -1) {
-		if isHivyIdentityValue(match[1]) {
-			return true
-		}
-	}
-	return false
 }
 
 // githubMentionResourceKey follows the canonical resource templates from

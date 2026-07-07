@@ -17,6 +17,7 @@ type Manifest struct {
 	NangoProvider     string                 `json:"nango_provider,omitempty"`
 	UniqueKey         string                 `json:"unique_key"`
 	DisplayName       string                 `json:"display_name"`
+	BotHandle         string                 `json:"bot_handle,omitempty"`
 	Enabled           *bool                  `json:"enabled,omitempty"`
 	Required          bool                   `json:"required,omitempty"`
 	SupportsRAGSource bool                   `json:"supports_rag_source,omitempty"`

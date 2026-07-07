@@ -5,6 +5,7 @@
   "nango_provider": "github-app",
   "unique_key": "github-app",
   "display_name": "GitHub",
+  "bot_handle": "usehivy",
   "enabled": true,
   "required": false,
   "supports_rag_source": true,
