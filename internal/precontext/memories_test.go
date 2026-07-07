@@ -96,6 +96,10 @@ func TestMemoriesSectionFallsBackToObservations(t *testing.T) {
 		observations: []model.AgentObservation{
 			{ChannelID: &channelID, Kind: "decision", Content: "Chose Postgres over Mongo for the ledger.", ProofCount: 4},
 			{Kind: "org-fact", Content: "ACME is the largest customer."},
+			{ChannelID: &channelID, Kind: "decision", Content: "Production runs on Railway.", ProofCount: 3,
+				Metadata: model.JSON{"audit": []any{
+					map[string]any{"op": "update", "reason": "state change", "at": "2026-06-20T00:00:00Z", "previous_content": "Production hosting runs on Vercel."},
+				}}},
 		},
 	}
 	out := fetchRecall(t, source, recallRequest())
@@ -103,6 +107,10 @@ func TestMemoriesSectionFallsBackToObservations(t *testing.T) {
 	if !strings.Contains(out, "- [decision] Chose Postgres over Mongo for the ledger.") ||
 		!strings.Contains(out, "- [org-fact] ACME is the largest customer.") {
 		t.Fatalf("observation fallback lines missing: %q", out)
+	}
+	// Rewritten memories inject their evolution, clearly marked as history.
+	if !strings.Contains(out, `Production runs on Railway. (evolved — was "Production hosting runs on Vercel." until 2026-06-20)`) {
+		t.Fatalf("evolution note missing from injected observations: %q", out)
 	}
 	if len(source.obsLimits) != 1 || source.obsLimits[0] != fallbackObservationLimit {
 		t.Fatalf("observation fallback limits = %v, want [%d]", source.obsLimits, fallbackObservationLimit)

@@ -62,6 +62,12 @@ func observationToolResponse(obs model.AgentObservation, similarity *float64) ma
 	if similarity != nil {
 		out["similarity"] = *similarity
 	}
+	// Evolution history rides along automatically: superseded wordings with
+	// dates and reasons, newest first, so one search call yields the belief
+	// plus how it changed over time.
+	if history := ObservationHistory(obs, searchHistoryMaxEntries); len(history) > 0 {
+		out["history"] = history
+	}
 	return out
 }
 

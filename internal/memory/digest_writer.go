@@ -83,8 +83,11 @@ func RankObservationsForDigest(rows []model.AgentObservation, now time.Time) []m
 
 // RenderChannelDigest ranks observations, takes the top maxObservations, and
 // renders them as `- [kind] content` markdown bullets within budgetBytes
-// (whole lines only). Returns the rendered block and how many observations it
-// carries.
+// (whole lines only). Observations whose content was rewritten carry a
+// compact evolution note (their most recent superseded wordings with dates,
+// explicitly marked as former wordings) so agents see how a memory evolved
+// without any tool call. Returns the rendered block and how many observations
+// it carries.
 func RenderChannelDigest(rows []model.AgentObservation, now time.Time, maxObservations, budgetBytes int) (string, int) {
 	if maxObservations <= 0 {
 		maxObservations = DigestMaxObservations
@@ -103,7 +106,7 @@ func RenderChannelDigest(rows []model.AgentObservation, now time.Time, maxObserv
 		if content == "" {
 			continue
 		}
-		line := "- [" + obs.Kind + "] " + content
+		line := "- [" + obs.Kind + "] " + content + RenderObservationEvolution(obs, digestEvolutionMaxEntries)
 		extra := len(line)
 		if count > 0 {
 			extra++ // newline separator

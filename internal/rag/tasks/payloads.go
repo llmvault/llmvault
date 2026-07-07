@@ -12,6 +12,8 @@ type IngestPayload struct {
 	RAGSourceID   uuid.UUID  `json:"rag_source_id"`
 	FromBeginning bool       `json:"from_beginning,omitempty"`
 	AttemptID     *uuid.UUID `json:"attempt_id,omitempty"`
+	// Entities narrows the run to a subset of the source's scope (edit reconcile).
+	Entities []string `json:"entities,omitempty"`
 }
 
 type PrunePayload struct {

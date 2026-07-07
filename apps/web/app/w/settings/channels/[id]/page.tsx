@@ -23,6 +23,8 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { CHANNEL_CATEGORIES, channelMemorySettings } from "@/lib/api/memory"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
+import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
+import { KnowledgeSourcesTab } from "./_knowledge-sources-tab"
 
 type ChannelMember = {
   user_id?: string
@@ -31,7 +33,7 @@ type ChannelMember = {
   role?: string
 }
 
-type ChannelTab = "channel" | "members"
+type ChannelTab = "channel" | "members" | "knowledge" | "env"
 
 export default function ChannelDetailPage({
   params,
@@ -221,6 +223,16 @@ export default function ChannelDetailPage({
           label={members.length ? `Members ${members.length}` : "Members"}
           onClick={() => setTab("members")}
         />
+        <TabButton
+          active={tab === "knowledge"}
+          label="Knowledge sources"
+          onClick={() => setTab("knowledge")}
+        />
+        <TabButton
+          active={tab === "env"}
+          label="Environment variables"
+          onClick={() => setTab("env")}
+        />
       </nav>
 
       {tab === "channel" ? (
@@ -251,8 +263,12 @@ export default function ChannelDetailPage({
           onSave={handleSave}
           onDelete={() => setConfirmOpen(true)}
         />
-      ) : (
+      ) : tab === "members" ? (
         <MembersTab members={members} />
+      ) : tab === "knowledge" ? (
+        <KnowledgeSourcesTab channelId={id} />
+      ) : (
+        <ChannelEnvironmentVariablesPanel channelId={id} />
       )}
 
       <ConfirmDialog

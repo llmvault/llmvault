@@ -53,6 +53,10 @@ func (d *Deps) HandleIngest(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
+	if len(payload.Entities) > 0 {
+		scopeSourceConfigToEntities(src, payload.Entities)
+	}
+
 	conn, err := buildConnector(src, deps)
 	if err != nil {
 		if handled, handleErr := handleConnectorBuildError(ctx, deps.DB, src, err); handled {
@@ -103,6 +107,44 @@ func loadSource(ctx context.Context, db *gorm.DB, id uuid.UUID) (*ragmodel.RAGSo
 		return nil, fmt.Errorf("ingest: load source %s: %w", id, err)
 	}
 	return &src, nil
+}
+
+// scopeSourceConfigToEntities filters src's in-memory config (website urls or
+// scope.items) to the given entities. Never persisted.
+func scopeSourceConfigToEntities(src *ragmodel.RAGSource, entities []string) {
+	keep := make(map[string]struct{}, len(entities))
+	for _, e := range entities {
+		keep[e] = struct{}{}
+	}
+	cfg := src.ConfigValue
+	if cfg == nil {
+		return
+	}
+	if urls, ok := cfg["urls"].([]any); ok {
+		filtered := make([]any, 0, len(urls))
+		for _, v := range urls {
+			if s, ok := v.(string); ok {
+				if _, keepIt := keep[s]; keepIt {
+					filtered = append(filtered, v)
+				}
+			}
+		}
+		cfg["urls"] = filtered
+	}
+	if scope, ok := cfg["scope"].(map[string]any); ok {
+		if items, ok := scope["items"].([]any); ok {
+			filtered := make([]any, 0, len(items))
+			for _, it := range items {
+				m, _ := it.(map[string]any)
+				if id, _ := m["id"].(string); id != "" {
+					if _, keepIt := keep[id]; keepIt {
+						filtered = append(filtered, it)
+					}
+				}
+			}
+			scope["items"] = filtered
+		}
+	}
 }
 
 func buildConnector(src *ragmodel.RAGSource, deps *Deps) (interfaces.Connector, error) {

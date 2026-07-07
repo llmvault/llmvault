@@ -20,7 +20,6 @@ import {
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AccountMenu } from "./sidebar-account-menu"
-import { ChannelDetailsModal } from "./channel-details-modal"
 import { ChannelCreateModal } from "./channel-create-modal"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow, SectionLabel } from "./sidebar-nav"
@@ -28,10 +27,6 @@ import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream
 
 const SIDEBAR_CHANNEL_PAGE_LIMIT = 100
 const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
-type ChannelDetailsTarget = {
-  channel: SidebarChannelResponse
-  editName?: boolean
-}
 
 export const Sidebar = memo(function Sidebar({
   onCollapse,
@@ -48,8 +43,6 @@ export const Sidebar = memo(function Sidebar({
   const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
-  const [detailsTarget, setDetailsTarget] =
-    useState<ChannelDetailsTarget | null>(null)
   const [createChannelOpen, setCreateChannelOpen] = useState(false)
   const channelsQuery = $api.useInfiniteQuery(
     "get",
@@ -123,12 +116,8 @@ export const Sidebar = memo(function Sidebar({
     hydrateSessionListRuntime(latestSessions, queryClient)
   }, [latestSessions, queryClient])
 
-  function openRenameChannel(channel: SidebarChannelResponse) {
-    setDetailsTarget({ channel, editName: true })
-  }
-
-  function openChannelDetails(channel: SidebarChannelResponse) {
-    setDetailsTarget({ channel })
+  function openChannelSettings(channel: SidebarChannelResponse) {
+    if (channel.id) router.push(`/w/settings/channels/${channel.id}`)
   }
 
   function openCreatedChannel(channel: SidebarChannelResponse) {
@@ -236,11 +225,11 @@ export const Sidebar = memo(function Sidebar({
                 channel={channel}
                 agentsByID={agentsByID}
                 autoExpanded={index < 4}
-                onRenameChannel={openRenameChannel}
+                onRenameChannel={openChannelSettings}
                 onRenameSession={onRenameSession}
                 onShareSession={onShareSession}
                 onArchiveSession={onArchiveSession}
-                onShowChannelDetails={openChannelDetails}
+                onShowChannelDetails={openChannelSettings}
                 slugAmbiguous={
                   (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
                 }
@@ -269,14 +258,6 @@ export const Sidebar = memo(function Sidebar({
           <AccountMenu />
         </div>
       </div>
-      <ChannelDetailsModal
-        channel={detailsTarget?.channel ?? null}
-        initialNameEdit={Boolean(detailsTarget?.editName)}
-        open={Boolean(detailsTarget)}
-        onOpenChange={(next) => {
-          if (!next) setDetailsTarget(null)
-        }}
-      />
       <ChannelCreateModal
         open={createChannelOpen}
         onOpenChange={setCreateChannelOpen}

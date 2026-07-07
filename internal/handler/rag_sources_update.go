@@ -1,18 +1,24 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	ragdb "github.com/usehivy/hivy/internal/rag/db"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
+	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
 )
 
 type updateRAGSourceRequest struct {
@@ -62,6 +68,7 @@ func (h *RAGSourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load source"})
 		return
 	}
+	oldConfig := src.Config()
 
 	updates, status, msg := buildSourceUpdates(src, req)
 	if status != 0 {
@@ -103,7 +110,84 @@ func (h *RAGSourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Config != nil {
+		h.reconcileScopeChange(r.Context(), src, oldConfig)
+	}
+
 	writeJSON(w, http.StatusOK, toRAGSourceResponse(src))
+}
+
+// reconcileScopeChange prunes removed scope entities and ingests added ones.
+func (h *RAGSourceHandler) reconcileScopeChange(ctx context.Context, src *ragmodel.RAGSource, oldConfig json.RawMessage) {
+	oldEnts := configEntities(oldConfig)
+	newEnts := configEntities(src.Config())
+	removed := subtractStrings(oldEnts, newEnts)
+	added := subtractStrings(newEnts, oldEnts)
+
+	if len(removed) > 0 {
+		if task, err := ragtasks.NewPruneTask(ragtasks.PrunePayload{RAGSourceID: src.ID}); err == nil {
+			if _, err := h.enq.Enqueue(task, asynq.Unique(60*time.Second)); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+				logging.Capture(ctx, fmt.Errorf("reconcile: enqueue prune source=%s: %w", src.ID, err))
+			}
+		}
+	}
+	if len(added) > 0 {
+		payload := ragtasks.IngestPayload{RAGSourceID: src.ID, Entities: added, FromBeginning: true}
+		if task, err := ragtasks.NewIngestTask(payload); err == nil {
+			if _, err := h.enq.Enqueue(task, asynq.Unique(60*time.Second)); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+				logging.Capture(ctx, fmt.Errorf("reconcile: enqueue ingest source=%s: %w", src.ID, err))
+			}
+		}
+	}
+}
+
+func configEntities(raw json.RawMessage) []string {
+	var cfg struct {
+		URLs  []string `json:"urls"`
+		Scope *struct {
+			Items []struct {
+				ID string `json:"id"`
+			} `json:"items"`
+		} `json:"scope"`
+	}
+	_ = json.Unmarshal(raw, &cfg)
+
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	for _, u := range cfg.URLs {
+		add(u)
+	}
+	if cfg.Scope != nil {
+		for _, it := range cfg.Scope.Items {
+			add(it.ID)
+		}
+	}
+	return out
+}
+
+func subtractStrings(a, b []string) []string {
+	bset := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		bset[x] = struct{}{}
+	}
+	var out []string
+	for _, x := range a {
+		if _, ok := bset[x]; !ok {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 func buildSourceUpdates(src *ragmodel.RAGSource, req updateRAGSourceRequest) (map[string]any, int, string) {

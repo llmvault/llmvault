@@ -95,6 +95,13 @@ func TestSearchMemoriesObservationsLayer(t *testing.T) {
 		channelID: &fixture.channel.ID, content: "The team chose Railway over Fly for deploys.",
 		kind: "decision", entities: []string{"Railway"}, proofCount: 3, embedded: true,
 	})
+	// A recorded rewrite: search hits carry their evolution history along.
+	if err := db.Exec(`
+UPDATE agent_observations
+SET metadata = '{"audit":[{"op":"update","reason":"state change","at":"2026-06-20T00:00:00Z","previous_content":"The team deploys on Fly."}]}'::jsonb
+WHERE id = ?`, channelObs).Error; err != nil {
+		t.Fatalf("seed observation history: %v", err)
+	}
 	orgObs := seedObservation(t, db, fixture.org.ID, observationSeed{
 		content: "Org billing policy is Net 30.", kind: "org-fact", embedded: true,
 	})
@@ -126,12 +133,25 @@ func TestSearchMemoriesObservationsLayer(t *testing.T) {
 	}
 	for _, raw := range results["results"].([]any) {
 		item := raw.(map[string]any)
-		if item["id"] != channelObs.String() {
-			continue
-		}
-		if item["kind"] != "decision" || item["proof_count"].(float64) != 3 ||
-			item["last_mentioned_at"] == nil || item["entities"].([]any)[0] != "Railway" {
-			t.Fatalf("observation response shape mismatch: %#v", item)
+		switch item["id"] {
+		case channelObs.String():
+			if item["kind"] != "decision" || item["proof_count"].(float64) != 3 ||
+				item["last_mentioned_at"] == nil || item["entities"].([]any)[0] != "Railway" {
+				t.Fatalf("observation response shape mismatch: %#v", item)
+			}
+			history, _ := item["history"].([]any)
+			if len(history) != 1 {
+				t.Fatalf("rewritten observation history = %#v, want 1 entry", item["history"])
+			}
+			entry := history[0].(map[string]any)
+			if entry["previous_content"] != "The team deploys on Fly." ||
+				entry["at"] != "2026-06-20T00:00:00Z" || entry["reason"] != "state change" {
+				t.Fatalf("history entry = %#v, want the recorded rewrite", entry)
+			}
+		case orgObs.String():
+			if _, present := item["history"]; present {
+				t.Fatalf("never-rewritten observation must carry no history: %#v", item)
+			}
 		}
 	}
 }
