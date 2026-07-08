@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
@@ -22,7 +22,6 @@ import {
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AccountMenu } from "./sidebar-account-menu"
-import { ChannelCreateModal } from "./channel-create-modal"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
@@ -45,8 +44,6 @@ export const Sidebar = memo(function Sidebar({
   const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
-  const [createChannelOpen, setCreateChannelOpen] = useState(false)
-  const [createChannelTeamID, setCreateChannelTeamID] = useState("")
   const channelsQuery = $api.useInfiniteQuery(
     "get",
     "/v1/channels",
@@ -152,13 +149,8 @@ export const Sidebar = memo(function Sidebar({
     if (channel.id) router.push(`/w/settings/channels/${channel.id}`)
   }
 
-  function openCreatedChannel(channel: SidebarChannelResponse) {
-    router.push(`/w/channels/${channelRouteSlug(channel)}`)
-  }
-
   function openCreateChannelForTeam(teamID: string) {
-    setCreateChannelTeamID(teamID)
-    setCreateChannelOpen(true)
+    router.push(`/w/channels/new?team=${teamID}`)
   }
 
   function renderChannel(channel: SidebarChannelResponse, order: number) {
@@ -307,12 +299,6 @@ export const Sidebar = memo(function Sidebar({
           <AccountMenu />
         </div>
       </div>
-      <ChannelCreateModal
-        open={createChannelOpen}
-        teamId={createChannelTeamID}
-        onOpenChange={setCreateChannelOpen}
-        onCreated={openCreatedChannel}
-      />
     </div>
   )
 })

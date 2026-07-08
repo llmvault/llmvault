@@ -26,7 +26,7 @@ export function AuthLogo({ className }: { className?: string }) {
       }`}
     >
       <Image
-        src="/hivy-logo.svg"
+        src="/logo.png"
         alt="Hivy"
         width={1254}
         height={1254}

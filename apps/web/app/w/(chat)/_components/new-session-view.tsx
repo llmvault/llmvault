@@ -225,7 +225,7 @@ export function SessionView({
       <div className="h-48 shrink-0" />
       <div className="flex w-full flex-col gap-8">
         <div className="flex flex-col items-center gap-4 text-center">
-          <LogoMark className="h-12 w-12" />
+          <LogoMark className="h-16 w-16" />
           <div>
             <h1
               suppressHydrationWarning

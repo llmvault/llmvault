@@ -59,8 +59,8 @@ func (h *ChannelHandler) List(w http.ResponseWriter, r *http.Request) {
 		Where("org_id = ? AND archived_at IS NULL", org.ID)
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
 		q = q.Where(
-			"(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
-			"private", "external", visibleTeamSubquery(h.db, userID), memberChannelIDSubquery(h.db, userID))
+			"(channels.visibility <> ? AND (channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"private", visibleTeamSubquery(h.db, userID), memberChannelIDSubquery(h.db, userID))
 	}
 	q = applyPagination(q, cursor, limit)
 

@@ -114,8 +114,8 @@ func visibleSessionIDSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *
 		Select("sessions.id").
 		Joins("JOIN channels ON channels.id = sessions.channel_id AND channels.archived_at IS NULL").
 		Where("sessions.org_id = ?", orgID).
-		Where("(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
-			"private", "external", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
+		Where("(channels.visibility <> ? AND (channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"private", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
 }
 
 // usableRagSourceIDs returns the ids (as strings for the qdrant source filter)

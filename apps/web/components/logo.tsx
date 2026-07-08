@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils"
 export function LogoMark({ className = "h-6 w-6" }: { className?: string }) {
   return (
     <Image
-      src="/hivy-logo.png"
+      src="/logo.png"
       alt=""
       aria-hidden="true"
-      width={1024}
-      height={1024}
+      width={1254}
+      height={1254}
       unoptimized
       className={cn("block object-contain", className)}
     />

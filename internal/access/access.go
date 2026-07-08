@@ -152,14 +152,8 @@ func (a *Actor) CanUseChannel(ctx context.Context, db *gorm.DB, channel model.Ch
 }
 
 func (a *Actor) canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel) bool {
-	// A private channel is reachable only by its explicit members, regardless of
-	// origin/team. Mirrors handler.canUseChannel: gate before the origin/team
-	// openings so a private channel is never usable by a non-member org user.
 	if channel.Visibility == "private" {
 		return userIsChannelMember(ctx, db, channel.ID, a.UserID)
-	}
-	if channel.Origin == "external" {
-		return true
 	}
 	if channel.TeamID == nil {
 		return true

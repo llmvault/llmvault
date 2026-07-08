@@ -167,6 +167,26 @@ func TestIntegration_ChannelsListIsMembershipScoped(t *testing.T) {
 	if privateGet.Code != http.StatusForbidden {
 		t.Fatalf("non-member channel get status=%d body=%s", privateGet.Code, privateGet.Body.String())
 	}
+
+	extChannel := model.Channel{
+		OrgID:            fx.org.ID,
+		TeamID:           &privateTeam.ID,
+		Name:             "slack-qa",
+		Kind:             "standard",
+		Visibility:       "public",
+		Origin:           "external",
+		ExternalProvider: "slack",
+		DefaultAgentID:   fx.agent.ID,
+	}
+	if err := h.db.Create(&extChannel).Error; err != nil {
+		t.Fatalf("create external channel: %v", err)
+	}
+	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general", "engineering"})
+	extGet := h.doJSON(t, http.MethodGet, "/v1/channels/"+extChannel.ID.String(), fx, fx.member, nil)
+	if extGet.Code != http.StatusForbidden {
+		t.Fatalf("external non-member channel get status=%d body=%s", extGet.Code, extGet.Body.String())
+	}
+
 	if publicID == "" || engineeringID == "" {
 		t.Fatal("expected channels to be created")
 	}
