@@ -17,7 +17,10 @@ func TestIntegration_SessionsSendRejectsExternalChannelSession(t *testing.T) {
 	sourceKey := "slack:33c95935-9db7-4b14-aaab-681902ba5522:T0B57ABFZD5:C0B5KCLRSF7:1782596616.040029"
 	if err := h.db.Model(&model.Session{}).
 		Where("id = ?", session.ID).
-		Update("source_resource_key", sourceKey).Error; err != nil {
+		Updates(map[string]any{
+			"source_resource_key": sourceKey,
+			"created_by":          fx.bystander.ID,
+		}).Error; err != nil {
 		t.Fatalf("set source key: %v", err)
 	}
 

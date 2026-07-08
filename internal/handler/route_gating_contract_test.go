@@ -166,14 +166,14 @@ func TestRouteGating_ChannelCreateTeamMembership(t *testing.T) {
 	if got := create(memberCaller(fx), teamB); got != http.StatusForbidden {
 		t.Fatalf("member in other team: got %d want 403", got)
 	}
-	if got := create(memberCaller(fx), nil); got != http.StatusForbidden {
-		t.Fatalf("member team-less: got %d want 403", got)
+	if got := create(memberCaller(fx), nil); got != http.StatusBadRequest {
+		t.Fatalf("member team-less: got %d want 400", got)
 	}
 	if got := create(adminCaller(fx), teamB); got != http.StatusCreated {
 		t.Fatalf("admin in any team: got %d want 201", got)
 	}
-	if got := create(apiKeyCaller(), nil); got != http.StatusCreated {
-		t.Fatalf("api key team-less: got %d want 201", got)
+	if got := create(apiKeyCaller(), teamB); got != http.StatusCreated {
+		t.Fatalf("api key in any team: got %d want 201", got)
 	}
 }
 

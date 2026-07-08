@@ -27,6 +27,7 @@ func TestIntegration_ChannelsCreate_ExternalSlackResource(t *testing.T) {
 	conn := seedChannelConnection(t, h, fx, "slack", "slack-workspace-2")
 
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
+		"team_id":                fx.team.ID.String(),
 		"external_provider":      "slack",
 		"external_connection_id": conn.ID.String(),
 		"external_resource_key":  "CENG",

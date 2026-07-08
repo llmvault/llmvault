@@ -17,6 +17,7 @@ func TestIntegration_ChannelDeleteArchivesSessionsAndQueuesMemoryDeletion(t *tes
 	enq := &recordingEnqueuer{}
 	h := newChannelHarness(t, handler.WithChannelEnqueuer(enq))
 	fx := h.seed(t)
+	createChannelForTest(t, h, fx, fx.owner, "keep-"+uuid.NewString()[:8], "public")
 	channelID := createChannelForTest(t, h, fx, fx.owner, "ops-"+uuid.NewString()[:8], "public")
 	channelUUID := uuid.MustParse(channelID)
 
@@ -90,6 +91,7 @@ func TestIntegration_ChannelDeleteRejectsNonIdleSession(t *testing.T) {
 	enq := &recordingEnqueuer{}
 	h := newChannelHarness(t, handler.WithChannelEnqueuer(enq))
 	fx := h.seed(t)
+	createChannelForTest(t, h, fx, fx.owner, "keep-"+uuid.NewString()[:8], "public")
 	channelID := createChannelForTest(t, h, fx, fx.owner, "busy-"+uuid.NewString()[:8], "public")
 	channelUUID := uuid.MustParse(channelID)
 

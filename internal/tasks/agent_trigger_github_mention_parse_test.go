@@ -76,10 +76,11 @@ func githubIssueCommentPayload(repo, commenter, body string, isPR bool) map[stri
 		"repository": map[string]any{"full_name": repo},
 		"issue":      issue,
 		"comment": map[string]any{
-			"id":       float64(492700400),
-			"body":     body,
-			"html_url": "https://github.com/" + repo + "/issues/42#issuecomment-1",
-			"user":     map[string]any{"login": commenter, "type": commenterType},
+			"id":                 float64(492700400),
+			"body":               body,
+			"html_url":           "https://github.com/" + repo + "/issues/42#issuecomment-1",
+			"user":               map[string]any{"login": commenter, "type": commenterType},
+			"author_association": "MEMBER",
 		},
 		"sender": map[string]any{"login": commenter, "type": commenterType},
 	}

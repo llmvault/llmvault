@@ -70,6 +70,7 @@ func TestTriggerHandlerUpdateSlackReactionTrigger(t *testing.T) {
 	})
 	req := triggerRouteRequest(http.MethodPatch, "/v1/triggers/"+trigger.ID.String(), trigger.ID.String(), body)
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Update(rr, req)
@@ -108,6 +109,7 @@ func TestTriggerHandlerUpdateCanDisableTrigger(t *testing.T) {
 	body, _ := json.Marshal(map[string]any{"enabled": false})
 	req := triggerRouteRequest(http.MethodPatch, "/v1/triggers/"+trigger.ID.String(), trigger.ID.String(), body)
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db).Update(rr, req)

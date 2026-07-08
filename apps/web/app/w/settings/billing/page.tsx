@@ -1,9 +1,25 @@
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth/auth-context"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { YourPlanSection } from "./_components/your-plan-section"
 import { CreditsBalanceSection } from "./_components/credits-balance-section"
 import { CreditsUsageSection } from "./_components/credits-usage-section"
 import { CancelPlanSection } from "./_components/cancel-plan-section"
 
 export default function BillingSettingsPage() {
+  const router = useRouter()
+  const isAdmin = useIsAdmin()
+  const { isLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isLoading && !isAdmin) router.replace("/w/settings/teams")
+  }, [isLoading, isAdmin, router])
+
+  if (!isAdmin) return null
+
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2">

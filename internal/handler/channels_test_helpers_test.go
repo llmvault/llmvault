@@ -14,10 +14,16 @@ import (
 
 func createChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, user model.User, name, visibility string) string {
 	t.Helper()
+	return createChannelForTestInTeam(t, h, fx, user, name, visibility, fx.team.ID)
+}
+
+func createChannelForTestInTeam(t *testing.T, h *channelHarness, fx channelFixture, user model.User, name, visibility string, teamID uuid.UUID) string {
+	t.Helper()
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, user, map[string]any{
 		"name":             name,
 		"visibility":       visibility,
 		"category":         "general",
+		"team_id":          teamID.String(),
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if rr.Code != http.StatusCreated {
@@ -25,6 +31,13 @@ func createChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, us
 	}
 	out := decodeChannelCreate(t, rr)
 	return out.Channel.ID
+}
+
+func addChannelTeamMember(t *testing.T, h *channelHarness, fx channelFixture, user model.User, teamID uuid.UUID) {
+	t.Helper()
+	if err := h.db.Create(&model.TeamMember{OrgID: fx.org.ID, TeamID: teamID, UserID: user.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("add team member: %v", err)
+	}
 }
 
 func seedChannelConnection(t *testing.T, h *channelHarness, fx channelFixture, provider, nangoID string) model.Connection {

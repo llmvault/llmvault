@@ -17,6 +17,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 	base := map[string]any{
 		"name":             "#engineering",
 		"category":         "engineering",
+		"team_id":          fx.team.ID.String(),
 		"default_agent_id": fx.agent.ID.String(),
 	}
 
@@ -32,6 +33,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 
 	slack := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#engineering",
+		"team_id":                fx.team.ID.String(),
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "slack",
 		"external_connection_id": slackConn.ID.String(),
@@ -56,6 +58,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 
 	discord := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#engineering",
+		"team_id":                fx.team.ID.String(),
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "discord",
 		"external_connection_id": discordConn.ID.String(),
@@ -72,6 +75,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 
 	duplicateSlackName := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#engineering",
+		"team_id":                fx.team.ID.String(),
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "slack",
 		"external_connection_id": slackConn.ID.String(),
@@ -84,6 +88,7 @@ func TestIntegration_ChannelsCreate_AllowsSameNameAcrossSources(t *testing.T) {
 
 	duplicateSlackResource := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":                   "#platform",
+		"team_id":                fx.team.ID.String(),
 		"default_agent_id":       fx.agent.ID.String(),
 		"external_provider":      "slack",
 		"external_connection_id": slackConn.ID.String(),
@@ -109,6 +114,7 @@ func TestIntegration_ChannelsVisibilityAndJoin(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
 	publicID := createChannelForTest(t, h, fx, fx.owner, "ops", "public")
+	addChannelTeamMember(t, h, fx, fx.member, fx.team.ID)
 	team := seedChannelTeam(t, h, fx, "Leadership")
 	privateID := createTeamChannelForTest(t, h, fx, "leadership", team.ID)
 
@@ -137,12 +143,13 @@ func TestIntegration_ChannelsListIsMembershipScoped(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
 	publicID := createChannelForTest(t, h, fx, fx.owner, "general", "public")
+	addChannelTeamMember(t, h, fx, fx.member, fx.team.ID)
 	engineering := seedChannelTeam(t, h, fx, "Engineering")
 	engineeringID := createTeamChannelForTest(t, h, fx, "engineering", engineering.ID)
 	privateTeam := seedChannelTeam(t, h, fx, "Private")
 	privateID := createTeamChannelForTest(t, h, fx, "private-work", privateTeam.ID)
 
-	// A team-less public channel is visible to any org member.
+	// A member sees only channels of teams they belong to.
 	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general"})
 
 	// Joining a team reveals that team's channel.
@@ -256,4 +263,3 @@ func TestIntegration_ChannelsManagementGuardrails(t *testing.T) {
 		t.Fatalf("delete default status=%d body=%s", deleteDefault.Code, deleteDefault.Body.String())
 	}
 }
-

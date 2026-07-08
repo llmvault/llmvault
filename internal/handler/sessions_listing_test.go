@@ -34,22 +34,15 @@ func TestIntegration_ChannelSessionsIncludeAllSourcesForMembers(t *testing.T) {
 	memberSession := seedActivitySession(t, h, fx, fx.member.ID, nil, base.Add(time.Hour))
 	slackSession := seedSlackActivitySession(t, h, fx, base.Add(2*time.Hour))
 
-	// A member sees every session in the channel regardless of source or creator.
 	assertSessionListIDs(t, h.doJSON(t, http.MethodGet, "/v1/channels/"+fx.channel.ID.String()+"/sessions?sort=activity", fx, fx.bystander, nil), []string{slackSession.ID.String(), memberSession.ID.String()})
 
 	detail := h.doJSON(t, http.MethodGet, "/v1/sessions/"+slackSession.ID.String(), fx, fx.bystander, nil)
-	if detail.Code != http.StatusOK {
+	if detail.Code != http.StatusForbidden {
 		t.Fatalf("slack session detail status=%d body=%s", detail.Code, detail.Body.String())
 	}
 	events := h.doJSON(t, http.MethodGet, "/v1/sessions/"+slackSession.ID.String()+"/events", fx, fx.bystander, nil)
-	if events.Code != http.StatusOK {
+	if events.Code != http.StatusForbidden {
 		t.Fatalf("slack session events status=%d body=%s", events.Code, events.Body.String())
-	}
-	send := h.doJSON(t, http.MethodPost, "/v1/sessions/"+slackSession.ID.String()+"/messages", fx, fx.bystander, map[string]any{
-		"text": "web reply",
-	})
-	if send.Code != http.StatusConflict {
-		t.Fatalf("slack session send status=%d body=%s", send.Code, send.Body.String())
 	}
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type ComponentProps } from "react"
+import { useEffect, useMemo, useState, type ComponentProps } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -9,6 +9,7 @@ import { AppIcon } from "@/components/icon"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 import { ProviderIcon } from "./_provider-icon"
@@ -40,6 +41,7 @@ export default function KnowledgeSettingsPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const isAdmin = useIsAdmin()
+  const { isLoading: authLoading } = useAuth()
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
 
   const sourcesQuery = $api.useQuery(
@@ -47,15 +49,23 @@ export default function KnowledgeSettingsPage() {
     "/v1/rag/sources",
     { params: { query: { page_size: 100 } } },
     {
+      enabled: isAdmin,
       refetchInterval: (query) => {
         const rows = query.state.data?.data ?? []
         return rows.some((s) => deriveStatus(s) === "syncing") ? 5000 : false
       },
     }
   )
-  const connectionsQuery = $api.useQuery("get", "/v1/connections", {
-    params: { query: { limit: 100 } },
-  })
+  const connectionsQuery = $api.useQuery(
+    "get",
+    "/v1/connections",
+    { params: { query: { limit: 100 } } },
+    { enabled: isAdmin }
+  )
+
+  useEffect(() => {
+    if (!authLoading && !isAdmin) router.replace("/w/settings/teams")
+  }, [authLoading, isAdmin, router])
 
   const sources = sourcesQuery.data?.data ?? EMPTY_SOURCES
   const connections = connectionsQuery.data?.data ?? EMPTY_CONNECTIONS
@@ -97,6 +107,8 @@ export default function KnowledgeSettingsPage() {
       }
     )
   }
+
+  if (!isAdmin) return null
 
   return (
     <div className="flex flex-col gap-8">

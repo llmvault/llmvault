@@ -77,6 +77,7 @@ func TestIntegration_SessionsArchive_ExternalSessionByOrgMembersAndAdmin(t *test
 			OrgID:           fx.org.ID,
 			ChannelID:       channel.ID,
 			AgentID:         fx.agent.ID,
+			CreatedBy:       &fx.member.ID,
 			Model:           "deepseek-v4-flash",
 			ReasoningEffort: "high",
 			Source:          model.SessionSourceExternal,
@@ -90,14 +91,14 @@ func TestIntegration_SessionsArchive_ExternalSessionByOrgMembersAndAdmin(t *test
 		return s
 	}
 
-	// External channels are org-wide, so any org member can archive their sessions.
+	// The session's creator can archive their own external session.
 	s1 := newExternalSession()
 	memberRes := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s1.ID.String(), fx, fx.member, nil)
 	if memberRes.Code != http.StatusOK {
 		t.Fatalf("member archive status=%d body=%s", memberRes.Code, memberRes.Body.String())
 	}
 
-	// An org admin can archive too.
+	// An org admin can archive any session in the channel as oversight.
 	s2 := newExternalSession()
 	adminRes := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+s2.ID.String(), fx, fx.owner, nil)
 	if adminRes.Code != http.StatusOK {

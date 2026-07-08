@@ -43,11 +43,12 @@ func TestNangoWebhookSlackForwardSetsStatusAndEnqueuesMention(t *testing.T) {
 		"team_id":  "T123",
 		"event_id": "Ev123",
 		"event": map[string]any{
-			"type":    "app_mention",
-			"channel": "C123",
-			"user":    "U123",
-			"text":    "<@B123> ship it",
-			"ts":      "1710000000.123456",
+			"type":         "app_mention",
+			"channel":      "C123",
+			"channel_type": "channel",
+			"user":         "U123",
+			"text":         "<@B123> ship it",
+			"ts":           "1710000000.123456",
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/internal/webhooks/nango", bytes.NewReader(body))

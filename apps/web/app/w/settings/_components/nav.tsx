@@ -2,6 +2,7 @@ export interface SettingsNavItem {
   id: string
   label: string
   icon: string
+  adminOnly?: boolean
 }
 
 export interface SettingsNavSection {
@@ -13,9 +14,9 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
   {
     label: "Personal",
     items: [
-      { id: "general", label: "General", icon: "settings" },
+      { id: "general", label: "General", icon: "settings", adminOnly: true },
       { id: "appearance", label: "Appearance", icon: "sun" },
-      { id: "billing", label: "Usage & billing", icon: "gauge" },
+      { id: "billing", label: "Usage & billing", icon: "gauge", adminOnly: true },
       { id: "archived", label: "Archived chats", icon: "archive" },
     ],
   },
@@ -25,7 +26,7 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "teams", label: "Teams", icon: "users" },
       { id: "channels", label: "Channels", icon: "hash" },
       { id: "memories", label: "Memories", icon: "brain" },
-      { id: "knowledge", label: "Knowledge", icon: "folder-open" },
+      { id: "knowledge", label: "Knowledge", icon: "folder-open", adminOnly: true },
     ],
   },
   {

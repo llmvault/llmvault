@@ -56,10 +56,7 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		if !ok {
 			return false
 		}
-		// A native channel must always belong to a team; it can be moved between
-		// teams but never cleared to team-less. External channels stay as their
-		// connector created them.
-		if newTeamID == nil && channel.Origin != "external" {
+		if newTeamID == nil {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required"})
 			return false
 		}

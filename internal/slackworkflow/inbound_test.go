@@ -93,6 +93,7 @@ func slackEvent(eventID, eventType, ts, threadTS string) slackapp.InboundEvent {
 		EventID:       eventID,
 		EventType:     eventType,
 		ChannelID:     "C123",
+		ChannelType:   "channel",
 		UserID:        "U123",
 		CleanText:     "hello",
 		MessageTS:     ts,

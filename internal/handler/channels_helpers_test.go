@@ -26,6 +26,7 @@ type channelFixture struct {
 	owner  model.User
 	member model.User
 	agent  model.Agent
+	team   model.Team
 }
 
 type channelCreateOut struct {
@@ -108,8 +109,16 @@ func (h *channelHarness) seed(t *testing.T) channelFixture {
 	if err := h.db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+	team := model.Team{OrgID: org.ID, Name: "chan-team-" + uuid.NewString()[:8], CreatedBy: &owner.ID}
+	if err := h.db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	if err := h.db.Create(&model.TeamMember{OrgID: org.ID, TeamID: team.ID, UserID: owner.ID, Role: "owner"}).Error; err != nil {
+		t.Fatalf("create team member: %v", err)
+	}
 	t.Cleanup(func() {
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Connection{})
+		h.db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		h.db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
@@ -117,7 +126,7 @@ func (h *channelHarness) seed(t *testing.T) channelFixture {
 		h.db.Where("id IN ?", []uuid.UUID{owner.ID, member.ID}).Delete(&model.User{})
 		h.db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
-	return channelFixture{org: org, owner: owner, member: member, agent: agent}
+	return channelFixture{org: org, owner: owner, member: member, agent: agent, team: team}
 }
 
 func (h *channelHarness) seedUser(t *testing.T, orgID uuid.UUID, role string) model.User {

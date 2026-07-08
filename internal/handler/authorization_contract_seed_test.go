@@ -79,6 +79,10 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 	agentT1 := mkAgent(&t1.ID, "agentT1")
 	agentT1b := mkAgent(&t1.ID, "agentT1b")
 	agentT2 := mkAgent(&t2.ID, "agentT2")
+	hivyT1 := mkAgent(&t1.ID, "hivy")
+	hivyT1.IsDefault = true
+	hivyT2 := mkAgent(&t2.ID, "hivy")
+	hivyT2.IsDefault = true
 
 	chT1 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT1-" + uuid.NewString()[:8], Kind: "standard", TeamID: &t1.ID, DefaultAgentID: agentT1.ID}
 	chT2 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT2-" + uuid.NewString()[:8], Kind: "standard", TeamID: &t2.ID, DefaultAgentID: agentT2.ID}
@@ -101,7 +105,7 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 		&t1, &t2,
 		&model.TeamMember{OrgID: org.ID, TeamID: t1.ID, UserID: m1.ID, Role: "member"},
 		&model.TeamMember{OrgID: org.ID, TeamID: t2.ID, UserID: m2.ID, Role: "member"},
-		&agentT1, &agentT1b, &agentT2,
+		&agentT1, &agentT1b, &agentT2, &hivyT1, &hivyT2,
 		&chT1, &chT2, &chT1Priv,
 		&model.ChannelMember{ChannelID: chT1Priv.ID, UserID: m1.ID, Role: "member"},
 		&pluginGranted, &pluginUngranted,

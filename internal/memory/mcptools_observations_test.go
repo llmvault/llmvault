@@ -164,6 +164,7 @@ func TestManageMemoriesSearchObservations(t *testing.T) {
 	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
 	_, defaultToken := createManageAgent(t, db, fixture.org.ID, "Manage Observations", true)
 	client := connectMemoryToolClient(t, ctx, service, defaultToken)
+	actorID := createManageManager(t, db, fixture.org.ID)
 
 	channelObs := seedObservation(t, db, fixture.org.ID, observationSeed{
 		channelID: &fixture.channel.ID, content: "Channel-level convention: PRs need one approval.", kind: "convention", embedded: true,
@@ -172,7 +173,7 @@ func TestManageMemoriesSearchObservations(t *testing.T) {
 		content: "Org-wide: escalate outages within 15 minutes.", kind: "rule", embedded: true,
 	})
 
-	all := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "conventions and rules"})
+	all := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "conventions and rules", "_hivy_actor_user_id": actorID})
 	if all["layer"] != memoryLayerObservations {
 		t.Fatalf("manage search layer = %v, want %q", all["layer"], memoryLayerObservations)
 	}

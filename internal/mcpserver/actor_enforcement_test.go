@@ -27,21 +27,20 @@ func seedActorEnforcementFixture(t *testing.T, db *gorm.DB) actorEnforcementFixt
 	t.Helper()
 	base := seedChannelToolFixture(t, db)
 
-	team := model.Team{ID: uuid.New(), OrgID: base.org.ID, Name: "team-" + uuid.NewString()}
 	teamChannel := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          base.org.ID,
 		Name:           "private-" + uuid.NewString(),
 		DefaultAgentID: base.agent.ID,
 		Visibility:     "private",
-		TeamID:         &team.ID,
+		TeamID:         &base.team.ID,
 	}
 	member := model.User{ID: uuid.New(), Email: "member-" + uuid.NewString() + "@example.test", Name: "Member"}
 	admin := model.User{ID: uuid.New(), Email: "admin-" + uuid.NewString() + "@example.test", Name: "Admin"}
 	memberMembership := model.OrgMembership{UserID: member.ID, OrgID: base.org.ID, Role: "member"}
 	adminMembership := model.OrgMembership{UserID: admin.ID, OrgID: base.org.ID, Role: "admin"}
 
-	for _, row := range []any{&team, &teamChannel, &member, &admin, &memberMembership, &adminMembership} {
+	for _, row := range []any{&teamChannel, &member, &admin, &memberMembership, &adminMembership} {
 		if err := db.Create(row).Error; err != nil {
 			t.Fatalf("seed actor fixture row %T: %v", row, err)
 		}

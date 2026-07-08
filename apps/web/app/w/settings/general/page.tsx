@@ -8,12 +8,14 @@ import {
   useRef,
   useState,
 } from "react"
+import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
+import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin, useIsOwner } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 import { WorkspaceDangerZone } from "./workspace-danger-zone"
@@ -34,17 +36,17 @@ interface ProfileForm {
 }
 
 export default function GeneralSettingsPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
-  // Editing the workspace profile mutates org config (PATCH /v1/orgs/current,
-  // POST /v1/uploads/sign for the logo), which is admin-only on the backend.
-  // Non-admins can view the current settings but not change them; the
-  // backend enforces this too.
   const isAdmin = useIsAdmin()
-  // Transfer-ownership and delete-workspace are owner-only, org-wide actions —
-  // rendered in a separate danger-zone section below, independent of the
-  // admin-gated profile form above.
   const isOwner = useIsOwner()
-  const orgQuery = $api.useQuery("get", "/v1/orgs/current")
+  const { isLoading: authLoading } = useAuth()
+  const orgQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current",
+    {},
+    { enabled: isAdmin }
+  )
   const updateOrg = $api.useMutation("patch", "/v1/orgs/current")
   const signUpload = $api.useMutation("post", "/v1/uploads/sign")
 
@@ -67,6 +69,10 @@ export default function GeneralSettingsPage() {
   useEffect(() => {
     setForm(saved)
   }, [saved])
+
+  useEffect(() => {
+    if (!authLoading && !isAdmin) router.replace("/w/settings/teams")
+  }, [authLoading, isAdmin, router])
 
   const orgId = orgQuery.data?.id
   const nameError = form.name.trim().length === 0
@@ -192,6 +198,8 @@ export default function GeneralSettingsPage() {
       }
     )
   }
+
+  if (!isAdmin) return null
 
   return (
     <div className="flex flex-col gap-8">

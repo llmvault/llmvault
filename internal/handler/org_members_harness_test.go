@@ -74,7 +74,7 @@ func (h *orgMemberHarness) do(t *testing.T, method, path string, body any, org *
 func (h *orgMemberHarness) roleOf(t *testing.T, orgID, userID uuid.UUID) string {
 	t.Helper()
 	var m model.OrgMembership
-	if err := h.db.Where("org_id = ? AND user_id = ?", orgID, userID).First(&m).Error; err != nil {
+	if err := h.db.Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, userID).First(&m).Error; err != nil {
 		return ""
 	}
 	return m.Role

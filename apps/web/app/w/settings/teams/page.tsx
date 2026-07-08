@@ -27,8 +27,7 @@ export default function TeamsSettingsPage() {
   const teamsQuery = $api.useQuery(
     "get",
     "/v1/orgs/current/teams",
-    { params: { query: { limit: 100 } } },
-    { enabled: isAdmin }
+    { params: { query: { limit: 100 } } }
   )
   const membersQuery = $api.useQuery("get", "/v1/orgs/current/members")
   const invitesQuery = $api.useQuery(
@@ -84,44 +83,34 @@ export default function TeamsSettingsPage() {
         ) : null}
       </div>
 
-      {isAdmin ? (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-sm font-medium">
-              Teams{teams.length ? ` (${teams.length})` : ""}
-            </h2>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-            {teamsQuery.isLoading ? (
-              <RowSkeleton />
-            ) : teams.length === 0 ? (
-              <EmptyRow text="Create a team to group members and private channels." />
-            ) : (
-              teams.map((team, index) => (
-                <TeamRow
-                  key={team.id ?? index}
-                  team={team}
-                  last={index === teams.length - 1}
-                />
-              ))
-            )}
-          </div>
-        </section>
-      ) : (
-        <section className="rounded-2xl border border-border bg-surface px-4 py-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default text-muted">
-              <AppIcon icon="users-round" className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-medium">Team management</h2>
-              <p className="mt-1 text-sm leading-5 text-muted">
-                Workspace admins manage teams and private channel access.
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-sm font-medium">
+            Teams{teams.length ? ` (${teams.length})` : ""}
+          </h2>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          {teamsQuery.isLoading ? (
+            <RowSkeleton />
+          ) : teams.length === 0 ? (
+            <EmptyRow
+              text={
+                isAdmin
+                  ? "Create a team to group members and private channels."
+                  : "You're not a member of any teams yet."
+              }
+            />
+          ) : (
+            teams.map((team, index) => (
+              <TeamRow
+                key={team.id ?? index}
+                team={team}
+                last={index === teams.length - 1}
+              />
+            ))
+          )}
+        </div>
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">

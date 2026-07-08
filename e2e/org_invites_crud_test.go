@@ -19,7 +19,7 @@ func TestOrgInviteHappyPath(t *testing.T) {
 	inviteEmail := fmt.Sprintf("invitee-%s@test.local", randomSuffix())
 
 	rr := ih.do(t, http.MethodPost, "/v1/orgs/current/invites",
-		fmt.Sprintf(`{"email":%q,"role":"viewer"}`, inviteEmail), adminTok)
+		fmt.Sprintf(`{"email":%q,"role":"member"}`, inviteEmail), adminTok)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create invite: got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -27,7 +27,7 @@ func TestOrgInviteHappyPath(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&created); err != nil {
 		t.Fatalf("decode create: %v", err)
 	}
-	if created.Email != inviteEmail || created.Role != "viewer" {
+	if created.Email != inviteEmail || created.Role != "member" {
 		t.Fatalf("unexpected invite: %+v", created)
 	}
 

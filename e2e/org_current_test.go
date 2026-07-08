@@ -103,8 +103,19 @@ func TestOrgCreateDuplicateName(t *testing.T) {
 	})
 
 	rr2 := oh.orgRequest(t, http.MethodPost, "/v1/orgs", body, tok)
-	if rr2.Code != http.StatusInternalServerError {
-		t.Errorf("duplicate name: expected 500, got %d: %s", rr2.Code, rr2.Body.String())
+	if rr2.Code != http.StatusCreated {
+		t.Fatalf("duplicate name: expected 201, got %d: %s", rr2.Code, rr2.Body.String())
+	}
+	var org2 struct{ ID string }
+	_ = json.NewDecoder(rr2.Body).Decode(&org2)
+
+	t.Cleanup(func() {
+		oh.db.Where("org_id = ?", org2.ID).Delete(&model.OrgMembership{})
+		oh.db.Where("id = ?", org2.ID).Delete(&model.Org{})
+	})
+
+	if org2.ID == org1.ID {
+		t.Error("duplicate-name orgs should have distinct IDs")
 	}
 }
 

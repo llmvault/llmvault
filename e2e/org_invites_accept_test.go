@@ -30,7 +30,7 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 	}
 
 	rr := ih.do(t, http.MethodPost, "/v1/orgs/current/invites",
-		fmt.Sprintf(`{"email":%q,"role":"viewer","team_ids":[%q]}`, inviteeEmail, team.ID.String()), adminTok)
+		fmt.Sprintf(`{"email":%q,"role":"member","team_ids":[%q]}`, inviteeEmail, team.ID.String()), adminTok)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create invite: got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -48,7 +48,7 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 		ID:          uuid.New(),
 		OrgID:       orgID,
 		Email:       inviteeEmail,
-		Role:        "viewer",
+		Role:        "member",
 		TokenHash:   hash,
 		InvitedByID: adminID,
 		ExpiresAt:   time.Now().Add(6 * 24 * time.Hour),
@@ -67,7 +67,7 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 	}
 	var prev invitePreviewDTO
 	_ = json.NewDecoder(rr.Body).Decode(&prev)
-	if prev.Email != inviteeEmail || prev.Role != "viewer" {
+	if prev.Email != inviteeEmail || prev.Role != "member" {
 		t.Fatalf("bad preview: %+v", prev)
 	}
 
@@ -88,7 +88,7 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 	if err := ih.db.Where("user_id = ? AND org_id = ?", inviteeID, orgID).First(&m).Error; err != nil {
 		t.Fatalf("membership not created: %v", err)
 	}
-	if m.Role != "viewer" {
+	if m.Role != "member" {
 		t.Fatalf("membership role: got %s", m.Role)
 	}
 	var tm model.TeamMember

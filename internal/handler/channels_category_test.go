@@ -56,6 +56,7 @@ func TestIntegration_ChannelsCreate_CategorySeedsMissionTemplate(t *testing.T) {
 	create := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":             "support-queue",
 		"category":         "customer-support",
+		"team_id":          fx.team.ID.String(),
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if create.Code != http.StatusCreated {
@@ -85,6 +86,7 @@ func TestIntegration_ChannelsCreate_ExplicitMissionOverridesTemplate(t *testing.
 		"name":             "acme-support",
 		"category":         "customer-support",
 		"memory_mission":   "Only retain ACME escalation rules.",
+		"team_id":          fx.team.ID.String(),
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if create.Code != http.StatusCreated {
@@ -103,6 +105,7 @@ func TestIntegration_ChannelsCreate_GeneralHasNoMission(t *testing.T) {
 	create := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":             "watercooler",
 		"category":         "general",
+		"team_id":          fx.team.ID.String(),
 		"default_agent_id": fx.agent.ID.String(),
 	})
 	if create.Code != http.StatusCreated {

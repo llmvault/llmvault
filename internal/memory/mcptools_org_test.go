@@ -26,6 +26,19 @@ func createManageAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, 
 	return agent, token
 }
 
+func createManageManager(t *testing.T, db *gorm.DB, orgID uuid.UUID) string {
+	t.Helper()
+	admin := model.User{ID: uuid.New(), Email: "manage-mgr-" + uuid.NewString() + "@example.com", Name: "Manage Manager"}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create manager: %v", err)
+	}
+	if err := db.Create(&model.OrgMembership{OrgID: orgID, UserID: admin.ID, Role: "admin"}).Error; err != nil {
+		t.Fatalf("create manager membership: %v", err)
+	}
+	t.Cleanup(func() { db.Delete(&model.User{}, "id = ?", admin.ID) })
+	return admin.ID.String()
+}
+
 func createManageChannel(t *testing.T, db *gorm.DB, orgID, defaultAgentID uuid.UUID, name string) model.Channel {
 	t.Helper()
 	channel := model.Channel{ID: uuid.New(), OrgID: orgID, Name: name + " " + uuid.NewString(), DefaultAgentID: defaultAgentID, ExposeOrgMemories: true}
@@ -94,10 +107,11 @@ func TestManageMemoriesSearchAndOverview(t *testing.T) {
 	seedReadyMemoryTagged(t, service, otherOrg.ID, nil, "Foreign org memory must never leak.", []string{"billing"})
 
 	client := connectMemoryToolClient(t, ctx, service, defaultToken)
+	actorID := createManageManager(t, db, fixture.org.ID)
 
 	// include_facts pins the legacy facts layer; the default observations layer
 	// has its own coverage in mcptools_observations_test.go.
-	all := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "service inventory", "include_facts": true})
+	all := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "service inventory", "include_facts": true, "_hivy_actor_user_id": actorID})
 	if all["layer"] != memoryLayerFacts {
 		t.Fatalf("include_facts manage search layer = %v, want %q", all["layer"], memoryLayerFacts)
 	}
@@ -117,38 +131,40 @@ func TestManageMemoriesSearchAndOverview(t *testing.T) {
 		t.Fatalf("channel A result mismatch: %#v", a)
 	}
 
-	filtered := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "deploy target", "channel_id": channelB.ID.String(), "include_facts": true})
+	filtered := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "deploy target", "channel_id": channelB.ID.String(), "include_facts": true, "_hivy_actor_user_id": actorID})
 	fids := resultIDSet(filtered)
 	if len(fids) != 1 || !fids[channelBID.String()] {
 		t.Fatalf("channel_id filter = %#v, want only channel B's memory", filtered)
 	}
 
-	orgOnly := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "billing policy", "channel_id": "org", "include_facts": true})
+	orgOnly := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "billing policy", "channel_id": "org", "include_facts": true, "_hivy_actor_user_id": actorID})
 	oids := resultIDSet(orgOnly)
 	if len(oids) != 1 || !oids[orgWideID.String()] {
 		t.Fatalf("channel_id=org filter = %#v, want only org-wide memory", orgOnly)
 	}
 
-	tagged := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "railway deploys", "tags": []string{"railway"}, "include_facts": true})
+	tagged := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "search", "query": "railway deploys", "tags": []string{"railway"}, "include_facts": true, "_hivy_actor_user_id": actorID})
 	tids := resultIDSet(tagged)
 	if len(tids) != 1 || !tids[channelBID.String()] {
 		t.Fatalf("tags filter = %#v, want only channel B's memory", tagged)
 	}
 
-	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "search"}, "query is required")
-	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "prune"}, "action must be search or overview")
+	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "search", "_hivy_actor_user_id": actorID}, "query is required")
+	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{"action": "prune", "_hivy_actor_user_id": actorID}, "action must be search or overview")
 
 	// The write actions were removed: memory is read-only to agents.
 	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{
-		"action":  "retain",
-		"content": "Agents may no longer store memories.",
+		"action":              "retain",
+		"content":             "Agents may no longer store memories.",
+		"_hivy_actor_user_id": actorID,
 	}, "action must be search or overview")
 	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{
-		"action":    "forget",
-		"memory_id": orgWideID.String(),
+		"action":              "forget",
+		"memory_id":           orgWideID.String(),
+		"_hivy_actor_user_id": actorID,
 	}, "action must be search or overview")
 
-	overview := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "overview"})
+	overview := callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "overview", "_hivy_actor_user_id": actorID})
 	if overview["total"].(float64) != 3 || overview["org_wide_count"].(float64) != 1 {
 		t.Fatalf("overview counts mismatch: %#v", overview)
 	}

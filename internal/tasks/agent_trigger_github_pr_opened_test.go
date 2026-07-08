@@ -24,11 +24,12 @@ func githubPROpenedPayload(repo, author, body string) map[string]any {
 		"number":     float64(42),
 		"repository": map[string]any{"full_name": repo},
 		"pull_request": map[string]any{
-			"number":   float64(42),
-			"title":    "Add rate limiting to the login endpoint",
-			"html_url": "https://github.com/" + repo + "/pull/42",
-			"user":     map[string]any{"login": author, "type": authorType},
-			"body":     body,
+			"number":             float64(42),
+			"title":              "Add rate limiting to the login endpoint",
+			"html_url":           "https://github.com/" + repo + "/pull/42",
+			"user":               map[string]any{"login": author, "type": authorType},
+			"body":               body,
+			"author_association": "MEMBER",
 		},
 		"sender": map[string]any{"login": author, "type": authorType},
 	}

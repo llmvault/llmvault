@@ -17,7 +17,7 @@ func TestOrgInviteErrorCases(t *testing.T) {
 	adminID, orgID := ih.createUserAndOrg(t, "admin", fmt.Sprintf("admin-%s@test.local", randomSuffix()), "admin")
 	adminTok := ih.issueToken(t, adminID.String(), orgID.String(), "admin")
 
-	rr := ih.do(t, http.MethodPost, "/v1/orgs/current/invites", `{"email":"not-an-email","role":"viewer"}`, adminTok)
+	rr := ih.do(t, http.MethodPost, "/v1/orgs/current/invites", `{"email":"not-an-email","role":"member"}`, adminTok)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("invalid email: expected 400, got %d", rr.Code)
 	}
@@ -34,7 +34,7 @@ func TestOrgInviteErrorCases(t *testing.T) {
 		t.Fatalf("create viewer membership: %v", err)
 	}
 	viewerTok := ih.issueToken(t, viewerID.String(), orgID.String(), "viewer")
-	rr = ih.do(t, http.MethodPost, "/v1/orgs/current/invites", `{"email":"someone@test.local","role":"viewer"}`, viewerTok)
+	rr = ih.do(t, http.MethodPost, "/v1/orgs/current/invites", `{"email":"someone@test.local","role":"member"}`, viewerTok)
 	if rr.Code != http.StatusForbidden {
 		t.Errorf("non-admin invite: expected 403, got %d", rr.Code)
 	}
@@ -49,19 +49,19 @@ func TestOrgInviteErrorCases(t *testing.T) {
 		t.Fatalf("create existing membership: %v", err)
 	}
 	rr = ih.do(t, http.MethodPost, "/v1/orgs/current/invites",
-		fmt.Sprintf(`{"email":%q,"role":"viewer"}`, existingEmail), adminTok)
+		fmt.Sprintf(`{"email":%q,"role":"member"}`, existingEmail), adminTok)
 	if rr.Code != http.StatusConflict {
 		t.Errorf("invite existing member: expected 409, got %d: %s", rr.Code, rr.Body.String())
 	}
 
 	dupEmail := fmt.Sprintf("dup-%s@test.local", randomSuffix())
 	rr = ih.do(t, http.MethodPost, "/v1/orgs/current/invites",
-		fmt.Sprintf(`{"email":%q,"role":"viewer"}`, dupEmail), adminTok)
+		fmt.Sprintf(`{"email":%q,"role":"member"}`, dupEmail), adminTok)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("first invite: got %d", rr.Code)
 	}
 	rr = ih.do(t, http.MethodPost, "/v1/orgs/current/invites",
-		fmt.Sprintf(`{"email":%q,"role":"viewer"}`, dupEmail), adminTok)
+		fmt.Sprintf(`{"email":%q,"role":"member"}`, dupEmail), adminTok)
 	if rr.Code != http.StatusConflict {
 		t.Errorf("duplicate invite: expected 409, got %d", rr.Code)
 	}

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import { AuthProvider } from "@/lib/auth/auth-context"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { NAV_SECTIONS, settingsHref } from "./_components/nav"
 
 export default function SettingsLayout({
@@ -22,12 +23,15 @@ export default function SettingsLayout({
 
 function SettingsChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const isAdmin = useIsAdmin()
   const [query, setQuery] = useState("")
 
   const sections = NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) =>
-      item.label.toLowerCase().includes(query.trim().toLowerCase())
+    items: section.items.filter(
+      (item) =>
+        (!item.adminOnly || isAdmin) &&
+        item.label.toLowerCase().includes(query.trim().toLowerCase())
     ),
   })).filter((section) => section.items.length > 0)
 

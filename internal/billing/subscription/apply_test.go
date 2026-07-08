@@ -29,6 +29,7 @@ func TestService_ApplyChange_UpgradeAppliesAndGrantsCredits(t *testing.T) {
 		Reference:          "ref_apply_pro",
 		ExternalCustomerID: "CUS_test",
 		PaidAt:             &h.now,
+		Metadata:           map[string]string{"org_id": h.orgID.String()},
 		PaymentMethod: billing.PaymentMethod{
 			AuthorizationCode: "AUTH_new",
 			Channel:           billing.ChannelCard,
@@ -83,6 +84,7 @@ func TestService_ApplyChange_AmountMismatchRejected(t *testing.T) {
 		PaidAmountMinor: quote.AmountMinor - 1,
 		Currency:        quote.Currency,
 		Reference:       "ref_short",
+		Metadata:        map[string]string{"org_id": h.orgID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
 	}
 
@@ -113,6 +115,7 @@ func TestService_ApplyChange_UnsupportedChannelRejected(t *testing.T) {
 		PaidAmountMinor: quote.AmountMinor,
 		Currency:        quote.Currency,
 		Reference:       "ref_ussd",
+		Metadata:        map[string]string{"org_id": h.orgID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.PaymentChannel("ussd"), AuthorizationCode: "AUTH"},
 	}
 
@@ -144,6 +147,7 @@ func TestService_ApplyChange_IdempotentReplay(t *testing.T) {
 		PaidAmountMinor: quote.AmountMinor,
 		Currency:        quote.Currency,
 		Reference:       "ref_idempotent",
+		Metadata:        map[string]string{"org_id": h.orgID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
 	}
 

@@ -69,19 +69,10 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// A native channel must belong to a team: a team-less channel would be
-	// org-wide-visible and unowned. External channels are scoped by their
-	// integration connector and are created team-less by that system path, not
-	// this endpoint.
-	if teamID == nil && source.Origin != "external" {
+	if teamID == nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required"})
 		return
 	}
-	// Creating a channel is a manage-the-target-team action: the caller must be
-	// an active member of the target team, or an org admin/owner (API keys are
-	// unrestricted). This gate runs before default-agent resolution so an
-	// unauthorized caller gets 403 rather than leaking payload-validation (422)
-	// details about another team.
 	if !h.canCreateChannelInTeam(ctx, org.ID, teamID) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the target team to create a channel in it"})
 		return

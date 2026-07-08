@@ -132,9 +132,10 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
 	token := &model.Token{OrgID: org.ID}
+	ownerID := seedActor(t, db, org.ID, "owner")
 
 	// Create the org plugin group.
-	res, err := handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Engineering", Description: "Engineering skills"})
+	res, err := handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Engineering", Description: "Engineering skills", HivyActorUserID: ownerID})
 	if err != nil {
 		t.Fatalf("create org plugin: %v", err)
 	}
@@ -150,7 +151,7 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	}
 
 	// Duplicate name must be rejected.
-	res, _ = handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Engineering"})
+	res, _ = handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Engineering", HivyActorUserID: ownerID})
 	if res == nil || !res.IsError {
 		t.Fatal("duplicate org plugin slug must be rejected")
 	}
@@ -167,7 +168,7 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Where("id = ?", globalPlugin.ID).Delete(&model.Plugin{}) })
 	res, _ = handleCreateSkill(ctx, db, token, "http://localhost:3000", createSkillArgs{
-		PluginSlug: globalPlugin.Slug, Name: "X", Description: "Use when testing.", Content: "# X",
+		PluginSlug: globalPlugin.Slug, Name: "X", Description: "Use when testing.", Content: "# X", HivyActorUserID: ownerID,
 	})
 	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "global catalog plugin") {
 		t.Fatalf("create_skill against a global plugin must be rejected, got: %s", toolResultText(res))
@@ -182,6 +183,7 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 		Files:                        map[string]string{"scripts/check.sh": "#!/bin/bash\necho ok\n"},
 		RequiredEnvironmentVariables: []string{"HIVY_ORG_DEPLOY_TOKEN"},
 		Tags:                         []string{"deploy", "deploy", " "},
+		HivyActorUserID:              ownerID,
 	})
 	if err != nil {
 		t.Fatalf("create skill: %v", err)
@@ -208,15 +210,15 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 
 	// The skill resolves through the normal plugin-install entitlement chain.
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &org.ID,
-		Name:            "manage-test-agent",
-		SandboxSize:     model.DefaultAgentSandboxSize,
-		Model:           "test-model",
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
+		ID:          uuid.New(),
+		OrgID:       &org.ID,
+		Name:        "manage-test-agent",
+		SandboxSize: model.DefaultAgentSandboxSize,
+		Model:       "test-model",
+		Status:      "active",
+		Tools:       model.JSON{},
+		McpServers:  model.RawJSON("[]"),
+		Skills:      model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -236,10 +238,11 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	// Update patches content and replaces files.
 	newContent := "# Deploy v2\nRun the new script."
 	res, err = handleUpdateSkill(ctx, db, token, "http://localhost:3000", updateSkillArgs{
-		PluginSlug: pluginSlug,
-		Skill:      "deploy-checklist",
-		Content:    &newContent,
-		Files:      &map[string]string{"scripts/verify.sh": "echo verify\n"},
+		PluginSlug:      pluginSlug,
+		Skill:           "deploy-checklist",
+		Content:         &newContent,
+		Files:           &map[string]string{"scripts/verify.sh": "echo verify\n"},
+		HivyActorUserID: ownerID,
 	})
 	if err != nil {
 		t.Fatalf("update skill: %v", err)
@@ -263,11 +266,11 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	}
 
 	// Archive requires user approval.
-	res, _ = handleArchiveSkill(ctx, db, token, archiveSkillArgs{PluginSlug: pluginSlug, Skill: "deploy-checklist"})
+	res, _ = handleArchiveSkill(ctx, db, token, archiveSkillArgs{PluginSlug: pluginSlug, Skill: "deploy-checklist", HivyActorUserID: ownerID})
 	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "user_approved") {
 		t.Fatalf("archive without approval must instruct the approval flow, got: %s", toolResultText(res))
 	}
-	res, err = handleArchiveSkill(ctx, db, token, archiveSkillArgs{PluginSlug: pluginSlug, Skill: "deploy-checklist", UserApproved: true})
+	res, err = handleArchiveSkill(ctx, db, token, archiveSkillArgs{PluginSlug: pluginSlug, Skill: "deploy-checklist", UserApproved: true, HivyActorUserID: ownerID})
 	if err != nil {
 		t.Fatalf("archive skill: %v", err)
 	}

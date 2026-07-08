@@ -77,7 +77,7 @@ export function WorkspaceDangerZone() {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <div className="flex flex-col gap-8">
       <div>
         <h2 className="text-sm font-medium text-danger">Danger zone</h2>
         <p className="mt-1 text-sm text-muted">
@@ -85,53 +85,55 @@ export function WorkspaceDangerZone() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 rounded-2xl border border-danger/30 bg-surface p-4">
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold text-foreground">
+            Transfer ownership
+          </h2>
+          <p className="text-muted-foreground text-sm leading-5">
+            Hand this workspace to another member. They become the owner and you
+            become an admin.
+          </p>
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <span className="text-sm font-medium">Transfer ownership</span>
-            <Select
-              aria-label="Transfer ownership to"
-              selectedKey={transferTargetId || null}
-              onSelectionChange={(key) =>
-                setTransferTargetId(key === null ? "" : String(key))
-              }
-              isDisabled={
-                transferOwnership.isPending || candidates.length === 0
-              }
-              className="w-full"
-            >
-              <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
-                {transferTarget ? (
-                  <span className="truncate">
-                    {memberLabel(transferTarget)}
-                  </span>
-                ) : (
-                  <Select.Value />
-                )}
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover className="p-1.5">
-                <ListBox>
-                  {candidates.map((member) => (
-                    <ListBox.Item
-                      key={member.user_id}
-                      id={member.user_id}
-                      textValue={memberLabel(member)}
-                    >
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-sm">
-                          {memberLabel(member)}
-                        </span>
-                        <span className="truncate text-xs text-muted">
-                          {member.email}
-                        </span>
+          <Select
+            aria-label="Transfer ownership to"
+            selectedKey={transferTargetId || null}
+            onSelectionChange={(key) =>
+              setTransferTargetId(key === null ? "" : String(key))
+            }
+            isDisabled={transferOwnership.isPending || candidates.length === 0}
+            className="w-full min-w-0 sm:flex-1"
+          >
+            <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
+              {transferTarget ? (
+                <span className="truncate">{memberLabel(transferTarget)}</span>
+              ) : (
+                <Select.Value />
+              )}
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover className="p-1.5">
+              <ListBox>
+                {candidates.map((member) => (
+                  <ListBox.Item
+                    key={member.user_id}
+                    id={member.user_id}
+                    textValue={memberLabel(member)}
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm">
+                        {memberLabel(member)}
                       </span>
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </label>
+                      <span className="truncate text-xs text-muted">
+                        {member.email}
+                      </span>
+                    </span>
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
           <Button
             variant="danger-soft"
             size="sm"
@@ -144,24 +146,24 @@ export function WorkspaceDangerZone() {
             Transfer
           </Button>
         </div>
+      </section>
 
-        <div className="flex items-center justify-between gap-4 border-t border-danger/20 pt-4">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">Delete workspace</p>
-            <p className="text-sm text-muted">
-              Permanently deletes this workspace and all of its data. This
-              cannot be undone.
-            </p>
-          </div>
-          <Button
-            variant="danger-soft"
-            size="sm"
-            className="shrink-0"
-            onPress={() => setDeleteOpen(true)}
-          >
-            Delete workspace
-          </Button>
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-danger/30 bg-surface p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Delete workspace</p>
+          <p className="text-sm text-muted">
+            Permanently deletes this workspace and all of its data. This cannot
+            be undone.
+          </p>
         </div>
+        <Button
+          variant="danger-soft"
+          size="sm"
+          className="shrink-0"
+          onPress={() => setDeleteOpen(true)}
+        >
+          Delete workspace
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -189,6 +191,6 @@ export function WorkspaceDangerZone() {
         onOpenChange={setDeleteOpen}
         onConfirm={handleDelete}
       />
-    </section>
+    </div>
   )
 }

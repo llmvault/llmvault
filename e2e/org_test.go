@@ -81,7 +81,7 @@ func newOrgHarness(t *testing.T) *orgHarness {
 func (oh *orgHarness) registerUser(t *testing.T, email, password, name string) authResponseDTO {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"email":%q,"password":%q,"name":%q}`, email, password, name)
+	body := fmt.Sprintf(`{"email":%q,"password":%q,"name":%q,"team_name":%q}`, email, password, name, name+" Team")
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
