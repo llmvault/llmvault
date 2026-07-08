@@ -26,6 +26,3 @@ ALTER TABLE ONLY public.audit_log
 CREATE INDEX idx_audit_credential ON public.audit_log USING btree (credential_id);
 
 CREATE INDEX idx_audit_org_created ON public.audit_log USING btree (org_id, created_at);
-
--- +goose Down
-DROP TABLE IF EXISTS public.audit_log CASCADE;

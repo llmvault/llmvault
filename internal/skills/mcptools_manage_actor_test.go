@@ -29,7 +29,7 @@ func seedActor(t *testing.T, db *gorm.DB, orgID uuid.UUID, role string) string {
 
 // The skill-manager tools are authorized on the invoking human's org role, not
 // merely on the calling agent's capability flag: a member is denied, an org
-// manager is allowed, and an absent actor (automated run) is allowed.
+// manager is allowed, and an absent actor (automated run) is denied.
 func TestSkillManagerActorScoping(t *testing.T) {
 	db := connectManageTestDB(t)
 	ctx := context.Background()
@@ -79,12 +79,14 @@ func TestSkillManagerActorScoping(t *testing.T) {
 		db.Where("org_id = ?", org.ID).Delete(&model.Plugin{})
 	})
 
-	// No actor (empty id, e.g. an automated trigger run) is allowed.
+	// No actor (empty id, e.g. an automated/cron/trigger run) is REJECTED:
+	// org-wide skill/plugin mutation requires a present human org-manager, so a
+	// possibly prompt-injected faceless run cannot author org plugins.
 	res, err = handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Marketing", HivyActorUserID: ""})
 	if err != nil {
 		t.Fatalf("no-actor create_org_plugin: %v", err)
 	}
-	if res == nil || res.IsError {
-		t.Fatalf("no-actor run must be allowed, got: %s", toolResultText(res))
+	if res == nil || !res.IsError {
+		t.Fatalf("no-actor run must be rejected, got: %s", toolResultText(res))
 	}
 }

@@ -75,6 +75,67 @@ func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.Respo
 	return agent.ID, true
 }
 
+// sameTeamBinding reports whether two optional team ids are the same binding
+// (both nil, or both the same non-nil id).
+func sameTeamBinding(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+// authorizeChannelTeamMove gates a PATCH that changes a channel's team binding.
+// The Update handler already verified the caller manages the channel's CURRENT
+// team; this additionally enforces, only when the binding actually changes:
+//   - the team-anchored default channel (#general) can never be re-teamed;
+//   - the move must not leave the source team with zero channels (last-channel floor);
+//   - clearing the team to NULL (which exposes the channel to every org member) is
+//     manager-only;
+//   - moving into a team requires the caller to manage the DESTINATION team, so a
+//     member cannot hand a channel (and its sessions/env-vars/knowledge) to a team
+//     they don't belong to.
+//
+// Writes the appropriate 4xx/5xx and returns false when the move must be blocked.
+func (h *ChannelHandler) authorizeChannelTeamMove(w http.ResponseWriter, r *http.Request, channel model.Channel, newTeamID *uuid.UUID) bool {
+	if sameTeamBinding(channel.TeamID, newTeamID) {
+		return true
+	}
+	ctx := r.Context()
+	userID, _ := currentRequestUserID(ctx)
+	role, err := h.currentUserOrgRole(ctx, channel.OrgID, userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load org membership"})
+		return false
+	}
+	apiKey := isAPIKeyRequest(ctx)
+
+	if channel.IsDefault {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "the default channel cannot be moved to another team"})
+		return false
+	}
+	if last, err := h.isTeamLastChannel(ctx, channel); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check team channels"})
+		return false
+	} else if last {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "a team must keep at least one channel"})
+		return false
+	}
+	if newTeamID == nil {
+		if !apiKey && !isOrgManager(role) {
+			writeJSON(w, http.StatusForbidden, errorResponse{Error: "only an org manager can remove a channel from its team"})
+			return false
+		}
+		return true
+	}
+	// canManageChannel probed against the destination team is exactly "the caller
+	// can manage that team" (API key / org manager / active team member).
+	if !canManageChannel(ctx, h.db, model.Channel{OrgID: channel.OrgID, TeamID: newTeamID}, userID, role, apiKey) {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be able to manage the destination team to move this channel into it"})
+		return false
+	}
+	return true
+}
+
 func (h *ChannelHandler) resolveTeamID(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, raw *string) (*uuid.UUID, bool) {
 	if raw == nil {
 		return nil, true
@@ -107,7 +168,7 @@ func (h *ChannelHandler) memberCount(ctx context.Context, channelID uuid.UUID) i
 	var count int64
 	_ = h.db.WithContext(ctx).
 		Model(&model.ChannelMember{}).
-		Where("channel_id = ?", channelID).
+		Where("channel_id = ? AND deactivated_at IS NULL", channelID).
 		Count(&count).Error
 	return count
 }
@@ -125,7 +186,7 @@ func (h *ChannelHandler) memberCounts(ctx context.Context, channelIDs []uuid.UUI
 	_ = h.db.WithContext(ctx).
 		Model(&model.ChannelMember{}).
 		Select("channel_id, count(*) AS count").
-		Where("channel_id IN ?", channelIDs).
+		Where("channel_id IN ? AND deactivated_at IS NULL", channelIDs).
 		Group("channel_id").
 		Scan(&rows).Error
 	for _, row := range rows {
@@ -141,7 +202,7 @@ func (h *ChannelHandler) channelRoles(ctx context.Context, channelIDs []uuid.UUI
 	}
 	var members []model.ChannelMember
 	_ = h.db.WithContext(ctx).
-		Where("channel_id IN ? AND user_id = ?", channelIDs, *userID).
+		Where("channel_id IN ? AND user_id = ? AND deactivated_at IS NULL", channelIDs, *userID).
 		Find(&members).Error
 	for _, member := range members {
 		out[member.ChannelID] = member.Role
@@ -159,7 +220,7 @@ func (h *ChannelHandler) channelMembers(ctx context.Context, channelID uuid.UUID
 		Table("channel_members").
 		Select("channel_members.*, users.name AS name, users.email AS email").
 		Joins("LEFT JOIN users ON users.id = channel_members.user_id").
-		Where("channel_members.channel_id = ?", channelID).
+		Where("channel_members.channel_id = ? AND channel_members.deactivated_at IS NULL", channelID).
 		Order("channel_members.created_at ASC").
 		Scan(&rows).Error
 	out := make([]channelMemberResponse, len(rows))

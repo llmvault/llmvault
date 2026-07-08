@@ -17,6 +17,3 @@ ALTER TABLE ONLY public.refresh_tokens
 CREATE UNIQUE INDEX idx_refresh_tokens_token_hash ON public.refresh_tokens USING btree (token_hash);
 
 CREATE INDEX idx_refresh_tokens_user_id ON public.refresh_tokens USING btree (user_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.refresh_tokens CASCADE;

@@ -10,8 +10,7 @@ import (
 // for a team is its knowledge allowlist. Unique per (team, rag_source).
 //
 // RagSourceID has no GORM association here because RAGSource lives in
-// internal/rag/model; the foreign key is enforced by the SQL migration (same
-// pattern as ChannelRagSource).
+// internal/rag/model; the foreign key is enforced by the SQL migration.
 type TeamRagSource struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID         uuid.UUID  `gorm:"type:uuid;not null;index:idx_team_rag_sources_org_team,priority:1"`

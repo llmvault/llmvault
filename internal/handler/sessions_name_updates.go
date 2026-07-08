@@ -20,6 +20,16 @@ type sessionNameUpdateResponse struct {
 	Session sessionResponse `json:"session"`
 }
 
+// @Summary Stream session name updates (SSE)
+// @Description Server-sent-events stream that emits the session whenever its generated name changes. Content-Type is text/event-stream.
+// @Tags sessions
+// @Produce text/event-stream
+// @Param id path string true "Session ID"
+// @Success 200 {object} sessionNameUpdateResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sessions/{id}/name-updates [get]
 func (h *SessionHandler) StreamNameUpdates(w http.ResponseWriter, r *http.Request) {
 	session, _, ok := h.authorizeSession(w, r, false)
 	if !ok {

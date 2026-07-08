@@ -64,15 +64,23 @@ func (p *Provider) CreateCheckout(_ context.Context, customerID string, intent b
 	return &billing.CheckoutSession{URL: url, ExternalID: ref, Reference: ref}, nil
 }
 
-// ResolveCheckout implements billing.Provider.
-func (p *Provider) ResolveCheckout(_ context.Context, _ billing.ResolveCheckoutRequest) (*billing.ResolveCheckoutResult, error) {
+// ResolveCheckout implements billing.Provider. It mirrors the real provider's
+// org-mismatch guard: when the caller supplies an ExpectedOrgID, the resolved
+// transaction's metadata org_id must match, otherwise the reference is rejected.
+func (p *Provider) ResolveCheckout(_ context.Context, req billing.ResolveCheckoutRequest) (*billing.ResolveCheckoutResult, error) {
 	if p.NextResolveError != nil {
 		return nil, p.NextResolveError
 	}
-	if p.NextResolveResult != nil {
-		return p.NextResolveResult, nil
+	res := p.NextResolveResult
+	if res == nil {
+		res = &billing.ResolveCheckoutResult{Status: billing.StatusActive}
 	}
-	return &billing.ResolveCheckoutResult{Status: billing.StatusActive}, nil
+	if req.ExpectedOrgID != uuid.Nil {
+		if res.Metadata["org_id"] != req.ExpectedOrgID.String() {
+			return nil, billing.ErrOrgMismatch
+		}
+	}
+	return res, nil
 }
 
 // ChargeAuthorization implements billing.Provider and records the call.

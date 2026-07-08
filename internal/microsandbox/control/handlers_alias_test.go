@@ -106,8 +106,13 @@ func newAliasTestServer(t *testing.T, gatewayURL, cacheToken string) *Server {
 
 func seedSandbox(t *testing.T, s *Server, id string) {
 	t.Helper()
+	seedSandboxForOrg(t, s, id, "org_1")
+}
+
+func seedSandboxForOrg(t *testing.T, s *Server, id, orgID string) {
+	t.Helper()
 	if err := s.db.Create(&model.Sandbox{
-		ID: id, OrgID: "org_1", RunnerID: "runner-1", Name: id, ImageRef: "img",
+		ID: id, OrgID: orgID, RunnerID: "runner-1", Name: id, ImageRef: "img",
 		Status: model.SandboxStatusRunning, CPU: 1, MemoryMB: 1024, DiskGB: 5,
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -198,6 +203,36 @@ func TestAliasClaimRejectsInvalidAndMissingSandbox(t *testing.T) {
 	}
 	if rec := doAlias(s, http.MethodPut, "good-app", `{"sandbox_id":"sbx_one","port":0}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("invalid port status = %d", rec.Code)
+	}
+}
+
+// TestAliasClaimRejectsCrossOrgRepoint asserts an alias owned by one org cannot
+// be repointed by a sandbox belonging to another org — no hostname takeover.
+func TestAliasClaimRejectsCrossOrgRepoint(t *testing.T) {
+	gw, _ := fakeAliasGateway(t, "cache-token")
+	defer gw.Close()
+	s := newAliasTestServer(t, gw.URL, "cache-token")
+	seedSandboxForOrg(t, s, "sbx_a", "org_a")
+	seedSandboxForOrg(t, s, "sbx_b", "org_b")
+
+	// Org A claims the slug.
+	if rec := doAlias(s, http.MethodPut, "shared-slug", `{"sandbox_id":"sbx_a","port":8080}`); rec.Code != http.StatusOK {
+		t.Fatalf("org A claim status = %d body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Org B trying to repoint the same hostname must be rejected.
+	rec := doAlias(s, http.MethodPut, "shared-slug", `{"sandbox_id":"sbx_b","port":9090}`)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("cross-org repoint status = %d, want 409; body = %s", rec.Code, rec.Body.String())
+	}
+
+	// The mapping still points at Org A's sandbox.
+	var row model.Alias
+	if err := s.db.First(&row, "alias = ?", "shared-slug").Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.SandboxID != "sbx_a" || row.OrgID != "org_a" {
+		t.Fatalf("alias was hijacked: %+v", row)
 	}
 }
 

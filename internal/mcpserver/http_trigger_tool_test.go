@@ -103,14 +103,22 @@ func TestCreateHTTPTriggerRejectsWrongOrgChannel(t *testing.T) {
 func TestCreateHTTPTriggerUsesSelectedChannelAndAgentRestrictions(t *testing.T) {
 	db := connectChannelToolTestDB(t)
 	fx := seedChannelToolFixture(t, db)
-	if err := db.Create(&model.AgentChannel{OrgID: fx.org.ID, AgentID: fx.agent.ID, ChannelID: fx.general.ID}).Error; err != nil {
-		t.Fatalf("restrict agent channel: %v", err)
+	// A channel owned by a team the agent does not belong to: the team-primary
+	// rule (channelagents.ActsInChannel) that replaced the cut agent_channels
+	// allowlist must reject it.
+	foreignTeam := model.Team{ID: uuid.New(), OrgID: fx.org.ID, Name: "foreign-" + uuid.NewString()}
+	if err := db.Create(&foreignTeam).Error; err != nil {
+		t.Fatalf("create foreign team: %v", err)
+	}
+	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: &foreignTeam.ID, Name: "foreign-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
+	if err := db.Create(&foreignChannel).Error; err != nil {
+		t.Fatalf("create foreign channel: %v", err)
 	}
 
 	// Disallowed channel is rejected by the shared access rule.
 	result, err := handleCreateHTTPTrigger(t.Context(), db, agentProxyToken(fx), &fx.agent, httpTriggerArgs{
 		Instructions: "summarize the payload",
-		ChannelID:    fx.slack.ID.String(),
+		ChannelID:    foreignChannel.ID.String(),
 	})
 	if err != nil {
 		t.Fatalf("handleCreateHTTPTrigger: %v", err)

@@ -18,8 +18,10 @@ import (
 // the category default", not "no mission" (clearing the mission in the UI
 // resets to the default). A missing channel yields "" with no error so
 // callers on the extraction path degrade to the base guidelines instead of
-// failing the run.
-func ChannelMission(ctx context.Context, db *gorm.DB, channelID uuid.UUID) (string, error) {
+// failing the run. The lookup is scoped by org_id as well as the channel id so
+// it upholds the tenancy invariant (every channel query carries org_id) rather
+// than relying on the channel UUID alone.
+func ChannelMission(ctx context.Context, db *gorm.DB, orgID, channelID uuid.UUID) (string, error) {
 	var row struct {
 		MemoryMission *string
 		Category      string
@@ -27,7 +29,7 @@ func ChannelMission(ctx context.Context, db *gorm.DB, channelID uuid.UUID) (stri
 	err := db.WithContext(ctx).
 		Model(&model.Channel{}).
 		Select("memory_mission", "category").
-		Where("id = ?", channelID).
+		Where("id = ? AND org_id = ?", channelID, orgID).
 		Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil

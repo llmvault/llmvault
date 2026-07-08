@@ -46,6 +46,3 @@ CREATE INDEX idx_gen_org_provider ON public.generations USING btree (provider_id
 CREATE INDEX idx_gen_org_user ON public.generations USING btree (user_id);
 
 CREATE INDEX idx_gen_unbilled_system_created ON public.generations USING btree (created_at) WHERE ((billed_at IS NULL) AND (is_system = true));
-
--- +goose Down
-DROP TABLE IF EXISTS public.generations CASCADE;

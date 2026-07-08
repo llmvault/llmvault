@@ -10,8 +10,3 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
-
--- +goose Down
--- +goose StatementBegin
-DO $$ BEGIN RAISE EXCEPTION 'baseline down migration is intentionally unsupported; reset or restore the database instead'; END $$;
--- +goose StatementEnd

@@ -132,22 +132,6 @@ func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
 	return manageFixture{org: org, owner: owner, member: member, teamIn: teamIn, teamOut: teamOut, chTeam: chTeam, chOther: chOther, chNull: chNull, chExt: chExt, chSys: chSys}
 }
 
-func TestUserInTeamHTTP(t *testing.T) {
-	db := connectTeamAuthzTestDB(t)
-	fx := seedManageFixture(t, db)
-	ctx := t.Context()
-
-	if !userInTeam(ctx, db, fx.org.ID, fx.member.ID, fx.teamIn.ID) {
-		t.Errorf("member should be in teamIn")
-	}
-	if userInTeam(ctx, db, fx.org.ID, fx.member.ID, fx.teamOut.ID) {
-		t.Errorf("member should not be in teamOut")
-	}
-	if userInTeam(ctx, db, fx.org.ID, fx.owner.ID, fx.teamIn.ID) {
-		t.Errorf("owner is in no team")
-	}
-}
-
 func TestCanManageTeamResourceHTTP(t *testing.T) {
 	db := connectTeamAuthzTestDB(t)
 	fx := seedManageFixture(t, db)

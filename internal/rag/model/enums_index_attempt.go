@@ -59,10 +59,8 @@ const (
 type SyncType string
 
 const (
-	SyncTypeConnectorDeletion   SyncType = "connector_deletion"
-	SyncTypePruning             SyncType = "pruning"
-	SyncTypeExternalPermissions SyncType = "external_permissions"
-	SyncTypeExternalGroup       SyncType = "external_group"
+	SyncTypeConnectorDeletion SyncType = "connector_deletion"
+	SyncTypePruning           SyncType = "pruning"
 )
 
 // IsValid returns true when s is one of the recognised SyncType values.
@@ -70,9 +68,7 @@ const (
 func (s SyncType) IsValid() bool {
 	switch s {
 	case SyncTypeConnectorDeletion,
-		SyncTypePruning,
-		SyncTypeExternalPermissions,
-		SyncTypeExternalGroup:
+		SyncTypePruning:
 		return true
 	default:
 		return false

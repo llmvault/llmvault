@@ -119,6 +119,11 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID
 		RuntimeConfig:          model.JSON{},
 		Permissions:            model.JSON{},
 	}
+	if hasCatalog {
+		// Freeze the catalog template prompt at creation so a later
+		// catalog edit/archive cannot silently rewrite or blank this Hivy clone.
+		agent.InstructionsSnapshot = snapshotCatalogInstructions(catalog.Instructions)
+	}
 	if teamID != nil {
 		// Each team owns its own Hivy clone, so several "Hivy" agents can coexist
 		// in one org. Uniquify the name (Hivy, Hivy-2, ...) to avoid colliding on

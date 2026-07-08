@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, toast } from "@heroui/react"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 
@@ -46,7 +47,7 @@ export default function EnvironmentsSettingsPage() {
         onSuccess: (org) => {
           setPortsInput(formatPorts(org.sandbox_exposed_ports ?? parsed.ports))
           queryClient.invalidateQueries({
-            queryKey: ["get", "/v1/orgs/current"],
+            queryKey: queryKeys.orgCurrent(),
           })
           toast.success("Preview ports updated")
         },
@@ -62,7 +63,7 @@ export default function EnvironmentsSettingsPage() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       <div>
         <h1 className="text-lg font-semibold text-foreground">Environments</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Configure workspace sandbox behavior.
         </p>
       </div>
@@ -72,7 +73,7 @@ export default function EnvironmentsSettingsPage() {
           <h2 className="text-sm font-semibold text-foreground">
             Sandbox preview ports
           </h2>
-          <p className="text-sm leading-5 text-muted-foreground">
+          <p className="text-muted-foreground text-sm leading-5">
             These ports are exposed on public preview URLs when a new sandbox is
             created. Existing sandboxes keep the ports they were created with
             until they are recreated.
@@ -90,7 +91,7 @@ export default function EnvironmentsSettingsPage() {
           disabled={!isAdmin}
         />
         {!isAdmin ? (
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className="text-muted-foreground text-xs leading-5">
             Only workspace admins can change sandbox preview ports.
           </p>
         ) : null}

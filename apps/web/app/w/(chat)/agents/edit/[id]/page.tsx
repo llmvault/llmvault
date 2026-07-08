@@ -37,7 +37,10 @@ export default function EditAgentPage({
     params: { path: { id } },
   })
   const updateAgent = $api.useMutation("patch", "/v1/agents/{id}")
-  const enablePlugin = $api.useMutation("post", "/v1/agents/{id}/plugins/{slug}")
+  const enablePlugin = $api.useMutation(
+    "post",
+    "/v1/agents/{id}/plugins/{slug}"
+  )
   const disablePlugin = $api.useMutation(
     "delete",
     "/v1/agents/{id}/plugins/{slug}"
@@ -46,8 +49,7 @@ export default function EditAgentPage({
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const agent = agentQuery.data as AgentDetail | undefined
-  const agentPlugins =
-    (agentPluginsQuery.data as ApiPlugin[] | undefined) ?? EMPTY_PLUGINS
+  const agentPlugins = agentPluginsQuery.data ?? EMPTY_PLUGINS
   const enabledSlugs = useMemo(
     () =>
       agentPlugins
@@ -95,7 +97,9 @@ export default function EditAgentPage({
       { params: { path: { id } } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
+          queryClient.invalidateQueries({
+            queryKey: INSTALLED_AGENTS_QUERY_KEY,
+          })
           toast.success(`${agent?.name?.trim() || "Agent"} deleted`)
           setConfirmDelete(false)
           router.push("/w/agents")
@@ -227,12 +231,12 @@ function StatusState({
 }) {
   return (
     <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <AppIcon icon={icon} className="h-7 w-7 text-muted-foreground" />
+      <AppIcon icon={icon} className="text-muted-foreground h-7 w-7" />
       <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+      <p className="text-muted-foreground mt-1 text-sm">{detail}</p>
       <NextLink
         href={href ?? "/w/agents"}
-        className="mt-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="text-muted-foreground mt-4 text-sm transition-colors hover:text-foreground"
       >
         {linkLabel ?? "Back to agents"}
       </NextLink>

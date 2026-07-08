@@ -90,7 +90,7 @@ func TestAppsInternalActorAttribution(t *testing.T) {
 	rowsPath := h.pagePath(h.page.Page.ID, "/rows")
 
 	t.Run("actor header records actor_user_id", func(t *testing.T) {
-		resp := h.do(t, http.MethodPost, rowsPath, h.secret, h.user.ID.String(), map[string]any{
+		resp := h.do(t, http.MethodPost, rowsPath, h.secret, h.actorToken(t, h.user.ID), map[string]any{
 			"rows": []map[string]any{{"data": map[string]any{titleField: "By user"}}},
 		})
 		if resp.Code != http.StatusCreated {
@@ -122,8 +122,10 @@ func TestAppsInternalActorAttribution(t *testing.T) {
 	})
 }
 
-// TestAppsInternalActorRejected proves the actor header is fail-closed: a
-// present-but-invalid user is a 403 and the mutation never happens.
+// TestAppsInternalActorRejected proves actor attribution is fail-closed: only a
+// PLATFORM-SIGNED token bound to this app and naming a live org member is
+// trusted. A forged/unsigned header, a token minted for another app, and a
+// signed token for a non-member all 403, and no mutation happens.
 func TestAppsInternalActorRejected(t *testing.T) {
 	h := newAppsHarness(t)
 	titleField := h.fields["Title"]
@@ -140,9 +142,15 @@ func TestAppsInternalActorRejected(t *testing.T) {
 		name  string
 		actor string
 	}{
-		{"malformed uuid", "not-a-uuid"},
-		{"unknown user", uuid.NewString()},
-		{"non-member user", outsider.String()},
+		// A raw UUID (what forged/legacy app code would forward) is not a signed
+		// token, so it is refused rather than trusted.
+		{"raw uuid, not a signed token", h.user.ID.String()},
+		{"garbage header", "not-a-jwt"},
+		// Correctly signed, but minted for a DIFFERENT app.
+		{"signed token for another app", h.actorTokenForApp(t, h.user.ID, uuid.NewString())},
+		// Correctly signed and bound to this app, but the named user is not a
+		// member of the app's org.
+		{"signed token for non-member", h.actorToken(t, outsider)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := h.do(t, http.MethodPost, rowsPath, h.secret, tc.actor, body)

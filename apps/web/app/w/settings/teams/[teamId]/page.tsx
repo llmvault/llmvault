@@ -9,6 +9,7 @@ import { AppIcon } from "@/components/icon"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import {
@@ -17,9 +18,7 @@ import {
   TeamFormModal,
   formatDate,
   teamLabel,
-  type Member,
   type Team,
-  type TeamMember,
 } from "../_components/team-settings"
 import { TeamMembersSection } from "./team-sections"
 import { TeamProvisioningSection } from "./team-provisioning"
@@ -59,21 +58,21 @@ export default function TeamDetailPage({
   const archiveTeam = $api.useMutation("delete", "/v1/orgs/current/teams/{id}")
 
   const teams = useMemo(
-    () => (teamsQuery.data?.data ?? []) as Team[],
+    () => teamsQuery.data?.data ?? [],
     [teamsQuery.data?.data]
   )
   const team = teamQuery.data?.team as Team | undefined
   const members = useMemo(
-    () => (teamQuery.data?.members ?? []) as TeamMember[],
+    () => teamQuery.data?.members ?? [],
     [teamQuery.data?.members]
   )
   const orgMembers = useMemo(
-    () => (membersQuery.data?.data ?? []) as Member[],
+    () => membersQuery.data?.data ?? [],
     [membersQuery.data?.data]
   )
   function refreshTeam() {
     queryClient.invalidateQueries({
-      queryKey: ["get", "/v1/orgs/current/teams/{id}"],
+      queryKey: queryKeys.team(),
     })
     queryClient.invalidateQueries({ queryKey: TEAMS_KEY })
   }

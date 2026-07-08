@@ -9,10 +9,10 @@ import {
   useRef,
 } from "react"
 import { useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import type { components } from "@/lib/api/schema"
-import { clearPersistedChatQueries } from "@/app/w/(chat)/_lib/chat-cache"
 import { clearSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 import { stopAllSessionStreams } from "@/app/w/(chat)/_stores/session-stream-manager"
 import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-workspace-store"
@@ -33,6 +33,23 @@ function getOrgIdFromCookie(): string | null {
 
 function setOrgIdCookie(orgId: string) {
   document.cookie = `${ACTIVE_ORG_COOKIE}=${encodeURIComponent(orgId)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+}
+
+/**
+ * Single writer for the active-org switch. auth-context owns the org cookie —
+ * nothing else should ever write `hivy_active_org` directly. Writes the cookie
+ * and does a FULL cache invalidation so no query from the previous org survives
+ * (query keys are not org-scoped). Callers that live outside AuthProvider
+ * (e.g. the invite-accept page) use this helper; callers inside use
+ * `setActiveOrg` from `useAuth`, which delegates here.
+ */
+export async function switchActiveOrg(
+  queryClient: QueryClient,
+  orgId: string | undefined | null
+): Promise<void> {
+  if (!orgId) return
+  setOrgIdCookie(orgId)
+  await queryClient.invalidateQueries()
 }
 
 interface AuthContextValue {
@@ -96,8 +113,7 @@ export function AuthProvider({
     (org: Org) => {
       if (org.id) {
         setActiveOrgId(org.id)
-        setOrgIdCookie(org.id)
-        queryClient.invalidateQueries()
+        void switchActiveOrg(queryClient, org.id)
       }
     },
     [queryClient]
@@ -105,7 +121,7 @@ export function AuthProvider({
 
   const addOrg = useCallback(
     (org: Org) => {
-      queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
       if (org.id) {
         setActiveOrgId(org.id)
         setOrgIdCookie(org.id)
@@ -119,7 +135,6 @@ export function AuthProvider({
     stopAllSessionStreams()
     clearSessionSandboxAccess()
     queryClient.clear()
-    await clearPersistedChatQueries()
     await clearPersistedSessionWorkspaces()
     router.replace(signInPath)
   }, [logoutMutation, queryClient, router, signInPath])

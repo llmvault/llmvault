@@ -92,6 +92,34 @@ func (h *IncomingWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Beyond the unguessable connection UUID, require a shared secret / native
+	// signature when one is configured on the connection. Direct providers
+	// (e.g. Railway) do not sign, so operators may configure a shared secret
+	// (connection.Meta["webhook_secret"]) delivered as X-Hivy-Webhook-Secret;
+	// GitHub-style senders may instead present X-Hub-Signature-256. If a secret
+	// is configured, an unsigned/mismatched request is rejected. If none is
+	// configured we proceed (UUID-only) but warn, so the gap is observable.
+	if secret := connectionWebhookSecret(connection); secret != "" {
+		ghSig := r.Header.Get("X-Hub-Signature-256")
+		sharedSig := r.Header.Get("X-Hivy-Webhook-Secret")
+		ok := false
+		switch {
+		case ghSig != "":
+			ok = verifyGitHubSignature256(body, secret, ghSig)
+		case sharedSig != "":
+			ok = verifyWebhookSharedSecret(secret, sharedSig)
+		}
+		if !ok {
+			logging.FromContext(r.Context()).WarnContext(r.Context(), "incoming webhook rejected: signature/secret invalid",
+				"provider", provider, "connection_id", connectionID.String())
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid signature"})
+			return
+		}
+	} else {
+		logging.FromContext(r.Context()).WarnContext(r.Context(), "incoming webhook has no configured secret; relying on connection UUID only",
+			"provider", provider, "connection_id", connectionID.String())
+	}
+
 	eventType, eventAction := inferDirectWebhookEvent(provider, body)
 	if eventType == "" {
 
@@ -136,6 +164,18 @@ func (h *IncomingWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) 
 		})
 		return
 	}
+}
+
+// connectionWebhookSecret reads an optional per-connection webhook shared
+// secret from the connection metadata. Empty when unset.
+func connectionWebhookSecret(conn model.Connection) string {
+	if conn.Meta == nil {
+		return ""
+	}
+	if v, ok := conn.Meta["webhook_secret"].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }
 
 func eventKeyForHandler(eventType, eventAction string) string {

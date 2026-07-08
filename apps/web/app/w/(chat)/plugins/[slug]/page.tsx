@@ -7,6 +7,7 @@ import NextLink from "next/link"
 import { DetailSkeleton } from "./detail-skeleton"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import type { components } from "@/lib/api/schema"
@@ -126,13 +127,13 @@ export default function PluginDetailPage({
     },
   })
   const plugin = pluginQuery.data as ApiPlugin | undefined
-  const integrations = (integrationsQuery.data ?? []) as AvailableIntegration[]
+  const integrations = integrationsQuery.data ?? []
   const connections = useMemo(
-    () => (connectionsQuery.data?.data ?? []) as Connection[],
+    () => connectionsQuery.data?.data ?? [],
     [connectionsQuery.data?.data]
   )
   const databaseConnections = useMemo(
-    () => (databaseConnectionsQuery.data ?? []) as DatabaseConnection[],
+    () => databaseConnectionsQuery.data ?? [],
     [databaseConnectionsQuery.data]
   )
   const connectionsByProvider = useMemo(() => {
@@ -162,12 +163,12 @@ export default function PluginDetailPage({
     disconnectPending
 
   function refresh() {
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/connections"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.connections() })
     queryClient.invalidateQueries({
-      queryKey: ["get", "/v1/database-integrations"],
+      queryKey: queryKeys.databaseIntegrations(),
     })
     queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins/{slug}"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.plugin() })
     invalidateSessionListQueries(queryClient)
     pluginQuery.refetch()
   }
@@ -365,7 +366,7 @@ export default function PluginDetailPage({
           <div className="flex flex-col gap-8">
             <NextLink
               href="/w/plugins"
-              className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm transition-colors"
+              className="text-muted-foreground flex w-fit items-center gap-1.5 text-sm transition-colors hover:text-foreground"
             >
               <AppIcon icon="arrow-left" className="h-4 w-4" />
               Plugins

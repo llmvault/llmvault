@@ -21,6 +21,3 @@ CREATE UNIQUE INDEX idx_oauth_user_provider ON public.oauth_accounts USING btree
 
 ALTER TABLE ONLY public.oauth_accounts
     ADD CONSTRAINT fk_oauth_accounts_user FOREIGN KEY (user_id) REFERENCES public.users(id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.oauth_accounts CASCADE;

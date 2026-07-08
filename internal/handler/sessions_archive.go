@@ -74,17 +74,13 @@ func (h *SessionHandler) requireSessionIdleForArchive(w http.ResponseWriter, ses
 	return true
 }
 
-// canArchiveSession allows an org admin or a member of the session's channel to
-// archive it — the same admin-or-member rule as channel access.
+// canArchiveSession allows the session creator, a participant, or a manager (org
+// manager or a manager of the channel's owning team) to archive it — the same
+// private-by-default rule as session read access. A bare channel
+// viewer can no longer archive another user's session (and trigger its sandbox
+// teardown).
 func (h *SessionHandler) canArchiveSession(ctx context.Context, session model.Session, userID *uuid.UUID) (bool, error) {
-	channel, found, err := h.loadSessionChannel(ctx, session)
-	if err != nil {
-		return false, err
-	}
-	if !found {
-		return false, nil
-	}
-	return h.canViewChannel(ctx, channel, userID), nil
+	return h.canAccessSession(ctx, session, userID, false), nil
 }
 
 func (h *SessionHandler) archiveSession(ctx context.Context, session *model.Session) error {

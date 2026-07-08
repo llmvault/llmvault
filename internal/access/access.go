@@ -8,8 +8,9 @@
 // (the same mechanism as `_hivy_session_id`); the model can neither see nor
 // forge it. Tools pass that raw value to Resolve and then gate on the returned
 // Actor. This package is the single source of truth for those predicates so the
-// agent path and the HTTP API cannot drift; handler.canUseChannel mirrors
-// CanUseChannelID.
+// agent path and the HTTP API cannot drift: the handler helpers
+// (handler.canUseChannel, handler.canManageTeamResource) delegate here rather
+// than re-implementing the rule.
 package access
 
 import (
@@ -48,8 +49,9 @@ func Resolve(ctx context.Context, db *gorm.DB, orgID uuid.UUID, raw string) (*Ac
 		return nil, fmt.Errorf("requesting user id is not a valid UUID")
 	}
 	var membership model.OrgMembership
+	// A deactivated member never resolves to a usable Actor (deactivated_at IS NULL).
 	err = db.WithContext(ctx).
-		Where("org_id = ? AND user_id = ?", orgID, userID).
+		Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, userID).
 		First(&membership).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("the requesting user is not a member of this organization")
@@ -91,7 +93,7 @@ func (a *Actor) IsTeamMember(ctx context.Context, db *gorm.DB, teamID uuid.UUID)
 	err := db.WithContext(ctx).
 		Table("team_members").
 		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
-		Where("team_members.team_id = ? AND team_members.user_id = ?", teamID, a.UserID).
+		Where("team_members.team_id = ? AND team_members.user_id = ? AND team_members.deactivated_at IS NULL", teamID, a.UserID).
 		Count(&count).Error
 	if err != nil {
 		return false, fmt.Errorf("check team membership: %w", err)
@@ -172,7 +174,7 @@ func userIsChannelMember(ctx context.Context, db *gorm.DB, channelID, userID uui
 	var count int64
 	_ = db.WithContext(ctx).
 		Table("channel_members").
-		Where("channel_id = ? AND user_id = ?", channelID, userID).
+		Where("channel_id = ? AND user_id = ? AND deactivated_at IS NULL", channelID, userID).
 		Count(&count).Error
 	return count > 0
 }
@@ -182,7 +184,7 @@ func userIsActiveTeamMember(ctx context.Context, db *gorm.DB, teamID, userID uui
 	_ = db.WithContext(ctx).
 		Table("team_members").
 		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
-		Where("team_members.team_id = ? AND team_members.user_id = ?", teamID, userID).
+		Where("team_members.team_id = ? AND team_members.user_id = ? AND team_members.deactivated_at IS NULL", teamID, userID).
 		Count(&count).Error
 	return count > 0
 }

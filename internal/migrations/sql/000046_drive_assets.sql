@@ -25,6 +25,3 @@ ALTER TABLE ONLY public.drive_assets
 
 ALTER TABLE ONLY public.drive_assets
     ADD CONSTRAINT fk_drive_assets_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.drive_assets CASCADE;

@@ -1,8 +1,6 @@
 "use client"
 
-import { Avatar } from "@heroui/react"
-import { AppIcon } from "@/components/icon"
-import { cn } from "@/lib/utils"
+import { AgentAvatar as AgentAvatarBase } from "@/components/agent-avatar"
 import {
   agentAvatarURL,
   agentInitials,
@@ -32,25 +30,19 @@ export function AgentAvatar({
       : size === "md"
         ? "h-[18px] w-[18px]"
         : "h-6 w-6"
+  const textSize =
+    size === "sm" ? "text-[10px]" : size === "md" ? "text-xs" : "text-sm"
   const icon = "icon" in agent && agent.icon ? agent.icon : "bot"
 
-  if (avatarURL) {
-    return (
-      <Avatar size={size === "lg" ? "lg" : size} className="shrink-0">
-        <Avatar.Image src={avatarURL} />
-        <Avatar.Fallback>{agentInitials(name)}</Avatar.Fallback>
-      </Avatar>
-    )
-  }
-
   return (
-    <div
-      className={cn(
-        "bg-default flex shrink-0 items-center justify-center text-muted-foreground",
-        dimension
-      )}
-    >
-      <AppIcon icon={icon} className={iconSize} />
-    </div>
+    <AgentAvatarBase
+      avatarURL={avatarURL}
+      icon={icon}
+      className={dimension}
+      iconClassName={iconSize}
+      imageFallback={
+        <span className={`font-medium ${textSize}`}>{agentInitials(name)}</span>
+      }
+    />
   )
 }

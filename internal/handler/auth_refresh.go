@@ -80,7 +80,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var memberships []model.OrgMembership
-	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)
+	h.db.Preload("Org").Where("user_id = ? AND deactivated_at IS NULL", user.ID).Find(&memberships)
 
 	if len(memberships) == 0 {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "no organization memberships"})
@@ -214,7 +214,14 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	tokenHash := hashToken(req.RefreshToken)
 	now := time.Now()
-	h.db.Model(&model.RefreshToken{}).Where("token_hash = ? AND revoked_at IS NULL", tokenHash).Update("revoked_at", &now)
+	// Security gate: if the revoke write itself fails we must not report success,
+	// or the token stays live. RowsAffected == 0 is fine (already revoked / unknown
+	// token): logout is idempotent.
+	if err := h.db.Model(&model.RefreshToken{}).Where("token_hash = ? AND revoked_at IS NULL", tokenHash).Update("revoked_at", &now).Error; err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to revoke refresh token on logout", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to log out"})
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

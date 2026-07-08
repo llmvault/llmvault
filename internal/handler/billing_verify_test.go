@@ -1,113 +1,15 @@
 package handler_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/billing"
-	"github.com/usehivy/hivy/internal/billing/fake"
-	"github.com/usehivy/hivy/internal/handler"
-	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
-
-type verifyHarness struct {
-	db       *gorm.DB
-	router   *chi.Mux
-	provider *fake.Provider
-}
-
-func newVerifyHarness(t *testing.T) *verifyHarness {
-	t.Helper()
-	db := connectTestDB(t)
-	registry := billing.NewRegistry()
-	provider := fake.New("paystack")
-	registry.Register(provider)
-	billingHandler := handler.NewBillingHandler(db, registry, billing.NewCreditsService(db))
-
-	r := chi.NewRouter()
-	r.Route("/v1/billing", func(r chi.Router) {
-		r.Use(middleware.ResolveOrgFromHeader(db))
-		r.Post("/verify", billingHandler.Verify)
-	})
-	return &verifyHarness{db: db, router: r, provider: provider}
-}
-
-func (h *verifyHarness) seedOrgWithMember(t *testing.T) (model.Org, model.User) {
-	t.Helper()
-	user := model.User{Email: "verify-" + uuid.NewString()[:8] + "@test.com", Name: "Verify"}
-	if err := h.db.Create(&user).Error; err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-	org := model.Org{Name: "Verify Org " + uuid.NewString()[:8], Active: true}
-	if err := h.db.Create(&org).Error; err != nil {
-		t.Fatalf("create org: %v", err)
-	}
-	if err := h.db.Create(&model.OrgMembership{UserID: user.ID, OrgID: org.ID, Role: "owner"}).Error; err != nil {
-		t.Fatalf("create membership: %v", err)
-	}
-	t.Cleanup(func() {
-		h.db.Where("org_id = ?", org.ID).Delete(&model.Subscription{})
-		h.db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
-		h.db.Where("org_id = ?", org.ID).Delete(&model.CreditLedgerEntry{})
-		h.db.Where("id = ?", org.ID).Delete(&model.Org{})
-		h.db.Where("id = ?", user.ID).Delete(&model.User{})
-	})
-	return org, user
-}
-
-func (h *verifyHarness) seedPlan(t *testing.T, slug string, priceCents int64, monthlyCredits int64, currency string) model.Plan {
-	t.Helper()
-	plan := model.Plan{
-		ID:             uuid.New(),
-		Slug:           slug,
-		Name:           "Plan " + slug,
-		PriceCents:     priceCents,
-		Currency:       currency,
-		MonthlyCredits: monthlyCredits,
-		Active:         true,
-	}
-	if err := h.db.Create(&plan).Error; err != nil {
-		t.Fatalf("create plan: %v", err)
-	}
-	t.Cleanup(func() {
-
-		h.db.Where("plan_id = ?", plan.ID).Delete(&model.Subscription{})
-		h.db.Where("id = ?", plan.ID).Delete(&model.Plan{})
-	})
-	return plan
-}
-
-func (h *verifyHarness) post(t *testing.T, userID, orgID uuid.UUID, body any) *httptest.ResponseRecorder {
-	t.Helper()
-	buf := new(bytes.Buffer)
-	_ = json.NewEncoder(buf).Encode(body)
-	req := httptest.NewRequest("POST", "/v1/billing/verify", buf)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Org-ID", orgID.String())
-	req = middleware.WithAuthClaims(req, &auth.AuthClaims{
-		UserID: userID.String(),
-		OrgID:  orgID.String(),
-		Role:   "owner",
-	})
-	rr := httptest.NewRecorder()
-	h.router.ServeHTTP(rr, req)
-	return rr
-}
-
-func paidAt() *time.Time {
-	t := time.Now().UTC().Truncate(time.Second)
-	return &t
-}
 
 func TestBillingVerify_CreatesSubscriptionWithMatchingAmount(t *testing.T) {
 	h := newVerifyHarness(t)
@@ -121,7 +23,7 @@ func TestBillingVerify_CreatesSubscriptionWithMatchingAmount(t *testing.T) {
 		Reference:          "ref_ok",
 		ExternalCustomerID: "CUS_ok",
 		PaidAt:             paidAt(),
-		Metadata:           map[string]string{"plan_slug": plan.Slug},
+		Metadata:           map[string]string{"plan_slug": plan.Slug, "org_id": org.ID.String()},
 		PaymentMethod: billing.PaymentMethod{
 			AuthorizationCode: "AUTH_ok",
 			Channel:           billing.ChannelCard,
@@ -168,7 +70,7 @@ func TestBillingVerify_AmountMismatchReturns402(t *testing.T) {
 		Currency:        plan.Currency,
 		Reference:       "ref_short",
 		PaidAt:          paidAt(),
-		Metadata:        map[string]string{"plan_slug": plan.Slug},
+		Metadata:        map[string]string{"plan_slug": plan.Slug, "org_id": org.ID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
 	}
 
@@ -196,7 +98,7 @@ func TestBillingVerify_UnsupportedChannelReturns400(t *testing.T) {
 		Currency:        plan.Currency,
 		Reference:       "ref_ussd",
 		PaidAt:          paidAt(),
-		Metadata:        map[string]string{"plan_slug": plan.Slug},
+		Metadata:        map[string]string{"plan_slug": plan.Slug, "org_id": org.ID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.PaymentChannel("ussd"), AuthorizationCode: "AUTH"},
 	}
 
@@ -216,7 +118,10 @@ func TestBillingVerify_NoMetadataReturns400(t *testing.T) {
 		PaidAmountMinor: 2_000_000,
 		Currency:        "NGN",
 		Reference:       "ref_no_meta",
-		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
+		// org_id present so the org-match guard passes; plan_slug absent so we
+		// still exercise the missing-plan_slug → 400 path.
+		Metadata:      map[string]string{"org_id": org.ID.String()},
+		PaymentMethod: billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
 	}
 
 	rr := h.post(t, user.ID, org.ID, map[string]string{"reference": "ref_no_meta"})
@@ -229,7 +134,10 @@ func TestBillingVerify_NonSuccessReturnsStatus(t *testing.T) {
 	h := newVerifyHarness(t)
 	org, user := h.seedOrgWithMember(t)
 
-	h.provider.NextResolveResult = &billing.ResolveCheckoutResult{Status: billing.StatusPastDue}
+	h.provider.NextResolveResult = &billing.ResolveCheckoutResult{
+		Status:   billing.StatusPastDue,
+		Metadata: map[string]string{"org_id": org.ID.String()},
+	}
 
 	rr := h.post(t, user.ID, org.ID, map[string]string{"reference": "ref_pending"})
 	if rr.Code != http.StatusOK {
@@ -245,6 +153,38 @@ func TestBillingVerify_NonSuccessReturnsStatus(t *testing.T) {
 	h.db.Model(&model.Subscription{}).Where("org_id = ?", org.ID).Count(&count)
 	if count != 0 {
 		t.Errorf("expected 0 subscriptions, got %d", count)
+	}
+}
+
+// TestBillingVerify_CrossOrgReferenceRejected asserts that a valid, paid
+// reference initialised for a DIFFERENT org cannot be replayed to flip this
+// org's plan — the ResolveCheckout org-mismatch guard must reject it, no
+// subscription created.
+func TestBillingVerify_CrossOrgReferenceRejected(t *testing.T) {
+	h := newVerifyHarness(t)
+	org, user := h.seedOrgWithMember(t)
+	plan := h.seedPlan(t, "verify-xorg-"+uuid.NewString()[:8], 2_000_000, 5_000, "NGN")
+
+	otherOrg := uuid.New()
+	h.provider.NextResolveResult = &billing.ResolveCheckoutResult{
+		Status:          billing.StatusActive,
+		PaidAmountMinor: plan.PriceCents,
+		Currency:        plan.Currency,
+		Reference:       "ref_other_org",
+		PaidAt:          paidAt(),
+		Metadata:        map[string]string{"plan_slug": plan.Slug, "org_id": otherOrg.String()},
+		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
+	}
+
+	rr := h.post(t, user.ID, org.ID, map[string]string{"reference": "ref_other_org"})
+	if rr.Code == http.StatusOK {
+		t.Fatalf("cross-org reference must be rejected, got 200: %s", rr.Body.String())
+	}
+
+	var count int64
+	h.db.Model(&model.Subscription{}).Where("org_id = ?", org.ID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected 0 subscriptions on cross-org reference, got %d", count)
 	}
 }
 
@@ -270,7 +210,7 @@ func TestBillingVerify_GrantsMonthlyCredits(t *testing.T) {
 		Reference:          "ref_grant",
 		ExternalCustomerID: "CUS_grant",
 		PaidAt:             paidAt(),
-		Metadata:           map[string]string{"plan_slug": plan.Slug},
+		Metadata:           map[string]string{"plan_slug": plan.Slug, "org_id": org.ID.String()},
 		PaymentMethod:      billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
 	}
 

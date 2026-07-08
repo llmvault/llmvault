@@ -37,20 +37,20 @@ func (h *PluginHandler) authorizeAgentPluginMutation(ctx context.Context, w http
 	}
 	role, err := orgRoleForUser(ctx, h.db, orgID, userID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return false
 	}
 	if agent.TeamID == nil {
 		if isOrgManager(role) {
 			return true
 		}
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "only an org admin can manage plugins on an agent that is not assigned to a team"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "only an org admin can manage plugins on an agent that is not assigned to a team"})
 		return false
 	}
 	if canManageTeamResource(ctx, h.db, orgID, userID, role, *agent.TeamID) {
 		return true
 	}
-	writeJSON(w, http.StatusForbidden, map[string]string{"error": "you must be a member of the agent's team to manage its plugins"})
+	writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the agent's team to manage its plugins"})
 	return false
 }
 
@@ -72,7 +72,7 @@ func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request)
 	}
 	var installs []model.AgentPluginInstall
 	if err := h.db.Where("org_id = ? AND agent_id = ?", org.ID, agent.ID).Find(&installs).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list agent plugins"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list agent plugins"})
 		return
 	}
 	enabled := map[uuid.UUID]bool{}
@@ -81,21 +81,21 @@ func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request)
 	}
 	scope, err := h.actorScope(r.Context(), org.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return
 	}
 	var orgInstalls []model.OrgPluginInstall
 	if err := h.db.Preload("Plugin").
 		Where("org_id = ? AND revoked_at IS NULL", org.ID).
 		Find(&orgInstalls).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list org plugins"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list org plugins"})
 		return
 	}
 	resp := make([]pluginResponse, 0, len(orgInstalls))
 	for _, install := range orgInstalls {
 		item, err := h.toPluginResponse(r.Context(), org.ID, install.Plugin, scope)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin details"})
 			return
 		}
 		if !enabled[install.PluginID] {
@@ -139,11 +139,11 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.Model(&model.OrgPluginInstall{}).
 		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
 		Count(&count).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check org plugin install"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check org plugin install"})
 		return
 	}
 	if count == 0 {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin must be installed for the org before enabling it on an agent"})
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin must be installed for the org before enabling it on an agent"})
 		return
 	}
 	// Per-agent plugins are bounded by the agent's team grant: an agent may only
@@ -156,11 +156,11 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 	if agent.TeamID != nil && !pluginstore.PluginAutoInstall(plugin) {
 		granted, err := pluginEnabledForTeam(ctx, h.db, *agent.TeamID, plugin.ID)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check team plugin grant"})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check team plugin grant"})
 			return
 		}
 		if !granted {
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "plugin is not enabled for the agent's team"})
+			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is not enabled for the agent's team"})
 			return
 		}
 	}
@@ -168,20 +168,20 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 		return enablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
 	}); err != nil {
 		if errors.Is(err, pluginstore.ErrGitHubIdentityExclusive) {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": pluginstore.ErrGitHubIdentityExclusive.Error()})
+			writeJSON(w, http.StatusConflict, errorResponse{Error: pluginstore.ErrGitHubIdentityExclusive.Error()})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enable plugin for agent"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to enable plugin for agent"})
 		return
 	}
 	scope, err := h.actorScope(ctx, org.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return
 	}
 	resp, err := h.toPluginResponse(ctx, org.ID, plugin, scope)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin details"})
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -219,13 +219,13 @@ func (h *PluginHandler) DisableForAgent(w http.ResponseWriter, r *http.Request) 
 		catalogRequired = []string(agent.AgentCatalog.RequiredPlugins)
 	}
 	if locked, reason := pluginstore.PluginDetachLock(plugin, agent.IsDefault, catalogRequired); locked {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": reason})
+		writeJSON(w, http.StatusConflict, errorResponse{Error: reason})
 		return
 	}
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return disablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
 	}); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to disable plugin for agent"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to disable plugin for agent"})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "disabled"})

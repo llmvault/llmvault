@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import Nango, { AuthError } from "@nangohq/frontend"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import { clientConfig } from "@/lib/config/public-config"
 
@@ -71,8 +72,8 @@ export function useConnectIntegration() {
       },
     })
 
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/connections"] })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.connections() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.plugins() })
   }
 
   async function runReconnect(connectionId: string, options?: ConnectOptions) {
@@ -102,8 +103,8 @@ export function useConnectIntegration() {
       await nango.reconnect(providerConfigKey)
     }
 
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/connections"] })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.connections() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.plugins() })
   }
 
   function connectIntegration(

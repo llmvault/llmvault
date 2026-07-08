@@ -32,6 +32,3 @@ ALTER TABLE ONLY public.agent_assets
 
 ALTER TABLE ONLY public.agent_assets
     ADD CONSTRAINT fk_agent_assets_sandbox FOREIGN KEY (sandbox_id) REFERENCES public.sandboxes(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.agent_assets CASCADE;

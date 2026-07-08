@@ -34,6 +34,3 @@ CREATE INDEX idx_agent_catalog_default ON public.agent_catalog USING btree (is_d
 CREATE UNIQUE INDEX idx_agent_catalog_slug ON public.agent_catalog USING btree (slug);
 
 CREATE INDEX idx_agent_catalog_status ON public.agent_catalog USING btree (status);
-
--- +goose Down
-DROP TABLE IF EXISTS public.agent_catalog CASCADE;

@@ -100,7 +100,9 @@ func ResolveOrgFromHeader(db *gorm.DB) func(http.Handler) http.Handler {
 			}
 
 			var membership model.OrgMembership
-			if err := db.Preload("Org").Where("user_id = ? AND org_id = ?", claims.UserID, orgID).First(&membership).Error; err != nil {
+			// A deactivated membership must not resolve org context: a deactivated
+			// member is denied access org-wide (deactivated_at IS NULL filter).
+			if err := db.Preload("Org").Where("user_id = ? AND org_id = ? AND deactivated_at IS NULL", claims.UserID, orgID).First(&membership).Error; err != nil {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "not a member of the requested organization"})
 				return
 			}
@@ -155,7 +157,8 @@ func RequireOrgAdmin(db *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 			var m model.OrgMembership
-			if err := db.Where("user_id = ? AND org_id = ?", claims.UserID, org.ID).First(&m).Error; err != nil {
+			// A deactivated admin/owner no longer passes the admin gate.
+			if err := db.Where("user_id = ? AND org_id = ? AND deactivated_at IS NULL", claims.UserID, org.ID).First(&m).Error; err != nil {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "not a member"})
 				return
 			}
@@ -187,7 +190,8 @@ func RequireOrgOwner(db *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 			var m model.OrgMembership
-			if err := db.Where("user_id = ? AND org_id = ?", claims.UserID, org.ID).First(&m).Error; err != nil {
+			// A deactivated owner no longer passes the owner gate.
+			if err := db.Where("user_id = ? AND org_id = ? AND deactivated_at IS NULL", claims.UserID, org.ID).First(&m).Error; err != nil {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "not a member"})
 				return
 			}

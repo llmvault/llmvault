@@ -70,8 +70,7 @@ type RAGIndexAttempt struct {
 
 	// Coordination fields, backed by plain Postgres rows rather than
 	// an external fencing mechanism.
-	CeleryTaskID          *string `gorm:"type:text"`
-	CancellationRequested bool    `gorm:"not null;default:false"`
+	CancellationRequested bool `gorm:"not null;default:false"`
 
 	// Batch coordination.
 	//

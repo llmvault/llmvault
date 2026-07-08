@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { components } from "@/lib/api/schema"
 
@@ -93,7 +94,7 @@ export function usePasswordLogin(nextPath = "/w") {
         { body },
         {
           onSuccess: (response) => {
-            queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
             if (response?.user?.email_confirmed === false) {
               setEmailToConfirm(normalizedEmail)
               toast.success("Check your email for a 6-digit confirmation code")
@@ -125,7 +126,7 @@ export function usePasswordLogin(nextPath = "/w") {
         { body },
         {
           onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
             router.replace(redirectTo)
           },
           onError: (error) => {
@@ -195,7 +196,7 @@ export function usePasswordSignup(nextPath = "/w") {
         { body },
         {
           onSuccess: (response) => {
-            queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
             if (response?.user?.email_confirmed) {
               router.replace(redirectTo)
               return
@@ -224,7 +225,7 @@ export function usePasswordSignup(nextPath = "/w") {
         { body },
         {
           onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
             router.replace(redirectTo)
           },
           onError: (error) => {

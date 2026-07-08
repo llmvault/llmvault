@@ -16,6 +16,3 @@ ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
 CREATE UNIQUE INDEX idx_users_email ON public.users USING btree (email);
-
--- +goose Down
-DROP TABLE IF EXISTS public.users CASCADE;

@@ -31,6 +31,7 @@ func parseGitHubMentionEvent(payload AgentTriggerDispatchPayload, webhookPayload
 		event.OpenedBy = payloadPathString(webhookPayload, "issue.user.login")
 		event.MentionedBy = payloadPathString(webhookPayload, "comment.user.login")
 		event.AuthorType = payloadPathString(webhookPayload, "comment.user.type")
+		event.AuthorAssociation = payloadPathString(webhookPayload, "comment.author_association")
 		event.Body = payloadPathString(webhookPayload, "comment.body")
 		event.IssueBody = payloadPathString(webhookPayload, "issue.body")
 		event.CommentID = payloadPathString(webhookPayload, "comment.id")
@@ -43,6 +44,7 @@ func parseGitHubMentionEvent(payload AgentTriggerDispatchPayload, webhookPayload
 		event.OpenedBy = payloadPathString(webhookPayload, "issue.user.login")
 		event.MentionedBy = event.OpenedBy
 		event.AuthorType = payloadPathString(webhookPayload, "issue.user.type")
+		event.AuthorAssociation = payloadPathString(webhookPayload, "issue.author_association")
 		event.Body = payloadPathString(webhookPayload, "issue.body")
 	case "pull_request.opened":
 		event.IsPR = true
@@ -52,6 +54,7 @@ func parseGitHubMentionEvent(payload AgentTriggerDispatchPayload, webhookPayload
 		event.OpenedBy = payloadPathString(webhookPayload, "pull_request.user.login")
 		event.MentionedBy = event.OpenedBy
 		event.AuthorType = payloadPathString(webhookPayload, "pull_request.user.type")
+		event.AuthorAssociation = payloadPathString(webhookPayload, "pull_request.author_association")
 		event.Body = payloadPathString(webhookPayload, "pull_request.body")
 	default:
 		return githubMentionEvent{}, false

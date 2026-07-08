@@ -180,7 +180,8 @@ func (h *CredentialHandler) UpdateSystem(w http.ResponseWriter, r *http.Request)
 	if req.APIKey != nil {
 		encryptedKey, wrappedDEK, err := h.encryptAPIKey(r.Context(), *req.APIKey)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "encrypt api key", "error", err)
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to store credential"})
 			return
 		}
 		updates["encrypted_key"] = encryptedKey

@@ -106,7 +106,6 @@ func seedTriggerSessionFixture(t *testing.T, db *gorm.DB) (model.Org, model.Agen
 		_ = db.Where("org_id = ?", org.ID).Delete(&model.Session{}).Error
 		_ = db.Where("org_id = ?", org.ID).Delete(&model.AgentTrigger{}).Error
 		_ = db.Where("org_id = ?", org.ID).Delete(&model.Sandbox{}).Error
-		_ = db.Where("org_id = ?", org.ID).Delete(&model.AgentChannel{}).Error
 		_ = db.Where("org_id = ?", org.ID).Delete(&model.Channel{}).Error
 		_ = db.Where("id = ?", agent.ID).Delete(&model.Agent{}).Error
 		_ = db.Where("id = ?", org.ID).Delete(&model.Org{}).Error

@@ -104,19 +104,16 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	wctx := h.identify(r.Context(), &wh)
 	if wctx == nil {
-		headers := make(map[string]string)
-		for k, v := range r.Header {
-			if len(v) > 0 {
-				headers[k] = v[0]
-			}
-		}
+		// Do NOT log the full body or headers here: an unmatched delivery can
+		// still carry third-party PII / secrets (Slack message text, GitHub
+		// payloads, auth headers). Log only the non-sensitive envelope fields
+		// needed to diagnose a routing miss.
 		logging.FromContext(r.Context()).InfoContext(r.Context(), "nango_webhook_connection_not_found",
 			"nango_connection_id", wh.ConnectionID,
 			"provider_config_key", wh.ProviderConfigKey,
 			"type", wh.Type,
 			"from", wh.From,
-			"payload", string(body),
-			"headers", headers,
+			"payload_bytes", len(body),
 		)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return

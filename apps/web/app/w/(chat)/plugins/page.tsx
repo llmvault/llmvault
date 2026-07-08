@@ -28,10 +28,7 @@ export default function PluginsPage() {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<PluginCategory>("All")
   const pluginsQuery = $api.useQuery("get", "/v1/plugins")
-  const plugins = useMemo(
-    () => (pluginsQuery.data ?? []) as ApiPlugin[],
-    [pluginsQuery.data]
-  )
+  const plugins = useMemo(() => pluginsQuery.data ?? [], [pluginsQuery.data])
   const categories = useMemo(() => pluginCategories(plugins), [plugins])
   const connectedPlugins = useMemo(
     () => plugins.filter((plugin) => plugin.installed),
@@ -82,7 +79,7 @@ export default function PluginsPage() {
           >
             <NextLink
               href="/w/plugins"
-              className="bg-default rounded-lg px-3 py-1.5 text-sm font-medium text-foreground"
+              className="rounded-lg bg-default px-3 py-1.5 text-sm font-medium text-foreground"
             >
               Plugins
             </NextLink>
@@ -90,7 +87,7 @@ export default function PluginsPage() {
 
           <div>
             <h1 className="text-lg font-semibold text-foreground">Plugins</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-1 text-sm">
               Work with Hivy across your favorite tools
             </p>
           </div>
@@ -99,13 +96,13 @@ export default function PluginsPage() {
             <div className="relative min-w-0 flex-1">
               <AppIcon
                 icon="search"
-                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
               />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search plugins and skills"
-                className="h-10 w-full rounded-md bg-card pl-9"
+                className="bg-card h-10 w-full rounded-md pl-9"
               />
             </div>
 
@@ -131,7 +128,7 @@ export default function PluginsPage() {
                     {pluginHasMissingResourceRequirements(plugin) ? (
                       <span
                         aria-label="Resource selection required"
-                        className="bg-warning text-warning-foreground absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full"
+                        className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-warning text-warning-foreground"
                       >
                         <AppIcon
                           icon="triangle-alert"
@@ -156,7 +153,7 @@ export default function PluginsPage() {
                   <h2 className="text-sm font-medium text-foreground">
                     {section}
                   </h2>
-                  <div className="flex flex-col bg-card">
+                  <div className="bg-card flex flex-col">
                     {plugins.map((plugin) => (
                       <PluginRow key={pluginSlug(plugin)} plugin={plugin} />
                     ))}
@@ -187,7 +184,7 @@ function CategorySelect({
       onChange={(key) => onChange(String(key))}
       className="w-full sm:w-48"
     >
-      <Select.Trigger className="h-10 w-full justify-between bg-card px-3 text-sm text-foreground transition-colors hover:bg-muted/20">
+      <Select.Trigger className="bg-card h-10 w-full justify-between px-3 text-sm text-foreground transition-colors hover:bg-muted/20">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
@@ -210,7 +207,7 @@ function PluginRow({ plugin }: { plugin: ApiPlugin }) {
       href={`/w/plugins/${pluginSlug(plugin)}`}
       className="group -mx-3 block py-1.5"
     >
-      <div className="group-hover:bg-default group-focus-visible:bg-default rounded-xl px-3 py-1.5 transition-colors group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-foreground/40">
+      <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default group-focus-visible:bg-default group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-foreground/40">
         <div className="flex items-center gap-3">
           <div
             className={pluginLogoFrameClass(
@@ -231,14 +228,14 @@ function PluginRow({ plugin }: { plugin: ApiPlugin }) {
             <h3 className="text-sm font-medium text-foreground">
               {pluginName(plugin)}
             </h3>
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="text-muted-foreground truncate text-sm">
               {pluginDescription(plugin)}
             </p>
           </div>
 
           <AppIcon
             icon="chevron-right"
-            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+            className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
             aria-hidden="true"
           />
         </div>
@@ -249,12 +246,12 @@ function PluginRow({ plugin }: { plugin: ApiPlugin }) {
 
 function EmptyState({ query }: { query: string }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon="plug" className="h-7 w-7 text-muted-foreground" />
+    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
+      <AppIcon icon="plug" className="text-muted-foreground h-7 w-7" />
       <p className="mt-3 text-sm font-medium text-foreground">
         {query ? "No matching plugins" : "No plugins available"}
       </p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
         {query
           ? "Try a different search or category."
           : "Browse the catalog to connect your favorite tools."}
@@ -265,7 +262,7 @@ function EmptyState({ query }: { query: string }) {
 
 function PluginListSkeleton() {
   return (
-    <div className="flex flex-col rounded-xl bg-card">
+    <div className="bg-card flex flex-col rounded-xl">
       {[0, 1, 2, 3].map((index) => (
         <div key={index} className="flex items-center gap-3 p-3">
           <Skeleton className="h-8 w-8 shrink-0" />

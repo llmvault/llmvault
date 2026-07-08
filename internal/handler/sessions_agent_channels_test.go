@@ -9,57 +9,29 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestIntegration_SessionsCreateRespectsAgentChannelRestrictions(t *testing.T) {
-	h := newSessionHarness(t)
-	fx := h.seed(t)
-	other := seedSessionChannel(t, h, fx, "support", fx.agent.ID, nil)
-	if err := h.db.Create(&model.AgentChannel{OrgID: fx.org.ID, AgentID: fx.agent.ID, ChannelID: fx.channel.ID}).Error; err != nil {
-		t.Fatalf("restrict agent to channel: %v", err)
-	}
-
-	disallowed := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
-		"channel_id": other.ID.String(),
-		"text":       "Try restricted default agent",
-	})
-	if disallowed.Code != http.StatusForbidden {
-		t.Fatalf("disallowed create status=%d body=%s", disallowed.Code, disallowed.Body.String())
-	}
-
-	allowed := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
-		"channel_id": fx.channel.ID.String(),
-		"text":       "Use restricted agent in allowed channel",
-	})
-	if allowed.Code != http.StatusCreated {
-		t.Fatalf("allowed create status=%d body=%s", allowed.Code, allowed.Body.String())
-	}
-
-	unrestricted := seedSessionAgent(t, h.db, fx.org.ID)
-	// The target channel is team-less, so any org agent may act in it under the
-	// team-primary model — the explicit unrestricted agent needs no assignment.
-	explicit := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
-		"channel_id": other.ID.String(),
-		"agent_id":   unrestricted.ID.String(),
-		"text":       "Use unrestricted explicit agent",
-	})
-	if explicit.Code != http.StatusCreated {
-		t.Fatalf("explicit unrestricted create status=%d body=%s", explicit.Code, explicit.Body.String())
-	}
-}
-
+// TestIntegration_SessionsUpdateRejectsChannelMoveWhenAgentUnavailable verifies
+// the team-primary move guard: a session may not be moved into a team-scoped
+// channel whose team excludes the session's agent (channelagents.ActsInChannel).
+// This is the enforcement that replaced the cut agent_channels allowlist — and
+// it closes the former hole where session channel-move checked only the legacy
+// allowlist.
 func TestIntegration_SessionsUpdateRejectsChannelMoveWhenAgentUnavailable(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
-	other := seedSessionChannel(t, h, fx, "support", fx.agent.ID, nil)
-	created := h.createSession(t, fx, fx.owner, "Initial allowed session")
-	if err := h.db.Create(&model.AgentChannel{OrgID: fx.org.ID, AgentID: fx.agent.ID, ChannelID: fx.channel.ID}).Error; err != nil {
-		t.Fatalf("restrict agent to channel: %v", err)
+	// A team the session's (team-less) agent does not belong to, plus a channel
+	// owned by that team. Moving the session there must be rejected.
+	team := model.Team{OrgID: fx.org.ID, Name: "walled-" + uuid.NewString()[:8]}
+	if err := h.db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
 	}
+	teamChannel := seedSessionChannel(t, h, fx, "walled", fx.agent.ID, &team.ID)
+	created := h.createSession(t, fx, fx.owner, "Initial team-less session")
 
 	move := h.doJSON(t, http.MethodPatch, "/v1/sessions/"+created.Session.ID, fx, fx.owner, map[string]any{
-		"channel_id": other.ID.String(),
+		"channel_id": teamChannel.ID.String(),
 	})
 	if move.Code != http.StatusForbidden {
-		t.Fatalf("move status=%d body=%s", move.Code, move.Body.String())
+		t.Fatalf("move into foreign-team channel status=%d body=%s", move.Code, move.Body.String())
 	}
 }
 

@@ -86,6 +86,16 @@ func (h *SheetsHandler) LiveToken(w http.ResponseWriter, r *http.Request) {
 // Live streams a sheet's realtime events over SSE. Auth is the live token
 // only — browsers connect directly, so the normal session middleware never
 // runs here. Global CORS middleware already covers this route.
+// @Summary Stream sheet realtime events (SSE)
+// @Description Server-sent-events stream of a sheet's realtime row/field events. Authenticated by the short-lived live token (query param), not the session cookie. Content-Type is text/event-stream.
+// @Tags sheets
+// @Produce text/event-stream
+// @Param sheetID path string true "Sheet ID"
+// @Param token query string true "Live stream token"
+// @Success 200 {string} string "event stream"
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Router /v1/sheets/{sheetID}/live [get]
 func (h *SheetsHandler) Live(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.svc == nil || h.redis == nil || len(h.signingKey) == 0 {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "sheet live streaming is not configured"})

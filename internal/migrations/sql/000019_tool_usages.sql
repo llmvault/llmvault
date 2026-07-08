@@ -21,6 +21,3 @@ ALTER TABLE ONLY public.tool_usages
 CREATE INDEX idx_tu_org_agent ON public.tool_usages USING btree (agent_id);
 
 CREATE INDEX idx_tu_org_created ON public.tool_usages USING btree (org_id, created_at);
-
--- +goose Down
-DROP TABLE IF EXISTS public.tool_usages CASCADE;

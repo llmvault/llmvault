@@ -14,6 +14,3 @@ ALTER TABLE ONLY public.email_verifications
 CREATE UNIQUE INDEX idx_email_verifications_token_hash ON public.email_verifications USING btree (token_hash);
 
 CREATE INDEX idx_email_verifications_user_id ON public.email_verifications USING btree (user_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.email_verifications CASCADE;

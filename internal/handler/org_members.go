@@ -57,7 +57,7 @@ func isValidOrgRole(role string) bool {
 func (h *OrgMemberHandler) membership(ctx context.Context, orgID, userID uuid.UUID) (model.OrgMembership, bool, error) {
 	var m model.OrgMembership
 	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND user_id = ?", orgID, userID).
+		Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, userID).
 		First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.OrgMembership{}, false, nil
@@ -74,7 +74,7 @@ func (h *OrgMemberHandler) ownerCount(ctx context.Context, orgID uuid.UUID) (int
 	var n int64
 	err := h.db.WithContext(ctx).
 		Model(&model.OrgMembership{}).
-		Where("org_id = ? AND role = ?", orgID, "owner").
+		Where("org_id = ? AND role = ? AND deactivated_at IS NULL", orgID, "owner").
 		Count(&n).Error
 	return n, err
 }

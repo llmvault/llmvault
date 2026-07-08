@@ -13,6 +13,7 @@ import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin, useIsOwner } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 import { WorkspaceDangerZone } from "./workspace-danger-zone"
@@ -143,6 +144,7 @@ export default function GeneralSettingsPage() {
         throw new Error("Upload could not be signed")
       }
 
+      // eslint-disable-next-line no-restricted-globals -- signed-storage upload: PUT straight to the pre-signed object-store URL, not the Hivy API.
       const putRes = await fetch(signed.upload_url, {
         method: signed.upload_method || "PUT",
         headers: {
@@ -179,7 +181,7 @@ export default function GeneralSettingsPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({
-            queryKey: ["get", "/v1/orgs/current"],
+            queryKey: queryKeys.orgCurrent(),
           })
           toast.success("Workspace updated")
         },

@@ -7,11 +7,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
-import {
-  MEMBERS_KEY,
-  memberLabel,
-  type Member,
-} from "../teams/_components/team-settings"
+import { MEMBERS_KEY, memberLabel } from "../teams/_components/team-settings"
 
 // WorkspaceDangerZone surfaces owner-only, org-wide destructive actions:
 // transfer ownership to another member, and permanently delete the workspace.
@@ -33,7 +29,7 @@ export function WorkspaceDangerZone() {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const members = useMemo(
-    () => (membersQuery.data?.data ?? []) as Member[],
+    () => membersQuery.data?.data ?? [],
     [membersQuery.data?.data]
   )
 

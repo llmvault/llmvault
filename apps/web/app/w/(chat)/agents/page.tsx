@@ -35,11 +35,8 @@ export default function AgentsSettingsPage() {
     params: { query: { status: "active", limit: 100 } },
   })
 
-  const catalogAgents =
-    (catalogQuery.data as CatalogAgent[] | undefined) ?? EMPTY_CATALOG_AGENTS
-  const installedAgents =
-    (installedQuery.data?.data as InstalledAgent[] | undefined) ??
-    EMPTY_INSTALLED_AGENTS
+  const catalogAgents = catalogQuery.data ?? EMPTY_CATALOG_AGENTS
+  const installedAgents = installedQuery.data?.data ?? EMPTY_INSTALLED_AGENTS
   const categories = useMemo(
     () => agentCategories(catalogAgents),
     [catalogAgents]
@@ -72,7 +69,7 @@ export default function AgentsSettingsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Agents</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             Install workspace agents from the catalog, or build your own.
           </p>
         </div>
@@ -91,13 +88,13 @@ export default function AgentsSettingsPage() {
         <div className="relative min-w-0 flex-1">
           <AppIcon
             icon="search"
-            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
           />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search agents"
-            className="h-10 w-full rounded-md bg-card pl-9"
+            className="bg-card h-10 w-full rounded-md pl-9"
           />
         </div>
 
@@ -129,7 +126,7 @@ export default function AgentsSettingsPage() {
           {sectionEntries.map(([section, agents]) => (
             <section key={section} className="flex flex-col gap-3">
               <h2 className="text-sm font-medium text-foreground">{section}</h2>
-              <div className="flex flex-col bg-card">
+              <div className="bg-card flex flex-col">
                 {agents.map((agent, index) => (
                   <AgentRow
                     key={agentSlug(agent) || `${section}-${index}`}
@@ -157,7 +154,7 @@ function OrgAgentsSection({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-medium text-foreground">Your agents</h2>
-      <div className="flex flex-col bg-card">
+      <div className="bg-card flex flex-col">
         {agents.map((agent) => (
           <OrgAgentRow key={agent.id ?? agentName(agent)} agent={agent} />
         ))}
@@ -172,20 +169,20 @@ function OrgAgentRow({ agent }: { agent: InstalledAgent }) {
       href={`/w/agents/edit/${agent.id}`}
       className="group -mx-3 block py-1.5"
     >
-      <div className="group-hover:bg-default rounded-xl px-3 py-1.5 transition-colors">
+      <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default">
         <div className="flex items-center gap-3">
           <AgentAvatar agent={agent} size="md" />
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-medium text-foreground">
               {agentName(agent)}
             </h3>
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="text-muted-foreground truncate text-sm">
               {agentDescription(agent)}
             </p>
           </div>
           <AppIcon
             icon="chevron-right"
-            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+            className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
           />
         </div>
       </div>
@@ -203,7 +200,9 @@ function InstalledAgentsSection({
   if (isLoading) {
     return (
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-foreground">Installed agents</h2>
+        <h2 className="text-sm font-medium text-foreground">
+          Installed agents
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           {Array.from({ length: 4 }).map((_, index) => (
             <Skeleton key={index} className="h-8 w-8" />
@@ -222,7 +221,7 @@ function InstalledAgentsSection({
         {agents.map((agent) => (
           <div
             key={agent.id ?? agentName(agent)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-card transition-colors hover:bg-muted/40"
+            className="bg-card flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/40"
             title={agentName(agent)}
           >
             <AgentAvatar agent={agent} size="sm" />
@@ -271,11 +270,8 @@ function AgentRow({ agent }: { agent: CatalogAgent }) {
   const installed = agentIsInstalled(agent)
 
   return (
-    <NextLink
-      href={`/w/agents/${slug}`}
-      className="group -mx-3 block py-1.5"
-    >
-      <div className="group-hover:bg-default rounded-xl px-3 py-1.5 transition-colors">
+    <NextLink href={`/w/agents/${slug}`} className="group -mx-3 block py-1.5">
+      <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default">
         <div className="flex items-center gap-3">
           <AgentAvatar agent={agent} size="md" />
 
@@ -285,7 +281,7 @@ function AgentRow({ agent }: { agent: CatalogAgent }) {
                 {agentName(agent)}
               </h3>
             </div>
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="text-muted-foreground truncate text-sm">
               {agentDescription(agent)}
             </p>
           </div>
@@ -300,7 +296,7 @@ function AgentRow({ agent }: { agent: CatalogAgent }) {
           ) : (
             <AppIcon
               icon="chevron-right"
-              className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+              className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
             />
           )}
         </div>
@@ -315,7 +311,7 @@ function CatalogSkeleton() {
       {Array.from({ length: 2 }).map((_, section) => (
         <section key={section} className="flex flex-col gap-3">
           <Skeleton className="h-4 w-28 rounded" />
-          <div className="flex flex-col gap-3 bg-card">
+          <div className="bg-card flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, row) => (
               <div key={row} className="flex items-center gap-3 py-1.5">
                 <Skeleton className="h-9 w-9" />
@@ -334,15 +330,15 @@ function CatalogSkeleton() {
 
 function ErrorState() {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
+    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
       <AppIcon
         icon="triangle-alert"
-        className="h-7 w-7 text-muted-foreground"
+        className="text-muted-foreground h-7 w-7"
       />
       <p className="mt-3 text-sm font-medium text-foreground">
         Could not load agents
       </p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
         Refresh the page to try again.
       </p>
     </div>
@@ -351,12 +347,12 @@ function ErrorState() {
 
 function EmptyState({ query }: { query: string }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon="bot" className="h-7 w-7 text-muted-foreground" />
+    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
+      <AppIcon icon="bot" className="text-muted-foreground h-7 w-7" />
       <p className="mt-3 text-sm font-medium text-foreground">
         {query ? "No matching agents" : "No agents available"}
       </p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
         {query
           ? "Try a different search or category."
           : "Browse the catalog to add agents to this workspace."}

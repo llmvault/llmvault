@@ -30,6 +30,11 @@ var (
 	ErrUnsupportedCurrency  = errors.New("billing: currency not supported by this provider")
 	ErrUnknownPlan          = errors.New("billing: plan slug not configured for this provider")
 	ErrAuthorizationRefused = errors.New("billing: provider declined the saved authorization")
+	// ErrOrgMismatch is returned by ResolveCheckout when the transaction's
+	// metadata org_id does not match the ExpectedOrgID of the caller. It stops
+	// a member replaying a valid cross-org payment reference to flip their own
+	// org's plan.
+	ErrOrgMismatch = errors.New("billing: transaction org does not match expected org")
 )
 
 // PaymentChannel restricts subscriptions to channels that issue a reusable

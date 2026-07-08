@@ -14,6 +14,3 @@ ALTER TABLE ONLY public.rag_sync_records
     ADD CONSTRAINT rag_sync_records_pkey PRIMARY KEY (id);
 
 CREATE INDEX idx_rag_sync_records_org_id ON public.rag_sync_records USING btree (org_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_sync_records CASCADE;

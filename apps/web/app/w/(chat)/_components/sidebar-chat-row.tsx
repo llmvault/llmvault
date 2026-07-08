@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Tooltip } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { AgentAvatar } from "@/components/agent-avatar"
 import {
   useSessionRuntimeStatus,
   type SessionRuntimeStatus,
@@ -198,26 +199,15 @@ function runtimeIndicator(
 }
 
 function SessionAgentAvatar({ agent }: { agent: SidebarSessionAgent }) {
-  const [failed, setFailed] = useState(false)
-
   return (
     <Tooltip delay={250} closeDelay={0}>
       <Tooltip.Trigger className="flex h-3 w-3 shrink-0 items-center justify-center">
-        <span className="flex h-3 w-3 items-center justify-center overflow-hidden rounded-full bg-default text-muted ring-1 ring-border/70">
-          {agent.avatarURL && !failed ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- agent avatars can come from arbitrary workspace-configured URLs */}
-              <img
-                src={agent.avatarURL}
-                alt=""
-                className="h-full w-full object-cover"
-                onError={() => setFailed(true)}
-              />
-            </>
-          ) : (
-            <AppIcon icon={agent.icon} className="h-2 w-2" />
-          )}
-        </span>
+        <AgentAvatar
+          avatarURL={agent.avatarURL}
+          icon={agent.icon}
+          className="h-3 w-3 rounded-full ring-1 ring-border/70"
+          iconClassName="h-2 w-2"
+        />
       </Tooltip.Trigger>
       <Tooltip.Content placement="right" offset={8} className="text-xs">
         {agent.name}

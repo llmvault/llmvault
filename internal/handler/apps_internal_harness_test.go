@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -42,6 +45,10 @@ type appsHarness struct {
 
 	app    model.App
 	secret string
+
+	// actorKey signs launch-style X-Hivy-App-Actor tokens; its public half is
+	// wired into the handler as the actor verifier.
+	actorKey *rsa.PrivateKey
 }
 
 func newAppsHarness(t *testing.T) *appsHarness {
@@ -131,11 +138,47 @@ func newAppsHarness(t *testing.T) *appsHarness {
 		t.Fatalf("create app: %v", err)
 	}
 
+	actorKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate actor key: %v", err)
+	}
+	h.actorKey = actorKey
+
 	appsHandler := handler.NewAppsInternalHandler(db, h.svc, encKey).
-		WithPresigner(fakeSheetsPresigner{})
+		WithPresigner(fakeSheetsPresigner{}).
+		WithActorVerifier(&actorKey.PublicKey)
 	h.handler = appsHandler
 	h.router = newAppsInternalRouter(appsHandler)
 	return h
+}
+
+// actorToken mints a platform-signed launch-style JWT attributing an action to
+// userID for this harness's app, matching what apps_internal.verifyAppActorToken
+// accepts. appIDOverride, when non-empty, forges a token bound to a different app.
+func (h *appsHarness) actorToken(t *testing.T, userID uuid.UUID) string {
+	t.Helper()
+	return h.actorTokenForApp(t, userID, h.app.ID.String())
+}
+
+func (h *appsHarness) actorTokenForApp(t *testing.T, userID uuid.UUID, appID string) string {
+	t.Helper()
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"app_id":  appID,
+		"org_id":  h.org.ID.String(),
+		"user_id": userID.String(),
+		"iss":     "hivy",
+		"aud":     "hivy-app",
+		"sub":     userID.String(),
+		"iat":     now.Unix(),
+		"exp":     now.Add(time.Minute).Unix(),
+		"jti":     uuid.NewString(),
+	}
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(h.actorKey)
+	if err != nil {
+		t.Fatalf("sign actor token: %v", err)
+	}
+	return signed
 }
 
 // newAppsInternalRouter mirrors production registration (mountInternalAppRoutes).

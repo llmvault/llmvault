@@ -4,10 +4,10 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Skeleton, toast } from "@heroui/react"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
-import type { SidebarAgentResponse } from "@/app/w/(chat)/_lib/sidebar-data"
 
 // The channel's only per-channel agent notion is its default agent: the agent
 // that handles mentions and sessions when none is specified. Agents are team
@@ -37,9 +37,9 @@ export function DefaultAgentTab({
         onSuccess: () => {
           toast.success("Default agent updated")
           queryClient.invalidateQueries({
-            queryKey: ["get", "/v1/channels/{id}"],
+            queryKey: queryKeys.channel(),
           })
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
         },
         onError: (error) =>
           toast.danger(
@@ -59,11 +59,11 @@ export function DefaultAgentTab({
 
   if (isError) {
     return (
-      <section className="bg-surface rounded-2xl border border-border px-4 py-8 text-center">
+      <section className="rounded-2xl border border-border bg-surface px-4 py-8 text-center">
         <h2 className="text-sm font-medium text-foreground">
           Couldn&apos;t load agents
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Please try again in a moment.
         </p>
       </section>
@@ -76,13 +76,13 @@ export function DefaultAgentTab({
       description="Handles mentions and sessions in this channel when no agent is specified. Any agent on this channel's team can run here."
     >
       {agents.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           This channel&apos;s team has no agents yet. Install or create an agent
           for the team first.
         </p>
       ) : (
         <AgentSelect
-          agents={agents as SidebarAgentResponse[]}
+          agents={agents}
           selectedAgentID={defaultAgentId}
           isLoading={updateChannel.isPending}
           onChange={handleDefaultChange}

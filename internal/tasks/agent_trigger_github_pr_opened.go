@@ -36,6 +36,12 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubPROpened(ctx context.Context,
 		skipReason = "event is not a pull_request.opened event"
 	case !strings.EqualFold(event.Repo, trigger.TriggerValue):
 		skipReason = "event repository does not match trigger"
+	case !isAuthorizedGitHubSender(event.AuthorAssociation):
+		// Authorized-sender gate: auto-review fires on every
+		// pull_request.opened, so without this an external fork PR from any
+		// GitHub user would spend org credits. Only OWNER/MEMBER/COLLABORATOR
+		// (people with standing on the repo) may trigger an org-billed review.
+		skipReason = "pull request author is not an authorized repo collaborator"
 	}
 	if skipReason != "" {
 		logging.FromContext(ctx).InfoContext(ctx, "github pr-opened trigger skipped event",

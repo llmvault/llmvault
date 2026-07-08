@@ -80,8 +80,36 @@ func ClaimInbound(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.UUI
 	return ClaimResult{Event: row, Accepted: accepted, Reason: reason}, nil
 }
 
+// slackWorkspaceChannelTypes is the allowlist of Slack channel types Hivy will
+// act on. Only in-workspace public ("channel") and private ("group") channels
+// qualify. DM surfaces ("im", "mpim") — which are how Slack Connect exposes
+// external users — are excluded so an external / Slack-Connect sender cannot
+// spin up an org-billed run.
+//
+// ASSUMPTION (documented): there is no Slack-user → Hivy-member identity map, so
+// authorization is approximated by (a) requiring a real workspace user id and
+// (b) restricting to workspace channel types. This does NOT yet exclude an
+// external member invited into a normally-shared channel (channel_type stays
+// "channel"); fully doing so needs the installing-workspace team id vs the
+// sender team id, which slackapp.DecodeInboundEvent does not currently surface
+// separately (see cross-agent TODO).
+var slackWorkspaceChannelTypes = map[string]bool{
+	"channel": true,
+	"group":   true,
+}
+
 func inboundAllowed(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.UUID, event slackapp.InboundEvent) (bool, string, error) {
 	if event.EventType == slackapp.EventAppMention {
+		// Authorized-sender gate: require a real workspace user and an
+		// in-workspace channel type before accepting an app_mention. Previously
+		// every app_mention was accepted, letting any external Slack user spend
+		// org credits.
+		if strings.TrimSpace(event.UserID) == "" {
+			return false, "no_sender", nil
+		}
+		if !slackWorkspaceChannelTypes[strings.TrimSpace(event.ChannelType)] {
+			return false, "unsupported_channel_type", nil
+		}
 		return true, "", nil
 	}
 	if strings.TrimSpace(event.CleanText) == "" {

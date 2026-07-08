@@ -71,6 +71,3 @@ ALTER TABLE ONLY public.agent_schedules
 
 ALTER TABLE ONLY public.agent_schedules
     ADD CONSTRAINT fk_agent_schedules_sandbox FOREIGN KEY (sandbox_id) REFERENCES public.sandboxes(id) ON DELETE SET NULL;
-
--- +goose Down
-DROP TABLE IF EXISTS public.agent_schedules CASCADE;

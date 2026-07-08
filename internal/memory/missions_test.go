@@ -70,7 +70,7 @@ func TestChannelMissionReturnsStoredMission(t *testing.T) {
 	template := MissionTemplate(ChannelCategoryCustomerSupport)
 	channel := seedMissionChannel(t, db, ChannelCategoryCustomerSupport, &template)
 
-	mission, err := ChannelMission(context.Background(), db, channel.ID)
+	mission, err := ChannelMission(context.Background(), db, channel.OrgID, channel.ID)
 	if err != nil {
 		t.Fatalf("load mission: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestChannelMissionEmptyWhenUnset(t *testing.T) {
 	db := connectMemoryToolTestDB(t)
 	channel := seedMissionChannel(t, db, ChannelCategoryGeneral, nil)
 
-	mission, err := ChannelMission(context.Background(), db, channel.ID)
+	mission, err := ChannelMission(context.Background(), db, channel.OrgID, channel.ID)
 	if err != nil {
 		t.Fatalf("load mission: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestChannelMissionFallsBackToCategoryTemplate(t *testing.T) {
 
 	// Unset mission on a categorized channel: the category default applies.
 	unset := seedMissionChannel(t, db, ChannelCategoryEngineering, nil)
-	mission, err := ChannelMission(context.Background(), db, unset.ID)
+	mission, err := ChannelMission(context.Background(), db, unset.OrgID, unset.ID)
 	if err != nil {
 		t.Fatalf("load mission: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestChannelMissionFallsBackToCategoryTemplate(t *testing.T) {
 	// A cleared (whitespace) mission behaves like unset: reset to default.
 	blank := "   "
 	cleared := seedMissionChannel(t, db, ChannelCategoryEngineering, &blank)
-	mission, err = ChannelMission(context.Background(), db, cleared.ID)
+	mission, err = ChannelMission(context.Background(), db, cleared.OrgID, cleared.ID)
 	if err != nil {
 		t.Fatalf("load mission: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestChannelMissionFallsBackToCategoryTemplate(t *testing.T) {
 	// A custom mission always wins over the template.
 	custom := "Only retain deploy-pipeline decisions."
 	set := seedMissionChannel(t, db, ChannelCategoryEngineering, &custom)
-	mission, err = ChannelMission(context.Background(), db, set.ID)
+	mission, err = ChannelMission(context.Background(), db, set.OrgID, set.ID)
 	if err != nil {
 		t.Fatalf("load mission: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestChannelMissionFallsBackToCategoryTemplate(t *testing.T) {
 
 func TestChannelMissionMissingChannel(t *testing.T) {
 	db := connectMemoryToolTestDB(t)
-	mission, err := ChannelMission(context.Background(), db, uuid.New())
+	mission, err := ChannelMission(context.Background(), db, uuid.New(), uuid.New())
 	if err != nil {
 		t.Fatalf("missing channel should not error, got %v", err)
 	}

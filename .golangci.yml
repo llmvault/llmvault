@@ -36,7 +36,6 @@ linters-settings:
         list-mode: lax
         files:
           - "$all"
-          - "!**/cmd/sandbox-exec/**"
           - "!**/cmd/verify-devbox/**"
           - "!**/cmd/agent-debug-pack/**"
           - "!**/cmd/agent-env-doctor/**"
@@ -87,8 +86,6 @@ issues:
         - sloglint
         - unused
     # CLI tools — log/fmt.Println are legitimate user-facing terminal output.
-    - path: cmd/sandbox-exec/
-      linters: [forbidigo, depguard, sloglint]
     - path: cmd/verify-devbox/
       linters: [forbidigo, depguard, sloglint]
     - path: cmd/agent-debug-pack/

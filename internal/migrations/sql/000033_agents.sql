@@ -35,6 +35,7 @@ CREATE TABLE public.agents (
     default_reasoning_effort text,
     auto_load_skills jsonb DEFAULT '[]'::jsonb NOT NULL,
     team_id uuid,
+    instructions_snapshot text,
     CONSTRAINT agents_sandbox_image_valid CHECK ((sandbox_image = ANY (ARRAY['default'::text, 'developer'::text]))),
     CONSTRAINT agents_sandbox_size_check CHECK ((sandbox_size = ANY (ARRAY['nano'::text, 'small'::text, 'medium'::text, 'large'::text, 'xlarge'::text]))),
     CONSTRAINT agents_type_check CHECK ((type = ANY (ARRAY['agent'::text, 'subagent'::text])))
@@ -73,6 +74,3 @@ ALTER TABLE ONLY public.agents
 
 ALTER TABLE ONLY public.agents
     ADD CONSTRAINT fk_agents_sandbox_template FOREIGN KEY (sandbox_template_id) REFERENCES public.sandbox_templates(id) ON DELETE SET NULL;
-
--- +goose Down
-DROP TABLE IF EXISTS public.agents CASCADE;

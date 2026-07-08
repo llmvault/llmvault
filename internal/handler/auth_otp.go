@@ -114,23 +114,27 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	codeHash := model.HashOTPCode(req.Code)
-	var otp model.OTPCode
-	err := h.db.Where("email = ? AND token_hash = ? AND used_at IS NULL", req.Email, codeHash).First(&otp).Error
-	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired code"})
-		return
-	}
-
-	if time.Now().After(otp.ExpiresAt) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired code"})
-		return
-	}
-
 	now := time.Now()
-	h.db.Model(&otp).Update("used_at", &now)
+
+	// Atomic single-use claim: one conditional UPDATE both validates the code
+	// (correct hash, unused, unexpired) and consumes it. This closes the
+	// SELECT-then-Update TOCTOU where two concurrent verifies could both succeed
+	// on one code, and it never leaves a valid code replayable on a failed write.
+	res := h.db.Model(&model.OTPCode{}).
+		Where("email = ? AND token_hash = ? AND used_at IS NULL AND expires_at > ?", req.Email, codeHash, now).
+		Update("used_at", &now)
+	if res.Error != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "failed to claim OTP code", "error", res.Error)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if res.RowsAffected != 1 {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired code"})
+		return
+	}
 
 	var user model.User
-	err = h.db.Where("email = ?", req.Email).First(&user).Error
+	err := h.db.Where("email = ?", req.Email).First(&user).Error
 	if err != nil {
 
 		var org model.Org
@@ -165,7 +169,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var memberships []model.OrgMembership
-	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)
+	h.db.Preload("Org").Where("user_id = ? AND deactivated_at IS NULL", user.ID).Find(&memberships)
 
 	if len(memberships) == 0 {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "no organization memberships"})

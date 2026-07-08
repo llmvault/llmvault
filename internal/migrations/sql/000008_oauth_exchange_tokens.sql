@@ -14,6 +14,3 @@ ALTER TABLE ONLY public.oauth_exchange_tokens
 CREATE UNIQUE INDEX idx_oauth_exchange_tokens_token_hash ON public.oauth_exchange_tokens USING btree (token_hash);
 
 CREATE INDEX idx_oauth_exchange_tokens_user_id ON public.oauth_exchange_tokens USING btree (user_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.oauth_exchange_tokens CASCADE;

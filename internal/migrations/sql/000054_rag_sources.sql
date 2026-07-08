@@ -26,6 +26,3 @@ ALTER TABLE ONLY public.rag_sources
 
 ALTER TABLE ONLY public.rag_sources
     ADD CONSTRAINT fk_rag_sources_connection FOREIGN KEY (connection_id) REFERENCES public.connections(id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_sources CASCADE;

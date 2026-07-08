@@ -46,7 +46,6 @@ func setupV1Routes(
 	ragSearchHandler *handler.RAGSearchHandler,
 	uploadsHandler *handler.UploadsHandler,
 	imageDescribeHandler *handler.ImageDescribeHandler,
-	systemTaskHandler *handler.SystemTaskHandler,
 	agentHandler *handler.AgentHandler,
 	canvasHandler *handler.CanvasHandler,
 	sheetsHandler *handler.SheetsHandler,
@@ -102,19 +101,21 @@ func setupV1Routes(
 
 			mountOrgMemberLifecycleRoutes(r, database)
 
-			r.Get("/usage", usageHandler.Get)
-			if dashboardHandler != nil {
-				r.Get("/dashboard", dashboardHandler.Get)
-			}
-			// Audit log is admin-only: it exposes org-wide request paths,
-			// resource ids, and IP addresses that a non-admin member must not read.
+			// Admin-only org-wide observability: audit, usage, generations,
+			// dashboard, and reporting all expose org-wide request paths,
+			// per-user cost/credit spend, client IP addresses, and user ids
+			// that a non-admin member must not read.
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdmin(database))
+				if dashboardHandler != nil {
+					r.Get("/dashboard", dashboardHandler.Get)
+				}
 				r.Get("/audit", auditHandler.List)
+				r.Get("/usage", usageHandler.Get)
+				r.Get("/generations", generationHandler.List)
+				r.Get("/generations/{id}", generationHandler.Get)
+				r.Get("/reporting", reportingHandler.Get)
 			})
-			r.Get("/reporting", reportingHandler.Get)
-			r.Get("/generations", generationHandler.List)
-			r.Get("/generations/{id}", generationHandler.Get)
 			if canvasHandler != nil {
 				r.Get("/canvas/projects", canvasHandler.ListProjects)
 				r.Get("/canvas/artifacts", canvasHandler.ListArtifacts)
@@ -134,13 +135,19 @@ func setupV1Routes(
 			// enforced per app inside the handlers.
 			mountAppRoutes(r, database, appsHandler)
 
-			// Escalation-sensitive: JWT callers must be org admins; API-key callers
-			// may only mint keys within their own scopes (APIKeyHandler.Create).
-			// The List leaks org-wide key inventory, so it is admin-gated too.
+			// API-key CREATE is org-admin-or-above only (owners+admins): a FINAL
+			// maintainer decision. API-key callers may no longer mint keys — only a
+			// human org admin may. RequireOrgAdmin rejects API-key auth (no JWT
+			// claims), so keys are shut out of creation.
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireOrgAdmin(database))
+				r.Post("/api-keys", apiKeyHandler.Create)
+			})
+			// Read/revoke keep existing scoping: List leaks org-wide key inventory
+			// so it stays admin-gated (API keys with scope still pass), Revoke too.
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdminOrAPIKey(database))
 				r.Get("/api-keys", apiKeyHandler.List)
-				r.Post("/api-keys", apiKeyHandler.Create)
 				r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
 			})
 
@@ -174,9 +181,6 @@ func setupV1Routes(
 					r.Post("/channels/{id}/environment-variables", channelHandler.CreateChannelEnvironmentVariable)
 					r.Patch("/channels/{id}/environment-variables/{name}", channelHandler.UpdateChannelEnvironmentVariable)
 					r.Delete("/channels/{id}/environment-variables/{name}", channelHandler.DeleteChannelEnvironmentVariable)
-					// Channel RAG grants are team-derived now (team-provisioning owns
-					// /teams/{teamID}/rag-sources); the PUT grant route was removed.
-					r.Get("/channels/{id}/rag-sources", channelHandler.ListChannelRAGSources)
 					if sessionHandler != nil {
 						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
 					}
@@ -273,9 +277,6 @@ func setupV1Routes(
 						r.Patch("/schedules/{id}", scheduleHandler.Update)
 						r.Delete("/schedules/{id}", scheduleHandler.Delete)
 					})
-				}
-				if systemTaskHandler != nil {
-					r.Post("/system/tasks/{taskName}", systemTaskHandler.Run)
 				}
 				r.Route("/sandboxes", func(r chi.Router) {
 					sandboxHandler := handler.NewSandboxHandler(database, orchestrator)

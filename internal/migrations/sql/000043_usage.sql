@@ -30,6 +30,3 @@ ALTER TABLE ONLY public.usage
 
 ALTER TABLE ONLY public.usage
     ADD CONSTRAINT fk_usage_org FOREIGN KEY (org_id) REFERENCES public.orgs(id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.usage CASCADE;

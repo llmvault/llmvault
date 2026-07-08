@@ -320,48 +320,7 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        /**
-         * Delete current user account
-         * @description Permanently deletes the authenticated user's account. This action cannot be undone.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         /**
@@ -5963,75 +5922,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/channels/{id}/rag-sources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a channel's knowledge sources
-         * @description Lists the RAG sources a channel's agents can search. These are derived from the grants of the channel's team; a channel with no team has no knowledge access. Grants are managed at the team level by org admins.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelRAGSourcesResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/channels/{id}/sessions": {
         parameters: {
             query?: never;
@@ -9919,8 +9809,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Remove a member from the organization
-         * @description Removes a member from the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed, and removal also strips the user's team and channel memberships within the org. Sessions the user created are retained (their created_by is nulled by the database).
+         * Deactivate a member of the organization
+         * @description Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org/team/channel membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.
          */
         delete: {
             parameters: {
@@ -14112,6 +14002,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{id}/name-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream session name updates (SSE)
+         * @description Server-sent-events stream that emits the session whenever its generated name changes. Content-Type is text/event-stream.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["sessionNameUpdateResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{id}/participants": {
         parameters: {
             query?: never;
@@ -14952,6 +14902,69 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/v1/sheets/{sheetID}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream sheet realtime events (SSE)
+         * @description Server-sent-events stream of a sheet's realtime row/field events. Authenticated by the short-lived live token (query param), not the session cookie. Content-Type is text/event-stream.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Live stream token */
+                    token: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Sheet ID */
+                    sheetID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description event stream */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": string;
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/sheets/{sheetID}/live-token": {
@@ -16226,104 +16239,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/system/tasks/{taskName}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Run a system task
-         * @description Executes a registered server-side LLM task using platform credentials. Each task name maps to a hard-coded definition (model tier, prompt, args). Caller may opt into streaming.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Task name */
-                    taskName: string;
-                };
-                cookie?: never;
-            };
-            /** @description Task arguments */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["systemTaskRequest"];
-                };
-            };
-            responses: {
-                /** @description SSE stream when stream=true */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                        "text/event-stream": string;
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                        "text/event-stream": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                        "text/event-stream": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                        "text/event-stream": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Bad Gateway */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                        "text/event-stream": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                        "text/event-stream": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/tokens": {
         parameters: {
             query?: never;
@@ -17412,12 +17327,6 @@ export interface components {
             defaults?: components["schemas"]["TriggerDefaults"];
             key?: string;
         };
-        Usage: {
-            cached_tokens?: number;
-            input_tokens?: number;
-            output_tokens?: number;
-            reasoning_tokens?: number;
-        };
         WebhookConfig: {
             /**
              * @description ConfigurationNotes is markdown text shown to the user explaining how to
@@ -17511,7 +17420,6 @@ export interface components {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
-            channel_ids?: string[];
             created_at?: string;
             default_reasoning_effort?: string;
             description?: string;
@@ -17542,7 +17450,6 @@ export interface components {
         agentMutationRequest: {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
-            channel_ids?: string[];
             default_reasoning_effort?: string;
             description?: string;
             icon?: string;
@@ -17572,7 +17479,6 @@ export interface components {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
-            channel_ids?: string[];
             created_at?: string;
             default_reasoning_effort?: string;
             description?: string;
@@ -17842,15 +17748,6 @@ export interface components {
         };
         channelMutationResponse: {
             channel?: components["schemas"]["channelResponse"];
-        };
-        channelRAGSourceResponse: {
-            id?: string;
-            kind?: string;
-            name?: string;
-            status?: string;
-        };
-        channelRAGSourcesResponse: {
-            data?: components["schemas"]["channelRAGSourceResponse"][];
         };
         channelResponse: {
             archived_at?: string;
@@ -19065,6 +18962,9 @@ export interface components {
             queued?: boolean;
             session?: components["schemas"]["sessionResponse"];
         };
+        sessionNameUpdateResponse: {
+            session?: components["schemas"]["sessionResponse"];
+        };
         sessionParticipantResponse: {
             created_at?: string;
             invited_by?: string;
@@ -19342,18 +19242,6 @@ export interface components {
         };
         syncTriggerRequest: {
             from_beginning?: boolean;
-        };
-        systemTaskJSONResponse: {
-            cached?: boolean;
-            model?: string;
-            text?: string;
-            usage?: components["schemas"]["Usage"];
-        };
-        systemTaskRequest: {
-            args?: {
-                [key: string]: unknown;
-            };
-            stream?: boolean;
         };
         teamDetailResponse: {
             members?: components["schemas"]["teamMemberResponse"][];

@@ -10,11 +10,16 @@ export function AccountMenu() {
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const router = useRouter()
-  const { user, activeOrg, logout } = useAuth()
+  const { user, orgs, activeOrg, setActiveOrg, logout } = useAuth()
 
   const go = (path: string) => {
     setOpen(false)
     router.push(path)
+  }
+
+  const switchOrg = (org: (typeof orgs)[number]) => {
+    setOpen(false)
+    if (org.id !== activeOrg?.id) setActiveOrg(org)
   }
 
   const handleLogout = async () => {
@@ -44,6 +49,30 @@ export function AccountMenu() {
               <span className="truncate">{activeOrg?.name ?? "Workspace"}</span>
             </div>
           </div>
+          {orgs.length > 1 ? (
+            <>
+              <div className="mx-1 border-t border-border" />
+              <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium tracking-wide text-muted uppercase">
+                Switch workspace
+              </p>
+              {orgs.map((org) => (
+                <button
+                  key={org.id}
+                  type="button"
+                  onClick={() => switchOrg(org)}
+                  className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
+                >
+                  <AppIcon
+                    icon={org.id === activeOrg?.id ? "check" : "settings"}
+                    className="h-4 w-4 shrink-0 text-muted"
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {org.name ?? "Workspace"}
+                  </span>
+                </button>
+              ))}
+            </>
+          ) : null}
           <div className="mx-1 border-t border-border" />
           <AccountItem
             icon="circle-user"

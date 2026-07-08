@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 
@@ -88,15 +87,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	var channelIDs []uuid.UUID
-	if req.ChannelIDs != nil {
-		var parsed bool
-		channelIDs, parsed = h.normalizeAgentChannelIDs(ctx, w, org.ID, req.ChannelIDs)
-		if !parsed {
-			return
-		}
-	}
-	if len(updates) > 0 || req.ChannelIDs != nil || req.SubAgents != nil {
+	if len(updates) > 0 || req.SubAgents != nil {
 		if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if len(updates) > 0 {
 				if err := tx.Model(&model.Agent{}).
@@ -115,11 +106,6 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 					if err := tx.Create(&subAgentRows[i]).Error; err != nil {
 						return err
 					}
-				}
-			}
-			if req.ChannelIDs != nil {
-				if err := h.replaceAgentChannelsTx(tx, org.ID, agent.ID, channelIDs); err != nil {
-					return err
 				}
 			}
 			return nil

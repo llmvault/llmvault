@@ -3,16 +3,15 @@ package handler
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/channelagents"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 type pluginResponse struct {
@@ -101,78 +100,6 @@ func (h *PluginHandler) actorScope(ctx context.Context, orgID uuid.UUID) (plugin
 	return pluginActorScope{orgWide: orgWide, userID: userID}, nil
 }
 
-func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, plugin model.Plugin, scope pluginActorScope) (pluginResponse, error) {
-	var skills []model.Skill
-	if err := h.db.WithContext(ctx).
-		Where("plugin_id = ? AND status = ?", plugin.ID, model.SkillStatusPublished).
-		Order("name ASC").
-		Find(&skills).Error; err != nil {
-		return pluginResponse{}, err
-	}
-	var reqs []model.PluginIntegration
-	if err := h.db.WithContext(ctx).Where("plugin_id = ?", plugin.ID).Order("provider ASC").Find(&reqs).Error; err != nil {
-		return pluginResponse{}, err
-	}
-	var installCount int64
-	if err := h.db.WithContext(ctx).Model(&model.OrgPluginInstall{}).
-		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", orgID, plugin.ID).
-		Count(&installCount).Error; err != nil {
-		return pluginResponse{}, err
-	}
-	// enabled_agent_ids must not reveal agents the caller cannot see: a
-	// non-manager member only learns about agents visible to them.
-	enabledQ := h.db.WithContext(ctx).Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID)
-	if !scope.orgWide {
-		enabledQ = enabledQ.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, scope.userID))
-	}
-	var enabled []model.AgentPluginInstall
-	if err := enabledQ.Find(&enabled).Error; err != nil {
-		return pluginResponse{}, err
-	}
-	enabledIDs := make([]string, 0, len(enabled))
-	for _, row := range enabled {
-		enabledIDs = append(enabledIDs, row.AgentID.String())
-	}
-	missing, err := h.missingRequirements(ctx, orgID, plugin.ID)
-	if err != nil {
-		return pluginResponse{}, err
-	}
-	resourceRequirements, err := h.resourceRequirements(ctx, orgID, reqs, installCount > 0)
-	if err != nil {
-		return pluginResponse{}, err
-	}
-	presentation := pluginPresentationMetadata(plugin)
-	return pluginResponse{
-		ID:                   plugin.ID.String(),
-		Slug:                 plugin.Slug,
-		Name:                 plugin.Name,
-		Description:          plugin.Description,
-		Category:             plugin.Category,
-		DetailCategory:       presentation.DetailCategory,
-		Icon:                 plugin.Icon,
-		IconColor:            plugin.IconColor,
-		Developer:            plugin.Developer,
-		Official:             presentation.Official,
-		Featured:             presentation.Featured,
-		Capabilities:         presentation.Capabilities,
-		Examples:             presentation.Examples,
-		Links:                presentation.Links,
-		LongDescription:      presentation.LongDescription,
-		Version:              plugin.Version,
-		Status:               plugin.Status,
-		AutoInstall:          pluginstore.PluginAutoInstall(plugin),
-		Locked:               pluginstore.PluginLocked(plugin),
-		Skills:               toPluginSkillResponses(skills),
-		RequiredConnections:  toPluginRequirementResponses(reqs),
-		ResourceRequirements: resourceRequirements,
-		Installed:            installCount > 0,
-		MissingRequirements:  missing,
-		EnabledAgentIDs:      enabledIDs,
-		CreatedAt:            plugin.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:            plugin.UpdatedAt.Format(time.RFC3339),
-	}, nil
-}
-
 type pluginPresentation struct {
 	DetailCategory  string
 	Official        bool
@@ -217,12 +144,12 @@ func toPluginRequirementResponses(reqs []model.PluginIntegration) []pluginConnec
 
 func (h *PluginHandler) loadPluginBySlug(w http.ResponseWriter, r *http.Request, slug string) (model.Plugin, bool) {
 	if slug == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plugin slug required"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "plugin slug required"})
 		return model.Plugin{}, false
 	}
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return model.Plugin{}, false
 	}
 	// Org-owned plugins resolve only for their own org; other orgs get 404,
@@ -235,10 +162,11 @@ func (h *PluginHandler) loadPluginBySlug(w http.ResponseWriter, r *http.Request,
 		Order("org_id ASC NULLS LAST").
 		First(&plugin).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "plugin not found"})
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "plugin not found"})
 			return model.Plugin{}, false
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load plugin by slug", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin"})
 		return model.Plugin{}, false
 	}
 	return plugin, true
@@ -247,12 +175,12 @@ func (h *PluginHandler) loadPluginBySlug(w http.ResponseWriter, r *http.Request,
 func (h *PluginHandler) loadAgentFromRoute(w http.ResponseWriter, r *http.Request) (model.Org, model.Agent, bool) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return model.Org{}, model.Agent{}, false
 	}
 	scope, err := h.actorScope(r.Context(), org.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return *org, model.Agent{}, false
 	}
 	agentID := chi.URLParam(r, "id")
@@ -265,10 +193,11 @@ func (h *PluginHandler) loadAgentFromRoute(w http.ResponseWriter, r *http.Reques
 	var agent model.Agent
 	if err := q.First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "agent not found"})
 			return *org, model.Agent{}, false
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load agent"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load agent from route", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return *org, model.Agent{}, false
 	}
 	return *org, agent, true

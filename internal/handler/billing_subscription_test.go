@@ -95,6 +95,7 @@ func TestSubscription_ApplyChange_Upgrade(t *testing.T) {
 		PaidAmountMinor: amount,
 		Currency:        "NGN",
 		Reference:       "ref_apply",
+		Metadata:        map[string]string{"org_id": f.org.ID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH_apply", CardLast4: "9999"},
 	}
 
@@ -151,6 +152,7 @@ func TestSubscription_ApplyChange_AmountMismatch(t *testing.T) {
 		PaidAmountMinor: amount - 1,
 		Currency:        "NGN",
 		Reference:       "ref_short",
+		Metadata:        map[string]string{"org_id": f.org.ID.String()},
 		PaymentMethod:   billing.PaymentMethod{Channel: billing.ChannelCard, AuthorizationCode: "AUTH"},
 	}
 

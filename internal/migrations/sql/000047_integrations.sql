@@ -44,6 +44,3 @@ ALTER TABLE ONLY public.integrations
 
 ALTER TABLE ONLY public.integrations
     ADD CONSTRAINT fk_integrations_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.integrations CASCADE;

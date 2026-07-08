@@ -64,6 +64,3 @@ ALTER TABLE ONLY public.channels
 
 ALTER TABLE ONLY public.channels
     ADD CONSTRAINT fk_channels_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
-
--- +goose Down
-DROP TABLE IF EXISTS public.channels CASCADE;

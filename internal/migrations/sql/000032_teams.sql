@@ -24,6 +24,3 @@ ALTER TABLE ONLY public.teams
 
 ALTER TABLE ONLY public.teams
     ADD CONSTRAINT fk_teams_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.teams CASCADE;

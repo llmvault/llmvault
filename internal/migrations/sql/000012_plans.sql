@@ -23,6 +23,3 @@ CREATE INDEX idx_plans_provider ON public.plans USING btree (provider);
 CREATE UNIQUE INDEX idx_plans_slug ON public.plans USING btree (slug);
 
 CREATE INDEX idx_plans_visible ON public.plans USING btree (visible);
-
--- +goose Down
-DROP TABLE IF EXISTS public.plans CASCADE;

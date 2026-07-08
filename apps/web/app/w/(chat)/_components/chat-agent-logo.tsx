@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { AppIcon } from "@/components/icon"
+import { AgentAvatar } from "@/components/agent-avatar"
 import {
   agentAvatarURL,
   agentIcon,
@@ -15,28 +14,12 @@ export function AgentLogo({
   agent: SidebarAgentResponse
   className: string
 }) {
-  const [failed, setFailed] = useState(false)
-  const avatarURL = agentAvatarURL(agent)
-  const fallbackIcon = agentIcon(agent)
-  const frameClassName = `${className} bg-default flex shrink-0 items-center justify-center overflow-hidden text-muted ring-1 ring-border/70`
-
-  if (avatarURL && !failed) {
-    return (
-      <span className={frameClassName}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- agent avatars can come from arbitrary workspace-configured URLs */}
-        <img
-          src={avatarURL}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      </span>
-    )
-  }
-
   return (
-    <span className={frameClassName}>
-      <AppIcon icon={fallbackIcon} className="h-3.5 w-3.5" />
-    </span>
+    <AgentAvatar
+      avatarURL={agentAvatarURL(agent)}
+      icon={agentIcon(agent)}
+      className={`${className} ring-1 ring-border/70`}
+      iconClassName="h-3.5 w-3.5"
+    />
   )
 }

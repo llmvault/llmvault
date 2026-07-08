@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -109,9 +110,21 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 		updates["channel_id"] = channel.ID
 		session.ChannelID = channel.ID
 		finalChannel = channel
-		if req.AgentID == nil && !agentAllowedInChannel(r.Context(), h.db, session.OrgID, session.AgentID, finalChannel.ID) {
-			writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent is not available in this channel"})
-			return false
+		// The session keeps its current agent unless the caller reassigns it, so the
+		// existing agent must be allowed to act in the destination channel under the
+		// team-primary rule (channelagents.ActsInChannel). This is the same gate
+		// session create and agent reassignment apply — moving a session must not be
+		// a back door into a channel whose team excludes the agent.
+		if req.AgentID == nil {
+			acts, err := channelagents.ActsInChannel(r.Context(), h.db, session.OrgID, finalChannel.ID, session.AgentID)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
+				return false
+			}
+			if !acts {
+				writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent does not belong to this channel's team"})
+				return false
+			}
 		}
 	}
 	if req.AgentID != nil {

@@ -29,6 +29,3 @@ CREATE INDEX idx_subscription_change_quotes_subscription_id ON public.subscripti
 
 ALTER TABLE ONLY public.subscription_change_quotes
     ADD CONSTRAINT fk_subscription_change_quotes_subscription FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.subscription_change_quotes CASCADE;

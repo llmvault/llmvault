@@ -20,7 +20,7 @@ import (
 func (h *OrgInviteHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "missing organization context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing organization context"})
 		return
 	}
 
@@ -30,7 +30,7 @@ func (h *OrgInviteHandler) List(w http.ResponseWriter, r *http.Request) {
 		Order("created_at DESC").
 		Find(&invites).Error; err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "list invites", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list invites"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list invites"})
 		return
 	}
 
@@ -52,17 +52,17 @@ func (h *OrgInviteHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *OrgInviteHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "missing organization context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing organization context"})
 		return
 	}
 
 	var memberships []model.OrgMembership
 	if err := h.db.Preload("User").
-		Where("org_id = ?", org.ID).
+		Where("org_id = ? AND deactivated_at IS NULL", org.ID).
 		Order("created_at ASC").
 		Find(&memberships).Error; err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "list members", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list members"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list members"})
 		return
 	}
 

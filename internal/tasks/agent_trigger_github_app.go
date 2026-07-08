@@ -46,6 +46,30 @@ func isGitHubPROpenedTrigger(provider string, trigger model.AgentTrigger) bool {
 	return trigger.TriggerKey == model.TriggerKeyGitHubPROpened && isGitHubCodeReviews(provider)
 }
 
+// authorizedGitHubAuthorAssociations is the allowlist of repo relationships
+// that may spin up an org-billed agent run: external senders must NOT trigger
+// org-billed work. GitHub stamps every issue/PR/comment author with an
+// author_association; OWNER, MEMBER, and
+// COLLABORATOR are people with write/triage standing on the repo (an "authorized
+// repo collaborator"). CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR and NONE are
+// drive-by external accounts and are rejected.
+//
+// ASSUMPTION (documented): there is no GitHub-user → Hivy-member identity map,
+// so authorization is derived from GitHub's own repo-association signal carried
+// in the webhook payload rather than from org membership. This requires no extra
+// API call and fails closed on an unknown/empty association.
+var authorizedGitHubAuthorAssociations = map[string]bool{
+	"OWNER":        true,
+	"MEMBER":       true,
+	"COLLABORATOR": true,
+}
+
+// isAuthorizedGitHubSender reports whether a webhook author's repo association
+// is trusted enough to spend org credits on a run. Empty / unknown → false.
+func isAuthorizedGitHubSender(authorAssociation string) bool {
+	return authorizedGitHubAuthorAssociations[strings.ToUpper(strings.TrimSpace(authorAssociation))]
+}
+
 // githubHivyBotHandles are Hivy's two surviving GitHub App bot logins,
 // normalized ([bot] stripped, lowercased). Used only as a static loop guard —
 // isGitHubBotAuthor already skips every bot, so this is defense in depth against

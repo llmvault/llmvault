@@ -1,12 +1,10 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query"
-import { createStore, clear } from "idb-keyval"
 import type { components } from "@/lib/api/schema"
 
 export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
 export const SESSION_HISTORY_PAGE_LIMIT = 100
 export const SIDEBAR_SESSION_PAGE_LIMIT = 5
 export const SIDEBAR_SESSION_SORT = "activity"
-const CHAT_CACHE_STORE = createStore("hivy-chat-query-cache", "queries")
 export const CHANNEL_SESSIONS_INFINITE_KEY = "channel-sessions-infinite-v1"
 export const SESSION_EVENTS_INFINITE_KEY = "session-events-infinite-v1"
 
@@ -69,10 +67,6 @@ export const chatQueryKeys = {
     ] as const,
   agents: (limit = 100, status = "active") =>
     ["get", "/v1/agents", { params: { query: { status, limit } } }] as const,
-}
-
-export function clearPersistedChatQueries() {
-  return clear(CHAT_CACHE_STORE)
 }
 
 export function invalidateSessionListQueries(queryClient: QueryClient) {

@@ -7,10 +7,8 @@ import { Button, Input, Spinner, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
-import {
-  resolveScopedAgentID,
-  useTeamAgents,
-} from "@/lib/api/team-agents"
+import { queryKeys } from "@/lib/api/query-keys"
+import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import {
   ChannelSelect,
@@ -43,10 +41,9 @@ export default function NewSchedulePage() {
 
   const activeChannelID = channelID || channels[0]?.id || ""
   const activeChannel = channels.find((c) => c.id === activeChannelID)
-  const {
-    agents,
-    isLoading: agentsLoading,
-  } = useTeamAgents(activeChannel?.team_id)
+  const { agents, isLoading: agentsLoading } = useTeamAgents(
+    activeChannel?.team_id
+  )
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -57,11 +54,11 @@ export default function NewSchedulePage() {
   const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSubmit = Boolean(
     !isSaving &&
-      name.trim() &&
-      activeChannelID &&
-      activeAgentID &&
-      taskPrompt.trim() &&
-      cadenceValid
+    name.trim() &&
+    activeChannelID &&
+    activeAgentID &&
+    taskPrompt.trim() &&
+    cadenceValid
   )
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -101,7 +98,7 @@ export default function NewSchedulePage() {
       {
         onSuccess: () => {
           toast.success("Schedule created")
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/schedules"] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.schedules() })
           router.push("/w/automations?tab=schedules")
         },
         onError: (error) =>
@@ -117,7 +114,7 @@ export default function NewSchedulePage() {
           <button
             type="button"
             onClick={() => router.push("/w/automations?tab=schedules")}
-            className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm transition-colors"
+            className="text-muted-foreground flex w-fit items-center gap-1.5 text-sm transition-colors hover:text-foreground"
           >
             <AppIcon icon="arrow-left" className="h-4 w-4" />
             Schedules

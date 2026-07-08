@@ -30,6 +30,3 @@ ALTER TABLE ONLY public.org_plugin_installs
 
 ALTER TABLE ONLY public.org_plugin_installs
     ADD CONSTRAINT fk_org_plugin_installs_plugin FOREIGN KEY (plugin_id) REFERENCES public.plugins(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.org_plugin_installs CASCADE;

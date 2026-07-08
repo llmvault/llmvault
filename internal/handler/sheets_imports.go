@@ -236,11 +236,28 @@ func (h *SheetsHandler) RevertOperation(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	sheetID, ok := sheetsPathUUID(w, r, "sheetID")
+	if !ok {
+		return
+	}
 	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
 		return
 	}
 	operationID, ok := sheetsPathUUID(w, r, "operationID")
 	if !ok {
+		return
+	}
+	// RequireChannelAccess authorized the path sheet's channel, but RevertOperation
+	// mutates by operationID scoped only by org — so a caller could pass a sheet
+	// they can access plus an operationID from a channel they cannot. Bind the
+	// operation to the path sheet's channel first (the guard the MCP path uses).
+	channelID, err := h.svc.ChannelForSheet(r.Context(), org.ID, sheetID)
+	if err != nil {
+		writeSheetsError(w, r, err)
+		return
+	}
+	if err := h.svc.OperationInChannel(r.Context(), org.ID, channelID, operationID); err != nil {
+		writeSheetsError(w, r, err)
 		return
 	}
 	var req revertOperationRequest

@@ -48,6 +48,9 @@
         "search_sessions": true,
         "update_plan": true
       },
+      "mcp_tool_filter": {
+        "allow": ["skills_list"]
+      },
       "prompt": {
         "instructions": "./sub_agents/codebase-explorer/instructions.md"
       }
@@ -67,6 +70,9 @@
         "search_sessions": true,
         "update_plan": true
       },
+      "mcp_tool_filter": {
+        "allow": ["skills_list"]
+      },
       "prompt": {
         "instructions": "./sub_agents/librarian/instructions.md"
       }
@@ -83,6 +89,9 @@
         "multi_grep": true,
         "lsp": true,
         "search_sessions": true
+      },
+      "mcp_tool_filter": {
+        "allow": ["skills_list"]
       },
       "prompt": {
         "instructions": "./sub_agents/oracle/instructions.md"

@@ -30,6 +30,33 @@ const eslintConfig = defineConfig([
         },
       ],
       "no-console": ["error", { allow: ["warn", "error"] }],
+      // Hivy API access goes through the generated `$api` hooks
+      // (openapi-react-query), never a hand-written `fetch`. This keeps every
+      // request typed and keyed off the OpenAPI contract. Raw `fetch` is
+      // permitted for exactly three things, each of which either lives in the
+      // sanctioned server-side proxy (app/api/proxy/**, overridden below) or
+      // carries an `eslint-disable-next-line no-restricted-globals` with a
+      // reason: (1) signed-storage uploads (PUT to a pre-signed object-store
+      // URL), (2) direct-to-sandbox calls (browser → sandbox base URL), and
+      // (3) SSE — which uses `fetchEventSource`/`EventSource`, not the global
+      // `fetch`, and so is unaffected by this rule.
+      "no-restricted-globals": [
+        "error",
+        {
+          name: "fetch",
+          message:
+            "Don't call the global fetch() against the Hivy API — use the generated $api hooks (openapi-react-query). fetch is allowed only for signed-storage uploads, direct-sandbox calls, and SSE (fetchEventSource); add `// eslint-disable-next-line no-restricted-globals` with a reason for those.",
+        },
+      ],
+    },
+  },
+  {
+    // The API proxy IS the sanctioned browser→backend boundary; it is where raw
+    // fetch to the Hivy API legitimately lives (token refresh + request
+    // forwarding). Exempt it from the no-raw-fetch rule.
+    files: ["app/api/proxy/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-globals": "off",
     },
   },
   {

@@ -15,6 +15,7 @@ import {
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import {
   INVITES_KEY,
   MEMBERS_KEY,
@@ -111,7 +112,7 @@ export function InviteMemberModal({
             <Modal.CloseTrigger />
 
             <Modal.Header>
-              <Modal.Icon className="bg-default size-12 text-foreground">
+              <Modal.Icon className="size-12 bg-default text-foreground">
                 <AppIcon icon="user-plus" className="h-6 w-6" />
               </Modal.Icon>
               <div className="flex flex-col gap-1">
@@ -223,7 +224,7 @@ export function TeamFormModal({
             toast.success("Team updated")
             queryClient.invalidateQueries({ queryKey: TEAMS_KEY })
             queryClient.invalidateQueries({
-              queryKey: ["get", "/v1/orgs/current/teams/{id}"],
+              queryKey: queryKeys.team(),
             })
             close()
           },
@@ -261,7 +262,7 @@ export function TeamFormModal({
           <Modal.Dialog className="p-8">
             <Modal.CloseTrigger />
             <Modal.Header>
-              <Modal.Icon className="bg-default size-12 text-foreground">
+              <Modal.Icon className="size-12 bg-default text-foreground">
                 <AppIcon icon="users-round" className="h-6 w-6" />
               </Modal.Icon>
               <div className="flex flex-col gap-1">
@@ -389,7 +390,7 @@ function TeamPicker({
             onClick={() => {
               if (team.id) onToggle(team.id)
             }}
-            className="hover:bg-default flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-default disabled:cursor-not-allowed disabled:opacity-60"
             style={{
               borderBottom:
                 index === selectableTeams.length - 1
@@ -404,9 +405,7 @@ function TeamPicker({
                   : "flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border"
               }
             >
-              {selected ? (
-                <AppIcon icon="check" className="h-3 w-3" />
-              ) : null}
+              {selected ? <AppIcon icon="check" className="h-3 w-3" /> : null}
             </span>
             <span className="min-w-0 flex-1 truncate">{teamLabel(team)}</span>
             <span className="shrink-0 text-xs text-muted">

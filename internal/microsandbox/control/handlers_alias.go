@@ -1,12 +1,14 @@
 package control
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/microsandbox/alias"
@@ -42,8 +44,12 @@ func (s *Server) aliasURL(alias string) string {
 }
 
 // claimAlias claims a new alias or repoints an existing one to a sandbox+port.
-// Repoint is last-write-wins by design (an app redeployed into a fresh sandbox
-// keeps its alias by moving the mapping).
+// Repoint is last-write-wins WITHIN an org (an app redeployed into a fresh
+// sandbox keeps its alias by moving the mapping). Cross-org repoints are
+// rejected: an alias is owned by the org of the sandbox that first claimed it,
+// and another org cannot repoint {slug}.{PreviewBaseDomain} at its own sandbox
+// (hostname/content takeover). Ownership is derived from the sandbox, never
+// trusted from the request.
 func (s *Server) claimAlias(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	alias := normalizeAliasParam(r)
@@ -70,10 +76,29 @@ func (s *Server) claimAlias(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "sandbox not found"})
 		return
 	}
+	// The claim is owned by the sandbox's org, and an existing alias may only be
+	// repointed by its owning org. This closes the cross-org hostname takeover:
+	// Org B claiming Org A's slug is a 409, not a silent last-write-wins repoint.
+	var existing model.Alias
+	switch err := s.db.WithContext(ctx).First(&existing, "alias = ?", alias).Error; {
+	case err == nil:
+		if existing.OrgID != "" && existing.OrgID != sb.OrgID {
+			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "alias is claimed by another organization"})
+			return
+		}
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// fresh claim
+	default:
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to look up alias"})
+		return
+	}
 	now := time.Now().UTC()
-	row := model.Alias{Alias: alias, SandboxID: req.SandboxID, Port: req.Port, CreatedAt: now, UpdatedAt: now}
+	row := model.Alias{Alias: alias, OrgID: sb.OrgID, SandboxID: req.SandboxID, Port: req.Port, CreatedAt: now, UpdatedAt: now}
 	if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "alias"}},
+		// org_id is intentionally NOT reassigned on conflict: an alias keeps its
+		// original owner. The cross-org guard above already rejects a foreign
+		// claimant, so this only ever repoints within the owning org.
 		DoUpdates: clause.Assignments(map[string]any{
 			"sandbox_id": req.SandboxID,
 			"port":       req.Port,

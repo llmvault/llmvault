@@ -24,6 +24,3 @@ ALTER TABLE ONLY public.team_plugins
 
 ALTER TABLE ONLY public.team_plugins
     ADD CONSTRAINT team_plugins_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.team_plugins CASCADE;

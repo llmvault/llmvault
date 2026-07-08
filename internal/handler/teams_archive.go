@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -52,10 +55,47 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
-	if err := h.db.WithContext(r.Context()).
-		Model(&model.Team{}).
-		Where("id = ? AND org_id = ?", team.ID, team.OrgID).
-		Update("archived_at", &now).Error; err != nil {
+	// Archive the team AND cascade its provisioning in one tx so no orphaned,
+	// still-active agent (the team's Hivy + catalog clones) is left org-listable
+	// behind the archived team, and no stale team_plugins / team_rag_sources /
+	// team_members grants survive. Channels were already required to be removed
+	// above, so the team's agents have no live sessions to tear down here.
+	if err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		var agentIDs []uuid.UUID
+		if err := tx.Model(&model.Agent{}).
+			Where("org_id = ? AND team_id = ? AND status <> ?", team.OrgID, team.ID, "archived").
+			Pluck("id", &agentIDs).Error; err != nil {
+			return err
+		}
+		if len(agentIDs) > 0 {
+			if err := tx.Model(&model.Agent{}).
+				Where("id IN ?", agentIDs).
+				Update("status", "archived").Error; err != nil {
+				return err
+			}
+			// Disable the archived agents' triggers (re-homed onto a surviving
+			// default agent if one exists), so none fires behind an archived agent.
+			if err := reassignAgentTriggersToDefault(tx, team.OrgID, agentIDs); err != nil {
+				return err
+			}
+		}
+		// Clear the team's provisioning rows.
+		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).
+			Delete(&model.TeamPlugin{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).
+			Delete(&model.TeamRagSource{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("team_id = ?", team.ID).
+			Delete(&model.TeamMember{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Team{}).
+			Where("id = ? AND org_id = ?", team.ID, team.OrgID).
+			Update("archived_at", &now).Error
+	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to archive team"})
 		return
 	}

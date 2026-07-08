@@ -29,7 +29,7 @@ func (h *ChannelHandler) currentUserOrgRole(ctx context.Context, orgID uuid.UUID
 	}
 	var membership model.OrgMembership
 	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND user_id = ?", orgID, *userID).
+		Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, *userID).
 		First(&membership).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil
@@ -43,7 +43,7 @@ func (h *ChannelHandler) channelRole(ctx context.Context, channelID uuid.UUID, u
 	}
 	var member model.ChannelMember
 	err := h.db.WithContext(ctx).
-		Where("channel_id = ? AND user_id = ?", channelID, *userID).
+		Where("channel_id = ? AND user_id = ? AND deactivated_at IS NULL", channelID, *userID).
 		First(&member).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil

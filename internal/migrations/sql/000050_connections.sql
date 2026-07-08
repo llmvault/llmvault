@@ -21,6 +21,10 @@ CREATE INDEX idx_connections_org_id ON public.connections USING btree (org_id);
 
 CREATE INDEX idx_connections_user_id ON public.connections USING btree (user_id);
 
+-- At most one live connection may own a given (integration_id, nango_connection_id)
+-- so a forwarded webhook can never resolve ambiguously across orgs.
+CREATE UNIQUE INDEX idx_connections_active_nango_id ON public.connections USING btree (integration_id, nango_connection_id) WHERE (revoked_at IS NULL);
+
 ALTER TABLE ONLY public.connections
     ADD CONSTRAINT fk_connections_integration FOREIGN KEY (integration_id) REFERENCES public.integrations(id) ON DELETE CASCADE;
 
@@ -29,6 +33,3 @@ ALTER TABLE ONLY public.connections
 
 ALTER TABLE ONLY public.connections
     ADD CONSTRAINT fk_connections_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.connections CASCADE;

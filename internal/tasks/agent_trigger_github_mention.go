@@ -42,19 +42,24 @@ func isGitHubMentionTrigger(provider string, trigger model.AgentTrigger) bool {
 // mention trigger subscribes to (issue_comment.created, issues.opened,
 // pull_request.opened).
 type githubMentionEvent struct {
-	Repo         string // repository.full_name
-	Number       string
-	Title        string
-	URL          string
-	OpenedBy     string // author of the issue / pull request
-	MentionedBy  string // author of the mentioning comment or body
-	AuthorType   string // user.type of the author ("User", "Bot", ...)
-	Body         string // the text the mention appears in
-	IssueBody    string // issue/PR description when the mention is a comment
-	CommentID    string // comment.id for comment mentions
-	CommentCount int    // issue.comments at event time, drives context paging
-	IsPR         bool
-	IsComment    bool
+	Repo        string // repository.full_name
+	Number      string
+	Title       string
+	URL         string
+	OpenedBy    string // author of the issue / pull request
+	MentionedBy string // author of the mentioning comment or body
+	AuthorType  string // user.type of the author ("User", "Bot", ...)
+	// AuthorAssociation is the mentioning author's relationship to the repo
+	// (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, NONE).
+	// Present on every webhook shape; used to gate org-billed runs to trusted
+	// senders (see isAuthorizedGitHubSender).
+	AuthorAssociation string
+	Body              string // the text the mention appears in
+	IssueBody         string // issue/PR description when the mention is a comment
+	CommentID         string // comment.id for comment mentions
+	CommentCount      int    // issue.comments at event time, drives context paging
+	IsPR              bool
+	IsComment         bool
 }
 
 func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, webhookPayload map[string]any, routed map[uuid.UUID]string) error {
@@ -83,6 +88,11 @@ func (h *AgentTriggerDispatchHandler) deliverGitHubMention(ctx context.Context, 
 		// performed_via_github_app here: comments humans post via GitHub
 		// Mobile set that field too.
 		skipReason = "event author is a bot"
+	case !isAuthorizedGitHubSender(event.AuthorAssociation):
+		// Authorized-sender gate: an external drive-by account
+		// (CONTRIBUTOR / FIRST_TIME_CONTRIBUTOR / NONE) must not spin up an
+		// org-billed run. Only OWNER/MEMBER/COLLABORATOR may.
+		skipReason = "event author is not an authorized repo collaborator"
 	}
 	if skipReason != "" {
 		logging.FromContext(ctx).InfoContext(ctx, "github mention trigger skipped event",

@@ -19,7 +19,7 @@ export function useHivyChannels() {
   })
   const channels = useMemo(
     () =>
-      ((query.data?.data ?? []) as Channel[]).filter(
+      (query.data?.data ?? []).filter(
         (channel) =>
           Boolean(channel.id) &&
           !channel.external_provider &&

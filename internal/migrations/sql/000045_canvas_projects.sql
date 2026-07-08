@@ -31,6 +31,3 @@ ALTER TABLE ONLY public.canvas_projects
 
 ALTER TABLE ONLY public.canvas_projects
     ADD CONSTRAINT canvas_projects_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.canvas_projects CASCADE;

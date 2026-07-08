@@ -9,30 +9,6 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// AgentCleanupPayload is the payload for TypeAgentCleanup tasks.
-type AgentCleanupPayload struct {
-	AgentID            uuid.UUID `json:"agent_id"`
-	SandboxExternalIDs []string  `json:"sandbox_external_ids,omitempty"`
-}
-
-// NewAgentCleanupTask creates a task that cleans up provider sandboxes left behind by an
-// agent hard delete. Options are returned separately (see NewWebhookForwardTask).
-func NewAgentCleanupTask(agentID uuid.UUID, sandboxExternalIDs ...string) (*asynq.Task, []asynq.Option, error) {
-	payload, err := json.Marshal(AgentCleanupPayload{
-		AgentID:            agentID,
-		SandboxExternalIDs: sandboxExternalIDs,
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("marshal agent cleanup payload: %w", err)
-	}
-	opts := []asynq.Option{
-		asynq.Queue(QueueDefault),
-		asynq.MaxRetry(3),
-		asynq.Timeout(2 * time.Minute),
-	}
-	return asynq.NewTask(TypeAgentCleanup, payload), opts, nil
-}
-
 // SandboxTemplateBuildPayload is the payload for TypeSandboxTemplateBuild tasks.
 type SandboxTemplateBuildPayload struct {
 	TemplateID uuid.UUID `json:"template_id"`

@@ -7,6 +7,7 @@ import { Skeleton, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import {
   PLUGINS_QUERY_KEY,
   pluginName,
@@ -94,12 +95,9 @@ export default function AgentDetailPage({
     { enabled: installedAgentID.length > 0 }
   )
   const installedAgent = installedAgentQuery.data as InstalledAgent | undefined
-  const plugins = useMemo(
-    () => (pluginsQuery.data ?? []) as ApiPlugin[],
-    [pluginsQuery.data]
-  )
+  const plugins = useMemo(() => pluginsQuery.data ?? [], [pluginsQuery.data])
   const agentPlugins = useMemo(
-    () => (agentPluginsQuery.data ?? []) as ApiPlugin[],
+    () => agentPluginsQuery.data ?? [],
     [agentPluginsQuery.data]
   )
   const pluginLookup = useMemo(() => pluginsBySlug(plugins), [plugins])
@@ -121,7 +119,7 @@ export default function AgentDetailPage({
   const selectedSandboxSize = normalizeAgentSandboxSize(
     installedAgent?.sandbox_size
   )
-  const teams = (teamsQuery.data?.data as Team[] | undefined) ?? EMPTY_TEAMS
+  const teams = teamsQuery.data?.data ?? EMPTY_TEAMS
   const isDefaultAgent = Boolean(agent?.is_default)
   const hasInstalledClone = installedAgentID.length > 0
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
@@ -135,12 +133,12 @@ export default function AgentDetailPage({
     queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
     queryClient.invalidateQueries({
-      queryKey: ["get", "/v1/agents/catalog/{slug}"],
+      queryKey: queryKeys.agentCatalog(),
     })
     if (installedAgentID) {
-      queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents/{id}"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.agent() })
       queryClient.invalidateQueries({
-        queryKey: ["get", "/v1/agents/{id}/plugins"],
+        queryKey: queryKeys.agentPlugins(),
       })
     }
   }, [installedAgentID, queryClient])

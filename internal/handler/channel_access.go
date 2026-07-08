@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -15,39 +16,19 @@ func canViewChannel(ctx context.Context, db *gorm.DB, channel model.Channel, org
 	return canUseChannel(ctx, db, channel, orgRole, userID, apiKey)
 }
 
+// canUseChannel is the HTTP entry point for the channel-use predicate. It
+// delegates to internal/access — the single implementation — so the agent path
+// and the HTTP API can never drift. API-key callers keep org-wide access; a
+// caller with no resolved membership (nil user or empty role) is denied.
 func canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel, orgRole string, userID *uuid.UUID, apiKey bool) bool {
-	if apiKey || isOrgManager(orgRole) {
+	if apiKey {
 		return true
 	}
 	if userID == nil || orgRole == "" {
 		return false
 	}
-	// A private channel is reachable only by its explicit members, regardless of
-	// origin/team. This gates before the origin/team openings below so a private
-	// channel that happens to be external, team-less, or in the user's team is not
-	// silently usable by any org member.
-	if channel.Visibility == "private" {
-		return userID != nil && userIsChannelMember(ctx, db, channel.ID, *userID)
-	}
-	if channel.Origin == "external" {
-		return true
-	}
-	if channel.TeamID == nil {
-		return true
-	}
-	return userIsActiveTeamMember(ctx, db, *channel.TeamID, *userID)
-}
-
-// userIsChannelMember reports whether userID has an explicit channel_members row
-// for channelID. Used to gate private-channel access, where team/origin openings
-// do not apply.
-func userIsChannelMember(ctx context.Context, db *gorm.DB, channelID, userID uuid.UUID) bool {
-	var count int64
-	_ = db.WithContext(ctx).
-		Model(&model.ChannelMember{}).
-		Where("channel_id = ? AND user_id = ?", channelID, userID).
-		Count(&count).Error
-	return count > 0
+	actor := &access.Actor{UserID: *userID, OrgID: channel.OrgID, OrgRole: orgRole}
+	return actor.CanUseChannel(ctx, db, channel)
 }
 
 // memberChannelIDSubquery yields the ids of channels the given user is an
@@ -55,29 +36,17 @@ func userIsChannelMember(ctx context.Context, db *gorm.DB, channelID, userID uui
 // visibility predicates (a private channel is excluded from the origin/team
 // opening but visible to its members).
 func memberChannelIDSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
-	q := db.Model(&model.ChannelMember{}).Select("channel_id")
+	q := db.Model(&model.ChannelMember{}).Select("channel_id").Where("deactivated_at IS NULL")
 	if userID == nil {
 		return q.Where("1 = 0")
 	}
 	return q.Where("user_id = ?", *userID)
 }
 
-// userInTeam reports whether userID is an active member of teamID within orgID.
-// HTTP mirror of access.Actor.IsTeamMember (org-scoped for defense in depth).
-func userInTeam(ctx context.Context, db *gorm.DB, orgID, userID, teamID uuid.UUID) bool {
-	var count int64
-	_ = db.WithContext(ctx).
-		Table("team_members").
-		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
-		Where("team_members.org_id = ? AND team_members.team_id = ? AND team_members.user_id = ?", orgID, teamID, userID).
-		Count(&count).Error
-	return count > 0
-}
-
-// canManageTeamResource reports whether the caller may manage a resource owned
-// by teamID: org managers (owner/admin) always may, otherwise the caller must be
-// an active member of that team. HTTP mirror of
-// access.Actor.CanManageTeamResource.
+// canManageTeamResource is the HTTP entry point for the team-management
+// predicate. It delegates to internal/access — the single implementation — so
+// the agent path and the HTTP API can never drift: org managers (owner/admin)
+// always may, otherwise the caller must be an active member of that team.
 func canManageTeamResource(ctx context.Context, db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID, role string, teamID uuid.UUID) bool {
 	if isOrgManager(role) {
 		return true
@@ -85,23 +54,16 @@ func canManageTeamResource(ctx context.Context, db *gorm.DB, orgID uuid.UUID, us
 	if userID == nil {
 		return false
 	}
-	return userInTeam(ctx, db, orgID, *userID, teamID)
-}
-
-func userIsActiveTeamMember(ctx context.Context, db *gorm.DB, teamID, userID uuid.UUID) bool {
-	var count int64
-	_ = db.WithContext(ctx).
-		Table("team_members").
-		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
-		Where("team_members.team_id = ? AND team_members.user_id = ?", teamID, userID).
-		Count(&count).Error
-	return count > 0
+	actor := &access.Actor{UserID: *userID, OrgID: orgID, OrgRole: role}
+	ok, _ := actor.CanManageTeamResource(ctx, db, teamID)
+	return ok
 }
 
 func visibleTeamSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
 	q := db.Model(&model.TeamMember{}).
 		Select("team_members.team_id").
-		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL")
+		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
+		Where("team_members.deactivated_at IS NULL")
 	if userID == nil {
 		return q.Where("1 = 0")
 	}
@@ -116,8 +78,10 @@ func orgRoleForUser(ctx context.Context, db *gorm.DB, orgID uuid.UUID, userID *u
 		return "", nil
 	}
 	var membership model.OrgMembership
+	// A deactivated member resolves to no role (deactivated_at IS NULL), so every
+	// role-gated predicate that flows from here denies them.
 	err := db.WithContext(ctx).
-		Where("org_id = ? AND user_id = ?", orgID, *userID).
+		Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, *userID).
 		First(&membership).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil

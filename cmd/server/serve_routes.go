@@ -182,7 +182,8 @@ func setupAuthRoutes(
 			r.Post("/logout", authHandler.Logout)
 			r.Get("/me", authHandler.Me)
 			r.Patch("/me", authHandler.UpdateProfile)
-			r.Delete("/me", authHandler.DeleteAccount)
+			// Account deletion removed by design: the product never hard-deletes a
+			// users row. Offboarding is member deactivation (org members Remove).
 			r.Post("/change-password", authHandler.ChangePassword)
 		})
 	})

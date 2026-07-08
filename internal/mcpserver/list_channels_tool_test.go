@@ -84,7 +84,6 @@ func seedChannelToolFixture(t *testing.T, db *gorm.DB) channelToolFixture {
 func cleanupChannelToolOrg(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	t.Helper()
 	db.Where("org_id = ?", orgID).Delete(&model.AgentTrigger{})
-	db.Where("org_id = ?", orgID).Delete(&model.AgentChannel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Channel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Agent{})
 	db.Where("org_id = ?", orgID).Delete(&model.Team{})
@@ -235,26 +234,35 @@ func TestListChannelsReturnsOrgChannelsWithSlackLinkage(t *testing.T) {
 	}
 }
 
-func TestListChannelsRespectsAgentChannelRestrictions(t *testing.T) {
+// TestListChannelsExcludesForeignTeamChannels verifies the team-primary rule
+// (channelagents.ActsInChannel) that replaced the cut agent_channels allowlist:
+// list_channels surfaces only channels the calling agent can act in — its own
+// team's channels and shared/team-less channels — and excludes channels owned by
+// a team the agent does not belong to.
+func TestListChannelsExcludesForeignTeamChannels(t *testing.T) {
 	db := connectChannelToolTestDB(t)
 	fx := seedChannelToolFixture(t, db)
-	if err := db.Create(&model.AgentChannel{OrgID: fx.org.ID, AgentID: fx.agent.ID, ChannelID: fx.slack.ID}).Error; err != nil {
-		t.Fatalf("restrict agent channel: %v", err)
+	foreignTeam := model.Team{ID: uuid.New(), OrgID: fx.org.ID, Name: "foreign-" + uuid.NewString()}
+	if err := db.Create(&foreignTeam).Error; err != nil {
+		t.Fatalf("create foreign team: %v", err)
+	}
+	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: &foreignTeam.ID, Name: "foreign-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
+	if err := db.Create(&foreignChannel).Error; err != nil {
+		t.Fatalf("create foreign channel: %v", err)
 	}
 
 	result, err := handleListChannels(t.Context(), db, &fx.agent, "")
 	if err != nil {
 		t.Fatalf("handleListChannels: %v", err)
 	}
-	out := decodeChannelToolResult(t, result)
-	entries := channelEntries(t, out)
-	if len(entries) != 1 {
-		t.Fatalf("entries = %v, want only the allowed channel", entries)
+	entries := channelEntries(t, decodeChannelToolResult(t, result))
+	if _, ok := entries[foreignChannel.ID.String()]; ok {
+		t.Fatalf("foreign-team channel should be excluded: %v", entries)
+	}
+	if _, ok := entries[fx.teamHome.ID.String()]; !ok {
+		t.Fatalf("agent's team channel missing from %v", entries)
 	}
 	if _, ok := entries[fx.slack.ID.String()]; !ok {
-		t.Fatalf("allowed channel missing from %v", entries)
-	}
-	if total, _ := out["total"].(float64); int(total) != 1 {
-		t.Fatalf("total = %v, want 1", out["total"])
+		t.Fatalf("shared slack channel missing from %v", entries)
 	}
 }

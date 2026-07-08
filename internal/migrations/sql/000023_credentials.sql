@@ -24,6 +24,3 @@ CREATE INDEX idx_credentials_org_id ON public.credentials USING btree (org_id);
 
 ALTER TABLE ONLY public.credentials
     ADD CONSTRAINT fk_credentials_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.credentials CASCADE;

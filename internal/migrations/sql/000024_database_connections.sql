@@ -24,6 +24,3 @@ CREATE INDEX idx_database_connections_org_provider ON public.database_connection
 
 ALTER TABLE ONLY public.database_connections
     ADD CONSTRAINT fk_database_connections_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.database_connections CASCADE;

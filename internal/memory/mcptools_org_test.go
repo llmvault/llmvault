@@ -179,7 +179,9 @@ func TestManageMemoriesActorGate(t *testing.T) {
 	_, defaultToken := createManageAgent(t, db, fixture.org.ID, "Manage Gate Default", true)
 	client := connectMemoryToolClient(t, ctx, service, defaultToken)
 
-	// Actor gate: a non-manager human is refused; an admin and no-actor pass.
+	// Actor gate: a non-manager human is refused; an admin passes; a no-actor
+	// (automated/unattributed) run is refused — the org-wide memory view must
+	// not be reachable without a present human org-manager.
 	assertMemoryToolError(t, ctx, client, "manage_memories", map[string]any{
 		"action":              "overview",
 		"_hivy_actor_user_id": fixture.user.ID.String(),
@@ -197,5 +199,6 @@ func TestManageMemoriesActorGate(t *testing.T) {
 		"action":              "overview",
 		"_hivy_actor_user_id": admin.ID.String(),
 	})
-	callMemoryTool(t, ctx, client, "manage_memories", map[string]any{"action": "overview"})
+	assertMemoryToolError(t, ctx, client, "manage_memories",
+		map[string]any{"action": "overview"}, "requires an org admin or owner")
 }

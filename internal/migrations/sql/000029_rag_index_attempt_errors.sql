@@ -26,6 +26,3 @@ CREATE INDEX idx_rag_index_attempt_errors_rag_source_id ON public.rag_index_atte
 
 ALTER TABLE ONLY public.rag_index_attempt_errors
     ADD CONSTRAINT fk_rag_index_attempt_errors_index_attempt FOREIGN KEY (index_attempt_id) REFERENCES public.rag_index_attempts(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_index_attempt_errors CASCADE;

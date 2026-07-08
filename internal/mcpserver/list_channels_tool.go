@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
-	"github.com/usehivy/hivy/internal/agentschedule"
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -76,10 +76,6 @@ func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent, ac
 	if err != nil {
 		return cronToolError(err.Error()), nil
 	}
-	restricted, err := agentschedule.RestrictedChannelIDs(ctx, db, orgID, agent.ID)
-	if err != nil {
-		return cronToolError(err.Error()), nil
-	}
 	var channels []model.Channel
 	if err := db.WithContext(ctx).
 		Where("org_id = ? AND archived_at IS NULL", orgID).
@@ -89,10 +85,15 @@ func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent, ac
 	}
 	out := make([]map[string]any, 0, len(channels))
 	for _, channel := range channels {
-		if restricted != nil {
-			if _, ok := restricted[channel.ID]; !ok {
-				continue
-			}
+		// Under the team-primary model an agent may only be used in channels its
+		// team owns (or the shared, team-less/external channels). Only surface
+		// channels the calling agent can actually act in.
+		acts, err := channelagents.ActsInChannel(ctx, db, orgID, channel.ID, agent.ID)
+		if err != nil {
+			return cronToolError(err.Error()), nil
+		}
+		if !acts {
+			continue
 		}
 		if actor != nil && !actor.CanUseChannel(ctx, db, channel) {
 			continue

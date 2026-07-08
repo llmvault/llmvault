@@ -5,7 +5,8 @@ CREATE TABLE public.org_memberships (
     org_id uuid NOT NULL,
     role text DEFAULT 'owner'::text NOT NULL,
     created_at timestamp with time zone,
-    updated_at timestamp with time zone
+    updated_at timestamp with time zone,
+    deactivated_at timestamp with time zone
 );
 
 ALTER TABLE ONLY public.org_memberships
@@ -18,6 +19,3 @@ ALTER TABLE ONLY public.org_memberships
 
 ALTER TABLE ONLY public.org_memberships
     ADD CONSTRAINT fk_org_memberships_user FOREIGN KEY (user_id) REFERENCES public.users(id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.org_memberships CASCADE;

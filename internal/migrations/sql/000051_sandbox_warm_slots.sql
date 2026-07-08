@@ -34,6 +34,3 @@ CREATE UNIQUE INDEX idx_sandbox_warm_slots_provider_external ON public.sandbox_w
 
 ALTER TABLE ONLY public.sandbox_warm_slots
     ADD CONSTRAINT fk_sandbox_warm_slots_claimed_sandbox FOREIGN KEY (claimed_sandbox_id) REFERENCES public.sandboxes(id) ON DELETE SET NULL;
-
--- +goose Down
-DROP TABLE IF EXISTS public.sandbox_warm_slots CASCADE;

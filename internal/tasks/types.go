@@ -10,7 +10,6 @@ const (
 	TypeAPIKeyUpdate              = "apikey:update_last_used" // #nosec G101 -- task type identifier, not a credential
 	TypeEmailSend                 = "email:send"
 	TypeEmailSendTemplate         = "email:send_template"
-	TypeAgentCleanup              = "agent:cleanup"
 	TypeSandboxTemplateBuild      = "sandbox_template:build"
 	TypeSandboxTemplateRetryBuild = "sandbox_template:retry"
 	TypeSkillHydrate              = "skill:hydrate"

@@ -215,13 +215,6 @@ func resolveAgentTriggerChannel(db *gorm.DB, orgID, agentID uuid.UUID, raw strin
 	if err != nil {
 		return nil, fmt.Errorf("load channel: %w", err)
 	}
-	allowed, err := agentAllowedInTriggerChannel(db, orgID, agentID, channel.ID)
-	if err != nil {
-		return nil, err
-	}
-	if !allowed {
-		return nil, fmt.Errorf("agent is not available in this channel")
-	}
 	acts, err := channelagents.ActsInChannel(context.Background(), db, orgID, channel.ID, agentID)
 	if err != nil {
 		return nil, err
@@ -230,25 +223,4 @@ func resolveAgentTriggerChannel(db *gorm.DB, orgID, agentID uuid.UUID, raw strin
 		return nil, fmt.Errorf("agent does not belong to this channel's team")
 	}
 	return &channelID, nil
-}
-
-func agentAllowedInTriggerChannel(db *gorm.DB, orgID, agentID, channelID uuid.UUID) (bool, error) {
-	var total int64
-	if err := db.
-		Model(&model.AgentChannel{}).
-		Where("org_id = ? AND agent_id = ?", orgID, agentID).
-		Count(&total).Error; err != nil {
-		return false, fmt.Errorf("validate agent channel access: %w", err)
-	}
-	if total == 0 {
-		return true, nil
-	}
-	var allowed int64
-	if err := db.
-		Model(&model.AgentChannel{}).
-		Where("org_id = ? AND agent_id = ? AND channel_id = ?", orgID, agentID, channelID).
-		Count(&allowed).Error; err != nil {
-		return false, fmt.Errorf("validate agent channel access: %w", err)
-	}
-	return allowed > 0, nil
 }

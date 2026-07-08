@@ -140,9 +140,10 @@ func (s *Service) RecomputeChannelDigest(ctx context.Context, orgID, channelID u
 		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
 		First(&channel).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// Channel is gone: drop any stale digest row and stop.
+		// Channel is gone: drop any stale digest row and stop. Scoped by org_id
+		// too so it upholds the tenancy invariant (every org query carries org_id).
 		return s.cfg.DB.WithContext(ctx).
-			Where("channel_id = ?", channelID).
+			Where("channel_id = ? AND org_id = ?", channelID, orgID).
 			Delete(&model.ChannelMemoryDigest{}).Error
 	}
 	if err != nil {

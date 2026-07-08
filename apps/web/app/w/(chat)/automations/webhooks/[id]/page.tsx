@@ -8,11 +8,9 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
-import {
-  resolveScopedAgentID,
-  useTeamAgents,
-} from "@/lib/api/team-agents"
+import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
 import {
@@ -46,7 +44,7 @@ export default function WebhookTriggerDetailPage() {
           <button
             type="button"
             onClick={() => router.push("/w/automations?tab=webhooks")}
-            className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm transition-colors"
+            className="text-muted-foreground flex w-fit items-center gap-1.5 text-sm transition-colors hover:text-foreground"
           >
             <AppIcon icon="arrow-left" className="h-4 w-4" />
             Webhooks
@@ -58,7 +56,7 @@ export default function WebhookTriggerDetailPage() {
             </div>
           ) : triggerQuery.isError || !trigger ? (
             <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-              <AppIcon icon="triangle-alert" className="text-muted h-7 w-7" />
+              <AppIcon icon="triangle-alert" className="h-7 w-7 text-muted" />
               <p className="mt-3 text-sm font-medium text-foreground">
                 Webhook trigger not found
               </p>
@@ -93,10 +91,9 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
 
   const activeChannelID = channelID || channels[0]?.id || ""
   const activeChannel = channels.find((c) => c.id === activeChannelID)
-  const {
-    agents,
-    isLoading: agentsLoading,
-  } = useTeamAgents(activeChannel?.team_id)
+  const { agents, isLoading: agentsLoading } = useTeamAgents(
+    activeChannel?.team_id
+  )
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -111,16 +108,16 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
 
   const canSave = Boolean(
     isAdmin &&
-      !updateTrigger.isPending &&
-      name.trim() &&
-      activeChannelID &&
-      activeAgentID &&
-      instructions.trim()
+    !updateTrigger.isPending &&
+    name.trim() &&
+    activeChannelID &&
+    activeAgentID &&
+    instructions.trim()
   )
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers"] })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers/{id}"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.trigger() })
   }
 
   function handleSave() {
@@ -210,7 +207,10 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
       </header>
 
       <div className="flex gap-2.5 rounded-xl border border-sky-500/25 bg-sky-500/[0.06] px-3.5 py-3">
-        <AppIcon icon="clock" className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+        <AppIcon
+          icon="clock"
+          className="mt-0.5 h-4 w-4 shrink-0 text-sky-500"
+        />
         <div className="flex flex-col gap-1 text-sm leading-5">
           <span className="font-medium text-foreground">
             {trigger.last_run_at
@@ -238,7 +238,7 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-foreground">Webhook URL</h2>
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5">
+        <div className="bg-card flex items-center gap-2 rounded-xl border border-border px-3 py-2.5">
           <code className="min-w-0 flex-1 truncate font-mono text-sm text-foreground">
             {trigger.webhook_url}
           </code>
@@ -368,7 +368,7 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
         </FormSection>
 
         {!isAdmin ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Only workspace admins can edit or delete automations.
           </p>
         ) : null}
@@ -389,7 +389,12 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
             )}
             Delete
           </Button>
-          <Button type="submit" variant="primary" size="sm" isDisabled={!canSave}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            isDisabled={!canSave}
+          >
             {updateTrigger.isPending ? (
               <Spinner color="current" size="sm" />
             ) : (

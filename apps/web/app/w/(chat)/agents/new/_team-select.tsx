@@ -2,9 +2,6 @@
 
 import { ListBox, Select } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
-import type { components } from "@/lib/api/schema"
-
-type Team = components["schemas"]["teamResponse"]
 
 const NO_TEAM_KEY = ""
 
@@ -24,7 +21,7 @@ export function TeamSelect({
   const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const teams = (teamsQuery.data?.data as Team[] | undefined) ?? []
+  const teams = teamsQuery.data?.data ?? []
   const selectedTeam = teams.find((team) => team.id === value)
   const selectedLabel = teamsQuery.isLoading
     ? "Loading teams"
@@ -60,7 +57,7 @@ export function TeamSelect({
                   {team.name || "Untitled team"}
                 </span>
                 {team.description ? (
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="text-muted-foreground truncate text-xs">
                     {team.description}
                   </span>
                 ) : null}

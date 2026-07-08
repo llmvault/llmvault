@@ -27,6 +27,3 @@ ALTER TABLE ONLY public.org_invites
 
 ALTER TABLE ONLY public.org_invites
     ADD CONSTRAINT fk_org_invites_org FOREIGN KEY (org_id) REFERENCES public.orgs(id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.org_invites CASCADE;

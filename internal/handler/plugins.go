@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -36,24 +37,36 @@ func NewPluginHandler(db *gorm.DB) *PluginHandler {
 func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
 	scope, err := h.actorScope(r.Context(), org.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return
 	}
 	var plugins []model.Plugin
-	if err := h.db.Where("status = ? AND (org_id IS NULL OR org_id = ?)", model.PluginStatusActive, org.ID).Order("name ASC").Find(&plugins).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list plugins"})
+	if err := h.db.WithContext(r.Context()).Where("status = ? AND (org_id IS NULL OR org_id = ?)", model.PluginStatusActive, org.ID).Order("name ASC").Find(&plugins).Error; err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "list plugins", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list plugins"})
 		return
 	}
+	// Batch every per-plugin lookup with `plugin_id IN (?)` and memoize the
+	// org-scoped connection checks so a list of N plugins costs a bounded number
+	// of queries instead of the previous 1+~6N.
+	batch, err := h.loadPluginListData(r.Context(), org.ID, plugins, scope)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load plugin list data", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin details"})
+		return
+	}
+	cache := newPluginConnCache(h, org.ID)
 	resp := make([]pluginResponse, 0, len(plugins))
 	for _, plugin := range plugins {
-		item, err := h.toPluginResponse(r.Context(), org.ID, plugin, scope)
+		item, err := h.assemblePluginResponse(r.Context(), org.ID, plugin, batch.skills[plugin.ID], batch.reqs[plugin.ID], batch.installCount[plugin.ID], batch.enabled[plugin.ID], cache)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "assemble plugin response", "error", err)
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin details"})
 			return
 		}
 		resp = append(resp, item)
@@ -75,7 +88,7 @@ func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
 	plugin, ok := h.loadPluginBySlug(w, r, chi.URLParam(r, "slug"))
@@ -84,12 +97,13 @@ func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	scope, err := h.actorScope(r.Context(), org.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return
 	}
 	resp, err := h.toPluginResponse(r.Context(), org.ID, plugin, scope)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load plugin details", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin details"})
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -111,7 +125,7 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	org, ok := middleware.OrgFromContext(ctx)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
 	user, _ := middleware.UserFromContext(ctx)
@@ -121,13 +135,14 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 	}
 	missing, err := h.missingRequirements(ctx, org.ID, plugin.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check plugin requirements"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "check plugin requirements", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check plugin requirements"})
 		return
 	}
 	if len(missing) > 0 {
-		writeJSON(w, http.StatusConflict, map[string]any{
-			"error":                "plugin requirements are not connected",
-			"missing_requirements": missing,
+		writeJSON(w, http.StatusConflict, pluginInstallConflictResponse{
+			Error:               "plugin requirements are not connected",
+			MissingRequirements: missing,
 		})
 		return
 	}
@@ -157,17 +172,19 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		return pluginstore.EnsureInstalledPluginForEligibleAgents(ctx, tx, org.ID, plugin)
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to install plugin"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "install plugin", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to install plugin"})
 		return
 	}
 	scope, err := h.actorScope(ctx, org.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
 		return
 	}
 	resp, err := h.toPluginResponse(ctx, org.ID, plugin, scope)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load plugin details", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load plugin details"})
 		return
 	}
 	writeJSON(w, http.StatusCreated, resp)
@@ -188,7 +205,7 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	org, ok := middleware.OrgFromContext(ctx)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
 	plugin, ok := h.loadPluginBySlug(w, r, chi.URLParam(r, "slug"))
@@ -196,11 +213,11 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if pluginstore.PluginAutoInstall(plugin) {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is installed for all agents and cannot be uninstalled"})
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin is installed for all agents and cannot be uninstalled"})
 		return
 	}
 	if pluginstore.PluginLocked(plugin) {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required and cannot be uninstalled"})
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin is required and cannot be uninstalled"})
 		return
 	}
 	now := time.Now()
@@ -213,8 +230,9 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 		return disablePluginForOrg(ctx, tx, org.ID, plugin.ID)
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to uninstall plugin"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "uninstall plugin", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall plugin"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "uninstalled"})
+	writeJSON(w, http.StatusOK, statusResponse{Status: "uninstalled"})
 }

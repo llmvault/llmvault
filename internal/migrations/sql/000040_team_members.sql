@@ -6,7 +6,8 @@ CREATE TABLE public.team_members (
     user_id uuid NOT NULL,
     role text DEFAULT 'member'::text NOT NULL,
     created_at timestamp with time zone,
-    updated_at timestamp with time zone
+    updated_at timestamp with time zone,
+    deactivated_at timestamp with time zone
 );
 
 ALTER TABLE ONLY public.team_members
@@ -26,6 +27,3 @@ ALTER TABLE ONLY public.team_members
 
 ALTER TABLE ONLY public.team_members
     ADD CONSTRAINT fk_team_members_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.team_members CASCADE;

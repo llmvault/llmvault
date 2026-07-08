@@ -17,17 +17,23 @@ const manageMemoriesToolName = "manage_memories"
 const manageMemoriesTopTagsLimit = 25
 
 // requireOrgManagerActor gates the org-wide memory manager on the acting human
-// being an org owner/admin. A nil result means allowed. When there is no human
-// actor (automated run, or a deploy before the runtime injects identity) the
-// check is skipped so existing flows keep working. rawActorUserID is the
-// runtime-injected `_hivy_actor_user_id`.
+// being an org owner/admin. A nil result means allowed.
+//
+// manage_memories exposes memory across EVERY channel plus org-wide memories —
+// a cross-channel read privilege. A nil actor (automated trigger/cron run, or a
+// runtime that never injected an identity) is REJECTED: an unattributed,
+// possibly prompt-injected automated run must not be able to exfiltrate the
+// whole org's memory through the default agent. Per-channel memory recall used
+// during normal turns is a separate, channel-scoped path and is unaffected.
+// rawActorUserID is the runtime-injected `_hivy_actor_user_id`.
 func (s *Service) requireOrgManagerActor(ctx context.Context, orgID uuid.UUID, rawActorUserID string) *mcp.CallToolResult {
 	actor, err := access.Resolve(ctx, s.cfg.DB, orgID, rawActorUserID)
 	if err != nil {
 		return memoryToolError(err.Error())
 	}
 	if actor == nil {
-		return nil
+		return memoryToolError("Not allowed: the org-wide memory view requires an org admin or owner acting in the session. " +
+			"This looks like an automated or unattributed run with no acting user, so the request is refused.")
 	}
 	if !actor.IsOrgManager() {
 		return memoryToolError("Not allowed: viewing the organization's memories across all channels requires an admin or owner. " +

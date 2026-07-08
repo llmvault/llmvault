@@ -146,7 +146,7 @@ func (h *SessionReflectionHandler) loadChannelMission(ctx context.Context, sessi
 	if session.ChannelID == uuid.Nil {
 		return ""
 	}
-	mission, err := memory.ChannelMission(ctx, h.db, session.ChannelID)
+	mission, err := memory.ChannelMission(ctx, h.db, session.OrgID, session.ChannelID)
 	if err != nil {
 		logging.FromContext(ctx).WarnContext(ctx, "load channel memory mission failed; using base guidelines",
 			"channel_id", session.ChannelID.String(), "error", err)

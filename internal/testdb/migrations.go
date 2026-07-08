@@ -179,7 +179,6 @@ WHERE table_schema = current_schema()
 var migratedTables = []string{
 	"agent_assets",
 	"agent_catalog",
-	"agent_channels",
 	"agent_directives",
 	"agent_memories",
 	"agent_observations",
@@ -201,7 +200,6 @@ var migratedTables = []string{
 	"channel_env_vars",
 	"channel_members",
 	"channel_memory_digests",
-	"channel_rag_sources",
 	"channels",
 	"connections",
 	"credentials",
@@ -262,4 +260,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 85
+const latestMigrationVersion = 83

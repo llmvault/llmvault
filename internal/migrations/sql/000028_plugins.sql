@@ -32,6 +32,3 @@ CREATE INDEX idx_plugins_status ON public.plugins USING btree (status);
 
 ALTER TABLE ONLY public.plugins
     ADD CONSTRAINT fk_plugins_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.plugins CASCADE;

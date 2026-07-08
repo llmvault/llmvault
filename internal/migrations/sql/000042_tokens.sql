@@ -27,6 +27,3 @@ ALTER TABLE ONLY public.tokens
 
 ALTER TABLE ONLY public.tokens
     ADD CONSTRAINT fk_tokens_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.tokens CASCADE;

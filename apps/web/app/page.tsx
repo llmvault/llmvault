@@ -5,8 +5,12 @@ import { AuthLogo } from "@/app/auth/_components/shared"
 import { WatchDemo } from "@/components/watch-demo"
 
 const GITHUB_URL = "https://github.com/usehivy/hivy"
-// TODO: replace with the real waitlist form URL (Tally/Typeform/etc.)
-const WAITLIST_URL = "#"
+// Waitlist CTA target. Runtime-configurable via the HIVY_* server env pattern
+// (see lib/config/public-config.ts) so a prebuilt image can point at any
+// Tally/Typeform/etc. form without a rebuild. This is a server component, so it
+// reads the env at request time. When unset, the CTA is hidden rather than
+// rendered as a dead "#" link.
+const WAITLIST_URL = (process.env.HIVY_WAITLIST_URL ?? "").trim()
 
 const integrations = [
   { icon: "github", name: "GitHub" },
@@ -65,9 +69,11 @@ export default function RootPage() {
         </p>
 
         <div className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          <Link href={WAITLIST_URL}>
-            <Button size="lg">Join the waitlist</Button>
-          </Link>
+          {WAITLIST_URL ? (
+            <Link href={WAITLIST_URL} target="_blank" rel="noreferrer">
+              <Button size="lg">Join the waitlist</Button>
+            </Link>
+          ) : null}
           <WatchDemo />
         </div>
 

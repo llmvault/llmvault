@@ -1,15 +1,28 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// snapshotCatalogInstructions freezes a catalog's template prompt for storage on
+// a cloned agent's InstructionsSnapshot. Empty/whitespace-only
+// instructions snapshot as nil so effectiveAgentInstructions falls through to
+// the live catalog rather than pinning a blank prompt.
+func snapshotCatalogInstructions(instructions string) *string {
+	trimmed := strings.TrimSpace(instructions)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
 
 type agentCatalogPluginSummary struct {
 	ID        string `json:"id"`
@@ -224,31 +237,34 @@ func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	var agentIDs []uuid.UUID
-	if err := h.db.WithContext(ctx).Model(&model.Agent{}).
+	var agents []model.Agent
+	if err := h.db.WithContext(ctx).
 		Where("is_default = ?", false).
 		Where("org_id = ? AND agent_catalog_id = ? AND team_id = ? AND status <> ?", org.ID, catalog.ID, *teamID, "archived").
-		Pluck("id", &agentIDs).Error; err != nil {
+		Find(&agents).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall agent"})
 		return
 	}
-	if len(agentIDs) == 0 {
+	if len(agents) == 0 {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "uninstalled"})
 		return
 	}
-	// Archive the catalog's agents and re-home their triggers onto the default
-	// agent (disabled) together, so no trigger is stranded behind an archived
-	// agent where it would vanish from the UI and stop firing unnoticed.
-	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.Agent{}).
-			Where("id IN ?", agentIDs).
-			Update("status", "archived").Error; err != nil {
-			return err
+	// Route each clone through the SAME archive routine as DELETE /agents/{id}
+	// (busy-turn check, channel-default re-pointing, session/sandbox teardown,
+	// trigger disable) rather than a divergent bulk status update — so uninstall
+	// can't strand a channel default or rip out a live session's sandbox.
+	for i := range agents {
+		if err := h.archiveAgentWithSessions(ctx, org.ID, &agents[i]); err != nil {
+			switch {
+			case errors.Is(err, errAgentBusy):
+				writeJSON(w, http.StatusConflict, errorResponse{Error: "an agent has sessions with an in-progress turn; try again once it finishes"})
+			case errors.Is(err, errAgentChannelDefaultUnresolved):
+				writeJSON(w, http.StatusConflict, errorResponse{Error: "an agent is a channel's default agent and no replacement Hivy agent could be found; re-point those channels first"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall agent"})
+			}
+			return
 		}
-		return reassignAgentTriggersToDefault(tx, org.ID, agentIDs)
-	}); err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall agent"})
-		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "uninstalled"})
 }

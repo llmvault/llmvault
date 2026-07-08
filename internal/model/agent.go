@@ -25,20 +25,25 @@ type Agent struct {
 	// Name is unique per org among top-level agents (partial unique index
 	// idx_agents_org_name WHERE parent_agent_id IS NULL) and unique within a
 	// parent for sub-agents (idx_agents_parent_name).
-	Name                string           `gorm:"type:text;not null"`
-	Description         *string          `gorm:"type:text;not null;default:''"`
-	AvatarURL           *string          `gorm:"type:text"`
-	Category            *string          `gorm:"-"`
-	Icon                string           `gorm:"type:text;not null;default:''"`
-	IsDefault           bool             `gorm:"not null;default:false;index"`
-	SandboxImage        string           `gorm:"type:text;not null;default:'default'"`
-	SandboxSize         string           `gorm:"type:text;not null;default:'small'"`
-	WorkspaceSnapshotID *uuid.UUID       `gorm:"type:uuid"`
-	SandboxTemplateID   *uuid.UUID       `gorm:"type:uuid"`
-	SandboxTemplate     *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
+	Name              string           `gorm:"type:text;not null"`
+	Description       *string          `gorm:"type:text;not null;default:''"`
+	AvatarURL         *string          `gorm:"type:text"`
+	Category          *string          `gorm:"-"`
+	Icon              string           `gorm:"type:text;not null;default:''"`
+	IsDefault         bool             `gorm:"not null;default:false;index"`
+	SandboxImage      string           `gorm:"type:text;not null;default:'default'"`
+	SandboxSize       string           `gorm:"type:text;not null;default:'small'"`
+	SandboxTemplateID *uuid.UUID       `gorm:"type:uuid"`
+	SandboxTemplate   *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 
 	Instructions *string `gorm:"type:text"`
-	Model        string  `gorm:"not null"`
+	// InstructionsSnapshot is the catalog template prompt frozen at clone/install
+	// time. An un-forked clone resolves its system prompt from this
+	// snapshot, NOT the live catalog, so a later catalog rename/edit/archive can
+	// no longer silently rewrite or blank a live clone's prompt. Nil only for
+	// non-catalog agents and legacy rows the 000089 backfill could not fill.
+	InstructionsSnapshot *string `gorm:"column:instructions_snapshot;type:text"`
+	Model                string  `gorm:"not null"`
 	// DefaultReasoningEffort seeds new sessions (low|medium|high) when the caller
 	// does not pass an explicit reasoning_effort. Empty means unset.
 	DefaultReasoningEffort string `gorm:"column:default_reasoning_effort;type:text"`
@@ -124,8 +129,7 @@ type BuiltInToolDefinition struct {
 // ValidBuiltInTools is the canonical list of every tool an agent can be granted:
 // the Rust runtime's native built-in tools plus the Hivy MCP tools its runtime
 // surfaces. Consumed for permission-key validation (ValidatePermissionKeys /
-// IsValidPermissionKey), default permission seeding (BuiltInToolIDs), and
-// prompt-writer tool display names/descriptions (internal/system/tasks).
+// IsValidPermissionKey) and default permission seeding (BuiltInToolIDs).
 //
 // Ground truth — keep this list in sync with:
 //   - Runtime-native tools ("runtime.*" categories below): the ToolSpec enum in

@@ -124,7 +124,7 @@ func (h *TeamHandler) teamCounts(ctx context.Context, ids []uuid.UUID) teamCount
 	_ = h.db.WithContext(ctx).
 		Model(&model.TeamMember{}).
 		Select("team_id, count(*) AS count").
-		Where("team_id IN ?", ids).
+		Where("team_id IN ? AND deactivated_at IS NULL", ids).
 		Group("team_id").
 		Scan(&memberRows).Error
 	for _, row := range memberRows {

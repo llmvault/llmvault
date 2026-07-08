@@ -208,7 +208,10 @@ func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID, chan
 	if count == 0 {
 		return fmt.Errorf("agent not found")
 	}
-	allowed, err := agentAllowedInTriggerChannel(db, orgID, agentID, channelID)
+	// Team-primary rule: an agent may run in a channel iff it belongs to the
+	// channel's owning team (or the channel is shared/team-less). Replaces the cut
+	// agent_channels allowlist.
+	allowed, err := channelagents.ActsInChannel(ctx, db, orgID, channelID, agentID)
 	if err != nil {
 		return err
 	}

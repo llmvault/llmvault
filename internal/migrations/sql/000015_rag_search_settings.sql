@@ -23,6 +23,3 @@ ALTER TABLE ONLY public.rag_search_settings
     ADD CONSTRAINT rag_search_settings_pkey PRIMARY KEY (org_id);
 
 CREATE INDEX idx_rag_search_settings_embedding_model_id ON public.rag_search_settings USING btree (embedding_model_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_search_settings CASCADE;

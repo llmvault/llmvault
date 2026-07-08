@@ -16,6 +16,3 @@ CREATE TABLE public.rag_embedding_models (
 
 ALTER TABLE ONLY public.rag_embedding_models
     ADD CONSTRAINT rag_embedding_models_pkey PRIMARY KEY (id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_embedding_models CASCADE;

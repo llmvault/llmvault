@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -156,14 +155,6 @@ func (h *ChannelHandler) teamNamesForChannels(ctx context.Context, channels []mo
 		out[t.ID] = t.Name
 	}
 	return out
-}
-
-func (h *ChannelHandler) memberChannelSubquery(userID *uuid.UUID) *gorm.DB {
-	q := h.db.Model(&model.ChannelMember{}).Select("channel_id")
-	if userID == nil {
-		return q.Where("1 = 0")
-	}
-	return q.Where("user_id = ?", *userID)
 }
 
 func includeChannelRecentSessions(r *http.Request) bool {

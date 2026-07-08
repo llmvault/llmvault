@@ -7,6 +7,7 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import {
   automationTriggerDefaultInstructions,
@@ -15,10 +16,7 @@ import {
   type InstalledTrigger,
 } from "@/app/w/(chat)/automations/_data"
 import { AgentSelect } from "@/components/agent-select"
-import {
-  resolveScopedAgentID,
-  useTeamAgents,
-} from "@/lib/api/team-agents"
+import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import {
   ChannelSelect,
   useHivyChannels,
@@ -36,7 +34,6 @@ import {
 import { TriggerDeleteConfirmModal } from "@/app/w/(chat)/automations/_trigger-delete-confirm-modal"
 import {
   type AvailableResource,
-  type Connection,
   githubRepoResourceType,
   triggerSourceSlug,
 } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
@@ -118,7 +115,7 @@ export function GithubMentionInstallFormBase({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const connections = useMemo(
-    () => (connectionsQuery.data?.data ?? []) as Connection[],
+    () => connectionsQuery.data?.data ?? [],
     [connectionsQuery.data?.data]
   )
   const activeConnectionID = connectionID || connections[0]?.id || ""
@@ -152,9 +149,9 @@ export function GithubMentionInstallFormBase({
     } satisfies AvailableResource
   }, [triggerResourceKey, triggerResourceName])
   const resources = useMemo(() => {
-    const list = (
-      (resourcesQuery.data?.resources ?? []) as AvailableResource[]
-    ).filter((resource) => Boolean(resource.id))
+    const list = (resourcesQuery.data?.resources ?? []).filter((resource) =>
+      Boolean(resource.id)
+    )
     if (
       initialResource?.id &&
       !list.some((resource) => resource.id === initialResource.id)
@@ -170,8 +167,9 @@ export function GithubMentionInstallFormBase({
   )
   const activeChannelID = channelID || channels[0]?.id || ""
   const activeChannel = channels.find((c) => c.id === activeChannelID)
-  const { agents, isLoading: agentsLoading } =
-    useTeamAgents(activeChannel?.team_id)
+  const { agents, isLoading: agentsLoading } = useTeamAgents(
+    activeChannel?.team_id
+  )
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -278,17 +276,17 @@ export function GithubMentionInstallFormBase({
           ? `${config.toastNoun} saved`
           : `${config.toastNoun} installed`
       )
-      queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers"] })
-      queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents"] })
-      queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
       if (triggerID) {
         queryClient.invalidateQueries({
-          queryKey: ["get", "/v1/triggers/{id}"],
+          queryKey: queryKeys.trigger(),
         })
       }
       if (activeAgentID) {
         queryClient.invalidateQueries({
-          queryKey: ["get", "/v1/agents/{id}"],
+          queryKey: queryKeys.agent(),
         })
       }
       router.push("/w/automations")
@@ -334,9 +332,9 @@ export function GithubMentionInstallFormBase({
         onSuccess: () => {
           setDeleteConfirmOpen(false)
           toast.success("Trigger deleted")
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/triggers"] })
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents"] })
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
+          queryClient.invalidateQueries({ queryKey: queryKeys.agents() })
+          queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
           router.push("/w/automations")
         },
         onError: (error) =>
@@ -503,7 +501,7 @@ export function GithubMentionInstallFormBase({
         </FormSection>
 
         {triggerID && !isAdmin ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Only workspace admins can edit or delete automations.
           </p>
         ) : null}
@@ -541,10 +539,7 @@ export function GithubMentionInstallFormBase({
             {isSaving ? (
               <Spinner color="current" size="sm" />
             ) : (
-              <AppIcon
-                icon={triggerID ? "save" : "plus"}
-                className="h-4 w-4"
-              />
+              <AppIcon icon={triggerID ? "save" : "plus"} className="h-4 w-4" />
             )}
             {triggerID ? "Save trigger" : "Install trigger"}
           </Button>

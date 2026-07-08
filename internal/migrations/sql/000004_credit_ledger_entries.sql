@@ -20,6 +20,3 @@ CREATE UNIQUE INDEX idx_credit_ledger_entries_idem ON public.credit_ledger_entri
 CREATE INDEX idx_credit_ledger_entries_org_id ON public.credit_ledger_entries USING btree (org_id);
 
 CREATE INDEX idx_credit_ledger_entries_ref_id ON public.credit_ledger_entries USING btree (ref_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.credit_ledger_entries CASCADE;

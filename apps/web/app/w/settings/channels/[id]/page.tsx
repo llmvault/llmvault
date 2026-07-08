@@ -19,6 +19,7 @@ import { AppIcon } from "@/components/icon"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { CHANNEL_CATEGORIES, channelMemorySettings } from "@/lib/api/memory"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
 import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
@@ -142,9 +143,9 @@ export default function ChannelDetailPage({
         onSuccess: () => {
           toast.success("Channel updated")
           queryClient.invalidateQueries({
-            queryKey: ["get", "/v1/channels/{id}"],
+            queryKey: queryKeys.channel(),
           })
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
         },
         onError: (error) =>
           toast.danger(extractErrorMessage(error, "Could not update channel")),
@@ -160,7 +161,7 @@ export default function ChannelDetailPage({
         onSuccess: () => {
           toast.success("Channel deleted")
           setConfirmOpen(false)
-          queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
           router.push("/w/settings/channels")
         },
         onError: (error) =>
@@ -186,11 +187,11 @@ export default function ChannelDetailPage({
     return (
       <div className="flex flex-col gap-6">
         <BackLink />
-        <section className="bg-surface rounded-2xl border border-border px-4 py-8 text-center">
+        <section className="rounded-2xl border border-border bg-surface px-4 py-8 text-center">
           <h1 className="text-sm font-medium text-foreground">
             Channel not found
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             This channel may have been deleted.
           </p>
         </section>
@@ -206,10 +207,10 @@ export default function ChannelDetailPage({
 
       <div className="min-w-0">
         <h1 className="flex items-center gap-2 truncate text-lg font-semibold text-foreground">
-          <AppIcon icon="hash" className="h-5 w-5 text-muted-foreground" />
+          <AppIcon icon="hash" className="text-muted-foreground h-5 w-5" />
           {channel.name}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           {channel.member_count ?? members.length}{" "}
           {(channel.member_count ?? members.length) === 1
             ? "member"
@@ -456,9 +457,9 @@ function ChannelTab({
 
 function MembersTab({ members }: { members: ChannelMember[] }) {
   return (
-    <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
       {members.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+        <div className="text-muted-foreground px-4 py-8 text-center text-sm">
           No members in this channel yet.
         </div>
       ) : (
@@ -474,30 +475,24 @@ function MembersTab({ members }: { members: ChannelMember[] }) {
   )
 }
 
-function MemberRow({
-  member,
-  last,
-}: {
-  member: ChannelMember
-  last: boolean
-}) {
+function MemberRow({ member, last }: { member: ChannelMember; last: boolean }) {
   const label = member.name || member.email || "Unknown"
   return (
     <div
       className={`flex items-center gap-3 px-4 py-3.5 ${last ? "" : "border-b border-border"}`}
     >
-      <div className="bg-default flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium text-muted-foreground">
+      <div className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-default text-xs font-medium">
         {initials(member.name, member.email)}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium text-foreground">
           {label}
         </span>
-        <span className="truncate text-sm text-muted-foreground">
+        <span className="text-muted-foreground truncate text-sm">
           {member.email}
         </span>
       </div>
-      <span className="shrink-0 rounded-md bg-default px-1.5 py-0.5 text-xs text-muted-foreground capitalize">
+      <span className="text-muted-foreground shrink-0 rounded-md bg-default px-1.5 py-0.5 text-xs capitalize">
         {member.role}
       </span>
     </div>
@@ -542,7 +537,7 @@ function BackLink() {
   return (
     <NextLink
       href="/w/settings/channels"
-      className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="text-muted-foreground inline-flex w-fit items-center gap-2 text-sm transition-colors hover:text-foreground"
     >
       <AppIcon icon="arrow-left" className="h-4 w-4" />
       Channels

@@ -69,17 +69,23 @@ func skillManagerEnabled(agent *model.Agent) bool {
 // this check any member invoking the org's default Hivy agent would inherit
 // org-manager powers to author/edit/archive org skills and plugins. The actor
 // check is the real authorization: a member gets a plain assistant, an admin
-// gets the manager tools. A nil actor (automated trigger/cron run, or a deploy
-// before the runtime injects identity) is allowed, mirroring
-// memory.manage_memories. rawActorUserID is the runtime-injected
-// `_hivy_actor_user_id`.
+// gets the manager tools.
+//
+// A nil actor (automated trigger/cron run, or a runtime that never injected an
+// identity) is REJECTED: these tools all mutate org-wide state (skills/plugins
+// inject into every agent that installs the plugin), so an unattributed —
+// possibly prompt-injected — automated run must not be able to author or edit
+// them. There is no legitimate faceless caller for org-wide skill/plugin
+// mutation; a human org-manager must be on the hook. rawActorUserID is the
+// runtime-injected `_hivy_actor_user_id`.
 func requireOrgManagerActor(ctx context.Context, db *gorm.DB, orgID uuid.UUID, rawActorUserID string) *mcp.CallToolResult {
 	actor, err := access.Resolve(ctx, db, orgID, rawActorUserID)
 	if err != nil {
 		return skillToolError(err.Error())
 	}
 	if actor == nil {
-		return nil
+		return skillToolError("Not allowed: creating or editing this organization's skills and plugins requires an org admin or owner acting in the session. " +
+			"This looks like an automated or unattributed run with no acting user, so the change is refused.")
 	}
 	if !actor.IsOrgManager() {
 		return skillToolError("Not allowed: creating or editing this organization's skills and plugins requires an org admin or owner. " +

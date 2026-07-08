@@ -1,6 +1,7 @@
 "use client"
 
 import type { QueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/api/query-keys"
 import {
   chatQueryKeys,
   type SessionResponse,
@@ -337,9 +338,9 @@ async function refreshSessionQueries(
       queryKey: chatQueryKeys.sessionEvents(sessionId),
     }),
     queryClient.invalidateQueries({
-      queryKey: ["get", "/v1/channels/{id}/sessions"],
+      queryKey: queryKeys.channelSessions(),
     }),
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/sessions"] }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sessions() }),
   ])
 }
 

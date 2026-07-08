@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button, Chip, Spinner, toast } from "@heroui/react"
 import { Logo } from "@/components/logo"
 import { $api } from "@/lib/api/hooks"
+import { switchActiveOrg } from "@/lib/auth/auth-context"
 import { extractErrorMessage } from "@/lib/api/error"
 import { localPart } from "@/lib/email"
 
@@ -60,12 +61,14 @@ function AcceptInviteContents() {
 
   const queryClient = useQueryClient()
   const setActiveOrgAndRedirect = useCallback(
-    (orgID?: string, fallback = "/w") => {
-      if (orgID) {
-        document.cookie = `hivy_active_org=${encodeURIComponent(orgID)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-      }
-      queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
-      setTimeout(() => router.replace(fallback), 1500)
+    async (orgID?: string, fallback = "/w") => {
+      // Route through auth-context's single org-switch writer: it sets the
+      // active-org cookie and does a full queryClient.invalidateQueries() so
+      // the previous org's channels/sessions/agents never leak into the new
+      // workspace (query keys aren't org-scoped). Navigate once it completes —
+      // no arbitrary setTimeout, no hand-written cookie.
+      await switchActiveOrg(queryClient, orgID)
+      router.replace(fallback)
     },
     [router, queryClient]
   )
@@ -76,7 +79,7 @@ function AcceptInviteContents() {
       {
         onSuccess: (resp) => {
           setAccepted({ orgName: resp?.org_name ?? "" })
-          setActiveOrgAndRedirect(resp?.org_id)
+          void setActiveOrgAndRedirect(resp?.org_id)
         },
         onError: (error) => {
           toast.danger(extractErrorMessage(error, "Failed to accept invitation"))
@@ -126,7 +129,7 @@ function AcceptInviteContents() {
       {
         onSuccess: (resp) => {
           setAccepted({ orgName: resp?.org_name ?? "" })
-          setActiveOrgAndRedirect(resp?.org_id)
+          void setActiveOrgAndRedirect(resp?.org_id)
         },
         onError: (error) => {
           autoAcceptStarted.current = false

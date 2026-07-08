@@ -543,17 +543,6 @@ definitions:
       key:
         type: string
     type: object
-  Usage:
-    properties:
-      cached_tokens:
-        type: integer
-      input_tokens:
-        type: integer
-      output_tokens:
-        type: integer
-      reasoning_tokens:
-        type: integer
-    type: object
   WebhookConfig:
     properties:
       configuration_notes:
@@ -735,10 +724,6 @@ definitions:
         type: string
       catalog:
         $ref: '#/definitions/agentCatalogSummary'
-      channel_ids:
-        items:
-          type: string
-        type: array
       created_at:
         type: string
       default_reasoning_effort:
@@ -808,10 +793,6 @@ definitions:
         type: array
       avatar_url:
         type: string
-      channel_ids:
-        items:
-          type: string
-        type: array
       default_reasoning_effort:
         type: string
       description:
@@ -878,10 +859,6 @@ definitions:
         type: string
       catalog:
         $ref: '#/definitions/agentCatalogSummary'
-      channel_ids:
-        items:
-          type: string
-        type: array
       created_at:
         type: string
       default_reasoning_effort:
@@ -1416,24 +1393,6 @@ definitions:
     properties:
       channel:
         $ref: '#/definitions/channelResponse'
-    type: object
-  channelRAGSourceResponse:
-    properties:
-      id:
-        type: string
-      kind:
-        type: string
-      name:
-        type: string
-      status:
-        type: string
-    type: object
-  channelRAGSourcesResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/channelRAGSourceResponse'
-        type: array
     type: object
   channelResponse:
     properties:
@@ -3807,6 +3766,11 @@ definitions:
       session:
         $ref: '#/definitions/sessionResponse'
     type: object
+  sessionNameUpdateResponse:
+    properties:
+      session:
+        $ref: '#/definitions/sessionResponse'
+    type: object
   sessionParticipantResponse:
     properties:
       created_at:
@@ -4333,25 +4297,6 @@ definitions:
   syncTriggerRequest:
     properties:
       from_beginning:
-        type: boolean
-    type: object
-  systemTaskJSONResponse:
-    properties:
-      cached:
-        type: boolean
-      model:
-        type: string
-      text:
-        type: string
-      usage:
-        $ref: '#/definitions/Usage'
-    type: object
-  systemTaskRequest:
-    properties:
-      args:
-        additionalProperties: {}
-        type: object
-      stream:
         type: boolean
     type: object
   teamDetailResponse:
@@ -5115,29 +5060,6 @@ paths:
       tags:
       - auth
   /auth/me:
-    delete:
-      description: Permanently deletes the authenticated user's account. This action
-        cannot be undone.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/statusResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete current user account
-      tags:
-      - auth
     get:
       description: Returns the current user and their organization memberships.
       produces:
@@ -8175,41 +8097,6 @@ paths:
       summary: Add or update a channel member
       tags:
       - channels
-  /v1/channels/{id}/rag-sources:
-    get:
-      description: Lists the RAG sources a channel's agents can search. These are
-        derived from the grants of the channel's team; a channel with no team has
-        no knowledge access. Grants are managed at the team level by org admins.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelRAGSourcesResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List a channel's knowledge sources
-      tags:
-      - channels
   /v1/channels/{id}/sessions:
     get:
       description: Lists sessions in a visible channel.
@@ -10316,10 +10203,12 @@ paths:
       - org-invites
   /v1/orgs/current/members/{userID}:
     delete:
-      description: Removes a member from the org. Requires org admin. Only an owner
-        may remove an owner, the last owner cannot be removed, and removal also strips
-        the user's team and channel memberships within the org. Sessions the user
-        created are retained (their created_by is nulled by the database).
+      description: 'Deactivates (archives) a member of the org. Requires org admin.
+        Only an owner may remove an owner, the last owner cannot be removed. Deactivation
+        is a soft operation: the org/team/channel membership rows are retained with
+        deactivated_at set (preserving the audit trail), the member''s API keys are
+        revoked, and the member is treated as no longer a member by all membership
+        checks. The users row is never deleted. Sessions the user created are retained.'
       parameters:
       - description: Target user ID
         in: path
@@ -10355,7 +10244,7 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Remove a member from the organization
+      summary: Deactivate a member of the organization
       tags:
       - org-members
   /v1/orgs/current/members/{userID}/role:
@@ -12691,6 +12580,36 @@ paths:
       summary: Send a session message
       tags:
       - sessions
+  /v1/sessions/{id}/name-updates:
+    get:
+      description: Server-sent-events stream that emits the session whenever its generated
+        name changes. Content-Type is text/event-stream.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sessionNameUpdateResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Stream session name updates (SSE)
+      tags:
+      - sessions
   /v1/sessions/{id}/participants:
     post:
       consumes:
@@ -13130,6 +13049,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a sheet
+      tags:
+      - sheets
+  /v1/sheets/{sheetID}/live:
+    get:
+      description: Server-sent-events stream of a sheet's realtime row/field events.
+        Authenticated by the short-lived live token (query param), not the session
+        cookie. Content-Type is text/event-stream.
+      parameters:
+      - description: Sheet ID
+        in: path
+        name: sheetID
+        required: true
+        type: string
+      - description: Live stream token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: event stream
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: Stream sheet realtime events (SSE)
       tags:
       - sheets
   /v1/sheets/{sheetID}/live-token:
@@ -13993,58 +13946,6 @@ paths:
       summary: Join Slack channels
       tags:
       - slack
-  /v1/system/tasks/{taskName}:
-    post:
-      consumes:
-      - application/json
-      description: Executes a registered server-side LLM task using platform credentials.
-        Each task name maps to a hard-coded definition (model tier, prompt, args).
-        Caller may opt into streaming.
-      parameters:
-      - description: Task name
-        in: path
-        name: taskName
-        required: true
-        type: string
-      - description: Task arguments
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/systemTaskRequest'
-      produces:
-      - application/json
-      - text/event-stream
-      responses:
-        "200":
-          description: SSE stream when stream=true
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "503":
-          description: Service Unavailable
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Run a system task
-      tags:
-      - system
   /v1/tokens:
     get:
       description: Returns tokens for the organization with cursor pagination. Supports

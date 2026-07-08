@@ -81,12 +81,12 @@ func (h *OrgMemberHandler) TransferOwnership(w http.ResponseWriter, r *http.Requ
 func (h *OrgMemberHandler) transferOwnershipTx(ctx context.Context, orgID, callerID, newOwnerID uuid.UUID) error {
 	return h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.OrgMembership{}).
-			Where("org_id = ? AND user_id = ?", orgID, newOwnerID).
+			Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, newOwnerID).
 			Update("role", "owner").Error; err != nil {
 			return err
 		}
 		return tx.Model(&model.OrgMembership{}).
-			Where("org_id = ? AND user_id = ?", orgID, callerID).
+			Where("org_id = ? AND user_id = ? AND deactivated_at IS NULL", orgID, callerID).
 			Update("role", "admin").Error
 	})
 }

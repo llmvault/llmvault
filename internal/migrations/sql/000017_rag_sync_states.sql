@@ -25,6 +25,3 @@ CREATE INDEX idx_rag_sync_state_last_pruned ON public.rag_sync_states USING btre
 CREATE INDEX idx_rag_sync_states_org_id ON public.rag_sync_states USING btree (org_id);
 
 CREATE UNIQUE INDEX uq_rag_sync_state_rag_source_id ON public.rag_sync_states USING btree (rag_source_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_sync_states CASCADE;

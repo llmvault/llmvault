@@ -14,6 +14,3 @@ ALTER TABLE ONLY public.otp_codes
 CREATE INDEX idx_otp_codes_email ON public.otp_codes USING btree (email);
 
 CREATE UNIQUE INDEX idx_otp_codes_token_hash ON public.otp_codes USING btree (token_hash);
-
--- +goose Down
-DROP TABLE IF EXISTS public.otp_codes CASCADE;

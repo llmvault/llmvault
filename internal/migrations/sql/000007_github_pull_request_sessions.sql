@@ -17,6 +17,3 @@ ALTER TABLE ONLY public.github_pull_request_sessions
 CREATE UNIQUE INDEX idx_github_pr_sessions_repo_number ON public.github_pull_request_sessions USING btree (org_id, repo, pr_number);
 
 CREATE INDEX idx_github_pr_sessions_session ON public.github_pull_request_sessions USING btree (session_id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.github_pull_request_sessions CASCADE;

@@ -28,7 +28,7 @@ import (
 func (h *OrgInviteHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "missing organization context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing organization context"})
 		return
 	}
 	idStr := chi.URLParam(r, "id")
@@ -79,7 +79,7 @@ func (h *OrgInviteHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 func (h *OrgInviteHandler) Resend(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "missing organization context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing organization context"})
 		return
 	}
 	idStr := chi.URLParam(r, "id")

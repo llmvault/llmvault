@@ -69,8 +69,7 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
   // skill-manager, runtime, …) are always enabled for every team, so they are
   // not per-team toggleable — hide them from the provisioning list.
   const plugins = useMemo(
-    () =>
-      ((pluginsQuery.data ?? []) as ApiPlugin[]).filter(isTeamProvisionable),
+    () => (pluginsQuery.data ?? []).filter(isTeamProvisionable),
     [pluginsQuery.data]
   )
   const enabledIds = useMemo(
@@ -91,7 +90,10 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
       },
       onError: (err: unknown) =>
         toast.danger(
-          extractErrorMessage(err, `Could not ${on ? "enable" : "disable"} plugin`)
+          extractErrorMessage(
+            err,
+            `Could not ${on ? "enable" : "disable"} plugin`
+          )
         ),
     }
     if (on) {
@@ -113,7 +115,7 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
         title="Plugins"
         description="Choose which workspace plugins this team can install."
       />
-      <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {isLoading ? (
           <ProvisioningSkeleton />
         ) : plugins.length === 0 ? (
@@ -165,7 +167,7 @@ function TeamKnowledgeSourcesSection({ teamId }: { teamId: string }) {
   )
 
   const sources = useMemo(
-    () => (sourcesQuery.data?.data ?? []) as RagSource[],
+    () => sourcesQuery.data?.data ?? [],
     [sourcesQuery.data?.data]
   )
   const connectionsById = useMemo(() => {
@@ -221,7 +223,7 @@ function TeamKnowledgeSourcesSection({ teamId }: { teamId: string }) {
         title="Knowledge sources"
         description="Choose which knowledge sources this team can search."
       />
-      <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {isLoading ? (
           <ProvisioningSkeleton />
         ) : sources.length === 0 ? (
@@ -229,13 +231,15 @@ function TeamKnowledgeSourcesSection({ teamId }: { teamId: string }) {
         ) : (
           sources.map((source, index) => {
             const on = isProvisioned(source.id, enabledIds)
-            const provider = providerMeta(deriveProvider(source, connectionsById))
+            const provider = providerMeta(
+              deriveProvider(source, connectionsById)
+            )
             return (
               <ProvisioningRow
                 key={source.id ?? index}
                 last={index === sources.length - 1}
                 icon={
-                  <span className="bg-default flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-default text-muted">
                     <ProviderIcon icon={provider.icon} className="h-4 w-4" />
                   </span>
                 }
@@ -253,4 +257,3 @@ function TeamKnowledgeSourcesSection({ teamId }: { teamId: string }) {
     </section>
   )
 }
-

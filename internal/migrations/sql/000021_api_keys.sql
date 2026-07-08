@@ -27,6 +27,3 @@ ALTER TABLE ONLY public.api_keys
 
 ALTER TABLE ONLY public.api_keys
     ADD CONSTRAINT fk_api_keys_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.api_keys CASCADE;

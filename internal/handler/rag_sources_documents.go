@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	qc "github.com/qdrant/go-client/qdrant"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 )
@@ -60,6 +61,36 @@ func (h *RAGSearchHandler) ListDocuments(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Grant-scope the listing. Search itself is deny-by-default team-scoped
+	// (usableRagSourceIDs); the document listing must match so a member cannot
+	// enumerate document titles/links for a source their team was never granted.
+	// Org managers / API-key callers see org-wide (actorSeesOrgWide).
+	seesAll, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
+		return
+	}
+	if !seesAll {
+		usable, err := usableRagSourceIDs(r.Context(), h.db, org.ID, userID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve knowledge access"})
+			return
+		}
+		granted := false
+		for _, id := range usable {
+			if id == sourceID {
+				granted = true
+				break
+			}
+		}
+		if !granted {
+			// Not granted to any team the caller can reach: return empty rather
+			// than leak that the source exists.
+			writeJSON(w, http.StatusOK, ragDocumentsResponse{Documents: []ragDocument{}})
+			return
+		}
+	}
+
 	limit := 50
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -93,7 +124,8 @@ func (h *RAGSearchHandler) ListDocuments(w http.ResponseWriter, r *http.Request)
 		WithPayload: true,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "qdrant scroll: " + err.Error()})
+		logging.FromContext(ctx).ErrorContext(ctx, "qdrant scroll failed", "error", err)
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to list documents"})
 		return
 	}
 

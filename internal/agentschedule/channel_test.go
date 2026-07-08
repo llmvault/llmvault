@@ -76,7 +76,6 @@ func cleanupScheduleChannelOrg(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	db.Where("org_id = ?", orgID).Delete(&model.AgentScheduleRun{})
 	db.Where("org_id = ?", orgID).Delete(&model.AgentSchedule{})
 	db.Where("org_id = ?", orgID).Delete(&model.Session{})
-	db.Where("org_id = ?", orgID).Delete(&model.AgentChannel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Channel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Agent{})
 	db.Where("org_id = ?", orgID).Delete(&model.Team{})
@@ -218,39 +217,41 @@ func TestUpdateCanSelectScheduleChannel(t *testing.T) {
 	}
 }
 
-func TestSelectedScheduleChannelRespectsAgentRestrictions(t *testing.T) {
+// TestSelectedScheduleChannelRejectsForeignTeamChannel verifies the team-primary
+// rule (channelagents.ActsInChannel) that replaced the cut agent_channels
+// allowlist: an agent may not be scheduled into a channel owned by a team it does
+// not belong to, while its own team's channels remain schedulable.
+func TestSelectedScheduleChannelRejectsForeignTeamChannel(t *testing.T) {
 	db := connectScheduleTestDB(t)
 	fx := seedScheduleChannelFixture(t, db)
-	if err := db.Create(&model.AgentChannel{OrgID: fx.org.ID, AgentID: fx.agent.ID, ChannelID: fx.channel.ID}).Error; err != nil {
-		t.Fatalf("restrict agent channel: %v", err)
+	foreignTeam := model.Team{ID: uuid.New(), OrgID: fx.org.ID, Name: "foreign-" + uuid.NewString()}
+	if err := db.Create(&foreignTeam).Error; err != nil {
+		t.Fatalf("create foreign team: %v", err)
+	}
+	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: &foreignTeam.ID, Name: "foreign-ops-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
+	if err := db.Create(&foreignChannel).Error; err != nil {
+		t.Fatalf("create foreign channel: %v", err)
 	}
 	interval := int64(60)
-	if _, err := CreateFromSession(t.Context(), db, &fx.agent, fx.session.ID.String(), CreateInput{
-		JobID:           "job-" + uuid.NewString(),
-		TaskPrompt:      "summarize system activity",
-		IntervalSeconds: &interval,
-	}); err != nil {
-		t.Fatalf("create default system schedule: %v", err)
-	}
 	_, err := CreateFromSession(t.Context(), db, &fx.agent, fx.session.ID.String(), CreateInput{
 		JobID:           "job-" + uuid.NewString(),
-		TaskPrompt:      "summarize disallowed channel",
-		ChannelID:       fx.target.ID.String(),
+		TaskPrompt:      "summarize foreign channel",
+		ChannelID:       foreignChannel.ID.String(),
 		IntervalSeconds: &interval,
 	})
 	if err == nil || !strings.Contains(err.Error(), "agent is not available in this channel") {
-		t.Fatalf("create in disallowed channel error = %v, want agent restriction", err)
+		t.Fatalf("create in foreign-team channel error = %v, want agent restriction", err)
 	}
 	allowed, err := CreateFromSession(t.Context(), db, &fx.agent, fx.session.ID.String(), CreateInput{
 		JobID:           "job-" + uuid.NewString(),
 		TaskPrompt:      "summarize allowed channel",
-		ChannelID:       fx.channel.ID.String(),
+		ChannelID:       fx.teamHome.ID.String(),
 		IntervalSeconds: &interval,
 	})
 	if err != nil {
 		t.Fatalf("create in allowed channel: %v", err)
 	}
-	if allowed.Channel != fx.channel.ID.String() {
-		t.Fatalf("allowed channel = %s, want %s", allowed.Channel, fx.channel.ID)
+	if allowed.Channel != fx.teamHome.ID.String() {
+		t.Fatalf("allowed channel = %s, want %s", allowed.Channel, fx.teamHome.ID)
 	}
 }

@@ -329,6 +329,7 @@ export async function uploadSheetObject(
   if (!signed.upload_url || !signed.key) {
     throw new Error("Upload could not be signed")
   }
+  // eslint-disable-next-line no-restricted-globals -- signed-storage upload: PUT straight to the pre-signed object-store URL, not the Hivy API.
   const putRes = await fetch(signed.upload_url, {
     method: signed.upload_method || "PUT",
     headers: {

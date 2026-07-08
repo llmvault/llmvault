@@ -4,6 +4,7 @@ import { useCallback, useState } from "react"
 import { toast } from "@heroui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import { useAuth } from "@/lib/auth/auth-context"
 import type { components } from "@/lib/api/schema"
@@ -34,7 +35,7 @@ interface UsePaystackPopHandlers {
   openPopup: (
     accessCode: string,
     onPaid: (reference: string) => void,
-    onCancel?: () => void,
+    onCancel?: () => void
   ) => void
   /** Slug of the plan currently mid-flight, or null. */
   pendingSlug: string | null
@@ -47,7 +48,7 @@ async function openPaystackTransaction(
   handlers: {
     onSuccess: (tx: { reference: string }) => void
     onCancel?: () => void
-  },
+  }
 ) {
   const { default: PaystackPop } = await import("@paystack/inline-js")
   const popup = new PaystackPop()
@@ -55,7 +56,7 @@ async function openPaystackTransaction(
 }
 
 export function usePaystackPop(
-  options: UsePaystackPopOptions = {},
+  options: UsePaystackPopOptions = {}
 ): UsePaystackPopHandlers {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -122,14 +123,14 @@ export function usePaystackPop(
                         toast.success(`Subscribed to ${plan.name ?? plan.slug}`)
                       } else {
                         toast.info(
-                          "Payment received. Your subscription will activate momentarily.",
+                          "Payment received. Your subscription will activate momentarily."
                         )
                       }
                       queryClient.invalidateQueries({
-                        queryKey: ["get", "/v1/billing/subscription"],
+                        queryKey: queryKeys.billingSubscription(),
                       })
                       queryClient.invalidateQueries({
-                        queryKey: ["get", "/auth/me"],
+                        queryKey: queryKeys.authMe(),
                       })
                       options.onSubscribed?.(plan.slug!)
                       setPendingSlug(null)
@@ -138,12 +139,12 @@ export function usePaystackPop(
                       toast.danger(
                         extractErrorMessage(
                           err,
-                          "Could not confirm subscription. Refresh in a moment.",
-                        ),
+                          "Could not confirm subscription. Refresh in a moment."
+                        )
                       )
                       setPendingSlug(null)
                     },
-                  },
+                  }
                 )
               },
               onCancel: () => {
@@ -151,9 +152,7 @@ export function usePaystackPop(
                 setPendingSlug(null)
               },
             }).catch((err) => {
-              toast.danger(
-                extractErrorMessage(err, "Could not open checkout")
-              )
+              toast.danger(extractErrorMessage(err, "Could not open checkout"))
               setPendingSlug(null)
             })
           },
@@ -161,17 +160,17 @@ export function usePaystackPop(
             toast.danger(extractErrorMessage(err, "Could not start checkout"))
             setPendingSlug(null)
           },
-        },
+        }
       )
     },
-    [user?.email, checkout, verify, queryClient, options],
+    [user?.email, checkout, verify, queryClient, options]
   )
 
   const openPopup = useCallback(
     (
       accessCode: string,
       onPaid: (reference: string) => void,
-      onCancel?: () => void,
+      onCancel?: () => void
     ) => {
       void openPaystackTransaction(accessCode, {
         onSuccess: (tx: { reference: string }) => onPaid(tx.reference),
@@ -181,7 +180,7 @@ export function usePaystackPop(
         onCancel?.()
       })
     },
-    [],
+    []
   )
 
   return {

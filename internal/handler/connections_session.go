@@ -55,7 +55,7 @@ func (h *ConnectionHandler) CreateConnectSession(w http.ResponseWriter, r *http.
 	sess, err := h.nango.CreateConnectSession(r.Context(), nangoReq)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "nango connect session creation failed", "error", err, "integration_id", integ.ID, "user_id", user.ID)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to create connect session: " + err.Error()})
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to create connect session"})
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *ConnectionHandler) CreateReconnectSession(w http.ResponseWriter, r *htt
 	})
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "nango reconnect session creation failed", "error", err, "connection_id", conn.ID, "user_id", user.ID)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to create reconnect session: " + err.Error()})
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to create reconnect session"})
 		return
 	}
 

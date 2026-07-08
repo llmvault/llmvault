@@ -65,7 +65,7 @@ function ChannelCreateModalContent({
     { retry: false }
   )
   const connections = useMemo(
-    () => (connectionsQuery.data?.data ?? []) as Connection[],
+    () => connectionsQuery.data?.data ?? [],
     [connectionsQuery.data?.data]
   )
   const activeConnectionID = selectedConnectionID || connections[0]?.id || ""
@@ -101,8 +101,10 @@ function ChannelCreateModalContent({
   const defaultAgentID =
     agents.find((agent) => agent.is_default)?.id ?? agents[0]?.id ?? ""
   const activeAgentID = selectedAgentID || defaultAgentID
-  // Admin-only endpoint (GET /v1/orgs/current/teams): for non-admin members
-  // this returns 403 and `teams` is empty, so the picker is always optional.
+  // GET /v1/orgs/current/teams is member-readable (see internal/handler/teams.go
+  // List): org managers/API keys see every team, a plain member sees only the
+  // teams they actively belong to (200, not 403). A member with no team
+  // memberships gets an empty list, so the team picker is always optional.
   const teamsQuery = $api.useQuery(
     "get",
     "/v1/orgs/current/teams",
@@ -110,12 +112,12 @@ function ChannelCreateModalContent({
     { retry: false }
   )
   const teams = useMemo(
-    () => (teamsQuery.data?.data as Team[] | undefined) ?? [],
+    () => teamsQuery.data?.data ?? [],
     [teamsQuery.data?.data]
   )
   const createChannel = $api.useMutation("post", "/v1/channels")
   const resources = useMemo(
-    () => (resourcesQuery.data?.resources ?? []) as AvailableResource[],
+    () => resourcesQuery.data?.resources ?? [],
     [resourcesQuery.data?.resources]
   )
   const filteredResources = useMemo(() => {

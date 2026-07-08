@@ -261,41 +261,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Permanently deletes the authenticated user's account. This action cannot be undone.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Delete current user account",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/statusResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
             "patch": {
                 "security": [
                     {
@@ -4863,58 +4828,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/channels/{id}/rag-sources": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Lists the RAG sources a channel's agents can search. These are derived from the grants of the channel's team; a channel with no team has no knowledge access. Grants are managed at the team level by org admins.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "channels"
-                ],
-                "summary": "List a channel's knowledge sources",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Channel ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/channelRAGSourcesResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/channels/{id}/sessions": {
             "get": {
                 "security": [
@@ -8153,14 +8066,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Removes a member from the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed, and removal also strips the user's team and channel memberships within the org. Sessions the user created are retained (their created_by is nulled by the database).",
+                "description": "Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org/team/channel membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "org-members"
                 ],
-                "summary": "Remove a member from the organization",
+                "summary": "Deactivate a member of the organization",
                 "parameters": [
                     {
                         "type": "string",
@@ -11783,6 +11696,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sessions/{id}/name-updates": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Server-sent-events stream that emits the session whenever its generated name changes. Content-Type is text/event-stream.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Stream session name updates (SSE)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sessionNameUpdateResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sessions/{id}/participants": {
             "post": {
                 "security": [
@@ -12487,6 +12446,54 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sheets/{sheetID}/live": {
+            "get": {
+                "description": "Server-sent-events stream of a sheet's realtime row/field events. Authenticated by the short-lived live token (query param), not the session cookie. Content-Type is text/event-stream.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "sheets"
+                ],
+                "summary": "Stream sheet realtime events (SSE)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sheet ID",
+                        "name": "sheetID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Live stream token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "event stream",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "401": {
@@ -13781,83 +13788,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/system/tasks/{taskName}": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Executes a registered server-side LLM task using platform credentials. Each task name maps to a hard-coded definition (model tier, prompt, args). Caller may opt into streaming.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json",
-                    "text/event-stream"
-                ],
-                "tags": [
-                    "system"
-                ],
-                "summary": "Run a system task",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Task name",
-                        "name": "taskName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Task arguments",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/systemTaskRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "SSE stream when stream=true",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -15369,23 +15299,6 @@ const docTemplate = `{
                 }
             }
         },
-        "Usage": {
-            "type": "object",
-            "properties": {
-                "cached_tokens": {
-                    "type": "integer"
-                },
-                "input_tokens": {
-                    "type": "integer"
-                },
-                "output_tokens": {
-                    "type": "integer"
-                },
-                "reasoning_tokens": {
-                    "type": "integer"
-                }
-            }
-        },
         "WebhookConfig": {
             "type": "object",
             "properties": {
@@ -15649,12 +15562,6 @@ const docTemplate = `{
                 "catalog": {
                     "$ref": "#/definitions/agentCatalogSummary"
                 },
-                "channel_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -15759,12 +15666,6 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
-                "channel_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "default_reasoning_effort": {
                     "type": "string"
                 },
@@ -15864,12 +15765,6 @@ const docTemplate = `{
                 },
                 "catalog": {
                     "$ref": "#/definitions/agentCatalogSummary"
-                },
-                "channel_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 },
                 "created_at": {
                     "type": "string"
@@ -16680,34 +16575,6 @@ const docTemplate = `{
             "properties": {
                 "channel": {
                     "$ref": "#/definitions/channelResponse"
-                }
-            }
-        },
-        "channelRAGSourceResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "channelRAGSourcesResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/channelRAGSourceResponse"
-                    }
                 }
             }
         },
@@ -20319,6 +20186,14 @@ const docTemplate = `{
                 }
             }
         },
+        "sessionNameUpdateResponse": {
+            "type": "object",
+            "properties": {
+                "session": {
+                    "$ref": "#/definitions/sessionResponse"
+                }
+            }
+        },
         "sessionParticipantResponse": {
             "type": "object",
             "properties": {
@@ -21123,35 +20998,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "from_beginning": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "systemTaskJSONResponse": {
-            "type": "object",
-            "properties": {
-                "cached": {
-                    "type": "boolean"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "usage": {
-                    "$ref": "#/definitions/Usage"
-                }
-            }
-        },
-        "systemTaskRequest": {
-            "type": "object",
-            "properties": {
-                "args": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "stream": {
                     "type": "boolean"
                 }
             }

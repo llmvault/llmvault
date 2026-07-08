@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/mcp/catalog"
@@ -61,9 +62,19 @@ func safeConnectionMeta(meta model.JSON) model.JSON {
 	return safe
 }
 
+// isDuplicateKeyError reports whether err is a Postgres unique-violation. It
+// checks GORM's translated sentinel first and falls back to the driver's
+// SQLSTATE 23505 (unique_violation) so status mapping never depends on the raw
+// error text.
 func isDuplicateKeyError(err error) bool {
-	return errors.Is(err, gorm.ErrDuplicatedKey) ||
-		(err != nil && strings.Contains(err.Error(), "duplicate key"))
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
 func buildNangoConfig(integResp map[string]any, template map[string]any, callbackURL string) model.JSON {

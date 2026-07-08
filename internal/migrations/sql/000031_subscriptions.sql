@@ -47,6 +47,3 @@ ALTER TABLE ONLY public.subscriptions
 
 ALTER TABLE ONLY public.subscriptions
     ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES public.plans(id);
-
--- +goose Down
-DROP TABLE IF EXISTS public.subscriptions CASCADE;

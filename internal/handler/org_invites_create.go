@@ -33,7 +33,7 @@ import (
 func (h *OrgInviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "missing organization context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing organization context"})
 		return
 	}
 	claims, ok := middleware.AuthClaimsFromContext(r.Context())

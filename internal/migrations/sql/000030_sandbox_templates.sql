@@ -34,6 +34,3 @@ ALTER TABLE ONLY public.sandbox_templates
 
 ALTER TABLE ONLY public.sandbox_templates
     ADD CONSTRAINT fk_sandbox_templates_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
--- +goose Down
-DROP TABLE IF EXISTS public.sandbox_templates CASCADE;

@@ -23,7 +23,7 @@ export default function AppsPage() {
   const channelsQuery = $api.useQuery("get", "/v1/channels", {
     params: { query: { limit: 100 } },
   })
-  const channels = (channelsQuery.data?.data ?? []) as Channel[]
+  const channels = channelsQuery.data?.data ?? []
 
   // Open the clicked app in the shared right panel (the same one that slides
   // open for a session), not a bespoke panel.
@@ -37,14 +37,14 @@ export default function AppsPage() {
       <div className="mx-auto w-full max-w-2xl px-6 py-12">
         <div className="flex flex-col gap-8">
           <nav aria-label="Apps" className="flex items-center gap-1">
-            <span className="bg-default rounded-lg px-3 py-1.5 text-sm font-medium text-foreground">
+            <span className="rounded-lg bg-default px-3 py-1.5 text-sm font-medium text-foreground">
               Apps
             </span>
           </nav>
 
           <div>
             <h1 className="text-lg font-semibold text-foreground">Apps</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-1 text-sm">
               Custom apps your agents build, organised by channel
             </p>
           </div>
@@ -52,13 +52,13 @@ export default function AppsPage() {
           <div className="relative min-w-0">
             <AppIcon
               icon="search"
-              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
             />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search apps"
-              className="h-10 w-full rounded-md bg-card pl-9"
+              className="bg-card h-10 w-full rounded-md pl-9"
             />
           </div>
 
@@ -105,7 +105,7 @@ function ChannelSection({
   )
 
   const normalized = query.trim().toLowerCase()
-  const apps = ((appsQuery.data?.apps ?? []) as AppView[]).filter(
+  const apps = (appsQuery.data?.apps ?? []).filter(
     (app) =>
       !normalized ||
       (app.name ?? "").toLowerCase().includes(normalized) ||
@@ -120,13 +120,13 @@ function ChannelSection({
       <div className="flex items-center gap-2">
         <AppIcon
           icon="hash"
-          className="h-3.5 w-3.5 text-muted-foreground"
+          className="text-muted-foreground h-3.5 w-3.5"
           aria-hidden="true"
         />
         <h2 className="text-sm font-medium text-foreground">{channel.name}</h2>
-        <span className="text-xs text-muted-foreground">{apps.length}</span>
+        <span className="text-muted-foreground text-xs">{apps.length}</span>
       </div>
-      <div className="flex flex-col bg-card">
+      <div className="bg-card flex flex-col">
         {apps.map((app) => (
           <AppRow
             key={app.id}
@@ -172,7 +172,7 @@ function AppRow({
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium text-foreground">{app.name}</h3>
             {app.description ? (
-              <p className="truncate text-sm text-muted-foreground">
+              <p className="text-muted-foreground truncate text-sm">
                 {app.description}
               </p>
             ) : null}
@@ -180,7 +180,7 @@ function AppRow({
 
           <AppIcon
             icon="chevron-right"
-            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+            className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
             aria-hidden="true"
           />
         </div>
@@ -195,7 +195,7 @@ function ListSkeleton() {
       {[0, 1].map((section) => (
         <div key={section} className="flex flex-col gap-3">
           <Skeleton className="h-3.5 w-24 rounded" />
-          <div className="flex flex-col bg-card">
+          <div className="bg-card flex flex-col">
             {[0, 1, 2].map((row) => (
               <div key={row} className="flex items-center gap-3 px-3 py-2.5">
                 <Skeleton className="h-9 w-9 shrink-0" />
@@ -214,10 +214,10 @@ function ListSkeleton() {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon="layout-grid" className="h-7 w-7 text-muted-foreground" />
+    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
+      <AppIcon icon="layout-grid" className="text-muted-foreground h-7 w-7" />
       <p className="mt-3 text-sm font-medium text-foreground">{message}</p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
         Ask an agent to build an app and it will show up here.
       </p>
     </div>

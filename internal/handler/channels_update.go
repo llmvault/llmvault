@@ -52,12 +52,33 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		channel.Visibility = value
 	}
 	if req.TeamID != nil {
-		teamID, ok := h.resolveTeamID(r.Context(), w, channel.OrgID, req.TeamID)
+		newTeamID, ok := h.resolveTeamID(r.Context(), w, channel.OrgID, req.TeamID)
 		if !ok {
 			return false
 		}
-		updates["team_id"] = teamID
-		channel.TeamID = teamID
+		// A native channel must always belong to a team; it can be moved between
+		// teams but never cleared to team-less. External channels stay as their
+		// connector created them.
+		if newTeamID == nil && channel.Origin != "external" {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required"})
+			return false
+		}
+		if !h.authorizeChannelTeamMove(w, r, *channel, newTeamID) {
+			return false
+		}
+		updates["team_id"] = newTeamID
+		channel.TeamID = newTeamID
+		// A team change must not strand the channel's default agent in a foreign
+		// team. When the caller isn't also setting a new default agent (which the
+		// DefaultAgentID branch below validates against the new team), re-validate
+		// the existing default agent against the destination team so a cross-team
+		// default can never survive a move (resolveDefaultAgentID writes the 422).
+		if req.DefaultAgentID == nil {
+			current := channel.DefaultAgentID.String()
+			if _, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, newTeamID, &current); !ok {
+				return false
+			}
+		}
 	}
 	if req.DefaultAgentID != nil {
 		agentID, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, channel.TeamID, req.DefaultAgentID)

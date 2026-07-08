@@ -8,6 +8,7 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { useTeamAgents } from "@/lib/api/team-agents"
 import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
@@ -47,7 +48,7 @@ export default function ScheduleDetailPage() {
           <button
             type="button"
             onClick={() => router.push("/w/automations?tab=schedules")}
-            className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1.5 text-sm transition-colors"
+            className="text-muted-foreground flex w-fit items-center gap-1.5 text-sm transition-colors hover:text-foreground"
           >
             <AppIcon icon="arrow-left" className="h-4 w-4" />
             Schedules
@@ -59,7 +60,7 @@ export default function ScheduleDetailPage() {
             </div>
           ) : scheduleQuery.isError || !schedule ? (
             <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-              <AppIcon icon="triangle-alert" className="text-muted h-7 w-7" />
+              <AppIcon icon="triangle-alert" className="h-7 w-7 text-muted" />
               <p className="mt-3 text-sm font-medium text-foreground">
                 Schedule not found
               </p>
@@ -121,17 +122,17 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
   const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSave = Boolean(
     isAdmin &&
-      !updateSchedule.isPending &&
-      name.trim() &&
-      activeChannelID &&
-      taskPrompt.trim() &&
-      cadenceValid &&
-      agentOnChannelTeam
+    !updateSchedule.isPending &&
+    name.trim() &&
+    activeChannelID &&
+    taskPrompt.trim() &&
+    cadenceValid &&
+    agentOnChannelTeam
   )
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/schedules"] })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/schedules/{id}"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.schedules() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.schedule() })
   }
 
   function handleSave() {
@@ -216,7 +217,10 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
       </header>
 
       <div className="flex gap-2.5 rounded-xl border border-sky-500/25 bg-sky-500/[0.06] px-3.5 py-3">
-        <AppIcon icon="clock" className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+        <AppIcon
+          icon="clock"
+          className="mt-0.5 h-4 w-4 shrink-0 text-sky-500"
+        />
         <div className="flex flex-col gap-1 text-sm leading-5">
           <span className="font-medium text-foreground">
             {active
@@ -293,8 +297,8 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
           title="Agent"
           description="The agent that runs on this schedule. Create a new schedule to use a different agent."
         >
-          <div className="bg-field flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm">
-            <AppIcon icon="bot" className="text-muted h-4 w-4 shrink-0" />
+          <div className="flex h-9 items-center gap-2 rounded-md border border-border bg-field px-3 text-sm">
+            <AppIcon icon="bot" className="h-4 w-4 shrink-0 text-muted" />
             <span className="truncate text-foreground">
               {schedule.agent_name || "Agent"}
             </span>
@@ -364,7 +368,7 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
         </FormSection>
 
         {!isAdmin ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Only workspace admins can edit or delete automations.
           </p>
         ) : null}

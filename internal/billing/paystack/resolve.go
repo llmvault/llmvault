@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/usehivy/hivy/internal/billing"
 )
 
@@ -58,6 +60,17 @@ func (p *Provider) ResolveCheckout(ctx context.Context, req billing.ResolveCheck
 		return nil, fmt.Errorf("verify transaction: %w", err)
 	}
 
+	metadata := parseMetadata(tx.Metadata)
+
+	// Defense-in-depth: reject a reference whose transaction was initialised for
+	// a different org. Without this a member could reuse any valid paid Paystack
+	// reference (from any org, same plan) to flip their own org's plan_slug.
+	if req.ExpectedOrgID != uuid.Nil {
+		if metadata["org_id"] != req.ExpectedOrgID.String() {
+			return nil, fmt.Errorf("%w: reference %q", billing.ErrOrgMismatch, req.Reference)
+		}
+	}
+
 	return &billing.ResolveCheckoutResult{
 		Status:             mapTransactionStatus(tx.Status),
 		ExternalCustomerID: tx.Customer.CustomerCode,
@@ -66,7 +79,7 @@ func (p *Provider) ResolveCheckout(ctx context.Context, req billing.ResolveCheck
 		Currency:           tx.Currency,
 		Reference:          tx.Reference,
 		PaymentMethod:      paymentMethodFrom(tx.Authorization, tx.Channel),
-		Metadata:           parseMetadata(tx.Metadata),
+		Metadata:           metadata,
 	}, nil
 }
 

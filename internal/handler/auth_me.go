@@ -33,7 +33,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var memberships []model.OrgMembership
-	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)
+	h.db.Preload("Org").Where("user_id = ? AND deactivated_at IS NULL", user.ID).Find(&memberships)
 
 	plans := loadPlans(r.Context(), h.db, memberships)
 
@@ -170,7 +170,15 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if emailChanged {
-		h.db.Model(&model.User{}).Where("id = ?", claims.UserID).Update("email_confirmed_at", nil)
+		// Security gate: a self-service email change must invalidate the prior
+		// confirmation (confirmed email ⇒ derived platform admin). If this write
+		// fails we must NOT report success, or the user could keep a stale
+		// email_confirmed_at against the new address.
+		if err := h.db.Model(&model.User{}).Where("id = ?", claims.UserID).Update("email_confirmed_at", nil).Error; err != nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to reset email confirmation after email change", "user_id", claims.UserID, "error", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update profile"})
+			return
+		}
 		var updated model.User
 		if err := h.db.First(&updated, "id = ?", claims.UserID).Error; err == nil {
 			if err := h.sendEmailConfirmationCode(r.Context(), updated); err != nil {
@@ -194,28 +202,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DeleteAccount handles DELETE /auth/me.
-// @Summary Delete current user account
-// @Description Permanently deletes the authenticated user's account. This action cannot be undone.
-// @Tags auth
-// @Produce json
-// @Success 200 {object} statusResponse
-// @Failure 401 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /auth/me [delete]
-func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.AuthClaimsFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-
-	if err := h.db.Where("id = ?", claims.UserID).Delete(&model.User{}).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to delete account", "user_id", claims.UserID, "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete account"})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
+// Account deletion has been intentionally removed: the product never
+// hard-deletes a users row. Offboarding is modelled as member deactivation
+// (see OrgMemberHandler.Remove, which soft-deactivates the membership and
+// revokes the member's access) so the audit trail is always preserved.

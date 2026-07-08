@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -76,7 +77,7 @@ func validateScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID uu
 	if err != nil {
 		return "", fmt.Errorf("load channel: %w", err)
 	}
-	allowed, err := agentAllowedInScheduleChannel(ctx, db, orgID, agentID, channel.ID)
+	allowed, err := channelagents.ActsInChannel(ctx, db, orgID, channel.ID, agentID)
 	if err != nil {
 		return "", err
 	}
@@ -84,39 +85,4 @@ func validateScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID uu
 		return "", fmt.Errorf("agent is not available in this channel")
 	}
 	return channel.ID.String(), nil
-}
-
-// RestrictedChannelIDs returns the set of channel ids the agent is limited to
-// via agent_channels rows, or nil when the agent has no restrictions and may
-// be used in any org channel. This is the single access rule shared by
-// schedule/trigger channel validation and the list_channels MCP tool so the
-// two cannot drift.
-func RestrictedChannelIDs(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (map[uuid.UUID]struct{}, error) {
-	var rows []model.AgentChannel
-	if err := db.WithContext(ctx).
-		Select("channel_id").
-		Where("org_id = ? AND agent_id = ?", orgID, agentID).
-		Find(&rows).Error; err != nil {
-		return nil, fmt.Errorf("validate agent channel access: %w", err)
-	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	out := make(map[uuid.UUID]struct{}, len(rows))
-	for _, row := range rows {
-		out[row.ChannelID] = struct{}{}
-	}
-	return out, nil
-}
-
-func agentAllowedInScheduleChannel(ctx context.Context, db *gorm.DB, orgID, agentID, channelID uuid.UUID) (bool, error) {
-	restricted, err := RestrictedChannelIDs(ctx, db, orgID, agentID)
-	if err != nil {
-		return false, err
-	}
-	if restricted == nil {
-		return true, nil
-	}
-	_, ok := restricted[channelID]
-	return ok, nil
 }

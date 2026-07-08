@@ -77,6 +77,7 @@ type SandboxPort struct {
 
 type Alias struct {
 	Alias     string `gorm:"primaryKey"`
+	OrgID     string `gorm:"not null;default:'';index"`
 	SandboxID string `gorm:"not null;index"`
 	Port      int    `gorm:"not null"`
 	CreatedAt time.Time

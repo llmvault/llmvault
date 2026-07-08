@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/base64"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -95,19 +97,19 @@ func toGenerationResponse(g model.Generation) generationResponse {
 func (h *GenerationHandler) Get(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "no organization context"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "no organization context"})
 		return
 	}
 
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing generation id"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "missing generation id"})
 		return
 	}
 
 	var gen model.Generation
 	if err := h.db.Where("id = ? AND org_id = ?", id, org.ID).First(&gen).Error; err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "generation not found"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "generation not found"})
 		return
 	}
 
@@ -136,14 +138,24 @@ func (h *GenerationHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *GenerationHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "no organization context"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "no organization context"})
 		return
 	}
 
-	limit, cursor, err := parsePagination(r)
+	limit, err := parsePaginationLimit(r)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
+	}
+	// Generations use a string primary key (gen_<ulid>), so they need a
+	// string-based keyset cursor rather than the shared uuid-typed one.
+	var cursor *genPageCursor
+	if c := r.URL.Query().Get("cursor"); c != "" && c != "0" {
+		cursor, err = decodeGenCursor(c)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid cursor"})
+			return
+		}
 	}
 
 	q := h.db.Where("org_id = ?", org.ID)
@@ -169,13 +181,13 @@ func (h *GenerationHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if cursor != nil {
-		q = q.Where("(created_at, id) < (?, ?)", cursor.CreatedAt, cursor.ID.String())
+		q = q.Where("(created_at, id) < (?, ?)", cursor.CreatedAt, cursor.ID)
 	}
 	q = q.Order("created_at DESC, id DESC").Limit(limit + 1)
 
 	var gens []model.Generation
 	if err := q.Find(&gens).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list generations"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list generations"})
 		return
 	}
 
@@ -195,10 +207,37 @@ func (h *GenerationHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	if hasMore && len(gens) > 0 {
 		last := gens[len(gens)-1]
-		// Use string cursor for generation IDs (not UUID)
-		c := encodeCursor(last.CreatedAt, last.OrgID) // reuse org_id as placeholder for cursor encoding
+		c := encodeGenCursor(last.CreatedAt, last.ID)
 		resp.NextCursor = &c
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// genPageCursor is a keyset cursor over (created_at, id) for generation rows,
+// whose id is a string primary key (gen_<ulid>) rather than a uuid.
+type genPageCursor struct {
+	CreatedAt time.Time
+	ID        string
+}
+
+func encodeGenCursor(createdAt time.Time, id string) string {
+	s := createdAt.Format(time.RFC3339Nano) + "|" + id
+	return base64.URLEncoding.EncodeToString([]byte(s))
+}
+
+func decodeGenCursor(s string) (*genPageCursor, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	parts := splitOnce(string(b), '|')
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("malformed cursor")
+	}
+	t, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		return nil, err
+	}
+	return &genPageCursor{CreatedAt: t, ID: parts[1]}, nil
 }

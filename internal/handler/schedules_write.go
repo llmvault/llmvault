@@ -170,6 +170,12 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
 				return
 			}
+			// Re-binding a schedule to a channel is a manage-the-team action, not
+			// merely use-the-channel: match Create's manage gate.
+			if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, org.ID, channelID); mErr != nil {
+				writeJSON(w, mStatus, errorResponse{Error: mMessage})
+				return
+			}
 		}
 	}
 

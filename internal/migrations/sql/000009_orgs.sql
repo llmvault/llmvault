@@ -18,8 +18,3 @@ CREATE TABLE public.orgs (
 
 ALTER TABLE ONLY public.orgs
     ADD CONSTRAINT orgs_pkey PRIMARY KEY (id);
-
-CREATE UNIQUE INDEX idx_orgs_name ON public.orgs USING btree (name);
-
--- +goose Down
-DROP TABLE IF EXISTS public.orgs CASCADE;

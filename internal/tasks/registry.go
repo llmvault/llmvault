@@ -81,9 +81,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	// Flips a slept sandbox back to 'running' when its runtime websocket reconnects.
 	mux.HandleFunc(TypeSandboxMarkRunning, NewSandboxMarkRunningHandler(deps.DB).Handle)
 
-	// Agent cleanup works with or without sandbox orchestration.
-	mux.HandleFunc(TypeAgentCleanup, NewAgentCleanupHandler(deps.DB, deps.Orchestrator).Handle)
-
 	if deps.Orchestrator != nil {
 		handler := NewSandboxTemplateBuildHandler(deps.DB, deps.Orchestrator)
 		mux.HandleFunc(TypeSandboxTemplateBuild, handler.Handle)

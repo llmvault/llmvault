@@ -197,6 +197,7 @@ async function runtimeJSON<T>(
   if (!baseURL || !token) {
     throw new RuntimeRepoAccessError("Sandbox access is not available.")
   }
+  // eslint-disable-next-line no-restricted-globals -- direct-sandbox call: hits the sandbox base URL with a sandbox token, not the Hivy API.
   const response = await fetch(`${baseURL}${path}`, {
     headers: {
       Accept: "application/json",

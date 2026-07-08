@@ -54,8 +54,8 @@ export function AgentFormView({
   const router = useRouter()
   const modelsQuery = $api.useQuery("get", "/v1/agents/models")
   const pluginsQuery = $api.useQuery("get", "/v1/plugins")
-  const models = (modelsQuery.data as ModelSummary[] | undefined) ?? EMPTY_MODELS
-  const plugins = (pluginsQuery.data as ApiPlugin[] | undefined) ?? EMPTY_PLUGINS
+  const models = modelsQuery.data ?? EMPTY_MODELS
+  const plugins = pluginsQuery.data ?? EMPTY_PLUGINS
 
   const [form, setForm] = useState<AgentForm>(initialForm)
 
@@ -98,7 +98,7 @@ export function AgentFormView({
       <div>
         <NextLink
           href="/w/agents"
-          className="flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="text-muted-foreground flex w-fit items-center gap-2 text-sm transition-colors hover:text-foreground"
         >
           <AppIcon icon="arrow-left" className="h-4 w-4" />
           Agents
@@ -106,11 +106,9 @@ export function AgentFormView({
         <div className="mt-4 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold text-foreground">{heading}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{subheading}</p>
+            <p className="text-muted-foreground mt-1 text-sm">{subheading}</p>
           </div>
-          {headerAction ? (
-            <div className="shrink-0">{headerAction}</div>
-          ) : null}
+          {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
         </div>
       </div>
 
@@ -139,7 +137,10 @@ export function AgentFormView({
         </LabeledField>
       </Section>
 
-      <Section title="Model" description="The default model this agent runs on.">
+      <Section
+        title="Model"
+        description="The default model this agent runs on."
+      >
         <ModelSelect
           models={models}
           value={effectiveModel}
@@ -161,7 +162,7 @@ export function AgentFormView({
           disabled={saving}
           aria-label="Agent instructions"
           data-testid="agent-instructions"
-          className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/40"
+          className="bg-card placeholder:text-muted-foreground focus:border-primary/40 w-full resize-y rounded-md border border-border px-3 py-2 text-sm text-foreground transition-colors outline-none"
         />
       </Section>
 
@@ -178,7 +179,10 @@ export function AgentFormView({
         />
       </Section>
 
-      <Section title="Plugins" description="Workspace plugins this agent can access.">
+      <Section
+        title="Plugins"
+        description="Workspace plugins this agent can access."
+      >
         <PluginsField
           plugins={plugins}
           selectedSlugs={form.pluginSlugs}
@@ -290,7 +294,7 @@ function Section({
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-sm leading-5 text-muted-foreground">{description}</p>
+        <p className="text-muted-foreground text-sm leading-5">{description}</p>
       </div>
       {children}
     </section>
@@ -355,7 +359,7 @@ function OptionSelect({
             >
               <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <span className="text-sm font-medium">{option.label}</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   {option.hint}
                 </span>
               </span>

@@ -41,21 +41,21 @@ export function ResourceRequirementsSection({
           return (
             <div
               key={`${provider}-${requirement.resource_key || index}`}
-              className="border-warning/40 bg-warning/10 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
                   <AppIcon icon="triangle-alert" className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-medium text-foreground">
                     {title}
                   </h3>
-                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                  <p className="text-muted-foreground mt-1 text-sm leading-5">
                     Select resources for this integration before agents use it.
                   </p>
                   {!canManage ? (
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className="text-muted-foreground mt-1 text-xs leading-5">
                       Only workspace admins can select resources.
                     </p>
                   ) : null}
@@ -142,7 +142,7 @@ function ResourceSelectionModalContent({
     "/v1/connections/{id}/resources"
   )
   const resources = useMemo(
-    () => (resourcesQuery.data?.resources ?? []) as AvailableResource[],
+    () => resourcesQuery.data?.resources ?? [],
     [resourcesQuery.data]
   )
 
@@ -190,7 +190,7 @@ function ResourceSelectionModalContent({
               {pluginResourceSelectLabel(requirement)}
             </h2>
             {requirement.description ? (
-              <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              <p className="text-muted-foreground mt-1 text-sm leading-5">
                 {requirement.description}
               </p>
             ) : null}
@@ -198,7 +198,7 @@ function ResourceSelectionModalContent({
           <button
             type="button"
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
+            className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted/20 hover:text-foreground"
             onClick={onCancel}
           >
             <AppIcon icon="x" className="h-4 w-4" />
@@ -211,7 +211,7 @@ function ResourceSelectionModalContent({
               <Spinner size="sm" />
             </div>
           ) : resources.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+            <div className="bg-card text-muted-foreground rounded-xl border border-border p-4 text-sm">
               No resources found for this integration.
             </div>
           ) : (
@@ -224,7 +224,7 @@ function ResourceSelectionModalContent({
                     key={id || index}
                     type="button"
                     aria-pressed={selected}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/20"
+                    className="bg-card flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted/20"
                     onClick={() => toggleResource(resource)}
                   >
                     <div className="min-w-0">
@@ -232,7 +232,7 @@ function ResourceSelectionModalContent({
                         {resource.name || resource.id || "Resource"}
                       </p>
                       {resource.id ? (
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="text-muted-foreground truncate text-xs">
                           {resource.id}
                         </p>
                       ) : null}

@@ -11,8 +11,74 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *PluginHandler) resourceRequirements(ctx context.Context, orgID uuid.UUID, reqs []model.PluginIntegration, installed bool) ([]pluginResourceRequirement, error) {
-	cat := h.catalog
+// pluginConnCache memoizes the org-scoped connection lookups used when building
+// plugin responses, so a list of N plugins does not re-run the same
+// provider-connection queries once per plugin.
+type pluginConnCache struct {
+	h        *PluginHandler
+	orgID    uuid.UUID
+	firstCon map[string]connLookup // provider -> first active connection
+	hasReq   map[string]bool       // provider:kind -> requirement satisfied
+}
+
+type connLookup struct {
+	conn model.Connection
+	ok   bool
+}
+
+func newPluginConnCache(h *PluginHandler, orgID uuid.UUID) *pluginConnCache {
+	return &pluginConnCache{
+		h:        h,
+		orgID:    orgID,
+		firstCon: map[string]connLookup{},
+		hasReq:   map[string]bool{},
+	}
+}
+
+func (c *pluginConnCache) firstConnection(ctx context.Context, provider string) (model.Connection, bool, error) {
+	if v, ok := c.firstCon[provider]; ok {
+		return v.conn, v.ok, nil
+	}
+	conn, has, err := c.h.firstActiveConnectionForProvider(ctx, c.orgID, provider)
+	if err != nil {
+		return model.Connection{}, false, err
+	}
+	c.firstCon[provider] = connLookup{conn: conn, ok: has}
+	return conn, has, nil
+}
+
+func (c *pluginConnCache) hasRequirement(ctx context.Context, req model.PluginIntegration) (bool, error) {
+	key := req.Provider + ":" + req.Kind
+	if v, ok := c.hasReq[key]; ok {
+		return v, nil
+	}
+	ok, err := c.h.hasConnectionRequirement(ctx, c.orgID, req)
+	if err != nil {
+		return false, err
+	}
+	c.hasReq[key] = ok
+	return ok, nil
+}
+
+func (c *pluginConnCache) computeMissing(ctx context.Context, reqs []model.PluginIntegration) ([]pluginConnectionRequirement, error) {
+	missing := make([]pluginConnectionRequirement, 0)
+	for _, req := range reqs {
+		if !req.Required {
+			continue
+		}
+		ok, err := c.hasRequirement(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			missing = append(missing, pluginConnectionRequirement{Provider: req.Provider, Kind: req.Kind, Required: req.Required})
+		}
+	}
+	return missing, nil
+}
+
+func (c *pluginConnCache) computeResourceRequirements(ctx context.Context, reqs []model.PluginIntegration, installed bool) ([]pluginResourceRequirement, error) {
+	cat := c.h.catalog
 	if cat == nil {
 		cat = catalog.Global()
 	}
@@ -26,7 +92,7 @@ func (h *PluginHandler) resourceRequirements(ctx context.Context, orgID uuid.UUI
 		if len(resources) == 0 {
 			continue
 		}
-		conn, hasConnection, err := h.firstActiveConnectionForProvider(ctx, orgID, req.Provider)
+		conn, hasConnection, err := c.firstConnection(ctx, req.Provider)
 		if err != nil {
 			return nil, err
 		}

@@ -91,7 +91,6 @@ type agentResponse struct {
 	Skills                 model.JSON             `json:"skills"`
 	Permissions            model.JSON             `json:"permissions"`
 	SandboxTools           []string               `json:"sandbox_tools"`
-	ChannelIDs             []string               `json:"channel_ids"`
 	Status                 string                 `json:"status"`
 	Catalog                *agentCatalogSummary   `json:"catalog,omitempty"`
 	Resources              model.JSON             `json:"resources"`

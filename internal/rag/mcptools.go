@@ -94,7 +94,7 @@ This is the FIRST place to search for company knowledge — reach for it before 
 			if err != nil {
 				return toolError(err.Error()), nil
 			}
-			sourceIDs, err := channelSourceIDs(searchCtx, db, channelID)
+			sourceIDs, err := channelSourceIDs(searchCtx, db, token.OrgID, channelID)
 			if err != nil {
 				return toolError("knowledge source lookup failed: " + err.Error()), nil
 			}
@@ -158,12 +158,35 @@ func resolveKnowledgeChannel(ctx context.Context, db *gorm.DB, token *model.Toke
 	return session.ChannelID, nil
 }
 
-// channelSourceIDs returns the RAG source IDs a channel is granted access to.
-func channelSourceIDs(ctx context.Context, db *gorm.DB, channelID uuid.UUID) ([]string, error) {
+// channelSourceIDs returns the RAG source IDs the agent's channel is granted.
+//
+// Grants are TEAM-authoritative (team_rag_sources): a channel inherits exactly
+// the sources granted to its owning team. This mirrors the HTTP-side resolution
+// in handler.usableRagSourceIDs. A channel with no team, or a team with no
+// grants, has no knowledge access (deny-by-default). Results are still further
+// constrained to the caller's org by the Qdrant scoped filter
+// (qdrant.BuildScopedFilter) applied by the caller.
+//
+// Historically this read the now-removed channel_rag_sources table, which the
+// production grant writers never populated — so knowledge search returned zero
+// results. It now reads the table that team provisioning actually writes.
+func channelSourceIDs(ctx context.Context, db *gorm.DB, orgID, channelID uuid.UUID) ([]string, error) {
+	var channel model.Channel
+	if err := db.WithContext(ctx).
+		Select("id", "team_id").
+		Where("id = ? AND org_id = ?", channelID, orgID).
+		First(&channel).Error; err != nil {
+		return nil, err
+	}
+	// No team → no team grants → no knowledge access.
+	if channel.TeamID == nil {
+		return []string{}, nil
+	}
 	var ids []uuid.UUID
 	if err := db.WithContext(ctx).
-		Model(&model.ChannelRagSource{}).
-		Where("channel_id = ?", channelID).
+		Model(&model.TeamRagSource{}).
+		Distinct("rag_source_id").
+		Where("org_id = ? AND team_id = ?", orgID, *channel.TeamID).
 		Pluck("rag_source_id", &ids).Error; err != nil {
 		return nil, err
 	}

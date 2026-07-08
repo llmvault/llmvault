@@ -63,6 +63,3 @@ ALTER TABLE ONLY public.skills
 
 ALTER TABLE ONLY public.skills
     ADD CONSTRAINT fk_skills_publisher FOREIGN KEY (publisher_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
--- +goose Down
-DROP TABLE IF EXISTS public.skills CASCADE;

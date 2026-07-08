@@ -16,9 +16,6 @@ import {
   TeamFormModal,
   TeamRow,
   teamMap,
-  type Invite,
-  type Member,
-  type Team,
 } from "./_components/team-settings"
 
 export default function TeamsSettingsPage() {
@@ -42,15 +39,15 @@ export default function TeamsSettingsPage() {
   )
 
   const teams = useMemo(
-    () => (teamsQuery.data?.data ?? []) as Team[],
+    () => teamsQuery.data?.data ?? [],
     [teamsQuery.data?.data]
   )
   const members = useMemo(
-    () => (membersQuery.data?.data ?? []) as Member[],
+    () => membersQuery.data?.data ?? [],
     [membersQuery.data?.data]
   )
   const invites = useMemo(
-    () => (invitesQuery.data?.data ?? []) as Invite[],
+    () => invitesQuery.data?.data ?? [],
     [invitesQuery.data?.data]
   )
   const teamsById = useMemo(() => teamMap(teams), [teams])

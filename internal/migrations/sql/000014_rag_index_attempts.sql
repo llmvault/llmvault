@@ -41,6 +41,3 @@ CREATE INDEX idx_rag_index_attempts_rag_source_id ON public.rag_index_attempts U
 CREATE INDEX idx_rag_index_attempts_status ON public.rag_index_attempts USING btree (status);
 
 CREATE INDEX idx_rag_index_attempts_time_created ON public.rag_index_attempts USING btree (time_created);
-
--- +goose Down
-DROP TABLE IF EXISTS public.rag_index_attempts CASCADE;

@@ -6,6 +6,7 @@ import { Button, Input, Label, Spinner, toast } from "@heroui/react"
 import { IntegrationLogo } from "@/components/integration-logo"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import {
   MongoDatabaseConfiguration,
   SQLDatabaseConfiguration,
@@ -159,9 +160,9 @@ export function DatabaseConnectionModalContent({
         body: policy,
       })
       queryClient.invalidateQueries({
-        queryKey: ["get", "/v1/database-integrations"],
+        queryKey: queryKeys.databaseIntegrations(),
       })
-      queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins() })
       toast.success(`${config.label} connected`)
       onConnected()
     } catch (error) {
@@ -201,13 +202,13 @@ export function DatabaseConnectionModalContent({
           </label>
 
           {errorMessage ? (
-            <div className="bg-danger/10 text-danger rounded-2xl px-3 py-2 text-sm">
+            <div className="rounded-2xl bg-danger/10 px-3 py-2 text-sm text-danger">
               {errorMessage}
             </div>
           ) : null}
 
           {!canManage ? (
-            <p className="text-xs leading-5 text-muted-foreground">
+            <p className="text-muted-foreground text-xs leading-5">
               Only workspace admins can connect databases.
             </p>
           ) : null}

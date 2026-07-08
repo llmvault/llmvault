@@ -230,14 +230,6 @@ func (h *SessionHandler) participantSessionSubquery(userID *uuid.UUID) *gorm.DB 
 	return q.Where("user_id = ?", *userID)
 }
 
-func (h *SessionHandler) memberChannelSubquery(userID *uuid.UUID) *gorm.DB {
-	q := h.db.Model(&model.ChannelMember{}).Select("channel_id")
-	if userID == nil {
-		return q.Where("1 = 0")
-	}
-	return q.Where("user_id = ?", *userID)
-}
-
 func (h *SessionHandler) sessionListResponses(r *http.Request, sessions []model.Session) []sessionResponse {
 	ids := sessionIDsV2(sessions)
 	stats := h.statsForSessions(r.Context(), ids)

@@ -84,6 +84,13 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 	if current.TriggerType == "http" {
 		return h.updateHTTP(r, orgID, id, current, req)
 	}
+	// The provider update path historically skipped the access + manage gates
+	// that Create enforces. Gate reading/mutating this trigger on the actor
+	// being able to access it, matching updateHTTP and triggers create.
+	actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
+	if err != nil || !h.actorCanAccessTrigger(r.Context(), actor, current) {
+		return model.AgentTrigger{}, http.StatusNotFound, "trigger not found", fmt.Errorf("trigger not accessible")
+	}
 	parsed, template, err := parseTriggerUpdate(current, req)
 	if err != nil {
 		return model.AgentTrigger{}, http.StatusBadRequest, err.Error(), err
@@ -102,6 +109,11 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 	)
 	if err != nil {
 		return model.AgentTrigger{}, status, message, err
+	}
+	// Re-binding the trigger to this channel is a manage-the-team action, not
+	// merely use-the-channel (Create enforces this too).
+	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, orgID, channelID); mErr != nil {
+		return model.AgentTrigger{}, mStatus, mMessage, mErr
 	}
 	name := current.Name
 	if req.Name != nil {

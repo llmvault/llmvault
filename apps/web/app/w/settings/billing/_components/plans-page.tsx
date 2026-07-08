@@ -6,6 +6,7 @@ import { toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useIsOwner } from "@/lib/auth/use-role"
@@ -112,7 +113,9 @@ export function BillingPlansPage() {
   const [paidReference, setPaidReference] = useState<string | null>(null)
   const [busySlug, setBusySlug] = useState<string | null>(null)
 
-  const subscription = subscriptionQuery.data as SubscriptionResponse | undefined
+  const subscription = subscriptionQuery.data as
+    | SubscriptionResponse
+    | undefined
   const currentPlanSlug =
     subscription?.plan_slug ?? activeOrg?.plan?.slug ?? "free"
 
@@ -126,11 +129,11 @@ export function BillingPlansPage() {
 
   const refreshBilling = () => {
     queryClient.invalidateQueries({
-      queryKey: ["get", "/v1/billing/subscription"],
+      queryKey: queryKeys.billingSubscription(),
     })
-    queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/usage"] })
-    queryClient.invalidateQueries({ queryKey: ["get", "/v1/dashboard"] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.usage() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard() })
   }
 
   const paystack = usePaystackPop({
@@ -378,7 +381,7 @@ export function BillingPlansPage() {
           type="button"
           aria-label="Close"
           onClick={closePage}
-          className="hover:bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:text-foreground"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default hover:text-foreground"
         >
           <AppIcon icon="x" className="h-5 w-5" />
         </button>
@@ -397,7 +400,7 @@ export function BillingPlansPage() {
         </div>
 
         {businessSteps.length === 0 ? (
-          <div className="bg-surface mt-12 rounded-2xl border border-border px-5 py-16 text-center text-sm text-muted">
+          <div className="mt-12 rounded-2xl border border-border bg-surface px-5 py-16 text-center text-sm text-muted">
             Pricing plans are temporarily unavailable.
           </div>
         ) : (
@@ -410,19 +413,13 @@ export function BillingPlansPage() {
               />
             </div>
 
-           <div className="w-full max-w-3xl mx-auto mt-12">
-             <ul className="flex w-full justify-center gap-4">
-              <li className="text-xs">
-                1,000 credits = $1 of metered usage
-              </li>
-              <li className="text-xs">
-                Credits are charged at model cost
-              </li>
-              <li className="text-xs">
-                Sandbox costs included
-              </li>
-            </ul>
-           </div>
+            <div className="mx-auto mt-12 w-full max-w-3xl">
+              <ul className="flex w-full justify-center gap-4">
+                <li className="text-xs">1,000 credits = $1 of metered usage</li>
+                <li className="text-xs">Credits are charged at model cost</li>
+                <li className="text-xs">Sandbox costs included</li>
+              </ul>
+            </div>
 
             <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
               <PlanCard
@@ -475,12 +472,12 @@ export function BillingPlansPage() {
             </div>
 
             {!isOwner ? (
-              <p className="mx-auto mt-4 max-w-4xl text-center text-sm text-muted-foreground">
+              <p className="text-muted-foreground mx-auto mt-4 max-w-4xl text-center text-sm">
                 Only the workspace owner can change the plan.
               </p>
             ) : null}
 
-            <div className="bg-surface mx-auto mt-5 flex max-w-4xl flex-col gap-4 rounded-2xl border border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mx-auto mt-5 flex max-w-4xl flex-col gap-4 rounded-2xl border border-border bg-surface px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-col gap-1">
                 <h2 className="text-sm font-medium text-foreground">
                   Need more than 300K credits?
@@ -492,7 +489,7 @@ export function BillingPlansPage() {
               </div>
               <a
                 href="mailto:hello@usehivy.com"
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors"
               >
                 <AppIcon icon="mail" className="h-4 w-4" />
                 Contact support
