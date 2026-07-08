@@ -81,6 +81,11 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent is not assigned to this channel"})
 			return
 		}
+		// Binding a schedule to this channel is a manage-the-team action.
+		if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, org.ID, channelID); mErr != nil {
+			writeJSON(w, mStatus, errorResponse{Error: mMessage})
+			return
+		}
 	}
 
 	var agent model.Agent

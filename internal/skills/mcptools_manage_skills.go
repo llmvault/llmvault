@@ -26,6 +26,7 @@ type createSkillArgs struct {
 	RequiredEnvironmentVariables []string          `json:"required_environment_variables"`
 	Content                      string            `json:"content"`
 	Files                        map[string]string `json:"files"`
+	HivyActorUserID              string            `json:"_hivy_actor_user_id"`
 }
 
 func registerCreateSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
@@ -66,6 +67,9 @@ func createSkillSchema() map[string]any {
 }
 
 func handleCreateSkill(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string, args createSkillArgs) (*mcp.CallToolResult, error) {
+	if errResult := requireOrgManagerActor(ctx, db, token.OrgID, args.HivyActorUserID); errResult != nil {
+		return errResult, nil
+	}
 	plugin, errResult := loadOrgOwnedPlugin(ctx, db, token.OrgID, args.PluginSlug)
 	if errResult != nil {
 		return errResult, nil
@@ -147,6 +151,7 @@ type updateSkillArgs struct {
 	RequiredEnvironmentVariables *[]string          `json:"required_environment_variables"`
 	Content                      *string            `json:"content"`
 	Files                        *map[string]string `json:"files"`
+	HivyActorUserID              string             `json:"_hivy_actor_user_id"`
 }
 
 func registerUpdateSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
@@ -175,6 +180,9 @@ func updateSkillSchema() map[string]any {
 }
 
 func handleUpdateSkill(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string, args updateSkillArgs) (*mcp.CallToolResult, error) {
+	if errResult := requireOrgManagerActor(ctx, db, token.OrgID, args.HivyActorUserID); errResult != nil {
+		return errResult, nil
+	}
 	plugin, errResult := loadOrgOwnedPlugin(ctx, db, token.OrgID, args.PluginSlug)
 	if errResult != nil {
 		return errResult, nil

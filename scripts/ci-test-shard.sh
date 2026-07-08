@@ -117,6 +117,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/agentcatalog \
     github.com/usehivy/hivy/internal/agentrouter \
     github.com/usehivy/hivy/internal/agentschedule \
+    github.com/usehivy/hivy/internal/access \
     github.com/usehivy/hivy/internal/automationcatalog \
     github.com/usehivy/hivy/internal/channelagents \
     github.com/usehivy/hivy/internal/connectionaccess \
@@ -134,6 +135,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/reve \
     github.com/usehivy/hivy/internal/sandbox/microsandbox \
     github.com/usehivy/hivy/internal/sandbox/railway \
+    github.com/usehivy/hivy/internal/teamprovision \
     github.com/usehivy/hivy/internal/token \
     github.com/usehivy/hivy/internal/transcription
 }

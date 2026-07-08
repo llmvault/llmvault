@@ -55,8 +55,29 @@ func isOrgManager(role string) bool {
 	return role == "owner" || role == "admin"
 }
 
-func canManageChannel(orgRole, memberRole string, apiKey bool) bool {
-	return apiKey || isOrgManager(orgRole) || memberRole == "owner"
+// isOrgOwner reports whether role is specifically the org owner tier (not admin).
+// HTTP mirror of access.Actor.IsOrgOwner.
+func isOrgOwner(role string) bool {
+	return role == "owner"
+}
+
+// canManageChannel reports whether the caller may manage the given channel under
+// the team-primary model: API-key callers and org managers always may; otherwise
+// the caller must be an active member of the channel's owning team. Team-less
+// channels (team_id IS NULL) are manageable only by managers/API keys.
+//
+// This REPLACES the previous channel-owner-based check
+// (canManageChannel(orgRole, memberRole, apiKey)): channel-member "owner" role no
+// longer grants management. HTTP mirror of access.Actor.CanManageTeamResource
+// resolved against the channel's team.
+func canManageChannel(ctx context.Context, db *gorm.DB, channel model.Channel, userID *uuid.UUID, role string, apiKey bool) bool {
+	if apiKey || isOrgManager(role) {
+		return true
+	}
+	if channel.TeamID == nil {
+		return false
+	}
+	return canManageTeamResource(ctx, db, channel.OrgID, userID, role, *channel.TeamID)
 }
 
 func (h *ChannelHandler) authorizeChannel(w http.ResponseWriter, r *http.Request, requireManage bool) (model.Channel, *uuid.UUID, string, bool) {
@@ -92,7 +113,7 @@ func (h *ChannelHandler) authorizeChannel(w http.ResponseWriter, r *http.Request
 	apiKey := isAPIKeyRequest(ctx)
 	allowed := canViewChannel(ctx, h.db, channel, orgRole, userID, apiKey)
 	if requireManage {
-		allowed = canManageChannel(orgRole, memberRole, apiKey)
+		allowed = canManageChannel(ctx, h.db, channel, userID, orgRole, apiKey)
 	}
 	if !allowed {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "channel access denied"})

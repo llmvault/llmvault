@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/channelagents"
@@ -84,6 +85,27 @@ func (h *ChannelHandler) AssignChannelAgent(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "agent_id must be a uuid"})
 		return
 	}
+	// Load the agent up front to enforce team consistency: a team-scoped agent may
+	// only be assigned to a channel of the same team. When either side has no team
+	// (external or legacy no-team channel/agent) the cross-team rule does not apply.
+	// Archived agents are loaded too so channelagents.Assign owns the archived (422)
+	// and not-found (404) outcomes as before.
+	var agent model.Agent
+	if err := h.db.WithContext(r.Context()).
+		Preload("AgentCatalog").
+		Where("id = ? AND org_id = ?", agentID, channel.OrgID).
+		First(&agent).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "agent not found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
+		return
+	}
+	if channel.TeamID != nil && agent.TeamID != nil && *channel.TeamID != *agent.TeamID {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent belongs to a different team than this channel"})
+		return
+	}
 	exists, err := channelagents.IsAssignedRow(r.Context(), h.db, channel.OrgID, channel.ID, agentID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agent"})
@@ -102,14 +124,6 @@ func (h *ChannelHandler) AssignChannelAgent(w http.ResponseWriter, r *http.Reque
 		default:
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to assign agent"})
 		}
-		return
-	}
-	var agent model.Agent
-	if err := h.db.WithContext(r.Context()).
-		Preload("AgentCatalog").
-		Where("id = ? AND org_id = ?", agentID, channel.OrgID).
-		First(&agent).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return
 	}
 	writeJSON(w, http.StatusCreated, assignChannelAgentResponse{Agent: toAgentResponse(agent)})

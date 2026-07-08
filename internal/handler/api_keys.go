@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -128,6 +129,7 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		KeyPrefix: prefix,
 		Scopes:    req.Scopes,
 		ExpiresAt: expiresAt,
+		CreatedBy: apiKeyCreatorUserID(r.Context()),
 	}
 
 	if err := h.db.Create(&apiKey).Error; err != nil {
@@ -152,6 +154,22 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, resp)
+}
+
+// apiKeyCreatorUserID resolves the human who minted a key from the request's JWT
+// claims. It returns nil for API-key-authenticated callers (machine-to-machine,
+// no human actor) and when the claims carry no parseable user id, matching the
+// nullable created_by column.
+func apiKeyCreatorUserID(ctx context.Context) *uuid.UUID {
+	claims, ok := middleware.AuthClaimsFromContext(ctx)
+	if !ok || claims == nil || claims.UserID == "" {
+		return nil
+	}
+	id, err := uuid.Parse(claims.UserID)
+	if err != nil || id == uuid.Nil {
+		return nil
+	}
+	return &id
 }
 
 // scopesWithinCeiling reports whether every requested scope is permitted given

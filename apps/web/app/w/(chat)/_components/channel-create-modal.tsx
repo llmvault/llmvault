@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Modal, Spinner, toast } from "@heroui/react"
+import { Button, ListBox, Modal, Select, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 
 type Connection = components["schemas"]["connectionResponse"]
 type AvailableResource = components["schemas"]["AvailableResource"]
+type Team = components["schemas"]["teamResponse"]
 
 const SLACK_CHANNEL_RESOURCE_TYPE = "slack_channel"
 
@@ -53,6 +54,7 @@ function ChannelCreateModalContent({
   const [selectedCategory, setSelectedCategory] = useState<
     ChannelCategory | ""
   >("")
+  const [selectedTeamID, setSelectedTeamID] = useState("")
   const [search, setSearch] = useState("")
   const connectionsQuery = $api.useQuery(
     "get",
@@ -99,6 +101,18 @@ function ChannelCreateModalContent({
   const defaultAgentID =
     agents.find((agent) => agent.is_default)?.id ?? agents[0]?.id ?? ""
   const activeAgentID = selectedAgentID || defaultAgentID
+  // Admin-only endpoint (GET /v1/orgs/current/teams): for non-admin members
+  // this returns 403 and `teams` is empty, so the picker is always optional.
+  const teamsQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current/teams",
+    { params: { query: { limit: 100 } } },
+    { retry: false }
+  )
+  const teams = useMemo(
+    () => (teamsQuery.data?.data as Team[] | undefined) ?? [],
+    [teamsQuery.data?.data]
+  )
   const createChannel = $api.useMutation("post", "/v1/channels")
   const resources = useMemo(
     () => (resourcesQuery.data?.resources ?? []) as AvailableResource[],
@@ -148,6 +162,7 @@ function ChannelCreateModalContent({
       external_resource_name: selectedResource.name || selectedResource.id,
       default_agent_id: activeAgentID,
       category: selectedCategory,
+      team_id: selectedTeamID || undefined,
     }
     createChannel.mutate(
       { body },
@@ -352,6 +367,22 @@ function ChannelCreateModalContent({
                     onChange={setSelectedAgentID}
                   />
                 </section>
+
+                <section className="flex flex-col gap-2">
+                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
+                    Team
+                  </h3>
+                  <p className="text-sm text-muted">
+                    Optionally scope this channel to a team. Leave unset to
+                    keep it workspace-wide.
+                  </p>
+                  <TeamSelect
+                    teams={teams}
+                    isLoading={teamsQuery.isLoading}
+                    selectedTeamID={selectedTeamID}
+                    onChange={setSelectedTeamID}
+                  />
+                </section>
               </div>
 
               <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
@@ -417,6 +448,59 @@ function ResourceRow({
         <AppIcon icon="check" className="text-primary h-4 w-4 shrink-0" />
       ) : null}
     </button>
+  )
+}
+
+function TeamSelect({
+  teams,
+  isLoading,
+  selectedTeamID,
+  onChange,
+}: {
+  teams: Team[]
+  isLoading: boolean
+  selectedTeamID: string
+  onChange: (teamID: string) => void
+}) {
+  const NO_TEAM_KEY = ""
+  const selected = teams.find((team) => team.id === selectedTeamID)
+  const selectedLabel = isLoading
+    ? "Loading teams"
+    : selected?.name || "No team"
+
+  return (
+    <Select
+      aria-label="Team"
+      selectedKey={selectedTeamID || NO_TEAM_KEY}
+      onSelectionChange={(key) => {
+        if (key !== null) onChange(String(key))
+      }}
+      isDisabled={isLoading}
+      className="w-full"
+    >
+      <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
+        <span className="truncate">{selectedLabel}</span>
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover className="p-1.5">
+        <ListBox>
+          <ListBox.Item id={NO_TEAM_KEY} textValue="No team">
+            <span className="text-sm font-medium">No team</span>
+          </ListBox.Item>
+          {teams.map((team) => (
+            <ListBox.Item
+              key={team.id}
+              id={team.id ?? ""}
+              textValue={team.name || team.id || "Team"}
+            >
+              <span className="text-sm font-medium">
+                {team.name || "Untitled team"}
+              </span>
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
   )
 }
 

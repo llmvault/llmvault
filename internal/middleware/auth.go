@@ -168,6 +168,38 @@ func RequireOrgAdmin(db *gorm.DB) func(http.Handler) http.Handler {
 	}
 }
 
+// RequireOrgOwner enforces that the authenticated user's role in the resolved
+// org context is specifically "owner" (not admin). Must be used AFTER a
+// ResolveOrg* middleware. Used for owner-only mutations (e.g. billing money
+// moves, ownership transfer, org delete). Mirrors RequireOrgAdmin but rejects
+// non-owner admins.
+func RequireOrgOwner(db *gorm.DB) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := AuthClaimsFromContext(r.Context())
+			if !ok || claims == nil || claims.UserID == "" {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return
+			}
+			org, ok := OrgFromContext(r.Context())
+			if !ok || org == nil {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "missing organization context"})
+				return
+			}
+			var m model.OrgMembership
+			if err := db.Where("user_id = ? AND org_id = ?", claims.UserID, org.ID).First(&m).Error; err != nil {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "not a member"})
+				return
+			}
+			if m.Role != "owner" {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "owner role required"})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // RequireOrgAdminOrAPIKey enforces org-admin for JWT-authenticated callers while
 // letting API-key-authenticated callers through (subject to a handler-level scope
 // ceiling). For routes that non-admin human users must not reach.

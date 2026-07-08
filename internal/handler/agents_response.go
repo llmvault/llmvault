@@ -71,6 +71,7 @@ type agentCatalogSummary struct {
 type agentResponse struct {
 	ID                     string                 `json:"id"`
 	Name                   string                 `json:"name"`
+	TeamID                 *string                `json:"team_id,omitempty"`
 	Description            *string                `json:"description,omitempty"`
 	Instructions           string                 `json:"instructions"`
 	AvatarURL              *string                `json:"avatar_url,omitempty"`
@@ -149,6 +150,10 @@ func toAgentResponse(a model.Agent) agentResponse {
 	if a.SandboxTemplateID != nil {
 		s := a.SandboxTemplateID.String()
 		resp.SandboxTemplateID = &s
+	}
+	if a.TeamID != nil {
+		s := a.TeamID.String()
+		resp.TeamID = &s
 	}
 	if a.AgentCatalog != nil {
 		resp.Catalog = toAgentCatalogSummary(*a.AgentCatalog)

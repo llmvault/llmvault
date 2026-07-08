@@ -22,6 +22,13 @@ func canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel, orgR
 	if userID == nil || orgRole == "" {
 		return false
 	}
+	// A private channel is reachable only by its explicit members, regardless of
+	// origin/team. This gates before the origin/team openings below so a private
+	// channel that happens to be external, team-less, or in the user's team is not
+	// silently usable by any org member.
+	if channel.Visibility == "private" {
+		return userID != nil && userIsChannelMember(ctx, db, channel.ID, *userID)
+	}
 	if channel.Origin == "external" {
 		return true
 	}
@@ -29,6 +36,56 @@ func canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel, orgR
 		return true
 	}
 	return userIsActiveTeamMember(ctx, db, *channel.TeamID, *userID)
+}
+
+// userIsChannelMember reports whether userID has an explicit channel_members row
+// for channelID. Used to gate private-channel access, where team/origin openings
+// do not apply.
+func userIsChannelMember(ctx context.Context, db *gorm.DB, channelID, userID uuid.UUID) bool {
+	var count int64
+	_ = db.WithContext(ctx).
+		Model(&model.ChannelMember{}).
+		Where("channel_id = ? AND user_id = ?", channelID, userID).
+		Count(&count).Error
+	return count > 0
+}
+
+// memberChannelIDSubquery yields the ids of channels the given user is an
+// explicit member of. Used to re-admit private channels to the team-scoped
+// visibility predicates (a private channel is excluded from the origin/team
+// opening but visible to its members).
+func memberChannelIDSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
+	q := db.Model(&model.ChannelMember{}).Select("channel_id")
+	if userID == nil {
+		return q.Where("1 = 0")
+	}
+	return q.Where("user_id = ?", *userID)
+}
+
+// userInTeam reports whether userID is an active member of teamID within orgID.
+// HTTP mirror of access.Actor.IsTeamMember (org-scoped for defense in depth).
+func userInTeam(ctx context.Context, db *gorm.DB, orgID, userID, teamID uuid.UUID) bool {
+	var count int64
+	_ = db.WithContext(ctx).
+		Table("team_members").
+		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
+		Where("team_members.org_id = ? AND team_members.team_id = ? AND team_members.user_id = ?", orgID, teamID, userID).
+		Count(&count).Error
+	return count > 0
+}
+
+// canManageTeamResource reports whether the caller may manage a resource owned
+// by teamID: org managers (owner/admin) always may, otherwise the caller must be
+// an active member of that team. HTTP mirror of
+// access.Actor.CanManageTeamResource.
+func canManageTeamResource(ctx context.Context, db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID, role string, teamID uuid.UUID) bool {
+	if isOrgManager(role) {
+		return true
+	}
+	if userID == nil {
+		return false
+	}
+	return userInTeam(ctx, db, orgID, *userID, teamID)
 }
 
 func userIsActiveTeamMember(ctx context.Context, db *gorm.DB, teamID, userID uuid.UUID) bool {
@@ -93,8 +150,8 @@ func visibleSessionIDSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *
 		Select("sessions.id").
 		Joins("JOIN channels ON channels.id = sessions.channel_id AND channels.archived_at IS NULL").
 		Where("sessions.org_id = ?", orgID).
-		Where("channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?)",
-			"external", visibleTeamSubquery(db, userID))
+		Where("(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"private", "external", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
 }
 
 // usableRagSourceIDs returns the ids (as strings for the qdrant source filter)
@@ -103,14 +160,14 @@ func visibleSessionIDSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *
 // a source reachable through no usable channel is invisible to the member.
 func usableRagSourceIDs(ctx context.Context, db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) ([]string, error) {
 	var ids []uuid.UUID
+	// RAG grants are team-derived: a source is usable if it is granted to a team
+	// the user can see. Channel-scoped grants (channel_rag_sources) were removed.
 	err := db.WithContext(ctx).
-		Model(&model.ChannelRagSource{}).
-		Distinct("channel_rag_sources.rag_source_id").
-		Joins("JOIN channels ON channels.id = channel_rag_sources.channel_id AND channels.archived_at IS NULL").
-		Where("channel_rag_sources.org_id = ?", orgID).
-		Where("channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?)",
-			"external", visibleTeamSubquery(db, userID)).
-		Pluck("channel_rag_sources.rag_source_id", &ids).Error
+		Model(&model.TeamRagSource{}).
+		Distinct("team_rag_sources.rag_source_id").
+		Where("team_rag_sources.org_id = ?", orgID).
+		Where("team_rag_sources.team_id IN (?)", visibleTeamSubquery(db, userID)).
+		Pluck("team_rag_sources.rag_source_id", &ids).Error
 	if err != nil {
 		return nil, err
 	}

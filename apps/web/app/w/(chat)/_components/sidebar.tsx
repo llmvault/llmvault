@@ -8,6 +8,7 @@ import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
 import { ChannelGroup } from "@/app/w/(chat)/_components/sidebar-channel-group"
+import { SidebarTeamGroup } from "@/app/w/(chat)/_components/sidebar-team-group"
 import {
   CHAT_QUERY_STALE_TIME_MS,
   SIDEBAR_SESSION_PAGE_LIMIT,
@@ -15,6 +16,7 @@ import {
 import {
   channelRouteSlug,
   channelRouteSlugCounts,
+  groupChannelsByTeam,
   sortChannelsByRecentSession,
   type SidebarChannelResponse,
   type SidebarSessionResponse,
@@ -72,6 +74,16 @@ export const Sidebar = memo(function Sidebar({
     { params: { query: { status: "active", limit: 100 } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
+  // Team names for the group headers. The channel payload only carries
+  // team_id, so we enrich from the teams endpoint when it is accessible
+  // (currently admin-only). When it is not, grouping falls back to a
+  // team-id label and the UI still renders one group per team.
+  const teamsQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current/teams",
+    { params: { query: { limit: 100 } } },
+    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
 
   const channels = useMemo(
     () => channelsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? [],
@@ -88,6 +100,28 @@ export const Sidebar = memo(function Sidebar({
   const sortedChannels = useMemo(
     () => sortChannelsByRecentSession(channels, latestSessionsByChannelID),
     [channels, latestSessionsByChannelID]
+  )
+  const teamNamesByID = useMemo(() => {
+    const out = new Map<string, string>()
+    for (const team of teamsQuery.data?.data ?? []) {
+      if (team.id && team.name?.trim()) out.set(team.id, team.name.trim())
+    }
+    return out
+  }, [teamsQuery.data?.data])
+  const teamGroups = useMemo(
+    () => groupChannelsByTeam(sortedChannels, teamNamesByID),
+    [sortedChannels, teamNamesByID]
+  )
+  // Global position of each channel in the sorted list drives the
+  // auto-expand-first-few behavior, preserved across team groups.
+  const channelOrder = useMemo(() => {
+    const out = new Map<SidebarChannelResponse, number>()
+    sortedChannels.forEach((channel, index) => out.set(channel, index))
+    return out
+  }, [sortedChannels])
+  const hasTeamGroups = useMemo(
+    () => teamGroups.some((group) => group.teamId),
+    [teamGroups]
   )
   const agentsByID = useMemo(
     () =>
@@ -122,6 +156,25 @@ export const Sidebar = memo(function Sidebar({
 
   function openCreatedChannel(channel: SidebarChannelResponse) {
     router.push(`/w/channels/${channelRouteSlug(channel)}`)
+  }
+
+  function renderChannel(channel: SidebarChannelResponse, order: number) {
+    return (
+      <ChannelGroup
+        key={channel.id ?? channel.name ?? order}
+        channel={channel}
+        agentsByID={agentsByID}
+        autoExpanded={order < 4}
+        onRenameChannel={openChannelSettings}
+        onRenameSession={onRenameSession}
+        onShareSession={onShareSession}
+        onArchiveSession={onArchiveSession}
+        onShowChannelDetails={openChannelSettings}
+        slugAmbiguous={
+          (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
+        }
+      />
+    )
   }
 
   const pluginsActive =
@@ -218,25 +271,20 @@ export const Sidebar = memo(function Sidebar({
               actionLabel="Retry"
               onAction={() => void channelsQuery.refetch()}
             />
-          ) : sortedChannels.length ? (
-            sortedChannels.map((channel, index) => (
-              <ChannelGroup
-                key={channel.id ?? channel.name ?? index}
-                channel={channel}
-                agentsByID={agentsByID}
-                autoExpanded={index < 4}
-                onRenameChannel={openChannelSettings}
-                onRenameSession={onRenameSession}
-                onShareSession={onShareSession}
-                onArchiveSession={onArchiveSession}
-                onShowChannelDetails={openChannelSettings}
-                slugAmbiguous={
-                  (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
-                }
-              />
+          ) : !sortedChannels.length ? (
+            <SidebarStatusRow label="No channels" />
+          ) : hasTeamGroups ? (
+            teamGroups.map((group) => (
+              <SidebarTeamGroup key={group.key} name={group.name}>
+                {group.channels.map((channel) =>
+                  renderChannel(channel, channelOrder.get(channel) ?? 0)
+                )}
+              </SidebarTeamGroup>
             ))
           ) : (
-            <SidebarStatusRow label="No channels" />
+            sortedChannels.map((channel, index) =>
+              renderChannel(channel, index)
+            )
           )}
           {channelsQuery.hasNextPage ? (
             <button

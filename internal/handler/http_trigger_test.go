@@ -131,11 +131,14 @@ func (harness *httpTriggerHarness) doPostWithQuery(t *testing.T, triggerID, quer
 // TestHTTPTrigger_ValidRequest_Returns200AndEnqueues verifies that a valid HTTP trigger request
 // correctly enqueues an agent trigger dispatch task with the expected payload.
 func TestHTTPTrigger_ValidRequest_Returns200AndEnqueues(t *testing.T) {
+	secret := "valid-request-secret" // #nosec G101 -- test fixture, not a real secret
 	harness := newHTTPTriggerHarness(t)
-	trigger := harness.createTrigger(t, "http", "")
+	trigger := harness.createTrigger(t, "http", secret)
 
 	body := []byte(`{"action":"deploy","service":"api"}`)
-	recorder := harness.doPost(t, trigger.ID.String(), body, nil)
+	recorder := harness.doPost(t, trigger.ID.String(), body, map[string]string{
+		"Authorization": "Bearer " + secret,
+	})
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want 200", recorder.Code)
@@ -179,23 +182,27 @@ func TestHTTPTrigger_ValidBearer_Returns200(t *testing.T) {
 	harness.mock.AssertEnqueued(t, tasks.TypeAgentTriggerDispatch)
 }
 
-// TestHTTPTrigger_NoSecret_AcceptsAnyRequest verifies that triggers without a secret
-// accept requests without authentication.
-func TestHTTPTrigger_NoSecret_AcceptsAnyRequest(t *testing.T) {
+// TestHTTPTrigger_NoSecret_Rejected verifies that a shared secret is mandatory:
+// a trigger with no secret configured is refused at fire time and enqueues
+// nothing. A secret-less webhook would be an unauthenticated agent invocation.
+func TestHTTPTrigger_NoSecret_Rejected(t *testing.T) {
 	harness := newHTTPTriggerHarness(t)
 	trigger := harness.createTrigger(t, "http", "")
 
 	recorder := harness.doPost(t, trigger.ID.String(), []byte(`{"ok":true}`), nil)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status: got %d, want 200 without secret configured", recorder.Code)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status: got %d, want 401 for secret-less trigger", recorder.Code)
 	}
-	harness.mock.AssertEnqueued(t, tasks.TypeAgentTriggerDispatch)
+	if got := harness.mock.Tasks(); len(got) != 0 {
+		t.Fatalf("expected no enqueued task for secret-less trigger, got %d", len(got))
+	}
 }
 
 func TestHTTPTrigger_RedactsSensitiveJSONKeysBeforeEnqueue(t *testing.T) {
+	secret := "redaction-test-secret" // #nosec G101 -- test fixture, not a real secret
 	harness := newHTTPTriggerHarness(t)
-	trigger := harness.createTrigger(t, "http", "")
+	trigger := harness.createTrigger(t, "http", secret)
 
 	body := []byte(`{
 		"event":"deploy",
@@ -203,7 +210,9 @@ func TestHTTPTrigger_RedactsSensitiveJSONKeysBeforeEnqueue(t *testing.T) {
 		"nested":{"Authorization":"Bearer test-token","safe":"kept"},
 		"items":[{"password":"p4ss","value":1}]
 	}`)
-	recorder := harness.doPost(t, trigger.ID.String(), body, nil)
+	recorder := harness.doPost(t, trigger.ID.String(), body, map[string]string{
+		"X-Webhook-Secret": secret,
+	})
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want 200", recorder.Code)
 	}
@@ -230,11 +239,14 @@ func TestHTTPTrigger_RedactsSensitiveJSONKeysBeforeEnqueue(t *testing.T) {
 }
 
 func TestHTTPTrigger_RejectsOversizedBody(t *testing.T) {
+	secret := "oversized-body-secret" // #nosec G101 -- test fixture, not a real secret
 	harness := newHTTPTriggerHarness(t)
-	trigger := harness.createTrigger(t, "http", "")
+	trigger := harness.createTrigger(t, "http", secret)
 
 	body := bytes.Repeat([]byte("x"), int(maxHTTPTriggerBodyBytes)+1)
-	recorder := harness.doPost(t, trigger.ID.String(), body, nil)
+	recorder := harness.doPost(t, trigger.ID.String(), body, map[string]string{
+		"Authorization": "Bearer " + secret,
+	})
 
 	if recorder.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status: got %d, want %d: %s", recorder.Code, http.StatusRequestEntityTooLarge, recorder.Body.String())

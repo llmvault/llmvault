@@ -132,6 +132,7 @@ func TestTriggerHandlerDeleteTrigger(t *testing.T) {
 	trigger := seedSlackReactionTrigger(t, db, org.ID, conn, channel, agent, "eyes")
 	req := triggerRouteRequest(http.MethodDelete, "/v1/triggers/"+trigger.ID.String(), trigger.ID.String(), nil)
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db).Delete(rr, req)

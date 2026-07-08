@@ -9,6 +9,7 @@ import { AppIcon } from "@/components/icon"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 import { ProviderIcon } from "./_provider-icon"
 import {
@@ -38,6 +39,7 @@ const EMPTY_CONNECTIONS: Connection[] = []
 export default function KnowledgeSettingsPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const isAdmin = useIsAdmin()
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
 
   const sourcesQuery = $api.useQuery(
@@ -106,15 +108,17 @@ export default function KnowledgeSettingsPage() {
             source ingests a scope you choose and is available to channels.
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          className="shrink-0"
-          onPress={() => router.push("/w/settings/knowledge/new")}
-        >
-          <AppIcon icon="plus" className="h-4 w-4" />
-          Add source
-        </Button>
+        {isAdmin ? (
+          <Button
+            variant="primary"
+            size="sm"
+            className="shrink-0"
+            onPress={() => router.push("/w/settings/knowledge/new")}
+          >
+            <AppIcon icon="plus" className="h-4 w-4" />
+            Add source
+          </Button>
+        ) : null}
       </div>
 
       {sourcesQuery.isLoading ? (
@@ -122,7 +126,7 @@ export default function KnowledgeSettingsPage() {
       ) : sourcesQuery.isError ? (
         <ErrorState onRetry={() => sourcesQuery.refetch()} />
       ) : sources.length === 0 ? (
-        <EmptyState />
+        <EmptyState isAdmin={isAdmin} />
       ) : (
         <div className="flex flex-col gap-2">
           {sources.map((source) => (
@@ -130,6 +134,7 @@ export default function KnowledgeSettingsPage() {
               key={source.id}
               source={source}
               connectionsById={connectionsById}
+              isAdmin={isAdmin}
               onRemove={() => setRemoveTarget({ id: source.id!, name: source.name ?? "source" })}
               onPatch={(body, ok) => patchSource(source.id!, source.name ?? "source", body, ok)}
             />
@@ -159,11 +164,13 @@ export default function KnowledgeSettingsPage() {
 function SourceCard({
   source,
   connectionsById,
+  isAdmin,
   onRemove,
   onPatch,
 }: {
   source: RagSource
   connectionsById: Map<string, Connection>
+  isAdmin: boolean
   onRemove: () => void
   onPatch: (body: Record<string, unknown>, ok: string) => void
 }) {
@@ -199,6 +206,7 @@ function SourceCard({
       <SourceActionsMenu
         sourceId={source.id!}
         status={status}
+        isAdmin={isAdmin}
         onRemove={onRemove}
         onPatch={onPatch}
       />
@@ -229,12 +237,14 @@ function ProgressRow({
 function SourceActionsMenu({
   sourceId,
   status,
+  isAdmin,
   onRemove,
   onPatch,
   placement = "bottom end",
 }: {
   sourceId: string
   status: SourceStatus
+  isAdmin: boolean
   onRemove: () => void
   onPatch: (body: Record<string, unknown>, ok: string) => void
   placement?: ComponentProps<typeof Popover.Content>["placement"]
@@ -264,38 +274,44 @@ function SourceActionsMenu({
           className="w-56 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            <MenuLink href={`/w/settings/knowledge/${sourceId}/edit`}>
-              Edit source
-            </MenuLink>
+            {isAdmin ? (
+              <MenuLink href={`/w/settings/knowledge/${sourceId}/edit`}>
+                Edit source
+              </MenuLink>
+            ) : null}
             <MenuLink href={`/w/settings/knowledge/${sourceId}/documents`}>
               View documents
             </MenuLink>
 
-            {paused ? (
-              <MenuButton onClick={() => act(() => onPatch({ status: "ACTIVE" }, "Resumed {name}"))}>
-                Resume ingestion
-              </MenuButton>
-            ) : (
-              <MenuButton onClick={() => act(() => onPatch({ status: "PAUSED" }, "Paused {name}"))}>
-                Pause ingestion
-              </MenuButton>
-            )}
+            {isAdmin ? (
+              <>
+                {paused ? (
+                  <MenuButton onClick={() => act(() => onPatch({ status: "ACTIVE" }, "Resumed {name}"))}>
+                    Resume ingestion
+                  </MenuButton>
+                ) : (
+                  <MenuButton onClick={() => act(() => onPatch({ status: "PAUSED" }, "Paused {name}"))}>
+                    Pause ingestion
+                  </MenuButton>
+                )}
 
-            {disabled ? (
-              <MenuButton onClick={() => act(() => onPatch({ enabled: true }, "Enabled {name}"))}>
-                Enable source
-              </MenuButton>
-            ) : (
-              <MenuButton onClick={() => act(() => onPatch({ enabled: false }, "Disabled {name}"))}>
-                Disable source
-              </MenuButton>
-            )}
+                {disabled ? (
+                  <MenuButton onClick={() => act(() => onPatch({ enabled: true }, "Enabled {name}"))}>
+                    Enable source
+                  </MenuButton>
+                ) : (
+                  <MenuButton onClick={() => act(() => onPatch({ enabled: false }, "Disabled {name}"))}>
+                    Disable source
+                  </MenuButton>
+                )}
 
-            <div className="my-1 h-px bg-border" />
+                <div className="my-1 h-px bg-border" />
 
-            <MenuButton danger onClick={() => act(onRemove)}>
-              Remove source
-            </MenuButton>
+                <MenuButton danger onClick={() => act(onRemove)}>
+                  Remove source
+                </MenuButton>
+              </>
+            ) : null}
           </Popover.Dialog>
         </Popover.Content>
       ) : null}
@@ -368,22 +384,25 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   )
 }
 
-function EmptyState() {
+function EmptyState({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
       <AppIcon icon="folder-open" className="h-7 w-7 text-muted-foreground" />
       <p className="mt-3 text-sm font-medium text-foreground">No knowledge sources yet</p>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        Add a source to let your agents search company knowledge from GitHub,
-        Notion, Slack, or your website.
+        {isAdmin
+          ? "Add a source to let your agents search company knowledge from GitHub, Notion, Slack, or your website."
+          : "A workspace admin can add sources so your agents can search company knowledge."}
       </p>
-      <Link
-        href="/w/settings/knowledge/new"
-        className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
-      >
-        <AppIcon icon="plus" className="h-4 w-4" />
-        Add source
-      </Link>
+      {isAdmin ? (
+        <Link
+          href="/w/settings/knowledge/new"
+          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
+        >
+          <AppIcon icon="plus" className="h-4 w-4" />
+          Add source
+        </Link>
+      ) : null}
     </div>
   )
 }

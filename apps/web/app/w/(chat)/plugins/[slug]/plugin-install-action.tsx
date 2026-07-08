@@ -7,12 +7,17 @@ export function PluginInstallAction({
   plugin,
   busy,
   canInstall,
+  canManage = true,
   onInstall,
   onUninstall,
 }: {
   plugin: ApiPlugin
   busy: boolean
   canInstall: boolean
+  // canManage gates install/remove to org admins. Non-admins still see the
+  // plugin (and whether it's installed) but can't change installation; the
+  // backend enforces this too.
+  canManage?: boolean
   onInstall: () => void
   onUninstall: () => void
 }) {
@@ -20,7 +25,8 @@ export function PluginInstallAction({
   const lockedInstall = plugin.locked === true
   const cannotRemove =
     plugin.installed === true && (globalInstall || lockedInstall)
-  const disabled = busy || cannotRemove || (!plugin.installed && !canInstall)
+  const disabled =
+    !canManage || busy || cannotRemove || (!plugin.installed && !canInstall)
   const label = plugin.installed ? "Remove" : "Add"
   const control = (
     <Button
@@ -35,7 +41,15 @@ export function PluginInstallAction({
     </Button>
   )
 
-  if (!cannotRemove) {
+  const tooltip = !canManage
+    ? "Only workspace admins can install or remove plugins."
+    : cannotRemove
+      ? globalInstall
+        ? "This plugin is installed for all agents and cannot be removed."
+        : "This plugin is required and cannot be removed."
+      : null
+
+  if (!tooltip) {
     return control
   }
 
@@ -43,9 +57,7 @@ export function PluginInstallAction({
     <Tooltip delay={250} closeDelay={0}>
       <Tooltip.Trigger className="flex shrink-0">{control}</Tooltip.Trigger>
       <Tooltip.Content placement="left" offset={8} className="text-xs">
-        {globalInstall
-          ? "This plugin is installed for all agents and cannot be removed."
-          : "This plugin is required and cannot be removed."}
+        {tooltip}
       </Tooltip.Content>
     </Tooltip>
   )

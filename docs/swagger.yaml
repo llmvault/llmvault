@@ -773,6 +773,8 @@ definitions:
         items:
           $ref: '#/definitions/subAgentResponse'
         type: array
+      team_id:
+        type: string
       tools:
         $ref: '#/definitions/JSON'
       triggers:
@@ -836,6 +838,8 @@ definitions:
         items:
           $ref: '#/definitions/subAgentInput'
         type: array
+      team_id:
+        type: string
       tools:
         $ref: '#/definitions/JSON'
       vector_image_model:
@@ -912,6 +916,8 @@ definitions:
         items:
           $ref: '#/definitions/subAgentResponse'
         type: array
+      team_id:
+        type: string
       tools:
         $ref: '#/definitions/JSON'
       triggers:
@@ -1496,6 +1502,13 @@ definitions:
         type: string
       team_id:
         type: string
+      team_name:
+        description: |-
+          TeamName is the display name of the channel's owning team (empty for
+          team-less channels). Lets the non-admin sidebar label team groups without
+          a second round-trip; both managers and members receive the name of teams
+          their visible channels belong to.
+        type: string
       updated_at:
         type: string
       vector_image_model:
@@ -2079,6 +2092,11 @@ definitions:
       url:
         type: string
     type: object
+  enableTeamPluginRequest:
+    properties:
+      plugin_id:
+        type: string
+    type: object
   errorRate:
     properties:
       date:
@@ -2170,6 +2188,11 @@ definitions:
       upstream_status:
         type: integer
       user_id:
+        type: string
+    type: object
+  grantTeamRagSourceRequest:
+    properties:
+      rag_source_id:
         type: string
     type: object
   imageDescribeError:
@@ -2865,6 +2888,11 @@ definitions:
       has_more:
         type: boolean
       next_cursor:
+        type: string
+    type: object
+  patchMemberRoleRequest:
+    properties:
+      role:
         type: string
     type: object
   planDTO:
@@ -3892,20 +3920,6 @@ definitions:
       credits:
         type: integer
     type: object
-  setChannelRAGSourcesRequest:
-    properties:
-      source_ids:
-        items:
-          type: string
-        type: array
-    type: object
-  setSourceChannelsRequest:
-    properties:
-      channel_ids:
-        items:
-          type: string
-        type: array
-    type: object
   sheetArchivedRowsResponse:
     properties:
       archived:
@@ -4380,6 +4394,40 @@ definitions:
       team:
         $ref: '#/definitions/teamResponse'
     type: object
+  teamPluginResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  teamPluginsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/teamPluginResponse'
+        type: array
+    type: object
+  teamRagSourceResponse:
+    properties:
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+    type: object
+  teamRagSourcesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/teamRagSourceResponse'
+        type: array
+    type: object
   teamResponse:
     properties:
       archived_at:
@@ -4491,6 +4539,11 @@ definitions:
   transcribeSessionAudioResponse:
     properties:
       text:
+        type: string
+    type: object
+  transferOwnershipRequest:
+    properties:
+      new_owner_user_id:
         type: string
     type: object
   triggerAutomationResponse:
@@ -5328,10 +5381,10 @@ paths:
       consumes:
       - application/json
       description: 'Receives an HTTP request and dispatches it to the owning agent
-        runtime for the specified trigger. The trigger UUID acts as a bearer token.
-        If the trigger has a shared secret configured, the request must include the
-        plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret,
-        or ?secret=<secret>.'
+        runtime for the specified trigger. The trigger UUID acts as a bearer token,
+        and a shared secret is mandatory: triggers with no secret configured are rejected
+        with 401. The request must include the plaintext secret in any of: Authorization:
+        Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.'
       parameters:
       - description: Trigger UUID
         in: path
@@ -8216,8 +8269,9 @@ paths:
       - channels
   /v1/channels/{id}/rag-sources:
     get:
-      description: Lists the RAG sources a channel is granted access to. Agents in
-        the channel can only search these sources.
+      description: Lists the RAG sources a channel's agents can search. These are
+        derived from the grants of the channel's team; a channel with no team has
+        no knowledge access. Grants are managed at the team level by org admins.
       parameters:
       - description: Channel ID
         in: path
@@ -8246,51 +8300,6 @@ paths:
       security:
       - BearerAuth: []
       summary: List a channel's knowledge sources
-      tags:
-      - channels
-    put:
-      consumes:
-      - application/json
-      description: Replaces the full set of RAG sources a channel can search. Each
-        source must belong to the org. An empty set removes all knowledge access.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Source IDs
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/setChannelRAGSourcesRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelRAGSourcesResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Set a channel's knowledge sources
       tags:
       - channels
   /v1/channels/{id}/sessions:
@@ -9879,6 +9888,35 @@ paths:
       tags:
       - orgs
   /v1/orgs/current:
+    delete:
+      description: Owner-only. Permanently deletes the organization and all of its
+        data. Most child tables (agents, channels, sessions, API keys, credentials,
+        …) are removed by database ON DELETE CASCADE; org_invites, org_memberships
+        and usage rows lack cascade and are deleted explicitly first. This is irreversible.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete the organization
+      tags:
+      - org-members
     get:
       description: Returns the organization resolved from the request's auth context.
       produces:
@@ -10368,9 +10406,108 @@ paths:
       summary: List members of the current organization
       tags:
       - org-invites
+  /v1/orgs/current/members/{userID}:
+    delete:
+      description: Removes a member from the org. Requires org admin. Only an owner
+        may remove an owner, the last owner cannot be removed, and removal also strips
+        the user's team and channel memberships within the org. Sessions the user
+        created are retained (their created_by is nulled by the database).
+      parameters:
+      - description: Target user ID
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove a member from the organization
+      tags:
+      - org-members
+  /v1/orgs/current/members/{userID}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Changes a member's org role. Requires org admin. Only an owner
+        may grant or revoke the owner role, no caller may grant a role above their
+        own tier, the last owner cannot be demoted, and a caller cannot change their
+        own role.
+      parameters:
+      - description: Target user ID
+        in: path
+        name: userID
+        required: true
+        type: string
+      - description: 'New role: owner, admin, member, or viewer'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/patchMemberRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orgMemberResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change a member's organization role
+      tags:
+      - org-members
   /v1/orgs/current/teams:
     get:
-      description: Returns active teams for the current organization. Admin-only.
+      description: |-
+        Returns the active teams visible to the caller. Org managers and
+        API keys see every team in the organization; a plain member sees
+        only the teams they are an active member of.
       parameters:
       - description: Maximum results to return
         in: query
@@ -10486,7 +10623,9 @@ paths:
       tags:
       - teams
     get:
-      description: Returns one active team and its members. Admin-only.
+      description: |-
+        Returns one active team and its members. Visible to org managers,
+        API keys, and members of that team; other members receive 404.
       parameters:
       - description: Team ID
         in: path
@@ -10660,6 +10799,322 @@ paths:
       summary: Add or update a team member
       tags:
       - teams
+  /v1/orgs/current/teams/{teamID}/plugins:
+    get:
+      description: Lists the plugins enabled for a team. A team's agents may install
+        only these plugins. Admin-only.
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamPluginsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List a team's enabled plugins
+      tags:
+      - team-provisioning
+    post:
+      consumes:
+      - application/json
+      description: Adds a plugin to a team's allowlist. The plugin must belong to
+        the org and be installed. Admin-only.
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Plugin to enable
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/enableTeamPluginRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/teamPluginsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Enable a plugin for a team
+      tags:
+      - team-provisioning
+  /v1/orgs/current/teams/{teamID}/plugins/{pluginID}:
+    delete:
+      description: Removes a plugin from a team's allowlist. Idempotent. Admin-only.
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Plugin ID
+        in: path
+        name: pluginID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamPluginsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Disable a plugin for a team
+      tags:
+      - team-provisioning
+  /v1/orgs/current/teams/{teamID}/rag-sources:
+    get:
+      description: Lists the RAG sources granted to a team. A team's agents may search
+        only these sources. Admin-only.
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamRagSourcesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List a team's knowledge sources
+      tags:
+      - team-provisioning
+    post:
+      consumes:
+      - application/json
+      description: Adds a RAG source to a team's allowlist. The source must belong
+        to the org. Admin-only.
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Source to grant
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/grantTeamRagSourceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/teamRagSourcesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Grant a knowledge source to a team
+      tags:
+      - team-provisioning
+  /v1/orgs/current/teams/{teamID}/rag-sources/{sourceID}:
+    delete:
+      description: Removes a RAG source from a team's allowlist. Idempotent. Admin-only.
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: RAG source ID
+        in: path
+        name: sourceID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamRagSourcesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke a knowledge source from a team
+      tags:
+      - team-provisioning
+  /v1/orgs/current/transfer-ownership:
+    post:
+      consumes:
+      - application/json
+      description: Owner-only. Promotes the target member to owner and demotes the
+        calling owner to admin, atomically. The org always retains at least one owner.
+        The target must be an existing member and cannot be the caller.
+      parameters:
+      - description: New owner user ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/transferOwnershipRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orgMemberResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Transfer organization ownership
+      tags:
+      - org-members
   /v1/plans:
     get:
       description: |-
@@ -11129,8 +11584,9 @@ paths:
       - rag
   /v1/rag/sources/{id}/channels:
     get:
-      description: Returns the ids of the channels granted access to this knowledge
-        source.
+      description: Returns the ids of the channels that can search this knowledge
+        source. Derived from team grants — a channel can search a source when its
+        team has been granted the source by an org admin.
       parameters:
       - description: RAG source ID
         in: path
@@ -11151,43 +11607,6 @@ paths:
       security:
       - BearerAuth: []
       summary: List which channels can search a source
-      tags:
-      - rag
-    put:
-      consumes:
-      - application/json
-      description: Replaces the full set of channels granted access to this knowledge
-        source. Each channel must belong to the org. An empty set removes all grants.
-      parameters:
-      - description: RAG source ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Channel IDs
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/setSourceChannelsRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/sourceChannelsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Set which channels can search a source
       tags:
       - rag
   /v1/rag/sources/{id}/documents:

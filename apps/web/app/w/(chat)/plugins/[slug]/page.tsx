@@ -8,6 +8,7 @@ import { DetailSkeleton } from "./detail-skeleton"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import type { components } from "@/lib/api/schema"
 import { invalidateSessionListQueries } from "@/app/w/(chat)/_lib/chat-cache"
 import {
@@ -73,6 +74,7 @@ export default function PluginDetailPage({
 }) {
   const { slug } = use(params)
   const queryClient = useQueryClient()
+  const isAdmin = useIsAdmin()
   const pluginQuery = $api.useQuery("get", "/v1/plugins/{slug}", {
     params: { path: { slug } },
   })
@@ -392,6 +394,7 @@ export default function PluginDetailPage({
                 plugin={plugin}
                 busy={busy}
                 canInstall={canInstall}
+                canManage={isAdmin}
                 onInstall={handleInstall}
                 onUninstall={handleUninstall}
               />
@@ -406,6 +409,7 @@ export default function PluginDetailPage({
                 databaseConnectionsByProvider={databaseConnectionsByProvider}
                 isBusy={busy}
                 disconnectDisabled={plugin.installed === true}
+                canManage={isAdmin}
                 onConnect={handleConnectRequirement}
                 onReconnect={handleReconnectRequirement}
                 onDisconnect={handleDisconnectRequest}

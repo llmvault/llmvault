@@ -5,11 +5,13 @@ import { Button } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
+import { useIsAdmin, useIsOwner } from "@/lib/auth/use-role"
+import { ownerCount } from "./_components/member-actions"
+import { OrgDangerZone, OrgMemberRow } from "./_components/member-lifecycle"
 import {
   EmptyRow,
   InviteMemberModal,
   InviteRow,
-  MemberRow,
   RowSkeleton,
   TeamFormModal,
   TeamRow,
@@ -21,7 +23,8 @@ import {
 
 export default function TeamsSettingsPage() {
   const { user, activeOrg } = useAuth()
-  const isAdmin = activeOrg?.role === "owner" || activeOrg?.role === "admin"
+  const isAdmin = useIsAdmin()
+  const isOwner = useIsOwner()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [teamFormOpen, setTeamFormOpen] = useState(false)
 
@@ -52,6 +55,7 @@ export default function TeamsSettingsPage() {
     [invitesQuery.data?.data]
   )
   const teamsById = useMemo(() => teamMap(teams), [teams])
+  const memberOwnerCount = useMemo(() => ownerCount(members), [members])
 
   return (
     <div className="flex flex-col gap-10">
@@ -134,16 +138,22 @@ export default function TeamsSettingsPage() {
             <EmptyRow text="No members yet." />
           ) : (
             members.map((member, index) => (
-              <MemberRow
+              <OrgMemberRow
                 key={member.user_id ?? member.email ?? index}
                 member={member}
                 isYou={member.user_id === user?.id}
+                actorRole={activeOrg?.role}
+                ownerCount={memberOwnerCount}
                 last={index === members.length - 1}
               />
             ))
           )}
         </div>
       </section>
+
+      {isOwner ? (
+        <OrgDangerZone members={members} currentUserId={user?.id} />
+      ) : null}
 
       {isAdmin ? (
         <section className="flex flex-col gap-3">

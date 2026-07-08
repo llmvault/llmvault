@@ -40,6 +40,10 @@ func setupConnectRoutes(
 		r.Use(middleware.ResolveUser(database))
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.ResolveOrgFlexible(database))
+			// Connections are org-wide integration credentials: creating,
+			// reconnecting, revoking, and enumerating them is admin-only. A
+			// non-admin member must not manage or list the org's connections.
+			r.Use(middleware.RequireOrgAdmin(database))
 			r.Post("/v1/integrations/{id}/connect-session", connectionHandler.CreateConnectSession)
 			r.Post("/v1/integrations/{id}/connections", connectionHandler.Create)
 			r.Get("/v1/connections", connectionHandler.List)

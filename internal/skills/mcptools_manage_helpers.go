@@ -18,9 +18,10 @@ import (
 // --- archive_skill -------------------------------------------------------------
 
 type archiveSkillArgs struct {
-	PluginSlug   string `json:"plugin_slug"`
-	Skill        string `json:"skill"`
-	UserApproved bool   `json:"user_approved"`
+	PluginSlug      string `json:"plugin_slug"`
+	Skill           string `json:"skill"`
+	UserApproved    bool   `json:"user_approved"`
+	HivyActorUserID string `json:"_hivy_actor_user_id"`
 }
 
 func registerArchiveSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token) {
@@ -47,6 +48,9 @@ func registerArchiveSkillTool(server *mcp.Server, db *gorm.DB, token *model.Toke
 }
 
 func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, args archiveSkillArgs) (*mcp.CallToolResult, error) {
+	if errResult := requireOrgManagerActor(ctx, db, token.OrgID, args.HivyActorUserID); errResult != nil {
+		return errResult, nil
+	}
 	plugin, errResult := loadOrgOwnedPlugin(ctx, db, token.OrgID, args.PluginSlug)
 	if errResult != nil {
 		return errResult, nil

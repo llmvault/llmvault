@@ -39,6 +39,7 @@ export function RequiredConnectionsSection({
   databaseConnectionsByProvider,
   isBusy,
   disconnectDisabled,
+  canManage = true,
   onConnect,
   onReconnect,
   onDisconnect,
@@ -50,6 +51,9 @@ export function RequiredConnectionsSection({
   databaseConnectionsByProvider: Map<string, DatabaseConnection>
   isBusy: boolean
   disconnectDisabled: boolean
+  // canManage gates connecting/disconnecting to org admins. Non-admins still
+  // see connection status but can't change it; the backend enforces this too.
+  canManage?: boolean
   onConnect: (requirement: PluginRequirement) => void
   onReconnect: (requirement: PluginRequirement, connection: Connection) => void
   onDisconnect: (target: ConnectionDisconnectTarget) => void
@@ -137,7 +141,9 @@ export function RequiredConnectionsSection({
                   size="sm"
                   variant="primary"
                   className="shrink-0 rounded-full"
-                  isDisabled={!canConnect || isBusy || waitingForIntegrations}
+                  isDisabled={
+                    !canManage || !canConnect || isBusy || waitingForIntegrations
+                  }
                   onPress={() => onConnect(requirement)}
                 >
                   {isBusy ? <Spinner color="current" size="sm" /> : null}
@@ -151,7 +157,7 @@ export function RequiredConnectionsSection({
                   >
                     <AppIcon icon="check" className="h-3.5 w-3.5" />
                   </span>
-                  {disconnectTarget ? (
+                  {disconnectTarget && canManage ? (
                     <RequiredConnectionOptionsMenu
                       provider={provider}
                       isBusy={isBusy}

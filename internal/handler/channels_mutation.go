@@ -60,10 +60,6 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	defaultAgentID, ok := h.resolveDefaultAgentID(ctx, w, org.ID, req.DefaultAgentID)
-	if !ok {
-		return
-	}
 	imageModel := cleanStringPtr(req.ImageModel)
 	if err := validateImageModelPreference(imageModel, false); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
@@ -76,6 +72,20 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	teamID, ok := h.resolveTeamID(ctx, w, org.ID, req.TeamID)
 	if !ok {
+		return
+	}
+	// Resolve the default agent after the team so it can be gated to the channel's
+	// team (a team-scoped channel's default agent must belong to the same team).
+	defaultAgentID, ok := h.resolveDefaultAgentID(ctx, w, org.ID, teamID, req.DefaultAgentID)
+	if !ok {
+		return
+	}
+	// Creating a channel is a manage-the-target-team action: a non-manager may
+	// only create one inside a team they actively belong to (never a team-less
+	// channel), stopping any member from self-owning a channel in an arbitrary
+	// team. API keys and org managers are unrestricted.
+	if !h.canCreateChannelInTeam(ctx, org.ID, teamID) {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the target team to create a channel in it"})
 		return
 	}
 	source, ok = h.prepareExternalChannelCreate(w, r, org.ID, source)

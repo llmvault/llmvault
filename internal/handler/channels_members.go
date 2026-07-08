@@ -127,7 +127,7 @@ func (h *ChannelHandler) DeleteMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.canRemoveChannelMember(r, channel, userID, role, targetUserID) {
+	if !h.canRemoveChannelMember(r, channel, userID, targetUserID) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "channel access denied"})
 		return
 	}
@@ -160,12 +160,17 @@ func (h *ChannelHandler) userBelongsToOrg(ctx context.Context, orgID, userID uui
 	return count == 1
 }
 
-func (h *ChannelHandler) canRemoveChannelMember(r *http.Request, channel model.Channel, userID *uuid.UUID, role string, target uuid.UUID) bool {
+// canRemoveChannelMember reports whether the caller may remove `target` from the
+// channel. Anyone may remove themselves; removing another member is a manage-the-
+// channel action under the team-primary model (canManageChannel: API keys and
+// org managers, else an active member of the channel's owning team). The old
+// channel-member "owner" role no longer grants this, so no member-role param.
+func (h *ChannelHandler) canRemoveChannelMember(r *http.Request, channel model.Channel, userID *uuid.UUID, target uuid.UUID) bool {
 	if userID != nil && *userID == target {
 		return true
 	}
 	orgRole, _ := h.currentUserOrgRole(r.Context(), channel.OrgID, userID)
-	return canManageChannel(orgRole, role, isAPIKeyRequest(r.Context()))
+	return canManageChannel(r.Context(), h.db, channel, userID, orgRole, isAPIKeyRequest(r.Context()))
 }
 
 func (h *ChannelHandler) removingLastOwner(r *http.Request, channelID, userID uuid.UUID) bool {

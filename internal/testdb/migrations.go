@@ -251,6 +251,8 @@ var migratedTables = []string{
 	"subscription_change_quotes",
 	"subscriptions",
 	"team_members",
+	"team_plugins",
+	"team_rag_sources",
 	"teams",
 	"tokens",
 	"tool_usages",
@@ -258,4 +260,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 80
+const latestMigrationVersion = 82

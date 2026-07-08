@@ -143,10 +143,13 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 			t.Fatalf("seed contract row %T: %v", r, err)
 		}
 	}
-	if err := db.Create(&model.ChannelRagSource{OrgID: org.ID, ChannelID: fx.visibleCh.ID, RagSourceID: srcA.ID}).Error; err != nil {
+	// Knowledge grants are team-derived: grant srcA to teamA (visibleCh's team, so
+	// the member sees it) and srcB to teamB (hiddenCh's team, so the member does
+	// not). Mirrors the removed per-channel grants' intent.
+	if err := db.Create(&model.TeamRagSource{OrgID: org.ID, TeamID: *fx.visibleCh.TeamID, RagSourceID: srcA.ID}).Error; err != nil {
 		t.Fatalf("grant srcA: %v", err)
 	}
-	if err := db.Create(&model.ChannelRagSource{OrgID: org.ID, ChannelID: fx.hiddenCh.ID, RagSourceID: srcB.ID}).Error; err != nil {
+	if err := db.Create(&model.TeamRagSource{OrgID: org.ID, TeamID: *fx.hiddenCh.TeamID, RagSourceID: srcB.ID}).Error; err != nil {
 		t.Fatalf("grant srcB: %v", err)
 	}
 	// The installed agent for this catalog is only on chanB, so the member must
@@ -194,7 +197,7 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
 		db.Where("id = ?", catalog.ID).Delete(&model.AgentCatalog{})
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelRagSource{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamRagSource{})
 		db.Where("id IN ?", []uuid.UUID{srcA.ID, srcB.ID}).Delete(&ragmodel.RAGSource{})
 	})
 	return w

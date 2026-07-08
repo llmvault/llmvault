@@ -54,6 +54,62 @@ export function sortChannelsByRecentSession(
     .map(({ channel }) => channel)
 }
 
+export const UNGROUPED_TEAM_KEY = "__no_team__"
+export const UNGROUPED_TEAM_LABEL = "Other"
+
+export interface SidebarTeamGroup {
+  /** Stable identity for React keys: team id, or the ungrouped sentinel. */
+  key: string
+  /** Team id, or null for channels that belong to no team. */
+  teamId: string | null
+  /** Display label: team name when known, otherwise a team-id fallback. */
+  name: string
+  channels: SidebarChannelResponse[]
+}
+
+function teamGroupFallbackLabel(teamId: string): string {
+  return `Team ${teamId}`
+}
+
+/**
+ * Buckets channels into one group per team, preserving the incoming channel
+ * order within each group. Real teams are ordered by display name (stable);
+ * channels with no team collapse into a trailing "Other" group.
+ *
+ * `teamNamesById` enriches groups with human-readable names when available
+ * (e.g. from the teams endpoint). When a team's name is unknown the group falls
+ * back to a team-id label so the UI stays functional without the backend name.
+ */
+export function groupChannelsByTeam(
+  channels: SidebarChannelResponse[],
+  teamNamesById?: Map<string, string>
+): SidebarTeamGroup[] {
+  const groups = new Map<string, SidebarTeamGroup>()
+  for (const channel of channels) {
+    const teamId = channel.team_id?.trim() || null
+    const key = teamId ?? UNGROUPED_TEAM_KEY
+    let group = groups.get(key)
+    if (!group) {
+      group = {
+        key,
+        teamId,
+        name: teamId
+          ? teamNamesById?.get(teamId)?.trim() || teamGroupFallbackLabel(teamId)
+          : UNGROUPED_TEAM_LABEL,
+        channels: [],
+      }
+      groups.set(key, group)
+    }
+    group.channels.push(channel)
+  }
+
+  const teamGroups = [...groups.values()].filter((group) => group.teamId)
+  teamGroups.sort((left, right) => left.name.localeCompare(right.name))
+
+  const ungrouped = groups.get(UNGROUPED_TEAM_KEY)
+  return ungrouped ? [...teamGroups, ungrouped] : teamGroups
+}
+
 export function channelRouteSlugCounts(channels: SidebarChannelResponse[]) {
   const counts = new Map<string, number>()
   for (const channel of channels) {

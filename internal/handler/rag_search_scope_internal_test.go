@@ -91,9 +91,11 @@ func TestUsableRagSourceIDs(t *testing.T) {
 	}
 	visibleSrc := visSrc.ID
 	hiddenSrc := hidSrc.ID
+	// Grants are team-derived: a source granted to teamA is usable by teamA
+	// members; a source granted to teamB (which the member is not on) is not.
 	grants := []any{
-		&model.ChannelRagSource{OrgID: org.ID, ChannelID: visibleCh.ID, RagSourceID: visibleSrc},
-		&model.ChannelRagSource{OrgID: org.ID, ChannelID: hiddenCh.ID, RagSourceID: hiddenSrc},
+		&model.TeamRagSource{OrgID: org.ID, TeamID: teamA.ID, RagSourceID: visibleSrc},
+		&model.TeamRagSource{OrgID: org.ID, TeamID: teamB.ID, RagSourceID: hiddenSrc},
 	}
 	for _, r := range grants {
 		if err := db.Create(r).Error; err != nil {
@@ -101,7 +103,7 @@ func TestUsableRagSourceIDs(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelRagSource{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamRagSource{})
 		db.Where("org_id = ?", org.ID).Delete(&ragmodel.RAGSource{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})

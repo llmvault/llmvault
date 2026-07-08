@@ -13,6 +13,11 @@ type Agent struct {
 	Org            *Org          `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
 	AgentCatalogID *uuid.UUID    `gorm:"type:uuid;index"`
 	AgentCatalog   *AgentCatalog `gorm:"foreignKey:AgentCatalogID;constraint:OnDelete:SET NULL"`
+	// TeamID is the owning team. Teams are the provisioning unit: an agent is
+	// usable only once assigned to a team (see migration 000081). NULL =
+	// unassigned/unusable; there is no backfill. ON DELETE SET NULL.
+	TeamID *uuid.UUID `gorm:"type:uuid;index:idx_agents_team_id"`
+	Team   *Team      `gorm:"foreignKey:TeamID;constraint:OnDelete:SET NULL"`
 	// Type is "agent" for top-level agents and "subagent" for a sub-agent owned
 	// by ParentAgentID. Sub-agents are excluded from top-level agent listings.
 	Type          string     `gorm:"type:text;not null;default:'agent'"`

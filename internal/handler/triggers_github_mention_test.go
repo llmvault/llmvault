@@ -92,6 +92,7 @@ func TestTriggerHandlerCreateGitHubMentionSplitKeys(t *testing.T) {
 			})
 			req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 			req = middleware.WithOrg(req, &org)
+			req = withTriggerManager(t, db, req, org.ID)
 			rr := httptest.NewRecorder()
 
 			NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
@@ -136,6 +137,7 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
@@ -177,6 +179,7 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
 	if rr.Code != http.StatusConflict {
 		t.Fatalf("duplicate status=%d body=%s", rr.Code, rr.Body.String())
@@ -201,6 +204,7 @@ func TestTriggerHandlerCreateGitHubMentionRequiresGitHubPlugin(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(&fakeTriggerProvisioner{})).Create(rr, req)
@@ -235,6 +239,7 @@ func TestTriggerHandlerCreateGitHubMentionRejectsUnknownKey(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db).Create(rr, req)

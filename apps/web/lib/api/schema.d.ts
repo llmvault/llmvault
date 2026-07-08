@@ -807,7 +807,7 @@ export interface paths {
         put?: never;
         /**
          * Receive HTTP trigger request
-         * @description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
+         * @description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token, and a shared secret is mandatory: triggers with no secret configured are rejected with 401. The request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
          */
         post: {
             parameters: {
@@ -6142,7 +6142,7 @@ export interface paths {
         };
         /**
          * List a channel's knowledge sources
-         * @description Lists the RAG sources a channel is granted access to. Agents in the channel can only search these sources.
+         * @description Lists the RAG sources a channel's agents can search. These are derived from the grants of the channel's team; a channel with no team has no knowledge access. Grants are managed at the team level by org admins.
          */
         get: {
             parameters: {
@@ -6194,74 +6194,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Set a channel's knowledge sources
-         * @description Replaces the full set of RAG sources a channel can search. Each source must belong to the org. An empty set removes all knowledge access.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Source IDs */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["setChannelRAGSourcesRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelRAGSourcesResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -9227,7 +9160,57 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete the organization
+         * @description Owner-only. Permanently deletes the organization and all of its data. Most child tables (agents, channels, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         /**
@@ -10095,6 +10078,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orgs/current/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member from the organization
+         * @description Removes a member from the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed, and removal also strips the user's team and channel memberships within the org. Sessions the user created are retained (their created_by is nulled by the database).
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Target user ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/members/{userID}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a member's organization role
+         * @description Changes a member's org role. Requires org admin. Only an owner may grant or revoke the owner role, no caller may grant a role above their own tier, the last owner cannot be demoted, and a caller cannot change their own role.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Target user ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            /** @description New role: owner, admin, member, or viewer */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["patchMemberRoleRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgMemberResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/orgs/current/teams": {
         parameters: {
             query?: never;
@@ -10104,7 +10266,9 @@ export interface paths {
         };
         /**
          * List teams
-         * @description Returns active teams for the current organization. Admin-only.
+         * @description Returns the active teams visible to the caller. Org managers and
+         *     API keys see every team in the organization; a plain member sees
+         *     only the teams they are an active member of.
          */
         get: {
             parameters: {
@@ -10234,7 +10398,8 @@ export interface paths {
         };
         /**
          * Get a team
-         * @description Returns one active team and its members. Admin-only.
+         * @description Returns one active team and its members. Visible to org managers,
+         *     API keys, and members of that team; other members receive 404.
          */
         get: {
             parameters: {
@@ -10589,6 +10754,590 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{teamID}/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a team's enabled plugins
+         * @description Lists the plugins enabled for a team. A team's agents may install only these plugins. Admin-only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamPluginsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Enable a plugin for a team
+         * @description Adds a plugin to a team's allowlist. The plugin must belong to the org and be installed. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Plugin to enable */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["enableTeamPluginRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamPluginsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disable a plugin for a team
+         * @description Removes a plugin from a team's allowlist. Idempotent. Admin-only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                    /** @description Plugin ID */
+                    pluginID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamPluginsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{teamID}/rag-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a team's knowledge sources
+         * @description Lists the RAG sources granted to a team. A team's agents may search only these sources. Admin-only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamRagSourcesResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Grant a knowledge source to a team
+         * @description Adds a RAG source to a team's allowlist. The source must belong to the org. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Source to grant */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["grantTeamRagSourceRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamRagSourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{teamID}/rag-sources/{sourceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a knowledge source from a team
+         * @description Removes a RAG source from a team's allowlist. Idempotent. Admin-only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                    /** @description RAG source ID */
+                    sourceID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamRagSourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/transfer-ownership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer organization ownership
+         * @description Owner-only. Promotes the target member to owner and demotes the calling owner to admin, atomically. The org always retains at least one owner. The target must be an existing member and cannot be the caller.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description New owner user ID */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["transferOwnershipRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgMemberResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -11439,7 +12188,7 @@ export interface paths {
         };
         /**
          * List which channels can search a source
-         * @description Returns the ids of the channels granted access to this knowledge source.
+         * @description Returns the ids of the channels that can search this knowledge source. Derived from team grants — a channel can search a source when its team has been granted the source by an org admin.
          */
         get: {
             parameters: {
@@ -11473,56 +12222,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Set which channels can search a source
-         * @description Replaces the full set of channels granted access to this knowledge source. Each channel must belong to the org. An empty set removes all grants.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description RAG source ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Channel IDs */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["setSourceChannelsRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["sourceChannelsResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -16993,6 +17693,7 @@ export interface components {
             skills?: components["schemas"]["JSON"];
             status?: string;
             sub_agents?: components["schemas"]["subAgentResponse"][];
+            team_id?: string;
             tools?: components["schemas"]["JSON"];
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
@@ -17019,6 +17720,7 @@ export interface components {
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
             sub_agents?: components["schemas"]["subAgentInput"][];
+            team_id?: string;
             tools?: components["schemas"]["JSON"];
             vector_image_model?: string;
         };
@@ -17052,6 +17754,7 @@ export interface components {
             skills?: components["schemas"]["JSON"];
             status?: string;
             sub_agents?: components["schemas"]["subAgentResponse"][];
+            team_id?: string;
             tools?: components["schemas"]["JSON"];
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
@@ -17352,6 +18055,13 @@ export interface components {
             recent_sessions_next_cursor?: string;
             role?: string;
             team_id?: string;
+            /**
+             * @description TeamName is the display name of the channel's owning team (empty for
+             *     team-less channels). Lets the non-admin sidebar label team groups without
+             *     a second round-trip; both managers and members receive the name of teams
+             *     their visible channels belong to.
+             */
+            team_name?: string;
             updated_at?: string;
             vector_image_model?: string;
             visibility?: string;
@@ -17664,6 +18374,9 @@ export interface components {
         discoverWebsiteSectionsRequest: {
             url?: string;
         };
+        enableTeamPluginRequest: {
+            plugin_id?: string;
+        };
         errorRate: {
             date?: string;
             error_count?: number;
@@ -17710,6 +18423,9 @@ export interface components {
             ttfb_ms?: number;
             upstream_status?: number;
             user_id?: string;
+        };
+        grantTeamRagSourceRequest: {
+            rag_source_id?: string;
         };
         imageDescribeError: {
             error?: string;
@@ -18056,6 +18772,9 @@ export interface components {
             data?: components["schemas"]["teamResponse"][];
             has_more?: boolean;
             next_cursor?: string;
+        };
+        patchMemberRoleRequest: {
+            role?: string;
         };
         planDTO: {
             currency?: string;
@@ -18571,12 +19290,6 @@ export interface components {
             cost_usd?: number;
             credits?: number;
         };
-        setChannelRAGSourcesRequest: {
-            source_ids?: string[];
-        };
-        setSourceChannelsRequest: {
-            channel_ids?: string[];
-        };
         sheetArchivedRowsResponse: {
             archived?: number;
         };
@@ -18831,6 +19544,23 @@ export interface components {
         teamMutationResponse: {
             team?: components["schemas"]["teamResponse"];
         };
+        teamPluginResponse: {
+            id?: string;
+            name?: string;
+            slug?: string;
+        };
+        teamPluginsResponse: {
+            data?: components["schemas"]["teamPluginResponse"][];
+        };
+        teamRagSourceResponse: {
+            id?: string;
+            kind?: string;
+            name?: string;
+            status?: string;
+        };
+        teamRagSourcesResponse: {
+            data?: components["schemas"]["teamRagSourceResponse"][];
+        };
         teamResponse: {
             archived_at?: string;
             channel_count?: number;
@@ -18891,6 +19621,9 @@ export interface components {
         };
         transcribeSessionAudioResponse: {
             text?: string;
+        };
+        transferOwnershipRequest: {
+            new_owner_user_id?: string;
         };
         triggerAutomationResponse: {
             agent_avatar_url?: string;

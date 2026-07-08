@@ -17,6 +17,7 @@ import { ModelSelect } from "@/components/model-select"
 import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
 import { PluginsField } from "./_plugins-field"
+import { TeamSelect } from "./_team-select"
 import {
   DEFAULT_AGENT_MODEL,
   SUBAGENT_TASK_TOOL,
@@ -190,6 +191,17 @@ export function AgentFormView({
                 : form.pluginSlugs.filter((item) => item !== slug),
             })
           }
+        />
+      </Section>
+
+      <Section
+        title="Team"
+        description="Optionally scope this agent to a team. Leave unset to keep it workspace-wide."
+      >
+        <TeamSelect
+          value={form.teamId}
+          onValueChange={(teamId) => update({ teamId })}
+          disabled={saving}
         />
       </Section>
 

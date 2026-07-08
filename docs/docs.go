@@ -633,7 +633,7 @@ const docTemplate = `{
         },
         "/incoming/triggers/{triggerID}": {
             "post": {
-                "description": "Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer \u003csecret\u003e, X-Api-Key, X-Webhook-Secret, or ?secret=\u003csecret\u003e.",
+                "description": "Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token, and a shared secret is mandatory: triggers with no secret configured are rejected with 401. The request must include the plaintext secret in any of: Authorization: Bearer \u003csecret\u003e, X-Api-Key, X-Webhook-Secret, or ?secret=\u003csecret\u003e.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5016,7 +5016,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lists the RAG sources a channel is granted access to. Agents in the channel can only search these sources.",
+                "description": "Lists the RAG sources a channel's agents can search. These are derived from the grants of the channel's team; a channel with no team has no knowledge access. Grants are managed at the team level by org admins.",
                 "produces": [
                     "application/json"
                 ],
@@ -5038,74 +5038,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/channelRAGSourcesResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Replaces the full set of RAG sources a channel can search. Each source must belong to the org. An empty set removes all knowledge access.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "channels"
-                ],
-                "summary": "Set a channel's knowledge sources",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Channel ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Source IDs",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/setChannelRAGSourcesRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/channelRAGSourcesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
                         }
                     },
                     "403": {
@@ -7583,6 +7515,47 @@ const docTemplate = `{
                     }
                 }
             },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Owner-only. Permanently deletes the organization and all of its data. Most child tables (agents, channels, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "org-members"
+                ],
+                "summary": "Delete the organization",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statusResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
@@ -8319,6 +8292,146 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/orgs/current/members/{userID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a member from the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed, and removal also strips the user's team and channel memberships within the org. Sessions the user created are retained (their created_by is nulled by the database).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "org-members"
+                ],
+                "summary": "Remove a member from the organization",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target user ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/members/{userID}/role": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Changes a member's org role. Requires org admin. Only an owner may grant or revoke the owner role, no caller may grant a role above their own tier, the last owner cannot be demoted, and a caller cannot change their own role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "org-members"
+                ],
+                "summary": "Change a member's organization role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target user ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New role: owner, admin, member, or viewer",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/patchMemberRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/orgMemberResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/orgs/current/teams": {
             "get": {
                 "security": [
@@ -8326,7 +8439,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns active teams for the current organization. Admin-only.",
+                "description": "Returns the active teams visible to the caller. Org managers and\nAPI keys see every team in the organization; a plain member sees\nonly the teams they are an active member of.",
                 "produces": [
                     "application/json"
                 ],
@@ -8444,7 +8557,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns one active team and its members. Admin-only.",
+                "description": "Returns one active team and its members. Visible to org managers,\nAPI keys, and members of that team; other members receive 404.",
                 "produces": [
                     "application/json"
                 ],
@@ -8763,6 +8876,487 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/teams/{teamID}/plugins": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists the plugins enabled for a team. A team's agents may install only these plugins. Admin-only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "List a team's enabled plugins",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamPluginsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adds a plugin to a team's allowlist. The plugin must belong to the org and be installed. Admin-only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Enable a plugin for a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Plugin to enable",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/enableTeamPluginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/teamPluginsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a plugin from a team's allowlist. Idempotent. Admin-only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Disable a plugin for a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Plugin ID",
+                        "name": "pluginID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamPluginsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/teams/{teamID}/rag-sources": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists the RAG sources granted to a team. A team's agents may search only these sources. Admin-only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "List a team's knowledge sources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamRagSourcesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adds a RAG source to a team's allowlist. The source must belong to the org. Admin-only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Grant a knowledge source to a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Source to grant",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/grantTeamRagSourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/teamRagSourcesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/teams/{teamID}/rag-sources/{sourceID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a RAG source from a team's allowlist. Idempotent. Admin-only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Revoke a knowledge source from a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RAG source ID",
+                        "name": "sourceID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamRagSourcesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/transfer-ownership": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Owner-only. Promotes the target member to owner and demotes the calling owner to admin, atomically. The org always retains at least one owner. The target must be an existing member and cannot be the caller.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "org-members"
+                ],
+                "summary": "Transfer organization ownership",
+                "parameters": [
+                    {
+                        "description": "New owner user ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/transferOwnershipRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/orgMemberResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -9482,7 +10076,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the ids of the channels granted access to this knowledge source.",
+                "description": "Returns the ids of the channels that can search this knowledge source. Derived from team grants — a channel can search a source when its team has been granted the source by an org admin.",
                 "produces": [
                     "application/json"
                 ],
@@ -9504,62 +10098,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/sourceChannelsResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Replaces the full set of channels granted access to this knowledge source. Each channel must belong to the org. An empty set removes all grants.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rag"
-                ],
-                "summary": "Set which channels can search a source",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "RAG source ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Channel IDs",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/setSourceChannelsRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/sourceChannelsResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
                         }
                     },
                     "404": {
@@ -15320,6 +15858,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/subAgentResponse"
                     }
                 },
+                "team_id": {
+                    "type": "string"
+                },
                 "tools": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -15414,6 +15955,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/subAgentInput"
                     }
+                },
+                "team_id": {
+                    "type": "string"
                 },
                 "tools": {
                     "$ref": "#/definitions/JSON"
@@ -15529,6 +16073,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/subAgentResponse"
                     }
+                },
+                "team_id": {
+                    "type": "string"
                 },
                 "tools": {
                     "$ref": "#/definitions/JSON"
@@ -16413,6 +16960,10 @@ const docTemplate = `{
                 "team_id": {
                     "type": "string"
                 },
+                "team_name": {
+                    "description": "TeamName is the display name of the channel's owning team (empty for\nteam-less channels). Lets the non-admin sidebar label team groups without\na second round-trip; both managers and members receive the name of teams\ntheir visible channels belong to.",
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -17295,6 +17846,14 @@ const docTemplate = `{
                 }
             }
         },
+        "enableTeamPluginRequest": {
+            "type": "object",
+            "properties": {
+                "plugin_id": {
+                    "type": "string"
+                }
+            }
+        },
         "errorRate": {
             "type": "object",
             "properties": {
@@ -17434,6 +17993,14 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "grantTeamRagSourceRequest": {
+            "type": "object",
+            "properties": {
+                "rag_source_id": {
                     "type": "string"
                 }
             }
@@ -18502,6 +19069,14 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "patchMemberRoleRequest": {
+            "type": "object",
+            "properties": {
+                "role": {
                     "type": "string"
                 }
             }
@@ -20070,28 +20645,6 @@ const docTemplate = `{
                 }
             }
         },
-        "setChannelRAGSourcesRequest": {
-            "type": "object",
-            "properties": {
-                "source_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "setSourceChannelsRequest": {
-            "type": "object",
-            "properties": {
-                "channel_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
         "sheetArchivedRowsResponse": {
             "type": "object",
             "properties": {
@@ -20819,6 +21372,59 @@ const docTemplate = `{
                 }
             }
         },
+        "teamPluginResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "teamPluginsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/teamPluginResponse"
+                    }
+                }
+            }
+        },
+        "teamRagSourceResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "teamRagSourcesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/teamRagSourceResponse"
+                    }
+                }
+            }
+        },
         "teamResponse": {
             "type": "object",
             "properties": {
@@ -20989,6 +21595,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "transferOwnershipRequest": {
+            "type": "object",
+            "properties": {
+                "new_owner_user_id": {
                     "type": "string"
                 }
             }

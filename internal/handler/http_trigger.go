@@ -26,9 +26,11 @@ var httpTriggerRedactedValue = "[redacted]"
 // and dispatches them to the owning agent runtime. Unlike provider webhooks,
 // these bypass connection/event-key matching — the trigger is already known.
 //
-// Security: the trigger's unguessable UUID acts as a bearer token. If a
-// shared secret is configured (SecretKey stores its bcrypt hash), the handler
-// also requires the plaintext secret in any of:
+// Security: the trigger's unguessable UUID acts as a bearer token, but a UUID
+// alone is not enough — a shared secret is MANDATORY. Triggers with no secret
+// configured (SecretKey empty) are refused at fire time; a configured trigger
+// requires the plaintext secret (matched against the stored bcrypt hash) in any
+// of:
 //
 //	Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, ?secret=<secret>
 type HTTPTriggerHandler struct {
@@ -43,7 +45,7 @@ func NewHTTPTriggerHandler(db *gorm.DB, enqueuer enqueue.TaskEnqueuer) *HTTPTrig
 
 // Handle processes POST /incoming/triggers/{triggerID}.
 // @Summary Receive HTTP trigger request
-// @Description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
+// @Description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token, and a shared secret is mandatory: triggers with no secret configured are rejected with 401. The request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
 // @Tags triggers
 // @Accept json
 // @Produce json
@@ -76,16 +78,23 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 		return
 	}
 
-	if trigger.SecretKey != "" {
-		provided := extractTriggerSecret(request)
-		if provided == "" {
-			writeJSON(writer, http.StatusUnauthorized, errorResponse{Error: "missing shared secret"})
-			return
-		}
-		if err := bcrypt.CompareHashAndPassword([]byte(trigger.SecretKey), []byte(provided)); err != nil {
-			writeJSON(writer, http.StatusUnauthorized, errorResponse{Error: "invalid shared secret"})
-			return
-		}
+	// Mandatory secret: a secret-less HTTP trigger is an unauthenticated agent
+	// invocation — anyone who learns the trigger UUID could fire it. We refuse to
+	// fire such triggers rather than silently allowing an open webhook. Existing
+	// secret-less triggers must have a secret configured before they can fire
+	// again; there is no backfill and no bypass.
+	if trigger.SecretKey == "" {
+		writeJSON(writer, http.StatusUnauthorized, errorResponse{Error: "this trigger has no shared secret configured and cannot be fired; configure a shared secret on the trigger before using it"})
+		return
+	}
+	provided := extractTriggerSecret(request)
+	if provided == "" {
+		writeJSON(writer, http.StatusUnauthorized, errorResponse{Error: "missing shared secret"})
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(trigger.SecretKey), []byte(provided)); err != nil {
+		writeJSON(writer, http.StatusUnauthorized, errorResponse{Error: "invalid shared secret"})
+		return
 	}
 
 	bodyReader := http.MaxBytesReader(writer, request.Body, maxHTTPTriggerBodyBytes)

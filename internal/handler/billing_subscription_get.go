@@ -71,7 +71,32 @@ func (h *BillingHandler) GetSubscription(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Payment-method detail (card last4/brand/expiry, bank/account) is
+	// owner-only. This endpoint is admin+ gated, but a non-owner admin must not
+	// read the card snapshot, so strip it for anyone below owner.
+	userID, _ := currentRequestUserID(r.Context())
+	role, err := orgRoleForUser(r.Context(), h.db, org.ID, userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve org role"})
+		return
+	}
+	if !isOrgOwner(role) {
+		stripPaymentMethodDetail(&resp)
+	}
+
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// stripPaymentMethodDetail clears the payment-method snapshot fields so a
+// non-owner never receives card/bank identifiers.
+func stripPaymentMethodDetail(resp *subscriptionResponse) {
+	resp.PaymentChannel = ""
+	resp.CardLast4 = ""
+	resp.CardBrand = ""
+	resp.CardExpMonth = ""
+	resp.CardExpYear = ""
+	resp.PaymentBankName = ""
+	resp.PaymentAccountName = ""
 }
 
 func fillSubscriptionResponse(db *gorm.DB, sub *model.Subscription, resp *subscriptionResponse) {

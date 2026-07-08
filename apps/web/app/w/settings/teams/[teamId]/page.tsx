@@ -9,16 +9,12 @@ import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import {
-  CHANNELS_KEY,
   InviteMemberModal,
-  MEMBERS_KEY,
   TEAMS_KEY,
   TeamFormModal,
-  channelLabel,
   formatDate,
-  memberLabel,
-  roleLabel,
   teamLabel,
   type Channel,
   type Member,
@@ -26,6 +22,7 @@ import {
   type TeamMember,
 } from "../_components/team-settings"
 import { TeamChannelsSection, TeamMembersSection } from "./team-sections"
+import { TeamProvisioningSection } from "./team-provisioning"
 
 export default function TeamDetailPage({
   params,
@@ -36,7 +33,7 @@ export default function TeamDetailPage({
   const router = useRouter()
   const queryClient = useQueryClient()
   const { activeOrg } = useAuth()
-  const isAdmin = activeOrg?.role === "owner" || activeOrg?.role === "admin"
+  const isAdmin = useIsAdmin()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
@@ -229,6 +226,8 @@ export default function TeamDetailPage({
         isLoading={channelsQuery.isLoading}
         onChanged={refreshTeam}
       />
+
+      <TeamProvisioningSection teamId={teamId} />
 
       {inviteOpen ? (
         <InviteMemberModal

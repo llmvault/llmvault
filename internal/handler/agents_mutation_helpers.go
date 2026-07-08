@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,101 @@ import (
 
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// agentActor resolves the requesting actor's org role and user id for
+// team-scoped agent authorization. trusted is true when there is no human actor
+// to authorize on: an API-key caller, or a request with no user context at all
+// (system/internal calls; the agent-write routes are behind auth middleware that
+// guarantees an authenticated principal upstream, so a plain member always
+// resolves to a user + role here). trusted callers bypass the team-membership
+// check, mirroring access.Resolve treating an empty actor as "no human, fall
+// back". On a DB error it writes a 500 and returns ok=false.
+func (h *AgentHandler) agentActor(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID) (userID *uuid.UUID, role string, trusted, ok bool) {
+	if isAPIKeyRequest(ctx) {
+		return nil, "", true, true
+	}
+	uid, hasUser := currentRequestUserID(ctx)
+	if !hasUser {
+		return nil, "", true, true
+	}
+	resolvedRole, err := orgRoleForUser(ctx, h.db, orgID, uid)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
+		return nil, "", false, false
+	}
+	return uid, resolvedRole, false, true
+}
+
+func (h *AgentHandler) teamExistsInOrg(ctx context.Context, orgID, teamID uuid.UUID) bool {
+	var count int64
+	_ = h.db.WithContext(ctx).Model(&model.Team{}).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", teamID, orgID).
+		Count(&count).Error
+	return count > 0
+}
+
+// resolveAndAuthorizeAgentTeam parses the optional team_id for agent creation,
+// validates it is an active team in the org, and authorizes the actor to create
+// an agent in it. Members must belong to the team; org managers and API-key
+// callers may target any team. A missing team_id is manager-only: there is no
+// team to authorize a plain member against, so unassigned agents stay a manager
+// action (mirrors the update/delete gate for team_id IS NULL). Writes an error
+// response and returns ok=false when not allowed.
+func (h *AgentHandler) resolveAndAuthorizeAgentTeam(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, raw *string) (*uuid.UUID, bool) {
+	userID, role, trusted, ok := h.agentActor(ctx, w, orgID)
+	if !ok {
+		return nil, false
+	}
+	value := cleanStringPtr(raw)
+	if value == "" {
+		if trusted || isOrgManager(role) {
+			return nil, true
+		}
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "team_id is required: pick a team you belong to for this agent"})
+		return nil, false
+	}
+	teamID, err := uuid.Parse(value)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must be a uuid"})
+		return nil, false
+	}
+	if !h.teamExistsInOrg(ctx, orgID, teamID) {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "team_id must be an active team in this org"})
+		return nil, false
+	}
+	if trusted || canManageTeamResource(ctx, h.db, orgID, userID, role, teamID) {
+		return &teamID, true
+	}
+	writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the team to create an agent in it"})
+	return nil, false
+}
+
+// authorizeAgentMutation gates update/archive of an existing agent on the actor
+// being able to manage the agent's owning team. Agents with team_id IS NULL
+// (legacy unassigned agents and the org-level Hivy default) are manager-only:
+// there is no team to authorize a plain member against. API-key callers are
+// trusted org-wide. Writes a 403/500 and returns false when not allowed.
+func (h *AgentHandler) authorizeAgentMutation(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, agent *model.Agent) bool {
+	userID, role, trusted, ok := h.agentActor(ctx, w, orgID)
+	if !ok {
+		return false
+	}
+	if trusted {
+		return true
+	}
+	if agent.TeamID == nil {
+		if isOrgManager(role) {
+			return true
+		}
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "only an org admin can manage an agent that is not assigned to a team"})
+		return false
+	}
+	if canManageTeamResource(ctx, h.db, orgID, userID, role, *agent.TeamID) {
+		return true
+	}
+	writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the agent's team to manage it"})
+	return false
+}
 
 func agentIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	agentID, err := uuid.Parse(chi.URLParam(r, "id"))

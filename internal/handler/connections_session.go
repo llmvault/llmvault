@@ -80,6 +80,11 @@ func (h *ConnectionHandler) CreateReconnectSession(w http.ResponseWriter, r *htt
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing user context"})
 		return
 	}
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok || org == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		return
+	}
 
 	connID := chi.URLParam(r, "id")
 	if connID == "" {
@@ -87,8 +92,10 @@ func (h *ConnectionHandler) CreateReconnectSession(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// org_id scope closes a cross-org IDOR: without it any org's member could
+	// mint a reconnect session for another org's connection by id.
 	var conn model.Connection
-	if err := h.db.Preload("Integration").Where("id = ? AND revoked_at IS NULL", connID).First(&conn).Error; err != nil {
+	if err := h.db.Preload("Integration").Where("id = ? AND org_id = ? AND revoked_at IS NULL", connID, org.ID).First(&conn).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "connection not found"})
 			return

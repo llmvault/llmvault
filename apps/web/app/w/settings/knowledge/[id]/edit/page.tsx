@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -24,6 +24,8 @@ import {
   type ScopeItem,
   type UrlOption,
 } from "../../_form"
+import { teamGrantDiff } from "../../_team-grants"
+import { TeamGrantProbe } from "./_team-grant-probe"
 
 const EMPTY_CONNECTIONS: Connection[] = []
 
@@ -36,11 +38,8 @@ export default function EditKnowledgeSourcePage() {
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
-  const channelsQuery = $api.useQuery("get", "/v1/channels", {
+  const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
-  })
-  const sourceChannelsQuery = $api.useQuery("get", "/v1/rag/sources/{id}/channels", {
-    params: { path: { id } },
   })
 
   const source = sourceQuery.data
@@ -55,12 +54,13 @@ export default function EditKnowledgeSourcePage() {
   const meta = provider ? providerMeta(provider) : null
   const connectionId = source?.connection_id ?? undefined
 
-  const channelOptions: Option[] = useMemo(
+  const teamOptions: Option[] = useMemo(
     () =>
-      (channelsQuery.data?.data ?? [])
-        .filter((c) => !c.external_provider && !c.external_connection_id)
-        .map((c) => ({ id: c.id ?? "", name: c.name ?? "" })),
-    [channelsQuery.data]
+      (teamsQuery.data?.data ?? []).map((t) => ({
+        id: t.id ?? "",
+        name: t.name ?? "",
+      })),
+    [teamsQuery.data]
   )
 
   const scopesQuery = $api.useQuery(
@@ -74,12 +74,23 @@ export default function EditKnowledgeSourcePage() {
   const [name, setName] = useState("")
   const [scopeItems, setScopeItems] = useState<ScopeItem[]>([])
   const [websiteURLs, setWebsiteURLs] = useState<UrlOption[]>([])
-  const [channels, setChannels] = useState<string[]>([])
+  const [teams, setTeams] = useState<string[]>([])
+  const [initialGrantedTeamIds, setInitialGrantedTeamIds] = useState<
+    string[]
+  >([])
   const [seededSource, setSeededSource] = useState(false)
-  const [seededChannels, setSeededChannels] = useState(false)
+  const [seededTeams, setSeededTeams] = useState(false)
+  const [grantedByTeam, setGrantedByTeam] = useState<Record<string, boolean>>(
+    {}
+  )
+  const handleProbeResult = useCallback((teamId: string, granted: boolean) => {
+    setGrantedByTeam((prev) =>
+      prev[teamId] === granted ? prev : { ...prev, [teamId]: granted }
+    )
+  }, [])
 
-  // Seed name/scope from the source and channels from their own query
-  // independently, so a slow or empty channels response can't block the rest.
+  // Seed name/scope from the source and team grants from their own probes
+  // independently, so slow or empty probe responses can't block the rest.
   if (!seededSource && source) {
     const config = (source.config ?? {}) as {
       scope?: { resource_type?: string; items?: { id?: string; name?: string; type?: string }[] }
@@ -99,21 +110,40 @@ export default function EditKnowledgeSourcePage() {
     setWebsiteURLs((config.urls ?? []).map((u) => ({ id: u, name: u, urls: [u] })))
     setSeededSource(true)
   }
-  if (!seededChannels && sourceChannelsQuery.data) {
-    setChannels(sourceChannelsQuery.data.channel_ids ?? [])
-    setSeededChannels(true)
+  // Seed the team selection once every team's probe has reported. Each
+  // probe only calls onResult after its own query resolves, so this
+  // condition naturally waits out slow probes rather than racing them.
+  if (
+    !seededTeams &&
+    teamOptions.length > 0 &&
+    teamOptions.every((t) => t.id in grantedByTeam)
+  ) {
+    const granted = teamOptions
+      .filter((t) => grantedByTeam[t.id])
+      .map((t) => t.id)
+    setTeams(granted)
+    setInitialGrantedTeamIds(granted)
+    setSeededTeams(true)
   }
 
   const updateSource = $api.useMutation("patch", "/v1/rag/sources/{id}")
-  const setSourceChannels = $api.useMutation("put", "/v1/rag/sources/{id}/channels")
-  const saving = updateSource.isPending || setSourceChannels.isPending
+  const grantSource = $api.useMutation(
+    "post",
+    "/v1/orgs/current/teams/{teamID}/rag-sources"
+  )
+  const revokeSource = $api.useMutation(
+    "delete",
+    "/v1/orgs/current/teams/{teamID}/rag-sources/{sourceID}"
+  )
+  const saving =
+    updateSource.isPending || grantSource.isPending || revokeSource.isPending
 
   const scopeReady =
     meta?.kind === "WEBSITE"
       ? websiteURLs.length > 0
       : scopeTypes.length === 0 || scopeItems.length > 0
   const canSubmit =
-    seededSource && name.trim() !== "" && scopeReady && channels.length > 0 && !saving
+    seededSource && name.trim() !== "" && scopeReady && teams.length > 0 && !saving
 
   async function save() {
     if (!meta || !canSubmit) return
@@ -134,10 +164,18 @@ export default function EditKnowledgeSourcePage() {
         params: { path: { id } },
         body: { name: name.trim(), config } as never,
       })
-      await setSourceChannels.mutateAsync({
-        params: { path: { id } },
-        body: { channel_ids: channels },
-      })
+      const { grant, revoke } = teamGrantDiff(initialGrantedTeamIds, teams)
+      for (const teamID of grant) {
+        await grantSource.mutateAsync({
+          params: { path: { teamID } },
+          body: { rag_source_id: id },
+        })
+      }
+      for (const teamID of revoke) {
+        await revokeSource.mutateAsync({
+          params: { path: { teamID, sourceID: id } },
+        })
+      }
       queryClient.invalidateQueries({ queryKey: RAG_SOURCES_QUERY_KEY })
       toast.success(`${name.trim()} updated`)
       router.push("/w/settings/knowledge")
@@ -167,7 +205,7 @@ export default function EditKnowledgeSourcePage() {
         <div>
           <h1 className="text-lg font-semibold text-foreground">Edit knowledge source</h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-            Update the name, what it ingests, and which channels can search it.
+            Update the name, what it ingests, and which teams can search it.
           </p>
         </div>
       </div>
@@ -206,13 +244,28 @@ export default function EditKnowledgeSourcePage() {
           <WebsiteScope value={websiteURLs} onChange={setWebsiteURLs} />
         ) : null}
 
-        <Field label="Channels" hint="The channels whose agents can search this source.">
+        {!seededTeams
+          ? teamOptions.map((t) => (
+              <TeamGrantProbe
+                key={t.id}
+                teamId={t.id}
+                sourceId={id}
+                onResult={handleProbeResult}
+              />
+            ))
+          : null}
+
+        <Field label="Teams" hint="The teams whose agents can search this source.">
           <MultiSelect
-            ariaLabel="Channels"
-            placeholder={channelsQuery.isLoading ? "Loading channels…" : "Select channels"}
-            options={channelOptions}
-            value={channels}
-            onChange={setChannels}
+            ariaLabel="Teams"
+            placeholder={
+              teamsQuery.isLoading || !seededTeams
+                ? "Loading teams…"
+                : "Select teams"
+            }
+            options={teamOptions}
+            value={teams}
+            onChange={setTeams}
           />
         </Field>
       </div>

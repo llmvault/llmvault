@@ -22,10 +22,12 @@ func decodeInto(t *testing.T, rr *httptest.ResponseRecorder, dst any) {
 	}
 }
 
+// newChannelRAGHarness mounts ONLY the read route. The channel-side grant path
+// (PUT /channels/{id}/rag-sources) has been removed — knowledge grants are now
+// team-level admin-only (team_rag_sources); see team_provisioning.go.
 func newChannelRAGHarness(t *testing.T) *channelHarness {
 	t.Helper()
 	h := newChannelHarness(t)
-	// Re-mount with the rag-source routes included.
 	db := h.db
 	ch := handler.NewChannelHandler(db)
 	r := chi.NewRouter()
@@ -34,7 +36,6 @@ func newChannelRAGHarness(t *testing.T) *channelHarness {
 		r.Use(middleware.RequireAPIKeyScopeOrJWT("channels"))
 		r.Post("/channels", ch.Create)
 		r.Get("/channels/{id}/rag-sources", ch.ListChannelRAGSources)
-		r.Put("/channels/{id}/rag-sources", ch.SetChannelRAGSources)
 	})
 	h.router = r
 	return h
@@ -57,105 +58,67 @@ func seedWebsiteSource(t *testing.T, h *channelHarness, orgID uuid.UUID, name st
 	return src
 }
 
-func createTestChannel(t *testing.T, h *channelHarness, fx channelFixture) string {
-	t.Helper()
-	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
-		"name":             "#eng",
-		"category":         "engineering",
-		"default_agent_id": fx.agent.ID.String(),
-	})
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("create channel: got %d body=%s", rr.Code, rr.Body.String())
-	}
-	return decodeChannelCreate(t, rr).Channel.ID
+type channelRAGListOut struct {
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
 }
 
-func TestChannelRAGSources_DenyByDefaultThenGrant(t *testing.T) {
+// TestChannelRAGSources_TeamDerived: a channel's listed knowledge is exactly its
+// team's grants (team_rag_sources), and a channel with no team has none.
+func TestChannelRAGSources_TeamDerived(t *testing.T) {
 	h := newChannelRAGHarness(t)
 	seeder := &channelHarness{db: h.db}
 	fx := seeder.seed(t)
-	channelID := createTestChannel(t, h, fx)
 
-	// Fresh channel: no knowledge sources (deny-by-default).
+	team := seedChannelTeam(t, h, fx, "kb-team-"+uuid.NewString()[:8])
+	channelID := createTeamChannelForTest(t, h, fx, "#eng", team.ID)
+
+	// Before any team grant: deny-by-default.
 	rr := h.doJSON(t, http.MethodGet, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, nil)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("list empty: got %d body=%s", rr.Code, rr.Body.String())
-	}
-	var listed struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
+	var listed channelRAGListOut
 	decodeInto(t, rr, &listed)
-	if len(listed.Data) != 0 {
-		t.Fatalf("fresh channel sources = %d, want 0", len(listed.Data))
+	if rr.Code != http.StatusOK || len(listed.Data) != 0 {
+		t.Fatalf("fresh team channel: code=%d sources=%d, want 200/0", rr.Code, len(listed.Data))
 	}
 
+	// Grant a source to the TEAM (the new admin-only mechanism).
 	srcA := seedWebsiteSource(t, h, fx.org.ID, "acme-docs")
-	srcB := seedWebsiteSource(t, h, fx.org.ID, "acme-blog")
-
-	// Grant both.
-	rr = h.doJSON(t, http.MethodPut, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, map[string]any{
-		"source_ids": []string{srcA.ID.String(), srcB.ID.String()},
-	})
-	if rr.Code != http.StatusOK {
-		t.Fatalf("put grant: got %d body=%s", rr.Code, rr.Body.String())
-	}
-	decodeInto(t, rr, &listed)
-	if len(listed.Data) != 2 {
-		t.Fatalf("granted sources = %d, want 2", len(listed.Data))
+	if err := h.db.Create(&model.TeamRagSource{OrgID: fx.org.ID, TeamID: team.ID, RagSourceID: srcA.ID}).Error; err != nil {
+		t.Fatalf("grant source to team: %v", err)
 	}
 
-	// Verify persisted via GET.
 	rr = h.doJSON(t, http.MethodGet, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, nil)
 	decodeInto(t, rr, &listed)
-	if len(listed.Data) != 2 {
-		t.Fatalf("listed after grant = %d, want 2", len(listed.Data))
-	}
-
-	// PUT replaces the full set (down to one).
-	rr = h.doJSON(t, http.MethodPut, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, map[string]any{
-		"source_ids": []string{srcA.ID.String()},
-	})
-	if rr.Code != http.StatusOK {
-		t.Fatalf("put replace: got %d body=%s", rr.Code, rr.Body.String())
-	}
-	decodeInto(t, rr, &listed)
 	if len(listed.Data) != 1 || listed.Data[0].ID != srcA.ID.String() {
-		t.Fatalf("after replace = %+v, want only %s", listed.Data, srcA.ID)
-	}
-
-	// Empty set clears all access.
-	rr = h.doJSON(t, http.MethodPut, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, map[string]any{
-		"source_ids": []string{},
-	})
-	if rr.Code != http.StatusOK {
-		t.Fatalf("put clear: got %d body=%s", rr.Code, rr.Body.String())
-	}
-	decodeInto(t, rr, &listed)
-	if len(listed.Data) != 0 {
-		t.Fatalf("after clear = %d, want 0", len(listed.Data))
+		t.Fatalf("team-derived list = %+v, want only %s", listed.Data, srcA.ID)
 	}
 }
 
-func TestChannelRAGSources_RejectsCrossOrgSource(t *testing.T) {
+// TestChannelRAGSources_OldChannelGrantNoLongerGrants proves the escalation
+// fix: a legacy channel-scoped grant row (channel_rag_sources) confers NO
+// knowledge access, because the read now derives solely from team grants.
+func TestChannelRAGSources_OldChannelGrantNoLongerGrants(t *testing.T) {
 	h := newChannelRAGHarness(t)
 	seeder := &channelHarness{db: h.db}
 	fx := seeder.seed(t)
-	channelID := createTestChannel(t, h, fx)
 
-	// A source belonging to a different org must be rejected.
-	otherOrg := model.Org{Name: "other-org-" + uuid.NewString()[:8], Active: true}
-	if err := h.db.Create(&otherOrg).Error; err != nil {
-		t.Fatalf("create other org: %v", err)
+	team := seedChannelTeam(t, h, fx, "legacy-team-"+uuid.NewString()[:8])
+	channelID := createTeamChannelForTest(t, h, fx, "#legacy", team.ID)
+	chUUID := uuid.MustParse(channelID)
+
+	src := seedWebsiteSource(t, h, fx.org.ID, "legacy-docs")
+
+	// Simulate the OLD escalation path: a direct channel-scoped grant.
+	if err := h.db.Create(&model.ChannelRagSource{OrgID: fx.org.ID, ChannelID: chUUID, RagSourceID: src.ID}).Error; err != nil {
+		t.Fatalf("seed legacy channel grant: %v", err)
 	}
-	t.Cleanup(func() { h.db.Where("id = ?", otherOrg.ID).Delete(&model.Org{}) })
-	foreign := seedWebsiteSource(t, h, otherOrg.ID, "foreign-docs")
 
-	rr := h.doJSON(t, http.MethodPut, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, map[string]any{
-		"source_ids": []string{foreign.ID.String()},
-	})
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("cross-org grant: got %d body=%s, want 400", rr.Code, rr.Body.String())
+	// The channel-scoped grant must NOT surface — no team grant exists.
+	rr := h.doJSON(t, http.MethodGet, "/v1/channels/"+channelID+"/rag-sources", fx, fx.owner, nil)
+	var listed channelRAGListOut
+	decodeInto(t, rr, &listed)
+	if rr.Code != http.StatusOK || len(listed.Data) != 0 {
+		t.Fatalf("legacy channel grant leaked access: code=%d sources=%d, want 200/0", rr.Code, len(listed.Data))
 	}
 }

@@ -157,6 +157,7 @@ export type AgentForm = {
   sandboxSize: AgentSandboxSize
   pluginSlugs: string[]
   subAgents: SubAgentForm[]
+  teamId: string
 }
 
 let subAgentSeq = 0
@@ -185,6 +186,7 @@ export function emptyAgentForm(): AgentForm {
     sandboxSize: "small",
     pluginSlugs: [],
     subAgents: [],
+    teamId: "",
   }
 }
 
@@ -241,6 +243,8 @@ function subAgentFormFromDetail(
 }
 
 // Maps a saved agent (plus its enabled plugin slugs) into editable form state.
+// The agent read type carries `team_id`, so the team picker preselects the
+// agent's current team (empty string = "no team").
 export function agentFormFromDetail(
   agent: AgentDetail,
   pluginSlugs: string[]
@@ -262,6 +266,7 @@ export function agentFormFromDetail(
     subAgents: (agent.sub_agents ?? []).map((sub, index) =>
       subAgentFormFromDetail(sub, model, index)
     ),
+    teamId: agent.team_id ?? "",
   }
 }
 
@@ -276,6 +281,7 @@ export function buildCreateBody(form: AgentForm): AgentCreateBody {
     mcp_tool_filter: mcpToolFilterFor(form.tools),
     sandbox_image: form.sandboxImage,
     sandbox_size: form.sandboxSize,
+    team_id: form.teamId || undefined,
     sub_agents: form.subAgents.map((sub) => {
       const tools = runtimeToolsMap(sub.tools)
       return {

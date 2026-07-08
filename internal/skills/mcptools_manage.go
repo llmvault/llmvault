@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -62,6 +63,31 @@ func skillManagerEnabled(agent *model.Agent) bool {
 	return false
 }
 
+// requireOrgManagerActor gates the privileged skill-manager tools on the acting
+// human being an org owner/admin. skillManagerEnabled is only a per-agent
+// capability flag — whether the agent exposes these tools at all — so without
+// this check any member invoking the org's default Hivy agent would inherit
+// org-manager powers to author/edit/archive org skills and plugins. The actor
+// check is the real authorization: a member gets a plain assistant, an admin
+// gets the manager tools. A nil actor (automated trigger/cron run, or a deploy
+// before the runtime injects identity) is allowed, mirroring
+// memory.manage_memories. rawActorUserID is the runtime-injected
+// `_hivy_actor_user_id`.
+func requireOrgManagerActor(ctx context.Context, db *gorm.DB, orgID uuid.UUID, rawActorUserID string) *mcp.CallToolResult {
+	actor, err := access.Resolve(ctx, db, orgID, rawActorUserID)
+	if err != nil {
+		return skillToolError(err.Error())
+	}
+	if actor == nil {
+		return nil
+	}
+	if !actor.IsOrgManager() {
+		return skillToolError("Not allowed: creating or editing this organization's skills and plugins requires an org admin or owner. " +
+			"The person you're acting for has the role \"" + actor.OrgRole + "\". Ask an organization admin or owner to make this change.")
+	}
+	return nil
+}
+
 func registerSkillManagerTools(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	registerCreateOrgPluginTool(server, db, token)
 	registerCreateSkillTool(server, db, token, frontendURL)
@@ -72,11 +98,12 @@ func registerSkillManagerTools(server *mcp.Server, db *gorm.DB, token *model.Tok
 // --- create_org_plugin ---------------------------------------------------------
 
 type createOrgPluginArgs struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	Icon        string `json:"icon"`
-	IconColor   string `json:"icon_color"`
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	Category        string `json:"category"`
+	Icon            string `json:"icon"`
+	IconColor       string `json:"icon_color"`
+	HivyActorUserID string `json:"_hivy_actor_user_id"`
 }
 
 func registerCreateOrgPluginTool(server *mcp.Server, db *gorm.DB, token *model.Token) {
@@ -105,6 +132,9 @@ func registerCreateOrgPluginTool(server *mcp.Server, db *gorm.DB, token *model.T
 }
 
 func handleCreateOrgPlugin(ctx context.Context, db *gorm.DB, token *model.Token, args createOrgPluginArgs) (*mcp.CallToolResult, error) {
+	if errResult := requireOrgManagerActor(ctx, db, token.OrgID, args.HivyActorUserID); errResult != nil {
+		return errResult, nil
+	}
 	name := strings.TrimSpace(args.Name)
 	if name == "" {
 		return skillToolError("name is required"), nil

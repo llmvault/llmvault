@@ -4,10 +4,13 @@ import {
   channelRouteSlug,
   dedupeSessions,
   findChannelByRouteSlug,
+  groupChannelsByTeam,
   isAmbiguousChannelRouteSlug,
   sessionActivityLabel,
   sessionRouteFromPathname,
   sortChannelsByRecentSession,
+  UNGROUPED_TEAM_KEY,
+  UNGROUPED_TEAM_LABEL,
   type SidebarAgentResponse,
   type SidebarChannelResponse,
   type SidebarSessionResponse,
@@ -91,6 +94,65 @@ describe("sidebar route helpers", () => {
         (entry) => entry.id
       )
     ).toEqual(["recent", "old", "empty"])
+  })
+})
+
+describe("groupChannelsByTeam", () => {
+  it("buckets channels into one group per team, ordered by team name", () => {
+    const channels = [
+      channel({ id: "c1", name: "Roadmap", team_id: "team_b" }),
+      channel({ id: "c2", name: "Support", team_id: "team_a" }),
+      channel({ id: "c3", name: "Billing", team_id: "team_b" }),
+    ]
+    const names = new Map([
+      ["team_a", "Alpha"],
+      ["team_b", "Beta"],
+    ])
+
+    const groups = groupChannelsByTeam(channels, names)
+
+    expect(groups.map((group) => group.name)).toEqual(["Alpha", "Beta"])
+    expect(groups[0].channels.map((c) => c.id)).toEqual(["c2"])
+    // Preserves incoming channel order within a group.
+    expect(groups[1].channels.map((c) => c.id)).toEqual(["c1", "c3"])
+  })
+
+  it("falls back to a team-id label when the name is unknown", () => {
+    const groups = groupChannelsByTeam([
+      channel({ id: "c1", name: "Roadmap", team_id: "team_x" }),
+    ])
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].teamId).toBe("team_x")
+    expect(groups[0].name).toBe("Team team_x")
+  })
+
+  it("collapses channels with no team into a trailing Other group", () => {
+    const groups = groupChannelsByTeam(
+      [
+        channel({ id: "c1", name: "Roadmap", team_id: "team_a" }),
+        channel({ id: "c2", name: "Random" }),
+        channel({ id: "c3", name: "Ideas", team_id: "" }),
+      ],
+      new Map([["team_a", "Alpha"]])
+    )
+
+    const last = groups[groups.length - 1]
+    expect(last.key).toBe(UNGROUPED_TEAM_KEY)
+    expect(last.teamId).toBeNull()
+    expect(last.name).toBe(UNGROUPED_TEAM_LABEL)
+    expect(last.channels.map((c) => c.id)).toEqual(["c2", "c3"])
+  })
+
+  it("returns a single ungrouped group when no channel has a team", () => {
+    const groups = groupChannelsByTeam([
+      channel({ id: "c1", name: "Roadmap" }),
+      channel({ id: "c2", name: "Random" }),
+    ])
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].teamId).toBeNull()
+    expect(groups.some((group) => group.teamId)).toBe(false)
   })
 })
 

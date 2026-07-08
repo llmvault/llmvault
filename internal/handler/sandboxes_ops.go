@@ -8,10 +8,45 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// authorizeSandboxOp loads the sandbox for a mutating op (stop/exec/delete),
+// scoped to the org and — for non-manager callers — to sandboxes whose agent is
+// visible to them (the same predicate the read Get path uses). A hidden or
+// agent-less sandbox is indistinguishable from a nonexistent one (404), so
+// arbitrary code exec and teardown are unreachable for a sandbox the caller
+// cannot see. Managers and API-key callers reach any sandbox in the org.
+func (h *SandboxHandler) authorizeSandboxOp(w http.ResponseWriter, r *http.Request) (model.Sandbox, bool) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		return model.Sandbox{}, false
+	}
+	orgWide, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve access"})
+		return model.Sandbox{}, false
+	}
+	id := chi.URLParam(r, "id")
+	q := h.db.Where("id = ? AND org_id = ?", id, org.ID)
+	if !orgWide {
+		q = q.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+	}
+	var sb model.Sandbox
+	if err := q.First(&sb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found"})
+			return model.Sandbox{}, false
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
+		return model.Sandbox{}, false
+	}
+	return sb, true
+}
 
 // Stop handles POST /v1/sandboxes/{id}/stop.
 // @Summary Stop a sandbox
@@ -25,25 +60,12 @@ import (
 // @Security BearerAuth
 // @Router /v1/sandboxes/{id}/stop [post]
 func (h *SandboxHandler) Stop(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
-	}
-
 	if h.orchestrator == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "sandbox orchestrator not configured"})
 		return
 	}
-
-	id := chi.URLParam(r, "id")
-	var sb model.Sandbox
-	if err := h.db.Where("id = ? AND org_id = ?", id, org.ID).First(&sb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
+	sb, ok := h.authorizeSandboxOp(w, r)
+	if !ok {
 		return
 	}
 	if err := h.orchestrator.StopSandbox(r.Context(), &sb); err != nil {
@@ -66,25 +88,12 @@ func (h *SandboxHandler) Stop(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /v1/sandboxes/{id} [delete]
 func (h *SandboxHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
-	}
-
 	if h.orchestrator == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "sandbox orchestrator not configured"})
 		return
 	}
-
-	id := chi.URLParam(r, "id")
-	var sb model.Sandbox
-	if err := h.db.Where("id = ? AND org_id = ?", id, org.ID).First(&sb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
+	sb, ok := h.authorizeSandboxOp(w, r)
+	if !ok {
 		return
 	}
 	if err := h.orchestrator.DeleteSandbox(r.Context(), &sb); err != nil {
@@ -126,20 +135,8 @@ type execResponse struct {
 // @Security BearerAuth
 // @Router /v1/sandboxes/{id}/exec [post]
 func (h *SandboxHandler) Exec(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
+	sb, ok := h.authorizeSandboxOp(w, r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
-	}
-
-	id := chi.URLParam(r, "id")
-	var sb model.Sandbox
-	if err := h.db.Where("id = ? AND org_id = ?", id, org.ID).First(&sb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
 	var req execRequest

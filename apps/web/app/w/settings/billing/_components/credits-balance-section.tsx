@@ -1,8 +1,9 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Button, Skeleton } from "@heroui/react"
+import { Button, Skeleton, Tooltip } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
+import { useIsOwner } from "@/lib/auth/use-role"
 import type { components } from "@/lib/api/schema"
 import { formatCreditsWithUsage } from "./credit-value"
 
@@ -10,6 +11,7 @@ type DashboardResponse = components["schemas"]["dashboardResponse"]
 
 export function CreditsBalanceSection() {
   const router = useRouter()
+  const isOwner = useIsOwner()
   const dashboardQuery = $api.useQuery("get", "/v1/dashboard")
   const credits = (dashboardQuery.data as DashboardResponse | undefined)
     ?.credits
@@ -42,15 +44,42 @@ export function CreditsBalanceSection() {
             </>
           )}
         </div>
-        <Button
-          variant="tertiary"
-          size="sm"
-          isDisabled={dashboardQuery.isLoading}
+        <BuyCreditsButton
+          isLoading={dashboardQuery.isLoading}
+          isOwner={isOwner}
           onPress={() => router.push("/w/billing/plans")}
-        >
-          Buy credits
-        </Button>
+        />
       </div>
     </section>
+  )
+}
+
+function BuyCreditsButton({
+  isLoading,
+  isOwner,
+  onPress,
+}: {
+  isLoading: boolean
+  isOwner: boolean
+  onPress: () => void
+}) {
+  const control = (
+    <Button
+      variant="tertiary"
+      size="sm"
+      isDisabled={isLoading || !isOwner}
+      onPress={onPress}
+    >
+      Buy credits
+    </Button>
+  )
+  if (isOwner) return control
+  return (
+    <Tooltip delay={250} closeDelay={0}>
+      <Tooltip.Trigger className="flex shrink-0">{control}</Tooltip.Trigger>
+      <Tooltip.Content placement="left" offset={8} className="text-xs">
+        Only the workspace owner can buy credits.
+      </Tooltip.Content>
+    </Tooltip>
   )
 }

@@ -69,6 +69,49 @@ func (a *Actor) IsOrgManager() bool {
 	return a.OrgRole == "owner" || a.OrgRole == "admin"
 }
 
+// IsOrgOwner reports whether the actor is specifically an org owner (not admin).
+// Nil-safe: a nil actor (no human context) is not an owner. This is the
+// owner-only tier that IsOrgManager (owner OR admin) deliberately does not
+// distinguish.
+func (a *Actor) IsOrgOwner() bool {
+	if a == nil {
+		return false
+	}
+	return a.OrgRole == "owner"
+}
+
+// IsTeamMember reports whether the actor is an active member of the given team
+// (an unarchived team with a matching team_members row). Nil-safe: a nil actor
+// is not a member of any team.
+func (a *Actor) IsTeamMember(ctx context.Context, db *gorm.DB, teamID uuid.UUID) (bool, error) {
+	if a == nil {
+		return false, nil
+	}
+	var count int64
+	err := db.WithContext(ctx).
+		Table("team_members").
+		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
+		Where("team_members.team_id = ? AND team_members.user_id = ?", teamID, a.UserID).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("check team membership: %w", err)
+	}
+	return count > 0, nil
+}
+
+// CanManageTeamResource reports whether the actor may manage a resource owned by
+// the given team: org managers (owner/admin) always may, otherwise the actor
+// must be an active member of that team. Nil-safe.
+func (a *Actor) CanManageTeamResource(ctx context.Context, db *gorm.DB, teamID uuid.UUID) (bool, error) {
+	if a == nil {
+		return false, nil
+	}
+	if a.IsOrgManager() {
+		return true, nil
+	}
+	return a.IsTeamMember(ctx, db, teamID)
+}
+
 // CanUseChannelID reports whether the actor may use (post/run in) the given
 // channel. Mirrors handler.canUseChannel: org managers and API-key paths aside,
 // external and non-team channels are open to any org member, while a
@@ -107,6 +150,12 @@ func (a *Actor) CanUseChannel(ctx context.Context, db *gorm.DB, channel model.Ch
 }
 
 func (a *Actor) canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel) bool {
+	// A private channel is reachable only by its explicit members, regardless of
+	// origin/team. Mirrors handler.canUseChannel: gate before the origin/team
+	// openings so a private channel is never usable by a non-member org user.
+	if channel.Visibility == "private" {
+		return userIsChannelMember(ctx, db, channel.ID, a.UserID)
+	}
 	if channel.Origin == "external" {
 		return true
 	}
@@ -114,6 +163,18 @@ func (a *Actor) canUseChannel(ctx context.Context, db *gorm.DB, channel model.Ch
 		return true
 	}
 	return userIsActiveTeamMember(ctx, db, *channel.TeamID, a.UserID)
+}
+
+// userIsChannelMember reports whether userID has an explicit channel_members row
+// for channelID. Gates private-channel access on the agent path (mirror of
+// handler.userIsChannelMember).
+func userIsChannelMember(ctx context.Context, db *gorm.DB, channelID, userID uuid.UUID) bool {
+	var count int64
+	_ = db.WithContext(ctx).
+		Table("channel_members").
+		Where("channel_id = ? AND user_id = ?", channelID, userID).
+		Count(&count).Error
+	return count > 0
 }
 
 func userIsActiveTeamMember(ctx context.Context, db *gorm.DB, teamID, userID uuid.UUID) bool {

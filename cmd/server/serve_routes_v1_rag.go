@@ -41,7 +41,9 @@ func mountRAGRoutes(
 			r.Post("/sources", ragSourceHandler.Create)
 			r.Patch("/sources/{id}", ragSourceHandler.Update)
 			r.Delete("/sources/{id}", ragSourceHandler.Delete)
-			r.Put("/sources/{id}/channels", ragSourceHandler.SetSourceChannels)
+			// RAG grants are now team-derived (team-provisioning owns
+			// /teams/{teamID}/rag-sources); the old source->channels grant route
+			// and its handler were removed.
 			r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
 			r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
 			r.Post("/website/discover-sections", ragSourceHandler.DiscoverWebsiteSections)

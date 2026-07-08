@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Modal, Spinner, toast } from "@heroui/react"
+import { Button, Modal, Spinner, Tooltip, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsOwner } from "@/lib/auth/use-role"
 import type { components } from "@/lib/api/schema"
 
 type SubscriptionResponse = components["schemas"]["subscriptionResponse"]
@@ -25,6 +26,7 @@ function formatPeriodEnd(value: string | undefined) {
 
 export function CancelPlanSection() {
   const queryClient = useQueryClient()
+  const isOwner = useIsOwner()
   const subscriptionQuery = $api.useQuery("get", "/v1/billing/subscription")
   const cancelSubscription = $api.useMutation(
     "post",
@@ -107,25 +109,26 @@ export function CancelPlanSection() {
           )}
         </div>
         {cancelsAtPeriodEnd ? (
-          <Button
-            variant="tertiary"
-            size="sm"
-            isDisabled={resumeSubscription.isPending}
+          <OwnerGatedButton
+            isOwner={isOwner}
+            hint="Only the workspace owner can resume the plan."
+            isDisabled={resumeSubscription.isPending || !isOwner}
             onPress={handleResume}
           >
             {resumeSubscription.isPending ? (
               <Spinner color="current" size="sm" />
             ) : null}
             Resume plan
-          </Button>
+          </OwnerGatedButton>
         ) : (
-          <Button
-            variant="tertiary"
-            size="sm"
+          <OwnerGatedButton
+            isOwner={isOwner}
+            hint="Only the workspace owner can cancel the plan."
+            isDisabled={!isOwner}
             onPress={() => setConfirmOpen(true)}
           >
             Cancel plan
-          </Button>
+          </OwnerGatedButton>
         )}
       </div>
 
@@ -185,5 +188,39 @@ export function CancelPlanSection() {
         </Modal.Backdrop>
       </Modal>
     </section>
+  )
+}
+
+function OwnerGatedButton({
+  isOwner,
+  hint,
+  isDisabled,
+  onPress,
+  children,
+}: {
+  isOwner: boolean
+  hint: string
+  isDisabled: boolean
+  onPress: () => void
+  children: React.ReactNode
+}) {
+  const control = (
+    <Button
+      variant="tertiary"
+      size="sm"
+      isDisabled={isDisabled}
+      onPress={onPress}
+    >
+      {children}
+    </Button>
+  )
+  if (isOwner) return control
+  return (
+    <Tooltip delay={250} closeDelay={0}>
+      <Tooltip.Trigger className="flex shrink-0">{control}</Tooltip.Trigger>
+      <Tooltip.Content placement="left" offset={8} className="text-xs">
+        {hint}
+      </Tooltip.Content>
+    </Tooltip>
   )
 }

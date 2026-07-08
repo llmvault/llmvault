@@ -36,7 +36,7 @@ export default function NewKnowledgeSourcePage() {
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
-  const channelsQuery = $api.useQuery("get", "/v1/channels", {
+  const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
 
@@ -51,19 +51,20 @@ export default function NewKnowledgeSourcePage() {
     return set
   }, [connections])
 
-  const channelOptions: Option[] = useMemo(
+  const teamOptions: Option[] = useMemo(
     () =>
-      (channelsQuery.data?.data ?? [])
-        .filter((c) => !c.external_provider && !c.external_connection_id)
-        .map((c) => ({ id: c.id ?? "", name: c.name ?? "" })),
-    [channelsQuery.data]
+      (teamsQuery.data?.data ?? []).map((t) => ({
+        id: t.id ?? "",
+        name: t.name ?? "",
+      })),
+    [teamsQuery.data]
   )
 
   const [name, setName] = useState("")
   const [provider, setProvider] = useState<string>("")
   const [scopeItems, setScopeItems] = useState<ScopeItem[]>([])
   const [websiteURLs, setWebsiteURLs] = useState<UrlOption[]>([])
-  const [channels, setChannels] = useState<string[]>([])
+  const [teams, setTeams] = useState<string[]>([])
 
   const meta = provider ? providerMeta(provider) : null
   const connectionId = meta ? connectionForProvider(meta, connections)?.id : undefined
@@ -77,15 +78,18 @@ export default function NewKnowledgeSourcePage() {
   const scopeTypes = scopesQuery.data?.scopes ?? []
 
   const createSource = $api.useMutation("post", "/v1/rag/sources")
-  const setSourceChannels = $api.useMutation("put", "/v1/rag/sources/{id}/channels")
-  const saving = createSource.isPending || setSourceChannels.isPending
+  const grantSource = $api.useMutation(
+    "post",
+    "/v1/orgs/current/teams/{teamID}/rag-sources"
+  )
+  const saving = createSource.isPending || grantSource.isPending
 
   const scopeReady =
     meta?.kind === "WEBSITE"
       ? websiteURLs.length > 0
       : scopeTypes.length === 0 || scopeItems.length > 0 // no scopes = ingest everything
   const canSubmit =
-    name.trim() !== "" && provider !== "" && scopeReady && channels.length > 0 && !saving
+    name.trim() !== "" && provider !== "" && scopeReady && teams.length > 0 && !saving
 
   function selectProvider(next: ProviderMeta) {
     setProvider(next.provider)
@@ -119,10 +123,12 @@ export default function NewKnowledgeSourcePage() {
       const created = await createSource.mutateAsync({ body: body as never })
       const id = created.id
       if (id) {
-        await setSourceChannels.mutateAsync({
-          params: { path: { id } },
-          body: { channel_ids: channels },
-        })
+        for (const teamID of teams) {
+          await grantSource.mutateAsync({
+            params: { path: { teamID } },
+            body: { rag_source_id: id },
+          })
+        }
       }
       queryClient.invalidateQueries({ queryKey: RAG_SOURCES_QUERY_KEY })
       toast.success(`${name.trim()} added`)
@@ -146,7 +152,7 @@ export default function NewKnowledgeSourcePage() {
           <h1 className="text-lg font-semibold text-foreground">Add knowledge source</h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
             Give the source a name, pick where it pulls from, scope it to specific
-            resources, and choose which channels can search it.
+            resources, and choose which teams can search it.
           </p>
         </div>
       </div>
@@ -184,13 +190,13 @@ export default function NewKnowledgeSourcePage() {
           <WebsiteScope value={websiteURLs} onChange={setWebsiteURLs} />
         ) : null}
 
-        <Field label="Channels" hint="The channels whose agents can search this source.">
+        <Field label="Teams" hint="The teams whose agents can search this source.">
           <MultiSelect
-            ariaLabel="Channels"
-            placeholder={channelsQuery.isLoading ? "Loading channels…" : "Select channels"}
-            options={channelOptions}
-            value={channels}
-            onChange={setChannels}
+            ariaLabel="Teams"
+            placeholder={teamsQuery.isLoading ? "Loading teams…" : "Select teams"}
+            options={teamOptions}
+            value={teams}
+            onChange={setTeams}
           />
         </Field>
       </div>

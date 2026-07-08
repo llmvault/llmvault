@@ -18,6 +18,51 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// requireChannelBindingManage verifies the caller may bind a team resource
+// (trigger/schedule) to channelID under the team-primary model. Creating such a
+// binding is a manage-the-channel's-team action, not merely use-the-channel:
+// API-key callers are trusted org-wide; a human actor must be an org manager or
+// an active member of the channel's owning team. Team-less / external channels
+// are bindable only by managers/API keys (this preserves the old admin-only
+// posture for provider auto-created external channels). Returns (status,
+// message, err); err is nil and status 200 on success.
+func requireChannelBindingManage(r *http.Request, db *gorm.DB, orgID, channelID uuid.UUID) (int, string, error) {
+	if isAPIKeyRequest(r.Context()) {
+		return http.StatusOK, "", nil
+	}
+	actor, err := access.Resolve(r.Context(), db, orgID, middleware.UserID(r.Context()))
+	if err != nil {
+		return http.StatusForbidden, "forbidden", err
+	}
+	if actor == nil {
+		return http.StatusForbidden, "you must manage this channel's team to bind resources to it", fmt.Errorf("no actor")
+	}
+	if actor.IsOrgManager() {
+		return http.StatusOK, "", nil
+	}
+	var channel model.Channel
+	err = db.WithContext(r.Context()).
+		Where("id = ? AND org_id = ?", channelID, orgID).
+		First(&channel).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel not found")
+	}
+	if err != nil {
+		return http.StatusInternalServerError, "failed to load channel", err
+	}
+	if channel.TeamID == nil {
+		return http.StatusForbidden, "you must manage this channel's team to bind resources to it", fmt.Errorf("channel has no team")
+	}
+	ok, err := actor.CanManageTeamResource(r.Context(), db, *channel.TeamID)
+	if err != nil {
+		return http.StatusInternalServerError, "failed to check team membership", err
+	}
+	if !ok {
+		return http.StatusForbidden, "you must manage this channel's team to bind resources to it", fmt.Errorf("not a team member")
+	}
+	return http.StatusOK, "", nil
+}
+
 // resolveProviderTriggerChannel returns the channel a provider trigger's session
 // runs in. A caller-supplied channel_id is used after an access check; otherwise
 // the channel is auto-created from the provider resource.
@@ -100,6 +145,9 @@ func (h *TriggerHandler) createHTTP(r *http.Request, orgID uuid.UUID, req create
 	}
 	if !assigned {
 		return model.AgentTrigger{}, "", http.StatusUnprocessableEntity, "agent is not assigned to this channel", fmt.Errorf("agent not assigned")
+	}
+	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, orgID, channelID); mErr != nil {
+		return model.AgentTrigger{}, "", mStatus, mMessage, mErr
 	}
 
 	var trigger model.AgentTrigger

@@ -22,7 +22,11 @@ type APIKey struct {
 	ExpiresAt  *time.Time
 	LastUsedAt *time.Time
 	RevokedAt  *time.Time
-	CreatedAt  time.Time
+	// CreatedBy is the user who minted this key. NULL for keys created by an
+	// API-key-authenticated caller (no human actor) or minted before attribution
+	// existed. FK is ON DELETE SET NULL, so the key survives its creator's removal.
+	CreatedBy *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt time.Time
 }
 
 func (APIKey) TableName() string { return "api_keys" }

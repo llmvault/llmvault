@@ -73,6 +73,15 @@ func setupV1Routes(
 			r.Get("/orgs/current/members", orgInviteHandler.ListMembers)
 			mountBrandRoutes(r, database, brandHandler)
 
+			// Reading teams is a member action (members pick a team when
+			// creating agents/channels); the handlers scope results to the
+			// caller, so these two routes are NOT admin-gated. Team write +
+			// member management stay admin-only below.
+			if teamHandler != nil {
+				r.Get("/orgs/current/teams", teamHandler.List)
+				r.Get("/orgs/current/teams/{id}", teamHandler.Get)
+			}
+
 			// Admin-only org invite management.
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdmin(database))
@@ -82,15 +91,17 @@ func setupV1Routes(
 				r.Delete("/orgs/current/invites/{id}", orgInviteHandler.Revoke)
 				r.Post("/orgs/current/invites/{id}/resend", orgInviteHandler.Resend)
 				if teamHandler != nil {
-					r.Get("/orgs/current/teams", teamHandler.List)
 					r.Post("/orgs/current/teams", teamHandler.Create)
-					r.Get("/orgs/current/teams/{id}", teamHandler.Get)
 					r.Patch("/orgs/current/teams/{id}", teamHandler.Update)
 					r.Delete("/orgs/current/teams/{id}", teamHandler.Archive)
 					r.Put("/orgs/current/teams/{id}/members/{userID}", teamHandler.PutMember)
 					r.Delete("/orgs/current/teams/{id}/members/{userID}", teamHandler.DeleteMember)
 				}
+
 			})
+
+			mountOrgMemberLifecycleRoutes(r, database)
+
 			r.Get("/usage", usageHandler.Get)
 			if dashboardHandler != nil {
 				r.Get("/dashboard", dashboardHandler.Get)
@@ -123,21 +134,26 @@ func setupV1Routes(
 			// enforced per app inside the handlers.
 			mountAppRoutes(r, database, appsHandler)
 
-			r.Get("/api-keys", apiKeyHandler.List)
 			// Escalation-sensitive: JWT callers must be org admins; API-key callers
 			// may only mint keys within their own scopes (APIKeyHandler.Create).
+			// The List leaks org-wide key inventory, so it is admin-gated too.
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+				r.Get("/api-keys", apiKeyHandler.List)
 				r.Post("/api-keys", apiKeyHandler.Create)
 				r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
 			})
 
-			mountBillingRoutes(r, billingHandler, subscriptionHandler)
+			mountBillingRoutes(r, database, billingHandler, subscriptionHandler)
 			if pluginHandler != nil {
 				r.Get("/plugins", pluginHandler.List)
 				r.Get("/plugins/{slug}", pluginHandler.Get)
-				r.Post("/plugins/{slug}/install", pluginHandler.Install)
-				r.Delete("/plugins/{slug}/install", pluginHandler.Uninstall)
+				// Installing/uninstalling an org plugin is an admin-only mutation.
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireOrgAdmin(database))
+					r.Post("/plugins/{slug}/install", pluginHandler.Install)
+					r.Delete("/plugins/{slug}/install", pluginHandler.Uninstall)
+				})
 			}
 			if slackChannelHandler != nil {
 				r.Get("/slack/channels", slackChannelHandler.ListChannels)
@@ -158,8 +174,9 @@ func setupV1Routes(
 					r.Post("/channels/{id}/environment-variables", channelHandler.CreateChannelEnvironmentVariable)
 					r.Patch("/channels/{id}/environment-variables/{name}", channelHandler.UpdateChannelEnvironmentVariable)
 					r.Delete("/channels/{id}/environment-variables/{name}", channelHandler.DeleteChannelEnvironmentVariable)
+					// Channel RAG grants are team-derived now (team-provisioning owns
+					// /teams/{teamID}/rag-sources); the PUT grant route was removed.
 					r.Get("/channels/{id}/rag-sources", channelHandler.ListChannelRAGSources)
-					r.Put("/channels/{id}/rag-sources", channelHandler.SetChannelRAGSources)
 					r.Get("/channels/{id}/agents", channelHandler.ListChannelAgents)
 					r.Post("/channels/{id}/agents", channelHandler.AssignChannelAgent)
 					r.Delete("/channels/{id}/agents/{agentID}", channelHandler.UnassignChannelAgent)
@@ -191,9 +208,11 @@ func setupV1Routes(
 			r.Group(func(r chi.Router) {
 				// Escalation-sensitive (as credentials above): admin-gate JWT, allow keys.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("tokens"))
-				r.Get("/tokens", tokenHandler.List)
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+					// List leaks org-wide minted-token inventory: admin-gate it
+					// alongside mint/revoke (API keys with scope still pass).
+					r.Get("/tokens", tokenHandler.List)
 					r.Post("/tokens", tokenHandler.Mint)
 					r.Delete("/tokens/{jti}", tokenHandler.Revoke)
 				})
@@ -211,17 +230,7 @@ func setupV1Routes(
 						r.Delete("/database-integrations/{id}", databaseIntegrationHandler.Revoke)
 					})
 				}
-				r.Route("/sandbox-templates", func(r chi.Router) {
-					r.Post("/", sandboxTemplateHandler.Create)
-					r.Get("/", sandboxTemplateHandler.List)
-					r.Get("/public", sandboxTemplateHandler.ListPublic)
-					r.Get("/{id}/build-events", sandboxTemplateHandler.BuildEvents)
-					r.Get("/{id}", sandboxTemplateHandler.Get)
-					r.Put("/{id}", sandboxTemplateHandler.Update)
-					r.Delete("/{id}", sandboxTemplateHandler.Delete)
-					r.Post("/{id}/build", sandboxTemplateHandler.TriggerBuild)
-					r.Post("/{id}/retry", sandboxTemplateHandler.RetryBuild)
-				})
+				mountSandboxTemplateRoutes(r, database, sandboxTemplateHandler)
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
 				triggerOptions := []handler.TriggerHandlerOption{handler.WithTriggerWebhookBaseURL(cfg.APIWebhookBaseURL)}
 				if slackChannelHandler != nil {
@@ -246,19 +255,23 @@ func setupV1Routes(
 					r.Get("/schedules/{id}", scheduleHandler.Get)
 					r.Get("/agents/{id}/trigger-deliveries", triggerDeliveryHandler.List)
 					r.Get("/agents/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
+					// Agent create/update/archive are TEAM-MEMBER actions: the handlers
+					// enforce that the actor can manage the target team
+					// (resolveAndAuthorizeAgentTeam / authorizeAgentMutation), so these
+					// routes are intentionally NOT admin-gated.
+					r.Post("/agents", agentHandler.Create)
+					r.Patch("/agents/{id}", agentHandler.Update)
+					r.Delete("/agents/{id}", agentHandler.Archive)
+					r.Post("/triggers", triggerHandler.Create)
+					r.Post("/schedules", scheduleHandler.Create)
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
-						r.Post("/agents", agentHandler.Create)
 						r.Post("/agents/catalog/{slug}/install", agentHandler.InstallCatalog)
 						r.Delete("/agents/catalog/{slug}/install", agentHandler.UninstallCatalog)
-						r.Patch("/agents/{id}", agentHandler.Update)
-						r.Delete("/agents/{id}", agentHandler.Archive)
 						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
 						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
-						r.Post("/triggers", triggerHandler.Create)
 						r.Patch("/triggers/{id}", triggerHandler.Update)
 						r.Delete("/triggers/{id}", triggerHandler.Delete)
-						r.Post("/schedules", scheduleHandler.Create)
 						r.Patch("/schedules/{id}", scheduleHandler.Update)
 						r.Delete("/schedules/{id}", scheduleHandler.Delete)
 					})

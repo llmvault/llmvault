@@ -33,9 +33,12 @@ func TestGetSourceChannels_ActorScopedVisibility(t *testing.T) {
 	if err := db.Create(&src).Error; err != nil {
 		t.Fatalf("seed rag source: %v", err)
 	}
+	// Grants are team-derived now: granting the source to a channel's team makes
+	// that channel a searcher of the source. teamA backs visibleCh (member sees
+	// it), teamB backs hiddenCh (only admin sees it).
 	grants := []any{
-		&model.ChannelRagSource{OrgID: fx.org.ID, ChannelID: fx.visibleCh.ID, RagSourceID: src.ID},
-		&model.ChannelRagSource{OrgID: fx.org.ID, ChannelID: fx.hiddenCh.ID, RagSourceID: src.ID},
+		&model.TeamRagSource{OrgID: fx.org.ID, TeamID: *fx.visibleCh.TeamID, RagSourceID: src.ID},
+		&model.TeamRagSource{OrgID: fx.org.ID, TeamID: *fx.hiddenCh.TeamID, RagSourceID: src.ID},
 	}
 	for _, g := range grants {
 		if err := db.Create(g).Error; err != nil {
@@ -43,7 +46,7 @@ func TestGetSourceChannels_ActorScopedVisibility(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() {
-		db.Where("rag_source_id = ?", src.ID).Delete(&model.ChannelRagSource{})
+		db.Where("rag_source_id = ?", src.ID).Delete(&model.TeamRagSource{})
 		db.Where("id = ?", src.ID).Delete(&ragmodel.RAGSource{})
 	})
 

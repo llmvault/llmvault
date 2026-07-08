@@ -173,6 +173,11 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	if err != nil {
 		return model.AgentTrigger{}, provider, status, message, err
 	}
+	// Binding a trigger to this channel is a manage-the-team action, not merely
+	// use-the-channel: gate it on the caller managing the channel's team.
+	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, orgID, channelID); mErr != nil {
+		return model.AgentTrigger{}, provider, mStatus, mMessage, mErr
+	}
 
 	var trigger model.AgentTrigger
 	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {

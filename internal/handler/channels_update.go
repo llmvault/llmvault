@@ -64,7 +64,7 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		channel.TeamID = teamID
 	}
 	if req.DefaultAgentID != nil {
-		agentID, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, req.DefaultAgentID)
+		agentID, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, channel.TeamID, req.DefaultAgentID)
 		if !ok {
 			return false
 		}

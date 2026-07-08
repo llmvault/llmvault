@@ -36,8 +36,8 @@ func VisibleAgentIDsSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *g
 		Joins("JOIN channels ON channels.id = channel_agents.channel_id").
 		Where("channel_agents.org_id = ?", orgID).
 		Where("channels.kind <> ?", "system").
-		Where("channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?)",
-			"external", visibleTeamSubquery(db, userID))
+		Where("(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"private", "external", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
 }
 
 // VisibleChannelIDsSubquery yields the ids of channels the given user is allowed
@@ -60,8 +60,8 @@ func VisibleChannelIDsSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) 
 	return db.Model(&model.Channel{}).
 		Select("channels.id").
 		Where("channels.org_id = ?", orgID).
-		Where("channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?)",
-			"external", visibleTeamSubquery(db, userID))
+		Where("(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"private", "external", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
 }
 
 // visibleTeamSubquery is an exact copy of handler.visibleTeamSubquery. It lives
@@ -75,4 +75,15 @@ func visibleTeamSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
 		return q.Where("1 = 0")
 	}
 	return q.Where("team_members.user_id = ?", *userID)
+}
+
+// memberChannelIDSubquery yields the ids of channels the given user is an
+// explicit member of, re-admitting private channels excluded by the team-scoped
+// predicate above. Mirror of handler.memberChannelIDSubquery.
+func memberChannelIDSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
+	q := db.Model(&model.ChannelMember{}).Select("channel_id")
+	if userID == nil {
+		return q.Where("1 = 0")
+	}
+	return q.Where("user_id = ?", *userID)
 }

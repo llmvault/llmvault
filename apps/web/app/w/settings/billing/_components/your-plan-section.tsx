@@ -1,9 +1,10 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Button, Skeleton, Spinner } from "@heroui/react"
+import { Button, Skeleton, Spinner, Tooltip } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
+import { useIsOwner } from "@/lib/auth/use-role"
 import type { components } from "@/lib/api/schema"
 import { formatCreditsWithUsage } from "./credit-value"
 
@@ -22,6 +23,7 @@ function formatMoney(minor: number | undefined | null, currency?: string) {
 
 export function YourPlanSection() {
   const router = useRouter()
+  const isOwner = useIsOwner()
   const { plans, activeOrg, isLoading: authLoading } = useAuth()
   const subscriptionQuery = $api.useQuery("get", "/v1/billing/subscription")
 
@@ -74,16 +76,43 @@ export function YourPlanSection() {
             </>
           )}
         </div>
-        <Button
-          variant="tertiary"
-          size="sm"
-          isDisabled={isLoading}
+        <ViewPlansButton
+          isLoading={isLoading}
+          isOwner={isOwner}
           onPress={() => router.push("/w/billing/plans")}
-        >
-          {isLoading ? <Spinner color="current" size="sm" /> : null}
-          View plans
-        </Button>
+        />
       </div>
     </section>
+  )
+}
+
+function ViewPlansButton({
+  isLoading,
+  isOwner,
+  onPress,
+}: {
+  isLoading: boolean
+  isOwner: boolean
+  onPress: () => void
+}) {
+  const control = (
+    <Button
+      variant="tertiary"
+      size="sm"
+      isDisabled={isLoading || !isOwner}
+      onPress={onPress}
+    >
+      {isLoading ? <Spinner color="current" size="sm" /> : null}
+      View plans
+    </Button>
+  )
+  if (isOwner) return control
+  return (
+    <Tooltip delay={250} closeDelay={0}>
+      <Tooltip.Trigger className="flex shrink-0">{control}</Tooltip.Trigger>
+      <Tooltip.Content placement="left" offset={8} className="text-xs">
+        Only the workspace owner can manage the plan.
+      </Tooltip.Content>
+    </Tooltip>
   )
 }

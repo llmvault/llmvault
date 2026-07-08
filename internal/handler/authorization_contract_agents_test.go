@@ -1,0 +1,155 @@
+package handler_test
+
+import (
+	"net/http"
+	"testing"
+)
+
+// TestAuthorizationContract_AgentCRUD covers matrix area 2 against the SHIPPED
+// router. Agent Create/Update/Archive were relaxed out of the RequireOrgAdmin
+// group (alongside triggers/schedules); the agent handlers now enforce
+// team-primary authorization themselves. The integration truth this locks in:
+//   - a member may CRUD an agent in a team they belong to (200/201);
+//   - a member targeting a foreign team, or a foreign-team agent, is denied (403);
+//   - an unassigned (no team_id) create by a plain member is manager-only (403);
+//   - an org manager (admin/owner) or API key may act in any team, or with none.
+func TestAuthorizationContract_AgentCRUD(t *testing.T) {
+	db := connectTestDB(t)
+	w := seedAuthzWorld(t, db)
+	router := buildAuthzRouter(db)
+
+	// --- Create -------------------------------------------------------------
+	// Denied: M1 into a foreign team, M2 into T1 (not theirs), and a plain
+	// member with no team (unassigned agents are manager-only).
+	denyCreate := []struct {
+		name string
+		cl   caller
+		body map[string]any
+	}{
+		{"m1-foreign-team", w.callerM1(), map[string]any{"name": "x", "team_id": w.t2.ID.String()}},
+		{"m2-t1", w.callerM2(), map[string]any{"name": "x", "team_id": w.t1.ID.String()}},
+		{"m1-no-team", w.callerM1(), map[string]any{"name": "x"}},
+	}
+	for _, tc := range denyCreate {
+		if rr := authzReq(router, w, tc.cl, http.MethodPost, "/v1/agents", tc.body); rr.Code != http.StatusForbidden {
+			t.Fatalf("agent.create %s: got %d want 403; body=%s", tc.name, rr.Code, rr.Body.String())
+		}
+	}
+
+	// Allowed: M1 in their OWN team, and managers anywhere / with no team.
+	allowCreate := []struct {
+		name string
+		cl   caller
+		body map[string]any
+	}{
+		{"m1-own-team", w.callerM1(), map[string]any{"name": "m1a", "team_id": w.t1.ID.String()}},
+		{"admin-t1", w.callerA(), map[string]any{"name": "a1", "team_id": w.t1.ID.String()}},
+		{"owner-t2", w.callerO(), map[string]any{"name": "a2", "team_id": w.t2.ID.String()}},
+		{"admin-no-team", w.callerA(), map[string]any{"name": "a3"}},
+	}
+	for _, tc := range allowCreate {
+		if rr := authzReq(router, w, tc.cl, http.MethodPost, "/v1/agents", tc.body); rr.Code != http.StatusCreated {
+			t.Fatalf("agent.create %s: got %d want 201; body=%s", tc.name, rr.Code, rr.Body.String())
+		}
+	}
+
+	// --- Update -------------------------------------------------------------
+	patchT1 := "/v1/agents/" + w.agentT1.ID.String()
+	patchT2 := "/v1/agents/" + w.agentT2.ID.String()
+	// Denied: M2 on a T1 agent, M1 on a T2 (foreign) agent.
+	if rr := authzReq(router, w, w.callerM2(), http.MethodPatch, patchT1, map[string]any{"description": "edit"}); rr.Code != http.StatusForbidden {
+		t.Fatalf("m2 agent.update t1: got %d want 403; body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := authzReq(router, w, w.callerM1(), http.MethodPatch, patchT2, map[string]any{"description": "edit"}); rr.Code != http.StatusForbidden {
+		t.Fatalf("m1 agent.update foreign-team: got %d want 403; body=%s", rr.Code, rr.Body.String())
+	}
+	// Allowed: M1 on their OWN team agent, and managers on either team.
+	if rr := authzReq(router, w, w.callerM1(), http.MethodPatch, patchT1, map[string]any{"description": "edit"}); rr.Code != http.StatusOK {
+		t.Fatalf("m1 agent.update own-team: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := authzReq(router, w, w.callerA(), http.MethodPatch, patchT1, map[string]any{"description": "edit2"}); rr.Code != http.StatusOK {
+		t.Fatalf("admin agent.update: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := authzReq(router, w, w.callerO(), http.MethodPatch, patchT2, map[string]any{"description": "edit"}); rr.Code != http.StatusOK {
+		t.Fatalf("owner agent.update: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+
+	// --- Archive ------------------------------------------------------------
+	// Denied: M2 on a T1 agent, M1 on a T2 (foreign) agent.
+	if rr := authzReq(router, w, w.callerM2(), http.MethodDelete, "/v1/agents/"+w.agentT1.ID.String(), nil); rr.Code != http.StatusForbidden {
+		t.Fatalf("m2 agent.archive t1: got %d want 403; body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := authzReq(router, w, w.callerM1(), http.MethodDelete, "/v1/agents/"+w.agentT2.ID.String(), nil); rr.Code != http.StatusForbidden {
+		t.Fatalf("m1 agent.archive foreign-team: got %d want 403; body=%s", rr.Code, rr.Body.String())
+	}
+	// Allowed: M1 archives an unassigned-to-channel T1 agent they own; managers
+	// archive the remaining team agents. Each target is archived exactly once.
+	if rr := authzReq(router, w, w.callerM1(), http.MethodDelete, "/v1/agents/"+w.agentT1b.ID.String(), nil); rr.Code != http.StatusOK {
+		t.Fatalf("m1 agent.archive own-team: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := authzReq(router, w, w.callerA(), http.MethodDelete, "/v1/agents/"+w.agentT1.ID.String(), nil); rr.Code != http.StatusOK {
+		t.Fatalf("admin agent.archive: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := authzReq(router, w, w.callerO(), http.MethodDelete, "/v1/agents/"+w.agentT2.ID.String(), nil); rr.Code != http.StatusOK {
+		t.Fatalf("owner agent.archive: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestAuthorizationContract_AgentPluginBounding covers matrix area 3: enabling a
+// plugin on an agent is a member-reachable route whose HANDLER enforces (a) the
+// actor manages the agent's team, and (b) the plugin is within the agent's
+// team's grant. M1 (T1 member) may enable a T1-granted plugin on a T1 agent
+// (200); enabling a plugin NOT granted to T1 is bounded to 422; M2 (foreign
+// team) is denied managing the T1 agent's plugins (403).
+func TestAuthorizationContract_AgentPluginBounding(t *testing.T) {
+	db := connectTestDB(t)
+	w := seedAuthzWorld(t, db)
+	router := buildAuthzRouter(db)
+
+	granted := "/v1/agents/" + w.agentT1.ID.String() + "/plugins/" + w.pluginGranted.Slug
+	ungranted := "/v1/agents/" + w.agentT1.ID.String() + "/plugins/" + w.pluginUngranted.Slug
+
+	// M2 may not manage a T1 agent's plugins. The agent is not even visible to a
+	// foreign-team member, so the route resolves it to 404 (indistinguishable from
+	// nonexistent) — a tighter denial than a bare 403.
+	if rr := authzReq(router, w, w.callerM2(), http.MethodPost, granted, nil); rr.Code != http.StatusNotFound {
+		t.Fatalf("m2 enable-on-t1-agent: got %d want 404 (agent not visible); body=%s", rr.Code, rr.Body.String())
+	}
+	// M1 may enable a plugin granted to the agent's team.
+	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, granted, nil); rr.Code != http.StatusOK {
+		t.Fatalf("m1 enable granted plugin: got %d want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	// A plugin NOT granted to the agent's team is bounded to 422.
+	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, ungranted, nil); rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("m1 enable ungranted plugin: got %d want 422; body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestAuthorizationContract_ChannelAgentAssignment covers matrix area 4: a team
+// member may assign a same-team agent to a same-team channel (201), a cross-team
+// agent is refused by the team-consistency rule (422), and a member of another
+// team cannot manage the channel's agents at all (403). The same team-consistency
+// predicate governs setting a channel's cross-team default agent.
+func TestAuthorizationContract_ChannelAgentAssignment(t *testing.T) {
+	db := connectTestDB(t)
+	w := seedAuthzWorld(t, db)
+	router := buildAuthzRouter(db)
+
+	path := "/v1/channels/" + w.chT1.ID.String() + "/agents"
+
+	// M2 is not a member of chT1's team -> cannot manage its agents.
+	if rr := authzReq(router, w, w.callerM2(), http.MethodPost, path,
+		map[string]any{"agent_id": w.agentT1b.ID.String()}); rr.Code != http.StatusForbidden {
+		t.Fatalf("m2 assign to chT1: got %d want 403; body=%s", rr.Code, rr.Body.String())
+	}
+	// M1 assigns a cross-team (T2) agent to a T1 channel -> 422.
+	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, path,
+		map[string]any{"agent_id": w.agentT2.ID.String()}); rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("m1 assign cross-team agent: got %d want 422; body=%s", rr.Code, rr.Body.String())
+	}
+	// M1 assigns a same-team (T1) agent to the T1 channel -> 201.
+	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, path,
+		map[string]any{"agent_id": w.agentT1b.ID.String()}); rr.Code != http.StatusCreated {
+		t.Fatalf("m1 assign same-team agent: got %d want 201; body=%s", rr.Code, rr.Body.String())
+	}
+}

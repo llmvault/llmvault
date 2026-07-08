@@ -11,10 +11,32 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/slackapp"
 )
+
+// withTriggerManager attaches an org-admin (manager) caller to req: creating a
+// trigger/schedule is a manage-the-channel's-team action, and deleting one is
+// actor-gated, so these handler tests need a real caller identity. Seeds a fresh
+// admin membership and sets both the user and JWT-claim contexts.
+func withTriggerManager(t *testing.T, db *gorm.DB, req *http.Request, orgID uuid.UUID) *http.Request {
+	t.Helper()
+	u := model.User{ID: uuid.New(), Email: "tmgr-" + uuid.NewString()[:8] + "@t.com", Name: "tmgr"}
+	if err := db.Create(&u).Error; err != nil {
+		t.Fatalf("seed trigger manager user: %v", err)
+	}
+	if err := db.Create(&model.OrgMembership{UserID: u.ID, OrgID: orgID, Role: "admin"}).Error; err != nil {
+		t.Fatalf("seed trigger manager membership: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("org_id = ? AND user_id = ?", orgID, u.ID).Delete(&model.OrgMembership{})
+		db.Where("id = ?", u.ID).Delete(&model.User{})
+	})
+	req = middleware.WithUser(req, &u)
+	return middleware.WithAuthClaims(req, &auth.AuthClaims{UserID: u.ID.String(), OrgID: orgID.String()})
+}
 
 type fakeTriggerProvisioner struct {
 	calls []ChannelExternalProvisionRequest
@@ -44,6 +66,7 @@ func TestTriggerHandlerCreateSlackReactionTrigger(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Create(rr, req)
@@ -105,6 +128,7 @@ func TestTriggerHandlerCreateSlackReactionTriggerReusesExternalChannel(t *testin
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Create(rr, req)
@@ -153,6 +177,7 @@ func TestTriggerHandlerCreateSlackReactionTriggerProvisionFailure(t *testing.T) 
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/triggers", bytes.NewReader(body))
 	req = middleware.WithOrg(req, &org)
+	req = withTriggerManager(t, db, req, org.ID)
 	rr := httptest.NewRecorder()
 
 	NewTriggerHandler(db, WithTriggerExternalProvisioner(provisioner)).Create(rr, req)

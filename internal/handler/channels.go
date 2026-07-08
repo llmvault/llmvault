@@ -72,11 +72,16 @@ type channelResponse struct {
 	// MemoryMission is the channel's stored mission; empty means the channel
 	// follows DefaultMemoryMission (the curated template for its category,
 	// empty for 'general'), which is what extraction actually uses then.
-	MemoryMission            string             `json:"memory_mission"`
-	DefaultMemoryMission     string             `json:"default_memory_mission"`
-	Kind                     string             `json:"kind"`
-	Visibility               string             `json:"visibility"`
-	TeamID                   *string            `json:"team_id,omitempty"`
+	MemoryMission        string  `json:"memory_mission"`
+	DefaultMemoryMission string  `json:"default_memory_mission"`
+	Kind                 string  `json:"kind"`
+	Visibility           string  `json:"visibility"`
+	TeamID               *string `json:"team_id,omitempty"`
+	// TeamName is the display name of the channel's owning team (empty for
+	// team-less channels). Lets the non-admin sidebar label team groups without
+	// a second round-trip; both managers and members receive the name of teams
+	// their visible channels belong to.
+	TeamName                 string             `json:"team_name,omitempty"`
 	DefaultAgentID           string             `json:"default_agent_id"`
 	ImageModel               string             `json:"image_model"`
 	VectorImageModel         string             `json:"vector_image_model"`

@@ -17,6 +17,7 @@ import (
 
 type agentMutationRequest struct {
 	Name                   *string                `json:"name,omitempty"`
+	TeamID                 *string                `json:"team_id,omitempty"`
 	Description            *string                `json:"description,omitempty"`
 	Instructions           *string                `json:"instructions,omitempty"`
 	AvatarURL              *string                `json:"avatar_url,omitempty"`
@@ -77,6 +78,14 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	name := cleanStringPtr(req.Name)
 	if name == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
+		return
+	}
+	// Agent create is a team-member action: the agent is owned by a team and the
+	// actor must be able to manage that team (org managers may target any team; a
+	// missing team_id is manager-only). This handler gate is the real
+	// authorization — the route is member-reachable.
+	teamID, ok := h.resolveAndAuthorizeAgentTeam(ctx, w, org.ID, req.TeamID)
+	if !ok {
 		return
 	}
 	modelID := cleanStringPtr(req.Model)
@@ -153,6 +162,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	avatarURL := cleanStringPtr(req.AvatarURL)
 	agent := model.Agent{
 		OrgID:                  &org.ID,
+		TeamID:                 teamID,
 		Name:                   name,
 		Description:            &desc,
 		Instructions:           &instructions,

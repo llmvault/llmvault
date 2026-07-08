@@ -45,7 +45,9 @@ type teamDetailResponse struct {
 }
 
 // @Summary List teams
-// @Description Returns active teams for the current organization. Admin-only.
+// @Description Returns the active teams visible to the caller. Org managers and
+// @Description API keys see every team in the organization; a plain member sees
+// @Description only the teams they are an active member of.
 // @Tags teams
 // @Produce json
 // @Param limit query int false "Maximum results to return"
@@ -66,8 +68,17 @@ func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
+	orgWide, userID, err := actorSeesOrgWide(r.Context(), h.db, org.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list teams"})
+		return
+	}
 	q := h.db.WithContext(r.Context()).
 		Where("org_id = ? AND archived_at IS NULL", org.ID)
+	if !orgWide {
+		// A plain member sees only the teams they actively belong to.
+		q = q.Where("id IN (?)", visibleTeamSubquery(h.db, userID))
+	}
 	q = applyPagination(q, cursor, limit)
 
 	var teams []model.Team
@@ -137,7 +148,8 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Get a team
-// @Description Returns one active team and its members. Admin-only.
+// @Description Returns one active team and its members. Visible to org managers,
+// @Description API keys, and members of that team; other members receive 404.
 // @Tags teams
 // @Produce json
 // @Param id path string true "Team ID"

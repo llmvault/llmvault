@@ -11,29 +11,48 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, raw *string) (uuid.UUID, bool) {
+// resolveDefaultAgentID resolves the channel's default agent — either the caller
+// supplied one (raw) or the org's default agent — and enforces that a
+// team-scoped channel's default agent belongs to the same team. The default
+// agent is auto-assigned to the channel (channel_agents) by virtue of being the
+// default, so it must clear the same same-team gate AssignChannelAgent applies;
+// otherwise picking a cross-team default agent would bypass that check. teamID
+// is the channel's (would-be) team; the cross-team rule applies only when both
+// the channel and the agent are team-scoped (both non-null).
+func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, teamID *uuid.UUID, raw *string) (uuid.UUID, bool) {
+	var agent model.Agent
 	if raw != nil {
 		agentID, err := uuid.Parse(cleanStringPtr(raw))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_agent_id must be a uuid"})
 			return uuid.Nil, false
 		}
-		if !h.agentBelongsToOrg(ctx, orgID, agentID) {
+		err = h.db.WithContext(ctx).
+			Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
+			First(&agent).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_agent_id must belong to an active agent in this org"})
 			return uuid.Nil, false
 		}
-		return agentID, true
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load default agent"})
+			return uuid.Nil, false
+		}
+	} else {
+		err := h.db.WithContext(ctx).
+			Where("org_id = ? AND is_default = ? AND status <> ? AND parent_agent_id IS NULL", orgID, true, "archived").
+			First(&agent).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_agent_id is required"})
+			return uuid.Nil, false
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load default agent"})
+			return uuid.Nil, false
+		}
 	}
-	var agent model.Agent
-	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND is_default = ? AND status <> ? AND parent_agent_id IS NULL", orgID, true, "archived").
-		First(&agent).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default_agent_id is required"})
-		return uuid.Nil, false
-	}
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load default agent"})
+	if teamID != nil && agent.TeamID != nil && *teamID != *agent.TeamID {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "default agent belongs to a different team than this channel"})
 		return uuid.Nil, false
 	}
 	return agent.ID, true
@@ -65,17 +84,6 @@ func (h *ChannelHandler) resolveTeamID(ctx context.Context, w http.ResponseWrite
 		return nil, false
 	}
 	return &teamID, true
-}
-
-func (h *ChannelHandler) agentBelongsToOrg(ctx context.Context, orgID, agentID uuid.UUID) bool {
-	var count int64
-	if err := h.db.WithContext(ctx).
-		Model(&model.Agent{}).
-		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
-		Count(&count).Error; err != nil {
-		return false
-	}
-	return count == 1
 }
 
 func (h *ChannelHandler) memberCount(ctx context.Context, channelID uuid.UUID) int64 {

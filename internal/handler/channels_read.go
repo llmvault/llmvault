@@ -59,7 +59,9 @@ func (h *ChannelHandler) List(w http.ResponseWriter, r *http.Request) {
 		Model(&model.Channel{}).
 		Where("org_id = ? AND archived_at IS NULL", org.ID)
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
-		q = q.Where("origin = ? OR team_id IS NULL OR team_id IN (?)", "external", visibleTeamSubquery(h.db, userID))
+		q = q.Where(
+			"(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"private", "external", visibleTeamSubquery(h.db, userID), memberChannelIDSubquery(h.db, userID))
 	}
 	q = applyPagination(q, cursor, limit)
 
@@ -102,10 +104,58 @@ func (h *ChannelHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	resp := channelToResponse(channel, role, h.memberCount(ctx, channel.ID))
+	if channel.TeamID != nil {
+		resp.TeamName = h.teamNamesForChannels(ctx, []model.Channel{channel})[*channel.TeamID]
+	}
 	writeJSON(w, http.StatusOK, channelDetailResponse{
-		Channel: channelToResponse(channel, role, h.memberCount(ctx, channel.ID)),
+		Channel: resp,
 		Members: h.channelMembers(ctx, channel.ID),
 	})
+}
+
+// canCreateChannelInTeam reports whether the caller may create a channel bound
+// to teamID (nil = team-less). Reuses the channel-management predicate probed
+// against the would-be channel's team: API keys and org managers always may; a
+// non-manager must be an active member of the target team, and may never create
+// a team-less channel.
+func (h *ChannelHandler) canCreateChannelInTeam(ctx context.Context, orgID uuid.UUID, teamID *uuid.UUID) bool {
+	userID, _ := currentRequestUserID(ctx)
+	orgRole, _ := h.currentUserOrgRole(ctx, orgID, userID)
+	return canManageChannel(ctx, h.db, model.Channel{OrgID: orgID, TeamID: teamID}, userID, orgRole, isAPIKeyRequest(ctx))
+}
+
+// teamNamesForChannels resolves display names for the (unarchived) teams that
+// own the given channels, keyed by team id. Team-less channels contribute
+// nothing. One query regardless of channel count.
+func (h *ChannelHandler) teamNamesForChannels(ctx context.Context, channels []model.Channel) map[uuid.UUID]string {
+	ids := make([]uuid.UUID, 0, len(channels))
+	seen := map[uuid.UUID]struct{}{}
+	for _, c := range channels {
+		if c.TeamID == nil {
+			continue
+		}
+		if _, dup := seen[*c.TeamID]; dup {
+			continue
+		}
+		seen[*c.TeamID] = struct{}{}
+		ids = append(ids, *c.TeamID)
+	}
+	out := map[uuid.UUID]string{}
+	if len(ids) == 0 {
+		return out
+	}
+	var teams []model.Team
+	if err := h.db.WithContext(ctx).
+		Select("id", "name").
+		Where("id IN ? AND archived_at IS NULL", ids).
+		Find(&teams).Error; err != nil {
+		return out
+	}
+	for _, t := range teams {
+		out[t.ID] = t.Name
+	}
+	return out
 }
 
 func (h *ChannelHandler) memberChannelSubquery(userID *uuid.UUID) *gorm.DB {
@@ -159,6 +209,7 @@ func (h *ChannelHandler) channelListResponses(ctx context.Context, channels []mo
 	}
 	counts := h.memberCounts(ctx, ids)
 	roles := h.channelRoles(ctx, ids, userID)
+	teamNames := h.teamNamesForChannels(ctx, channels)
 	recent := map[uuid.UUID]channelRecentSessions{}
 	if includeRecentSessions {
 		recent = h.recentSessionsByChannel(ctx, ids, userID, recentSessionsLimit)
@@ -166,6 +217,9 @@ func (h *ChannelHandler) channelListResponses(ctx context.Context, channels []mo
 	out := make([]channelResponse, len(channels))
 	for i, channel := range channels {
 		out[i] = channelToResponse(channel, roles[channel.ID], counts[channel.ID])
+		if channel.TeamID != nil {
+			out[i].TeamName = teamNames[*channel.TeamID]
+		}
 		if includeRecentSessions {
 			recentForChannel := recent[channel.ID]
 			out[i].RecentSessions = &recentForChannel.Sessions

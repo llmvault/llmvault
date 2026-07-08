@@ -22,7 +22,6 @@ import { $api } from "@/lib/api/hooks"
 import { CHANNEL_CATEGORIES, channelMemorySettings } from "@/lib/api/memory"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
 import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
-import { KnowledgeSourcesTab } from "./_knowledge-sources-tab"
 import { AgentsTab } from "./_agents-tab"
 
 type ChannelMember = {
@@ -32,15 +31,9 @@ type ChannelMember = {
   role?: string
 }
 
-type ChannelTab = "channel" | "agents" | "members" | "knowledge" | "env"
+type ChannelTab = "channel" | "agents" | "members" | "env"
 
-const CHANNEL_TABS: ChannelTab[] = [
-  "channel",
-  "agents",
-  "members",
-  "knowledge",
-  "env",
-]
+const CHANNEL_TABS: ChannelTab[] = ["channel", "agents", "members", "env"]
 
 function toChannelTab(raw: string | null): ChannelTab {
   return CHANNEL_TABS.includes(raw as ChannelTab)
@@ -241,11 +234,6 @@ export default function ChannelDetailPage({
           onClick={() => setTab("members")}
         />
         <TabButton
-          active={tab === "knowledge"}
-          label="Knowledge sources"
-          onClick={() => setTab("knowledge")}
-        />
-        <TabButton
           active={tab === "env"}
           label="Environment variables"
           onClick={() => setTab("env")}
@@ -283,8 +271,6 @@ export default function ChannelDetailPage({
         />
       ) : tab === "members" ? (
         <MembersTab members={members} />
-      ) : tab === "knowledge" ? (
-        <KnowledgeSourcesTab channelId={id} />
       ) : (
         <ChannelEnvironmentVariablesPanel channelId={id} />
       )}
