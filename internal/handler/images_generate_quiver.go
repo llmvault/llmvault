@@ -9,6 +9,8 @@ import (
 	"github.com/usehivy/hivy/internal/quiver"
 )
 
+const quiverUSDPerCredit = 0.01
+
 func (h *UploadsHandler) callQuiverImages(ctx context.Context, cred *model.Credential, apiKey, upstreamModel, prompt, _ string, count int, references []imageGenerationReference, vectorize bool) ([]generatedImageBytes, imageGenerationUsage, error) {
 	refs, err := quiverImageReferences(references)
 	if err != nil {
@@ -64,6 +66,7 @@ func (h *UploadsHandler) callQuiverImages(ctx context.Context, cred *model.Crede
 	if len(out) == 0 {
 		return nil, imageGenerationUsage{}, fmt.Errorf("quiver returned an empty svg")
 	}
+	usage.Cost = imageGenerationCreditCostUSD(usage.CreditsUsed, quiverUSDPerCredit)
 	return out, usage, nil
 }
 

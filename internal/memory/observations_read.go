@@ -121,7 +121,7 @@ func (s *Service) SearchObservations(ctx context.Context, req SearchRequest) ([]
 	vector := req.QueryVector
 	if len(vector) == 0 {
 		var err error
-		vector, err = s.EmbedQuery(ctx, req.Query)
+		vector, err = s.EmbedQuery(ctx, req.OrgID, req.Query)
 		if err != nil {
 			return nil, err
 		}

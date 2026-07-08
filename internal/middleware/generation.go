@@ -18,6 +18,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/observe"
+	"github.com/usehivy/hivy/internal/providerheaders"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -249,6 +250,11 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 	}
 
 	gen.Cost = calculateCost(reg, providerID, captured.Model, captured.Usage)
+
+	if captured.GenerationID != "" && providerheaders.IsOpenRouter(providerID, "") {
+		id := captured.GenerationID
+		gen.OpenRouterGenerationID = &id
+	}
 
 	extractAttribution(db, claims.JTI, &gen)
 

@@ -163,7 +163,7 @@ func (h *MemoryConsolidationHandler) embedObservation(
 	svc *memory.Service,
 	obs *model.AgentObservation,
 ) ([]float32, error) {
-	vectors, err := svc.EmbedContents(ctx, []string{obs.Content})
+	vectors, err := svc.EmbedContents(ctx, obs.OrgID, []string{obs.Content})
 	if err != nil {
 		if enqueueErr := EnqueueObservationEmbed(ctx, h.enqueuer, obs.ID, obs.EmbeddingRevision); enqueueErr != nil {
 			return nil, errors.Join(err, enqueueErr)

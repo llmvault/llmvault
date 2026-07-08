@@ -40,6 +40,8 @@ type Generation struct {
 	IPAddress *string   `gorm:"type:inet" json:"ip_address,omitempty"`
 	CreatedAt time.Time `gorm:"not null;index:idx_gen_org_created" json:"created_at"`
 
+	OpenRouterGenerationID *string `gorm:"column:openrouter_generation_id" json:"openrouter_generation_id,omitempty"`
+
 	IsSystem     bool       `gorm:"default:false;not null" json:"is_system"`
 	BilledAt     *time.Time `json:"billed_at,omitempty"`
 	BillingError string     `gorm:"type:text" json:"billing_error,omitempty"`

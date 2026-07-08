@@ -24,7 +24,6 @@ const (
 	sessionTranscriptionProviderID     = "elevenlabs"
 	sessionTranscriptionTimeout        = 60 * time.Second
 	sessionTranscriptionMaxAudioBytes  = 25 * 1024 * 1024
-	sessionTranscriptionCostPerHourUSD = 0.40
 )
 
 type transcribeSessionAudioRequest struct {

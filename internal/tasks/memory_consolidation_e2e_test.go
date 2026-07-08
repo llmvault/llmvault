@@ -15,14 +15,14 @@ import (
 
 type staticConsolidationEmbedder struct{}
 
-func (staticConsolidationEmbedder) Embed(_ context.Context, inputs []string) ([][]float32, error) {
+func (staticConsolidationEmbedder) Embed(_ context.Context, inputs []string) ([][]float32, int, error) {
 	out := make([][]float32, len(inputs))
 	for i := range inputs {
 		vector := make([]float32, memory.DefaultEmbeddingDim)
 		vector[0] = 1
 		out[i] = vector
 	}
-	return out, nil
+	return out, 0, nil
 }
 
 // TestConsolidationConsumesAgentRetainedFacts proves the full pipeline for a

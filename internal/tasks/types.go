@@ -52,6 +52,9 @@ const (
 	TypeMemoryConsolidationSweep = "periodic:memory_consolidation_sweep"
 	// Nightly archive of observations whose expires_at has passed.
 	TypeMemoryObservationExpire = "periodic:memory_observation_expire"
+	// Backfills token usage on zero-usage OpenRouter system generations from the
+	// authoritative /api/v1/generation endpoint so they can be billed.
+	TypeGenerationReconcile = "periodic:generation_reconcile"
 
 	// On-demand task enqueued by the sweep for each due subscription.
 	TypeBillingRenewSubscription = "billing:renew_subscription"

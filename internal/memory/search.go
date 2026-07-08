@@ -22,7 +22,7 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]SearchHit, e
 	vector := req.QueryVector
 	if len(vector) == 0 {
 		var err error
-		vector, err = s.EmbedQuery(ctx, req.Query)
+		vector, err = s.EmbedQuery(ctx, req.OrgID, req.Query)
 		if err != nil {
 			return nil, err
 		}

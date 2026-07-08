@@ -9,9 +9,18 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+func imageGenerationCreditCostUSD(credits int, usdPerCredit float64) float64 {
+	cost := float64(credits) * usdPerCredit
+	if cost <= 0 {
+		return billing.CreditUSDValue
+	}
+	return cost
+}
 
 func (h *UploadsHandler) imageGenerationUsageSession(ctx context.Context, agent *model.Agent, sessionID *uuid.UUID) *model.Session {
 	if h == nil || h.db == nil || agent == nil || agent.OrgID == nil || sessionID == nil {

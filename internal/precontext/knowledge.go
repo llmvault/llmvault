@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 )
 
@@ -14,13 +15,20 @@ func (s *Service) fetchKnowledgeSection(ctx context.Context, req Request) (strin
 	if isNilValue(s.cfg.Searcher) || isNilValue(s.cfg.Embedder) || req.OrgID == uuid.Nil || strings.TrimSpace(req.Text) == "" {
 		return "", nil
 	}
-	vectors, err := s.cfg.Embedder.Embed(ctx, []string{req.Text})
+	vectors, tokens, err := s.cfg.Embedder.Embed(ctx, []string{req.Text})
 	if err != nil {
 		return "", fmt.Errorf("embed query: %w", err)
 	}
 	if len(vectors) == 0 {
 		return "", nil
 	}
+	billing.RecordEmbeddingUsage(ctx, s.cfg.DB, billing.EmbeddingUsage{
+		OrgID:       req.OrgID,
+		Model:       s.cfg.Embedder.Model(),
+		TotalTokens: tokens,
+		Operation:   billing.EmbeddingOperation,
+		RequestPath: "precontext.knowledge",
+	})
 	limit := uint32(5)
 	topK := limit
 	if s.cfg.Reranker != nil {

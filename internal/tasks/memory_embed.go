@@ -105,7 +105,7 @@ func (h *MemoryEmbedHandler) Handle(ctx context.Context, task *asynq.Task) error
 		EmbeddingModel: h.embeddingModel(),
 		EmbeddingDim:   h.embeddingDim(),
 	})
-	vector, err := service.EmbedMemoryContent(ctx, row.Content)
+	vector, err := service.EmbedMemoryContent(ctx, row.OrgID, row.Content)
 	if err != nil {
 		_ = service.MarkEmbeddingFailed(ctx, row.ID, row.EmbeddingRevision, err)
 		return err

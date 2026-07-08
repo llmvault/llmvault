@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
@@ -44,7 +45,7 @@ func (t *fakeSessionTranscriber) Transcribe(_ context.Context, req transcription
 func TestIntegration_SessionTranscribeAudio_ReturnsTranscript(t *testing.T) {
 	kms := newSystemTaskKMS(t)
 	reader := &fakeSessionAssetReader{data: []byte("fake webm audio")}
-	transcriber := &fakeSessionTranscriber{text: "Please summarize the launch plan.", durationSeconds: 90}
+	transcriber := &fakeSessionTranscriber{text: "Please summarize the launch plan.", durationSeconds: 3600}
 	h := newSessionHarnessWith(t, func(sh *handler.SessionHandler) {
 		sh.WithTranscription(kms, reader, transcriber, registry.Global())
 	})
@@ -114,14 +115,58 @@ func TestIntegration_SessionTranscribeAudio_ReturnsTranscript(t *testing.T) {
 	if !usageTask.Generation.IsSystem {
 		t.Fatalf("generation IsSystem = false, want true")
 	}
-	if usageTask.Generation.Cost <= 0 {
-		t.Fatalf("generation cost = %v, want positive", usageTask.Generation.Cost)
+	if usageTask.Generation.Cost != 0.22 {
+		t.Fatalf("generation cost = %v, want 0.22 for one hour at $0.22/hr", usageTask.Generation.Cost)
+	}
+	if credits := billing.CostUSDToCredits(usageTask.Generation.Cost); credits != 220 {
+		t.Fatalf("credits = %d, want 220 for one hour", credits)
 	}
 	if usageTask.SessionEvent == nil || usageTask.SessionEvent.EventType != "model_usage" {
 		t.Fatalf("missing model_usage session event: %+v", usageTask.SessionEvent)
 	}
 	if usageTask.SessionEvent.SessionID.String() != created.Session.ID {
 		t.Fatalf("session event session = %s, want %s", usageTask.SessionEvent.SessionID, created.Session.ID)
+	}
+}
+
+func TestIntegration_SessionTranscribeAudio_FloorsZeroDurationToOneCredit(t *testing.T) {
+	kms := newSystemTaskKMS(t)
+	reader := &fakeSessionAssetReader{data: []byte("fake webm audio")}
+	transcriber := &fakeSessionTranscriber{text: "ok", durationSeconds: 0}
+	h := newSessionHarnessWith(t, func(sh *handler.SessionHandler) {
+		sh.WithTranscription(kms, reader, transcriber, registry.Global())
+	})
+	fx := h.seed(t)
+	cred := seedSystemCredential(t, h.db, kms, "https://api.elevenlabs.test", "elevenlabs")
+	t.Cleanup(func() { h.db.Where("id = ?", cred.ID).Delete(&model.Credential{}) })
+	created := h.createSession(t, fx, fx.owner, "Start")
+	asset := seedSessionAudioAsset(t, h, fx, "voice.webm", "audio/webm", int64(len(reader.data)))
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/transcriptions", fx, fx.owner, map[string]any{
+		"drive_asset_id": asset.ID.String(),
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("transcribe status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var usageTask *tasks.ModelUsageWritePayload
+	for _, task := range h.enqueuer.Tasks() {
+		if task.TypeName != tasks.TypeModelUsageWrite {
+			continue
+		}
+		var payload tasks.ModelUsageWritePayload
+		if err := json.Unmarshal(task.Payload, &payload); err != nil {
+			t.Fatalf("decode model usage payload: %v", err)
+		}
+		usageTask = &payload
+	}
+	if usageTask == nil {
+		t.Fatalf("expected model usage task")
+	}
+	if usageTask.Generation.Cost != billing.CreditUSDValue {
+		t.Fatalf("generation cost = %v, want floored %v", usageTask.Generation.Cost, billing.CreditUSDValue)
+	}
+	if credits := billing.CostUSDToCredits(usageTask.Generation.Cost); credits != 1 {
+		t.Fatalf("credits = %d, want 1 (zero-usage floor)", credits)
 	}
 }
 

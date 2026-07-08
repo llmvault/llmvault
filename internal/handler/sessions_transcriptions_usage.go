@@ -13,7 +13,7 @@ func (h *SessionHandler) trackSessionTranscriptionUsage(ctx context.Context, ses
 	if cred == nil {
 		return
 	}
-	cost := sessionTranscriptionCostUSD(result.DurationSeconds)
+	cost := transcription.CostUSD(result.DurationSeconds)
 	payload := buildModelUsagePayload(modelUsageInput{
 		Operation:      "audio_transcription",
 		OrgID:          session.OrgID,
@@ -39,11 +39,4 @@ func (h *SessionHandler) trackSessionTranscriptionUsage(ctx context.Context, ses
 		},
 	})
 	dispatchModelUsage(ctx, h.db, h.enqueuer, payload)
-}
-
-func sessionTranscriptionCostUSD(durationSeconds float64) float64 {
-	if durationSeconds <= 0 {
-		return 0
-	}
-	return durationSeconds / 3600 * sessionTranscriptionCostPerHourUSD
 }

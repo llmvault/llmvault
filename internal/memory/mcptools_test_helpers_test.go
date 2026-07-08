@@ -192,15 +192,15 @@ type staticMemoryToolEmbedder struct {
 	vector []float32
 }
 
-func (e staticMemoryToolEmbedder) Embed(_ context.Context, inputs []string) ([][]float32, error) {
+func (e staticMemoryToolEmbedder) Embed(_ context.Context, inputs []string) ([][]float32, int, error) {
 	if len(inputs) == 0 {
-		return nil, fmt.Errorf("inputs are required")
+		return nil, 0, fmt.Errorf("inputs are required")
 	}
 	out := make([][]float32, len(inputs))
 	for i := range inputs {
 		out[i] = append([]float32(nil), e.vector...)
 	}
-	return out, nil
+	return out, 0, nil
 }
 
 func testMemoryVector() []float32 {

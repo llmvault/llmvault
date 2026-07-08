@@ -13,7 +13,19 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/billing"
 )
+
+const CostPerHourUSD = 0.22
+
+func CostUSD(durationSeconds float64) float64 {
+	cost := durationSeconds / 3600 * CostPerHourUSD
+	if cost <= 0 {
+		return billing.CreditUSDValue
+	}
+	return cost
+}
 
 type Request struct {
 	APIKey       []byte
@@ -104,15 +116,19 @@ func (t *ElevenLabsTranscriber) Transcribe(ctx context.Context, req Request) (Re
 }
 
 type elevenLabsTranscriptionResponse struct {
-	Text         string `json:"text"`
-	LanguageCode string `json:"language_code"`
-	Words        []struct {
+	Text              string  `json:"text"`
+	LanguageCode      string  `json:"language_code"`
+	AudioDurationSecs float64 `json:"audio_duration_secs"`
+	Words             []struct {
 		Start float64 `json:"start"`
 		End   float64 `json:"end"`
 	} `json:"words,omitempty"`
 }
 
 func (r elevenLabsTranscriptionResponse) durationSeconds() float64 {
+	if r.AudioDurationSecs > 0 {
+		return r.AudioDurationSecs
+	}
 	var maxEnd float64
 	for _, word := range r.Words {
 		if word.End > maxEnd {

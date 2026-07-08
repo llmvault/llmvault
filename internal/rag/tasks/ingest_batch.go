@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkoukk/tiktoken-go"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
@@ -55,10 +56,17 @@ func flushBatch(
 		return fmt.Errorf("ingest: clear stale parts (%d docs): %w", len(docIDs), err)
 	}
 
-	vectors, err := embedInBudgetedGroups(ctx, deps.Embedder, parts)
+	vectors, tokens, err := embedInBudgetedGroups(ctx, deps.Embedder, parts)
 	if err != nil {
 		return fmt.Errorf("ingest: embed (%d parts from %d docs): %w", len(parts), len(docs), err)
 	}
+	billing.RecordEmbeddingUsage(ctx, deps.DB, billing.EmbeddingUsage{
+		OrgID:       src.OrgIDValue,
+		Model:       deps.Embedder.Model(),
+		TotalTokens: tokens,
+		Operation:   billing.EmbeddingOperation,
+		RequestPath: "rag.ingest",
+	})
 
 	points := make([]qdrant.Point, 0, len(parts))
 	orgID := src.OrgIDValue.String()
@@ -83,8 +91,9 @@ func embedInBudgetedGroups(
 	ctx context.Context,
 	emb embedderClient,
 	parts []docPart,
-) ([][]float32, error) {
+) ([][]float32, int, error) {
 	out := make([][]float32, 0, len(parts))
+	totalTokens := 0
 	i := 0
 	for i < len(parts) {
 		j := i
@@ -100,18 +109,19 @@ func embedInBudgetedGroups(
 		for k := range inputs {
 			inputs[k] = parts[i+k].content
 		}
-		vecs, err := emb.Embed(ctx, inputs)
+		vecs, tokens, err := emb.Embed(ctx, inputs)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		out = append(out, vecs...)
+		totalTokens += tokens
 		i = j
 	}
-	return out, nil
+	return out, totalTokens, nil
 }
 
 type embedderClient interface {
-	Embed(ctx context.Context, inputs []string) ([][]float32, error)
+	Embed(ctx context.Context, inputs []string) ([][]float32, int, error)
 }
 
 type docPart struct {

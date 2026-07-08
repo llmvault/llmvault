@@ -85,6 +85,20 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
+			// Zero-usage reconcile: backfills token counts on OpenRouter system
+			// generations that returned no usage (intermittent under account-level
+			// BYOK) from the authoritative /api/v1/generation endpoint so the billing
+			// batch can charge them.
+			Cronspec: "@every 2m",
+			Task:     asynq.NewTask(TypeGenerationReconcile, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(5 * time.Minute),
+				asynq.Unique(2 * time.Minute),
+			},
+		},
+		{
 			// Subscription renewal sweep: enqueues per-sub tasks that own the attempt
 			// counter. Filtering on last_renewal_attempt_at caps attempts per interval.
 			Cronspec: "@every 1h",

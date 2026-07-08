@@ -18,6 +18,7 @@ type UsageData struct {
 type CapturedData struct {
 	Usage          UsageData
 	Model          string // extracted from request body
+	GenerationID   string // upstream response id (OpenRouter generation id)
 	ProviderID     string // from credential
 	IsStreaming    bool
 	TTFBMs         int    // time to first byte in milliseconds

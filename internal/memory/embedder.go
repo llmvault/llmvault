@@ -5,31 +5,33 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 )
 
-func (s *Service) EmbedMemoryContent(ctx context.Context, content string) ([]float32, error) {
-	return s.embedOne(ctx, content)
+func (s *Service) EmbedMemoryContent(ctx context.Context, orgID uuid.UUID, content string) ([]float32, error) {
+	return s.embedOne(ctx, orgID, content)
 }
 
-func (s *Service) EmbedQuery(ctx context.Context, query string) ([]float32, error) {
+func (s *Service) EmbedQuery(ctx context.Context, orgID uuid.UUID, query string) ([]float32, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
-	return s.embedOne(ctx, "Instruct: Retrieve relevant organization and user memories that help an AI agent answer or act on the user message.\nQuery: "+query)
+	return s.embedOne(ctx, orgID, "Instruct: Retrieve relevant organization and user memories that help an AI agent answer or act on the user message.\nQuery: "+query)
 }
 
-func (s *Service) embedOne(ctx context.Context, input string) ([]float32, error) {
+func (s *Service) embedOne(ctx context.Context, orgID uuid.UUID, input string) ([]float32, error) {
 	emb, err := s.embedder(ctx)
 	if err != nil {
 		return nil, err
 	}
-	vectors, err := emb.Embed(ctx, []string{input})
+	vectors, tokens, err := emb.Embed(ctx, []string{input})
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +41,18 @@ func (s *Service) embedOne(ctx context.Context, input string) ([]float32, error)
 	if err := validateVector(vectors[0], s.embeddingDim()); err != nil {
 		return nil, err
 	}
+	s.meterEmbedding(ctx, orgID, tokens)
 	return vectors[0], nil
+}
+
+func (s *Service) meterEmbedding(ctx context.Context, orgID uuid.UUID, tokens int) {
+	billing.RecordEmbeddingUsage(ctx, s.cfg.DB, billing.EmbeddingUsage{
+		OrgID:       orgID,
+		Model:       s.embeddingModel(),
+		TotalTokens: tokens,
+		Operation:   billing.EmbeddingOperation,
+		RequestPath: "memory.embed",
+	})
 }
 
 func (s *Service) embedder(ctx context.Context) (Embedder, error) {

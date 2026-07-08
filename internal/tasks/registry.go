@@ -96,6 +96,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeCreditsExpire, NewCreditsExpireHandler(deps.Credits).Handle)
 	}
 
+	if deps.CacheManager != nil {
+		mux.HandleFunc(TypeGenerationReconcile, NewGenerationReconcileHandler(deps.DB, deps.CacheManager).Handle)
+	}
+
 	// Subscription renewal worker. Sweep runs hourly, finds due subs, and
 	// enqueues per-sub renewal tasks; per-sub tasks call ChargeAuthorization
 	// against the saved payment method.

@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
@@ -112,11 +113,23 @@ func (h *RAGSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	vectors, err := h.embedder.Embed(ctx, []string{req.Query})
+	vectors, tokens, err := h.embedder.Embed(ctx, []string{req.Query})
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "embed query: " + err.Error()})
 		return
 	}
+	embedUserID := ""
+	if userID != nil {
+		embedUserID = userID.String()
+	}
+	billing.RecordEmbeddingUsage(ctx, h.db, billing.EmbeddingUsage{
+		OrgID:       org.ID,
+		Model:       h.embedder.Model(),
+		TotalTokens: tokens,
+		Operation:   billing.EmbeddingOperation,
+		RequestPath: "/v1/rag/search",
+		UserID:      embedUserID,
+	})
 
 	filter := qdrant.BuildScopedFilter(org.ID.String(), sourceIDs)
 

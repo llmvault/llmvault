@@ -143,7 +143,7 @@ func (h *ObservationEmbedHandler) Handle(ctx context.Context, task *asynq.Task) 
 		obs.EmbeddingStatus == model.AgentMemoryEmbeddingReady {
 		return nil
 	}
-	vectors, err := svc.EmbedContents(ctx, []string{obs.Content})
+	vectors, err := svc.EmbedContents(ctx, obs.OrgID, []string{obs.Content})
 	if err != nil {
 		_ = svc.MarkObservationEmbeddingFailed(ctx, obs.ID, payload.Revision, err)
 		return err

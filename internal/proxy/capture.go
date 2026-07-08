@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -129,6 +130,9 @@ func (ct *CaptureTransport) captureNonStreaming(resp *http.Response, captured *o
 
 	if err == nil && len(body) > 0 {
 		captured.Usage = toObserveUsage(ParseUsageNonStreaming(captured.ProviderID, body))
+		if id := parseResponseID(body); id != "" {
+			captured.GenerationID = id
+		}
 	}
 
 	resp.Body = io.NopCloser(bytes.NewReader(body))
@@ -224,6 +228,24 @@ func (sc *streamingCapture) parseLine(line []byte) {
 	if u.InputTokens > 0 || u.OutputTokens > 0 {
 		sc.captured.Usage = toObserveUsage(u)
 	}
+	if sc.captured.GenerationID == "" {
+		if id := parseResponseID(payload); id != "" {
+			sc.captured.GenerationID = id
+		}
+	}
+}
+
+// parseResponseID extracts the top-level "id" string from a provider response
+// (non-streaming body or a single SSE chunk). OpenRouter returns its generation
+// id here, used for post-hoc usage reconciliation.
+func parseResponseID(body []byte) string {
+	var resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return ""
+	}
+	return resp.ID
 }
 
 func toObserveUsage(u UsageData) observe.UsageData {

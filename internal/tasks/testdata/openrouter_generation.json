@@ -1,0 +1,13 @@
+{
+  "data": {
+    "id": "gen-test-abc123",
+    "model": "deepseek/deepseek-v4-flash",
+    "total_cost": 0.00042,
+    "tokens_prompt": 1200,
+    "tokens_completion": 620,
+    "native_tokens_prompt": 1000,
+    "native_tokens_completion": 500,
+    "native_tokens_reasoning": 0,
+    "usage": 0
+  }
+}

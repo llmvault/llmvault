@@ -103,6 +103,9 @@ func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 		AttachAuth(req, cred.AuthScheme, cred.APIKey)
 		if providerheaders.IsOpenRouter(cred.ProviderID, cred.BaseURL) {
 			providerheaders.ApplyOpenRouter(req)
+			if err := EnsureOpenRouterUsage(req); err != nil {
+				logging.Capture(req.Context(), fmt.Errorf("proxy director: force usage accounting: %w", err))
+			}
 		}
 
 		for i := range cred.APIKey {

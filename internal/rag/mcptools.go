@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
@@ -108,10 +109,17 @@ This is the FIRST place to search for company knowledge — reach for it before 
 				})
 			}
 
-			vectors, err := embedder.Embed(searchCtx, []string{query})
+			vectors, tokens, err := embedder.Embed(searchCtx, []string{query})
 			if err != nil {
 				return toolError("knowledge search embed failed: " + err.Error()), nil
 			}
+			billing.RecordEmbeddingUsage(searchCtx, db, billing.EmbeddingUsage{
+				OrgID:       token.OrgID,
+				Model:       embedder.Model(),
+				TotalTokens: tokens,
+				Operation:   billing.EmbeddingOperation,
+				RequestPath: "mcp.search_knowledge_base",
+			})
 			hits, err := qd.Search(searchCtx, qdrant.SearchRequest{
 				Collection:  collection,
 				Vector:      vectors[0],

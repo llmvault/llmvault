@@ -17,6 +17,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/slackapp"
@@ -42,6 +43,7 @@ type SlackMediaEnricherConfig struct {
 	Registry    *registry.Registry
 	Gateway     system.Gateway
 	Transcriber transcription.Transcriber
+	Enqueuer    enqueue.TaskEnqueuer
 	HTTPClient  *http.Client
 }
 
@@ -51,6 +53,7 @@ type slackMediaEnricher struct {
 	registry    *registry.Registry
 	gateway     system.Gateway
 	transcriber transcription.Transcriber
+	enqueuer    enqueue.TaskEnqueuer
 	httpClient  *http.Client
 }
 
@@ -72,6 +75,7 @@ func NewSlackMediaEnricher(cfg SlackMediaEnricherConfig) SlackMediaEnricher {
 		registry:    reg,
 		gateway:     cfg.Gateway,
 		transcriber: cfg.Transcriber,
+		enqueuer:    cfg.Enqueuer,
 		httpClient:  client,
 	}
 }

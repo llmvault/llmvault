@@ -263,7 +263,7 @@ LIMIT ?`, pq.StringArray(consolidationFactSources), limit).Scan(&rows).Error
 }
 
 // EmbedContents embeds a batch of texts with the memory embedding model.
-func (s *Service) EmbedContents(ctx context.Context, contents []string) ([][]float32, error) {
+func (s *Service) EmbedContents(ctx context.Context, orgID uuid.UUID, contents []string) ([][]float32, error) {
 	if len(contents) == 0 {
 		return nil, nil
 	}
@@ -271,7 +271,7 @@ func (s *Service) EmbedContents(ctx context.Context, contents []string) ([][]flo
 	if err != nil {
 		return nil, err
 	}
-	vectors, err := emb.Embed(ctx, contents)
+	vectors, tokens, err := emb.Embed(ctx, contents)
 	if err != nil {
 		return nil, err
 	}
@@ -283,5 +283,6 @@ func (s *Service) EmbedContents(ctx context.Context, contents []string) ([][]flo
 			return nil, err
 		}
 	}
+	s.meterEmbedding(ctx, orgID, tokens)
 	return vectors, nil
 }

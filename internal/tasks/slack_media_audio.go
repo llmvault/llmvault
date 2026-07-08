@@ -3,11 +3,16 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/oklog/ulid/v2"
 
+	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/slackapp"
 	"github.com/usehivy/hivy/internal/transcription"
 )
@@ -50,7 +55,41 @@ func (e *slackMediaEnricher) enrichSlackAudio(ctx context.Context, token string,
 	if err != nil {
 		return slackMediaNoticeXML("audio", item, mimeType, "audio transcription failed: "+err.Error())
 	}
+	e.trackSlackAudioUsage(ctx, orgID, cred, result)
 	return slackAudioXML(item, mimeType, result)
+}
+
+func (e *slackMediaEnricher) trackSlackAudioUsage(ctx context.Context, orgID uuid.UUID, cred *model.Credential, result transcription.Result) {
+	if cred == nil {
+		return
+	}
+	payload := ModelUsageWritePayload{
+		Generation: model.Generation{
+			ID:             "gen_" + ulid.Make().String(),
+			OrgID:          orgID,
+			CredentialID:   cred.ID,
+			TokenJTI:       "system:slack.media.audio",
+			ProviderID:     "elevenlabs",
+			Model:          slackAudioModel,
+			RequestPath:    "slack:media/audio",
+			Cost:           transcription.CostUSD(result.DurationSeconds),
+			UpstreamStatus: http.StatusOK,
+			Tags:           pq.StringArray{"model_usage", "audio_transcription"},
+			CreatedAt:      time.Now().UTC(),
+			IsSystem:       cred.OrgID == nil,
+		},
+	}
+	if e.enqueuer != nil {
+		if err := EnqueueModelUsageWrite(ctx, e.enqueuer, payload); err != nil {
+			logging.Capture(ctx, fmt.Errorf("enqueue slack audio usage: %w", err))
+		}
+		return
+	}
+	if e.db != nil {
+		if err := WriteModelUsage(ctx, e.db, payload); err != nil {
+			logging.Capture(ctx, fmt.Errorf("write slack audio usage: %w", err))
+		}
+	}
 }
 
 func slackAudioXML(item slackapp.SlackMediaItem, mimeType string, result transcription.Result) string {

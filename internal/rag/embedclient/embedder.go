@@ -43,10 +43,16 @@ func NewEmbedder(cfg EmbedderConfig) *Embedder {
 
 func (e *Embedder) Dim() uint32 { return e.cfg.Dim }
 
+func (e *Embedder) Model() string { return e.cfg.Model }
+
 type embedResponse struct {
 	Data []struct {
 		Embedding []float32 `json:"embedding"`
 	} `json:"data"`
+	Usage struct {
+		PromptTokens int `json:"prompt_tokens"`
+		TotalTokens  int `json:"total_tokens"`
+	} `json:"usage"`
 	Error *struct {
 		Message  string          `json:"message"`
 		Type     string          `json:"type"`
@@ -55,9 +61,9 @@ type embedResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, error) {
+func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, int, error) {
 	if len(inputs) == 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 	payload := map[string]any{
 		"model": e.cfg.Model,
@@ -68,7 +74,7 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, err
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("embed: marshal: %w", err)
+		return nil, 0, fmt.Errorf("embed: marshal: %w", err)
 	}
 	var lastErr error
 	for attempt := 0; attempt <= e.cfg.MaxRetries; attempt++ {
@@ -92,14 +98,14 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, err
 		if resp.StatusCode == http.StatusOK {
 			var out embedResponse
 			if err := json.Unmarshal(respBody, &out); err != nil {
-				return nil, fmt.Errorf("embed: decode: %w", err)
+				return nil, 0, fmt.Errorf("embed: decode: %w", err)
 			}
 			if out.Error != nil && out.Error.Message != "" {
 				meta := ""
 				if len(out.Error.Metadata) > 0 {
 					meta = " metadata=" + string(out.Error.Metadata)
 				}
-				return nil, fmt.Errorf("embed: upstream error: %s (type=%s code=%s)%s",
+				return nil, 0, fmt.Errorf("embed: upstream error: %s (type=%s code=%s)%s",
 					out.Error.Message, out.Error.Type, string(out.Error.Code), meta)
 			}
 			if len(out.Data) != len(inputs) {
@@ -107,14 +113,14 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, err
 				if len(preview) > 300 {
 					preview = preview[:300]
 				}
-				return nil, fmt.Errorf("embed: got %d vectors for %d inputs (body: %s)",
+				return nil, 0, fmt.Errorf("embed: got %d vectors for %d inputs (body: %s)",
 					len(out.Data), len(inputs), preview)
 			}
 			vectors := make([][]float32, len(out.Data))
 			for i := range out.Data {
 				vectors[i] = out.Data[i].Embedding
 			}
-			return vectors, nil
+			return vectors, out.Usage.TotalTokens, nil
 		}
 		preview := string(respBody)
 		if len(preview) > 300 {
@@ -127,7 +133,7 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, err
 		}
 		backoff(attempt)
 	}
-	return nil, lastErr
+	return nil, 0, lastErr
 }
 
 func backoff(attempt int) {

@@ -9,7 +9,7 @@ import (
 )
 
 type Embedder interface {
-	Embed(context.Context, []string) ([][]float32, error)
+	Embed(context.Context, []string) ([][]float32, int, error)
 }
 
 type EnqueueEmbeddingFunc func(context.Context, uuid.UUID, int) error

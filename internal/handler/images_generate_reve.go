@@ -10,6 +10,8 @@ import (
 	"github.com/usehivy/hivy/internal/reve"
 )
 
+const reveUSDPerCredit = 10.0 / 7500.0
+
 func (h *UploadsHandler) callReveImages(ctx context.Context, cred *model.Credential, apiKey, _ string, prompt, aspectRatio string, count int, references []imageGenerationReference) ([]generatedImageBytes, imageGenerationUsage, error) {
 	refs, err := reveImageReferences(references)
 	if err != nil {
@@ -50,6 +52,7 @@ func (h *UploadsHandler) callReveImages(ctx context.Context, cred *model.Credent
 			Metadata:    reveImageMetadata(result),
 		})
 	}
+	usage.Cost = imageGenerationCreditCostUSD(usage.CreditsUsed, reveUSDPerCredit)
 	return out, usage, nil
 }
 

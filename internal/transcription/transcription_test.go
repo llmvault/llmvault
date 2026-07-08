@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/usehivy/hivy/internal/billing"
 )
 
 func TestElevenLabsTranscriber_Transcribe(t *testing.T) {
@@ -94,6 +96,80 @@ func TestElevenLabsTranscriber_Transcribe(t *testing.T) {
 	}
 	if string(gotFileBytes) != "fake audio" {
 		t.Fatalf("file bytes = %q, want raw audio bytes", string(gotFileBytes))
+	}
+}
+
+func TestElevenLabsTranscriber_UsesAudioDurationSecsOverWordTimestamps(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"text":                "hello",
+			"language_code":       "en",
+			"audio_duration_secs": 42.5,
+			"words": []map[string]any{
+				{"start": 0.0, "end": 3.0},
+				{"start": 3.0, "end": 7.0},
+			},
+		}); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	result, err := NewElevenLabsTranscriber(srv.Client(), time.Second).Transcribe(context.Background(), Request{
+		APIKey:  []byte("sk-test"),
+		BaseURL: srv.URL,
+		Audio:   []byte("fake audio"),
+	})
+	if err != nil {
+		t.Fatalf("Transcribe: %v", err)
+	}
+	if result.DurationSeconds != 42.5 {
+		t.Fatalf("DurationSeconds = %v, want 42.5 (audio_duration_secs, not max word end)", result.DurationSeconds)
+	}
+}
+
+func TestElevenLabsTranscriber_FallsBackToWordTimestamps(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"text":          "hello",
+			"language_code": "en",
+			"words": []map[string]any{
+				{"start": 0.0, "end": 3.0},
+				{"start": 3.0, "end": 7.0},
+			},
+		}); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	result, err := NewElevenLabsTranscriber(srv.Client(), time.Second).Transcribe(context.Background(), Request{
+		APIKey:  []byte("sk-test"),
+		BaseURL: srv.URL,
+		Audio:   []byte("fake audio"),
+	})
+	if err != nil {
+		t.Fatalf("Transcribe: %v", err)
+	}
+	if result.DurationSeconds != 7.0 {
+		t.Fatalf("DurationSeconds = %v, want 7.0 (max word end fallback)", result.DurationSeconds)
+	}
+}
+
+func TestCostUSD(t *testing.T) {
+	if got := CostUSD(3600); got != 0.22 {
+		t.Fatalf("CostUSD(3600) = %v, want 0.22", got)
+	}
+	if got := billing.CostUSDToCredits(CostUSD(3600)); got != 220 {
+		t.Fatalf("credits for one hour = %d, want 220", got)
+	}
+	if got := CostUSD(0); got != billing.CreditUSDValue {
+		t.Fatalf("CostUSD(0) = %v, want floor %v", got, billing.CreditUSDValue)
+	}
+	if got := billing.CostUSDToCredits(CostUSD(0)); got != 1 {
+		t.Fatalf("credits for zero-duration success = %d, want 1", got)
 	}
 }
 

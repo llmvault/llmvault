@@ -15,7 +15,8 @@ import (
 )
 
 type Embedder interface {
-	Embed(context.Context, []string) ([][]float32, error)
+	Embed(context.Context, []string) ([][]float32, int, error)
+	Model() string
 }
 
 type KnowledgeSearcher interface {

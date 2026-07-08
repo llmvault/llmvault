@@ -188,7 +188,7 @@ func (h *TranscriptionHandler) trackOrgTranscriptionUsage(
 	if cred == nil {
 		return
 	}
-	cost := sessionTranscriptionCostUSD(result.DurationSeconds)
+	cost := transcription.CostUSD(result.DurationSeconds)
 	payload := buildModelUsagePayload(modelUsageInput{
 		Operation:      "audio_transcription",
 		OrgID:          orgID,

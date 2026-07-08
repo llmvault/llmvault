@@ -141,7 +141,7 @@ func (h *MemoryConsolidationHandler) Handle(ctx context.Context, task *asynq.Tas
 	for i, fact := range facts {
 		contents[i] = fact.Content
 	}
-	vectors, err := svc.EmbedContents(ctx, contents)
+	vectors, err := svc.EmbedContents(ctx, payload.OrgID, contents)
 	if err != nil {
 		return fmt.Errorf("embed facts for consolidation: %w", err)
 	}
