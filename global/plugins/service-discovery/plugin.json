@@ -9,6 +9,8 @@
   "developer": "Hivy",
   "official": true,
   "featured": false,
+  "auto_install": true,
+  "locked": true,
   "capabilities": ["Read", "Recommend plugins"],
   "examples": [
     "Discover all my Railway projects and services and remember them",

@@ -2084,8 +2084,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Install catalog agent
-         * @description Installs an agent catalog entry into the current organization when required plugins are installed.
+         * Install catalog agent into a team
+         * @description Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.
          */
         post: {
             parameters: {
@@ -2097,7 +2097,12 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            /** @description Target team */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["agentCatalogInstallRequest"];
+                };
+            };
             responses: {
                 /** @description Created */
                 201: {
@@ -2117,6 +2122,15 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
@@ -2126,13 +2140,13 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Conflict */
-                409: {
+                /** @description Unprocessable Entity */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["agentCatalogInstallConflictResponse"];
+                        "application/json": components["schemas"]["agentCatalogMissingPluginsResponse"];
                     };
                 };
                 /** @description Internal Server Error */
@@ -2147,12 +2161,15 @@ export interface paths {
             };
         };
         /**
-         * Uninstall catalog agent
-         * @description Archives the installed agent for a catalog entry in the current organization.
+         * Uninstall a team's catalog agent
+         * @description Archives the catalog agent clone belonging to the caller's team. The actor must be able to manage the team.
          */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Target team (may also be sent in the JSON body) */
+                    team_id?: string;
+                };
                 header?: never;
                 path: {
                     /** @description Agent catalog slug */
@@ -2173,6 +2190,15 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5378,202 +5404,6 @@ export interface paths {
                 };
             };
         };
-        trace?: never;
-    };
-    "/v1/channels/{id}/agents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List agents assigned to a channel */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelAgentsResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /** Assign an agent to a channel */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Agent to assign */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["assignChannelAgentRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["assignChannelAgentResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/channels/{id}/agents/{agentID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Unassign an agent from a channel */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                    /** @description Agent ID */
-                    agentID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/v1/channels/{id}/environment-variables": {
@@ -10192,7 +10022,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description New role: owner, admin, member, or viewer */
+            /** @description New role: owner, admin, or member */
             requestBody: {
                 content: {
                     "application/json": components["schemas"]["patchMemberRoleRequest"];
@@ -10464,7 +10294,7 @@ export interface paths {
         post?: never;
         /**
          * Archive a team
-         * @description Archives an active team after all channels are removed from it. Admin-only.
+         * @description Archives an active team after all channels are removed from it. Admin-only. Rejected if it is the org's last team.
          */
         delete: {
             parameters: {
@@ -17620,9 +17450,12 @@ export interface components {
             model_ids?: string[];
             name?: string;
         };
-        agentCatalogInstallConflictResponse: {
+        agentCatalogInstallRequest: {
+            team_id?: string;
+        };
+        agentCatalogMissingPluginsResponse: {
             error?: string;
-            missing_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
+            missing_plugins?: string[];
         };
         agentCatalogPluginSummary: {
             id?: string;
@@ -17637,6 +17470,13 @@ export interface components {
             developer?: string;
             id?: string;
             installed_agent_id?: string;
+            /**
+             * @description InstalledTeamIDs lists the ids of the caller's visible teams that already
+             *     have this catalog agent installed (one clone per team). Managers and
+             *     API-key callers see every team in the org; a plain member sees only the
+             *     teams they belong to. The UI uses it to render per-team install/uninstall.
+             */
+            installed_team_ids?: string[];
             is_default?: boolean;
             model?: string;
             name?: string;
@@ -17871,12 +17711,6 @@ export interface components {
             path?: string;
             updated_at?: string;
         };
-        assignChannelAgentRequest: {
-            agent_id?: string;
-        };
-        assignChannelAgentResponse: {
-            agent?: components["schemas"]["agentResponse"];
-        };
         attachmentDownloadURLRequest: {
             keys?: string[];
         };
@@ -17964,9 +17798,6 @@ export interface components {
         changePasswordRequest: {
             current_password?: string;
             new_password?: string;
-        };
-        channelAgentsResponse: {
-            data?: components["schemas"]["agentResponse"][];
         };
         channelDetailResponse: {
             channel?: components["schemas"]["channelResponse"];
@@ -19060,6 +18891,7 @@ export interface components {
             email?: string;
             name?: string;
             password?: string;
+            team_name?: string;
         };
         reportRow: {
             avg_ttfb_ms?: number;

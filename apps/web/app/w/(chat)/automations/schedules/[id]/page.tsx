@@ -8,7 +8,8 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
-import { useChannelScopedAgents } from "@/lib/api/channel-scoped-agents"
+import { useIsAdmin } from "@/lib/auth/use-role"
+import { useTeamAgents } from "@/lib/api/team-agents"
 import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
 import {
   ChannelSelect,
@@ -77,6 +78,10 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
   const queryClient = useQueryClient()
   const id = schedule.id ?? ""
 
+  // Editing an existing schedule (toggle status, save, delete) mutates via
+  // PATCH/DELETE /v1/schedules/{id}, which is admin-only on the backend.
+  // Creating a schedule is a member action and isn't gated here.
+  const isAdmin = useIsAdmin()
   const { channels, isLoading: channelsLoading } = useHivyChannels()
   const updateSchedule = $api.useMutation("patch", "/v1/schedules/{id}")
   const deleteSchedule = $api.useMutation("delete", "/v1/schedules/{id}")
@@ -93,23 +98,19 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
   )
   const active = schedule.status === "active"
   const activeChannelID = channelID || channels[0]?.id || ""
+  const activeChannel = channels.find((c) => c.id === activeChannelID)
 
-  // The schedule's agent is fixed. When the user retargets it to a different
-  // channel the backend rejects the save (422) if that agent isn't assigned to
-  // the new channel. Pre-check the channel's assigned agents so we can warn and
-  // block Save before the round-trip. When the channel-agents endpoint is
-  // unavailable we fall back to the org list (isFallback) and can't verify — so
-  // we don't block, and let the server's error message surface instead.
-  const {
-    agents: channelAgents,
-    isLoading: channelAgentsLoading,
-    isFallback: channelAgentsFallback,
-  } = useChannelScopedAgents(activeChannelID)
-  const agentAssignedToChannel =
-    channelAgentsFallback ||
-    channelAgentsLoading ||
+  // The schedule's agent is fixed. When the user retargets it to a channel on a
+  // different team the backend rejects the save (409/422), since an agent can
+  // only run in its own team's channels. Pre-check the target channel's team
+  // agents so we can warn and block Save before the round-trip.
+  const { agents: teamAgents, isLoading: teamAgentsLoading } = useTeamAgents(
+    activeChannel?.team_id
+  )
+  const agentOnChannelTeam =
+    teamAgentsLoading ||
     !schedule.agent_id ||
-    channelAgents.some((agent) => agent.id === schedule.agent_id)
+    teamAgents.some((agent) => agent.id === schedule.agent_id)
 
   const channel = channels.find((c) => c.id === schedule.channel_id)
   const lastRunHref =
@@ -119,12 +120,13 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
 
   const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSave = Boolean(
-    !updateSchedule.isPending &&
+    isAdmin &&
+      !updateSchedule.isPending &&
       name.trim() &&
       activeChannelID &&
       taskPrompt.trim() &&
       cadenceValid &&
-      agentAssignedToChannel
+      agentOnChannelTeam
   )
 
   function invalidate() {
@@ -297,16 +299,16 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
               {schedule.agent_name || "Agent"}
             </span>
           </div>
-          {!agentAssignedToChannel ? (
+          {!agentOnChannelTeam ? (
             <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-warning">
               <AppIcon
                 icon="triangle-alert"
                 className="mt-0.5 h-4 w-4 shrink-0"
               />
               <span>
-                {schedule.agent_name || "This agent"} isn&apos;t assigned to the
-                selected channel. Pick a channel it belongs to, or assign it
-                there first.
+                {schedule.agent_name || "This agent"} isn&apos;t on the selected
+                channel&apos;s team. Pick a channel on the agent&apos;s team
+                instead.
               </span>
             </p>
           ) : null}
@@ -350,7 +352,7 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
             <Switch
               aria-label="Activate schedule"
               isSelected={active}
-              isDisabled={updateSchedule.isPending}
+              isDisabled={updateSchedule.isPending || !isAdmin}
               onChange={toggleActive}
               className="shrink-0"
             >
@@ -361,13 +363,19 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
           </div>
         </FormSection>
 
+        {!isAdmin ? (
+          <p className="text-sm text-muted-foreground">
+            Only workspace admins can edit or delete automations.
+          </p>
+        ) : null}
+
         <div className="flex items-center justify-between gap-3">
           <Button
             type="button"
             variant="secondary"
             size="sm"
             className="text-danger"
-            isDisabled={deleteSchedule.isPending}
+            isDisabled={deleteSchedule.isPending || !isAdmin}
             onPress={() => setDeleteOpen(true)}
           >
             {deleteSchedule.isPending ? (

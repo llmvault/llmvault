@@ -222,12 +222,12 @@ func resolveAgentTriggerChannel(db *gorm.DB, orgID, agentID uuid.UUID, raw strin
 	if !allowed {
 		return nil, fmt.Errorf("agent is not available in this channel")
 	}
-	assigned, err := channelagents.Assigned(context.Background(), db, orgID, channel.ID, agentID)
+	acts, err := channelagents.ActsInChannel(context.Background(), db, orgID, channel.ID, agentID)
 	if err != nil {
 		return nil, err
 	}
-	if !assigned {
-		return nil, fmt.Errorf("agent is not assigned to this channel")
+	if !acts {
+		return nil, fmt.Errorf("agent does not belong to this channel's team")
 	}
 	return &channelID, nil
 }

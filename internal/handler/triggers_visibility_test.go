@@ -36,9 +36,13 @@ const hiddenTriggerInstructions = "SECRET-HIDDEN-INSTRUCTIONS"
 func seedTriggerVisFixture(t *testing.T, db *gorm.DB) triggerVisFixture {
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "trig-vis-" + uuid.NewString(), Active: true, RateLimit: 1000}
-	visibleAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "vis-" + uuid.NewString(), Model: "test", Status: "active"}
-	hiddenAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "hid-" + uuid.NewString(), Model: "test", Status: "active"}
-	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
+	// memberTeam owns the visible agent and the member belongs to it; otherTeam
+	// owns the hidden agent and the member is not on it. Agent visibility is now
+	// team-membership based (channelagents.VisibleAgentIDsSubquery).
+	memberTeam := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "mteam-" + uuid.NewString()}
+	otherTeam := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "oteam-" + uuid.NewString()}
+	visibleAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "vis-" + uuid.NewString(), Model: "test", Status: "active", TeamID: &memberTeam.ID}
+	hiddenAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "hid-" + uuid.NewString(), Model: "test", Status: "active", TeamID: &otherTeam.ID}
 	usableChan := model.Channel{
 		ID: uuid.New(), OrgID: org.ID, Name: "usable-" + uuid.NewString(),
 		DefaultAgentID: visibleAgent.ID, Origin: "external",
@@ -46,12 +50,13 @@ func seedTriggerVisFixture(t *testing.T, db *gorm.DB) triggerVisFixture {
 	}
 	teamChan := model.Channel{
 		ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString(),
-		DefaultAgentID: hiddenAgent.ID, Visibility: "private", TeamID: &team.ID,
+		DefaultAgentID: hiddenAgent.ID, Visibility: "private", TeamID: &otherTeam.ID,
 	}
 	member := model.User{ID: uuid.New(), Email: "m-" + uuid.NewString() + "@ex.test", Name: "Member"}
 	admin := model.User{ID: uuid.New(), Email: "a-" + uuid.NewString() + "@ex.test", Name: "Admin"}
 	memberMem := model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"}
 	adminMem := model.OrgMembership{UserID: admin.ID, OrgID: org.ID, Role: "admin"}
+	memberTeamMem := model.TeamMember{OrgID: org.ID, TeamID: memberTeam.ID, UserID: member.ID, Role: "member"}
 	usableTrig := model.AgentTrigger{
 		ID: uuid.New(), OrgID: org.ID, AgentID: visibleAgent.ID, TriggerType: "webhook",
 		ChannelID: &usableChan.ID, TriggerKeys: pq.StringArray{"issues.opened"}, TriggerKey: "issues.opened",
@@ -62,21 +67,19 @@ func seedTriggerVisFixture(t *testing.T, db *gorm.DB) triggerVisFixture {
 		ChannelID: &teamChan.ID, TriggerKeys: pq.StringArray{"issues.opened"}, TriggerKey: "issues.opened",
 		Enabled: true, Instructions: hiddenTriggerInstructions,
 	}
-	visLink := model.ChannelAgent{OrgID: org.ID, ChannelID: usableChan.ID, AgentID: visibleAgent.ID}
-	hidLink := model.ChannelAgent{OrgID: org.ID, ChannelID: teamChan.ID, AgentID: hiddenAgent.ID}
 
-	rows := []any{&org, &visibleAgent, &hiddenAgent, &team, &usableChan, &teamChan,
-		&member, &admin, &memberMem, &adminMem, &usableTrig, &hiddenTrig, &visLink, &hidLink}
+	rows := []any{&org, &memberTeam, &otherTeam, &visibleAgent, &hiddenAgent, &usableChan, &teamChan,
+		&member, &admin, &memberMem, &adminMem, &memberTeamMem, &usableTrig, &hiddenTrig}
 	for _, row := range rows {
 		if err := db.Create(row).Error; err != nil {
 			t.Fatalf("seed %T: %v", row, err)
 		}
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentTrigger{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
 		db.Delete(&model.User{}, "id IN ?", []uuid.UUID{member.ID, admin.ID})

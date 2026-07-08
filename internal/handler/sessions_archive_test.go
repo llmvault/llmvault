@@ -148,7 +148,7 @@ func TestIntegration_SessionsArchive_ByOrgAdminAndDeniesNonMembers(t *testing.T)
 		t.Fatalf("create team session: %v", err)
 	}
 	h.markSessionIdle(t, teamSession.ID.String())
-	denied := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+teamSession.ID.String(), fx, fx.viewer, nil)
+	denied := h.doJSON(t, http.MethodDelete, "/v1/sessions/"+teamSession.ID.String(), fx, fx.bystander, nil)
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("non-member archive status=%d body=%s", denied.Code, denied.Body.String())
 	}

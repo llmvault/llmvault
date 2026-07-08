@@ -12,11 +12,13 @@ import (
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
-// slackRoutingFixture is a Slack-external channel with two named agents (Ada is
-// the default) so routing decisions can be observed end-to-end through
-// resolveChannelAndAgent.
+// slackRoutingFixture is a team-scoped channel with two named agents (Ada is
+// the default) both owned by the channel's team, so routing decisions can be
+// observed end-to-end through resolveChannelAndAgent. Under the team-primary
+// model the routing candidate pool is the channel's team agents.
 type slackRoutingFixture struct {
 	org        model.Org
+	team       model.Team
 	connection model.Connection
 	channel    model.Channel
 	ada        model.Agent // default agent
@@ -29,8 +31,12 @@ func seedSlackRoutingFixture(t *testing.T, db *gorm.DB) slackRoutingFixture {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	ada := seedNamedAgent(t, db, org.ID, "Ada")
-	grace := seedNamedAgent(t, db, org.ID, "Grace")
+	team := model.Team{OrgID: org.ID, Name: "slack-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	ada := seedNamedAgent(t, db, org.ID, "Ada", &team.ID)
+	grace := seedNamedAgent(t, db, org.ID, "Grace", &team.ID)
 
 	user := model.User{Email: "slack-routing-" + uuid.NewString() + "@example.com"}
 	if err := db.Create(&user).Error; err != nil {
@@ -50,7 +56,7 @@ func seedSlackRoutingFixture(t *testing.T, db *gorm.DB) slackRoutingFixture {
 	connID := connection.ID
 	channel := model.Channel{
 		OrgID: org.ID, Name: "slack-eng-" + uuid.NewString()[:8], Kind: "standard",
-		Visibility: "public", DefaultAgentID: ada.ID, Origin: "external",
+		Visibility: "public", TeamID: &team.ID, DefaultAgentID: ada.ID, Origin: "external",
 		ExternalProvider: slackapp.Provider, ExternalConnectionID: &connID,
 		ExternalWorkspaceKey: connection.NangoConnectionID, ExternalResourceType: "slack_channel",
 		ExternalResourceKey: "C123", ExternalResourceName: "eng", ExternalMetadata: model.JSON{},
@@ -60,24 +66,24 @@ func seedSlackRoutingFixture(t *testing.T, db *gorm.DB) slackRoutingFixture {
 	}
 
 	t.Cleanup(func() {
-		db.Where("channel_id = ?", channel.ID).Delete(&model.ChannelAgent{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Session{})
 		db.Where("org_id = ?", org.ID).Delete(&model.SlackThreadEvent{})
 		db.Where("id = ?", channel.ID).Delete(&model.Channel{})
 		db.Where("id IN ?", []uuid.UUID{ada.ID, grace.ID}).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("id = ?", connection.ID).Delete(&model.Connection{})
 		db.Where("id = ?", integration.ID).Delete(&model.Integration{})
 		db.Where("id = ?", user.ID).Delete(&model.User{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 
-	return slackRoutingFixture{org: org, connection: connection, channel: channel, ada: ada, grace: grace}
+	return slackRoutingFixture{org: org, team: team, connection: connection, channel: channel, ada: ada, grace: grace}
 }
 
-func seedNamedAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string) model.Agent {
+func seedNamedAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, teamID *uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
-		OrgID: &orgID, Name: name, Model: "test-model",
+		OrgID: &orgID, Name: name, Model: "test-model", TeamID: teamID,
 		Tools: model.JSON{}, McpServers: model.RawJSON("[]"), Skills: model.JSON{},
 		RuntimeConfig: model.JSON{}, Permissions: model.JSON{}, Resources: model.JSON{}, Status: "active",
 	}
@@ -85,16 +91,6 @@ func seedNamedAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string) mod
 		t.Fatalf("create agent %s: %v", name, err)
 	}
 	return agent
-}
-
-func assignAgent(t *testing.T, db *gorm.DB, f slackRoutingFixture, agentID uuid.UUID, createdAt time.Time) {
-	t.Helper()
-	row := model.ChannelAgent{
-		OrgID: f.org.ID, ChannelID: f.channel.ID, AgentID: agentID, CreatedAt: createdAt,
-	}
-	if err := db.Create(&row).Error; err != nil {
-		t.Fatalf("assign agent %s: %v", agentID, err)
-	}
 }
 
 func seedRoutingInbound(t *testing.T, db *gorm.DB, f slackRoutingFixture, text string) model.SlackThreadEvent {
@@ -116,11 +112,9 @@ func seedRoutingInbound(t *testing.T, db *gorm.DB, f slackRoutingFixture, text s
 func TestResolveChannelAndAgentNameMatchRoutesToNamedAgent(t *testing.T) {
 	db := connectTestDB(t)
 	f := seedSlackRoutingFixture(t, db)
-	base := time.Now().UTC()
-	assignAgent(t, db, f, f.ada.ID, base.Add(-2*time.Hour))
-	assignAgent(t, db, f, f.grace.ID, base.Add(-1*time.Hour))
 
-	// nil cacheManager: no LLM available. Name match must decide deterministically.
+	// nil cacheManager: no LLM available. Name match must decide deterministically
+	// over the channel's team agents (Ada + Grace).
 	handler := &SlackAppMentionHandler{db: db}
 	inbound := seedRoutingInbound(t, db, f, "hey Grace can you pull the numbers")
 
@@ -136,10 +130,14 @@ func TestResolveChannelAndAgentNameMatchRoutesToNamedAgent(t *testing.T) {
 func TestResolveChannelAndAgentSingleAssignedShortCircuitsToDefault(t *testing.T) {
 	db := connectTestDB(t)
 	f := seedSlackRoutingFixture(t, db)
-	assignAgent(t, db, f, f.ada.ID, time.Now().UTC())
+	// Remove Grace from the team so the channel's team pool has only Ada.
+	if err := db.Model(&model.Agent{}).Where("id = ?", f.grace.ID).
+		Update("team_id", nil).Error; err != nil {
+		t.Fatalf("clear grace team: %v", err)
+	}
 
 	handler := &SlackAppMentionHandler{db: db}
-	// Message even names the OTHER (unassigned) agent — must not matter.
+	// Message even names the OTHER (out-of-team) agent — must not matter.
 	inbound := seedRoutingInbound(t, db, f, "Grace please help")
 
 	_, agent, err := handler.resolveChannelAndAgent(context.Background(), &inbound, nil, "")
@@ -154,9 +152,6 @@ func TestResolveChannelAndAgentSingleAssignedShortCircuitsToDefault(t *testing.T
 func TestResolveChannelAndAgentMultiAgentNoSignalFallsBackToDefault(t *testing.T) {
 	db := connectTestDB(t)
 	f := seedSlackRoutingFixture(t, db)
-	base := time.Now().UTC()
-	assignAgent(t, db, f, f.ada.ID, base.Add(-2*time.Hour))
-	assignAgent(t, db, f, f.grace.ID, base.Add(-1*time.Hour))
 
 	// No agent named, and no cache manager → LLM unavailable → default agent.
 	handler := &SlackAppMentionHandler{db: db}
@@ -174,9 +169,6 @@ func TestResolveChannelAndAgentMultiAgentNoSignalFallsBackToDefault(t *testing.T
 func TestResolveChannelAndAgentThreadAffinityWinsOverNameMatch(t *testing.T) {
 	db := connectTestDB(t)
 	f := seedSlackRoutingFixture(t, db)
-	base := time.Now().UTC()
-	assignAgent(t, db, f, f.ada.ID, base.Add(-2*time.Hour))
-	assignAgent(t, db, f, f.grace.ID, base.Add(-1*time.Hour))
 
 	// An existing active external session bound to Grace.
 	connID := f.connection.ID

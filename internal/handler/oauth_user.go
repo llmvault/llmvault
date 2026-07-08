@@ -127,7 +127,7 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 			return fmt.Errorf("creating user: %w", err)
 		}
 
-		org, err := createUserDefaultOrg(ctx, tx, h.credits, &user)
+		org, err := createUserDefaultOrg(ctx, tx, h.credits, &user, firstTeamNameForUser(&user))
 		if err != nil {
 			return err
 		}

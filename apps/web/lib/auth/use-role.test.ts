@@ -6,7 +6,6 @@ describe("isOwnerRole", () => {
     expect(isOwnerRole("owner")).toBe(true)
     expect(isOwnerRole("admin")).toBe(false)
     expect(isOwnerRole("member")).toBe(false)
-    expect(isOwnerRole("viewer")).toBe(false)
   })
 
   it("is false for unknown, empty, null, or undefined roles", () => {
@@ -23,9 +22,8 @@ describe("isAdminRole", () => {
     expect(isAdminRole("admin")).toBe(true)
   })
 
-  it("is false for member and viewer", () => {
+  it("is false for member", () => {
     expect(isAdminRole("member")).toBe(false)
-    expect(isAdminRole("viewer")).toBe(false)
   })
 
   it("is false for unknown, empty, null, or undefined roles", () => {

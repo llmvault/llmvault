@@ -69,24 +69,31 @@ func TestAgentCatalogInstallAutoInstallsRuntimePlugin(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 
 	catalog := model.AgentCatalog{
-		ID:              uuid.New(),
-		Slug:            "runtime-catalog-agent-" + uuid.NewString()[:8],
-		Name:            "Runtime Catalog Agent " + uuid.NewString()[:8],
-		Model:           agentruntime.DefaultAgentModel,
-		SandboxImage:    model.SandboxImageDeveloper,
-		Manifest:        model.RawJSON(`{}`),
-		Status:          model.AgentCatalogStatusActive,
+		ID:           uuid.New(),
+		Slug:         "runtime-catalog-agent-" + uuid.NewString()[:8],
+		Name:         "Runtime Catalog Agent " + uuid.NewString()[:8],
+		Model:        agentruntime.DefaultAgentModel,
+		SandboxImage: model.SandboxImageDeveloper,
+		Manifest:     model.RawJSON(`{}`),
+		Status:       model.AgentCatalogStatusActive,
 	}
 	if err := db.Create(&catalog).Error; err != nil {
 		t.Fatalf("create catalog agent: %v", err)
 	}
 	t.Cleanup(func() { db.Where("id = ?", catalog.ID).Delete(&model.AgentCatalog{}) })
 
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	t.Cleanup(func() { db.Where("id = ?", team.ID).Delete(&model.Team{}) })
+
 	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 	r := chi.NewRouter()
 	r.Post("/v1/agents/catalog/{slug}/install", h.InstallCatalog)
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/agents/catalog/"+catalog.Slug+"/install", nil)
+	body := bytes.NewReader([]byte(`{"team_id":"` + team.ID.String() + `"}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/agents/catalog/"+catalog.Slug+"/install", body)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
@@ -232,18 +239,18 @@ func seedDefaultModelCredential(t *testing.T, db *gorm.DB) {
 func createAutoInstallHandlerTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		Name:            fmt.Sprintf("runtime-locked-agent-%s", uuid.NewString()[:8]),
-		SandboxSize:     model.DefaultAgentSandboxSize,
-		Model:           agentruntime.DefaultAgentModel,
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          fmt.Sprintf("runtime-locked-agent-%s", uuid.NewString()[:8]),
+		SandboxSize:   model.DefaultAgentSandboxSize,
+		Model:         agentruntime.DefaultAgentModel,
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

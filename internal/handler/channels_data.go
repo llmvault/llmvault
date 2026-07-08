@@ -11,14 +11,31 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// isTeamLastChannel reports whether the given channel is the only non-archived
+// channel of its team. Team-less/external channels (team_id NULL) are exempt
+// (never the "last channel" of a team) so this returns false for them.
+func (h *ChannelHandler) isTeamLastChannel(ctx context.Context, channel model.Channel) (bool, error) {
+	if channel.TeamID == nil {
+		return false, nil
+	}
+	var count int64
+	if err := h.db.WithContext(ctx).
+		Model(&model.Channel{}).
+		Where("org_id = ? AND team_id = ? AND archived_at IS NULL", channel.OrgID, *channel.TeamID).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count <= 1, nil
+}
+
 // resolveDefaultAgentID resolves the channel's default agent — either the caller
 // supplied one (raw) or the org's default agent — and enforces that a
-// team-scoped channel's default agent belongs to the same team. The default
-// agent is auto-assigned to the channel (channel_agents) by virtue of being the
-// default, so it must clear the same same-team gate AssignChannelAgent applies;
-// otherwise picking a cross-team default agent would bypass that check. teamID
-// is the channel's (would-be) team; the cross-team rule applies only when both
-// the channel and the agent are team-scoped (both non-null).
+// team-scoped channel's default agent belongs to the same team. Under the
+// team-primary model the default agent must be usable in the channel, i.e. it
+// must belong to the channel's team (see channelagents.ActsInChannel); this gate
+// is what keeps a cross-team agent from being made a channel default. teamID is
+// the channel's (would-be) team; the cross-team rule applies only when both the
+// channel and the agent are team-scoped (both non-null).
 func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, teamID *uuid.UUID, raw *string) (uuid.UUID, bool) {
 	var agent model.Agent
 	if raw != nil {

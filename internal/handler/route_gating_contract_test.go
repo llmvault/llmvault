@@ -113,18 +113,26 @@ func TestRouteGating_ChannelCreateTeamMembership(t *testing.T) {
 	fx := seedVisFixture(t, db)
 	h := handler.NewChannelHandler(db)
 
+	// A team-less default agent is valid for a channel in ANY team (the cross-team
+	// default rule only applies when both the channel and agent are team-scoped),
+	// so it isolates this test to the team-membership gate under test.
+	defAgent := model.Agent{ID: uuid.New(), OrgID: &fx.org.ID, Name: "rg-def-" + uuid.NewString()[:8], Model: "test", Status: "active"}
+	if err := db.Create(&defAgent).Error; err != nil {
+		t.Fatalf("seed default agent: %v", err)
+	}
+
 	var created []uuid.UUID
 	t.Cleanup(func() {
 		db.Where("channel_id IN ?", created).Delete(&model.ChannelMember{})
-		db.Where("channel_id IN ?", created).Delete(&model.ChannelAgent{})
 		db.Where("id IN ?", created).Delete(&model.Channel{})
+		db.Where("id = ?", defAgent.ID).Delete(&model.Agent{})
 	})
 
 	create := func(c caller, teamID *uuid.UUID) int {
 		body := map[string]any{
 			"name":             "rg-" + uuid.NewString()[:8],
 			"category":         "general",
-			"default_agent_id": fx.visibleAgent.ID.String(),
+			"default_agent_id": defAgent.ID.String(),
 		}
 		if teamID != nil {
 			body["team_id"] = teamID.String()
@@ -213,18 +221,14 @@ func TestRouteGating_ScheduleCreateTeamManage(t *testing.T) {
 	fx := seedVisFixture(t, db)
 	h := handler.NewScheduleHandler(db)
 
-	// A team-less channel: any member may use it (canUseChannel true), but no one
-	// below manager may manage it. Assign the visible agent so the assignment
-	// check passes and the manage gate is what decides.
+	// A team-less channel: any member may use it (canUseChannel true), and any org
+	// agent may act in it (team-less channels are unbounded), so the binding-manage
+	// gate is what decides.
 	ch := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, Name: "teamless-" + uuid.NewString()[:8], Kind: "standard", DefaultAgentID: fx.visibleAgent.ID}
-	rows := []any{&ch, &model.ChannelAgent{OrgID: fx.org.ID, ChannelID: ch.ID, AgentID: fx.visibleAgent.ID}}
-	for _, row := range rows {
-		if err := db.Create(row).Error; err != nil {
-			t.Fatalf("seed team-less channel: %v", err)
-		}
+	if err := db.Create(&ch).Error; err != nil {
+		t.Fatalf("seed team-less channel: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("channel_id = ?", ch.ID).Delete(&model.ChannelAgent{})
 		db.Where("org_id = ?", fx.org.ID).Delete(&model.AgentSchedule{})
 		db.Where("id = ?", ch.ID).Delete(&model.Channel{})
 	})

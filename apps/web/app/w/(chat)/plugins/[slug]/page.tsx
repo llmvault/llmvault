@@ -84,9 +84,14 @@ export default function PluginDetailPage({
     "/v1/plugins/{slug}/install"
   )
   const integrationsQuery = $api.useQuery("get", "/v1/integrations/available")
-  const connectionsQuery = $api.useQuery("get", "/v1/connections", {
-    params: { query: { limit: 100 } },
-  })
+  // GET /v1/connections is admin-only; skip for non-admins (403 otherwise).
+  // Connected/missing state below already comes from plugin.missing_requirements.
+  const connectionsQuery = $api.useQuery(
+    "get",
+    "/v1/connections",
+    { params: { query: { limit: 100 } } },
+    { enabled: isAdmin }
+  )
   const databaseConnectionsQuery = $api.useQuery(
     "get",
     "/v1/database-integrations"
@@ -416,9 +421,10 @@ export default function PluginDetailPage({
               />
             ) : null}
 
-            {missingResources.length > 0 ? (
+            {isAdmin && missingResources.length > 0 ? (
               <ResourceRequirementsSection
                 requirements={missingResources}
+                canManage={isAdmin}
                 onSelect={(requirement) => setResourceModal({ requirement })}
               />
             ) : null}
@@ -467,6 +473,7 @@ export default function PluginDetailPage({
             : undefined
         }
         isPending={isConnecting}
+        canManage={isAdmin}
         onBack={closeConnectionModal}
         onIntegrationConnect={handleIntegrationConnect}
         onDatabaseConnected={handleDatabaseConnected}
@@ -474,6 +481,7 @@ export default function PluginDetailPage({
       <ResourceSelectionModal
         modal={resourceModal}
         state={resourceModalState}
+        canManage={isAdmin}
         onSaved={handleResourceSaved}
         onCancel={closeResourceModal}
       />
@@ -548,6 +556,7 @@ function RequiredConnectionModal({
   state,
   integration,
   isPending,
+  canManage,
   onBack,
   onIntegrationConnect,
   onDatabaseConnected,
@@ -556,6 +565,7 @@ function RequiredConnectionModal({
   state: ReturnType<typeof useOverlayState>
   integration: AvailableIntegration | undefined
   isPending: boolean
+  canManage: boolean
   onBack: () => void
   onIntegrationConnect: (options?: ConnectOptions) => void
   onDatabaseConnected: () => void
@@ -571,6 +581,7 @@ function RequiredConnectionModal({
             {modal?.view === "database" && isDatabaseProvider(provider) ? (
               <DatabaseConnectionModalContent
                 provider={provider}
+                canManage={canManage}
                 onConnected={onDatabaseConnected}
               />
             ) : modal?.view === "integration" && integration ? (

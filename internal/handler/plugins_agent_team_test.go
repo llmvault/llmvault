@@ -63,7 +63,6 @@ func newPluginAgentAuthzHarness(t *testing.T) pluginAgentAuthzFixture {
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Plugin{})
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
@@ -114,6 +113,40 @@ func TestPluginEnable_BoundedByTeamGrant(t *testing.T) {
 	}
 }
 
+// An auto-install system plugin is always usable by any team's agents: enabling
+// it on a team-scoped agent succeeds WITHOUT a team_plugins grant, unlike an
+// optional plugin which requires the grant (see TestPluginEnable_BoundedByTeamGrant).
+func TestPluginEnable_AutoInstallSkipsTeamGrant(t *testing.T) {
+	fx := newPluginAgentAuthzHarness(t)
+	agent := seedTeamAgent(t, fx.db, fx.org.ID, &fx.teamA.ID)
+
+	// A global auto-install plugin, installed for the org, with no team grant.
+	sys := model.Plugin{
+		ID:       uuid.New(),
+		Slug:     "pa-sys-" + uuid.NewString()[:8],
+		Name:     "PA System Plugin",
+		Status:   model.PluginStatusActive,
+		Manifest: model.RawJSON(`{"auto_install": true, "locked": true}`),
+	}
+	if err := fx.db.Create(&sys).Error; err != nil {
+		t.Fatalf("create system plugin: %v", err)
+	}
+	if err := fx.db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: fx.org.ID, PluginID: sys.ID}).Error; err != nil {
+		t.Fatalf("install system plugin for org: %v", err)
+	}
+	t.Cleanup(func() {
+		fx.db.Where("plugin_id = ?", sys.ID).Delete(&model.OrgPluginInstall{})
+		fx.db.Where("plugin_id = ?", sys.ID).Delete(&model.AgentPluginInstall{})
+		fx.db.Where("id = ?", sys.ID).Delete(&model.Plugin{})
+	})
+
+	path := "/v1/agents/" + agent.ID.String() + "/plugins/" + sys.Slug
+	rr := fx.do(t, http.MethodPost, path, fx.owner)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("auto-install enable without grant status=%d, want 200; body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 // A member may enable a team-granted plugin on an agent in their own team.
 func TestPluginEnable_MemberInTeamAllowed(t *testing.T) {
 	fx := newPluginAgentAuthzHarness(t)
@@ -128,17 +161,17 @@ func TestPluginEnable_MemberInTeamAllowed(t *testing.T) {
 	}
 }
 
-// A member cannot enable a plugin on an agent whose team they are not in, even
-// when the agent is visible to them.
+// A member cannot enable a plugin on an agent whose team they are not in. Under
+// the team-primary model such an agent is not even visible to the member, so the
+// route returns 404 (never leaking the agent's existence) rather than 403.
 func TestPluginEnable_CrossTeamMemberDenied(t *testing.T) {
 	fx := newPluginAgentAuthzHarness(t)
 	agent := seedTeamAgent(t, fx.db, fx.org.ID, &fx.teamB.ID)
 	fx.grantPluginToTeam(t, fx.teamB.ID)
-	fx.assignAgentToVisibleChannel(t, agent.ID)
 
 	rr := fx.do(t, http.MethodPost, fx.enablePath(agent.ID), fx.memberA)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("cross-team member enable status=%d, want 403; body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("cross-team member enable status=%d, want 404; body=%s", rr.Code, rr.Body.String())
 	}
 }
 
@@ -153,7 +186,8 @@ func TestPluginEnable_OrgLevelAgentSkipsGrant(t *testing.T) {
 	}
 }
 
-// Disabling a plugin is gated on managing the agent's team.
+// Disabling a plugin is gated on managing the agent's team; a cross-team member
+// cannot see the agent, so the route returns 404 (non-leaking) not 403.
 func TestPluginDisable_CrossTeamMemberDenied(t *testing.T) {
 	fx := newPluginAgentAuthzHarness(t)
 	agent := seedTeamAgent(t, fx.db, fx.org.ID, &fx.teamB.ID)
@@ -162,31 +196,18 @@ func TestPluginDisable_CrossTeamMemberDenied(t *testing.T) {
 	if err := fx.db.Create(&model.AgentPluginInstall{OrgID: fx.org.ID, AgentID: agent.ID, PluginID: fx.plugin.ID}).Error; err != nil {
 		t.Fatalf("seed agent plugin install: %v", err)
 	}
-	fx.assignAgentToVisibleChannel(t, agent.ID)
 
 	rr := fx.do(t, http.MethodDelete, fx.enablePath(agent.ID), fx.memberA)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("cross-team member disable status=%d, want 403; body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("cross-team member disable status=%d, want 404; body=%s", rr.Code, rr.Body.String())
 	}
 }
 
-// assignAgentToVisibleChannel makes an agent loadable by any org member by
-// assigning it to a no-team channel (team_id IS NULL => visible to everyone).
+// assignAgentToVisibleChannel is a no-op under the team-primary model: the test
+// agents belong to teamA and memberA is a member of teamA, so agent visibility
+// (team-membership based) already holds without any per-channel assignment. It
+// is retained so the call sites read as "this agent is member-visible".
 func (fx pluginAgentAuthzFixture) assignAgentToVisibleChannel(t *testing.T, agentID uuid.UUID) {
 	t.Helper()
-	channel := model.Channel{
-		OrgID:          fx.org.ID,
-		Name:           "vis-" + uuid.NewString()[:8],
-		Kind:           "standard",
-		Visibility:     "public",
-		DefaultAgentID: agentID,
-		Origin:         "native",
-		CreatedBy:      &fx.owner.ID,
-	}
-	if err := fx.db.Create(&channel).Error; err != nil {
-		t.Fatalf("create channel: %v", err)
-	}
-	if err := fx.db.Create(&model.ChannelAgent{OrgID: fx.org.ID, ChannelID: channel.ID, AgentID: agentID}).Error; err != nil {
-		t.Fatalf("assign channel agent: %v", err)
-	}
+	_ = agentID
 }

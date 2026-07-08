@@ -85,8 +85,17 @@ func TestIntegration_TeamsCreateListAndMembers(t *testing.T) {
 	if err := json.Unmarshal(add.Body.Bytes(), &detail); err != nil {
 		t.Fatalf("decode add: %v\n%s", err, add.Body.String())
 	}
-	if detail.Team.MemberCount != 1 || len(detail.Members) != 1 || detail.Members[0].UserID != member.ID.String() {
+	// The creator (owner) is auto-added as an owner member on team creation, so
+	// after adding `member` the team has two members.
+	if detail.Team.MemberCount != 2 || len(detail.Members) != 2 {
 		t.Fatalf("bad team members response: %+v", detail)
+	}
+	seen := map[string]bool{}
+	for _, m := range detail.Members {
+		seen[m.UserID] = true
+	}
+	if !seen[owner.ID.String()] || !seen[member.ID.String()] {
+		t.Fatalf("members missing owner/member: %+v", detail.Members)
 	}
 }
 
@@ -105,6 +114,11 @@ func TestIntegration_TeamsArchiveRejectsAssignedChannels(t *testing.T) {
 	team := model.Team{OrgID: org.ID, Name: "Support", CreatedBy: &owner.ID}
 	if err := h.db.Create(&team).Error; err != nil {
 		t.Fatalf("create team: %v", err)
+	}
+	// A second team so the last-team guard does not mask the channel guard.
+	other := model.Team{OrgID: org.ID, Name: "Other", CreatedBy: &owner.ID}
+	if err := h.db.Create(&other).Error; err != nil {
+		t.Fatalf("create second team: %v", err)
 	}
 	channel := model.Channel{
 		OrgID:          org.ID,

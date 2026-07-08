@@ -60,7 +60,7 @@ func (h *OrgInviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isValidInviteRole(role) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "role must be 'admin', 'member', or 'viewer'"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "role must be 'admin' or 'member'"})
 		return
 	}
 	teamIDs, ok := h.normalizeInviteTeamIDs(r.Context(), w, org.ID, req.TeamIDs)

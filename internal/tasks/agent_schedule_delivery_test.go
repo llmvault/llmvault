@@ -204,9 +204,8 @@ func seedScheduleRunFixture(t *testing.T, db *gorm.DB) scheduleRunFixture {
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}
-	if err := db.Create(&model.ChannelAgent{OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID}).Error; err != nil {
-		t.Fatalf("assign default agent to channel: %v", err)
-	}
+	// The channel is team-less, so under the team-primary model any org agent
+	// (including the fixture's) may act in it — no assignment row is needed.
 
 	schedule := model.AgentSchedule{
 		OrgID:        org.ID,

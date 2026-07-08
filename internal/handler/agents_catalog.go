@@ -33,11 +33,25 @@ type agentCatalogResponse struct {
 	RequiredPlugins    []agentCatalogPluginSummary `json:"required_plugins"`
 	RecommendedPlugins []agentCatalogPluginSummary `json:"recommended_plugins"`
 	InstalledAgentID   *string                     `json:"installed_agent_id,omitempty"`
+	// InstalledTeamIDs lists the ids of the caller's visible teams that already
+	// have this catalog agent installed (one clone per team). Managers and
+	// API-key callers see every team in the org; a plain member sees only the
+	// teams they belong to. The UI uses it to render per-team install/uninstall.
+	InstalledTeamIDs []string `json:"installed_team_ids"`
 }
 
-type agentCatalogInstallConflictResponse struct {
-	Error          string                      `json:"error"`
-	MissingPlugins []agentCatalogPluginSummary `json:"missing_plugins"`
+// agentCatalogInstallRequest is the body for install/uninstall: the team the
+// catalog agent is being cloned into (install) or removed from (uninstall).
+type agentCatalogInstallRequest struct {
+	TeamID *string `json:"team_id"`
+}
+
+// agentCatalogMissingPluginsResponse is the 422 body returned when the target
+// team cannot use every plugin the catalog requires. MissingPlugins holds the
+// catalog's required-plugin slugs that are not usable by the team.
+type agentCatalogMissingPluginsResponse struct {
+	Error          string   `json:"error"`
+	MissingPlugins []string `json:"missing_plugins"`
 }
 
 // ListCatalog handles GET /v1/agents/catalog.
@@ -106,20 +120,22 @@ func (h *AgentHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 // InstallCatalog handles POST /v1/agents/catalog/{slug}/install.
-// @Summary Install catalog agent
-// @Description Installs an agent catalog entry into the current organization when required plugins are installed.
+// @Summary Install catalog agent into a team
+// @Description Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.
 // @Tags agents
 // @Produce json
 // @Param slug path string true "Agent catalog slug"
+// @Param body body agentCatalogInstallRequest true "Target team"
 // @Success 201 {object} agentMutationResponse
 // @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
-// @Failure 409 {object} agentCatalogInstallConflictResponse
+// @Failure 422 {object} agentCatalogMissingPluginsResponse
 // @Failure 500 {object} errorResponse
 // @Router /v1/agents/catalog/{slug}/install [post]
 func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	org, ok := middleware.OrgFromContext(r.Context())
+	org, ok := middleware.OrgFromContext(ctx)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
@@ -128,21 +144,28 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	missing, err := h.missingInstalledPlugins(ctx, org.ID, catalog.RequiredPlugins)
+	teamID, ok := h.resolveCatalogInstallTeam(ctx, w, r, org.ID)
+	if !ok {
+		return
+	}
+	// Hard block: every required plugin must be usable by the target team
+	// (auto-install system plugin, or org-installed AND provisioned for the
+	// team). A missing plugin refuses the install; no agent is created.
+	missing, err := h.teamMissingRequiredPlugins(ctx, org.ID, *teamID, catalog.RequiredPlugins)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate required plugins"})
 		return
 	}
 	if len(missing) > 0 {
-		writeJSON(w, http.StatusConflict, agentCatalogInstallConflictResponse{
-			Error:          "required plugins are not installed",
+		writeJSON(w, http.StatusUnprocessableEntity, agentCatalogMissingPluginsResponse{
+			Error:          "your team is missing required plugins",
 			MissingPlugins: missing,
 		})
 		return
 	}
 	var agent model.Agent
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		existing, found, err := activeAgentForCatalog(ctx, tx, org.ID, catalog.ID)
+		existing, found, err := activeAgentForCatalogTeam(ctx, tx, org.ID, catalog.ID, *teamID)
 		if err != nil {
 			return err
 		}
@@ -150,7 +173,7 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 			agent = existing
 			return nil
 		}
-		created, err := h.createCatalogAgent(ctx, tx, org.ID, catalog)
+		created, err := h.createCatalogAgent(ctx, tx, org.ID, *teamID, catalog)
 		if err != nil {
 			return err
 		}
@@ -165,26 +188,26 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to install agent"})
 		return
 	}
-	if err := h.db.WithContext(r.Context()).Preload("AgentCatalog").First(&agent, "id = ?", agent.ID).Error; err == nil {
-		writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(r.Context(), org.ID, agent)})
-		return
-	}
-	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(r.Context(), org.ID, agent)})
+	_ = h.db.WithContext(ctx).Preload("AgentCatalog").First(&agent, "id = ?", agent.ID).Error
+	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
 }
 
 // UninstallCatalog handles DELETE /v1/agents/catalog/{slug}/install.
-// @Summary Uninstall catalog agent
-// @Description Archives the installed agent for a catalog entry in the current organization.
+// @Summary Uninstall a team's catalog agent
+// @Description Archives the catalog agent clone belonging to the caller's team. The actor must be able to manage the team.
 // @Tags agents
 // @Produce json
 // @Param slug path string true "Agent catalog slug"
+// @Param team_id query string false "Target team (may also be sent in the JSON body)"
 // @Success 200 {object} statusResponse
 // @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Router /v1/agents/catalog/{slug}/install [delete]
 func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
+	ctx := r.Context()
+	org, ok := middleware.OrgFromContext(ctx)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
@@ -197,10 +220,14 @@ func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default agent cannot be uninstalled"})
 		return
 	}
+	teamID, ok := h.resolveCatalogInstallTeam(ctx, w, r, org.ID)
+	if !ok {
+		return
+	}
 	var agentIDs []uuid.UUID
-	if err := h.db.WithContext(r.Context()).Model(&model.Agent{}).
+	if err := h.db.WithContext(ctx).Model(&model.Agent{}).
 		Where("is_default = ?", false).
-		Where("org_id = ? AND agent_catalog_id = ? AND status <> ?", org.ID, catalog.ID, "archived").
+		Where("org_id = ? AND agent_catalog_id = ? AND team_id = ? AND status <> ?", org.ID, catalog.ID, *teamID, "archived").
 		Pluck("id", &agentIDs).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to uninstall agent"})
 		return
@@ -212,7 +239,7 @@ func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) 
 	// Archive the catalog's agents and re-home their triggers onto the default
 	// agent (disabled) together, so no trigger is stranded behind an archived
 	// agent where it would vanish from the UI and stop firing unnoticed.
-	if err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.Agent{}).
 			Where("id IN ?", agentIDs).
 			Update("status", "archived").Error; err != nil {

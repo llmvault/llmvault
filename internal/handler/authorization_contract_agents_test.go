@@ -124,32 +124,3 @@ func TestAuthorizationContract_AgentPluginBounding(t *testing.T) {
 		t.Fatalf("m1 enable ungranted plugin: got %d want 422; body=%s", rr.Code, rr.Body.String())
 	}
 }
-
-// TestAuthorizationContract_ChannelAgentAssignment covers matrix area 4: a team
-// member may assign a same-team agent to a same-team channel (201), a cross-team
-// agent is refused by the team-consistency rule (422), and a member of another
-// team cannot manage the channel's agents at all (403). The same team-consistency
-// predicate governs setting a channel's cross-team default agent.
-func TestAuthorizationContract_ChannelAgentAssignment(t *testing.T) {
-	db := connectTestDB(t)
-	w := seedAuthzWorld(t, db)
-	router := buildAuthzRouter(db)
-
-	path := "/v1/channels/" + w.chT1.ID.String() + "/agents"
-
-	// M2 is not a member of chT1's team -> cannot manage its agents.
-	if rr := authzReq(router, w, w.callerM2(), http.MethodPost, path,
-		map[string]any{"agent_id": w.agentT1b.ID.String()}); rr.Code != http.StatusForbidden {
-		t.Fatalf("m2 assign to chT1: got %d want 403; body=%s", rr.Code, rr.Body.String())
-	}
-	// M1 assigns a cross-team (T2) agent to a T1 channel -> 422.
-	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, path,
-		map[string]any{"agent_id": w.agentT2.ID.String()}); rr.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("m1 assign cross-team agent: got %d want 422; body=%s", rr.Code, rr.Body.String())
-	}
-	// M1 assigns a same-team (T1) agent to the T1 channel -> 201.
-	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, path,
-		map[string]any{"agent_id": w.agentT1b.ID.String()}); rr.Code != http.StatusCreated {
-		t.Fatalf("m1 assign same-team agent: got %d want 201; body=%s", rr.Code, rr.Body.String())
-	}
-}

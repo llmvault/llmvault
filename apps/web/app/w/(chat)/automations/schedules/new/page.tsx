@@ -9,8 +9,8 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import {
   resolveScopedAgentID,
-  useChannelScopedAgents,
-} from "@/lib/api/channel-scoped-agents"
+  useTeamAgents,
+} from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import {
   ChannelSelect,
@@ -46,7 +46,7 @@ export default function NewSchedulePage() {
   const {
     agents,
     isLoading: agentsLoading,
-  } = useChannelScopedAgents(activeChannelID)
+  } = useTeamAgents(activeChannel?.team_id)
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -173,19 +173,19 @@ export default function NewSchedulePage() {
 
             <FormSection
               title="Agent"
-              description="Select the agent that should run on this schedule. Only agents assigned to the chosen channel can run here."
+              description="Select the agent that should run on this schedule. Any agent on the chosen channel's team can run here."
             >
               {!activeChannelID ? (
                 <InlineNotice
                   icon="bot"
                   title="Select a channel first"
-                  body="Agents are scoped to the channel this schedule runs in."
+                  body="Agents are scoped to the team that owns this schedule's channel."
                 />
               ) : agents.length === 0 && !agentsLoading ? (
                 <InlineNotice
                   icon="bot"
-                  title="No agents in this channel"
-                  body="Assign an agent to the selected channel before adding a schedule."
+                  title="No agents on this team"
+                  body="Add an agent to the selected channel's team before adding a schedule."
                 />
               ) : (
                 <AgentSelect

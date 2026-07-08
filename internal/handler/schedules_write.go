@@ -72,13 +72,13 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
 			return
 		}
-		assigned, aerr := channelagents.Assigned(r.Context(), h.db, org.ID, channelID, agentID)
+		acts, aerr := channelagents.ActsInChannel(r.Context(), h.db, org.ID, channelID, agentID)
 		if aerr != nil {
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
 			return
 		}
-		if !assigned {
-			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent is not assigned to this channel"})
+		if !acts {
+			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
 			return
 		}
 		// Binding a schedule to this channel is a manage-the-team action.
@@ -161,13 +161,13 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
 				return
 			}
-			assigned, aerr := channelagents.Assigned(r.Context(), h.db, org.ID, channelID, schedule.AgentID)
+			acts, aerr := channelagents.ActsInChannel(r.Context(), h.db, org.ID, channelID, schedule.AgentID)
 			if aerr != nil {
 				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
 				return
 			}
-			if !assigned {
-				writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent is not assigned to this channel"})
+			if !acts {
+				writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
 				return
 			}
 		}

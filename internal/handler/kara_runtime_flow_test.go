@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -50,10 +51,25 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 		t.Fatalf("install design plugin for org: %v", err)
 	}
 
+	// Catalog agents install into a team; the team must have the required
+	// (non-auto-install) design plugin provisioned for it.
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("team_id = ?", team.ID).Delete(&model.TeamPlugin{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
+	})
+	if err := db.Create(&model.TeamPlugin{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, PluginID: design.ID}).Error; err != nil {
+		t.Fatalf("provision design plugin for team: %v", err)
+	}
+
 	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 	r := chi.NewRouter()
 	r.Post("/v1/agents/catalog/{slug}/install", h.InstallCatalog)
-	req := httptest.NewRequest(http.MethodPost, "/v1/agents/catalog/kara-ui-and-graphics-designer/install", nil)
+	installBody := bytes.NewReader([]byte(`{"team_id":"` + team.ID.String() + `"}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/agents/catalog/kara-ui-and-graphics-designer/install", installBody)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)

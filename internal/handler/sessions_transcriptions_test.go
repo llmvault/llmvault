@@ -138,7 +138,7 @@ func TestIntegration_SessionTranscribeAudio_RejectsNonParticipant(t *testing.T) 
 	created := h.createSession(t, fx, fx.owner, "Start")
 	asset := seedSessionAudioAsset(t, h, fx, "voice.webm", "audio/webm", int64(len(reader.data)))
 
-	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/transcriptions", fx, fx.viewer, map[string]any{
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/transcriptions", fx, fx.bystander, map[string]any{
 		"drive_asset_id": asset.ID.String(),
 	})
 	if rr.Code != http.StatusForbidden {

@@ -153,6 +153,46 @@ func TestEnablePlugin_Errors(t *testing.T) {
 	}
 }
 
+// Auto-install system plugins are always enabled for every team and cannot be
+// toggled per team: both EnablePlugin and DisablePlugin reject them with
+// ErrPluginAlwaysEnabled, and no team_plugins row is ever written.
+func TestEnablePlugin_AutoInstallAlwaysEnabled(t *testing.T) {
+	ctx := context.Background()
+	db := connectDB(t)
+	fx := seedFixture(t, db)
+
+	id := uuid.New()
+	plugin := model.Plugin{
+		ID:       id,
+		Slug:     "pl-sys-" + uuid.NewString()[:8],
+		Name:     "sys",
+		Status:   model.PluginStatusActive,
+		Manifest: model.RawJSON(`{"auto_install": true, "locked": true}`),
+	}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("seed auto-install plugin: %v", err)
+	}
+	if err := db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: fx.org.ID, PluginID: id}).Error; err != nil {
+		t.Fatalf("seed install: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("plugin_id = ?", id).Delete(&model.OrgPluginInstall{})
+		db.Where("id = ?", id).Delete(&model.Plugin{})
+	})
+
+	if err := teamprovision.EnablePlugin(ctx, db, fx.org.ID, fx.team.ID, id, nil); !errors.Is(err, teamprovision.ErrPluginAlwaysEnabled) {
+		t.Fatalf("enable auto-install: err=%v, want ErrPluginAlwaysEnabled", err)
+	}
+	var count int64
+	db.Model(&model.TeamPlugin{}).Where("team_id = ? AND plugin_id = ?", fx.team.ID, id).Count(&count)
+	if count != 0 {
+		t.Fatalf("team_plugins rows=%d, want 0 (no row written for auto-install)", count)
+	}
+	if err := teamprovision.DisablePlugin(ctx, db, fx.org.ID, fx.team.ID, id); !errors.Is(err, teamprovision.ErrPluginAlwaysEnabled) {
+		t.Fatalf("disable auto-install: err=%v, want ErrPluginAlwaysEnabled", err)
+	}
+}
+
 func TestGrantSource_IdempotentAndErrors(t *testing.T) {
 	ctx := context.Background()
 	db := connectDB(t)

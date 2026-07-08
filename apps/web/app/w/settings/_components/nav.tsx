@@ -22,7 +22,6 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
   {
     label: "Workspace",
     items: [
-      { id: "agents", label: "Agents", icon: "bot" },
       { id: "teams", label: "Teams", icon: "users" },
       { id: "channels", label: "Channels", icon: "hash" },
       { id: "memories", label: "Memories", icon: "brain" },

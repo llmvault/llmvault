@@ -57,7 +57,6 @@ func buildContractRouter(db *gorm.DB) chi.Router {
 			r.Use(middleware.RequireAPIKeyScopeOrJWT("channels"))
 			r.Get("/channels", channelHandler.List)
 			r.Get("/channels/{id}", channelHandler.Get)
-			r.Get("/channels/{id}/agents", channelHandler.ListChannelAgents)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAPIKeyScopeOrJWT("sessions"))
@@ -159,7 +158,6 @@ func TestVisibilityContract(t *testing.T) {
 		// ---- channels (scope "channels") ----
 		{"channels.list", "/v1/channels", 200, B.visibleCh.ID.String(), 200, B.hiddenCh.ID.String()},
 		{"channels.get.hidden", "/v1/channels/" + B.hiddenCh.ID.String(), 403, "", 200, B.hiddenCh.ID.String()},
-		{"channels.agents.hidden", "/v1/channels/" + B.hiddenCh.ID.String() + "/agents", 403, "", 200, B.hiddenAgent.ID.String()},
 
 		// ---- audit (admin-only) ----
 		{"audit", "/v1/audit", 403, "", 200, ""},

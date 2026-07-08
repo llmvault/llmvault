@@ -10,6 +10,8 @@
   "official": true,
   "featured": false,
   "default_agent_install": true,
+  "auto_install": true,
+  "locked": true,
   "capabilities": ["Create skills", "Install skills from git and marketplaces", "Security-scan third-party skills", "Organize org plugins"],
   "examples": [
     "Clone this skill repo and install it for my engineering agents",

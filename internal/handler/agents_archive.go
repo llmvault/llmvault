@@ -62,7 +62,7 @@ func (h *AgentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if agent.IsDefault {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "default agent cannot be archived"})
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "the default Hivy agent cannot be deleted"})
 		return
 	}
 	hasBusySessions, err := h.agentHasBusySessions(ctx, org.ID, agent.ID)

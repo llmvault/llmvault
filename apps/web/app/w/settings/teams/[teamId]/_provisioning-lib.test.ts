@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { enabledIdSet, isProvisioned, nextEnabledSet } from "./_provisioning-lib"
+import {
+  enabledIdSet,
+  isProvisioned,
+  isTeamProvisionable,
+  nextEnabledSet,
+} from "./_provisioning-lib"
 
 describe("enabledIdSet", () => {
   it("collects truthy ids from a list of rows", () => {
@@ -32,6 +37,23 @@ describe("isProvisioned", () => {
 
   it("returns false when the id is undefined", () => {
     expect(isProvisioned(undefined, new Set(["a"]))).toBe(false)
+  })
+})
+
+describe("isTeamProvisionable", () => {
+  it("includes optional plugins (no flags)", () => {
+    expect(isTeamProvisionable({})).toBe(true)
+    expect(isTeamProvisionable({ auto_install: false, locked: false })).toBe(
+      true
+    )
+  })
+
+  it("excludes auto-install system plugins", () => {
+    expect(isTeamProvisionable({ auto_install: true })).toBe(false)
+  })
+
+  it("excludes locked plugins", () => {
+    expect(isTeamProvisionable({ locked: true })).toBe(false)
   })
 })
 

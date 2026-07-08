@@ -8,6 +8,7 @@ import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { ProviderIcon } from "../../_provider-icon"
 import {
   deriveProvider,
@@ -33,6 +34,11 @@ export default function EditKnowledgeSourcePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const queryClient = useQueryClient()
+  // Editing a knowledge source (PATCH /v1/rag/sources/{id}) and
+  // granting/revoking team access (POST/DELETE .../teams/{id}/rag-sources)
+  // are admin-only on the backend. Non-admins see a read-only blocked state
+  // instead of the edit form; the backend enforces this too.
+  const isAdmin = useIsAdmin()
 
   const sourceQuery = $api.useQuery("get", "/v1/rag/sources/{id}", { params: { path: { id } } })
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
@@ -182,6 +188,30 @@ export default function EditKnowledgeSourcePage() {
     } catch (error) {
       toast.danger(extractErrorMessage(error, "Could not update source"))
     }
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/w/settings/knowledge"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <AppIcon icon="arrow-left" className="h-4 w-4" />
+            Knowledge
+          </Link>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              Edit knowledge source
+            </h1>
+            <p className="mt-1 max-w-lg text-sm text-muted-foreground">
+              Only workspace admins can edit knowledge sources.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (sourceQuery.isLoading || !source || !meta) {

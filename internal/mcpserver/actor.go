@@ -49,8 +49,8 @@ func enforceActorChannelAccess(ctx context.Context, db *gorm.DB, actor *access.A
 }
 
 // enforceActorChannelArg is enforceActorChannelAccess for a raw channel_id
-// argument. An empty value (falls back to the org's managed system channel) is
-// not gated; a malformed value is reported clearly. Returns nil when allowed.
+// argument. An empty value (falls back to the agent's team #general) is not
+// gated; a malformed value is reported clearly. Returns nil when allowed.
 func enforceActorChannelArg(ctx context.Context, db *gorm.DB, actor *access.Actor, raw string) *mcp.CallToolResult {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || actor == nil || actor.IsOrgManager() {

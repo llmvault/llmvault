@@ -7,7 +7,7 @@ import (
 )
 
 // The bundled skill-manager plugin must load through the same path boot sync
-// uses: default_agent_install so it lands on every org's default Hivy agent,
+// uses: auto_install so it lands on every team's agents (a system plugin),
 // one skill-creator skill, and all three reference files present.
 func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	root, err := resolveDir("global/plugins")
@@ -39,11 +39,8 @@ func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	if err := json.Unmarshal(manifest.raw, &flags); err != nil {
 		t.Fatalf("decode manifest: %v", err)
 	}
-	if !flags.DefaultAgentInstall {
-		t.Fatal("skill-manager must set default_agent_install: true")
-	}
-	if flags.AutoInstall {
-		t.Fatal("skill-manager must not be auto_install (default agent only)")
+	if !flags.AutoInstall {
+		t.Fatal("skill-manager must set auto_install: true (system plugin)")
 	}
 
 	skills, err := loadSkills(context.Background(), *manifest)

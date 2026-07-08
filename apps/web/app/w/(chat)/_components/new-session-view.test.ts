@@ -52,25 +52,6 @@ vi.mock("@/lib/api/hooks", () => ({
   },
 }))
 
-// The channel-scoped agent list drives the composer's agent picker. Mock it to
-// return the same single assigned agent the org list used to provide.
-vi.mock("@/lib/api/channel-agents", () => ({
-  useChannelAgents: () => ({
-    data: {
-      data: [
-        {
-          id: "agent-1",
-          name: "Hivy",
-          model: "test-model",
-          catalog: { id: "catalog-1", slug: "hivy" },
-        },
-      ],
-    },
-    isError: false,
-    isLoading: false,
-  }),
-}))
-
 vi.mock("@tanstack/react-query", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-query")>()
   return {
@@ -99,13 +80,22 @@ describe("SessionView", () => {
       if (path === "/v1/channels") {
         return {
           data: {
-            data: [{ id: "channel-1", name: "General", is_default: true }],
+            data: [
+              {
+                id: "channel-1",
+                name: "General",
+                is_default: true,
+                team_id: "team-1",
+              },
+            ],
           },
           isError: false,
           isLoading: false,
         }
       }
       if (path === "/v1/agents") {
+        // useTeamAgents filters the visible agents to the active channel's
+        // team, so the agent must share the channel's team_id to be selectable.
         return {
           data: {
             data: [
@@ -113,6 +103,7 @@ describe("SessionView", () => {
                 id: "agent-1",
                 name: "Hivy",
                 is_default: true,
+                team_id: "team-1",
                 model: "test-model",
                 catalog: { id: "catalog-1", slug: "hivy" },
               },

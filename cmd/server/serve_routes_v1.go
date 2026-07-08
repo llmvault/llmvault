@@ -177,9 +177,6 @@ func setupV1Routes(
 					// Channel RAG grants are team-derived now (team-provisioning owns
 					// /teams/{teamID}/rag-sources); the PUT grant route was removed.
 					r.Get("/channels/{id}/rag-sources", channelHandler.ListChannelRAGSources)
-					r.Get("/channels/{id}/agents", channelHandler.ListChannelAgents)
-					r.Post("/channels/{id}/agents", channelHandler.AssignChannelAgent)
-					r.Delete("/channels/{id}/agents/{agentID}", channelHandler.UnassignChannelAgent)
 					if sessionHandler != nil {
 						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
 					}
@@ -262,13 +259,14 @@ func setupV1Routes(
 					r.Post("/agents", agentHandler.Create)
 					r.Patch("/agents/{id}", agentHandler.Update)
 					r.Delete("/agents/{id}", agentHandler.Archive)
+					// Model change is a member action: UpdateModel enforces authorizeAgentMutation, so NOT admin-gated.
+					r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
 					r.Post("/triggers", triggerHandler.Create)
 					r.Post("/schedules", scheduleHandler.Create)
+					r.Post("/agents/catalog/{slug}/install", agentHandler.InstallCatalog)
+					r.Delete("/agents/catalog/{slug}/install", agentHandler.UninstallCatalog)
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
-						r.Post("/agents/catalog/{slug}/install", agentHandler.InstallCatalog)
-						r.Delete("/agents/catalog/{slug}/install", agentHandler.UninstallCatalog)
-						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
 						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
 						r.Patch("/triggers/{id}", triggerHandler.Update)
 						r.Delete("/triggers/{id}", triggerHandler.Delete)

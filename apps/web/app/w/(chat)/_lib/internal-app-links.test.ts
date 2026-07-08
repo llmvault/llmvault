@@ -6,8 +6,8 @@ import {
 } from "@/app/w/(chat)/_lib/internal-app-links"
 
 const agentUrl =
-  "https://usehivy.test/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
-const agentHref = "/w/settings/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
+  "https://usehivy.test/w/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
+const agentHref = "/w/agents/edit/f34232d7-a756-4407-9eac-d48d7ec27f73"
 
 // Internal app links are now matched purely by same-origin (window.location.origin),
 // not a hardcoded host allowlist. Simulate the app being served from usehivy.test so

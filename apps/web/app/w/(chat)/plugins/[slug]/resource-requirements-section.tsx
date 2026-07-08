@@ -22,9 +22,14 @@ export type ResourceModalState = {
 export function ResourceRequirementsSection({
   requirements,
   onSelect,
+  canManage = true,
 }: {
   requirements: PluginResourceRequirement[]
   onSelect: (requirement: PluginResourceRequirement) => void
+  // canManage gates resource selection to org admins; saving resource
+  // selections (PUT /v1/connections/{id}/resources) is admin-only on the
+  // backend, so non-admins shouldn't be able to open the selection flow.
+  canManage?: boolean
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -49,12 +54,18 @@ export function ResourceRequirementsSection({
                   <p className="mt-1 text-sm leading-5 text-muted-foreground">
                     Select resources for this integration before agents use it.
                   </p>
+                  {!canManage ? (
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Only workspace admins can select resources.
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <Button
                 size="sm"
                 variant="primary"
                 className="w-full shrink-0 rounded-full sm:w-auto"
+                isDisabled={!canManage}
                 onPress={() => onSelect(requirement)}
               >
                 {pluginResourceSelectLabel(requirement)}
@@ -72,11 +83,15 @@ export function ResourceSelectionModal({
   state,
   onSaved,
   onCancel,
+  canManage = true,
 }: {
   modal: ResourceModalState | null
   state: ReturnType<typeof useOverlayState>
   onSaved: () => void
   onCancel: () => void
+  // canManage gates saving the resource selection to org admins; the backend
+  // enforces this too (see ResourceRequirementsSection above).
+  canManage?: boolean
 }) {
   const requirement = modal?.requirement
   if (!requirement) {
@@ -90,6 +105,7 @@ export function ResourceSelectionModal({
           <ResourceSelectionModalContent
             key={`${requirement.connection_id ?? ""}:${requirement.resource_key ?? ""}`}
             requirement={requirement}
+            canManage={canManage}
             onSaved={onSaved}
             onCancel={onCancel}
           />
@@ -103,10 +119,12 @@ function ResourceSelectionModalContent({
   requirement,
   onSaved,
   onCancel,
+  canManage = true,
 }: {
   requirement: PluginResourceRequirement
   onSaved: () => void
   onCancel: () => void
+  canManage?: boolean
 }) {
   const connectionID = requirement.connection_id ?? ""
   const resourceKey = requirement.resource_key ?? ""
@@ -246,6 +264,7 @@ function ResourceSelectionModalContent({
             size="sm"
             variant="primary"
             isDisabled={
+              !canManage ||
               selectedIDs.size === 0 ||
               saveResources.isPending ||
               resourcesQuery.isLoading

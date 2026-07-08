@@ -29,7 +29,6 @@ import {
 const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
   { value: "member", label: "Member" },
-  { value: "viewer", label: "Viewer" },
 ]
 
 export function InviteMemberModal({

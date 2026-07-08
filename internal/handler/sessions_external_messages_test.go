@@ -21,7 +21,7 @@ func TestIntegration_SessionsSendRejectsExternalChannelSession(t *testing.T) {
 		t.Fatalf("set source key: %v", err)
 	}
 
-	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.ID.String()+"/messages", fx, fx.viewer, map[string]any{
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.ID.String()+"/messages", fx, fx.bystander, map[string]any{
 		"text": "continue from web",
 	})
 	if rr.Code != http.StatusConflict {

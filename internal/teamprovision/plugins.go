@@ -2,12 +2,14 @@ package teamprovision
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/plugins"
 )
 
 // EnablePlugin adds pluginID to teamID's plugin allowlist. It is idempotent:
@@ -27,6 +29,14 @@ func EnablePlugin(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uuid
 	}
 	if err := validatePluginForOrg(ctx, db, orgID, pluginID); err != nil {
 		return err
+	}
+	// Auto-install system plugins are always enabled for every team, so there is
+	// no team_plugins row to create — reject the toggle instead of writing a
+	// meaningless grant.
+	if always, err := pluginAlwaysEnabled(ctx, db, pluginID); err != nil {
+		return err
+	} else if always {
+		return ErrPluginAlwaysEnabled
 	}
 	row := model.TeamPlugin{
 		OrgID:     orgID,
@@ -52,9 +62,31 @@ func DisablePlugin(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uui
 	if !ok {
 		return ErrTeamNotFound
 	}
+	// Auto-install system plugins are always enabled and cannot be turned off per
+	// team; reject rather than silently no-op so the caller sees the reason.
+	if always, err := pluginAlwaysEnabled(ctx, db, pluginID); err != nil {
+		return err
+	} else if always {
+		return ErrPluginAlwaysEnabled
+	}
 	return db.WithContext(ctx).
 		Where("org_id = ? AND team_id = ? AND plugin_id = ?", orgID, teamID, pluginID).
 		Delete(&model.TeamPlugin{}).Error
+}
+
+// pluginAlwaysEnabled reports whether pluginID names an auto-install system
+// plugin. Such plugins are implicitly enabled for every team and are excluded
+// from per-team provisioning. A missing plugin is treated as not always-enabled
+// (the caller's validatePluginForOrg surfaces the not-found error).
+func pluginAlwaysEnabled(ctx context.Context, db *gorm.DB, pluginID uuid.UUID) (bool, error) {
+	var plugin model.Plugin
+	if err := db.WithContext(ctx).Where("id = ?", pluginID).First(&plugin).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return plugins.PluginAutoInstall(plugin), nil
 }
 
 // validatePluginForOrg checks the plugin is visible to the org (global or

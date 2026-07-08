@@ -36,9 +36,11 @@ func githubPROpenedPayload(repo, author, body string) map[string]any {
 
 func seedPROpenedTrigger(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, repo string) model.AgentTrigger {
 	t.Helper()
+	channel := seedTriggerChannel(t, db, orgID, agentID, "pr-opened")
 	trigger := model.AgentTrigger{
 		ID: uuid.New(), OrgID: orgID, AgentID: agentID, TriggerType: "webhook",
 		TriggerKey: model.TriggerKeyGitHubPROpened, TriggerValue: repo, Enabled: true,
+		ChannelID: &channel.ID,
 	}
 	if err := db.Create(&trigger).Error; err != nil {
 		t.Fatalf("create pr-opened trigger: %v", err)

@@ -129,7 +129,7 @@ func invitedDisplayName(u *model.User) string {
 }
 
 func isValidInviteRole(role string) bool {
-	return role == "admin" || role == "member" || role == "viewer"
+	return role == "admin" || role == "member"
 }
 
 func normalizeEmail(raw string) string {

@@ -14,7 +14,11 @@ import {
   type RagSource,
 } from "../../knowledge/_lib"
 import { ProviderIcon } from "../../knowledge/_provider-icon"
-import { enabledIdSet, isProvisioned } from "./_provisioning-lib"
+import {
+  enabledIdSet,
+  isProvisioned,
+  isTeamProvisionable,
+} from "./_provisioning-lib"
 import {
   EmptyProvisioningRow,
   ProvisioningRow,
@@ -61,8 +65,12 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
     "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}"
   )
 
+  // Auto-install / locked system plugins (sheets, service-discovery,
+  // skill-manager, runtime, …) are always enabled for every team, so they are
+  // not per-team toggleable — hide them from the provisioning list.
   const plugins = useMemo(
-    () => (pluginsQuery.data ?? []) as ApiPlugin[],
+    () =>
+      ((pluginsQuery.data ?? []) as ApiPlugin[]).filter(isTeamProvisionable),
     [pluginsQuery.data]
   )
   const enabledIds = useMemo(

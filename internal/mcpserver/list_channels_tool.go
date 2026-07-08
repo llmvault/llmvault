@@ -103,7 +103,6 @@ func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent, ac
 			"kind":       channel.Kind,
 			"visibility": channel.Visibility,
 			"is_default": channel.IsDefault,
-			"is_system":  channel.Kind == "system",
 		}
 		if channel.ExternalProvider != "" {
 			entry["external_provider"] = channel.ExternalProvider

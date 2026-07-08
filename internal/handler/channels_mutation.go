@@ -7,7 +7,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -47,10 +46,6 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
 		return
 	}
-	if isReservedChannelName(name) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel name is reserved"})
-		return
-	}
 	visibility := defaultString(cleanStringPtr(req.Visibility), "public")
 	if !validChannelVisibility(visibility) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "visibility must be public or private"})
@@ -74,18 +69,20 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Creating a channel is a manage-the-target-team action: a non-manager may
+	// only create one inside a team they actively belong to (never a team-less
+	// channel), stopping any member from self-owning a channel in an arbitrary
+	// team. API keys and org managers are unrestricted. This authorization gate
+	// runs before default-agent resolution so an unauthorized caller gets 403
+	// rather than leaking payload-validation (422) details about another team.
+	if !h.canCreateChannelInTeam(ctx, org.ID, teamID) {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the target team to create a channel in it"})
+		return
+	}
 	// Resolve the default agent after the team so it can be gated to the channel's
 	// team (a team-scoped channel's default agent must belong to the same team).
 	defaultAgentID, ok := h.resolveDefaultAgentID(ctx, w, org.ID, teamID, req.DefaultAgentID)
 	if !ok {
-		return
-	}
-	// Creating a channel is a manage-the-target-team action: a non-manager may
-	// only create one inside a team they actively belong to (never a team-less
-	// channel), stopping any member from self-owning a channel in an arbitrary
-	// team. API keys and org managers are unrestricted.
-	if !h.canCreateChannelInTeam(ctx, org.ID, teamID) {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the target team to create a channel in it"})
 		return
 	}
 	source, ok = h.prepareExternalChannelCreate(w, r, org.ID, source)
@@ -122,10 +119,9 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := tx.Create(&channel).Error; err != nil {
 			return err
 		}
-		// The channel's default agent is always one of its assigned agents.
-		if err := channelagents.Assign(ctx, tx, channel.OrgID, channel.ID, channel.DefaultAgentID, userID); err != nil {
-			return err
-		}
+		// No assignment row: under the team-primary model the default agent is
+		// usable by virtue of belonging to the channel's team (resolveDefaultAgentID
+		// enforces the same-team gate).
 		if hasUser {
 			return tx.Create(&model.ChannelMember{
 				ChannelID: channel.ID,
@@ -184,22 +180,12 @@ func (h *ChannelHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !h.applyChannelUpdates(w, r, &channel, &req, updates) {
 		return
 	}
-	userID, _ := currentRequestUserID(r.Context())
 	if len(updates) > 0 {
-		// Changing default_agent_id must keep the "default is always assigned"
-		// invariant: auto-assign the new default in the same transaction.
-		err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(&model.Channel{}).
-				Where("id = ? AND org_id = ?", channel.ID, channel.OrgID).
-				Updates(updates).Error; err != nil {
-				return err
-			}
-			if req.DefaultAgentID != nil {
-				return channelagents.Assign(r.Context(), tx, channel.OrgID, channel.ID, channel.DefaultAgentID, userID)
-			}
-			return nil
-		})
-		if err != nil {
+		// The new default agent is gated to the channel's team by
+		// resolveDefaultAgentID; no assignment row is needed anymore.
+		if err := h.db.WithContext(r.Context()).Model(&model.Channel{}).
+			Where("id = ? AND org_id = ?", channel.ID, channel.OrgID).
+			Updates(updates).Error; err != nil {
 			if isDuplicateKeyError(err) {
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "channel already exists for this source"})
 				return
@@ -238,6 +224,16 @@ func (h *ChannelHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+
+	// A team must keep at least one channel — this protects the team's floor
+	// (its #general) even if the default flag is ever cleared.
+	if ok, err := h.isTeamLastChannel(ctx, channel); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check team channels"})
+		return
+	} else if ok {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "a team must keep at least one channel"})
+		return
+	}
 
 	// Load the channel's live (non-archived) sessions. Deleting tears their
 	// sandboxes down, which would abort a live turn, so refuse while any turn is

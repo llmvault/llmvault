@@ -4,8 +4,9 @@ import { use, useMemo, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Chip, Skeleton, Spinner, toast } from "@heroui/react"
+import { Button, Chip, Skeleton, Spinner, Tooltip, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -16,12 +17,11 @@ import {
   TeamFormModal,
   formatDate,
   teamLabel,
-  type Channel,
   type Member,
   type Team,
   type TeamMember,
 } from "../_components/team-settings"
-import { TeamChannelsSection, TeamMembersSection } from "./team-sections"
+import { TeamMembersSection } from "./team-sections"
 import { TeamProvisioningSection } from "./team-provisioning"
 
 export default function TeamDetailPage({
@@ -36,6 +36,7 @@ export default function TeamDetailPage({
   const isAdmin = useIsAdmin()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
 
   const teamQuery = $api.useQuery(
     "get",
@@ -55,12 +56,6 @@ export default function TeamDetailPage({
     {},
     { enabled: isAdmin }
   )
-  const channelsQuery = $api.useQuery(
-    "get",
-    "/v1/channels",
-    { params: { query: { limit: 100 } } },
-    { enabled: isAdmin }
-  )
   const archiveTeam = $api.useMutation("delete", "/v1/orgs/current/teams/{id}")
 
   const teams = useMemo(
@@ -76,19 +71,6 @@ export default function TeamDetailPage({
     () => (membersQuery.data?.data ?? []) as Member[],
     [membersQuery.data?.data]
   )
-  const channels = useMemo(
-    () => (channelsQuery.data?.data ?? []) as Channel[],
-    [channelsQuery.data?.data]
-  )
-  const assignedChannels = useMemo(
-    () => channels.filter((channel) => channel.team_id === teamId),
-    [channels, teamId]
-  )
-  const availableChannels = useMemo(
-    () => channels.filter((channel) => !channel.team_id),
-    [channels]
-  )
-
   function refreshTeam() {
     queryClient.invalidateQueries({
       queryKey: ["get", "/v1/orgs/current/teams/{id}"],
@@ -98,20 +80,19 @@ export default function TeamDetailPage({
 
   function handleArchive() {
     if (!team?.id || archiveTeam.isPending) return
-    const confirmed = window.confirm(
-      `Archive ${teamLabel(team)}? Remove channels from this team first.`
-    )
-    if (!confirmed) return
     archiveTeam.mutate(
       { params: { path: { id: team.id } } },
       {
         onSuccess: () => {
           toast.success("Team archived")
+          setArchiveOpen(false)
           queryClient.invalidateQueries({ queryKey: TEAMS_KEY })
           router.push("/w/settings/teams")
         },
-        onError: (err) =>
-          toast.danger(extractErrorMessage(err, "Could not archive team")),
+        onError: (err) => {
+          toast.danger(extractErrorMessage(err, "Could not archive team"))
+          setArchiveOpen(false)
+        },
       }
     )
   }
@@ -120,9 +101,9 @@ export default function TeamDetailPage({
     return (
       <div className="flex flex-col gap-6">
         <BackLink />
-        <section className="bg-surface rounded-2xl border border-border px-4 py-4">
+        <section className="rounded-2xl border border-border bg-surface px-4 py-4">
           <div className="flex items-start gap-3">
-            <div className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default text-muted">
               <AppIcon icon="users-round" className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -145,7 +126,7 @@ export default function TeamDetailPage({
           <Skeleton className="h-8 w-48 rounded" />
           <Skeleton className="h-4 w-72 rounded" />
         </div>
-        <section className="bg-surface overflow-hidden rounded-2xl border border-border">
+        <section className="overflow-hidden rounded-2xl border border-border bg-surface">
           <Skeleton className="h-16" />
         </section>
       </div>
@@ -156,7 +137,7 @@ export default function TeamDetailPage({
     return (
       <div className="flex flex-col gap-6">
         <BackLink />
-        <section className="bg-surface rounded-2xl border border-border px-4 py-8 text-center">
+        <section className="rounded-2xl border border-border bg-surface px-4 py-8 text-center">
           <h1 className="text-sm font-medium">Team not found</h1>
           <p className="mt-1 text-sm text-muted">
             This team may have been archived.
@@ -179,9 +160,7 @@ export default function TeamDetailPage({
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Chip size="sm">{team.member_count ?? members.length} members</Chip>
-            <Chip size="sm">
-              {team.channel_count ?? assignedChannels.length} channels
-            </Chip>
+            <Chip size="sm">{team.channel_count ?? 0} channels</Chip>
             <Chip size="sm">Created {formatDate(team.created_at)}</Chip>
           </div>
         </div>
@@ -194,19 +173,13 @@ export default function TeamDetailPage({
             <AppIcon icon="pencil" className="h-4 w-4" />
             Edit
           </Button>
-          <Button
-            variant="danger-soft"
-            size="sm"
-            isDisabled={archiveTeam.isPending}
-            onPress={handleArchive}
-          >
-            {archiveTeam.isPending ? (
-              <Spinner color="current" size="sm" />
-            ) : (
-              <AppIcon icon="archive" className="h-4 w-4" />
-            )}
-            Archive
-          </Button>
+          <ArchiveTeamButton
+            pending={archiveTeam.isPending}
+            // The backend refuses to archive an org's last team (409); when we
+            // already know this is it, disable proactively with an explanation.
+            isLastTeam={!teamsQuery.isLoading && teams.length <= 1}
+            onPress={() => setArchiveOpen(true)}
+          />
         </div>
       </div>
 
@@ -216,14 +189,6 @@ export default function TeamDetailPage({
         orgMembers={orgMembers}
         isLoading={membersQuery.isLoading}
         onInvite={() => setInviteOpen(true)}
-        onChanged={refreshTeam}
-      />
-
-      <TeamChannelsSection
-        teamId={teamId}
-        assignedChannels={assignedChannels}
-        availableChannels={availableChannels}
-        isLoading={channelsQuery.isLoading}
         onChanged={refreshTeam}
       />
 
@@ -245,7 +210,57 @@ export default function TeamDetailPage({
           initialTeam={team}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={archiveOpen}
+        pending={archiveTeam.isPending}
+        heading={`Archive ${teamLabel(team)}?`}
+        description="Remove channels from this team first. Archiving does not delete the team's channels."
+        confirmLabel="Archive team"
+        icon="archive"
+        onOpenChange={setArchiveOpen}
+        onConfirm={handleArchive}
+      />
     </div>
+  )
+}
+
+function ArchiveTeamButton({
+  pending,
+  isLastTeam,
+  onPress,
+}: {
+  pending: boolean
+  isLastTeam: boolean
+  onPress: () => void
+}) {
+  const button = (
+    <Button
+      variant="danger-soft"
+      size="sm"
+      isDisabled={pending || isLastTeam}
+      onPress={onPress}
+    >
+      {pending ? (
+        <Spinner color="current" size="sm" />
+      ) : (
+        <AppIcon icon="archive" className="h-4 w-4" />
+      )}
+      Archive
+    </Button>
+  )
+
+  if (!isLastTeam) return button
+
+  return (
+    <Tooltip delay={200} closeDelay={0}>
+      <Tooltip.Trigger className="flex shrink-0">
+        <span>{button}</span>
+      </Tooltip.Trigger>
+      <Tooltip.Content placement="top" offset={6} className="text-xs">
+        An organization must keep at least one team.
+      </Tooltip.Content>
+    </Tooltip>
   )
 }
 

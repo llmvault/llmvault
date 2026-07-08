@@ -42,7 +42,8 @@ func countTasksOfType(enq *fakeTaskEnqueuer, taskType string) int {
 func TestTriggerDeliverySameResourceSharesSessionAndQueues(t *testing.T) {
 	db := connectTestDB(t)
 	org, agent, _ := seedTriggerSessionFixture(t, db)
-	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, nil)
+	queueChannel := seedTriggerChannel(t, db, org.ID, agent.ID, "queue")
+	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, &queueChannel.ID)
 	enq := &fakeTaskEnqueuer{}
 	handler := &AgentTriggerDispatchHandler{db: db, enqueuer: enq}
 	ctx := context.Background()
@@ -140,7 +141,8 @@ func TestTriggerDeliverySameResourceSharesSessionAndQueues(t *testing.T) {
 func TestTriggerDeliveryQueuesWhileTurnActive(t *testing.T) {
 	db := connectTestDB(t)
 	org, agent, _ := seedTriggerSessionFixture(t, db)
-	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, nil)
+	queueChannel := seedTriggerChannel(t, db, org.ID, agent.ID, "queue")
+	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, &queueChannel.ID)
 	enq := &fakeTaskEnqueuer{}
 	handler := &AgentTriggerDispatchHandler{db: db, enqueuer: enq}
 	ctx := context.Background()

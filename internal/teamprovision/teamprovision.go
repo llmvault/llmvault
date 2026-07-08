@@ -1,7 +1,7 @@
 // Package teamprovision is the domain layer for team-primary provisioning:
 // which plugins are enabled for a team and which knowledge (RAG) sources are
 // granted to it. Teams are the provisioning unit — an agent inherits its
-// capabilities from the team it is assigned to (see migration 000081). All
+// capabilities from the team it is assigned to (team primary-authz model). All
 // mutations here are org-admin actions; the HTTP layer applies the admin gate.
 //
 // The two backing tables are allowlists:
@@ -33,6 +33,12 @@ var (
 	// installed it (no active org_plugin_installs row). A team may only enable
 	// plugins the org has installed.
 	ErrPluginNotInstalled = errors.New("teamprovision: plugin not installed for org")
+	// ErrPluginAlwaysEnabled means the plugin is an auto-install system plugin
+	// (e.g. sheets, service-discovery, skill-manager, runtime). These are
+	// implicitly enabled for every team and are not per-team toggleable, so
+	// enabling or disabling them via team provisioning is rejected. Callers map
+	// this to 422.
+	ErrPluginAlwaysEnabled = errors.New("teamprovision: plugin is always enabled")
 	// ErrSourceNotFound means the RAG source does not exist in the given org.
 	ErrSourceNotFound = errors.New("teamprovision: rag source not found in org")
 )

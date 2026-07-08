@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Spinner, toast } from "@heroui/react"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 
 const DEFAULT_PORTS = [3000, 5173, 8000, 8080]
@@ -13,6 +14,10 @@ const MAX_PORTS = 20
 
 export default function EnvironmentsSettingsPage() {
   const queryClient = useQueryClient()
+  // Editing sandbox ports mutates org config (PATCH /v1/orgs/current), which is
+  // admin-only on the backend. Non-admins can view the current ports but not
+  // change them; the backend enforces this too.
+  const isAdmin = useIsAdmin()
   const orgQuery = $api.useQuery("get", "/v1/orgs/current")
   const updateOrg = $api.useMutation("patch", "/v1/orgs/current")
   const savedPorts = orgQuery.data?.sandbox_exposed_ports ?? DEFAULT_PORTS
@@ -26,7 +31,11 @@ export default function EnvironmentsSettingsPage() {
   const parsed = useMemo(() => parsePorts(portsInput), [portsInput])
   const hasChanges = parsed.value !== savedInput
   const canSave =
-    !orgQuery.isLoading && !updateOrg.isPending && !parsed.error && hasChanges
+    isAdmin &&
+    !orgQuery.isLoading &&
+    !updateOrg.isPending &&
+    !parsed.error &&
+    hasChanges
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -77,24 +86,38 @@ export default function EnvironmentsSettingsPage() {
           placeholder="3000, 5173, 8000, 8080"
           className={cn("w-full", parsed.error && "border-danger/70")}
           aria-invalid={Boolean(parsed.error) || undefined}
+          readOnly={!isAdmin}
+          disabled={!isAdmin}
         />
+        {!isAdmin ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            Only workspace admins can change sandbox preview ports.
+          </p>
+        ) : null}
       </section>
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="tertiary"
-          size="sm"
-          isDisabled={updateOrg.isPending || !hasChanges}
-          onPress={() => setPortsInput(savedInput)}
-        >
-          Reset
-        </Button>
-        <Button type="submit" variant="primary" size="sm" isDisabled={!canSave}>
-          {updateOrg.isPending ? <Spinner color="current" size="sm" /> : null}
-          Save changes
-        </Button>
-      </div>
+      {isAdmin ? (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            isDisabled={updateOrg.isPending || !hasChanges}
+            onPress={() => setPortsInput(savedInput)}
+          >
+            Reset
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            isDisabled={!canSave}
+          >
+            {updateOrg.isPending ? <Spinner color="current" size="sm" /> : null}
+            Save changes
+          </Button>
+        </div>
+      ) : null}
     </form>
   )
 }

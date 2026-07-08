@@ -103,9 +103,6 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 		&model.TeamMember{OrgID: org.ID, TeamID: t2.ID, UserID: m2.ID, Role: "member"},
 		&agentT1, &agentT1b, &agentT2,
 		&chT1, &chT2, &chT1Priv,
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chT1.ID, AgentID: agentT1.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chT2.ID, AgentID: agentT2.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chT1Priv.ID, AgentID: agentT1.ID},
 		&model.ChannelMember{ChannelID: chT1Priv.ID, UserID: m1.ID, Role: "member"},
 		&pluginGranted, &pluginUngranted,
 		&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: pluginGranted.ID},
@@ -125,7 +122,6 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 
 	t.Cleanup(func() {
 		db.Where("channel_id IN (?)", db.Model(&model.Channel{}).Select("id").Where("org_id = ?", org.ID)).Delete(&model.ChannelMember{})
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentTrigger{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentSchedule{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})

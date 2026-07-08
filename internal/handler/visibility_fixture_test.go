@@ -36,14 +36,16 @@ func seedVisFixture(t *testing.T, db *gorm.DB) visFixture {
 	admin := model.User{ID: uuid.New(), Email: "vadmin-" + uuid.NewString()[:8] + "@test.com", Name: "admin"}
 	member := model.User{ID: uuid.New(), Email: "vmember-" + uuid.NewString()[:8] + "@test.com", Name: "member"}
 
-	mkAgent := func(name string) model.Agent {
-		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active"}
-	}
-	visibleAgent := mkAgent("Visible")
-	hiddenAgent := mkAgent("Hidden")
-
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-b-" + uuid.NewString()[:8]}
+
+	mkAgent := func(name string, team uuid.UUID) model.Agent {
+		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: &team}
+	}
+	// Agent visibility is team-membership based: the visible agent belongs to the
+	// member's team (teamA), the hidden agent to teamB.
+	visibleAgent := mkAgent("Visible", teamA.ID)
+	hiddenAgent := mkAgent("Hidden", teamB.ID)
 
 	visibleCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "vis-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: visibleAgent.ID}
 	hiddenCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "hid-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamB.ID, DefaultAgentID: hiddenAgent.ID}
@@ -55,12 +57,10 @@ func seedVisFixture(t *testing.T, db *gorm.DB) visFixture {
 		&org, &admin, &member,
 		&model.OrgMembership{UserID: admin.ID, OrgID: org.ID, Role: "admin"},
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
-		&visibleAgent, &hiddenAgent,
 		&teamA, &teamB,
+		&visibleAgent, &hiddenAgent,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
 		&visibleCh, &hiddenCh,
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: visibleCh.ID, AgentID: visibleAgent.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: hiddenCh.ID, AgentID: hiddenAgent.ID},
 		&visibleSess, &hiddenSess,
 	}
 	for _, r := range rows {
@@ -70,7 +70,6 @@ func seedVisFixture(t *testing.T, db *gorm.DB) visFixture {
 	}
 	t.Cleanup(func() {
 		db.Where("org_id = ?", org.ID).Delete(&model.Session{})
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Team{})

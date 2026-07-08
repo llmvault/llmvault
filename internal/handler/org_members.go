@@ -34,7 +34,7 @@ type patchMemberRoleRequest struct {
 }
 
 // orgRoleRank ranks org roles so escalation guards can compare tiers.
-// owner > admin > member > viewer.
+// owner > admin > member.
 func orgRoleRank(role string) int {
 	switch role {
 	case "owner":
@@ -43,8 +43,6 @@ func orgRoleRank(role string) int {
 		return 2
 	case "member":
 		return 1
-	case "viewer":
-		return 0
 	default:
 		return -1
 	}
@@ -122,7 +120,7 @@ func orgMemberTargetID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool)
 // @Accept json
 // @Produce json
 // @Param userID path string true "Target user ID"
-// @Param body body patchMemberRoleRequest true "New role: owner, admin, member, or viewer"
+// @Param body body patchMemberRoleRequest true "New role: owner, admin, or member"
 // @Success 200 {object} orgMemberResponse
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -147,7 +145,7 @@ func (h *OrgMemberHandler) PatchRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isValidOrgRole(req.Role) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "role must be one of: owner, admin, member, viewer"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "role must be one of: owner, admin, member"})
 		return
 	}
 	if targetID == callerID {

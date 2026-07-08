@@ -66,7 +66,6 @@ func TestAuthorizationContract_PrivateChannel(t *testing.T) {
 
 	privID := w.chT1Priv.ID.String()
 	getPath := "/v1/channels/" + privID
-	agentsPath := getPath + "/agents"
 
 	// List: the private channel must not appear for M2, must appear for M1/admin.
 	m2list := authzReq(router, w, w.callerM2(), http.MethodGet, "/v1/channels?limit=200", nil)
@@ -78,12 +77,9 @@ func TestAuthorizationContract_PrivateChannel(t *testing.T) {
 		t.Fatalf("m1 (channel member) channels.list missing private channel %s\nbody=%s", privID, m1list.Body.String())
 	}
 
-	// Get + use (list agents): denied for M2, allowed for M1 and admin.
+	// Get: denied for M2, allowed for M1 and admin.
 	if rr := authzReq(router, w, w.callerM2(), http.MethodGet, getPath, nil); rr.Code != http.StatusForbidden {
 		t.Fatalf("m2 private channel.get: got %d want 403; body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := authzReq(router, w, w.callerM2(), http.MethodGet, agentsPath, nil); rr.Code != http.StatusForbidden {
-		t.Fatalf("m2 private channel.agents: got %d want 403; body=%s", rr.Code, rr.Body.String())
 	}
 	if rr := authzReq(router, w, w.callerM1(), http.MethodGet, getPath, nil); rr.Code != http.StatusOK {
 		t.Fatalf("m1 private channel.get: got %d want 200; body=%s", rr.Code, rr.Body.String())

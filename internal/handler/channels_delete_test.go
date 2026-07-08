@@ -115,3 +115,39 @@ func TestIntegration_ChannelDeleteRejectsNonIdleSession(t *testing.T) {
 		t.Fatalf("enqueued %d tasks on rejected delete", len(enq.tasks))
 	}
 }
+
+// A team must keep at least one channel: deleting a team's only channel is
+// rejected (409), but deleting one when the team has others succeeds.
+func TestIntegration_ChannelDeleteKeepsTeamLastChannel(t *testing.T) {
+	h := newChannelHarness(t)
+	fx := h.seed(t)
+	team := seedChannelTeam(t, h, fx, "Ops-"+uuid.NewString()[:6])
+
+	makeTeamChannel := func(name string) model.Channel {
+		ch := model.Channel{
+			OrgID: fx.org.ID, TeamID: &team.ID, Name: name, Kind: "standard",
+			Visibility: "public", DefaultAgentID: fx.agent.ID, Origin: "native",
+			CreatedBy: &fx.owner.ID,
+		}
+		if err := h.db.Create(&ch).Error; err != nil {
+			t.Fatalf("create team channel %s: %v", name, err)
+		}
+		if err := h.db.Create(&model.ChannelMember{ChannelID: ch.ID, UserID: fx.owner.ID, Role: "owner"}).Error; err != nil {
+			t.Fatalf("create channel member: %v", err)
+		}
+		return ch
+	}
+
+	only := makeTeamChannel("ops-only-" + uuid.NewString()[:6])
+	rr := h.doJSON(t, http.MethodDelete, "/v1/channels/"+only.ID.String(), fx, fx.owner, nil)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("delete last team channel status=%d, want 409; body=%s", rr.Code, rr.Body.String())
+	}
+
+	// With a second channel present, deleting one succeeds.
+	_ = makeTeamChannel("ops-two-" + uuid.NewString()[:6])
+	rr2 := h.doJSON(t, http.MethodDelete, "/v1/channels/"+only.ID.String(), fx, fx.owner, nil)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("delete non-last team channel status=%d, want 200; body=%s", rr2.Code, rr2.Body.String())
+	}
+}

@@ -129,8 +129,6 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 
 	rows := []any{
 		&agentShared, &chanNull, &chanExt, &chanSys, &sessOwnedA,
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chanNull.ID, AgentID: agentShared.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chanExt.ID, AgentID: agentShared.ID},
 		&triggerA, &triggerB, &schedA, &schedB, &deliveryB,
 		&plugin, &catalog,
 		&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: plugin.ID},

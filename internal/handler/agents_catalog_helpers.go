@@ -2,18 +2,14 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UUID, c model.AgentCatalog) (agentCatalogResponse, error) {
@@ -46,6 +42,22 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 	} else if err != gorm.ErrRecordNotFound {
 		return agentCatalogResponse{}, err
 	}
+	// installed_team_ids: which of the caller's visible teams already have a
+	// (non-archived) clone of this catalog agent. Org-wide callers see all teams;
+	// members are scoped to teams they belong to.
+	teamIDsQ := h.db.WithContext(ctx).Model(&model.Agent{}).
+		Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND team_id IS NOT NULL", orgID, c.ID, "archived")
+	if !orgWide {
+		teamIDsQ = teamIDsQ.Where("team_id IN (?)", visibleTeamSubquery(h.db, userID))
+	}
+	var teamIDs []uuid.UUID
+	if err := teamIDsQ.Distinct("team_id").Order("team_id").Pluck("team_id", &teamIDs).Error; err != nil {
+		return agentCatalogResponse{}, err
+	}
+	installedTeamIDs := make([]string, 0, len(teamIDs))
+	for _, id := range teamIDs {
+		installedTeamIDs = append(installedTeamIDs, id.String())
+	}
 	return agentCatalogResponse{
 		ID:                 c.ID.String(),
 		Slug:               c.Slug,
@@ -61,6 +73,7 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 		RequiredPlugins:    required,
 		RecommendedPlugins: recommended,
 		InstalledAgentID:   installedID,
+		InstalledTeamIDs:   installedTeamIDs,
 	}, nil
 }
 
@@ -103,20 +116,6 @@ func (h *AgentHandler) catalogPluginSummary(ctx context.Context, orgID uuid.UUID
 	}, nil
 }
 
-func (h *AgentHandler) missingInstalledPlugins(ctx context.Context, orgID uuid.UUID, slugs []string) ([]agentCatalogPluginSummary, error) {
-	var missing []agentCatalogPluginSummary
-	for _, slug := range slugs {
-		summary, err := h.catalogPluginSummary(ctx, orgID, slug)
-		if err != nil {
-			return nil, err
-		}
-		if !summary.Installed {
-			missing = append(missing, summary)
-		}
-	}
-	return missing, nil
-}
-
 func (h *AgentHandler) orgPluginInstalled(ctx context.Context, orgID, pluginID uuid.UUID) (bool, error) {
 	var count int64
 	err := h.db.WithContext(ctx).Model(&model.OrgPluginInstall{}).
@@ -144,82 +143,4 @@ func (h *AgentHandler) loadAgentCatalogBySlug(w http.ResponseWriter, r *http.Req
 	}
 	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent catalog entry"})
 	return model.AgentCatalog{}, false
-}
-
-func activeAgentForCatalog(ctx context.Context, tx *gorm.DB, orgID, catalogID uuid.UUID) (model.Agent, bool, error) {
-	var agent model.Agent
-	err := tx.WithContext(ctx).
-		Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, catalogID, "archived").
-		First(&agent).Error
-	if err == nil {
-		return agent, true, nil
-	}
-	if err == gorm.ErrRecordNotFound {
-		return model.Agent{}, false, nil
-	}
-	return model.Agent{}, false, err
-}
-
-func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, catalog model.AgentCatalog) (model.Agent, error) {
-	modelID := strings.TrimSpace(catalog.Model)
-	if modelID == "" {
-		modelID = agentruntime.DefaultAgentModel
-	}
-	if err := h.validateAgentSelectableModel(ctx, orgID, modelID); err != nil {
-		return model.Agent{}, err
-	}
-	permissions := model.JSON{}
-	for _, id := range model.BuiltInToolIDs() {
-		permissions[id] = true
-	}
-	sandboxTools := make([]string, 0, len(model.ValidSandboxTools))
-	for _, tool := range model.ValidSandboxTools {
-		sandboxTools = append(sandboxTools, tool.ID)
-	}
-	desc := catalog.Description
-	avatarURL := catalog.AvatarURL
-	catalogID := catalog.ID
-	agent := model.Agent{
-		OrgID:                  &orgID,
-		AgentCatalogID:         &catalogID,
-		Name:                   catalog.Name,
-		Description:            &desc,
-		AvatarURL:              optionalStringPtr(avatarURL),
-		IsDefault:              false,
-		SandboxImage:           model.NormalizeSandboxImage(catalog.SandboxImage),
-		SandboxSize:            model.DefaultAgentSandboxSize,
-		Model:                  modelID,
-		DefaultReasoningEffort: strings.TrimSpace(catalog.DefaultReasoningEffort),
-		AutoLoadSkills:         append(model.AutoLoadSkills(nil), catalog.AutoLoadSkills...),
-		Tools:                  cloneModelJSON(catalog.Tools),
-		McpServers:             model.RawJSON("[]"),
-		Skills:                 model.JSON{},
-		Permissions:            permissions,
-		Resources:              model.JSON{},
-		SandboxTools:           pq.StringArray(sandboxTools),
-		Status:                 "active",
-	}
-	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
-		return model.Agent{}, fmt.Errorf("create catalog agent: %w", err)
-	}
-	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
-		return model.Agent{}, err
-	}
-	return agent, nil
-}
-
-func enableRequiredCatalogPlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, slugs []string) error {
-	for _, slug := range slugs {
-		var plugin model.Plugin
-		err := tx.WithContext(ctx).
-			Where("slug = ? AND status = ?", slug, model.PluginStatusActive).
-			First(&plugin).Error
-		if err != nil {
-			return fmt.Errorf("load required plugin %q: %w", slug, err)
-		}
-		if err := enablePluginForAgent(ctx, tx, orgID, agentID, plugin.ID); err != nil {
-			return err
-		}
-	}
-	return nil
 }

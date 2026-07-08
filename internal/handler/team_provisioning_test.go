@@ -150,6 +150,49 @@ func TestTeamProvisioning_PluginErrors(t *testing.T) {
 	}
 }
 
+// Auto-install system plugins are always enabled and are not per-team
+// provisionable: enabling one returns 422, and the team plugins list never
+// includes it even when a stale team_plugins row exists.
+func TestTeamProvisioning_AutoInstallExcluded(t *testing.T) {
+	h := newTeamProvHarness(t)
+	fx := (&channelHarness{db: h.db}).seed(t)
+	team := tpSeedTeam(t, h.db, fx.org.ID)
+
+	sysID := uuid.New()
+	if err := h.db.Create(&model.Plugin{
+		ID: sysID, Slug: "tp-sys-" + uuid.NewString()[:8], Name: "tp-sys",
+		Status: model.PluginStatusActive, Manifest: model.RawJSON(`{"auto_install": true, "locked": true}`),
+	}).Error; err != nil {
+		t.Fatalf("create auto-install plugin: %v", err)
+	}
+	if err := h.db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: fx.org.ID, PluginID: sysID}).Error; err != nil {
+		t.Fatalf("install auto-install plugin: %v", err)
+	}
+	t.Cleanup(func() {
+		h.db.Where("plugin_id = ?", sysID).Delete(&model.OrgPluginInstall{})
+		h.db.Where("plugin_id = ?", sysID).Delete(&model.TeamPlugin{})
+		h.db.Where("id = ?", sysID).Delete(&model.Plugin{})
+	})
+
+	base := "/v1/orgs/current/teams/" + team.ID.String() + "/plugins"
+	// Enable via API → 422 (always enabled, not toggleable).
+	rr := h.doJSON(t, http.MethodPost, base, fx, fx.owner, map[string]any{"plugin_id": sysID.String()})
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("enable auto-install: code=%d, want 422 body=%s", rr.Code, rr.Body.String())
+	}
+
+	// Even a stale/legacy team_plugins row must not surface in the list.
+	if err := h.db.Create(&model.TeamPlugin{OrgID: fx.org.ID, TeamID: team.ID, PluginID: sysID}).Error; err != nil {
+		t.Fatalf("seed stale team_plugins row: %v", err)
+	}
+	rr = h.doJSON(t, http.MethodGet, base, fx, fx.owner, nil)
+	var listed tpPluginsOut
+	decodeInto(t, rr, &listed)
+	if rr.Code != http.StatusOK || len(listed.Data) != 0 {
+		t.Fatalf("list excludes auto-install: code=%d data=%+v", rr.Code, listed.Data)
+	}
+}
+
 // TestTeamProvisioning_OrgScoping: a caller in org A cannot provision org B's
 // team, nor enable a plugin that belongs to another org.
 func TestTeamProvisioning_OrgScoping(t *testing.T) {

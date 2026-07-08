@@ -98,8 +98,8 @@ func TestPrivateChannelVisibility(t *testing.T) {
 
 // TestResolveDefaultAgentID_SameTeam asserts that a team-scoped channel's default
 // agent must belong to the channel's team: picking a cross-team agent as the
-// default is rejected (422, closing the channel_agents same-team bypass), while a
-// same-team default is accepted and auto-assigned to the channel.
+// default is rejected (422), while a same-team default is accepted and recorded
+// as the channel's default_agent_id (the agent is usable by team ownership).
 func TestResolveDefaultAgentID_SameTeam(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t) // fx.owner is an org owner (manager) so the create team gate passes
@@ -130,8 +130,8 @@ func TestResolveDefaultAgentID_SameTeam(t *testing.T) {
 		t.Fatalf("cross-team default = %d, want 422; body=%s", rr.Code, rr.Body.String())
 	}
 
-	// teamX channel with a teamX default agent -> accepted, and the default agent
-	// is assigned to the channel (channel_agents row).
+	// teamX channel with a teamX default agent -> accepted, and the channel's
+	// default_agent_id records that agent (usable by virtue of team ownership).
 	rr = h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name": "same-" + uuid.NewString()[:8], "category": "general", "team_id": teamX.ID.String(), "default_agent_id": agentX.ID.String(),
 	})
@@ -143,13 +143,11 @@ func TestResolveDefaultAgentID_SameTeam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse channel id: %v", err)
 	}
-	var count int64
-	if err := h.db.Model(&model.ChannelAgent{}).
-		Where("channel_id = ? AND agent_id = ?", chID, agentX.ID).
-		Count(&count).Error; err != nil {
-		t.Fatalf("count channel agents: %v", err)
+	var channel model.Channel
+	if err := h.db.First(&channel, "id = ?", chID).Error; err != nil {
+		t.Fatalf("load created channel: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("default agent not assigned to channel: channel_agents count = %d, want 1", count)
+	if channel.DefaultAgentID != agentX.ID {
+		t.Fatalf("channel default_agent_id = %s, want same-team agent %s", channel.DefaultAgentID, agentX.ID)
 	}
 }

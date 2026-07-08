@@ -14,11 +14,13 @@ import (
 )
 
 type scheduleChannelFixture struct {
-	org     model.Org
-	agent   model.Agent
-	session model.Session
-	channel model.Channel
-	target  model.Channel
+	org      model.Org
+	team     model.Team
+	agent    model.Agent
+	session  model.Session
+	channel  model.Channel
+	target   model.Channel
+	teamHome model.Channel
 }
 
 func connectScheduleTestDB(t *testing.T) *gorm.DB {
@@ -38,12 +40,17 @@ func connectScheduleTestDB(t *testing.T) *gorm.DB {
 func seedScheduleChannelFixture(t *testing.T, db *gorm.DB) scheduleChannelFixture {
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "schedule-channel-" + uuid.NewString(), Active: true, RateLimit: 1000}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Schedule Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: &team.ID, Name: "Schedule Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "work-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	target := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ops-" + uuid.NewString(), DefaultAgentID: agent.ID}
+	teamHome := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: &team.ID, Name: "general", Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, IsDefault: true}
 	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, Status: "active"}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
+	}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -54,11 +61,14 @@ func seedScheduleChannelFixture(t *testing.T, db *gorm.DB) scheduleChannelFixtur
 	if err := db.Create(&target).Error; err != nil {
 		t.Fatalf("create target channel: %v", err)
 	}
+	if err := db.Create(&teamHome).Error; err != nil {
+		t.Fatalf("create team #general channel: %v", err)
+	}
 	if err := db.Create(&session).Error; err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 	t.Cleanup(func() { cleanupScheduleChannelOrg(t, db, org.ID) })
-	return scheduleChannelFixture{org: org, agent: agent, session: session, channel: channel, target: target}
+	return scheduleChannelFixture{org: org, team: team, agent: agent, session: session, channel: channel, target: target, teamHome: teamHome}
 }
 
 func cleanupScheduleChannelOrg(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
@@ -69,10 +79,11 @@ func cleanupScheduleChannelOrg(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	db.Where("org_id = ?", orgID).Delete(&model.AgentChannel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Channel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Agent{})
+	db.Where("org_id = ?", orgID).Delete(&model.Team{})
 	db.Delete(&model.Org{}, "id = ?", orgID)
 }
 
-func TestCreateFromSessionDefaultsToSystemChannel(t *testing.T) {
+func TestCreateFromSessionDefaultsToTeamGeneral(t *testing.T) {
 	db := connectScheduleTestDB(t)
 	fx := seedScheduleChannelFixture(t, db)
 	interval := int64(60)
@@ -84,18 +95,35 @@ func TestCreateFromSessionDefaultsToSystemChannel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create schedule: %v", err)
 	}
-	if schedule.Channel == fx.channel.ID.String() {
-		t.Fatalf("schedule used session channel %s", schedule.Channel)
+	if schedule.Channel != fx.teamHome.ID.String() {
+		t.Fatalf("schedule channel = %s, want team #general %s", schedule.Channel, fx.teamHome.ID)
 	}
-	var channel model.Channel
-	if err := db.First(&channel, "id = ?", uuid.MustParse(schedule.Channel)).Error; err != nil {
-		t.Fatalf("load schedule channel: %v", err)
+	// No system channel is ever created: the only channels remain the seeded ones.
+	var systemCount int64
+	if err := db.Model(&model.Channel{}).Where("org_id = ? AND kind = ?", fx.org.ID, "system").Count(&systemCount).Error; err != nil {
+		t.Fatalf("count system channels: %v", err)
 	}
-	if channel.OrgID != fx.org.ID || channel.Name != systemChannelName || channel.Kind != "system" || channel.Visibility != "private" {
-		t.Fatalf("system channel = %#v", channel)
+	if systemCount != 0 {
+		t.Fatalf("created %d system channels", systemCount)
 	}
-	if channel.DefaultAgentID != fx.agent.ID {
-		t.Fatalf("system channel default agent = %s, want %s", channel.DefaultAgentID, fx.agent.ID)
+}
+
+func TestCreateFromSessionTeamlessAgentRequiresExplicitChannel(t *testing.T) {
+	db := connectScheduleTestDB(t)
+	fx := seedScheduleChannelFixture(t, db)
+	// Strip the agent's team: a legacy org-level agent has no team #general.
+	if err := db.Model(&model.Agent{}).Where("id = ?", fx.agent.ID).Update("team_id", nil).Error; err != nil {
+		t.Fatalf("clear agent team: %v", err)
+	}
+	fx.agent.TeamID = nil
+	interval := int64(60)
+	_, err := CreateFromSession(t.Context(), db, &fx.agent, fx.session.ID.String(), CreateInput{
+		JobID:           "job-" + uuid.NewString(),
+		TaskPrompt:      "summarize weekly activity",
+		IntervalSeconds: &interval,
+	})
+	if err == nil || !strings.Contains(err.Error(), "agent has no team") {
+		t.Fatalf("teamless default channel error = %v, want agent has no team", err)
 	}
 }
 
@@ -116,7 +144,7 @@ func TestCreateFromSessionUsesSelectedChannel(t *testing.T) {
 		t.Fatalf("schedule channel = %s, want %s", schedule.Channel, fx.target.ID)
 	}
 	var count int64
-	if err := db.Model(&model.Channel{}).Where("org_id = ? AND name = ?", fx.org.ID, systemChannelName).Count(&count).Error; err != nil {
+	if err := db.Model(&model.Channel{}).Where("org_id = ? AND kind = ?", fx.org.ID, "system").Count(&count).Error; err != nil {
 		t.Fatalf("count system channels: %v", err)
 	}
 	if count != 0 {

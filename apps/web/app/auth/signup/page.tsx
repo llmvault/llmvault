@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation"
 import {
   safeAuthRedirect,
   usePasswordSignup,
-  type PasswordAuthInput,
+  type PasswordSignupInput,
 } from "@/hooks/use-password-auth"
 import {
   AuthCard,
@@ -30,6 +30,7 @@ function SignupPageContent() {
     resendConfirmation,
     changeEmail,
     emailToConfirm,
+    signupError,
     isPending,
     isConfirming,
     isResending,
@@ -41,7 +42,8 @@ function SignupPageContent() {
     signup({
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
-    } satisfies PasswordAuthInput)
+      teamName: String(formData.get("team_name") ?? ""),
+    } satisfies PasswordSignupInput)
   }
 
   return (
@@ -83,6 +85,18 @@ function SignupPageContent() {
               <AuthDivider />
               <form onSubmit={onSignupSubmit} className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2">
+                  <Label htmlFor="team_name">Team name</Label>
+                  <Input
+                    id="team_name"
+                    name="team_name"
+                    type="text"
+                    autoComplete="organization"
+                    required
+                    placeholder="Acme Engineering"
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="email">Work email</Label>
                   <Input
                     id="email"
@@ -106,6 +120,15 @@ function SignupPageContent() {
                     disabled={isPending}
                   />
                 </div>
+                {signupError ? (
+                  <Typography.Paragraph
+                    size="sm"
+                    className="text-danger"
+                    role="alert"
+                  >
+                    {signupError}
+                  </Typography.Paragraph>
+                ) : null}
                 <Button
                   type="submit"
                   size="lg"

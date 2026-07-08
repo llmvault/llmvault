@@ -35,9 +35,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Name = strings.TrimSpace(req.Name)
+	req.TeamName = normalizeTeamName(req.TeamName)
 
 	if req.Email == "" || req.Password == "" || req.Name == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email, password, and name are required"})
+		return
+	}
+	if req.TeamName == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team_name is required"})
 		return
 	}
 	if len(req.Password) < 8 {
@@ -75,7 +80,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var orgErr error
-		org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user)
+		org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user, req.TeamName)
 		return orgErr
 	})
 	if err != nil {

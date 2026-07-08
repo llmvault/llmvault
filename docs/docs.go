@@ -1640,14 +1640,14 @@ const docTemplate = `{
         },
         "/v1/agents/catalog/{slug}/install": {
             "post": {
-                "description": "Installs an agent catalog entry into the current organization when required plugins are installed.",
+                "description": "Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "agents"
                 ],
-                "summary": "Install catalog agent",
+                "summary": "Install catalog agent into a team",
                 "parameters": [
                     {
                         "type": "string",
@@ -1655,6 +1655,15 @@ const docTemplate = `{
                         "name": "slug",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Target team",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agentCatalogInstallRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -1670,16 +1679,22 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
-                            "$ref": "#/definitions/agentCatalogInstallConflictResponse"
+                            "$ref": "#/definitions/agentCatalogMissingPluginsResponse"
                         }
                     },
                     "500": {
@@ -1691,14 +1706,14 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Archives the installed agent for a catalog entry in the current organization.",
+                "description": "Archives the catalog agent clone belonging to the caller's team. The actor must be able to manage the team.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "agents"
                 ],
-                "summary": "Uninstall catalog agent",
+                "summary": "Uninstall a team's catalog agent",
                 "parameters": [
                     {
                         "type": "string",
@@ -1706,6 +1721,12 @@ const docTemplate = `{
                         "name": "slug",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Target team (may also be sent in the JSON body)",
+                        "name": "team_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1717,6 +1738,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -4342,179 +4369,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/channels/{id}/agents": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "channels"
-                ],
-                "summary": "List agents assigned to a channel",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Channel ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/channelAgentsResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "channels"
-                ],
-                "summary": "Assign an agent to a channel",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Channel ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Agent to assign",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/assignChannelAgentRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/assignChannelAgentResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/channels/{id}/agents/{agentID}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "channels"
-                ],
-                "summary": "Unassign an agent from a channel",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Channel ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "agentID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -8383,7 +8237,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "New role: owner, admin, member, or viewer",
+                        "description": "New role: owner, admin, or member",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -8613,7 +8467,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Archives an active team after all channels are removed from it. Admin-only.",
+                "description": "Archives an active team after all channels are removed from it. Admin-only. Rejected if it is the org's last team.",
                 "produces": [
                     "application/json"
                 ],
@@ -15611,7 +15465,15 @@ const docTemplate = `{
                 }
             }
         },
-        "agentCatalogInstallConflictResponse": {
+        "agentCatalogInstallRequest": {
+            "type": "object",
+            "properties": {
+                "team_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentCatalogMissingPluginsResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -15620,7 +15482,7 @@ const docTemplate = `{
                 "missing_plugins": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/agentCatalogPluginSummary"
+                        "type": "string"
                     }
                 }
             }
@@ -15662,6 +15524,13 @@ const docTemplate = `{
                 },
                 "installed_agent_id": {
                     "type": "string"
+                },
+                "installed_team_ids": {
+                    "description": "InstalledTeamIDs lists the ids of the caller's visible teams that already\nhave this catalog agent installed (one clone per team). Managers and\nAPI-key callers see every team in the org; a plain member sees only the\nteams they belong to. The UI uses it to render per-team install/uninstall.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "is_default": {
                     "type": "boolean"
@@ -16407,22 +16276,6 @@ const docTemplate = `{
                 }
             }
         },
-        "assignChannelAgentRequest": {
-            "type": "object",
-            "properties": {
-                "agent_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "assignChannelAgentResponse": {
-            "type": "object",
-            "properties": {
-                "agent": {
-                    "$ref": "#/definitions/agentResponse"
-                }
-            }
-        },
         "attachmentDownloadURLRequest": {
             "type": "object",
             "properties": {
@@ -16696,17 +16549,6 @@ const docTemplate = `{
                 },
                 "new_password": {
                     "type": "string"
-                }
-            }
-        },
-        "channelAgentsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/agentResponse"
-                    }
                 }
             }
         },
@@ -19965,6 +19807,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                },
+                "team_name": {
                     "type": "string"
                 }
             }

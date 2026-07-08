@@ -13,7 +13,9 @@ import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsAdmin, useIsOwner } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
+import { WorkspaceDangerZone } from "./workspace-danger-zone"
 import { appendTranscriptToComposer } from "@/app/w/(chat)/_lib/audio-transcriptions"
 import { useComposerAudioRecording } from "@/hooks/use-composer-audio-recording"
 import { useOrgAudioTranscription } from "@/hooks/use-org-audio-transcription"
@@ -32,6 +34,15 @@ interface ProfileForm {
 
 export default function GeneralSettingsPage() {
   const queryClient = useQueryClient()
+  // Editing the workspace profile mutates org config (PATCH /v1/orgs/current,
+  // POST /v1/uploads/sign for the logo), which is admin-only on the backend.
+  // Non-admins can view the current settings but not change them; the
+  // backend enforces this too.
+  const isAdmin = useIsAdmin()
+  // Transfer-ownership and delete-workspace are owner-only, org-wide actions —
+  // rendered in a separate danger-zone section below, independent of the
+  // admin-gated profile form above.
+  const isOwner = useIsOwner()
   const orgQuery = $api.useQuery("get", "/v1/orgs/current")
   const updateOrg = $api.useMutation("patch", "/v1/orgs/current")
   const signUpload = $api.useMutation("post", "/v1/uploads/sign")
@@ -64,7 +75,11 @@ export default function GeneralSettingsPage() {
     form.promptCompany !== saved.promptCompany ||
     form.logoUrl !== saved.logoUrl
   const canSave =
-    !orgQuery.isLoading && !updateOrg.isPending && !nameError && dirty
+    isAdmin &&
+    !orgQuery.isLoading &&
+    !updateOrg.isPending &&
+    !nameError &&
+    dirty
 
   function update<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -102,7 +117,7 @@ export default function GeneralSettingsPage() {
   async function handleLogoSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = "" // allow re-selecting the same file
-    if (!file) return
+    if (!file || !isAdmin) return
 
     if (!file.type.startsWith("image/")) {
       toast.danger("Choose an image file")
@@ -169,223 +184,253 @@ export default function GeneralSettingsPage() {
           toast.success("Workspace updated")
         },
         onError: (error) =>
-          toast.danger(extractErrorMessage(error, "Could not update workspace")),
+          toast.danger(
+            extractErrorMessage(error, "Could not update workspace")
+          ),
       }
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">General</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your workspace profile and the context your agents share.
-        </p>
-      </div>
-
-      {/* Logo */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-foreground">Logo</h2>
-          <p className="text-sm leading-5 text-muted-foreground">
-            A square image, at least 256×256px. Click to upload — PNG or SVG
-            works best.
+    <div className="flex flex-col gap-8">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">General</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage your workspace profile and the context your agents share.
           </p>
+          {!isAdmin ? (
+            <p className="text-muted-foreground mt-1 text-sm">
+              Only workspace admins can edit workspace settings.
+            </p>
+          ) : null}
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="Upload workspace logo"
-            disabled={uploadingLogo}
-            onClick={() => fileInputRef.current?.click()}
-            className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-default transition-colors hover:border-accent"
-          >
-            {form.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={form.logoUrl}
-                alt="Workspace logo"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <AppIcon icon="image" className="h-5 w-5 text-muted-foreground" />
-            )}
 
-            {/* Hover edit affordance */}
-            <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-              <AppIcon icon="pencil" className="h-4 w-4 text-white" />
-            </span>
-
-            {/* Uploading state */}
-            {uploadingLogo ? (
-              <span className="absolute inset-0 flex items-center justify-center bg-surface/70">
-                <Spinner color="current" size="sm" />
-              </span>
-            ) : null}
-          </button>
-
-          {form.logoUrl ? (
+        {/* Logo */}
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-foreground">Logo</h2>
+            <p className="text-muted-foreground text-sm leading-5">
+              A square image, at least 256×256px. Click to upload — PNG or SVG
+              works best.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => update("logoUrl", "")}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="Upload workspace logo"
+              disabled={uploadingLogo || !isAdmin}
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-default transition-colors hover:border-accent disabled:cursor-not-allowed disabled:hover:border-border"
             >
-              Remove
-            </button>
-          ) : null}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleLogoSelect}
-          />
-        </div>
-      </section>
-
-      {/* Name */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-foreground">Name</h2>
-          <p className="text-sm leading-5 text-muted-foreground">
-            The name of your workspace.
-          </p>
-        </div>
-        <Input
-          aria-label="Workspace name"
-          value={form.name}
-          onChange={(event) => update("name", event.target.value)}
-          placeholder="Acme Inc."
-          className={cn("w-full", nameError && "border-danger/70")}
-          aria-invalid={nameError || undefined}
-          disabled={orgQuery.isLoading}
-        />
-        {nameError ? (
-          <p className="text-sm text-danger">Name can&apos;t be empty.</p>
-        ) : null}
-      </section>
-
-      {/* Website */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-foreground">Website</h2>
-          <p className="text-sm leading-5 text-muted-foreground">
-            Indexed into the knowledge base so agents can reference your site.
-          </p>
-        </div>
-        <Input
-          aria-label="Website"
-          value={form.website}
-          onChange={(event) => update("website", event.target.value)}
-          placeholder="https://acme.com"
-          className="w-full"
-          disabled={orgQuery.isLoading}
-        />
-      </section>
-
-      {/* Company context */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-foreground">
-            Company context
-          </h2>
-          <p className="text-sm leading-5 text-muted-foreground">
-            Shared background about your company — what you do, your product,
-            your voice. Every agent uses this to understand your business.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 rounded-3xl border border-border bg-surface px-3 pt-3 pb-2 shadow-sm transition-colors">
-          <textarea
-            aria-label="Company context"
-            value={form.promptCompany}
-            onChange={(event) =>
-              update(
-                "promptCompany",
-                event.target.value.slice(0, PROMPT_COMPANY_MAX)
-              )
-            }
-            rows={6}
-            placeholder="Acme builds developer tools for fast-moving teams. Our tone is direct and friendly…"
-            disabled={orgQuery.isLoading}
-            className="max-h-64 min-h-32 w-full resize-y overflow-y-auto bg-transparent px-2 text-[15px] leading-6 outline-none placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-60"
-          />
-
-          <div className="flex items-center gap-1">
-            {recordingActive ? (
-              <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
-                <div className="h-9 min-w-0 flex-1 overflow-hidden">
-                  <RecordingWaveform
-                    active={isRecordingInProgress}
-                    audioData={audioData}
-                  />
-                </div>
-                <span className="shrink-0 text-sm font-medium text-muted tabular-nums">
-                  {formattedRecordingTime || "00:00"}
-                </span>
-              </div>
-            ) : (
-              <>
-                <span className="px-2 text-xs text-muted tabular-nums">
-                  {form.promptCompany.length} / {PROMPT_COMPANY_MAX}
-                </span>
-                <div className="flex-1" />
-              </>
-            )}
-
-            {isTranscribingRecording ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                isIconOnly
-                aria-label="Transcribing audio"
-                isDisabled
-              >
-                <Spinner color="current" size="sm" className="text-muted" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                isIconOnly
-                aria-label={
-                  isRecordingInProgress ? "Stop recording" : "Record audio"
-                }
-                isDisabled={orgQuery.isLoading || isProcessingStartRecording}
-                onPress={() => void toggleRecording()}
-              >
-                <AppIcon
-                  icon={isRecordingInProgress ? "square" : "mic"}
-                  className={`h-4 w-4 ${isRecordingInProgress ? "text-danger" : "text-muted"}`}
+              {form.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.logoUrl}
+                  alt="Workspace logo"
+                  className="h-full w-full object-cover"
                 />
-              </Button>
-            )}
+              ) : (
+                <AppIcon
+                  icon="image"
+                  className="text-muted-foreground h-5 w-5"
+                />
+              )}
+
+              {/* Hover edit affordance */}
+              {isAdmin ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+                  <AppIcon icon="pencil" className="h-4 w-4 text-white" />
+                </span>
+              ) : null}
+
+              {/* Uploading state */}
+              {uploadingLogo ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-surface/70">
+                  <Spinner color="current" size="sm" />
+                </span>
+              ) : null}
+            </button>
+
+            {isAdmin && form.logoUrl ? (
+              <button
+                type="button"
+                onClick={() => update("logoUrl", "")}
+                className="text-muted-foreground text-sm transition-colors hover:text-foreground"
+              >
+                Remove
+              </button>
+            ) : null}
+
+            {isAdmin ? (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoSelect}
+              />
+            ) : null}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Actions */}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="tertiary"
-          size="sm"
-          isDisabled={updateOrg.isPending || !dirty}
-          onPress={() => setForm(saved)}
-        >
-          Reset
-        </Button>
-        <Button type="submit" variant="primary" size="sm" isDisabled={!canSave}>
-          {updateOrg.isPending ? <Spinner color="current" size="sm" /> : null}
-          Save changes
-        </Button>
-      </div>
+        {/* Name */}
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-foreground">Name</h2>
+            <p className="text-muted-foreground text-sm leading-5">
+              The name of your workspace.
+            </p>
+          </div>
+          <Input
+            aria-label="Workspace name"
+            value={form.name}
+            onChange={(event) => update("name", event.target.value)}
+            placeholder="Acme Inc."
+            className={cn("w-full", nameError && "border-danger/70")}
+            aria-invalid={nameError || undefined}
+            disabled={orgQuery.isLoading || !isAdmin}
+            readOnly={!isAdmin}
+          />
+          {nameError ? (
+            <p className="text-sm text-danger">Name can&apos;t be empty.</p>
+          ) : null}
+        </section>
 
-      <MicrophonePermissionModal
-        open={micPromptOpen}
-        onOpenChange={setMicPromptOpen}
-        onConfirm={startRecordingFromPrompt}
-      />
-    </form>
+        {/* Website */}
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-foreground">Website</h2>
+            <p className="text-muted-foreground text-sm leading-5">
+              Indexed into the knowledge base so agents can reference your site.
+            </p>
+          </div>
+          <Input
+            aria-label="Website"
+            value={form.website}
+            onChange={(event) => update("website", event.target.value)}
+            placeholder="https://acme.com"
+            className="w-full"
+            disabled={orgQuery.isLoading || !isAdmin}
+            readOnly={!isAdmin}
+          />
+        </section>
+
+        {/* Company context */}
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-foreground">
+              Company context
+            </h2>
+            <p className="text-muted-foreground text-sm leading-5">
+              Shared background about your company — what you do, your product,
+              your voice. Every agent uses this to understand your business.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 rounded-3xl border border-border bg-surface px-3 pt-3 pb-2 shadow-sm transition-colors">
+            <textarea
+              aria-label="Company context"
+              value={form.promptCompany}
+              onChange={(event) =>
+                update(
+                  "promptCompany",
+                  event.target.value.slice(0, PROMPT_COMPANY_MAX)
+                )
+              }
+              rows={6}
+              placeholder="Acme builds developer tools for fast-moving teams. Our tone is direct and friendly…"
+              disabled={orgQuery.isLoading || !isAdmin}
+              readOnly={!isAdmin}
+              className="max-h-64 min-h-32 w-full resize-y overflow-y-auto bg-transparent px-2 text-[15px] leading-6 outline-none placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-60"
+            />
+
+            <div className="flex items-center gap-1">
+              {recordingActive ? (
+                <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
+                  <div className="h-9 min-w-0 flex-1 overflow-hidden">
+                    <RecordingWaveform
+                      active={isRecordingInProgress}
+                      audioData={audioData}
+                    />
+                  </div>
+                  <span className="shrink-0 text-sm font-medium text-muted tabular-nums">
+                    {formattedRecordingTime || "00:00"}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <span className="px-2 text-xs text-muted tabular-nums">
+                    {form.promptCompany.length} / {PROMPT_COMPANY_MAX}
+                  </span>
+                  <div className="flex-1" />
+                </>
+              )}
+
+              {!isAdmin ? null : isTranscribingRecording ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  aria-label="Transcribing audio"
+                  isDisabled
+                >
+                  <Spinner color="current" size="sm" className="text-muted" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  aria-label={
+                    isRecordingInProgress ? "Stop recording" : "Record audio"
+                  }
+                  isDisabled={orgQuery.isLoading || isProcessingStartRecording}
+                  onPress={() => void toggleRecording()}
+                >
+                  <AppIcon
+                    icon={isRecordingInProgress ? "square" : "mic"}
+                    className={`h-4 w-4 ${isRecordingInProgress ? "text-danger" : "text-muted"}`}
+                  />
+                </Button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Actions */}
+        {isAdmin ? (
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="tertiary"
+              size="sm"
+              isDisabled={updateOrg.isPending || !dirty}
+              onPress={() => setForm(saved)}
+            >
+              Reset
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              isDisabled={!canSave}
+            >
+              {updateOrg.isPending ? (
+                <Spinner color="current" size="sm" />
+              ) : null}
+              Save changes
+            </Button>
+          </div>
+        ) : null}
+
+        <MicrophonePermissionModal
+          open={micPromptOpen}
+          onOpenChange={setMicPromptOpen}
+          onConfirm={startRecordingFromPrompt}
+        />
+      </form>
+
+      {isOwner ? <WorkspaceDangerZone /> : null}
+    </div>
   )
 }

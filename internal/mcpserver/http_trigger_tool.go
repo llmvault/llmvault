@@ -45,7 +45,7 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 				},
 				"channel_id": map[string]any{
 					"type":        "string",
-					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) the run's conversation lives in. Use list_channels to find valid ids. Defaults to the org's system channel.",
+					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) the run's conversation lives in. Use list_channels to find valid ids. Defaults to your team's #general channel.",
 				},
 				"secret": map[string]any{
 					"type":        "string",
@@ -96,11 +96,10 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 		return errResult, nil
 	}
 
-	// Resolve the channel exactly like cron schedules do: empty falls back to
-	// the org's system channel; explicit values get org-scoped validation plus
-	// the agent-access check. The trigger fire path still tolerates a NULL
-	// channel (it lazily resolves the system channel then), but new triggers
-	// always store an explicit channel.
+	// Resolve the channel exactly like cron schedules do: an empty channel
+	// resolves to the agent's team #general (the team-scoped IsDefault channel);
+	// explicit values get org-scoped validation plus the agent-access check.
+	// Every new trigger stores an explicit channel.
 	channelText, err := agentschedule.ResolveScheduleChannel(ctx, db, token.OrgID, agent.ID, args.ChannelID)
 	if err != nil {
 		return cronToolError(err.Error()), nil

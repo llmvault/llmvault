@@ -231,13 +231,13 @@ func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent is not available in this channel"})
 		return model.Agent{}, false
 	}
-	assigned, err := channelagents.Assigned(r.Context(), h.db, orgID, channel.ID, agent.ID)
+	acts, err := channelagents.ActsInChannel(r.Context(), h.db, orgID, channel.ID, agent.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
 		return model.Agent{}, false
 	}
-	if !assigned {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent is not assigned to this channel"})
+	if !acts {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent does not belong to this channel's team"})
 		return model.Agent{}, false
 	}
 	return agent, true

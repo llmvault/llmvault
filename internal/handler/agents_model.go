@@ -105,6 +105,12 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return
 	}
+	// Changing the model is a team-member action, gated on the actor being able
+	// to manage the agent's team. This handler gate is the real authorization —
+	// the route is member-reachable (mirrors Update).
+	if !h.authorizeAgentMutation(ctx, w, org.ID, &agent) {
+		return
+	}
 	if err := h.validateAgentSelectableModel(ctx, org.ID, modelID); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return

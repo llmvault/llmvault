@@ -63,7 +63,7 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 				},
 				"channel_id": map[string]any{
 					"type":        "string",
-					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) for the scheduled run's session. Use list_channels to find valid ids. Defaults to the org's system channel.",
+					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) for the scheduled run's session. Use list_channels to find valid ids. Defaults to your team's #general channel.",
 				},
 			},
 			"required": []string{"action"},

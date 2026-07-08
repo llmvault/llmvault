@@ -65,6 +65,28 @@ func TestArchiveAgentWithoutDefaultDisablesTriggersInPlace(t *testing.T) {
 	}
 }
 
+// The default Hivy agent cannot be deleted (409), and the archive is a no-op.
+func TestArchiveDefaultHivyAgentRejected(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+
+	def := createArchiveTestAgent(t, db, org.ID, "Hivy", true)
+
+	h := newAgentHandlerForTest(db)
+	rr := archiveAgentRequest(t, h, &org, def.ID)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("archive default agent status = %d, want 409; body = %s", rr.Code, rr.Body.String())
+	}
+
+	var reloaded model.Agent
+	if err := db.First(&reloaded, "id = ?", def.ID).Error; err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if reloaded.Status == "archived" {
+		t.Fatalf("default agent was archived despite guard")
+	}
+}
+
 func createArchiveTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, isDefault bool) model.Agent {
 	t.Helper()
 	agent := model.Agent{

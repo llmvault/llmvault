@@ -113,9 +113,10 @@ func TestEmailPasswordSignup_SendsAndConfirmsSixDigitCode(t *testing.T) {
 	h.cleanupEmail(t, testEmail)
 
 	rr := h.doRequest(t, http.MethodPost, "/auth/register", map[string]string{
-		"email":    testEmail,
-		"password": "password123",
-		"name":     "Confirm Code",
+		"email":     testEmail,
+		"password":  "password123",
+		"name":      "Confirm Code",
+		"team_name": "Confirm Team",
 	})
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("register: got %d body=%s, want 201", rr.Code, rr.Body.String())

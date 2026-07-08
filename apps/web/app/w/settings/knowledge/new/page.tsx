@@ -8,6 +8,7 @@ import { Button, Input, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import {
   connectionForProvider,
   PROVIDERS,
@@ -32,6 +33,10 @@ const EMPTY_CONNECTIONS: Connection[] = []
 export default function NewKnowledgeSourcePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  // Creating a knowledge source (POST /v1/rag/sources) and granting it to
+  // teams (POST .../teams/{id}/rag-sources) are admin-only on the backend.
+  // Non-admins never see the create form; the backend enforces this too.
+  const isAdmin = useIsAdmin()
 
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
@@ -136,6 +141,30 @@ export default function NewKnowledgeSourcePage() {
     } catch (error) {
       toast.danger(extractErrorMessage(error, "Could not add source"))
     }
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/w/settings/knowledge"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <AppIcon icon="arrow-left" className="h-4 w-4" />
+            Knowledge
+          </Link>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              Add knowledge source
+            </h1>
+            <p className="mt-1 max-w-lg text-sm text-muted-foreground">
+              Only workspace admins can create knowledge sources.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

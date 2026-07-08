@@ -177,6 +177,8 @@ export const Sidebar = memo(function Sidebar({
     )
   }
 
+  const agentsActive =
+    pathname === "/w/agents" || pathname.startsWith("/w/agents/")
   const pluginsActive =
     pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
   const automationsActive =
@@ -223,6 +225,12 @@ export const Sidebar = memo(function Sidebar({
             icon="square-pen"
             label="New chat"
             onClick={startNewChat}
+          />
+          <NavRow
+            icon="bot"
+            label="Agents"
+            active={agentsActive}
+            onClick={() => router.push("/w/agents")}
           />
           <NavRow
             icon="toy-brick"

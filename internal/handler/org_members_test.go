@@ -147,9 +147,13 @@ func TestOrgMemberRole_InvalidRoleRejected(t *testing.T) {
 	admin := h.addMember(t, org.ID, "admin")
 	target := h.addMember(t, org.ID, "member")
 
-	rr := h.do(t, http.MethodPatch, rolePath(target), map[string]any{"role": "superuser"}, &org, admin)
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("invalid role: got %d, want 400; body %s", rr.Code, rr.Body.String())
+	// "superuser" was never valid; "viewer" is the removed legacy role. Both must
+	// be rejected now that the role set is owner/admin/member only.
+	for _, role := range []string{"superuser", "viewer"} {
+		rr := h.do(t, http.MethodPatch, rolePath(target), map[string]any{"role": role}, &org, admin)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("invalid role %q: got %d, want 400; body %s", role, rr.Code, rr.Body.String())
+		}
 	}
 }
 

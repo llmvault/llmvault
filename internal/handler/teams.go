@@ -2,8 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -135,7 +138,34 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Description: cleanStringPtr(req.Description),
 		CreatedBy:   userID,
 	}
-	if err := h.db.WithContext(r.Context()).Create(&team).Error; err != nil {
+	// A new team is provisioned to be self-sufficient in one transaction: the
+	// team row, the creator as an owner team member, then the team's default
+	// Hivy agent and #general channel.
+	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&team).Error; err != nil {
+			return err
+		}
+		if userID != nil {
+			teamMember := model.TeamMember{
+				OrgID:  org.ID,
+				TeamID: team.ID,
+				UserID: *userID,
+				Role:   "owner",
+			}
+			if err := tx.Create(&teamMember).Error; err != nil {
+				return fmt.Errorf("create team member: %w", err)
+			}
+		}
+		var createdBy uuid.UUID
+		if userID != nil {
+			createdBy = *userID
+		}
+		if _, _, err := provisionTeamDefaults(r.Context(), tx, org.ID, team.ID, createdBy); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		if isDuplicateKeyError(err) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "team already exists"})
 			return
@@ -224,47 +254,5 @@ func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, teamMutationResponse{Team: h.teamResponse(r.Context(), team)})
-}
-
-// @Summary Archive a team
-// @Description Archives an active team after all channels are removed from it. Admin-only.
-// @Tags teams
-// @Produce json
-// @Param id path string true "Team ID"
-// @Success 200 {object} teamMutationResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 409 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/orgs/current/teams/{id} [delete]
-func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
-	team, ok := h.loadTeamForRequest(w, r)
-	if !ok {
-		return
-	}
-	var channelCount int64
-	if err := h.db.WithContext(r.Context()).
-		Model(&model.Channel{}).
-		Where("org_id = ? AND team_id = ? AND archived_at IS NULL", team.OrgID, team.ID).
-		Count(&channelCount).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check team channels"})
-		return
-	}
-	if channelCount > 0 {
-		writeJSON(w, http.StatusConflict, errorResponse{Error: "remove channels from this team before archiving it"})
-		return
-	}
-	now := time.Now()
-	if err := h.db.WithContext(r.Context()).
-		Model(&model.Team{}).
-		Where("id = ? AND org_id = ?", team.ID, team.OrgID).
-		Update("archived_at", &now).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to archive team"})
-		return
-	}
-	team.ArchivedAt = &now
 	writeJSON(w, http.StatusOK, teamMutationResponse{Team: h.teamResponse(r.Context(), team)})
 }

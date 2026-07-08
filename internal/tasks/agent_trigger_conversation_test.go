@@ -10,26 +10,24 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestFindOrCreateTriggerSessionDefaultsToSystemChannel(t *testing.T) {
+func TestFindOrCreateTriggerSessionRejectsMissingChannel(t *testing.T) {
 	db := connectTestDB(t)
 	org, agent, _ := seedTriggerSessionFixture(t, db)
 	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, nil)
 	handler := &AgentTriggerDispatchHandler{db: db}
 
-	session, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, "github/acme/repo/issues/1")
-	if err != nil {
-		t.Fatalf("findOrCreateTriggerSession: %v", err)
+	// A trigger with no channel is a configuration error — there is no #system
+	// fallback anymore, and no system channel must be created.
+	if _, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, "github/acme/repo/issues/1"); err == nil {
+		t.Fatalf("expected error for trigger with no channel")
 	}
 
-	var channel model.Channel
-	if err := db.First(&channel, "id = ?", session.ChannelID).Error; err != nil {
-		t.Fatalf("load channel: %v", err)
+	var systemCount int64
+	if err := db.Model(&model.Channel{}).Where("org_id = ? AND kind = ?", org.ID, "system").Count(&systemCount).Error; err != nil {
+		t.Fatalf("count system channels: %v", err)
 	}
-	if channel.Name != triggerSystemChannelName || channel.Kind != "system" || channel.Visibility != "private" {
-		t.Fatalf("channel = %+v, want private system channel", channel)
-	}
-	if channel.DefaultAgentID != agent.ID {
-		t.Fatalf("default agent = %s, want %s", channel.DefaultAgentID, agent.ID)
+	if systemCount != 0 {
+		t.Fatalf("system channel count = %d, want 0", systemCount)
 	}
 }
 
@@ -129,9 +127,7 @@ func seedTriggerChannel(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, nam
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}
-	if err := db.Create(&model.ChannelAgent{OrgID: orgID, ChannelID: channel.ID, AgentID: agentID}).Error; err != nil {
-		t.Fatalf("assign default agent to channel: %v", err)
-	}
+	// Team-less channel: any org agent may act in it under the team-primary model.
 	return channel
 }
 

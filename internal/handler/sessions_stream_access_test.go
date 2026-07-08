@@ -41,10 +41,10 @@ func TestIntegration_SandboxAccessAllowsVisibleReadOnlySessionAndMintsJWT(t *tes
 		t.Fatalf("unshared member sandbox access status=%d body=%s", blocked.Code, blocked.Body.String())
 	}
 
-	if err := h.db.Create(&model.SessionParticipant{SessionID: uuid.MustParse(created.Session.ID), UserID: fx.viewer.ID, Role: "collaborator"}).Error; err != nil {
-		t.Fatalf("add viewer to session: %v", err)
+	if err := h.db.Create(&model.SessionParticipant{SessionID: uuid.MustParse(created.Session.ID), UserID: fx.bystander.ID, Role: "collaborator"}).Error; err != nil {
+		t.Fatalf("add bystander to session: %v", err)
 	}
-	sandboxAccess := h.doJSON(t, http.MethodPost, path, fx, fx.viewer, nil)
+	sandboxAccess := h.doJSON(t, http.MethodPost, path, fx, fx.bystander, nil)
 	if sandboxAccess.Code != http.StatusOK {
 		t.Fatalf("sandbox access status=%d body=%s", sandboxAccess.Code, sandboxAccess.Body.String())
 	}
@@ -75,7 +75,7 @@ func TestIntegration_SandboxAccessAllowsVisibleReadOnlySessionAndMintsJWT(t *tes
 	if err != nil || !parsed.Valid {
 		t.Fatalf("sandbox jwt invalid: parsed=%v err=%v", parsed != nil && parsed.Valid, err)
 	}
-	if claims["session_id"] != created.Session.ID || claims["sandbox_id"] != sb.ID.String() || claims["org_id"] != fx.org.ID.String() || claims["sub"] != fx.viewer.ID.String() {
+	if claims["session_id"] != created.Session.ID || claims["sandbox_id"] != sb.ID.String() || claims["org_id"] != fx.org.ID.String() || claims["sub"] != fx.bystander.ID.String() {
 		t.Fatalf("bad sandbox jwt claims: %+v", claims)
 	}
 	rawScopes, ok := claims["scopes"].([]any)

@@ -29,7 +29,7 @@ func TestIsOrgOwnerHTTP(t *testing.T) {
 	if !isOrgOwner("owner") {
 		t.Errorf("owner should be org owner")
 	}
-	for _, role := range []string{"admin", "member", "viewer", ""} {
+	for _, role := range []string{"admin", "member", "unknown", ""} {
 		if isOrgOwner(role) {
 			t.Errorf("role %q must not be org owner", role)
 		}

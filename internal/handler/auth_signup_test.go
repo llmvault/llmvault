@@ -80,7 +80,7 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user, "Signup Team")
 		return e
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestCreateUserDefaultOrg_AutoInstallsGlobalRuntimePluginOnHivy(t *testing.T
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user, "Signup Team")
 		return e
 	})
 	if err != nil {
@@ -166,7 +166,7 @@ func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user, "Signup Team")
 		return e
 	})
 	if err != nil {
@@ -206,7 +206,7 @@ func TestCreateUserDefaultOrg_ZeroWelcomeCreditsSkipsGrant(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user, "Signup Team")
 		return e
 	})
 	if err != nil {
@@ -238,7 +238,7 @@ func TestCreateUserDefaultOrg_NoFreePlanRowSucceeds(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user, "Signup Team")
 		return e
 	})
 	if err != nil {

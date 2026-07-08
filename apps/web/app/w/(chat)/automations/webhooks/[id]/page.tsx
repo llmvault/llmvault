@@ -8,10 +8,11 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import {
   resolveScopedAgentID,
-  useChannelScopedAgents,
-} from "@/lib/api/channel-scoped-agents"
+  useTeamAgents,
+} from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
 import {
@@ -76,6 +77,10 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
   const queryClient = useQueryClient()
   const id = trigger.id ?? ""
 
+  // Editing an existing webhook trigger (toggle enabled, save, delete)
+  // mutates via PATCH/DELETE /v1/triggers/{id}, which is admin-only on the
+  // backend. Creating a trigger is a member action and isn't gated here.
+  const isAdmin = useIsAdmin()
   const { channels, isLoading: channelsLoading } = useHivyChannels()
   const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
   const deleteTrigger = $api.useMutation("delete", "/v1/triggers/{id}")
@@ -91,7 +96,7 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
   const {
     agents,
     isLoading: agentsLoading,
-  } = useChannelScopedAgents(activeChannelID)
+  } = useTeamAgents(activeChannel?.team_id)
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -105,7 +110,8 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
       : null
 
   const canSave = Boolean(
-    !updateTrigger.isPending &&
+    isAdmin &&
+      !updateTrigger.isPending &&
       name.trim() &&
       activeChannelID &&
       activeAgentID &&
@@ -297,19 +303,19 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
 
         <FormSection
           title="Agent"
-          description="The agent that handles inbound webhook requests. Only agents assigned to the chosen channel can run here."
+          description="The agent that handles inbound webhook requests. Any agent on the chosen channel's team can run here."
         >
           {!activeChannelID ? (
             <InlineNotice
               icon="bot"
               title="Select a channel first"
-              body="Agents are scoped to the channel this webhook runs in."
+              body="Agents are scoped to the team that owns this webhook's channel."
             />
           ) : agents.length === 0 && !agentsLoading ? (
             <InlineNotice
               icon="bot"
-              title="No agents in this channel"
-              body="Assign an agent to the selected channel to handle this webhook."
+              title="No agents on this team"
+              body="Add an agent to the selected channel's team to handle this webhook."
             />
           ) : (
             <AgentSelect
@@ -350,7 +356,7 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
             <Switch
               aria-label="Enable webhook"
               isSelected={enabled}
-              isDisabled={updateTrigger.isPending}
+              isDisabled={updateTrigger.isPending || !isAdmin}
               onChange={toggleEnabled}
               className="shrink-0"
             >
@@ -361,13 +367,19 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
           </div>
         </FormSection>
 
+        {!isAdmin ? (
+          <p className="text-sm text-muted-foreground">
+            Only workspace admins can edit or delete automations.
+          </p>
+        ) : null}
+
         <div className="flex items-center justify-between gap-3">
           <Button
             type="button"
             variant="secondary"
             size="sm"
             className="text-danger"
-            isDisabled={deleteTrigger.isPending}
+            isDisabled={deleteTrigger.isPending || !isAdmin}
             onPress={() => setDeleteOpen(true)}
           >
             {deleteTrigger.isPending ? (

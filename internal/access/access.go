@@ -28,7 +28,7 @@ import (
 type Actor struct {
 	UserID  uuid.UUID
 	OrgID   uuid.UUID
-	OrgRole string // "owner" | "admin" | "member" | "viewer"
+	OrgRole string // "owner" | "admin" | "member"
 }
 
 // Resolve turns the runtime-injected `_hivy_actor_user_id` into an Actor.

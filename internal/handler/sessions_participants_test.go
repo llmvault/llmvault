@@ -14,7 +14,7 @@ func TestIntegration_SessionsAddParticipants_BulkSharesSession(t *testing.T) {
 	share := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/participants", fx, fx.owner, map[string]any{
 		"user_ids": []string{
 			fx.member.ID.String(),
-			fx.viewer.ID.String(),
+			fx.bystander.ID.String(),
 			fx.member.ID.String(),
 		},
 	})
@@ -38,7 +38,7 @@ func TestIntegration_SessionsAddParticipants_BulkSharesSession(t *testing.T) {
 	for _, participant := range out.Participants {
 		roles[participant.UserID] = participant.Role
 	}
-	if roles[fx.member.ID.String()] != "collaborator" || roles[fx.viewer.ID.String()] != "collaborator" {
+	if roles[fx.member.ID.String()] != "collaborator" || roles[fx.bystander.ID.String()] != "collaborator" {
 		t.Fatalf("participant roles=%+v", roles)
 	}
 }

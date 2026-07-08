@@ -11,6 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/teamprovision"
 )
@@ -89,6 +90,8 @@ func (h *TeamProvisioningHandler) writeProvisionError(w http.ResponseWriter, err
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "knowledge source not found in org"})
 	case errors.Is(err, teamprovision.ErrPluginNotInstalled):
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is not installed for this org"})
+	case errors.Is(err, teamprovision.ErrPluginAlwaysEnabled):
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is always enabled and cannot be toggled per team"})
 	default:
 		return false
 	}
@@ -111,6 +114,12 @@ func (h *TeamProvisioningHandler) respondTeamPlugins(w http.ResponseWriter, r *h
 	}
 	data := make([]teamPluginResponse, 0, len(plugins))
 	for _, p := range plugins {
+		// Auto-install system plugins are enabled for every team implicitly and
+		// are not per-team provisionable; never list them as team-enabled even if
+		// a stale/legacy team_plugins row exists.
+		if pluginstore.PluginAutoInstall(p) {
+			continue
+		}
 		data = append(data, teamPluginResponse{ID: p.ID.String(), Slug: p.Slug, Name: p.Name})
 	}
 	writeJSON(w, status, teamPluginsResponse{Data: data})

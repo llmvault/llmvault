@@ -145,7 +145,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var orgErr error
-			org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user)
+			org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user, firstTeamNameForUser(&user))
 			return orgErr
 		})
 		if txErr != nil {

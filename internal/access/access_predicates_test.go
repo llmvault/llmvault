@@ -84,7 +84,7 @@ func TestIsOrgOwnerDistinguishesOwnerFromAdmin(t *testing.T) {
 		{"owner", true},
 		{"admin", false},
 		{"member", false},
-		{"viewer", false},
+		{"unknown", false},
 	}
 	for _, c := range cases {
 		a := actorFor(fx, model.User{ID: uuid.New()}, c.role)

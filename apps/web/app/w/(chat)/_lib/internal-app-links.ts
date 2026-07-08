@@ -22,9 +22,8 @@ interface LinkTemplate {
 
 const LINK_TEMPLATES: LinkTemplate[] = [
   {
-    // /w/settings/agents/edit/<id>
-    test: (pathname) =>
-      /^\/w\/settings\/agents\/edit\/[^/]+\/?$/.test(pathname),
+    // /w/agents/edit/<id>
+    test: (pathname) => /^\/w\/agents\/edit\/[^/]+\/?$/.test(pathname),
     label: "Edit agent details",
     icon: "bot",
   },

@@ -1,14 +1,31 @@
 package channelagents_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/testdb"
 )
+
+func connect(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(postgres.Open(testdb.DatabaseURL()), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("connect test db: %v", err)
+	}
+	sqlDB, _ := db.DB()
+	sqlDB.SetMaxOpenConns(3)
+	sqlDB.SetMaxIdleConns(1)
+	testdb.ApplyMigrations(t, db)
+	t.Cleanup(func() { sqlDB.Close() })
+	return db
+}
 
 // visibleIDs runs VisibleAgentIDsSubquery and materializes the agent ids it
 // yields (the subquery is normally embedded in `agents.id IN (?)`).
@@ -16,7 +33,7 @@ func visibleIDs(t *testing.T, db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) m
 	t.Helper()
 	var ids []uuid.UUID
 	if err := db.Table("(?) AS vis", channelagents.VisibleAgentIDsSubquery(db, orgID, userID)).
-		Pluck("agent_id", &ids).Error; err != nil {
+		Pluck("id", &ids).Error; err != nil {
 		t.Fatalf("run subquery: %v", err)
 	}
 	out := make(map[uuid.UUID]bool, len(ids))
@@ -26,45 +43,29 @@ func visibleIDs(t *testing.T, db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) m
 	return out
 }
 
+// TestVisibleAgentIDsSubquery verifies the team-primary visibility rule: a
+// non-manager user sees exactly the agents belonging to teams they actively
+// belong to. Team-less agents are never visible; a nil user sees nothing.
 func TestVisibleAgentIDsSubquery(t *testing.T) {
 	db := connect(t)
 
 	org := model.Org{ID: uuid.New(), Name: "vis-" + uuid.NewString()[:8], Active: true, RateLimit: 1000}
 	member := model.User{ID: uuid.New(), Email: "m-" + uuid.NewString()[:8] + "@t.com", Name: "m"}
 
-	mkAgent := func(name string) model.Agent {
-		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active"}
-	}
-	base := mkAgent("Base")
-	visibleTeam := mkAgent("VisibleTeam")
-	otherTeam := mkAgent("OtherTeam")
-	teamNull := mkAgent("TeamNull")
-	external := mkAgent("External")
-	systemAssigned := mkAgent("SystemAssigned")
-
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "b-" + uuid.NewString()[:8]}
 
-	chTeam := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: base.ID}
-	chOther := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "other-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamB.ID, DefaultAgentID: base.ID}
-	chNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "null-" + uuid.NewString()[:8], Kind: "standard", DefaultAgentID: base.ID}
-	chExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ext-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", TeamID: &teamB.ID, DefaultAgentID: base.ID}
-	// A system channel is exempt from assignment and must never grant extra
-	// visibility even if a stray row exists (team_id NULL would otherwise open
-	// it to everyone).
-	chSystem := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "sys-" + uuid.NewString()[:8], Kind: "system", DefaultAgentID: base.ID}
+	mkAgent := func(name string, team *uuid.UUID) model.Agent {
+		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: team}
+	}
+	inTeamA := mkAgent("InTeamA", &teamA.ID)
+	inTeamB := mkAgent("InTeamB", &teamB.ID)
+	teamNull := mkAgent("TeamNull", nil)
 
 	rows := []any{
-		&org, &member,
-		&base, &visibleTeam, &otherTeam, &teamNull, &external, &systemAssigned,
-		&teamA, &teamB,
+		&org, &member, &teamA, &teamB,
+		&inTeamA, &inTeamB, &teamNull,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
-		&chTeam, &chOther, &chNull, &chExt, &chSystem,
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chTeam.ID, AgentID: visibleTeam.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chOther.ID, AgentID: otherTeam.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chNull.ID, AgentID: teamNull.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chExt.ID, AgentID: external.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chSystem.ID, AgentID: systemAssigned.ID},
 	}
 	for _, r := range rows {
 		if err := db.Create(r).Error; err != nil {
@@ -72,40 +73,83 @@ func TestVisibleAgentIDsSubquery(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("id = ?", member.ID).Delete(&model.User{})
 		db.Delete(&model.Org{}, "id = ?", org.ID)
 	})
 
-	// A member of teamA: sees agents in their team channel, the team-less
-	// channel, and the external channel. Not the other team's channel, and not
-	// the system-channel assignment (excluded despite team_id NULL).
+	// A member of teamA sees teamA's agent only — not teamB's, not the team-less
+	// agent.
 	got := visibleIDs(t, db, org.ID, &member.ID)
-	for _, want := range []model.Agent{visibleTeam, teamNull, external} {
-		if !got[want.ID] {
-			t.Fatalf("member should see %s (%s); got %v", want.Name, want.ID, got)
-		}
+	if !got[inTeamA.ID] {
+		t.Fatalf("member should see teamA agent %s; got %v", inTeamA.ID, got)
 	}
-	for _, hidden := range []model.Agent{otherTeam, systemAssigned, base} {
+	for _, hidden := range []model.Agent{inTeamB, teamNull} {
 		if got[hidden.ID] {
 			t.Fatalf("member must NOT see %s (%s); got %v", hidden.Name, hidden.ID, got)
 		}
 	}
 
-	// A nil user (no membership) only sees external and team-less assignments.
+	// A nil user (no membership) sees no agents.
 	gotNil := visibleIDs(t, db, org.ID, nil)
-	for _, want := range []model.Agent{teamNull, external} {
-		if !gotNil[want.ID] {
-			t.Fatalf("nil user should see %s via external/team-null; got %v", want.Name, gotNil)
+	if len(gotNil) != 0 {
+		t.Fatalf("nil user should see no agents; got %v", gotNil)
+	}
+}
+
+// TestActsInChannel verifies the team-match gate and the system/external
+// exemption.
+func TestActsInChannel(t *testing.T) {
+	db := connect(t)
+	ctx := context.Background()
+
+	org := model.Org{ID: uuid.New(), Name: "act-" + uuid.NewString()[:8], Active: true, RateLimit: 1000}
+	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "a-" + uuid.NewString()[:8]}
+	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "b-" + uuid.NewString()[:8]}
+
+	agentA := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "A", Model: "test", Status: "active", TeamID: &teamA.ID}
+	agentB := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "B", Model: "test", Status: "active", TeamID: &teamB.ID}
+	agentNull := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "N", Model: "test", Status: "active"}
+
+	chTeamA := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ta-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: agentA.ID}
+	chNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "n-" + uuid.NewString()[:8], Kind: "system", DefaultAgentID: agentA.ID}
+	chExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "e-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", DefaultAgentID: agentA.ID}
+
+	for _, r := range []any{&org, &teamA, &teamB, &agentA, &agentB, &agentNull, &chTeamA, &chNull, &chExt} {
+		if err := db.Create(r).Error; err != nil {
+			t.Fatalf("seed: %v", err)
 		}
 	}
-	for _, hidden := range []model.Agent{visibleTeam, otherTeam, systemAssigned} {
-		if gotNil[hidden.ID] {
-			t.Fatalf("nil user must NOT see team-scoped/system %s; got %v", hidden.Name, gotNil)
-		}
+	t.Cleanup(func() {
+		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
+		db.Delete(&model.Org{}, "id = ?", org.ID)
+	})
+
+	cases := []struct {
+		name    string
+		channel uuid.UUID
+		agent   uuid.UUID
+		want    bool
+	}{
+		{"same team", chTeamA.ID, agentA.ID, true},
+		{"different team rejected", chTeamA.ID, agentB.ID, false},
+		{"team-less agent rejected in team channel", chTeamA.ID, agentNull.ID, false},
+		{"system channel accepts any org agent", chNull.ID, agentB.ID, true},
+		{"external channel accepts any org agent", chExt.ID, agentB.ID, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := channelagents.ActsInChannel(ctx, db, org.ID, tc.channel, tc.agent)
+			if err != nil {
+				t.Fatalf("ActsInChannel: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("ActsInChannel = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

@@ -21,6 +21,7 @@ export function RedisDatabaseConfiguration({
   errorMessage,
   introspecting,
   saving,
+  canManage = true,
   onRetryIntrospection,
   onSavePolicy,
 }: {
@@ -29,6 +30,9 @@ export function RedisDatabaseConfiguration({
   errorMessage: string | null
   introspecting: boolean
   saving: boolean
+  // canManage gates saving/retrying to org admins; the backend enforces
+  // this too (all database-integrations mutations are admin-only).
+  canManage?: boolean
   onRetryIntrospection: () => void
   onSavePolicy: (policy: DatabasePolicy) => void
 }) {
@@ -36,7 +40,7 @@ export function RedisDatabaseConfiguration({
   const [selectedKeys, setSelectedKeys] = useState(initialKeys)
   const [customPattern, setCustomPattern] = useState("")
   const selectedObjectCount = selectedKeys.size
-  const canSave = selectedObjectCount > 0 && !saving
+  const canSave = canManage && selectedObjectCount > 0 && !saving
 
   function addPattern() {
     const value = customPattern.trim()
@@ -51,6 +55,7 @@ export function RedisDatabaseConfiguration({
       canSave={canSave}
       saving={saving}
       introspecting={introspecting}
+      canManage={canManage}
       errorMessage={errorMessage}
       onRetryIntrospection={onRetryIntrospection}
       onSave={() =>

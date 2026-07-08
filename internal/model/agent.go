@@ -14,7 +14,7 @@ type Agent struct {
 	AgentCatalogID *uuid.UUID    `gorm:"type:uuid;index"`
 	AgentCatalog   *AgentCatalog `gorm:"foreignKey:AgentCatalogID;constraint:OnDelete:SET NULL"`
 	// TeamID is the owning team. Teams are the provisioning unit: an agent is
-	// usable only once assigned to a team (see migration 000081). NULL =
+	// usable only once assigned to a team (team primary-authz model). NULL =
 	// unassigned/unusable; there is no backfill. ON DELETE SET NULL.
 	TeamID *uuid.UUID `gorm:"type:uuid;index:idx_agents_team_id"`
 	Team   *Team      `gorm:"foreignKey:TeamID;constraint:OnDelete:SET NULL"`

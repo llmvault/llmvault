@@ -22,7 +22,7 @@ func toolErrorText(t *testing.T, result *mcp.CallToolResult) string {
 	return text.Text
 }
 
-func TestCreateHTTPTriggerDefaultsToSystemChannel(t *testing.T) {
+func TestCreateHTTPTriggerDefaultsToTeamGeneral(t *testing.T) {
 	db := connectChannelToolTestDB(t)
 	fx := seedChannelToolFixture(t, db)
 
@@ -43,14 +43,27 @@ func TestCreateHTTPTriggerDefaultsToSystemChannel(t *testing.T) {
 		t.Fatalf("load trigger: %v", err)
 	}
 	if trigger.ChannelID == nil {
-		t.Fatal("trigger channel is nil, want system channel")
+		t.Fatal("trigger channel is nil, want the team #general channel")
+	}
+	// An empty channel_id resolves to the agent's team #general (team-scoped,
+	// IsDefault), never a system channel.
+	if *trigger.ChannelID != fx.teamHome.ID {
+		t.Fatalf("trigger channel = %s, want team #general %s", trigger.ChannelID, fx.teamHome.ID)
 	}
 	var channel model.Channel
 	if err := db.First(&channel, "id = ?", *trigger.ChannelID).Error; err != nil {
 		t.Fatalf("load trigger channel: %v", err)
 	}
-	if channel.OrgID != fx.org.ID || channel.Name != "system" || channel.Kind != "system" || channel.Visibility != "private" {
-		t.Fatalf("trigger channel = %#v, want org system channel", channel)
+	if channel.OrgID != fx.org.ID || channel.TeamID == nil || *channel.TeamID != fx.team.ID || !channel.IsDefault {
+		t.Fatalf("trigger channel = %#v, want team #general", channel)
+	}
+	// No system channel exists in the org at all.
+	var systemCount int64
+	if err := db.Model(&model.Channel{}).Where("org_id = ? AND kind = ?", fx.org.ID, "system").Count(&systemCount).Error; err != nil {
+		t.Fatalf("count system channels: %v", err)
+	}
+	if systemCount != 0 {
+		t.Fatalf("found %d system channels, want 0", systemCount)
 	}
 }
 

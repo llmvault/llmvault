@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { useAuth } from "@/lib/auth/auth-context"
+import { useIsOwner } from "@/lib/auth/use-role"
 import { usePaystackPop } from "@/hooks/use-paystack-pop"
 import type { components } from "@/lib/api/schema"
 import {
@@ -84,6 +85,12 @@ export function BillingPlansPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { plans, activeOrg } = useAuth()
+  // Backend gate: init-upgrade, apply-change, and /billing/checkout are
+  // owner-only (RequireOrgOwner in cmd/server/serve_routes_billing.go).
+  // preview-change itself is admin+, but previewing a change a non-owner
+  // could never complete is misleading, so the whole choose→confirm→pay
+  // flow is gated on ownership here.
+  const isOwner = useIsOwner()
   const subscriptionQuery = $api.useQuery("get", "/v1/billing/subscription")
   const previewChange = $api.useMutation(
     "post",
@@ -190,7 +197,10 @@ export function BillingPlansPage() {
   }
 
   async function handleChoose(plan: Plan | undefined) {
-    if (!plan?.slug || anyPending) return
+    // Defense in depth: buttons are already disabled for non-owners, but
+    // guard the handler too since the backend would 403 on init-upgrade /
+    // apply-change / checkout for anyone but the owner.
+    if (!isOwner || !plan?.slug || anyPending) return
 
     // Brand-new subscription (no active paid plan yet): straight to checkout.
     // paystack.pendingSlug tracks the in-flight plan and self-clears on
@@ -354,9 +364,10 @@ export function BillingPlansPage() {
         Boolean(plan?.slug) &&
         (busySlug === plan?.slug || paystack.pendingSlug === plan?.slug),
       disabled:
-        anyPending &&
-        busySlug !== plan?.slug &&
-        paystack.pendingSlug !== plan?.slug,
+        !isOwner ||
+        (anyPending &&
+          busySlug !== plan?.slug &&
+          paystack.pendingSlug !== plan?.slug),
     }
   }
 
@@ -462,6 +473,12 @@ export function BillingPlansPage() {
                 />
               ) : null}
             </div>
+
+            {!isOwner ? (
+              <p className="mx-auto mt-4 max-w-4xl text-center text-sm text-muted-foreground">
+                Only the workspace owner can change the plan.
+              </p>
+            ) : null}
 
             <div className="bg-surface mx-auto mt-5 flex max-w-4xl flex-col gap-4 rounded-2xl border border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-col gap-1">

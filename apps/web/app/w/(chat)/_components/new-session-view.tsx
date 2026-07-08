@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
-import { useChannelScopedAgents } from "@/lib/api/channel-scoped-agents"
+import { useTeamAgents } from "@/lib/api/team-agents"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { LogoMark } from "@/components/logo"
@@ -85,18 +85,17 @@ export function SessionView({
       : undefined
   const activeChannel = selectedChannel ?? defaultChannel
 
-  // Agent options are scoped to the ones assigned to the active channel — only
-  // those can run sessions here. The shared hook falls back to the full org
-  // agent list if that endpoint is unavailable so the composer keeps working.
+  // Agent options are the agents on the active channel's team — agents are team
+  // members now, so those are exactly the ones that can run sessions here.
   const {
     agents,
     isLoading: agentsLoading,
     isError: agentsError,
-  } = useChannelScopedAgents(activeChannel?.id ?? "")
+  } = useTeamAgents(activeChannel?.team_id)
   const [selectedAgentID, setSelectedAgentID] = useState<string | null>(null)
-  // Default to the channel's configured default agent, then the first assigned
+  // Default to the channel's configured default agent, then the first team
   // agent. A prior explicit pick (selectedAgentID) wins while it's still one of
-  // the channel's agents; after switching channels it falls through to the new
+  // the team's agents; after switching channels it falls through to the new
   // channel's default.
   const selectedAgent =
     agents.find((agent) => agent.id === selectedAgentID) ??

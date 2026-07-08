@@ -41,6 +41,7 @@ export function SQLDatabaseConfiguration({
   errorMessage,
   introspecting,
   saving,
+  canManage = true,
   onRetryIntrospection,
   onSavePolicy,
 }: {
@@ -50,6 +51,9 @@ export function SQLDatabaseConfiguration({
   errorMessage: string | null
   introspecting: boolean
   saving: boolean
+  // canManage gates saving/retrying to org admins; the backend enforces
+  // this too (all database-integrations mutations are admin-only).
+  canManage?: boolean
   onRetryIntrospection: () => void
   onSavePolicy: (policy: DatabasePolicy) => void
 }) {
@@ -64,7 +68,7 @@ export function SQLDatabaseConfiguration({
   const visibleTables = tables.filter((table) =>
     selectedSchemas.has(table.schema)
   )
-  const canSave = selectedTables.size > 0 && !saving
+  const canSave = canManage && selectedTables.size > 0 && !saving
 
   function toggleSchema(schema: string) {
     setSelectedSchemas((current) => {
@@ -88,6 +92,7 @@ export function SQLDatabaseConfiguration({
       canSave={canSave}
       saving={saving}
       introspecting={introspecting}
+      canManage={canManage}
       errorMessage={errorMessage}
       onRetryIntrospection={onRetryIntrospection}
       onSave={() =>
@@ -168,6 +173,7 @@ export function MongoDatabaseConfiguration({
   errorMessage,
   introspecting,
   saving,
+  canManage = true,
   onRetryIntrospection,
   onSavePolicy,
 }: {
@@ -176,6 +182,9 @@ export function MongoDatabaseConfiguration({
   errorMessage: string | null
   introspecting: boolean
   saving: boolean
+  // canManage gates saving/retrying to org admins; the backend enforces
+  // this too (all database-integrations mutations are admin-only).
+  canManage?: boolean
   onRetryIntrospection: () => void
   onSavePolicy: (policy: DatabasePolicy) => void
 }) {
@@ -188,7 +197,7 @@ export function MongoDatabaseConfiguration({
   )
   const [maskedFields, setMaskedFields] = useState(initialPolicy.masks)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const canSave = selectedCollections.size > 0 && !saving
+  const canSave = canManage && selectedCollections.size > 0 && !saving
 
   return (
     <ConfigureFrame
@@ -196,6 +205,7 @@ export function MongoDatabaseConfiguration({
       canSave={canSave}
       saving={saving}
       introspecting={introspecting}
+      canManage={canManage}
       errorMessage={errorMessage}
       onRetryIntrospection={onRetryIntrospection}
       onSave={() =>
@@ -253,6 +263,7 @@ export function ConfigureFrame({
   canSave,
   saving,
   introspecting,
+  canManage = true,
   errorMessage,
   onRetryIntrospection,
   onSave,
@@ -262,6 +273,9 @@ export function ConfigureFrame({
   canSave: boolean
   saving: boolean
   introspecting: boolean
+  // canManage gates saving/retrying to org admins; the backend enforces
+  // this too (all database-integrations mutations are admin-only).
+  canManage?: boolean
   errorMessage: string | null
   onRetryIntrospection: () => void
   onSave: () => void
@@ -277,7 +291,7 @@ export function ConfigureFrame({
             type="button"
             variant="tertiary"
             size="sm"
-            isDisabled={introspecting}
+            isDisabled={!canManage || introspecting}
             onPress={onRetryIntrospection}
           >
             {introspecting ? <Spinner color="current" size="sm" /> : null}
@@ -288,8 +302,11 @@ export function ConfigureFrame({
 
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-muted">
-          {selectedObjectCount} item{selectedObjectCount === 1 ? "" : "s"}{" "}
-          enabled
+          {!canManage
+            ? "Only workspace admins can save database access."
+            : `${selectedObjectCount} item${
+                selectedObjectCount === 1 ? "" : "s"
+              } enabled`}
         </p>
         <Button
           type="button"

@@ -15,10 +15,6 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name cannot be empty"})
 			return false
 		}
-		if isReservedChannelName(name) {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel name is reserved"})
-			return false
-		}
 		updates["name"] = name
 		channel.Name = name
 	}

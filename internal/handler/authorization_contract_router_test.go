@@ -93,8 +93,6 @@ func buildAuthzRouter(db *gorm.DB) chi.Router {
 			r.Use(middleware.RequireAPIKeyScopeOrJWT("channels"))
 			r.Get("/channels", channelHandler.List)
 			r.Get("/channels/{id}", channelHandler.Get)
-			r.Get("/channels/{id}/agents", channelHandler.ListChannelAgents)
-			r.Post("/channels/{id}/agents", channelHandler.AssignChannelAgent)
 		})
 
 		// --- agents scope --------------------------------------------------------

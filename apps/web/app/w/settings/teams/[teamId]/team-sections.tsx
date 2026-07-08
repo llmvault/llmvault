@@ -8,15 +8,12 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
 import {
-  CHANNELS_KEY,
   EmptyRow,
   MEMBERS_KEY,
   RowSkeleton,
-  channelLabel,
   initials,
   memberLabel,
   roleLabel,
-  type Channel,
   type Member,
   type TeamMember,
 } from "../_components/team-settings"
@@ -163,7 +160,7 @@ export function TeamMembersSection({
         </Button>
       </div>
 
-      <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {isLoading ? (
           <RowSkeleton />
         ) : members.length === 0 ? (
@@ -202,7 +199,7 @@ function TeamMemberRow({
         last ? "" : "border-b border-border"
       )}
     >
-      <div className="bg-default flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium text-muted">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-default text-xs font-medium text-muted">
         {initials(member.name, member.email)}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -212,189 +209,6 @@ function TeamMemberRow({
         <span className="truncate text-sm text-muted">{member.email}</span>
       </div>
       <Chip size="sm">{roleLabel(member.role)}</Chip>
-      <Button variant="ghost" size="sm" isDisabled={isBusy} onPress={onRemove}>
-        Remove
-      </Button>
-    </div>
-  )
-}
-
-export function TeamChannelsSection({
-  teamId,
-  assignedChannels,
-  availableChannels,
-  isLoading,
-  onChanged,
-}: {
-  teamId: string
-  assignedChannels: Channel[]
-  availableChannels: Channel[]
-  isLoading: boolean
-  onChanged: () => void
-}) {
-  const queryClient = useQueryClient()
-  const updateChannel = $api.useMutation("patch", "/v1/channels/{id}")
-  const [selectedChannelId, setSelectedChannelId] = useState("")
-  const selectedChannel = availableChannels.find(
-    (channel) => channel.id === selectedChannelId
-  )
-
-  function refreshChannels() {
-    queryClient.invalidateQueries({ queryKey: CHANNELS_KEY })
-    onChanged()
-  }
-
-  function handleAssign() {
-    if (!selectedChannelId || updateChannel.isPending) return
-    updateChannel.mutate(
-      {
-        params: { path: { id: selectedChannelId } },
-        body: { team_id: teamId },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Channel assigned")
-          setSelectedChannelId("")
-          refreshChannels()
-        },
-        onError: (err) =>
-          toast.danger(extractErrorMessage(err, "Could not assign channel")),
-      }
-    )
-  }
-
-  function handleRemove(channel: Channel) {
-    if (!channel.id || updateChannel.isPending) return
-    updateChannel.mutate(
-      {
-        params: { path: { id: channel.id } },
-        body: { team_id: "" },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Channel removed from team")
-          refreshChannels()
-        },
-        onError: (err) =>
-          toast.danger(extractErrorMessage(err, "Could not update channel")),
-      }
-    )
-  }
-
-  return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <h2 className="text-sm font-medium">
-          Channels
-          {assignedChannels.length ? ` (${assignedChannels.length})` : ""}
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Channels without a team stay public to workspace members.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="text-sm font-medium">Assign public channel</span>
-          <Select
-            aria-label="Assign public channel"
-            selectedKey={selectedChannelId || null}
-            onSelectionChange={(key) =>
-              setSelectedChannelId(key === null ? "" : String(key))
-            }
-            isDisabled={
-              updateChannel.isPending || availableChannels.length === 0
-            }
-            className="w-full"
-          >
-            <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
-              {selectedChannel ? (
-                <span className="truncate">
-                  #{channelLabel(selectedChannel)}
-                </span>
-              ) : (
-                <Select.Value />
-              )}
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover className="p-1.5">
-              <ListBox>
-                {availableChannels.map((channel) => (
-                  <ListBox.Item
-                    key={channel.id}
-                    id={channel.id}
-                    textValue={channelLabel(channel)}
-                  >
-                    #{channelLabel(channel)}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-        </label>
-        <Button
-          variant="primary"
-          size="sm"
-          isDisabled={!selectedChannelId || updateChannel.isPending}
-          onPress={handleAssign}
-        >
-          {updateChannel.isPending ? (
-            <Spinner color="current" size="sm" />
-          ) : null}
-          Assign
-        </Button>
-      </div>
-
-      <div className="bg-surface overflow-hidden rounded-2xl border border-border">
-        {isLoading ? (
-          <RowSkeleton />
-        ) : assignedChannels.length === 0 ? (
-          <EmptyRow text="No channels are assigned to this team." />
-        ) : (
-          assignedChannels.map((channel, index) => (
-            <ChannelRow
-              key={channel.id ?? index}
-              channel={channel}
-              last={index === assignedChannels.length - 1}
-              isBusy={updateChannel.isPending}
-              onRemove={() => handleRemove(channel)}
-            />
-          ))
-        )}
-      </div>
-    </section>
-  )
-}
-
-function ChannelRow({
-  channel,
-  last,
-  isBusy,
-  onRemove,
-}: {
-  channel: Channel
-  last?: boolean
-  isBusy: boolean
-  onRemove: () => void
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-4 py-3.5",
-        last ? "" : "border-b border-border"
-      )}
-    >
-      <span className="bg-default flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted">
-        <AppIcon icon="hash" className="h-4 w-4" />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium">
-          {channelLabel(channel)}
-        </span>
-        <span className="truncate text-sm text-muted">
-          {channel.description || "No description"}
-        </span>
-      </div>
       <Button variant="ghost" size="sm" isDisabled={isBusy} onPress={onRemove}>
         Remove
       </Button>

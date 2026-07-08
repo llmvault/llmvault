@@ -7,6 +7,7 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import {
   automationTriggerDefaultInstructions,
   automationTriggerKey,
@@ -16,8 +17,8 @@ import {
 import { AgentSelect } from "@/components/agent-select"
 import {
   resolveScopedAgentID,
-  useChannelScopedAgents,
-} from "@/lib/api/channel-scoped-agents"
+  useTeamAgents,
+} from "@/lib/api/team-agents"
 import {
   ChannelSelect,
   useHivyChannels,
@@ -83,6 +84,11 @@ export function GithubMentionInstallFormBase({
   const router = useRouter()
   const queryClient = useQueryClient()
   const triggerID = trigger?.id || ""
+  // Editing an existing trigger (save, toggle, delete) mutates via
+  // PATCH/DELETE /v1/triggers/{id}, which is admin-only on the backend.
+  // Installing a new trigger (triggerID empty) is a member action and isn't
+  // gated here.
+  const isAdmin = useIsAdmin()
   // The mention family shares this form; install with the catalog item's own key
   // (mention | issue_mention | pr_mention), not a hardcoded one.
   const triggerKey = trigger?.trigger_key || automationTriggerKey(automation)
@@ -165,7 +171,7 @@ export function GithubMentionInstallFormBase({
   const activeChannelID = channelID || channels[0]?.id || ""
   const activeChannel = channels.find((c) => c.id === activeChannelID)
   const { agents, isLoading: agentsLoading } =
-    useChannelScopedAgents(activeChannelID)
+    useTeamAgents(activeChannel?.team_id)
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -209,6 +215,7 @@ export function GithubMentionInstallFormBase({
   const isSaving = createTrigger.isPending || updateTrigger.isPending
   const isBusy = isSaving || deleteTrigger.isPending
   const canSubmit =
+    (!triggerID || isAdmin) &&
     !isLoading &&
     !isBusy &&
     !existingTrigger &&
@@ -409,13 +416,13 @@ export function GithubMentionInstallFormBase({
             <InlineNotice
               icon="bot"
               title="Select a channel first"
-              body="Agents are scoped to the channel this trigger runs in."
+              body="Agents are scoped to the team that owns this trigger's channel."
             />
           ) : agents.length === 0 && !agentsLoading ? (
             <InlineNotice
               icon="bot"
-              title="No agents in this channel"
-              body="Assign an agent to the selected channel before installing this trigger."
+              title="No agents on this team"
+              body="Add an agent to the selected channel's team before installing this trigger."
             />
           ) : (
             <AgentSelect
@@ -470,7 +477,7 @@ export function GithubMentionInstallFormBase({
               <Switch
                 aria-label="Enable trigger"
                 isSelected={isEnabled}
-                isDisabled={isBusy}
+                isDisabled={isBusy || !isAdmin}
                 onChange={setIsEnabled}
                 className="shrink-0"
               >
@@ -495,6 +502,12 @@ export function GithubMentionInstallFormBase({
           />
         </FormSection>
 
+        {triggerID && !isAdmin ? (
+          <p className="text-sm text-muted-foreground">
+            Only workspace admins can edit or delete automations.
+          </p>
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           {triggerID ? (
             <Button
@@ -502,7 +515,7 @@ export function GithubMentionInstallFormBase({
               variant="secondary"
               size="sm"
               className="text-danger sm:mr-auto"
-              isDisabled={isBusy}
+              isDisabled={isBusy || !isAdmin}
               onPress={handleDelete}
             >
               {deleteTrigger.isPending ? (

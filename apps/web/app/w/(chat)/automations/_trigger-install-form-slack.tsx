@@ -7,6 +7,7 @@ import { Button, Input, Spinner, Switch, TextArea, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import {
   automationSourceLabel,
   automationTriggerDefaultInstructions,
@@ -49,6 +50,11 @@ export function SlackReactionInstallForm({
   const router = useRouter()
   const queryClient = useQueryClient()
   const triggerID = trigger?.id || ""
+  // Editing an existing trigger (save, toggle, delete) mutates via
+  // PATCH/DELETE /v1/triggers/{id}, which is admin-only on the backend.
+  // Installing a new trigger (triggerID empty) is a member action and isn't
+  // gated here.
+  const isAdmin = useIsAdmin()
   const connectionsQuery = $api.useQuery(
     "get",
     "/v1/connections",
@@ -179,6 +185,7 @@ export function SlackReactionInstallForm({
   const isSaving = createTrigger.isPending || updateTrigger.isPending
   const isBusy = isSaving || deleteTrigger.isPending
   const canSubmit =
+    (!triggerID || isAdmin) &&
     !isLoading &&
     !isBusy &&
     !existingTrigger &&
@@ -413,7 +420,7 @@ export function SlackReactionInstallForm({
               <Switch
                 aria-label="Enable trigger"
                 isSelected={isEnabled}
-                isDisabled={isBusy}
+                isDisabled={isBusy || !isAdmin}
                 onChange={setIsEnabled}
                 className="shrink-0"
               >
@@ -452,6 +459,12 @@ export function SlackReactionInstallForm({
           />
         </FormSection>
 
+        {triggerID && !isAdmin ? (
+          <p className="text-sm text-muted-foreground">
+            Only workspace admins can edit or delete automations.
+          </p>
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           {triggerID ? (
             <Button
@@ -459,7 +472,7 @@ export function SlackReactionInstallForm({
               variant="secondary"
               size="sm"
               className="text-danger sm:mr-auto"
-              isDisabled={isBusy}
+              isDisabled={isBusy || !isAdmin}
               onPress={handleDelete}
             >
               {deleteTrigger.isPending ? (

@@ -20,12 +20,9 @@ type agentVisFixture struct {
 	org         model.Org
 	admin       model.User
 	member      model.User
-	base        model.Agent // channel default; unassigned, hidden from the member
-	visibleTeam model.Agent // assigned to the member's team channel
-	otherTeam   model.Agent // assigned to a channel scoped to another team
-	teamNull    model.Agent // assigned to a team-less channel
-	external    model.Agent // assigned to an external channel
-	unassigned  model.Agent // assigned to no channel
+	visibleTeam model.Agent // owned by the member's team; visible
+	otherTeam   model.Agent // owned by another team; hidden
+	teamNull    model.Agent // no team scope; hidden from the member
 }
 
 func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
@@ -34,36 +31,25 @@ func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
 	admin := model.User{ID: uuid.New(), Email: "admin-" + uuid.NewString()[:8] + "@test.com", Name: "admin"}
 	member := model.User{ID: uuid.New(), Email: "member-" + uuid.NewString()[:8] + "@test.com", Name: "member"}
 
-	mkAgent := func(name string) model.Agent {
-		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active"}
-	}
-	base := mkAgent("Base")
-	visibleTeam := mkAgent("VisibleTeam")
-	otherTeam := mkAgent("OtherTeam")
-	teamNull := mkAgent("TeamNull")
-	external := mkAgent("External")
-	unassigned := mkAgent("Unassigned")
-
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-b-" + uuid.NewString()[:8]}
 
-	chTeam := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "team-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: base.ID}
-	chOther := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "other-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamB.ID, DefaultAgentID: base.ID}
-	chNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "null-ch-" + uuid.NewString()[:8], Kind: "standard", DefaultAgentID: base.ID}
-	chExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ext-ch-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", TeamID: &teamB.ID, DefaultAgentID: base.ID}
+	mkAgent := func(name string, team *uuid.UUID) model.Agent {
+		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: team}
+	}
+	// Agent visibility is team-membership based: a non-manager sees exactly the
+	// agents belonging to teams they are on.
+	visibleTeam := mkAgent("VisibleTeam", &teamA.ID)
+	otherTeam := mkAgent("OtherTeam", &teamB.ID)
+	teamNull := mkAgent("TeamNull", nil)
 
 	rows := []any{
 		&org, &admin, &member,
 		&model.OrgMembership{UserID: admin.ID, OrgID: org.ID, Role: "admin"},
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
-		&base, &visibleTeam, &otherTeam, &teamNull, &external, &unassigned,
 		&teamA, &teamB,
+		&visibleTeam, &otherTeam, &teamNull,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
-		&chTeam, &chOther, &chNull, &chExt,
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chTeam.ID, AgentID: visibleTeam.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chOther.ID, AgentID: otherTeam.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chNull.ID, AgentID: teamNull.ID},
-		&model.ChannelAgent{OrgID: org.ID, ChannelID: chExt.ID, AgentID: external.ID},
 	}
 	for _, r := range rows {
 		if err := db.Create(r).Error; err != nil {
@@ -71,8 +57,6 @@ func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
 		}
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.ChannelAgent{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
@@ -82,8 +66,7 @@ func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
 	})
 	return agentVisFixture{
 		org: org, admin: admin, member: member,
-		base: base, visibleTeam: visibleTeam, otherTeam: otherTeam,
-		teamNull: teamNull, external: external, unassigned: unassigned,
+		visibleTeam: visibleTeam, otherTeam: otherTeam, teamNull: teamNull,
 	}
 }
 
@@ -142,20 +125,18 @@ func TestAgentList_ActorScopedVisibility(t *testing.T) {
 	h := newAgentHandlerForTest(db)
 	fx := seedAgentVisFixture(t, db)
 
-	// A plain member sees only agents assigned to channels they can use.
+	// A plain member sees only agents owned by teams they belong to.
 	memberIDs := listAgentIDs(t, h, fx.org, &fx.member, false)
-	for _, want := range []model.Agent{fx.visibleTeam, fx.teamNull, fx.external} {
-		if !memberIDs[want.ID.String()] {
-			t.Fatalf("member list missing %s (%s); got %v", want.Name, want.ID, memberIDs)
-		}
+	if !memberIDs[fx.visibleTeam.ID.String()] {
+		t.Fatalf("member list missing %s (%s); got %v", fx.visibleTeam.Name, fx.visibleTeam.ID, memberIDs)
 	}
-	for _, hidden := range []model.Agent{fx.otherTeam, fx.unassigned, fx.base} {
+	for _, hidden := range []model.Agent{fx.otherTeam, fx.teamNull} {
 		if memberIDs[hidden.ID.String()] {
 			t.Fatalf("member list must NOT include %s (%s); got %v", hidden.Name, hidden.ID, memberIDs)
 		}
 	}
 
-	all := []model.Agent{fx.base, fx.visibleTeam, fx.otherTeam, fx.teamNull, fx.external, fx.unassigned}
+	all := []model.Agent{fx.visibleTeam, fx.otherTeam, fx.teamNull}
 
 	// An org manager sees every agent.
 	adminIDs := listAgentIDs(t, h, fx.org, &fx.admin, false)
@@ -181,7 +162,7 @@ func TestAgentGet_ActorScopedVisibility(t *testing.T) {
 		t.Fatalf("member get visible agent = %d, want 200", code)
 	}
 	// A hidden agent returns 404 (not 403) so its existence never leaks.
-	for _, hidden := range []model.Agent{fx.otherTeam, fx.unassigned} {
+	for _, hidden := range []model.Agent{fx.otherTeam, fx.teamNull} {
 		if code := getAgentStatus(t, h, fx.org, &fx.member, hidden.ID); code != http.StatusNotFound {
 			t.Fatalf("member get hidden %s = %d, want 404", hidden.Name, code)
 		}

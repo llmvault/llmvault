@@ -7,37 +7,30 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// VisibleAgentIDsSubquery yields the ids of agents assigned to channels the
-// given user is allowed to use, per the team-based channel visibility
-// predicate. It is the read-side analogue of Assigned: where Assigned answers
-// "may this agent run in this channel", this answers "which agents may a
-// non-manager user see at all", so the /v1/agents surface and the list_agents
-// MCP tool cannot drift from the channel-visibility rule.
+// VisibleAgentIDsSubquery yields the ids of agents a non-manager user may see.
+// Under the team-primary model an agent is a team member, so a user sees an
+// agent iff the agent belongs to a team the user actively belongs to. It is the
+// read-side analogue of ActsInChannel: where ActsInChannel answers "may this
+// agent run in this channel", this answers "which agents may a non-manager user
+// see at all", so the /v1/agents surface and the list_agents MCP tool cannot
+// drift from the team-membership rule.
 //
-// The predicate mirrors handler.visibleTeamSubquery exactly (do not fork a new
-// membership definition): a channel is visible when it is externally sourced,
-// has no team scope (team_id IS NULL), or is scoped to a team the user actively
-// belongs to (via a non-archived team). Managers and API-key callers bypass
-// this entirely at the call site and see org-wide.
+// The team predicate mirrors handler.visibleTeamSubquery exactly (do not fork a
+// new membership definition): a team is visible when the user is a member via a
+// non-archived team. Managers and API-key callers bypass this entirely at the
+// call site and see org-wide.
 //
-// System-kind channels are excluded. System channels hold trigger/schedule
-// sessions and are exempt from assignment (see Assigned) — they normally carry
-// no channel_agents rows, so the join alone would already exclude them, but the
-// explicit kind guard guarantees a stray runtime-created row can never leak
-// extra agent visibility to a non-member.
-//
-// A nil userID mirrors visibleTeamSubquery's empty-membership case: only
-// external and team_id-NULL channels' agents remain visible. The returned value
-// is a subquery for use in `agents.id IN (?)`; pass the base *gorm.DB (not a
-// context-bound query) as db, matching handler.visibleTeamSubquery's callers.
+// Agents with no team (team_id IS NULL — unassigned/unusable per the team
+// primary-authz schema) are never visible to a non-manager, and a nil userID mirrors
+// visibleTeamSubquery's empty-membership case (no teams → no agents). The
+// returned value is a subquery for use in `agents.id IN (?)`; pass the base
+// *gorm.DB (not a context-bound query) as db, matching handler.visibleTeamSubquery's
+// callers.
 func VisibleAgentIDsSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *gorm.DB {
-	return db.Model(&model.ChannelAgent{}).
-		Select("channel_agents.agent_id").
-		Joins("JOIN channels ON channels.id = channel_agents.channel_id").
-		Where("channel_agents.org_id = ?", orgID).
-		Where("channels.kind <> ?", "system").
-		Where("(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
-			"private", "external", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
+	return db.Model(&model.Agent{}).
+		Select("agents.id").
+		Where("agents.org_id = ?", orgID).
+		Where("agents.team_id IN (?)", visibleTeamSubquery(db, userID))
 }
 
 // VisibleChannelIDsSubquery yields the ids of channels the given user is allowed

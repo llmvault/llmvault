@@ -9,8 +9,8 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import {
   resolveScopedAgentID,
-  useChannelScopedAgents,
-} from "@/lib/api/channel-scoped-agents"
+  useTeamAgents,
+} from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import {
   ChannelSelect,
@@ -42,7 +42,7 @@ export default function NewWebhookTriggerPage() {
   const {
     agents,
     isLoading: agentsLoading,
-  } = useChannelScopedAgents(activeChannelID)
+  } = useTeamAgents(activeChannel?.team_id)
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
@@ -165,19 +165,19 @@ export default function NewWebhookTriggerPage() {
 
             <FormSection
               title="Agent"
-              description="Select the agent that should handle inbound webhook requests. Only agents assigned to the chosen channel can run here."
+              description="Select the agent that should handle inbound webhook requests. Any agent on the chosen channel's team can run here."
             >
               {!activeChannelID ? (
                 <InlineNotice
                   icon="bot"
                   title="Select a channel first"
-                  body="Agents are scoped to the channel this webhook runs in."
+                  body="Agents are scoped to the team that owns this webhook's channel."
                 />
               ) : agents.length === 0 && !agentsLoading ? (
                 <InlineNotice
                   icon="bot"
-                  title="No agents in this channel"
-                  body="Assign an agent to the selected channel before adding a webhook trigger."
+                  title="No agents on this team"
+                  body="Add an agent to the selected channel's team before adding a webhook trigger."
                 />
               ) : (
                 <AgentSelect

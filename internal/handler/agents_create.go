@@ -34,7 +34,7 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 
 	var out *model.Agent
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		agent, err := createHivyAgentWithDefaultsTx(ctx, tx, orgID)
+		agent, err := createHivyAgentWithDefaultsTx(ctx, tx, orgID, nil)
 		if err != nil {
 			return err
 		}
@@ -55,11 +55,15 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 	return out, nil
 }
 
-func createHivyAgentWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
-	return createHivyAgentTx(ctx, tx, orgID)
+// createHivyAgentWithDefaultsTx creates the default Hivy agent. teamID is the
+// team the Hivy belongs to (each team gets its own undeletable Hivy clone); it
+// is nil only for the legacy org-level fallback (ensureHivyAgent), which
+// creates a single team-less default agent.
+func createHivyAgentWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID *uuid.UUID) (*model.Agent, error) {
+	return createHivyAgentTx(ctx, tx, orgID, teamID)
 }
 
-func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
+func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID *uuid.UUID) (*model.Agent, error) {
 	catalog, hasCatalog, err := loadDefaultAgentCatalog(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -95,6 +99,7 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 	}
 	agent := model.Agent{
 		OrgID:                  &orgID,
+		TeamID:                 teamID,
 		AgentCatalogID:         catalogID,
 		Name:                   name,
 		Description:            &desc,
@@ -114,7 +119,14 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		RuntimeConfig:          model.JSON{},
 		Permissions:            model.JSON{},
 	}
-	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
+	if teamID != nil {
+		// Each team owns its own Hivy clone, so several "Hivy" agents can coexist
+		// in one org. Uniquify the name (Hivy, Hivy-2, ...) to avoid colliding on
+		// idx_agents_org_name.
+		if err := createWithUniqueNameSlug(tx.WithContext(ctx), &agent, name); err != nil {
+			return nil, fmt.Errorf("create Hivy agent: %w", err)
+		}
+	} else if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return nil, fmt.Errorf("create Hivy agent: %w", err)
 	}
 	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {

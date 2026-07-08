@@ -30,12 +30,12 @@ type sessionHarness struct {
 }
 
 type sessionFixture struct {
-	org     model.Org
-	owner   model.User
-	member  model.User
-	viewer  model.User
-	agent   model.Agent
-	channel model.Channel
+	org       model.Org
+	owner     model.User
+	member    model.User
+	bystander model.User
+	agent     model.Agent
+	channel   model.Channel
 }
 
 type sessionMutationOut struct {
@@ -139,7 +139,9 @@ func (h *sessionHarness) seed(t *testing.T) sessionFixture {
 	seedSessionModelCredential(t, h.db, org.ID)
 	owner := seedSessionUser(t, h.db, org.ID, "owner")
 	member := seedSessionUser(t, h.db, org.ID, "member")
-	viewer := seedSessionUser(t, h.db, org.ID, "viewer")
+	// A second plain member who is not a channel participant, used to assert
+	// view-but-not-send access. (Formerly seeded with the removed "viewer" role.)
+	bystander := seedSessionUser(t, h.db, org.ID, "member")
 	agent := seedSessionAgent(t, h.db, org.ID)
 	channel := model.Channel{
 		OrgID:          org.ID,
@@ -156,11 +158,9 @@ func (h *sessionHarness) seed(t *testing.T) sessionFixture {
 	if err := h.db.Create(&model.ChannelMember{ChannelID: channel.ID, UserID: owner.ID, Role: "owner"}).Error; err != nil {
 		t.Fatalf("create channel owner: %v", err)
 	}
-	if err := h.db.Create(&model.ChannelAgent{OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID}).Error; err != nil {
-		t.Fatalf("assign default agent to channel: %v", err)
-	}
-	t.Cleanup(func() { cleanupSessionFixture(h.db, org.ID, owner.ID, member.ID, viewer.ID) })
-	return sessionFixture{org: org, owner: owner, member: member, viewer: viewer, agent: agent, channel: channel}
+	// Team-less channel: any org agent may act in it under the team-primary model.
+	t.Cleanup(func() { cleanupSessionFixture(h.db, org.ID, owner.ID, member.ID, bystander.ID) })
+	return sessionFixture{org: org, owner: owner, member: member, bystander: bystander, agent: agent, channel: channel}
 }
 
 func seedSessionUser(t *testing.T, db *gorm.DB, orgID uuid.UUID, role string) model.User {

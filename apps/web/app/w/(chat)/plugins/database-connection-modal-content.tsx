@@ -65,9 +65,14 @@ export function isDatabaseProvider(
 export function DatabaseConnectionModalContent({
   provider,
   onConnected,
+  canManage = true,
 }: {
   provider: DatabaseProvider
   onConnected: () => void
+  // canManage gates connecting/introspecting/saving a database connection to
+  // org admins; the backend enforces this too (all database-integrations
+  // mutations are admin-only).
+  canManage?: boolean
 }) {
   const queryClient = useQueryClient()
   const config = PROVIDERS[provider]
@@ -114,7 +119,7 @@ export function DatabaseConnectionModalContent({
 
   async function handleConnect(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!connectionURL.trim() || isConnecting) return
+    if (!canManage || !connectionURL.trim() || isConnecting) return
 
     setErrorMessage(null)
     try {
@@ -136,7 +141,7 @@ export function DatabaseConnectionModalContent({
   }
 
   async function handleRetryIntrospection() {
-    if (!connection?.id || isConnecting) return
+    if (!canManage || !connection?.id || isConnecting) return
     try {
       await introspect(connection.id)
     } catch (error) {
@@ -147,7 +152,7 @@ export function DatabaseConnectionModalContent({
   }
 
   async function handleSavePolicy(policy: DatabasePolicy) {
-    if (!connection?.id || updatePolicy.isPending) return
+    if (!canManage || !connection?.id || updatePolicy.isPending) return
     try {
       await updatePolicy.mutateAsync({
         params: { path: { id: connection.id } },
@@ -201,12 +206,18 @@ export function DatabaseConnectionModalContent({
             </div>
           ) : null}
 
+          {!canManage ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              Only workspace admins can connect databases.
+            </p>
+          ) : null}
+
           <Button
             type="submit"
             variant="primary"
             fullWidth
             className="rounded-full"
-            isDisabled={!connectionURL.trim() || isConnecting}
+            isDisabled={!canManage || !connectionURL.trim() || isConnecting}
           >
             {isConnecting ? <Spinner color="current" size="sm" /> : null}
             Continue
@@ -219,6 +230,7 @@ export function DatabaseConnectionModalContent({
           errorMessage={errorMessage}
           introspecting={introspectConnection.isPending}
           saving={updatePolicy.isPending}
+          canManage={canManage}
           onRetryIntrospection={handleRetryIntrospection}
           onSavePolicy={handleSavePolicy}
         />
@@ -229,6 +241,7 @@ export function DatabaseConnectionModalContent({
           errorMessage={errorMessage}
           introspecting={introspectConnection.isPending}
           saving={updatePolicy.isPending}
+          canManage={canManage}
           onRetryIntrospection={handleRetryIntrospection}
           onSavePolicy={handleSavePolicy}
         />
@@ -240,6 +253,7 @@ export function DatabaseConnectionModalContent({
           errorMessage={errorMessage}
           introspecting={introspectConnection.isPending}
           saving={updatePolicy.isPending}
+          canManage={canManage}
           onRetryIntrospection={handleRetryIntrospection}
           onSavePolicy={handleSavePolicy}
         />

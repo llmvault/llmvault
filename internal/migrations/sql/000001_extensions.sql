@@ -1,33 +1,15 @@
 -- +goose Up
--- Postgres extensions and migration session settings
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
--- Extensions and migration session settings
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
-SET statement_timeout = 0;
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
-SET lock_timeout = 0;
-
-SET idle_in_transaction_session_timeout = 0;
-
-SET client_encoding = 'UTF8';
-
-SET standard_conforming_strings = on;
-
-SET check_function_bodies = false;
-
-SET xmloption = content;
-
-SET client_min_messages = warning;
-
-SET row_security = off;
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
+COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
 
 -- +goose Down
 -- +goose StatementBegin

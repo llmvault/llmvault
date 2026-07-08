@@ -134,15 +134,11 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("creating membership: %w", err)
 		}
 
-		agent, err := createHivyAgentWithDefaultsTx(ctx, tx, org.ID)
-		if err != nil {
-			return fmt.Errorf("creating Hivy agent: %w", err)
-		}
-		if _, err := createDefaultGeneralChannelTx(ctx, tx, org.ID, uuid.MustParse(claims.UserID), agent.ID); err != nil {
-			return fmt.Errorf("creating default channel: %w", err)
-		}
-		if _, err := createSystemChannelTx(ctx, tx, org.ID, agent.ID); err != nil {
-			return fmt.Errorf("creating system channel: %w", err)
+		// Every org is born with a self-sufficient first team (its own Hivy +
+		// #general). Additional orgs are not signup, so there is no user-provided
+		// team name; fall back to the default.
+		if _, err := provisionFirstTeam(ctx, tx, org.ID, uuid.MustParse(claims.UserID), defaultTeamName); err != nil {
+			return err
 		}
 
 		return nil

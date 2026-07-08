@@ -19,7 +19,6 @@ describe("assignableRoles", () => {
 
   it("gives non-admins nothing", () => {
     expect(assignableRoles("member")).toEqual([])
-    expect(assignableRoles("viewer")).toEqual([])
     expect(assignableRoles(null)).toEqual([])
     expect(assignableRoles(undefined)).toEqual([])
   })

@@ -5,9 +5,9 @@ import { Button } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
-import { useIsAdmin, useIsOwner } from "@/lib/auth/use-role"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { ownerCount } from "./_components/member-actions"
-import { OrgDangerZone, OrgMemberRow } from "./_components/member-lifecycle"
+import { OrgMemberRow } from "./_components/member-lifecycle"
 import {
   EmptyRow,
   InviteMemberModal,
@@ -24,7 +24,6 @@ import {
 export default function TeamsSettingsPage() {
   const { user, activeOrg } = useAuth()
   const isAdmin = useIsAdmin()
-  const isOwner = useIsOwner()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [teamFormOpen, setTeamFormOpen] = useState(false)
 
@@ -95,7 +94,7 @@ export default function TeamsSettingsPage() {
               Teams{teams.length ? ` (${teams.length})` : ""}
             </h2>
           </div>
-          <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
             {teamsQuery.isLoading ? (
               <RowSkeleton />
             ) : teams.length === 0 ? (
@@ -112,9 +111,9 @@ export default function TeamsSettingsPage() {
           </div>
         </section>
       ) : (
-        <section className="bg-surface rounded-2xl border border-border px-4 py-4">
+        <section className="rounded-2xl border border-border bg-surface px-4 py-4">
           <div className="flex items-start gap-3">
-            <div className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default text-muted">
               <AppIcon icon="users-round" className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -131,7 +130,7 @@ export default function TeamsSettingsPage() {
         <h2 className="text-sm font-medium">
           Members{members.length ? ` (${members.length})` : ""}
         </h2>
-        <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           {membersQuery.isLoading ? (
             <RowSkeleton />
           ) : members.length === 0 ? (
@@ -151,16 +150,12 @@ export default function TeamsSettingsPage() {
         </div>
       </section>
 
-      {isOwner ? (
-        <OrgDangerZone members={members} currentUserId={user?.id} />
-      ) : null}
-
       {isAdmin ? (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-medium">
             Pending invitations{invites.length ? ` (${invites.length})` : ""}
           </h2>
-          <div className="bg-surface overflow-hidden rounded-2xl border border-border">
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
             {invitesQuery.isLoading ? (
               <RowSkeleton />
             ) : invites.length === 0 ? (

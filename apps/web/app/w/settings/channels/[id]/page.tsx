@@ -22,7 +22,7 @@ import { $api } from "@/lib/api/hooks"
 import { CHANNEL_CATEGORIES, channelMemorySettings } from "@/lib/api/memory"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
 import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
-import { AgentsTab } from "./_agents-tab"
+import { DefaultAgentTab } from "./_default-agent-tab"
 
 type ChannelMember = {
   user_id?: string
@@ -225,7 +225,7 @@ export default function ChannelDetailPage({
         />
         <TabButton
           active={tab === "agents"}
-          label="Agents"
+          label="Default agent"
           onClick={() => setTab("agents")}
         />
         <TabButton
@@ -265,8 +265,9 @@ export default function ChannelDetailPage({
           onDelete={() => setConfirmOpen(true)}
         />
       ) : tab === "agents" ? (
-        <AgentsTab
+        <DefaultAgentTab
           channelId={id}
+          teamId={channel.team_id ?? ""}
           defaultAgentId={channel.default_agent_id ?? ""}
         />
       ) : tab === "members" ? (

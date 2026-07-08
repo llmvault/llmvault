@@ -610,13 +610,18 @@ definitions:
       name:
         type: string
     type: object
-  agentCatalogInstallConflictResponse:
+  agentCatalogInstallRequest:
+    properties:
+      team_id:
+        type: string
+    type: object
+  agentCatalogMissingPluginsResponse:
     properties:
       error:
         type: string
       missing_plugins:
         items:
-          $ref: '#/definitions/agentCatalogPluginSummary'
+          type: string
         type: array
     type: object
   agentCatalogPluginSummary:
@@ -644,6 +649,15 @@ definitions:
         type: string
       installed_agent_id:
         type: string
+      installed_team_ids:
+        description: |-
+          InstalledTeamIDs lists the ids of the caller's visible teams that already
+          have this catalog agent installed (one clone per team). Managers and
+          API-key callers see every team in the org; a plain member sees only the
+          teams they belong to. The UI uses it to render per-team install/uninstall.
+        items:
+          type: string
+        type: array
       is_default:
         type: boolean
       model:
@@ -1138,16 +1152,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  assignChannelAgentRequest:
-    properties:
-      agent_id:
-        type: string
-    type: object
-  assignChannelAgentResponse:
-    properties:
-      agent:
-        $ref: '#/definitions/agentResponse'
-    type: object
   attachmentDownloadURLRequest:
     properties:
       keys:
@@ -1327,13 +1331,6 @@ definitions:
         type: string
       new_password:
         type: string
-    type: object
-  channelAgentsResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/agentResponse'
-        type: array
     type: object
   channelDetailResponse:
     properties:
@@ -3475,6 +3472,8 @@ definitions:
       name:
         type: string
       password:
+        type: string
+      team_name:
         type: string
     type: object
   reportRow:
@@ -6432,13 +6431,17 @@ paths:
       - agents
   /v1/agents/catalog/{slug}/install:
     delete:
-      description: Archives the installed agent for a catalog entry in the current
-        organization.
+      description: Archives the catalog agent clone belonging to the caller's team.
+        The actor must be able to manage the team.
       parameters:
       - description: Agent catalog slug
         in: path
         name: slug
         required: true
+        type: string
+      - description: Target team (may also be sent in the JSON body)
+        in: query
+        name: team_id
         type: string
       produces:
       - application/json
@@ -6451,6 +6454,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
         "404":
           description: Not Found
           schema:
@@ -6459,18 +6466,25 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/errorResponse'
-      summary: Uninstall catalog agent
+      summary: Uninstall a team's catalog agent
       tags:
       - agents
     post:
-      description: Installs an agent catalog entry into the current organization when
-        required plugins are installed.
+      description: Clones a catalog agent (a template) into the caller's team. The
+        actor must be able to manage the team, and the team must be able to use every
+        plugin the catalog requires; otherwise the install is refused.
       parameters:
       - description: Agent catalog slug
         in: path
         name: slug
         required: true
         type: string
+      - description: Target team
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/agentCatalogInstallRequest'
       produces:
       - application/json
       responses:
@@ -6482,19 +6496,23 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
+        "422":
+          description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/agentCatalogInstallConflictResponse'
+            $ref: '#/definitions/agentCatalogMissingPluginsResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/errorResponse'
-      summary: Install catalog agent
+      summary: Install catalog agent into a team
       tags:
       - agents
   /v1/agents/models:
@@ -7836,116 +7854,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a channel
-      tags:
-      - channels
-  /v1/channels/{id}/agents:
-    get:
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelAgentsResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List agents assigned to a channel
-      tags:
-      - channels
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Agent to assign
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/assignChannelAgentRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/assignChannelAgentResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Assign an agent to a channel
-      tags:
-      - channels
-  /v1/channels/{id}/agents/{agentID}:
-    delete:
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Agent ID
-        in: path
-        name: agentID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Unassign an agent from a channel
       tags:
       - channels
   /v1/channels/{id}/environment-variables:
@@ -10464,7 +10372,7 @@ paths:
         name: userID
         required: true
         type: string
-      - description: 'New role: owner, admin, member, or viewer'
+      - description: 'New role: owner, admin, or member'
         in: body
         name: body
         required: true
@@ -10583,7 +10491,7 @@ paths:
   /v1/orgs/current/teams/{id}:
     delete:
       description: Archives an active team after all channels are removed from it.
-        Admin-only.
+        Admin-only. Rejected if it is the org's last team.
       parameters:
       - description: Team ID
         in: path

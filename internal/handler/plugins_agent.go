@@ -149,8 +149,11 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 	// Per-agent plugins are bounded by the agent's team grant: an agent may only
 	// receive a plugin its team has been provisioned. Org-level agents (team_id
 	// IS NULL, e.g. the Hivy default) skip this — they are manager-only above and
-	// have no team allowlist to bound against.
-	if agent.TeamID != nil {
+	// have no team allowlist to bound against. Auto-install system plugins
+	// (sheets, service-discovery, skill-manager, runtime, …) are always-on for
+	// every team without a team_plugins row, so they bypass the grant check —
+	// only optional catalog plugins need an explicit team grant.
+	if agent.TeamID != nil && !pluginstore.PluginAutoInstall(plugin) {
 		granted, err := pluginEnabledForTeam(ctx, h.db, *agent.TeamID, plugin.ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check team plugin grant"})

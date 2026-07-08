@@ -1962,11 +1962,11 @@
     },
     "/v1/agents/catalog/{slug}/install": {
       "post": {
-        "description": "Installs an agent catalog entry into the current organization when required plugins are installed.",
+        "description": "Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.",
         "tags": [
           "agents"
         ],
-        "summary": "Install catalog agent",
+        "summary": "Install catalog agent into a team",
         "parameters": [
           {
             "description": "Agent catalog slug",
@@ -1978,6 +1978,17 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/agentCatalogInstallRequest"
+              }
+            }
+          },
+          "description": "Target team",
+          "required": true
+        },
         "responses": {
           "201": {
             "description": "Created",
@@ -1999,6 +2010,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -2009,12 +2030,12 @@
               }
             }
           },
-          "409": {
-            "description": "Conflict",
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/agentCatalogInstallConflictResponse"
+                  "$ref": "#/components/schemas/agentCatalogMissingPluginsResponse"
                 }
               }
             }
@@ -2032,17 +2053,25 @@
         }
       },
       "delete": {
-        "description": "Archives the installed agent for a catalog entry in the current organization.",
+        "description": "Archives the catalog agent clone belonging to the caller's team. The actor must be able to manage the team.",
         "tags": [
           "agents"
         ],
-        "summary": "Uninstall catalog agent",
+        "summary": "Uninstall a team's catalog agent",
         "parameters": [
           {
             "description": "Agent catalog slug",
             "name": "slug",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target team (may also be sent in the JSON body)",
+            "name": "team_id",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -2061,6 +2090,16 @@
           },
           "401": {
             "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -5405,225 +5444,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}/agents": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "tags": [
-          "channels"
-        ],
-        "summary": "List agents assigned to a channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelAgentsResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "tags": [
-          "channels"
-        ],
-        "summary": "Assign an agent to a channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/assignChannelAgentRequest"
-              }
-            }
-          },
-          "description": "Agent to assign",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/assignChannelAgentResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}/agents/{agentID}": {
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "tags": [
-          "channels"
-        ],
-        "summary": "Unassign an agent from a channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Agent ID",
-            "name": "agentID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -10484,7 +10304,7 @@
               }
             }
           },
-          "description": "New role: owner, admin, member, or viewer",
+          "description": "New role: owner, admin, or member",
           "required": true
         },
         "responses": {
@@ -10774,7 +10594,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Archives an active team after all channels are removed from it. Admin-only.",
+        "description": "Archives an active team after all channels are removed from it. Admin-only. Rejected if it is the org's last team.",
         "tags": [
           "teams"
         ],
@@ -19314,7 +19134,15 @@
           }
         }
       },
-      "agentCatalogInstallConflictResponse": {
+      "agentCatalogInstallRequest": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string"
+          }
+        }
+      },
+      "agentCatalogMissingPluginsResponse": {
         "type": "object",
         "properties": {
           "error": {
@@ -19323,7 +19151,7 @@
           "missing_plugins": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/agentCatalogPluginSummary"
+              "type": "string"
             }
           }
         }
@@ -19365,6 +19193,13 @@
           },
           "installed_agent_id": {
             "type": "string"
+          },
+          "installed_team_ids": {
+            "description": "InstalledTeamIDs lists the ids of the caller's visible teams that already\nhave this catalog agent installed (one clone per team). Managers and\nAPI-key callers see every team in the org; a plain member sees only the\nteams they belong to. The UI uses it to render per-team install/uninstall.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "is_default": {
             "type": "boolean"
@@ -20110,22 +19945,6 @@
           }
         }
       },
-      "assignChannelAgentRequest": {
-        "type": "object",
-        "properties": {
-          "agent_id": {
-            "type": "string"
-          }
-        }
-      },
-      "assignChannelAgentResponse": {
-        "type": "object",
-        "properties": {
-          "agent": {
-            "$ref": "#/components/schemas/agentResponse"
-          }
-        }
-      },
       "attachmentDownloadURLRequest": {
         "type": "object",
         "properties": {
@@ -20399,17 +20218,6 @@
           },
           "new_password": {
             "type": "string"
-          }
-        }
-      },
-      "channelAgentsResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/agentResponse"
-            }
           }
         }
       },
@@ -23668,6 +23476,9 @@
             "type": "string"
           },
           "password": {
+            "type": "string"
+          },
+          "team_name": {
             "type": "string"
           }
         }

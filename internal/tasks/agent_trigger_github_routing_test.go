@@ -12,9 +12,12 @@ import (
 
 func seedMentionTrigger(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, repo string) model.AgentTrigger {
 	t.Helper()
+	// Triggers always carry an explicit channel now (no #system fallback).
+	channel := seedTriggerChannel(t, db, orgID, agentID, "mention")
 	trigger := model.AgentTrigger{
 		ID: uuid.New(), OrgID: orgID, AgentID: agentID, TriggerType: "webhook",
 		TriggerKey: model.TriggerKeyGitHubPRMention, TriggerValue: repo, Enabled: true,
+		ChannelID: &channel.ID,
 	}
 	if err := db.Create(&trigger).Error; err != nil {
 		t.Fatalf("create mention trigger: %v", err)

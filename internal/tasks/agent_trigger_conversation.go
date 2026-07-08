@@ -13,22 +13,19 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-const triggerSystemChannelName = "system"
-
 func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Context, agent *model.Agent, trigger model.AgentTrigger, resourceKey string) (*model.Session, error) {
 	channelID, err := h.resolveTriggerChannel(ctx, agent, trigger.ChannelID)
 	if err != nil {
 		return nil, err
 	}
-	// Hard enforcement: the agent must be assigned to the trigger's channel.
-	// System channels (the default when no channel is configured) are exempt via
-	// channelagents.Assigned, so scheduled/system jobs keep working.
-	assigned, err := channelagents.Assigned(ctx, h.db, *agent.OrgID, channelID, agent.ID)
+	// Hard enforcement: the agent must belong to the trigger's channel's team.
+	// External channels (team_id NULL) are unbounded via channelagents.ActsInChannel.
+	acts, err := channelagents.ActsInChannel(ctx, h.db, *agent.OrgID, channelID, agent.ID)
 	if err != nil {
 		return nil, fmt.Errorf("check trigger channel agent: %w", err)
 	}
-	if !assigned {
-		return nil, fmt.Errorf("agent is not assigned to this channel")
+	if !acts {
+		return nil, fmt.Errorf("agent does not belong to this channel's team")
 	}
 	var session model.Session
 	err = h.db.WithContext(ctx).
@@ -72,8 +69,10 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 }
 
 func (h *AgentTriggerDispatchHandler) resolveTriggerChannel(ctx context.Context, agent *model.Agent, configured *uuid.UUID) (uuid.UUID, error) {
+	// Triggers always carry an explicit channel now — there is no #system
+	// fallback. A nil channel is a configuration error, never a silent resolve.
 	if configured == nil || *configured == uuid.Nil {
-		return h.ensureTriggerSystemChannel(ctx, agent)
+		return uuid.Nil, fmt.Errorf("trigger has no channel configured")
 	}
 	var channel model.Channel
 	err := h.db.WithContext(ctx).
@@ -84,26 +83,6 @@ func (h *AgentTriggerDispatchHandler) resolveTriggerChannel(ctx context.Context,
 	}
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("load trigger channel: %w", err)
-	}
-	return channel.ID, nil
-}
-
-func (h *AgentTriggerDispatchHandler) ensureTriggerSystemChannel(ctx context.Context, agent *model.Agent) (uuid.UUID, error) {
-	scope := model.Channel{OrgID: *agent.OrgID, Origin: "native", Name: triggerSystemChannelName}
-	attrs := model.Channel{
-		Description:      "System-managed jobs",
-		Kind:             "system",
-		Visibility:       "private",
-		DefaultAgentID:   agent.ID,
-		ExternalMetadata: model.JSON{"source": "system"},
-	}
-	var channel model.Channel
-	if err := h.db.WithContext(ctx).
-		Where(&scope).
-		Where("archived_at IS NULL").
-		Attrs(attrs).
-		FirstOrCreate(&channel).Error; err != nil {
-		return uuid.Nil, fmt.Errorf("ensure trigger system channel: %w", err)
 	}
 	return channel.ID, nil
 }
