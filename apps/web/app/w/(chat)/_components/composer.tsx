@@ -42,6 +42,10 @@ import {
 } from "./use-composer-attachments"
 import { ComposerChannelPicker } from "./composer-channel-picker"
 import { ComposerModelPicker } from "./composer-model-picker"
+import {
+  ComposerTeamPicker,
+  type ComposerTeam,
+} from "./composer-team-picker"
 
 export function Composer({
   sessionId,
@@ -57,6 +61,12 @@ export function Composer({
   attachmentsEnabled = true,
   audioEnabled = true,
   spendVisible = true,
+  teamSelectable = false,
+  team,
+  teams = [],
+  teamsLoading = false,
+  teamsError = false,
+  onTeamChange,
   channelSelectable = false,
   channel,
   channels = [],
@@ -97,6 +107,12 @@ export function Composer({
   attachmentsEnabled?: boolean
   audioEnabled?: boolean
   spendVisible?: boolean
+  teamSelectable?: boolean
+  team?: ComposerTeam
+  teams?: ComposerTeam[]
+  teamsLoading?: boolean
+  teamsError?: boolean
+  onTeamChange?: (team: ComposerTeam) => void
   channelSelectable?: boolean
   channel?: SidebarChannelResponse
   channels?: SidebarChannelResponse[]
@@ -398,6 +414,15 @@ export function Composer({
               </Button>
             ) : null}
             {spendVisible ? <SessionSpendPill usage={usage} /> : null}
+            {teamSelectable ? (
+              <ComposerTeamPicker
+                team={team}
+                teams={teams}
+                teamsLoading={teamsLoading}
+                teamsError={teamsError}
+                onTeamChange={onTeamChange}
+              />
+            ) : null}
             {channelSelectable ? (
               <ComposerChannelPicker
                 channel={channel}
@@ -452,6 +477,7 @@ export function Composer({
                     selectedModel={selectedModel}
                     effort={effort}
                     onModelChange={onModelChange}
+                    avatarOnly
                   />
                 ) : (
                   <div

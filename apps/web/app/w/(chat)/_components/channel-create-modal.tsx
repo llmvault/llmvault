@@ -23,10 +23,12 @@ const SLACK_CHANNEL_RESOURCE_TYPE = "slack_channel"
 
 export function ChannelCreateModal({
   open,
+  teamId,
   onOpenChange,
   onCreated,
 }: {
   open: boolean
+  teamId?: string
   onOpenChange: (open: boolean) => void
   onCreated: (channel: ChannelResponse) => void
 }) {
@@ -34,6 +36,7 @@ export function ChannelCreateModal({
 
   return (
     <ChannelCreateModalContent
+      teamId={teamId}
       onCreated={onCreated}
       onOpenChange={onOpenChange}
     />
@@ -41,9 +44,11 @@ export function ChannelCreateModal({
 }
 
 function ChannelCreateModalContent({
+  teamId,
   onCreated,
   onOpenChange,
 }: {
+  teamId?: string
   onCreated: (channel: ChannelResponse) => void
   onOpenChange: (open: boolean) => void
 }) {
@@ -54,7 +59,8 @@ function ChannelCreateModalContent({
   const [selectedCategory, setSelectedCategory] = useState<
     ChannelCategory | ""
   >("")
-  const [selectedTeamID, setSelectedTeamID] = useState("")
+  const [selectedTeamID, setSelectedTeamID] = useState(teamId ?? "")
+  const teamLocked = Boolean(teamId)
   const [search, setSearch] = useState("")
   const connectionsQuery = $api.useQuery(
     "get",
@@ -101,10 +107,6 @@ function ChannelCreateModalContent({
   const defaultAgentID =
     agents.find((agent) => agent.is_default)?.id ?? agents[0]?.id ?? ""
   const activeAgentID = selectedAgentID || defaultAgentID
-  // GET /v1/orgs/current/teams is member-readable (see internal/handler/teams.go
-  // List): org managers/API keys see every team, a plain member sees only the
-  // teams they actively belong to (200, not 403). A member with no team
-  // memberships gets an empty list, so the team picker is always optional.
   const teamsQuery = $api.useQuery(
     "get",
     "/v1/orgs/current/teams",
@@ -149,11 +151,10 @@ function ChannelCreateModalContent({
       !selectedConnection?.id ||
       !selectedResource?.id ||
       !activeAgentID ||
-      !selectedCategory
+      !selectedCategory ||
+      !selectedTeamID
     )
       return
-    // Built as a variable (not an inline literal) so the `category` field —
-    // not yet in the generated OpenAPI schema — passes the type check.
     const body = {
       origin: "external",
       external_provider: "slack",
@@ -164,7 +165,7 @@ function ChannelCreateModalContent({
       external_resource_name: selectedResource.name || selectedResource.id,
       default_agent_id: activeAgentID,
       category: selectedCategory,
-      team_id: selectedTeamID || undefined,
+      team_id: selectedTeamID,
     }
     createChannel.mutate(
       { body },
@@ -374,16 +375,28 @@ function ChannelCreateModalContent({
                   <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
                     Team
                   </h3>
-                  <p className="text-sm text-muted">
-                    Optionally scope this channel to a team. Leave unset to
-                    keep it workspace-wide.
-                  </p>
-                  <TeamSelect
-                    teams={teams}
-                    isLoading={teamsQuery.isLoading}
-                    selectedTeamID={selectedTeamID}
-                    onChange={setSelectedTeamID}
-                  />
+                  {teamLocked ? (
+                    <LockedTeamRow
+                      label={
+                        teamsQuery.isLoading
+                          ? "Loading team"
+                          : teams.find((team) => team.id === selectedTeamID)
+                              ?.name || "Selected team"
+                      }
+                    />
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted">
+                        Choose which team this channel belongs to.
+                      </p>
+                      <TeamSelect
+                        teams={teams}
+                        isLoading={teamsQuery.isLoading}
+                        selectedTeamID={selectedTeamID}
+                        onChange={setSelectedTeamID}
+                      />
+                    </>
+                  )}
                 </section>
               </div>
 
@@ -403,6 +416,7 @@ function ChannelCreateModalContent({
                     !selectedResource?.id ||
                     !activeAgentID ||
                     !selectedCategory ||
+                    !selectedTeamID ||
                     createChannel.isPending ||
                     resourcesQuery.isLoading
                   }
@@ -464,16 +478,15 @@ function TeamSelect({
   selectedTeamID: string
   onChange: (teamID: string) => void
 }) {
-  const NO_TEAM_KEY = ""
   const selected = teams.find((team) => team.id === selectedTeamID)
   const selectedLabel = isLoading
     ? "Loading teams"
-    : selected?.name || "No team"
+    : selected?.name || "Select a team"
 
   return (
     <Select
       aria-label="Team"
-      selectedKey={selectedTeamID || NO_TEAM_KEY}
+      selectedKey={selectedTeamID || null}
       onSelectionChange={(key) => {
         if (key !== null) onChange(String(key))
       }}
@@ -486,9 +499,6 @@ function TeamSelect({
       </Select.Trigger>
       <Select.Popover className="p-1.5">
         <ListBox>
-          <ListBox.Item id={NO_TEAM_KEY} textValue="No team">
-            <span className="text-sm font-medium">No team</span>
-          </ListBox.Item>
           {teams.map((team) => (
             <ListBox.Item
               key={team.id}
@@ -503,6 +513,17 @@ function TeamSelect({
         </ListBox>
       </Select.Popover>
     </Select>
+  )
+}
+
+function LockedTeamRow({ label }: { label: string }) {
+  return (
+    <div className="bg-field-background flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm">
+      <AppIcon icon="users" className="h-4 w-4 shrink-0 text-muted" />
+      <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+        {label}
+      </span>
+    </div>
   )
 }
 

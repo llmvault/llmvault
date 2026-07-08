@@ -22,9 +22,8 @@ type Agent struct {
 	// by ParentAgentID. Sub-agents are excluded from top-level agent listings.
 	Type          string     `gorm:"type:text;not null;default:'agent'"`
 	ParentAgentID *uuid.UUID `gorm:"type:uuid;index"`
-	// Name is unique per org among top-level agents (partial unique index
-	// idx_agents_org_name WHERE parent_agent_id IS NULL) and unique within a
-	// parent for sub-agents (idx_agents_parent_name).
+	// Name is unique within a parent for sub-agents (idx_agents_parent_name).
+	// Top-level agent names are not unique per org (several teams share a "Hivy").
 	Name              string           `gorm:"type:text;not null"`
 	Description       *string          `gorm:"type:text;not null;default:''"`
 	AvatarURL         *string          `gorm:"type:text"`

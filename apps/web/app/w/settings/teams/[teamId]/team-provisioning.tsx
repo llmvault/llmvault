@@ -6,6 +6,7 @@ import { toast } from "@heroui/react"
 import { PluginLogoTile } from "@/components/plugin-logo"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { pluginName, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import {
   deriveProvider,
@@ -35,19 +36,23 @@ const TEAM_RAG_SOURCES_KEY = [
   "/v1/orgs/current/teams/{teamID}/rag-sources",
 ] as const
 
-// TeamProvisioningSection is the admin-only surface for controlling which org
-// plugins and knowledge sources this team's agents may reach: two toggle
-// lists, one per resource kind, each an allowlist against the org catalog.
 export function TeamProvisioningSection({ teamId }: { teamId: string }) {
+  const isAdmin = useIsAdmin()
   return (
     <div className="flex flex-col gap-8">
-      <TeamPluginsSection teamId={teamId} />
-      <TeamKnowledgeSourcesSection teamId={teamId} />
+      <TeamPluginsSection teamId={teamId} readOnly={!isAdmin} />
+      {isAdmin ? <TeamKnowledgeSourcesSection teamId={teamId} /> : null}
     </div>
   )
 }
 
-function TeamPluginsSection({ teamId }: { teamId: string }) {
+function TeamPluginsSection({
+  teamId,
+  readOnly,
+}: {
+  teamId: string
+  readOnly: boolean
+}) {
   const queryClient = useQueryClient()
 
   const pluginsQuery = $api.useQuery("get", "/v1/plugins")
@@ -65,11 +70,13 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
     "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}"
   )
 
-  // Auto-install / locked system plugins (sheets, service-discovery,
-  // skill-manager, runtime, …) are always enabled for every team, so they are
-  // not per-team toggleable — hide them from the provisioning list.
   const plugins = useMemo(
-    () => (pluginsQuery.data ?? []).filter(isTeamProvisionable),
+    () =>
+      (pluginsQuery.data ?? []).filter(
+        (plugin) =>
+          plugin.installed === true &&
+          (isTeamProvisionable(plugin) || plugin.auto_install === true)
+      ),
     [pluginsQuery.data]
   )
   const enabledIds = useMemo(
@@ -109,6 +116,46 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
     }
   }
 
+  const enabledPlugins = useMemo(
+    () =>
+      plugins.filter(
+        (plugin) =>
+          plugin.auto_install === true || isProvisioned(plugin.id, enabledIds)
+      ),
+    [plugins, enabledIds]
+  )
+
+  if (readOnly) {
+    return (
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="Plugins"
+          description="Plugins this team's agents can use."
+        />
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          {isLoading ? (
+            <ProvisioningSkeleton />
+          ) : enabledPlugins.length === 0 ? (
+            <EmptyProvisioningRow text="No plugins are enabled for this team yet." />
+          ) : (
+            enabledPlugins.map((plugin, index) => (
+              <ProvisioningRow
+                key={plugin.id ?? index}
+                readOnly
+                last={index === enabledPlugins.length - 1}
+                icon={<PluginLogoTile plugin={plugin} />}
+                title={pluginName(plugin)}
+                subtitle={plugin.description || "No description"}
+                on
+                label={`${pluginName(plugin)} is enabled for this team`}
+              />
+            ))
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="flex flex-col gap-3">
       <SectionHeader
@@ -122,7 +169,8 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
           <EmptyProvisioningRow text="No plugins are installed for this workspace yet." />
         ) : (
           plugins.map((plugin, index) => {
-            const on = isProvisioned(plugin.id, enabledIds)
+            const alwaysOn = plugin.auto_install === true
+            const on = alwaysOn || isProvisioned(plugin.id, enabledIds)
             return (
               <ProvisioningRow
                 key={plugin.id ?? index}
@@ -131,8 +179,12 @@ function TeamPluginsSection({ teamId }: { teamId: string }) {
                 title={pluginName(plugin)}
                 subtitle={plugin.description || "No description"}
                 on={on}
-                disabled={isBusy || !plugin.id}
-                label={`${on ? "Disable" : "Enable"} ${pluginName(plugin)} for this team`}
+                disabled={alwaysOn || isBusy || !plugin.id}
+                label={
+                  alwaysOn
+                    ? `${pluginName(plugin)} is always enabled for every team`
+                    : `${on ? "Disable" : "Enable"} ${pluginName(plugin)} for this team`
+                }
                 onChange={(selected) => toggle(plugin, selected)}
               />
             )

@@ -152,10 +152,8 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		SandboxTools:           pq.StringArray(sandboxTools),
 		Status:                 "active",
 	}
-	// A catalog agent may now be cloned once per team, so multiple clones of the
-	// same catalog can coexist in one org and would collide on the per-org agent
-	// name. Uniquify the clone's name (catalog.Name, then "<name>-2", ...).
-	if err := createWithUniqueNameSlug(tx.WithContext(ctx), &agent, catalog.Name); err != nil {
+	agent.Name = catalog.Name
+	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return model.Agent{}, fmt.Errorf("create catalog agent: %w", err)
 	}
 	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {

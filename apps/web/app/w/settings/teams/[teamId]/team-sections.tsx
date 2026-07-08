@@ -25,6 +25,7 @@ export function TeamMembersSection({
   isLoading,
   onInvite,
   onChanged,
+  readOnly,
 }: {
   teamId: string
   members: TeamMember[]
@@ -32,6 +33,7 @@ export function TeamMembersSection({
   isLoading: boolean
   onInvite: () => void
   onChanged: () => void
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const addMember = $api.useMutation(
@@ -99,66 +101,70 @@ export function TeamMembersSection({
         <h2 className="text-sm font-medium">
           Members{members.length ? ` (${members.length})` : ""}
         </h2>
-        <Button variant="tertiary" size="sm" onPress={onInvite}>
-          <AppIcon icon="user-plus" className="h-4 w-4" />
-          Invite to team
-        </Button>
+        {readOnly ? null : (
+          <Button variant="tertiary" size="sm" onPress={onInvite}>
+            <AppIcon icon="user-plus" className="h-4 w-4" />
+            Invite to team
+          </Button>
+        )}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="text-sm font-medium">Add existing member</span>
-          <Select
-            aria-label="Add existing member"
-            selectedKey={selectedUserId || null}
-            onSelectionChange={(key) =>
-              setSelectedUserId(key === null ? "" : String(key))
-            }
-            isDisabled={addMember.isPending || candidates.length === 0}
-            className="w-full"
+      {readOnly ? null : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="text-sm font-medium">Add existing member</span>
+            <Select
+              aria-label="Add existing member"
+              selectedKey={selectedUserId || null}
+              onSelectionChange={(key) =>
+                setSelectedUserId(key === null ? "" : String(key))
+              }
+              isDisabled={addMember.isPending || candidates.length === 0}
+              className="w-full"
+            >
+              <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
+                {selectedCandidate ? (
+                  <span className="truncate">
+                    {memberLabel(selectedCandidate)}
+                  </span>
+                ) : (
+                  <Select.Value />
+                )}
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover className="p-1.5">
+                <ListBox>
+                  {candidates.map((member) => (
+                    <ListBox.Item
+                      key={member.user_id}
+                      id={member.user_id}
+                      textValue={memberLabel(member)}
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm">
+                          {memberLabel(member)}
+                        </span>
+                        <span className="truncate text-xs text-muted">
+                          {member.email}
+                        </span>
+                      </span>
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          </label>
+          <Button
+            variant="primary"
+            size="sm"
+            isDisabled={!selectedUserId || addMember.isPending}
+            onPress={handleAddMember}
           >
-            <Select.Trigger className="h-9 w-full justify-between px-3 text-sm transition-colors">
-              {selectedCandidate ? (
-                <span className="truncate">
-                  {memberLabel(selectedCandidate)}
-                </span>
-              ) : (
-                <Select.Value />
-              )}
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover className="p-1.5">
-              <ListBox>
-                {candidates.map((member) => (
-                  <ListBox.Item
-                    key={member.user_id}
-                    id={member.user_id}
-                    textValue={memberLabel(member)}
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-sm">
-                        {memberLabel(member)}
-                      </span>
-                      <span className="truncate text-xs text-muted">
-                        {member.email}
-                      </span>
-                    </span>
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-        </label>
-        <Button
-          variant="primary"
-          size="sm"
-          isDisabled={!selectedUserId || addMember.isPending}
-          onPress={handleAddMember}
-        >
-          {addMember.isPending ? <Spinner color="current" size="sm" /> : null}
-          Add
-        </Button>
-      </div>
+            {addMember.isPending ? <Spinner color="current" size="sm" /> : null}
+            Add
+          </Button>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {isLoading ? (
@@ -173,6 +179,7 @@ export function TeamMembersSection({
               last={index === members.length - 1}
               isBusy={removeMember.isPending}
               onRemove={() => handleRemoveMember(member)}
+              readOnly={readOnly}
             />
           ))
         )}
@@ -186,11 +193,13 @@ function TeamMemberRow({
   last,
   isBusy,
   onRemove,
+  readOnly,
 }: {
   member: TeamMember
   last?: boolean
   isBusy: boolean
   onRemove: () => void
+  readOnly?: boolean
 }) {
   return (
     <div
@@ -209,9 +218,11 @@ function TeamMemberRow({
         <span className="truncate text-sm text-muted">{member.email}</span>
       </div>
       <Chip size="sm">{roleLabel(member.role)}</Chip>
-      <Button variant="ghost" size="sm" isDisabled={isBusy} onPress={onRemove}>
-        Remove
-      </Button>
+      {readOnly ? null : (
+        <Button variant="ghost" size="sm" isDisabled={isBusy} onPress={onRemove}>
+          Remove
+        </Button>
+      )}
     </div>
   )
 }

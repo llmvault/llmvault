@@ -35,7 +35,6 @@ func NewTeamProvisioningHandler(db *gorm.DB) *TeamProvisioningHandler {
 //	    })
 //	})
 func (h *TeamProvisioningHandler) Mount(r chi.Router) {
-	r.Get("/teams/{teamID}/plugins", h.ListTeamPlugins)
 	r.Post("/teams/{teamID}/plugins", h.EnableTeamPlugin)
 	r.Delete("/teams/{teamID}/plugins/{pluginID}", h.DisableTeamPlugin)
 	r.Get("/teams/{teamID}/rag-sources", h.ListTeamRagSources)
@@ -43,9 +42,16 @@ func (h *TeamProvisioningHandler) Mount(r chi.Router) {
 	r.Delete("/teams/{teamID}/rag-sources/{sourceID}", h.RevokeTeamRagSource)
 }
 
+// MountReadable registers the provisioning read routes that a plain member of
+// the team may reach. The route layer mounts this OUTSIDE the RequireOrgAdmin
+// group; each handler enforces team-membership visibility itself.
+func (h *TeamProvisioningHandler) MountReadable(r chi.Router) {
+	r.Get("/teams/{teamID}/plugins", h.ListTeamPlugins)
+}
+
 // ListTeamPlugins handles GET /v1/orgs/current/teams/{teamID}/plugins.
 // @Summary List a team's enabled plugins
-// @Description Lists the plugins enabled for a team. A team's agents may install only these plugins. Admin-only.
+// @Description Lists the plugins enabled for a team. Visible to org managers, API keys, and members of that team; other members receive 404.
 // @Tags team-provisioning
 // @Produce json
 // @Param teamID path string true "Team ID"
@@ -57,7 +63,7 @@ func (h *TeamProvisioningHandler) Mount(r chi.Router) {
 // @Security BearerAuth
 // @Router /v1/orgs/current/teams/{teamID}/plugins [get]
 func (h *TeamProvisioningHandler) ListTeamPlugins(w http.ResponseWriter, r *http.Request) {
-	_, team, ok := h.loadTeam(w, r)
+	_, team, ok := h.loadReadableTeam(w, r)
 	if !ok {
 		return
 	}

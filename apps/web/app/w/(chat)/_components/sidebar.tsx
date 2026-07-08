@@ -24,7 +24,7 @@ import {
 import { AccountMenu } from "./sidebar-account-menu"
 import { ChannelCreateModal } from "./channel-create-modal"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
-import { NavRow, SectionLabel } from "./sidebar-nav"
+import { NavRow } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
 const SIDEBAR_CHANNEL_PAGE_LIMIT = 100
@@ -46,6 +46,7 @@ export const Sidebar = memo(function Sidebar({
   const pathname = usePathname()
   const queryClient = useQueryClient()
   const [createChannelOpen, setCreateChannelOpen] = useState(false)
+  const [createChannelTeamID, setCreateChannelTeamID] = useState("")
   const channelsQuery = $api.useInfiniteQuery(
     "get",
     "/v1/channels",
@@ -109,20 +110,17 @@ export const Sidebar = memo(function Sidebar({
     return out
   }, [teamsQuery.data?.data])
   const teamGroups = useMemo(
-    () => groupChannelsByTeam(sortedChannels, teamNamesByID),
+    () =>
+      groupChannelsByTeam(sortedChannels, teamNamesByID).filter(
+        (group) => group.teamId
+      ),
     [sortedChannels, teamNamesByID]
   )
-  // Global position of each channel in the sorted list drives the
-  // auto-expand-first-few behavior, preserved across team groups.
   const channelOrder = useMemo(() => {
     const out = new Map<SidebarChannelResponse, number>()
     sortedChannels.forEach((channel, index) => out.set(channel, index))
     return out
   }, [sortedChannels])
-  const hasTeamGroups = useMemo(
-    () => teamGroups.some((group) => group.teamId),
-    [teamGroups]
-  )
   const agentsByID = useMemo(
     () =>
       new Map(
@@ -156,6 +154,11 @@ export const Sidebar = memo(function Sidebar({
 
   function openCreatedChannel(channel: SidebarChannelResponse) {
     router.push(`/w/channels/${channelRouteSlug(channel)}`)
+  }
+
+  function openCreateChannelForTeam(teamID: string) {
+    setCreateChannelTeamID(teamID)
+    setCreateChannelOpen(true)
   }
 
   function renderChannel(channel: SidebarChannelResponse, order: number) {
@@ -259,18 +262,6 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-center justify-between gap-2">
-            <SectionLabel>CHANNELS</SectionLabel>
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              aria-label="Create channel"
-              onPress={() => setCreateChannelOpen(true)}
-            >
-              <AppIcon icon="plus" className="h-4 w-4 text-muted" />
-            </Button>
-          </div>
           {channelsQuery.isLoading ? (
             <ChannelSkeletonList />
           ) : channelsQuery.isError ? (
@@ -279,20 +270,22 @@ export const Sidebar = memo(function Sidebar({
               actionLabel="Retry"
               onAction={() => void channelsQuery.refetch()}
             />
-          ) : !sortedChannels.length ? (
+          ) : !teamGroups.length ? (
             <SidebarStatusRow label="No channels" />
-          ) : hasTeamGroups ? (
+          ) : (
             teamGroups.map((group) => (
-              <SidebarTeamGroup key={group.key} name={group.name}>
+              <SidebarTeamGroup
+                key={group.key}
+                name={group.name}
+                onAddChannel={() =>
+                  openCreateChannelForTeam(group.teamId ?? "")
+                }
+              >
                 {group.channels.map((channel) =>
                   renderChannel(channel, channelOrder.get(channel) ?? 0)
                 )}
               </SidebarTeamGroup>
             ))
-          ) : (
-            sortedChannels.map((channel, index) =>
-              renderChannel(channel, index)
-            )
           )}
           {channelsQuery.hasNextPage ? (
             <button
@@ -316,6 +309,7 @@ export const Sidebar = memo(function Sidebar({
       </div>
       <ChannelCreateModal
         open={createChannelOpen}
+        teamId={createChannelTeamID}
         onOpenChange={setCreateChannelOpen}
         onCreated={openCreatedChannel}
       />

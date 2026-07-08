@@ -124,14 +124,8 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID
 		// catalog edit/archive cannot silently rewrite or blank this Hivy clone.
 		agent.InstructionsSnapshot = snapshotCatalogInstructions(catalog.Instructions)
 	}
-	if teamID != nil {
-		// Each team owns its own Hivy clone, so several "Hivy" agents can coexist
-		// in one org. Uniquify the name (Hivy, Hivy-2, ...) to avoid colliding on
-		// idx_agents_org_name.
-		if err := createWithUniqueNameSlug(tx.WithContext(ctx), &agent, name); err != nil {
-			return nil, fmt.Errorf("create Hivy agent: %w", err)
-		}
-	} else if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
+	agent.Name = name
+	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return nil, fmt.Errorf("create Hivy agent: %w", err)
 	}
 	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
@@ -213,70 +207,4 @@ func (h *AgentHandler) rollbackAgent(ctx context.Context, orgID, agentID, compan
 		logging.FromContext(ctx).ErrorContext(ctx, "rollback agent", "error", err,
 			"agent_id", agentID, "companion_agent_id", companionAgentID, "org_id", orgID)
 	}
-}
-
-const agentSlugMaxAttempts = 32
-
-func slugifyAgentName(s string) string {
-	var b strings.Builder
-	prevDash := false
-	for _, r := range strings.ToLower(s) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			prevDash = false
-		} else if !prevDash && b.Len() > 0 {
-			b.WriteRune('-')
-			prevDash = true
-		}
-	}
-	return strings.TrimRight(b.String(), "-")
-}
-
-func createWithUniqueNameSlug(tx *gorm.DB, agent *model.Agent, baseSlug string) error {
-	for i := 0; i < agentSlugMaxAttempts; i++ {
-		candidate := baseSlug
-		if i > 0 {
-			candidate = fmt.Sprintf("%s-%d", baseSlug, i+1)
-		}
-		agent.Name = candidate
-		agent.ID = uuid.Nil
-
-		exists, err := agentNameExists(tx, agent.OrgID, candidate)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-
-		sp := fmt.Sprintf("sp_agent_slug_attempt_%d", i)
-		if err := tx.SavePoint(sp).Error; err != nil {
-			return fmt.Errorf("savepoint: %w", err)
-		}
-		err = tx.Create(agent).Error
-		if err == nil {
-			return nil
-		}
-		if !isDuplicateKeyError(err) {
-			return err
-		}
-		if rbErr := tx.RollbackTo(sp).Error; rbErr != nil {
-			return fmt.Errorf("rollback to savepoint: %w", rbErr)
-		}
-	}
-	return fmt.Errorf("could not allocate unique agent name after %d attempts (base=%s)", agentSlugMaxAttempts, baseSlug)
-}
-
-func agentNameExists(tx *gorm.DB, orgID *uuid.UUID, name string) (bool, error) {
-	var count int64
-	query := tx.Model(&model.Agent{}).Where("name = ?", name)
-	if orgID == nil {
-		query = query.Where("org_id IS NULL")
-	} else {
-		query = query.Where("org_id = ?", *orgID)
-	}
-	if err := query.Count(&count).Error; err != nil {
-		return false, fmt.Errorf("check agent name: %w", err)
-	}
-	return count > 0, nil
 }

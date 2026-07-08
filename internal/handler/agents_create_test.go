@@ -147,19 +147,29 @@ func TestCreateAgent_RejectsInvalidToolKey(t *testing.T) {
 	}
 }
 
-func TestCreateAgent_DuplicateNameConflict(t *testing.T) {
+// Duplicate top-level agent names are allowed within an org (each team's Hivy
+// shares the name), so two creates with the same name both succeed.
+func TestCreateAgent_DuplicateNameAllowed(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
 	cleanupAgents(t, db, org.ID)
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	first := postCreateAgent(t, h, &org, `{"name":"Only One"}`)
+	first := postCreateAgent(t, h, &org, `{"name":"Shared Name"}`)
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first create status = %d, body = %s", first.Code, first.Body.String())
 	}
-	second := postCreateAgent(t, h, &org, `{"name":"Only One"}`)
-	if second.Code != http.StatusConflict {
-		t.Fatalf("second create status = %d, want 409; body = %s", second.Code, second.Body.String())
+	second := postCreateAgent(t, h, &org, `{"name":"Shared Name"}`)
+	if second.Code != http.StatusCreated {
+		t.Fatalf("second create status = %d, want 201; body = %s", second.Code, second.Body.String())
+	}
+	firstResp := decodeCreateAgent(t, first)
+	secondResp := decodeCreateAgent(t, second)
+	if firstResp.Agent.ID == secondResp.Agent.ID {
+		t.Fatalf("expected distinct agent IDs, got %s twice", firstResp.Agent.ID)
+	}
+	if firstResp.Agent.Name != "Shared Name" || secondResp.Agent.Name != "Shared Name" {
+		t.Fatalf("names = %q, %q; want both %q (no suffix)", firstResp.Agent.Name, secondResp.Agent.Name, "Shared Name")
 	}
 }

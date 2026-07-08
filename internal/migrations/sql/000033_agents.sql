@@ -52,8 +52,6 @@ CREATE INDEX idx_agents_is_default ON public.agents USING btree (is_default);
 
 CREATE UNIQUE INDEX idx_agents_org_agent_catalog_team_active ON public.agents USING btree (org_id, agent_catalog_id, COALESCE(team_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE ((agent_catalog_id IS NOT NULL) AND (status <> 'archived'::text));
 
-CREATE UNIQUE INDEX idx_agents_org_name ON public.agents USING btree (org_id, name) WHERE (parent_agent_id IS NULL);
-
 CREATE INDEX idx_agents_parent_agent_id ON public.agents USING btree (parent_agent_id);
 
 CREATE UNIQUE INDEX idx_agents_parent_name ON public.agents USING btree (parent_agent_id, name) WHERE (parent_agent_id IS NOT NULL);

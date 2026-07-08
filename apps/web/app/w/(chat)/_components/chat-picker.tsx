@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { IconChevronDown, Popover } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { cn } from "@/lib/utils"
 import type { SidebarAgentResponse } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AgentLogo } from "./chat-agent-logo"
 import { ModelIcon, type DisplayModel } from "./model-display"
@@ -18,6 +19,8 @@ export function Picker({
   suffix,
   width,
   variant = "inline",
+  disabled = false,
+  avatarOnly = false,
   children,
 }: {
   open: boolean
@@ -35,6 +38,8 @@ export function Picker({
    * in forms.
    */
   variant?: "inline" | "field"
+  disabled?: boolean
+  avatarOnly?: boolean
   children: ReactNode
 }) {
   const isField = variant === "field"
@@ -71,15 +76,29 @@ export function Picker({
       ) : (
         <Popover.Trigger
           aria-label={label}
-          className="hover:bg-default flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
+          aria-disabled={disabled || undefined}
+          className={cn(
+            "flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors",
+            disabled
+              ? "cursor-not-allowed opacity-70"
+              : "hover:bg-default"
+          )}
         >
           {leading}
-          <span className="min-w-0 truncate font-medium">{value}</span>
-          {suffix ? <span className="shrink-0 text-muted">{suffix}</span> : null}
-          <AppIcon
-            icon="chevron-down"
-            className="h-3.5 w-3.5 shrink-0 text-muted"
-          />
+          {avatarOnly ? null : (
+            <>
+              <span className="min-w-0 truncate font-medium">{value}</span>
+              {suffix ? (
+                <span className="shrink-0 text-muted">{suffix}</span>
+              ) : null}
+            </>
+          )}
+          {disabled || avatarOnly ? null : (
+            <AppIcon
+              icon="chevron-down"
+              className="h-3.5 w-3.5 shrink-0 text-muted"
+            />
+          )}
         </Popover.Trigger>
       )}
       <Popover.Content

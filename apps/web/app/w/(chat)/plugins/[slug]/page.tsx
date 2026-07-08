@@ -47,6 +47,7 @@ import {
 } from "@/app/w/(chat)/plugins/[slug]/required-connections-section"
 import { PluginInstallAction } from "@/app/w/(chat)/plugins/[slug]/plugin-install-action"
 import { DisconnectConnectionConfirmDialog } from "@/app/w/(chat)/plugins/[slug]/disconnect-connection-confirm-dialog"
+import { SkillsSection, PluginListLogo } from "@/app/w/(chat)/plugins/[slug]/skills-section"
 import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
@@ -58,8 +59,6 @@ import {
   pluginShownRequiredConnections,
   type PluginRequirement,
 } from "@/app/w/(chat)/plugins/_lib"
-
-type PluginSkill = NonNullable<ApiPlugin["skills"]>[number]
 type Connection = components["schemas"]["connectionResponse"]
 type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
 
@@ -406,6 +405,19 @@ export default function PluginDetailPage({
               />
             </header>
 
+            {!isAdmin && plugin.installed !== true ? (
+              <div className="flex gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
+                <AppIcon
+                  icon="triangle-alert"
+                  className="mt-0.5 h-5 w-5 shrink-0 text-warning"
+                />
+                <p className="text-sm text-foreground">
+                  Please reach out to an administrator to enable this plugin for
+                  your team.
+                </p>
+              </div>
+            ) : null}
+
             {shownRequiredConnections.length > 0 ? (
               <RequiredConnectionsSection
                 requirements={shownRequiredConnections}
@@ -500,54 +512,6 @@ function PluginDetailShell({ content }: { content: React.ReactNode }) {
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-6 py-12">{content}</div>
-    </div>
-  )
-}
-
-function SkillsSection({
-  plugin,
-  skills,
-}: {
-  plugin: ApiPlugin
-  skills: PluginSkill[]
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-base font-semibold text-foreground">Skills</h2>
-      <div className="bg-card flex flex-col divide-y divide-border rounded-xl border border-border">
-        {skills.map((skill, index) => (
-          <div
-            key={skill.name || index}
-            className="flex items-start gap-3 px-3 py-2.5"
-          >
-            <PluginListLogo plugin={plugin} />
-            <div className="min-w-0">
-              <p className="text-sm leading-5 font-medium text-foreground">
-                {skill.name || "Skill"}
-              </p>
-              <p className="text-muted-foreground text-sm leading-5">
-                {skill.human_description ||
-                  skill.description ||
-                  "No description available."}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function PluginListLogo({ plugin }: { plugin: ApiPlugin }) {
-  return (
-    <div
-      className={pluginLogoFrameClass(
-        plugin,
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-      )}
-      style={pluginLogoFrameStyle(plugin)}
-    >
-      <PluginLogo plugin={plugin} size={24} iconSize={16} forceIconWhite />
     </div>
   )
 }

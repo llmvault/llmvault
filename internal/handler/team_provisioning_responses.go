@@ -73,6 +73,21 @@ func (h *TeamProvisioningHandler) loadTeam(w http.ResponseWriter, r *http.Reques
 	return org, team, true
 }
 
+// loadReadableTeam is loadTeam plus the team-visibility check that guards the
+// member-readable routes: org managers and API keys pass, a plain member must
+// belong to the team, and everyone else gets 404 (matching teamHandler.Get).
+func (h *TeamProvisioningHandler) loadReadableTeam(w http.ResponseWriter, r *http.Request) (*model.Org, model.Team, bool) {
+	org, team, ok := h.loadTeam(w, r)
+	if !ok {
+		return nil, model.Team{}, false
+	}
+	if !callerCanAccessTeam(r.Context(), h.db, org.ID, team.ID) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "team not found"})
+		return nil, model.Team{}, false
+	}
+	return org, team, true
+}
+
 func (h *TeamProvisioningHandler) actingUser(r *http.Request) *uuid.UUID {
 	id, _ := currentRequestUserID(r.Context())
 	return id

@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
+import { Button } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { cn } from "@/lib/utils"
 
 const COLLAPSE_TRANSITION = {
   duration: 0.25,
@@ -12,10 +12,12 @@ const COLLAPSE_TRANSITION = {
 
 export function SidebarTeamGroup({
   name,
+  onAddChannel,
   defaultOpen = true,
   children,
 }: {
   name: string
+  onAddChannel: () => void
   defaultOpen?: boolean
   children: ReactNode
 }) {
@@ -23,24 +25,27 @@ export function SidebarTeamGroup({
 
   return (
     <div className="flex flex-col">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-label={`${open ? "Collapse" : "Expand"} ${name}`}
-        onClick={() => setOpen((value) => !value)}
-        className="group flex items-center gap-1 px-3 pt-2 pb-1 text-left select-none"
-      >
-        <AppIcon
-          icon="chevron-right"
-          className={cn(
-            "h-3 w-3 shrink-0 text-muted transition-transform",
-            open && "rotate-90"
-          )}
-        />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium tracking-wide text-muted uppercase">
+      <div className="group flex items-center gap-1 pr-1">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} ${name}`}
+          onClick={() => setOpen((value) => !value)}
+          className="min-w-0 flex-1 truncate px-3 pt-2 pb-1 text-left text-xs text-muted uppercase select-none"
+        >
           {name}
-        </span>
-      </button>
+        </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          aria-label={`Create channel in ${name}`}
+          onPress={onAddChannel}
+          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <AppIcon icon="plus" className="h-4 w-4 text-muted" />
+        </Button>
+      </div>
 
       <AnimatePresence initial={false}>
         {open ? (

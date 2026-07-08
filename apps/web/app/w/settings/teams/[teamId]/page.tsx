@@ -37,24 +37,13 @@ export default function TeamDetailPage({
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
 
-  const teamQuery = $api.useQuery(
-    "get",
-    "/v1/orgs/current/teams/{id}",
-    { params: { path: { id: teamId } } },
-    { enabled: isAdmin }
-  )
-  const teamsQuery = $api.useQuery(
-    "get",
-    "/v1/orgs/current/teams",
-    { params: { query: { limit: 100 } } },
-    { enabled: isAdmin }
-  )
-  const membersQuery = $api.useQuery(
-    "get",
-    "/v1/orgs/current/members",
-    {},
-    { enabled: isAdmin }
-  )
+  const teamQuery = $api.useQuery("get", "/v1/orgs/current/teams/{id}", {
+    params: { path: { id: teamId } },
+  })
+  const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
+    params: { query: { limit: 100 } },
+  })
+  const membersQuery = $api.useQuery("get", "/v1/orgs/current/members", {})
   const archiveTeam = $api.useMutation("delete", "/v1/orgs/current/teams/{id}")
 
   const teams = useMemo(
@@ -93,27 +82,6 @@ export default function TeamDetailPage({
           setArchiveOpen(false)
         },
       }
-    )
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col gap-6">
-        <BackLink />
-        <section className="rounded-2xl border border-border bg-surface px-4 py-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default text-muted">
-              <AppIcon icon="users-round" className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-medium">Team management</h1>
-              <p className="mt-1 text-sm leading-5 text-muted">
-                Workspace admins manage teams and private channel access.
-              </p>
-            </div>
-          </div>
-        </section>
-      </div>
     )
   }
 
@@ -163,23 +131,23 @@ export default function TeamDetailPage({
             <Chip size="sm">Created {formatDate(team.created_at)}</Chip>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="tertiary"
-            size="sm"
-            onPress={() => setEditOpen(true)}
-          >
-            <AppIcon icon="pencil" className="h-4 w-4" />
-            Edit
-          </Button>
-          <ArchiveTeamButton
-            pending={archiveTeam.isPending}
-            // The backend refuses to archive an org's last team (409); when we
-            // already know this is it, disable proactively with an explanation.
-            isLastTeam={!teamsQuery.isLoading && teams.length <= 1}
-            onPress={() => setArchiveOpen(true)}
-          />
-        </div>
+        {isAdmin ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="tertiary"
+              size="sm"
+              onPress={() => setEditOpen(true)}
+            >
+              <AppIcon icon="pencil" className="h-4 w-4" />
+              Edit
+            </Button>
+            <ArchiveTeamButton
+              pending={archiveTeam.isPending}
+              isLastTeam={!teamsQuery.isLoading && teams.length <= 1}
+              onPress={() => setArchiveOpen(true)}
+            />
+          </div>
+        ) : null}
       </div>
 
       <TeamMembersSection
@@ -189,6 +157,7 @@ export default function TeamDetailPage({
         isLoading={membersQuery.isLoading}
         onInvite={() => setInviteOpen(true)}
         onChanged={refreshTeam}
+        readOnly={!isAdmin}
       />
 
       <TeamProvisioningSection teamId={teamId} />

@@ -13,11 +13,17 @@ import (
 // are admin-only, while ownership transfer and org deletion are owner-only.
 func mountOrgMemberLifecycleRoutes(r chi.Router, database *gorm.DB) {
 	orgMemberHandler := handler.NewOrgMemberHandler(database)
+	teamProvisioning := handler.NewTeamProvisioningHandler(database)
 	r.Route("/orgs/current", func(r chi.Router) {
-		r.Use(middleware.RequireOrgAdmin(database))
-		handler.NewTeamProvisioningHandler(database).Mount(r)
-		r.Patch("/members/{userID}/role", orgMemberHandler.PatchRole)
-		r.Delete("/members/{userID}", orgMemberHandler.Remove)
+		// Reading a team's enabled plugins is a member action, gated in-handler
+		// to members of that team; every mutation stays admin-only below.
+		teamProvisioning.MountReadable(r)
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireOrgAdmin(database))
+			teamProvisioning.Mount(r)
+			r.Patch("/members/{userID}/role", orgMemberHandler.PatchRole)
+			r.Delete("/members/{userID}", orgMemberHandler.Remove)
+		})
 	})
 	// Ownership transfer and org deletion are owner-only.
 	r.Group(func(r chi.Router) {

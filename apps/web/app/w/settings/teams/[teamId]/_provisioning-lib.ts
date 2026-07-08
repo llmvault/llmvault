@@ -22,10 +22,6 @@ export function isProvisioned(
   return enabledIds.has(id)
 }
 
-// isTeamProvisionable reports whether a plugin can be toggled per team. Auto-
-// install / locked system plugins (sheets, service-discovery, skill-manager,
-// runtime, …) are always enabled for every team and are not per-team
-// provisionable, so they are hidden from the team provisioning list.
 export function isTeamProvisionable(plugin: {
   auto_install?: boolean
   locked?: boolean

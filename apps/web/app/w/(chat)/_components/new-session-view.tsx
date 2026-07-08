@@ -50,6 +50,12 @@ export function SessionView({
     { params: { query: { limit: 100 } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
+  const teamsQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current/teams",
+    { params: { query: { limit: 100 } } },
+    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
   const agentModelsQuery = $api.useQuery(
     "get",
     "/v1/agents/models",
@@ -60,6 +66,10 @@ export function SessionView({
   const channels = useMemo(
     () => channelsQuery.data?.data ?? [],
     [channelsQuery.data?.data]
+  )
+  const teams = useMemo(
+    () => teamsQuery.data?.data ?? [],
+    [teamsQuery.data?.data]
   )
   const routeChannel = useMemo(
     () =>
@@ -72,31 +82,39 @@ export function SessionView({
     routeChannel ??
     channels.find((channel) => channel.is_default) ??
     channels[0]
+  const [selectedTeamID, setSelectedTeamID] = useState<string | null>(null)
   const [selectedChannelChoice, setSelectedChannelChoice] = useState<{
     routeSlug: string
     channelID: string
   } | null>(null)
   const selectedRouteSlug = channelSlug ?? ""
+  const activeTeamID =
+    selectedTeamID ?? defaultChannel?.team_id?.trim() ?? teams[0]?.id ?? null
+  const activeTeam = teams.find((team) => team.id === activeTeamID)
+  const teamChannels = useMemo(
+    () => channels.filter((channel) => channel.team_id === activeTeamID),
+    [channels, activeTeamID]
+  )
   const selectedChannel =
     selectedChannelChoice?.routeSlug === selectedRouteSlug
-      ? channels.find(
+      ? teamChannels.find(
           (channel) => channel.id === selectedChannelChoice.channelID
         )
       : undefined
-  const activeChannel = selectedChannel ?? defaultChannel
+  const teamDefaultChannel =
+    teamChannels.find((channel) => channel.is_default) ?? teamChannels[0]
+  const activeChannel =
+    selectedChannel ??
+    (defaultChannel?.team_id === activeTeamID
+      ? defaultChannel
+      : teamDefaultChannel)
 
-  // Agent options are the agents on the active channel's team — agents are team
-  // members now, so those are exactly the ones that can run sessions here.
   const {
     agents,
     isLoading: agentsLoading,
     isError: agentsError,
-  } = useTeamAgents(activeChannel?.team_id)
+  } = useTeamAgents(activeTeamID)
   const [selectedAgentID, setSelectedAgentID] = useState<string | null>(null)
-  // Default to the channel's configured default agent, then the first team
-  // agent. A prior explicit pick (selectedAgentID) wins while it's still one of
-  // the team's agents; after switching channels it falls through to the new
-  // channel's default.
   const selectedAgent =
     agents.find((agent) => agent.id === selectedAgentID) ??
     agents.find((agent) => agent.id === activeChannel?.default_agent_id) ??
@@ -130,6 +148,29 @@ export function SessionView({
   const setComposerText = useSessionWorkspaceStore(
     (state) => state.setComposerText
   )
+
+  const resetDraftAttachments = () => {
+    setComposerUploads(draftKey, () => [])
+    setAttachmentDescriptions(draftKey, () => ({}))
+  }
+
+  const handleTeamChange = (teamID: string) => {
+    setSelectedTeamID(teamID)
+    const nextTeamChannels = channels.filter(
+      (channel) => channel.team_id === teamID
+    )
+    const nextChannel =
+      nextTeamChannels.find((channel) => channel.is_default) ??
+      nextTeamChannels[0]
+    setSelectedChannelChoice(
+      nextChannel?.id
+        ? { routeSlug: selectedRouteSlug, channelID: nextChannel.id }
+        : null
+    )
+    setSelectedAgentID(null)
+    setSelectedModelID(null)
+    resetDraftAttachments()
+  }
 
   const createFirstSession = async (
     text: string,
@@ -203,9 +244,17 @@ export function SessionView({
           modelId={modelId}
           sessionExists={false}
           spendVisible={false}
+          teamSelectable
+          team={activeTeam}
+          teams={teams}
+          teamsLoading={teamsQuery.isLoading}
+          teamsError={teamsQuery.isError}
+          onTeamChange={(team) => {
+            if (team.id) handleTeamChange(team.id)
+          }}
           channelSelectable
           channel={activeChannel}
-          channels={channels}
+          channels={teamChannels}
           channelsLoading={channelsQuery.isLoading}
           channelsError={channelsQuery.isError}
           onChannelChange={(channel) =>
@@ -223,10 +272,7 @@ export function SessionView({
           onAgentChange={(agent) => {
             setSelectedAgentID(agent.id ?? null)
             setSelectedModelID(null)
-            // Draft uploads live in the previous agent's drive; they cannot
-            // be attached to a session for a different agent.
-            setComposerUploads(draftKey, () => [])
-            setAttachmentDescriptions(draftKey, () => ({}))
+            resetDraftAttachments()
           }}
           modelSelectable
           modelIds={modelIds}

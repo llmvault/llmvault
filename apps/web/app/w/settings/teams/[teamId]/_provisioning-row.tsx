@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Skeleton, Switch } from "@heroui/react"
+import { Chip, Skeleton, Switch } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 
@@ -33,15 +33,17 @@ export function ProvisioningRow({
   label,
   last,
   onChange,
+  readOnly,
 }: {
   icon: ReactNode
   title: string
   subtitle: string
   on: boolean
-  disabled: boolean
+  disabled?: boolean
   label: string
   last: boolean
-  onChange: (selected: boolean) => void
+  onChange?: (selected: boolean) => void
+  readOnly?: boolean
 }) {
   return (
     <div
@@ -55,17 +57,23 @@ export function ProvisioningRow({
         <span className="truncate text-sm font-medium">{title}</span>
         <span className="truncate text-sm text-muted">{subtitle}</span>
       </div>
-      <Switch
-        aria-label={label}
-        isSelected={on}
-        isDisabled={disabled}
-        onChange={onChange}
-        className="shrink-0"
-      >
-        <Switch.Control>
-          <Switch.Thumb />
-        </Switch.Control>
-      </Switch>
+      {readOnly ? (
+        <Chip size="sm" className="shrink-0">
+          {on ? "Enabled" : "Disabled"}
+        </Chip>
+      ) : (
+        <Switch
+          aria-label={label}
+          isSelected={on}
+          isDisabled={disabled}
+          onChange={onChange}
+          className="shrink-0"
+        >
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch>
+      )}
     </div>
   )
 }

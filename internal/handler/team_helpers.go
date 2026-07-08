@@ -39,7 +39,7 @@ func (h *TeamHandler) loadTeamForRequest(w http.ResponseWriter, r *http.Request)
 	// Managers and API keys always pass; a plain member may only reach a team
 	// they belong to. Mutating routes (update/archive/member management) are
 	// additionally route-gated to admins, so this only relaxes the member GET.
-	if !h.callerCanAccessTeam(r.Context(), org.ID, team.ID) {
+	if !callerCanAccessTeam(r.Context(), h.db, org.ID, team.ID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "team not found"})
 		return model.Team{}, false
 	}
@@ -49,13 +49,13 @@ func (h *TeamHandler) loadTeamForRequest(w http.ResponseWriter, r *http.Request)
 // callerCanAccessTeam reports whether the current request may read the given
 // team: API keys and org managers see every team; a plain member sees only the
 // teams they are an active member of.
-func (h *TeamHandler) callerCanAccessTeam(ctx context.Context, orgID, teamID uuid.UUID) bool {
+func callerCanAccessTeam(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID) bool {
 	if isAPIKeyRequest(ctx) {
 		return true
 	}
 	userID, _ := currentRequestUserID(ctx)
-	role, _ := orgRoleForUser(ctx, h.db, orgID, userID)
-	return canManageTeamResource(ctx, h.db, orgID, userID, role, teamID)
+	role, _ := orgRoleForUser(ctx, db, orgID, userID)
+	return canManageTeamResource(ctx, db, orgID, userID, role, teamID)
 }
 
 func orgForTeamRequest(w http.ResponseWriter, r *http.Request) (*model.Org, bool) {

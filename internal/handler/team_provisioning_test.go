@@ -25,6 +25,7 @@ func newTeamProvHarness(t *testing.T) *channelHarness {
 	r.Route("/v1/orgs/current", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(h.db))
 		r.Use(middleware.RequireAPIKeyScopeOrJWT("teams"))
+		tp.MountReadable(r)
 		tp.Mount(r)
 	})
 	h.router = r
@@ -197,7 +198,7 @@ func TestTeamProvisioning_AutoInstallExcluded(t *testing.T) {
 // team, nor enable a plugin that belongs to another org.
 func TestTeamProvisioning_OrgScoping(t *testing.T) {
 	h := newTeamProvHarness(t)
-	fx := (&channelHarness{db: h.db}).seed(t)   // org A
+	fx := (&channelHarness{db: h.db}).seed(t)    // org A
 	other := (&channelHarness{db: h.db}).seed(t) // org B
 	otherTeam := tpSeedTeam(t, h.db, other.org.ID)
 

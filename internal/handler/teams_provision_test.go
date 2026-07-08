@@ -75,6 +75,9 @@ func TestIntegration_TeamsCreateProvisionsHivyAndGeneral(t *testing.T) {
 	if err := h.db.Where("org_id = ? AND team_id = ? AND is_default = true", org.ID, teamID).First(&hivy).Error; err != nil {
 		t.Fatalf("load team Hivy: %v", err)
 	}
+	if hivy.Name != "Hivy" {
+		t.Fatalf("team Hivy name = %q, want %q", hivy.Name, "Hivy")
+	}
 	var general model.Channel
 	if err := h.db.Where("org_id = ? AND team_id = ? AND name = ?", org.ID, teamID, "general").First(&general).Error; err != nil {
 		t.Fatalf("load team #general: %v", err)
@@ -86,6 +89,29 @@ func TestIntegration_TeamsCreateProvisionsHivyAndGeneral(t *testing.T) {
 	create2 := h.doJSON(t, http.MethodPost, "/v1/orgs/current/teams", org, owner, map[string]any{"name": "Growth Two"})
 	if create2.Code != http.StatusCreated {
 		t.Fatalf("second create status=%d body=%s", create2.Code, create2.Body.String())
+	}
+	var created2 struct {
+		Team struct {
+			ID string `json:"id"`
+		} `json:"team"`
+	}
+	if err := json.Unmarshal(create2.Body.Bytes(), &created2); err != nil {
+		t.Fatalf("decode second create: %v", err)
+	}
+	teamID2 := uuid.MustParse(created2.Team.ID)
+	var hivy2 model.Agent
+	if err := h.db.Where("org_id = ? AND team_id = ? AND is_default = true", org.ID, teamID2).First(&hivy2).Error; err != nil {
+		t.Fatalf("load second team Hivy: %v", err)
+	}
+	if hivy2.Name != "Hivy" {
+		t.Fatalf("second team Hivy name = %q, want %q (no suffix)", hivy2.Name, "Hivy")
+	}
+	var hivyCount int64
+	if err := h.db.Model(&model.Agent{}).Where("org_id = ? AND name = ? AND is_default = true", org.ID, "Hivy").Count(&hivyCount).Error; err != nil {
+		t.Fatalf("count Hivy agents: %v", err)
+	}
+	if hivyCount != 2 {
+		t.Fatalf(`agents named "Hivy" = %d, want 2`, hivyCount)
 	}
 	var generalCount int64
 	if err := h.db.Model(&model.Channel{}).Where("org_id = ? AND name = ?", org.ID, "general").Count(&generalCount).Error; err != nil {

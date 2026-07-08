@@ -19,6 +19,7 @@ export function ComposerModelPicker({
   selectedModel,
   effort,
   onModelChange,
+  avatarOnly = false,
 }: {
   sessionId: string
   modelId: string
@@ -29,6 +30,7 @@ export function ComposerModelPicker({
   selectedModel: DisplayModel
   effort: string
   onModelChange?: (modelId: string) => void
+  avatarOnly?: boolean
 }) {
   const setEffortValue = useSessionWorkspaceStore(
     (state) => state.setComposerEffort
@@ -60,6 +62,7 @@ export function ComposerModelPicker({
       model={selectedModel}
       value={selectedModel.label}
       suffix={effort}
+      avatarOnly={avatarOnly}
       width="w-80"
     >
       <input
