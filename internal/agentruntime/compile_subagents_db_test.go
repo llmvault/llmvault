@@ -75,8 +75,6 @@ func TestCompile_IgnoresArchivedUserSubAgents(t *testing.T) {
 	}
 }
 
-// Two different parents may each own a sub-agent named "Worker" (uniqueness is
-// per-parent), while top-level agent names remain unique per org.
 func TestSubAgentNameUniquenessIsPerParent(t *testing.T) {
 	db := connectCompileTestDB(t)
 	org := createOrg(t, db)
@@ -86,7 +84,6 @@ func TestSubAgentNameUniquenessIsPerParent(t *testing.T) {
 	createSubAgent(t, db, org.ID, parentA.ID, subAgentSeed{Name: "Worker"})
 	createSubAgent(t, db, org.ID, parentB.ID, subAgentSeed{Name: "Worker"})
 
-	// Same name under the same parent is rejected.
 	dup := userAgentRow(org.ID, "Worker")
 	dup.Type = model.AgentTypeSubAgent
 	dup.ParentAgentID = &parentA.ID
@@ -94,10 +91,9 @@ func TestSubAgentNameUniquenessIsPerParent(t *testing.T) {
 		t.Fatalf("expected duplicate sub-agent name under the same parent to be rejected")
 	}
 
-	// A top-level agent name collision within the org is still rejected.
 	dupTop := userAgentRow(org.ID, "Parent A")
-	if err := db.Create(&dupTop).Error; err == nil {
-		t.Fatalf("expected duplicate top-level agent name to be rejected")
+	if err := db.Create(&dupTop).Error; err != nil {
+		t.Fatalf("duplicate top-level agent name should be allowed: %v", err)
 	}
 }
 

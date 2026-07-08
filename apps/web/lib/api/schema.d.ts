@@ -10488,7 +10488,7 @@ export interface paths {
         };
         /**
          * List a team's enabled plugins
-         * @description Lists the plugins enabled for a team. A team's agents may install only these plugins. Admin-only.
+         * @description Lists the plugins enabled for a team. Visible to org managers, API keys, and members of that team; other members receive 404.
          */
         get: {
             parameters: {
@@ -19284,6 +19284,7 @@ export interface components {
         teamResponse: {
             archived_at?: string;
             channel_count?: number;
+            channels?: components["schemas"]["channelResponse"][];
             created_at?: string;
             created_by?: string;
             description?: string;

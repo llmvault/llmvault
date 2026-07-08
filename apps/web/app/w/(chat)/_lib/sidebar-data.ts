@@ -3,6 +3,7 @@ import type { components } from "@/lib/api/schema"
 export type SidebarChannelResponse = components["schemas"]["channelResponse"]
 export type SidebarSessionResponse = components["schemas"]["sessionResponse"]
 export type SidebarAgentResponse = components["schemas"]["agentListItem"]
+export type SidebarTeamResponse = components["schemas"]["teamResponse"]
 
 export function slugify(value: string): string {
   const slug = value
@@ -54,15 +55,9 @@ export function sortChannelsByRecentSession(
     .map(({ channel }) => channel)
 }
 
-export const UNGROUPED_TEAM_KEY = "__no_team__"
-export const UNGROUPED_TEAM_LABEL = "Other"
-
 export interface SidebarTeamGroup {
-  /** Stable identity for React keys: team id, or the ungrouped sentinel. */
   key: string
-  /** Team id, or null for channels that belong to no team. */
-  teamId: string | null
-  /** Display label: team name when known, otherwise a team-id fallback. */
+  teamId: string
   name: string
   channels: SidebarChannelResponse[]
 }
@@ -71,43 +66,25 @@ function teamGroupFallbackLabel(teamId: string): string {
   return `Team ${teamId}`
 }
 
-/**
- * Buckets channels into one group per team, preserving the incoming channel
- * order within each group. Real teams are ordered by display name (stable);
- * channels with no team collapse into a trailing "Other" group.
- *
- * `teamNamesById` enriches groups with human-readable names when available
- * (e.g. from the teams endpoint). When a team's name is unknown the group falls
- * back to a team-id label so the UI stays functional without the backend name.
- */
-export function groupChannelsByTeam(
-  channels: SidebarChannelResponse[],
-  teamNamesById?: Map<string, string>
+export function buildSidebarTeamGroups(
+  teams: SidebarTeamResponse[],
+  latestSessionsByChannelID: Map<string, SidebarSessionResponse | null>
 ): SidebarTeamGroup[] {
-  const groups = new Map<string, SidebarTeamGroup>()
-  for (const channel of channels) {
-    const teamId = channel.team_id?.trim() || null
-    const key = teamId ?? UNGROUPED_TEAM_KEY
-    let group = groups.get(key)
-    if (!group) {
-      group = {
-        key,
-        teamId,
-        name: teamId
-          ? teamNamesById?.get(teamId)?.trim() || teamGroupFallbackLabel(teamId)
-          : UNGROUPED_TEAM_LABEL,
-        channels: [],
-      }
-      groups.set(key, group)
-    }
-    group.channels.push(channel)
+  const groups: SidebarTeamGroup[] = []
+  for (const team of teams) {
+    const teamId = team.id?.trim()
+    if (!teamId) continue
+    groups.push({
+      key: teamId,
+      teamId,
+      name: team.name?.trim() || teamGroupFallbackLabel(teamId),
+      channels: sortChannelsByRecentSession(
+        team.channels ?? [],
+        latestSessionsByChannelID
+      ),
+    })
   }
-
-  const teamGroups = [...groups.values()].filter((group) => group.teamId)
-  teamGroups.sort((left, right) => left.name.localeCompare(right.name))
-
-  const ungrouped = groups.get(UNGROUPED_TEAM_KEY)
-  return ungrouped ? [...teamGroups, ungrouped] : teamGroups
+  return groups
 }
 
 export function channelRouteSlugCounts(channels: SidebarChannelResponse[]) {

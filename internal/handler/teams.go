@@ -18,16 +18,17 @@ type teamMutationRequest struct {
 }
 
 type teamResponse struct {
-	ID           string  `json:"id"`
-	OrgID        string  `json:"org_id"`
-	Name         string  `json:"name"`
-	Description  string  `json:"description"`
-	CreatedBy    *string `json:"created_by,omitempty"`
-	MemberCount  int64   `json:"member_count"`
-	ChannelCount int64   `json:"channel_count"`
-	ArchivedAt   *string `json:"archived_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID           string            `json:"id"`
+	OrgID        string            `json:"org_id"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description"`
+	CreatedBy    *string           `json:"created_by,omitempty"`
+	MemberCount  int64             `json:"member_count"`
+	ChannelCount int64             `json:"channel_count"`
+	Channels     []channelResponse `json:"channels"`
+	ArchivedAt   *string           `json:"archived_at,omitempty"`
+	CreatedAt    string            `json:"created_at"`
+	UpdatedAt    string            `json:"updated_at"`
 }
 
 type teamMemberResponse struct {
@@ -94,6 +95,7 @@ func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 		teams = teams[:limit]
 	}
 	out := h.teamResponses(r.Context(), teams)
+	h.attachTeamChannels(r.Context(), org.ID, out, orgWide, userID)
 	resp := paginatedResponse[teamResponse]{Data: out, HasMore: hasMore}
 	if hasMore {
 		last := teams[len(teams)-1]

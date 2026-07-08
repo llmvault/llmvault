@@ -9,14 +9,11 @@ import { $api } from "@/lib/api/hooks"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
 import { ChannelGroup } from "@/app/w/(chat)/_components/sidebar-channel-group"
 import { SidebarTeamGroup } from "@/app/w/(chat)/_components/sidebar-team-group"
+import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
 import {
-  CHAT_QUERY_STALE_TIME_MS,
-  SIDEBAR_SESSION_PAGE_LIMIT,
-} from "@/app/w/(chat)/_lib/chat-cache"
-import {
+  buildSidebarTeamGroups,
   channelRouteSlug,
   channelRouteSlugCounts,
-  groupChannelsByTeam,
   sortChannelsByRecentSession,
   type SidebarChannelResponse,
   type SidebarSessionResponse,
@@ -26,8 +23,7 @@ import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
-const SIDEBAR_CHANNEL_PAGE_LIMIT = 100
-const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
+const SIDEBAR_TEAM_PAGE_LIMIT = 100
 
 export const Sidebar = memo(function Sidebar({
   onCollapse,
@@ -44,48 +40,26 @@ export const Sidebar = memo(function Sidebar({
   const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
-  const channelsQuery = $api.useInfiniteQuery(
-    "get",
-    "/v1/channels",
-    {
-      _hivyQueryKey: CHANNELS_INFINITE_KEY,
-      params: {
-        query: {
-          limit: SIDEBAR_CHANNEL_PAGE_LIMIT,
-          include: "recent_sessions",
-          recent_sessions_limit: SIDEBAR_SESSION_PAGE_LIMIT,
-        },
-      },
-    },
-    {
-      initialPageParam: "0",
-      pageParamName: "cursor",
-      getNextPageParam: (lastPage) =>
-        lastPage.has_more ? lastPage.next_cursor : undefined,
-      retry: false,
-      staleTime: CHAT_QUERY_STALE_TIME_MS,
-    }
-  )
   const agentsQuery = $api.useQuery(
     "get",
     "/v1/agents",
     { params: { query: { status: "active", limit: 100 } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
-  // Team names for the group headers. The channel payload only carries
-  // team_id, so we enrich from the teams endpoint when it is accessible
-  // (currently admin-only). When it is not, grouping falls back to a
-  // team-id label and the UI still renders one group per team.
   const teamsQuery = $api.useQuery(
     "get",
     "/v1/orgs/current/teams",
-    { params: { query: { limit: 100 } } },
+    { params: { query: { limit: SIDEBAR_TEAM_PAGE_LIMIT } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
 
+  const teams = useMemo(
+    () => teamsQuery.data?.data ?? [],
+    [teamsQuery.data?.data]
+  )
   const channels = useMemo(
-    () => channelsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? [],
-    [channelsQuery.data?.pages]
+    () => teams.flatMap((team) => team.channels ?? []),
+    [teams]
   )
   const latestSessionsByChannelID = useMemo(() => {
     const out = new Map<string, SidebarSessionResponse | null>()
@@ -99,19 +73,9 @@ export const Sidebar = memo(function Sidebar({
     () => sortChannelsByRecentSession(channels, latestSessionsByChannelID),
     [channels, latestSessionsByChannelID]
   )
-  const teamNamesByID = useMemo(() => {
-    const out = new Map<string, string>()
-    for (const team of teamsQuery.data?.data ?? []) {
-      if (team.id && team.name?.trim()) out.set(team.id, team.name.trim())
-    }
-    return out
-  }, [teamsQuery.data?.data])
   const teamGroups = useMemo(
-    () =>
-      groupChannelsByTeam(sortedChannels, teamNamesByID).filter(
-        (group) => group.teamId
-      ),
-    [sortedChannels, teamNamesByID]
+    () => buildSidebarTeamGroups(teams, latestSessionsByChannelID),
+    [teams, latestSessionsByChannelID]
   )
   const channelOrder = useMemo(() => {
     const out = new Map<SidebarChannelResponse, number>()
@@ -254,13 +218,13 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          {channelsQuery.isLoading ? (
+          {teamsQuery.isLoading ? (
             <ChannelSkeletonList />
-          ) : channelsQuery.isError ? (
+          ) : teamsQuery.isError ? (
             <SidebarStatusRow
               label="Could not load channels"
               actionLabel="Retry"
-              onAction={() => void channelsQuery.refetch()}
+              onAction={() => void teamsQuery.refetch()}
             />
           ) : !teamGroups.length ? (
             <SidebarStatusRow label="No channels" />
@@ -269,9 +233,7 @@ export const Sidebar = memo(function Sidebar({
               <SidebarTeamGroup
                 key={group.key}
                 name={group.name}
-                onAddChannel={() =>
-                  openCreateChannelForTeam(group.teamId ?? "")
-                }
+                onAddChannel={() => openCreateChannelForTeam(group.teamId)}
               >
                 {group.channels.map((channel) =>
                   renderChannel(channel, channelOrder.get(channel) ?? 0)
@@ -279,18 +241,6 @@ export const Sidebar = memo(function Sidebar({
               </SidebarTeamGroup>
             ))
           )}
-          {channelsQuery.hasNextPage ? (
-            <button
-              type="button"
-              disabled={channelsQuery.isFetchingNextPage}
-              onClick={() => void channelsQuery.fetchNextPage()}
-              className="rounded-lg px-3 py-1.5 text-left text-sm text-muted transition-colors hover:bg-default"
-            >
-              {channelsQuery.isFetchingNextPage
-                ? "Loading channels..."
-                : "Show more channels"}
-            </button>
-          ) : null}
         </div>
       </div>
 

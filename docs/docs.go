@@ -8657,7 +8657,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lists the plugins enabled for a team. A team's agents may install only these plugins. Admin-only.",
+                "description": "Lists the plugins enabled for a team. Visible to org managers, API keys, and members of that team; other members receive 404.",
                 "produces": [
                     "application/json"
                 ],
@@ -21124,6 +21124,12 @@ const docTemplate = `{
                 },
                 "channel_count": {
                     "type": "integer"
+                },
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/channelResponse"
+                    }
                 },
                 "created_at": {
                     "type": "string"

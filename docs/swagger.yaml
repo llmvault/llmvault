@@ -4378,6 +4378,10 @@ definitions:
         type: string
       channel_count:
         type: integer
+      channels:
+        items:
+          $ref: '#/definitions/channelResponse'
+        type: array
       created_at:
         type: string
       created_by:
@@ -10598,8 +10602,8 @@ paths:
       - teams
   /v1/orgs/current/teams/{teamID}/plugins:
     get:
-      description: Lists the plugins enabled for a team. A team's agents may install
-        only these plugins. Admin-only.
+      description: Lists the plugins enabled for a team. Visible to org managers,
+        API keys, and members of that team; other members receive 404.
       parameters:
       - description: Team ID
         in: path

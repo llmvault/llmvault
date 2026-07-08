@@ -1,19 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   agentAvatarURL,
+  buildSidebarTeamGroups,
   channelRouteSlug,
   dedupeSessions,
   findChannelByRouteSlug,
-  groupChannelsByTeam,
   isAmbiguousChannelRouteSlug,
   sessionActivityLabel,
   sessionRouteFromPathname,
   sortChannelsByRecentSession,
-  UNGROUPED_TEAM_KEY,
-  UNGROUPED_TEAM_LABEL,
   type SidebarAgentResponse,
   type SidebarChannelResponse,
   type SidebarSessionResponse,
+  type SidebarTeamResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 
 function agent(overrides: Partial<SidebarAgentResponse>): SidebarAgentResponse {
@@ -97,62 +96,47 @@ describe("sidebar route helpers", () => {
   })
 })
 
-describe("groupChannelsByTeam", () => {
-  it("buckets channels into one group per team, ordered by team name", () => {
-    const channels = [
-      channel({ id: "c1", name: "Roadmap", team_id: "team_b" }),
-      channel({ id: "c2", name: "Support", team_id: "team_a" }),
-      channel({ id: "c3", name: "Billing", team_id: "team_b" }),
-    ]
-    const names = new Map([
-      ["team_a", "Alpha"],
-      ["team_b", "Beta"],
-    ])
+describe("buildSidebarTeamGroups", () => {
+  function team(overrides: Partial<SidebarTeamResponse>): SidebarTeamResponse {
+    return { id: "team_1", name: "Alpha", ...overrides }
+  }
 
-    const groups = groupChannelsByTeam(channels, names)
+  it("builds one group per team with its channels sorted by recent session", () => {
+    const groups = buildSidebarTeamGroups(
+      [
+        team({
+          id: "team_a",
+          name: "Alpha",
+          channels: [
+            channel({ id: "old", name: "Old" }),
+            channel({ id: "recent", name: "Recent" }),
+          ],
+        }),
+        team({ id: "team_b", name: "Beta", channels: [] }),
+      ],
+      new Map([
+        ["recent", session({ last_activity_at: "2026-06-17T09:00:00.000Z" })],
+        ["old", session({ last_activity_at: "2026-06-16T09:00:00.000Z" })],
+      ])
+    )
 
     expect(groups.map((group) => group.name)).toEqual(["Alpha", "Beta"])
-    expect(groups[0].channels.map((c) => c.id)).toEqual(["c2"])
-    // Preserves incoming channel order within a group.
-    expect(groups[1].channels.map((c) => c.id)).toEqual(["c1", "c3"])
+    expect(groups[0].channels.map((c) => c.id)).toEqual(["recent", "old"])
+    expect(groups[1].channels).toEqual([])
   })
 
-  it("falls back to a team-id label when the name is unknown", () => {
-    const groups = groupChannelsByTeam([
-      channel({ id: "c1", name: "Roadmap", team_id: "team_x" }),
-    ])
+  it("falls back to a team-id label and skips teams without an id", () => {
+    const groups = buildSidebarTeamGroups(
+      [
+        team({ id: "team_x", name: "  ", channels: [] }),
+        team({ id: undefined, name: "No id", channels: [] }),
+      ],
+      new Map()
+    )
 
     expect(groups).toHaveLength(1)
     expect(groups[0].teamId).toBe("team_x")
     expect(groups[0].name).toBe("Team team_x")
-  })
-
-  it("collapses channels with no team into a trailing Other group", () => {
-    const groups = groupChannelsByTeam(
-      [
-        channel({ id: "c1", name: "Roadmap", team_id: "team_a" }),
-        channel({ id: "c2", name: "Random" }),
-        channel({ id: "c3", name: "Ideas", team_id: "" }),
-      ],
-      new Map([["team_a", "Alpha"]])
-    )
-
-    const last = groups[groups.length - 1]
-    expect(last.key).toBe(UNGROUPED_TEAM_KEY)
-    expect(last.teamId).toBeNull()
-    expect(last.name).toBe(UNGROUPED_TEAM_LABEL)
-    expect(last.channels.map((c) => c.id)).toEqual(["c2", "c3"])
-  })
-
-  it("returns a single ungrouped group when no channel has a team", () => {
-    const groups = groupChannelsByTeam([
-      channel({ id: "c1", name: "Roadmap" }),
-      channel({ id: "c2", name: "Random" }),
-    ])
-
-    expect(groups).toHaveLength(1)
-    expect(groups[0].teamId).toBeNull()
-    expect(groups.some((group) => group.teamId)).toBe(false)
   })
 })
 

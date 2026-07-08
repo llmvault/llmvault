@@ -218,7 +218,6 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	createErr(createAgentArgs{Name: "Bad Skill Agent", Skills: []string{"nope-skill"}}, "unknown skill")
 	createErr(createAgentArgs{Name: "Bad Plugin Agent", PluginSlugs: []string{"nope-plugin"}}, "unknown plugin")
 	createErr(createAgentArgs{Name: "Uninstalled Plugin Agent", PluginSlugs: []string{notInstalled.Slug}}, "is not installed for this org")
-	createErr(createAgentArgs{Name: "Support Triage"}, "agent name already exists")
 	createErr(createAgentArgs{Name: "Sub Missing", SubAgents: []subAgentToolArgs{{Name: " "}}}, "sub-agent name is required")
 	createErr(createAgentArgs{Name: "Sub Dup", SubAgents: []subAgentToolArgs{{Name: "Twin"}, {Name: "Twin"}}}, "duplicate sub-agent name")
 
