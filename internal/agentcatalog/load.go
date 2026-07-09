@@ -148,16 +148,13 @@ func validateDefaultAgentPlugins(manifest Manifest) error {
 	if manifest.Default == nil || !*manifest.Default {
 		return nil
 	}
+	if manifest.Slug != "hivy" {
+		return fmt.Errorf("agent %q must not set default: only the Hivy agent is the default", manifest.Slug)
+	}
 	required := normalizeStrings(manifest.Plugins.Required)
 	recommended := normalizeStrings(manifest.Plugins.Recommended)
-	if manifest.Slug == "hivy" {
-		if len(required) > 0 || len(recommended) > 0 {
-			return fmt.Errorf("default Hivy agent must not declare plugins")
-		}
-		return nil
-	}
-	if len(required) == 0 {
-		return fmt.Errorf("default agent %q must declare at least one required plugin", manifest.Slug)
+	if len(required) > 0 || len(recommended) > 0 {
+		return fmt.Errorf("default Hivy agent must not declare plugins")
 	}
 	return nil
 }

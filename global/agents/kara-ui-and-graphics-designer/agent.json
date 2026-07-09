@@ -9,7 +9,6 @@
   "official": true,
   "agent_version": "1",
   "enabled": true,
-  "default": true,
   "runtime": {
     "sandbox_image": "default",
     "model": "mimo-v2.5-pro"

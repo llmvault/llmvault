@@ -31,8 +31,8 @@ func TestGlobalKaraManifestRequiresDesignPlugin(t *testing.T) {
 	if kara == nil {
 		t.Fatal("missing kara global agent manifest")
 	}
-	if kara.Default == nil || !*kara.Default {
-		t.Fatal("kara should be a default catalog agent")
+	if kara.Default != nil && *kara.Default {
+		t.Fatal("kara must not be a default agent: only Hivy is the default (roster agents are installed per team)")
 	}
 	if !reflect.DeepEqual(normalizeStrings(kara.Plugins.Required), []string{"design"}) {
 		t.Fatalf("kara required plugins = %#v, want [design]", kara.Plugins.Required)

@@ -8,7 +8,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestValidateManifestsRejectsDefaultAgentWithoutRequiredPlugins(t *testing.T) {
+func TestValidateManifestsRejectsNonHivyDefaultAgent(t *testing.T) {
 	isDefault := true
 	err := validateManifests([]Manifest{{
 		Version: 1,
@@ -16,9 +16,10 @@ func TestValidateManifestsRejectsDefaultAgentWithoutRequiredPlugins(t *testing.T
 		Name:    "Builder",
 		Default: &isDefault,
 		Runtime: RuntimeManifest{SandboxImage: model.SandboxImageDefault},
+		Plugins: PluginManifest{Required: []string{"github"}},
 	}})
-	if err == nil || !strings.Contains(err.Error(), "must declare at least one required plugin") {
-		t.Fatalf("validateManifests error = %v, want missing required plugin error", err)
+	if err == nil || !strings.Contains(err.Error(), "only the Hivy agent is the default") {
+		t.Fatalf("validateManifests error = %v, want non-Hivy default rejection", err)
 	}
 }
 
