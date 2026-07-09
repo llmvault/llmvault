@@ -119,6 +119,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/agentschedule \
     github.com/usehivy/hivy/internal/access \
     github.com/usehivy/hivy/internal/automationcatalog \
+    github.com/usehivy/hivy/internal/canvasartifact \
     github.com/usehivy/hivy/internal/channelagents \
     github.com/usehivy/hivy/internal/connectionaccess \
     github.com/usehivy/hivy/internal/databaseintegration \
