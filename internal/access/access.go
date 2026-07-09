@@ -155,10 +155,7 @@ func (a *Actor) canUseChannel(ctx context.Context, db *gorm.DB, channel model.Ch
 	if channel.Visibility == "private" {
 		return userIsChannelMember(ctx, db, channel.ID, a.UserID)
 	}
-	if channel.TeamID == nil {
-		return true
-	}
-	return userIsActiveTeamMember(ctx, db, *channel.TeamID, a.UserID)
+	return userIsActiveTeamMember(ctx, db, channel.TeamID, a.UserID)
 }
 
 // userIsChannelMember reports whether userID has an explicit channel_members row

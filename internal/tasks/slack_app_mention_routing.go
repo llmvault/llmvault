@@ -17,19 +17,14 @@ import (
 // without a prior session mapping) a thread in a known channel.
 //
 // It never returns an error path that would block the message: any lookup
-// failure resolves to the channel default agent. Team-less/external channels
-// (team_id IS NULL — Slack channels are external) have no team pool, so routing
-// short-circuits to the channel default agent, matching the prior behavior where
-// such channels carried no assigned agents.
+// failure resolves to the channel default agent. External channels are
+// team-scoped like native ones and route over their team pool; a team with zero
+// or one agent falls back to the channel default agent below.
 func (h *SlackAppMentionHandler) routeChannelAgent(ctx context.Context, row *model.SlackThreadEvent, channel model.Channel) (model.Agent, error) {
-	if channel.TeamID == nil {
-		return h.loadAgent(ctx, channel.OrgID, channel.DefaultAgentID)
-	}
-
 	var candidates []model.Agent
 	if err := h.db.WithContext(ctx).
 		Where("org_id = ? AND team_id = ? AND parent_agent_id IS NULL AND status <> ?",
-			channel.OrgID, *channel.TeamID, "archived").
+			channel.OrgID, channel.TeamID, "archived").
 		Order("is_default DESC, name ASC").
 		Find(&candidates).Error; err != nil {
 		logging.FromContext(ctx).WarnContext(ctx, "slack_route_list_team_agents_failed",

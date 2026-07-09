@@ -10,11 +10,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/slackapp"
 	"github.com/usehivy/hivy/internal/slackworkflow"
 )
+
+var errSlackChannelNotConfigured = errors.New("slack channel is not linked to a hivy team")
+
+const slackChannelNotConfiguredMessage = "This Slack channel isn't connected to a Hivy team yet. An admin can link it to a team from the Hivy dashboard to enable the assistant here."
 
 func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client, token string) (model.Channel, model.Agent, error) {
 	if row.SessionID != nil && *row.SessionID != uuid.Nil {
@@ -49,19 +52,21 @@ func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row
 		agent, err := h.routeChannelAgent(ctx, row, channel)
 		return channel, agent, err
 	}
-	agent, err := h.ensureOrgAgent(ctx, row.OrgID)
-	if err != nil {
+	if err := h.replyChannelNotConfigured(ctx, row, client); err != nil {
 		return model.Channel{}, model.Agent{}, err
 	}
-	info, err := h.slackChannelInfo(ctx, client, token, row.SlackChannelID)
+	return model.Channel{}, model.Agent{}, errSlackChannelNotConfigured
+}
+
+func (h *SlackAppMentionHandler) replyChannelNotConfigured(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client) error {
+	replyTS, err := slackapp.PostThreadReply(ctx, client, row.SlackChannelID, row.ThreadTS, slackChannelNotConfiguredMessage)
 	if err != nil {
-		return model.Channel{}, model.Agent{}, err
+		return fmt.Errorf("post slack channel-not-configured notice: %w", err)
 	}
-	channel, err = h.createSlackChannel(ctx, *row, agent, info)
-	if err != nil {
-		return model.Channel{}, model.Agent{}, err
+	if err := slackworkflow.RecordReplySent(ctx, h.db, row.ID, replyTS); err != nil {
+		return err
 	}
-	return channel, agent, nil
+	return nil
 }
 
 func (h *SlackAppMentionHandler) loadSlackTriggerAgent(ctx context.Context, orgID, triggerID, channelID uuid.UUID) (model.Agent, error) {
@@ -91,76 +96,6 @@ func (h *SlackAppMentionHandler) findSlackChannel(ctx context.Context, row model
 	}
 	_ = slackworkflow.RecordChannelResolved(ctx, h.db, row.ID, channel.ID)
 	return channel, true, nil
-}
-
-func (h *SlackAppMentionHandler) slackChannelInfo(ctx context.Context, client slackapp.Client, token, channelID string) (slackapp.Channel, error) {
-	info, err := slackapp.GetChannelInfo(ctx, client, channelID)
-	if err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("slack channel info: %w", err), map[string]any{
-			"slack_channel_id": channelID,
-		})
-		return slackapp.Channel{}, fmt.Errorf("slack channel info: %w", err)
-	}
-	if info.ID == "" {
-		info.ID = channelID
-	}
-	if !info.IsPrivate && !info.IsMember {
-		if joined, err := slackapp.JoinChannel(ctx, token, channelID); err == nil && joined.ID != "" {
-			info = joined
-		} else if err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("slack channel join: %w", err), map[string]any{
-				"slack_channel_id": channelID,
-			})
-			return slackapp.Channel{}, fmt.Errorf("slack channel join: %w", err)
-		}
-	}
-	if strings.TrimSpace(info.Name) == "" {
-		info.Name = channelID
-	}
-	return info, nil
-}
-
-func (h *SlackAppMentionHandler) createSlackChannel(ctx context.Context, row model.SlackThreadEvent, agent model.Agent, info slackapp.Channel) (model.Channel, error) {
-	connID := row.ConnectionID
-	channel := model.Channel{
-		OrgID:                row.OrgID,
-		Name:                 slackChannelName(info.Name),
-		Kind:                 "standard",
-		Visibility:           "public",
-		DefaultAgentID:       agent.ID,
-		Origin:               "external",
-		ExternalProvider:     slackapp.Provider,
-		ExternalConnectionID: &connID,
-		ExternalWorkspaceKey: row.Connection.NangoConnectionID,
-		ExternalResourceType: "slack_channel",
-		ExternalResourceKey:  row.SlackChannelID,
-		ExternalResourceName: info.Name,
-		ExternalMetadata: model.JSON{
-			"team_id":                 row.TeamID,
-			"is_private":              info.IsPrivate,
-			"auto_created_from":       "slack_app_mention",
-			"slack_thread_event_id":   row.ID.String(),
-			"slack_app_mention_event": row.EventID,
-		},
-	}
-	result := h.db.WithContext(ctx).
-		Clauses(clause.OnConflict{DoNothing: true}).
-		Create(&channel)
-	if result.Error != nil {
-		return model.Channel{}, fmt.Errorf("create slack channel: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		found, ok, err := h.findSlackChannel(ctx, row)
-		if err != nil {
-			return model.Channel{}, err
-		}
-		if ok {
-			return found, nil
-		}
-		return model.Channel{}, fmt.Errorf("slack channel create conflicted but no external channel was found")
-	}
-	_ = slackworkflow.RecordChannelResolved(ctx, h.db, row.ID, channel.ID)
-	return channel, nil
 }
 
 func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, row *model.SlackThreadEvent, channel model.Channel, agent model.Agent) (model.Session, error) {
@@ -234,25 +169,6 @@ func (h *SlackAppMentionHandler) loadSlackSessionChannel(ctx context.Context, or
 		return model.Channel{}, fmt.Errorf("load slack session channel: %w", err)
 	}
 	return channel, nil
-}
-
-func slackChannelName(name string) string {
-	name = normalizeSlackName(name)
-	if strings.HasPrefix(name, "slack-") {
-		return name
-	}
-	return "slack-" + name
-}
-
-func normalizeSlackName(raw string) string {
-	value := strings.TrimLeft(strings.ToLower(strings.TrimSpace(raw)), "#")
-	if strings.ContainsAny(value, " \t\n\r") {
-		value = strings.Join(strings.Fields(value), "-")
-	}
-	if value == "" {
-		return "channel"
-	}
-	return value
 }
 
 func slackSessionResourceKey(row model.SlackThreadEvent) string {

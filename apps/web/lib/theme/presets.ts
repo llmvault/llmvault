@@ -3,7 +3,7 @@
 // selector. The id here must match the CSS block; "default" means no
 // attribute (the base Hivy palette). `swatch` drives the "Aa" preview in
 // the picker (accent text on a tint of the theme's light surface).
-export interface ThemePreset {
+interface ThemePreset {
   id: string
   label: string
   swatch: { accent: string; bg: string }

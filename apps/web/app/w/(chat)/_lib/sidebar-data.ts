@@ -55,7 +55,7 @@ export function sortChannelsByRecentSession(
     .map(({ channel }) => channel)
 }
 
-export interface SidebarTeamGroup {
+interface SidebarTeamGroup {
   key: string
   teamId: string
   name: string

@@ -40,21 +40,21 @@ func VisibleAgentIDsSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *g
 // receives rows referencing channels they cannot use.
 //
 // The predicate mirrors handler.canUseChannel / visibleTeamSubquery exactly (do
-// not fork a new membership definition): a channel is usable when it is
-// externally sourced, has no team scope (team_id IS NULL), or is scoped to a
-// team the user actively belongs to (via a non-archived team). Managers and
-// API-key callers bypass this entirely at the call site and see org-wide.
+// not fork a new membership definition): a channel is usable when it is scoped
+// to a team the user actively belongs to (via a non-archived team), or the user
+// is an explicit member. Managers and API-key callers bypass this entirely at
+// the call site and see org-wide.
 //
-// A nil userID mirrors visibleTeamSubquery's empty-membership case: only
-// external and team_id-NULL channels remain visible. The returned value is a
-// subquery for use in `channel_id IN (?)`; pass the base *gorm.DB (not a
-// context-bound query) as db, matching VisibleAgentIDsSubquery's callers.
+// A nil userID mirrors visibleTeamSubquery's empty-membership case: no channels
+// remain visible. The returned value is a subquery for use in
+// `channel_id IN (?)`; pass the base *gorm.DB (not a context-bound query) as db,
+// matching VisibleAgentIDsSubquery's callers.
 func VisibleChannelIDsSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *gorm.DB {
 	return db.Model(&model.Channel{}).
 		Select("channels.id").
 		Where("channels.org_id = ?", orgID).
-		Where("(channels.visibility <> ? AND (channels.origin = ? OR channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
-			"private", "external", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
+		Where("(channels.visibility <> ? AND channels.team_id IN (?)) OR channels.id IN (?)",
+			"private", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
 }
 
 // visibleTeamSubquery is an exact copy of handler.visibleTeamSubquery. It lives

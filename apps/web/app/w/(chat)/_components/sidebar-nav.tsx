@@ -3,7 +3,7 @@ import { Typography } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 
-export function SectionLabel({ children }: { children: ReactNode }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <Typography.Paragraph
       size="xs"

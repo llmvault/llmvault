@@ -67,7 +67,7 @@ const PROVIDER_BRAND_ALIASES: Record<string, string> = {
 }
 
 /** Brand config for an integration provider, if @thesvg/react ships one. */
-export function providerBrand(provider: string): BrandConfig | undefined {
+function providerBrand(provider: string): BrandConfig | undefined {
   return BRANDS[PROVIDER_BRAND_ALIASES[provider] ?? provider]
 }
 
@@ -108,7 +108,7 @@ export function BrandMark({
   )
 }
 
-export function integrationLogoURL(provider: string): string {
+function integrationLogoURL(provider: string): string {
   const localLogo = LOCAL_PROVIDER_LOGOS[provider]
   if (localLogo) return localLogo
 

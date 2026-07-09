@@ -42,9 +42,9 @@ func seedScheduleChannelFixture(t *testing.T, db *gorm.DB) scheduleChannelFixtur
 	org := model.Org{ID: uuid.New(), Name: "schedule-channel-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Schedule Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "work-" + uuid.NewString(), DefaultAgentID: agent.ID}
-	target := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ops-" + uuid.NewString(), DefaultAgentID: agent.ID}
-	teamHome := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: &team.ID, Name: "general", Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, IsDefault: true}
+	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "work-" + uuid.NewString(), DefaultAgentID: agent.ID}
+	target := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "ops-" + uuid.NewString(), DefaultAgentID: agent.ID}
+	teamHome := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "general", Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, IsDefault: true}
 	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, Status: "active"}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
@@ -140,6 +140,7 @@ func TestScheduleChannelMustBelongToOrgAndBeActive(t *testing.T) {
 	archived := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          fx.org.ID,
+		TeamID:         fx.team.ID,
 		Name:           "archived-" + uuid.NewString(),
 		DefaultAgentID: fx.agent.ID,
 		ArchivedAt:     &archivedAt,
@@ -209,7 +210,7 @@ func TestSelectedScheduleChannelRejectsForeignTeamChannel(t *testing.T) {
 	if err := db.Create(&foreignTeam).Error; err != nil {
 		t.Fatalf("create foreign team: %v", err)
 	}
-	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: &foreignTeam.ID, Name: "foreign-ops-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
+	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: foreignTeam.ID, Name: "foreign-ops-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
 	if err := db.Create(&foreignChannel).Error; err != nil {
 		t.Fatalf("create foreign channel: %v", err)
 	}

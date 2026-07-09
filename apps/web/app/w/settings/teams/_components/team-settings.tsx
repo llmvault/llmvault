@@ -25,12 +25,12 @@ export type Team = components["schemas"]["teamResponse"]
 export type Member = components["schemas"]["orgMemberResponse"]
 export type Invite = components["schemas"]["orgInviteResponse"]
 export type TeamMember = components["schemas"]["teamMemberResponse"]
-export type Channel = components["schemas"]["channelResponse"]
+type Channel = components["schemas"]["channelResponse"]
 
 export const TEAMS_KEY = ["get", "/v1/orgs/current/teams"] as const
 export const MEMBERS_KEY = ["get", "/v1/orgs/current/members"] as const
 export const INVITES_KEY = ["get", "/v1/orgs/current/invites"] as const
-export const CHANNELS_KEY = ["get", "/v1/channels"] as const
+const CHANNELS_KEY = ["get", "/v1/channels"] as const
 
 export function roleLabel(role: string | undefined) {
   if (!role) return "Member"
@@ -61,7 +61,7 @@ export function memberLabel(member: Member | TeamMember | undefined) {
   return member?.name?.trim() || member?.email?.trim() || "Unknown member"
 }
 
-export function channelLabel(channel: Channel | undefined) {
+function channelLabel(channel: Channel | undefined) {
   return channel?.name?.trim() || "Untitled channel"
 }
 
@@ -103,7 +103,7 @@ export function TeamRow({ team, last }: { team: Team; last?: boolean }) {
   )
 }
 
-export function MemberRow({
+function MemberRow({
   member,
   isYou,
   last,

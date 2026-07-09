@@ -1,7 +1,7 @@
 import { api } from "@/lib/api/client"
 import { extractErrorMessage } from "@/lib/api/error"
 
-export interface AppLaunchResult {
+interface AppLaunchResult {
   /**
    * The app's own `/auth/callback?token=…` URL — load this in the iframe. The
    * app verifies the one-time token, sets its own session cookie, and serves

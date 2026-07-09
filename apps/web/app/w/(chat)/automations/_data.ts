@@ -27,7 +27,7 @@ export interface AutomationItem {
   trigger?: InstalledTrigger
 }
 
-export const AUTOMATION_TABS: AutomationTab[] = ["Triggers", "Schedules"]
+const AUTOMATION_TABS: AutomationTab[] = ["Triggers", "Schedules"]
 
 type ProviderMeta = {
   label: string
@@ -169,7 +169,7 @@ export function automationFromWebhookTrigger(
 
 export type ScheduleItem = components["schemas"]["scheduleResponse"]
 
-export function scheduleCadenceLabel(schedule: ScheduleItem): string {
+function scheduleCadenceLabel(schedule: ScheduleItem): string {
   if (schedule.schedule_kind === "cron" && schedule.cron_expression) {
     return `Cron: ${schedule.cron_expression}`
   }

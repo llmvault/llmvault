@@ -129,6 +129,8 @@ func newRailwayHarness(t *testing.T, nangoHandler http.Handler, railwayHandler h
 		t.Fatalf("create test in_connection: %v", err)
 	}
 
+	installTestPluginAccess(t, database, orgID, agentID, "railway")
+
 	t.Cleanup(func() {
 		database.Where("org_id = ?", orgID).Delete(&model.Connection{})
 		database.Where("id = ?", integrationID).Delete(&model.Integration{})

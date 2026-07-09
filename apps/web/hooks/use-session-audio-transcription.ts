@@ -16,7 +16,7 @@ interface UseSessionAudioTranscriptionOptions {
   sessionId: string
 }
 
-export interface TranscribeRecordedAudioInput {
+interface TranscribeRecordedAudioInput {
   blob: Blob
   filename?: string
   languageCode?: string

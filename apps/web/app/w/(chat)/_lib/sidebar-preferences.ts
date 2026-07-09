@@ -1,6 +1,6 @@
 "use client"
 
-export const SIDEBAR_DEFAULT_WIDTH = 300
+const SIDEBAR_DEFAULT_WIDTH = 300
 export const SIDEBAR_MIN_OPEN_WIDTH = 230
 export const SIDEBAR_MAX_WIDTH = 420
 export const SIDEBAR_COLLAPSED_THRESHOLD = 8
@@ -15,7 +15,7 @@ export interface SidebarPreferences {
   width: number
 }
 
-export interface SidebarPreferencesScope {
+interface SidebarPreferencesScope {
   userId?: string | null
 }
 
@@ -41,7 +41,7 @@ export function sidebarPreferencesStorageKey(
   return `${SIDEBAR_PREFERENCES_STORAGE_PREFIX}:v${SIDEBAR_PREFERENCES_VERSION}:${encodeURIComponent(userId)}`
 }
 
-export function normalizeSidebarPreferences(
+function normalizeSidebarPreferences(
   preferences: SidebarPreferences
 ): SidebarPreferences {
   return {

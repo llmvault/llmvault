@@ -10,7 +10,7 @@ export type RecordingTranscriptIntent = "edit" | "send"
 // driven by either session-scoped (`useSessionAudioTranscription`) or
 // org-scoped (`useOrgAudioTranscription`) transcription. The recorder only
 // needs the recognized text back.
-export interface RecordingTranscription {
+interface RecordingTranscription {
   mutateAsync: (input: {
     blob: Blob
     mimeType?: string

@@ -57,36 +57,6 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "forbidden"})
 		return
 	}
-	if raw := strings.TrimSpace(req.ChannelID); raw != "" {
-		channelID, perr := uuid.Parse(raw)
-		if perr != nil || channelID == uuid.Nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
-			return
-		}
-		allowed, cerr := actor.CanUseChannelID(r.Context(), h.db, channelID)
-		if cerr != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel access"})
-			return
-		}
-		if !allowed {
-			writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
-			return
-		}
-		acts, aerr := channelagents.ActsInChannel(r.Context(), h.db, org.ID, channelID, agentID)
-		if aerr != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
-			return
-		}
-		if !acts {
-			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
-			return
-		}
-		// Binding a schedule to this channel is a manage-the-team action.
-		if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, org.ID, channelID); mErr != nil {
-			writeJSON(w, mStatus, errorResponse{Error: mMessage})
-			return
-		}
-	}
 
 	var agent model.Agent
 	if err := h.db.WithContext(r.Context()).
@@ -96,11 +66,57 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var channelID uuid.UUID
+	if raw := strings.TrimSpace(req.ChannelID); raw != "" {
+		parsed, perr := uuid.Parse(raw)
+		if perr != nil || parsed == uuid.Nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+			return
+		}
+		channelID = parsed
+	} else {
+		resolved, rerr := agentschedule.ResolveScheduleChannel(r.Context(), h.db, org.ID, agentID, "")
+		if rerr != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: rerr.Error()})
+			return
+		}
+		parsed, perr := uuid.Parse(resolved)
+		if perr != nil || parsed == uuid.Nil {
+			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent's team has no default channel; a schedule requires an explicit channel"})
+			return
+		}
+		channelID = parsed
+	}
+
+	allowed, cerr := actor.CanUseChannelID(r.Context(), h.db, channelID)
+	if cerr != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel access"})
+		return
+	}
+	if !allowed {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
+		return
+	}
+	acts, aerr := channelagents.ActsInChannel(r.Context(), h.db, org.ID, channelID, agentID)
+	if aerr != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
+		return
+	}
+	if !acts {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
+		return
+	}
+	// Binding a schedule to this channel is a manage-the-team action.
+	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, org.ID, channelID); mErr != nil {
+		writeJSON(w, mStatus, errorResponse{Error: mMessage})
+		return
+	}
+
 	schedule, err := agentschedule.Create(r.Context(), h.db, &agent, agentschedule.CreateInput{
 		Name:            strings.TrimSpace(req.Name),
 		Description:     req.Description,
 		TaskPrompt:      req.TaskPrompt,
-		ChannelID:       req.ChannelID,
+		ChannelID:       channelID.String(),
 		CronExpression:  req.CronExpression,
 		IntervalSeconds: req.IntervalSeconds,
 		RepeatCount:     req.RepeatCount,

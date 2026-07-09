@@ -18,9 +18,10 @@ import (
 // agent-facing MCP tools.
 type actorEnforcementFixture struct {
 	channelToolFixture
-	teamChannel model.Channel // team-scoped; member is not on the team
-	member      model.User    // org role "member", not on the team
-	admin       model.User    // org role "admin"
+	teamChannel   model.Channel // team-scoped private; member is not on the team
+	usableChannel model.Channel // private, but the member is an explicit channel member
+	member        model.User    // org role "member", not on the team
+	admin         model.User    // org role "admin"
 }
 
 func seedActorEnforcementFixture(t *testing.T, db *gorm.DB) actorEnforcementFixture {
@@ -33,14 +34,25 @@ func seedActorEnforcementFixture(t *testing.T, db *gorm.DB) actorEnforcementFixt
 		Name:           "private-" + uuid.NewString(),
 		DefaultAgentID: base.agent.ID,
 		Visibility:     "private",
-		TeamID:         &base.team.ID,
+		TeamID:         base.team.ID,
+	}
+	// A private channel the member can use via explicit channel membership (not
+	// team membership), so a team-less member still has a usable channel.
+	usableChannel := model.Channel{
+		ID:             uuid.New(),
+		OrgID:          base.org.ID,
+		Name:           "usable-" + uuid.NewString(),
+		DefaultAgentID: base.agent.ID,
+		Visibility:     "private",
+		TeamID:         base.team.ID,
 	}
 	member := model.User{ID: uuid.New(), Email: "member-" + uuid.NewString() + "@example.test", Name: "Member"}
 	admin := model.User{ID: uuid.New(), Email: "admin-" + uuid.NewString() + "@example.test", Name: "Admin"}
 	memberMembership := model.OrgMembership{UserID: member.ID, OrgID: base.org.ID, Role: "member"}
 	adminMembership := model.OrgMembership{UserID: admin.ID, OrgID: base.org.ID, Role: "admin"}
+	usableMembership := model.ChannelMember{ChannelID: usableChannel.ID, UserID: member.ID}
 
-	for _, row := range []any{&teamChannel, &member, &admin, &memberMembership, &adminMembership} {
+	for _, row := range []any{&teamChannel, &usableChannel, &member, &admin, &memberMembership, &adminMembership, &usableMembership} {
 		if err := db.Create(row).Error; err != nil {
 			t.Fatalf("seed actor fixture row %T: %v", row, err)
 		}
@@ -51,7 +63,7 @@ func seedActorEnforcementFixture(t *testing.T, db *gorm.DB) actorEnforcementFixt
 		db.Where("org_id = ?", base.org.ID).Delete(&model.OrgMembership{})
 		db.Delete(&model.User{}, "id IN ?", []uuid.UUID{member.ID, admin.ID})
 	})
-	return actorEnforcementFixture{channelToolFixture: base, teamChannel: teamChannel, member: member, admin: admin}
+	return actorEnforcementFixture{channelToolFixture: base, teamChannel: teamChannel, usableChannel: usableChannel, member: member, admin: admin}
 }
 
 func decodeToolError(t *testing.T, result *mcp.CallToolResult) string {
@@ -79,8 +91,8 @@ func TestListChannelsHidesChannelsActorCannotUse(t *testing.T) {
 	if names[fx.teamChannel.Name] {
 		t.Fatalf("member should not see team channel %q; got %v", fx.teamChannel.Name, names)
 	}
-	if !names[fx.general.Name] {
-		t.Fatalf("member should still see the general channel; got %v", names)
+	if !names[fx.usableChannel.Name] {
+		t.Fatalf("member should still see the channel they belong to; got %v", names)
 	}
 
 	// An org admin sees everything.

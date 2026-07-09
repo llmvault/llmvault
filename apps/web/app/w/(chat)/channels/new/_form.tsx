@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils"
 import type { components } from "@/lib/api/schema"
 import { ProviderIcon } from "@/app/w/settings/knowledge/_provider-icon"
 
-export type Connection = components["schemas"]["connectionResponse"]
-export type AvailableResource = components["schemas"]["AvailableResource"]
-export type Team = components["schemas"]["teamResponse"]
+type Connection = components["schemas"]["connectionResponse"]
+type AvailableResource = components["schemas"]["AvailableResource"]
+type Team = components["schemas"]["teamResponse"]
 
 export const SLACK_CHANNEL_RESOURCE_TYPE = "slack_channel"
 

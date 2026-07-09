@@ -19,7 +19,7 @@ export type PasswordAuthInput = Required<
   Pick<LoginRequest, "email" | "password">
 >
 export type PasswordSignupInput = PasswordAuthInput & { teamName: string }
-export type ConfirmEmailInput = Required<
+type ConfirmEmailInput = Required<
   Pick<ConfirmEmailRequest, "email" | "code">
 >
 

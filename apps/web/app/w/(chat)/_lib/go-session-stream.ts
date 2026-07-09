@@ -9,7 +9,7 @@ export interface GoSessionStreamFrame {
   data: unknown
 }
 
-export interface GoSessionStreamOpen {
+interface GoSessionStreamOpen {
   sessionId: string
   streamId: string | null
   nextSequence: number | null
@@ -20,7 +20,7 @@ export interface GoSessionStreamCursor {
   sequence: number
 }
 
-export const RUNTIME_REPO_CHANGE_EVENT = "repo.change_batch"
+const RUNTIME_REPO_CHANGE_EVENT = "repo.change_batch"
 const STREAM_ID_HEADER = "x-hivy-stream-id"
 const NEXT_SEQUENCE_HEADER = "x-hivy-stream-next-sequence"
 

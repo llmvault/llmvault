@@ -138,9 +138,9 @@ func TestIsTeamMemberMatrix(t *testing.T) {
 }
 
 // TestCanUseChannelPrivate asserts the agent-path mirror gates private channels
-// to explicit channel members even when origin/team would otherwise open them:
-// a private external channel is unusable by a non-member member (regardless of
-// team) but usable by a channel member; managers keep org-wide access.
+// to explicit channel members: a private channel is unusable by a non-member
+// member (regardless of team) but usable by a channel member; managers keep
+// org-wide access.
 func TestCanUseChannelPrivate(t *testing.T) {
 	db := connectAccessTestDB(t)
 	fx := seedPredicateFixture(t, db)
@@ -150,10 +150,11 @@ func TestCanUseChannelPrivate(t *testing.T) {
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
-	// Private + external: normally open to any org member, gated by private.
+	// Private channel scoped to teamIn: gated to explicit channel members
+	// regardless of team.
 	priv := model.Channel{
 		ID: uuid.New(), OrgID: fx.org.ID, Name: "priv-" + uuid.NewString()[:8],
-		Kind: "standard", Origin: "external", Visibility: "private", DefaultAgentID: agent.ID,
+		Kind: "standard", TeamID: fx.teamIn.ID, Visibility: "private", DefaultAgentID: agent.ID,
 	}
 	if err := db.Create(&priv).Error; err != nil {
 		t.Fatalf("create channel: %v", err)

@@ -96,7 +96,7 @@ export function attachmentMetadataFromDescription(
   }
 }
 
-export function imageAttachmentMediaURL(
+function imageAttachmentMediaURL(
   attachment: Pick<ImageAttachmentMetadata, "asset_url">
 ) {
   return attachment.asset_url

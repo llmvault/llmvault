@@ -177,6 +177,7 @@ func seedSessionRuntimeSelectionFixture(t *testing.T, db *gorm.DB, strategy stri
 	}
 	channel := model.Channel{
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "runtime-channel-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",

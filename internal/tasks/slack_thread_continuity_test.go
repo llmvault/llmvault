@@ -102,6 +102,7 @@ func seedSlackContinuationFixture(t *testing.T, db *gorm.DB) slackContinuationFi
 	connID := connection.ID
 	channel := model.Channel{
 		OrgID:                org.ID,
+		TeamID:               team.ID,
 		Name:                 "slack-incidents-" + uuid.NewString()[:8],
 		Kind:                 "standard",
 		Visibility:           "public",

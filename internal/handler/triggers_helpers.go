@@ -22,10 +22,9 @@ import (
 // (trigger/schedule) to channelID under the team-primary model. Creating such a
 // binding is a manage-the-channel's-team action, not merely use-the-channel:
 // API-key callers are trusted org-wide; a human actor must be an org manager or
-// an active member of the channel's owning team. Team-less / external channels
-// are bindable only by managers/API keys (this preserves the old admin-only
-// posture for provider auto-created external channels). Returns (status,
-// message, err); err is nil and status 200 on success.
+// an active member of the channel's owning team. A channel with no team is
+// denied (fail-closed). Returns (status, message, err); err is nil and status
+// 200 on success.
 func requireChannelBindingManage(r *http.Request, db *gorm.DB, orgID, channelID uuid.UUID) (int, string, error) {
 	if isAPIKeyRequest(r.Context()) {
 		return http.StatusOK, "", nil
@@ -50,10 +49,7 @@ func requireChannelBindingManage(r *http.Request, db *gorm.DB, orgID, channelID 
 	if err != nil {
 		return http.StatusInternalServerError, "failed to load channel", err
 	}
-	if channel.TeamID == nil {
-		return http.StatusForbidden, "you must manage this channel's team to bind resources to it", fmt.Errorf("channel has no team")
-	}
-	ok, err := actor.CanManageTeamResource(r.Context(), db, *channel.TeamID)
+	ok, err := actor.CanManageTeamResource(r.Context(), db, channel.TeamID)
 	if err != nil {
 		return http.StatusInternalServerError, "failed to check team membership", err
 	}
@@ -209,8 +205,7 @@ func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID, chan
 		return fmt.Errorf("agent not found")
 	}
 	// Team-primary rule: an agent may run in a channel iff it belongs to the
-	// channel's owning team (or the channel is shared/team-less). Replaces the cut
-	// agent_channels allowlist.
+	// channel's owning team. Replaces the cut agent_channels allowlist.
 	allowed, err := channelagents.ActsInChannel(ctx, db, orgID, channelID, agentID)
 	if err != nil {
 		return err

@@ -1,10 +1,15 @@
 package agentruntime
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 type ServiceProxyEnvSpec struct {
@@ -36,12 +41,41 @@ func ServiceProxyEnvSpecs() []ServiceProxyEnvSpec {
 	return out
 }
 
-func ApplyServiceProxyEnv(env map[string]string, controlPlaneBaseURL string, agentID uuid.UUID, runtimeSecret string) {
+func AllowedServiceProxyProviders(ctx context.Context, db *gorm.DB, agent model.Agent) (map[string]bool, error) {
+	if db == nil || agent.ID == uuid.Nil {
+		return nil, nil
+	}
+	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, agent)
+	if err != nil {
+		return nil, err
+	}
+	if len(pluginIDs) == 0 {
+		return map[string]bool{}, nil
+	}
+	var providers []string
+	if err := db.WithContext(ctx).
+		Model(&model.PluginIntegration{}).
+		Where("plugin_id IN ?", pluginIDs).
+		Distinct("provider").
+		Pluck("provider", &providers).Error; err != nil {
+		return nil, fmt.Errorf("load effective plugin providers: %w", err)
+	}
+	allowed := make(map[string]bool, len(providers))
+	for _, provider := range providers {
+		allowed[provider] = true
+	}
+	return allowed, nil
+}
+
+func ApplyServiceProxyEnv(env map[string]string, controlPlaneBaseURL string, agentID uuid.UUID, runtimeSecret string, allowed map[string]bool) {
 	if env == nil || agentID == uuid.Nil || strings.TrimSpace(controlPlaneBaseURL) == "" || runtimeSecret == "" {
 		return
 	}
 	base := strings.TrimRight(controlPlaneBaseURL, "/")
 	for _, spec := range serviceProxyEnvSpecs {
+		if allowed != nil && !allowed[spec.Provider] {
+			continue
+		}
 		env[spec.BaseURLEnv] = base + fmt.Sprintf(spec.Path, agentID)
 		env[spec.AuthEnv] = runtimeSecret
 	}

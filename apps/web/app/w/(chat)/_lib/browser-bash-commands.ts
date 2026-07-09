@@ -1,6 +1,6 @@
 type BrowserCommandText = string | ((match: RegExpMatchArray) => string)
 
-export interface BrowserBashCommandPattern {
+interface BrowserBashCommandPattern {
   id: string
   pattern: RegExp
   label: BrowserCommandText
@@ -8,7 +8,7 @@ export interface BrowserBashCommandPattern {
   actionIcon: BrowserCommandText
 }
 
-export interface BrowserBashCommandMatch {
+interface BrowserBashCommandMatch {
   id: string
   kind: "Chrome browser"
   icon: "chrome"

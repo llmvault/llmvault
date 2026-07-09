@@ -12,16 +12,12 @@ import (
 )
 
 // isTeamLastChannel reports whether the given channel is the only non-archived
-// channel of its team. Team-less/external channels (team_id NULL) are exempt
-// (never the "last channel" of a team) so this returns false for them.
+// channel of its team.
 func (h *ChannelHandler) isTeamLastChannel(ctx context.Context, channel model.Channel) (bool, error) {
-	if channel.TeamID == nil {
-		return false, nil
-	}
 	var count int64
 	if err := h.db.WithContext(ctx).
 		Model(&model.Channel{}).
-		Where("org_id = ? AND team_id = ? AND archived_at IS NULL", channel.OrgID, *channel.TeamID).
+		Where("org_id = ? AND team_id = ? AND archived_at IS NULL", channel.OrgID, channel.TeamID).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -97,7 +93,7 @@ func sameTeamBinding(a, b *uuid.UUID) bool {
 //
 // Writes the appropriate 4xx/5xx and returns false when the move must be blocked.
 func (h *ChannelHandler) authorizeChannelTeamMove(w http.ResponseWriter, r *http.Request, channel model.Channel, newTeamID *uuid.UUID) bool {
-	if sameTeamBinding(channel.TeamID, newTeamID) {
+	if sameTeamBinding(&channel.TeamID, newTeamID) {
 		return true
 	}
 	ctx := r.Context()
@@ -129,7 +125,7 @@ func (h *ChannelHandler) authorizeChannelTeamMove(w http.ResponseWriter, r *http
 	}
 	// canManageChannel probed against the destination team is exactly "the caller
 	// can manage that team" (API key / org manager / active team member).
-	if !canManageChannel(ctx, h.db, model.Channel{OrgID: channel.OrgID, TeamID: newTeamID}, userID, role, apiKey) {
+	if !canManageChannel(ctx, h.db, model.Channel{OrgID: channel.OrgID, TeamID: *newTeamID}, userID, role, apiKey) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be able to manage the destination team to move this channel into it"})
 		return false
 	}

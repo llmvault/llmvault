@@ -15,16 +15,14 @@ import (
 // Sheets are channel-scoped: a sheet's visibility follows its channel's access.
 // The REST surface authorizes every sheet against its channel using the same
 // canUseChannel predicate as the rest of the API, so the HTTP path and the agent
-// MCP path cannot drift. Org managers pass; API-key callers may only reach
-// channels open to any org member; otherwise the requester must be able to use
-// the sheet's channel. A denied request 404s so a sheet in a channel the caller
+// MCP path cannot drift. Access is strictly team-scoped: org managers and
+// API-key callers pass; a human member must be able to use the sheet's channel
+// (team membership). A denied request 404s so a sheet in a channel the caller
 // cannot see is indistinguishable from a missing one.
 
 // canUseSheetChannel reports whether the current request may act on sheets in
-// channelID. Mirrors SessionHandler.canUseChannel, except API-key callers get
-// no blanket bypass: an org API key is not a team member, so it may use
-// channels open to any org member (external channels and channels with no
-// team) and is denied team-scoped ones.
+// channelID. Mirrors SessionHandler.canUseChannel: it delegates to the shared
+// canUseChannel predicate so the HTTP and agent paths cannot drift.
 func (h *SheetsHandler) canUseSheetChannel(ctx context.Context, orgID, channelID uuid.UUID) bool {
 	var channel model.Channel
 	if err := h.db.WithContext(ctx).
@@ -32,15 +30,12 @@ func (h *SheetsHandler) canUseSheetChannel(ctx context.Context, orgID, channelID
 		First(&channel).Error; err != nil {
 		return false
 	}
-	if isAPIKeyRequest(ctx) {
-		return channel.Origin == "external" || channel.TeamID == nil
-	}
 	userID := sheetsRequestUserID(ctx)
 	orgRole, err := h.sheetsOrgRole(ctx, orgID, userID)
 	if err != nil {
 		return false
 	}
-	return canUseChannel(ctx, h.db, channel, orgRole, userID, false)
+	return canUseChannel(ctx, h.db, channel, orgRole, userID, isAPIKeyRequest(ctx))
 }
 
 func sheetsRequestUserID(ctx context.Context) *uuid.UUID {

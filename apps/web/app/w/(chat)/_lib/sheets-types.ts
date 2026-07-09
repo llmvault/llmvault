@@ -1,6 +1,6 @@
 import type { components } from "@/lib/api/schema"
 
-export type SheetSummary = components["schemas"]["sheetSummary"]
+type SheetSummary = components["schemas"]["sheetSummary"]
 export type SheetPage = components["schemas"]["sheetPageView"]
 export type SheetField = components["schemas"]["sheetFieldView"]
 export type SheetRow = components["schemas"]["sheetRowView"]
@@ -33,7 +33,7 @@ export const SHEET_FIELD_TYPES = [
   "relation",
 ] as const
 
-export type SheetFieldType = (typeof SHEET_FIELD_TYPES)[number]
+type SheetFieldType = (typeof SHEET_FIELD_TYPES)[number]
 
 export interface RowsQueryInput {
   filter?: SheetFilterNode

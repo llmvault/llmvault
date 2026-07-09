@@ -5,7 +5,7 @@ export type AvailableIntegration =
 
 type ConnectionConfigField = components["schemas"]["ConnectionConfigField"]
 
-export interface IntegrationConnectionField {
+interface IntegrationConnectionField {
   key: string
   title: string
   description: string

@@ -84,9 +84,9 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 	hivyT2 := mkAgent(t2.ID, "hivy")
 	hivyT2.IsDefault = true
 
-	chT1 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT1-" + uuid.NewString()[:8], Kind: "standard", TeamID: &t1.ID, DefaultAgentID: agentT1.ID}
-	chT2 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT2-" + uuid.NewString()[:8], Kind: "standard", TeamID: &t2.ID, DefaultAgentID: agentT2.ID}
-	chT1Priv := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "priv-" + uuid.NewString()[:8], Kind: "standard", TeamID: &t1.ID, Visibility: "private", DefaultAgentID: agentT1.ID}
+	chT1 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT1-" + uuid.NewString()[:8], Kind: "standard", TeamID: t1.ID, DefaultAgentID: agentT1.ID}
+	chT2 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT2-" + uuid.NewString()[:8], Kind: "standard", TeamID: t2.ID, DefaultAgentID: agentT2.ID}
+	chT1Priv := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "priv-" + uuid.NewString()[:8], Kind: "standard", TeamID: t1.ID, Visibility: "private", DefaultAgentID: agentT1.ID}
 
 	pluginGranted := model.Plugin{ID: uuid.New(), Slug: "authz-granted-" + uuid.NewString()[:8], Name: "Granted", Status: model.PluginStatusActive}
 	pluginUngranted := model.Plugin{ID: uuid.New(), Slug: "authz-ungranted-" + uuid.NewString()[:8], Name: "Ungranted", Status: model.PluginStatusActive}

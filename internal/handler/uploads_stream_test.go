@@ -75,6 +75,7 @@ func newStreamHarness(t *testing.T) *streamHarness {
 		Name:           "stream-channel",
 		Kind:           "standard",
 		Visibility:     "public",
+		TeamID:         firstTeamID(t, db, orgID),
 		DefaultAgentID: agentID,
 		Origin:         "native",
 	}).Error; err != nil {

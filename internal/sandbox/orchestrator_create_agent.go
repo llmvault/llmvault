@@ -126,7 +126,7 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 
 	bugsinkDashboardURL := agentruntime.BugsinkDashboardBaseURL(ctx, o.db, orgID, *agent)
 	glitchTipDashboardURL := agentruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
-	envVars := agentSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
+	envVars := agentSandboxEnvVars(ctx, o.db, o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
 	labels := map[string]string{
 		"org_id":        orgID.String(),
 		"sandbox_id":    sb.ID.String(),

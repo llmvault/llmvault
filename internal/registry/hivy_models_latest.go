@@ -71,4 +71,22 @@ var latestHivyModels = []HivyModel{
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
 		},
 	},
+	{
+		ID: "hy3",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "tencent/hy3"},
+		},
+	},
+	{
+		ID: "grok-4.5",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "x-ai/grok-4.5"},
+		},
+	},
+	{
+		ID: "laguna-m.1",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "poolside/laguna-m.1"},
+		},
+	},
 }

@@ -11,7 +11,7 @@ import {
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
-export function answeredInputRequestIds(events: SessionEventResponse[]) {
+function answeredInputRequestIds(events: SessionEventResponse[]) {
   const ids = new Set<string>()
   for (const event of events) {
     if (event.event_type !== "question_answered") continue
@@ -49,7 +49,7 @@ export function eventMatchesInputRequest(
   return inputRequestId(payloadRecord(event)) === questionRequestId
 }
 
-export function inputRequestBlock(
+function inputRequestBlock(
   event: SessionEventResponse,
   answeredIds?: Set<string>
 ): InputRequestConversationBlock | undefined {
@@ -68,7 +68,7 @@ export function inputRequestBlock(
   }
 }
 
-export function inputRequestId(payload: Record<string, unknown>) {
+function inputRequestId(payload: Record<string, unknown>) {
   return (
     stringValue(payload, "question_request_id") ||
     stringValue(payload, "request_id") ||

@@ -20,7 +20,7 @@ func TestSheetsChannelVisibilityDenied(t *testing.T) {
 	h := newSheetsHarness(t)
 	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, h.db, h.org.ID), Name: "Team Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	team := model.Team{ID: uuid.New(), OrgID: h.org.ID, Name: "team-" + uuid.NewString()}
-	teamCh := model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "team-ch-" + uuid.NewString(), DefaultAgentID: agent.ID, TeamID: &team.ID}
+	teamCh := model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "team-ch-" + uuid.NewString(), DefaultAgentID: agent.ID, TeamID: team.ID}
 	for _, seed := range []any{&agent, &team, &teamCh} {
 		if err := h.db.Create(seed).Error; err != nil {
 			t.Fatalf("create team-channel seed: %v", err)

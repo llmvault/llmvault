@@ -57,8 +57,8 @@ func TestUsableRagSourceIDs(t *testing.T) {
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "ta-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "tb-" + uuid.NewString()[:8]}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: teamA.ID, Name: "a", Model: "test", Status: "active"}
-	visibleCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "vc-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: agent.ID}
-	hiddenCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "hc-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamB.ID, DefaultAgentID: agent.ID}
+	visibleCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "vc-" + uuid.NewString()[:8], Kind: "standard", TeamID: teamA.ID, DefaultAgentID: agent.ID}
+	hiddenCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "hc-" + uuid.NewString()[:8], Kind: "standard", TeamID: teamB.ID, DefaultAgentID: agent.ID}
 
 	// Base rows first (sources + grants carry FKs to org/channels).
 	base := []any{

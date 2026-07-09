@@ -25,9 +25,9 @@ type SlackReactionTriggerHandler struct {
 	*SlackAppMentionHandler
 }
 
-func NewSlackReactionTriggerHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, ensurer OrgHivyAgentEnsurer, opts ...SlackAppMentionOption) *SlackReactionTriggerHandler {
+func NewSlackReactionTriggerHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, opts ...SlackAppMentionOption) *SlackReactionTriggerHandler {
 	return &SlackReactionTriggerHandler{
-		SlackAppMentionHandler: NewSlackAppMentionHandler(db, orchestrator, compileDeps, enq, nangoClient, ensurer, opts...),
+		SlackAppMentionHandler: NewSlackAppMentionHandler(db, orchestrator, compileDeps, enq, nangoClient, opts...),
 	}
 }
 

@@ -64,7 +64,7 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 			return false
 		}
 		updates["team_id"] = newTeamID
-		channel.TeamID = newTeamID
+		channel.TeamID = *newTeamID
 		// A team change must not strand the channel's default agent in a foreign
 		// team. When the caller isn't also setting a new default agent (which the
 		// DefaultAgentID branch below validates against the new team), re-validate
@@ -78,7 +78,7 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	if req.DefaultAgentID != nil {
-		agentID, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, channel.TeamID, req.DefaultAgentID)
+		agentID, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, &channel.TeamID, req.DefaultAgentID)
 		if !ok {
 			return false
 		}

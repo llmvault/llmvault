@@ -2,7 +2,7 @@ import { providerLogoURL } from "@/lib/provider-logos"
 
 // Keep in sync with canonical model IDs in internal/registry/hivy_models.go.
 // Values are OpenRouter model author slugs, resolved to local assets.
-export const MODEL_LOGO_PROVIDERS = {
+const MODEL_LOGO_PROVIDERS = {
   "claude-opus-4.7": "anthropic",
   "claude-opus-4.7-fast": "anthropic",
   "claude-opus-4.6": "anthropic",
@@ -37,6 +37,7 @@ export const MODEL_LOGO_PROVIDERS = {
   "ling-2.6-1t": "inclusionai",
   "qwen3.7-max": "qwen",
   "qwen3.7-plus": "qwen",
+  "grok-4.5": "x-ai",
   "grok-4.3": "x-ai",
   "nemotron-3-ultra-550b-a55b": "nvidia",
   "qwen3.6-max-preview": "qwen",
@@ -50,6 +51,8 @@ export const MODEL_LOGO_PROVIDERS = {
   "minimax-m3": "minimax",
   "minimax-m2.7": "minimax",
   "glm-5.2": "z-ai",
+  hy3: "tencent",
+  "laguna-m.1": "poolside",
   "glm-5.1": "z-ai",
   "glm-5-turbo": "z-ai",
   "glm-5": "z-ai",
@@ -61,17 +64,7 @@ export const MODEL_LOGO_PROVIDERS = {
   "kimi-k2.5": "moonshotai",
 } as const
 
-const LEGACY_CHAT_MODEL_LOGO_PROVIDERS = {
-  "claude-opus": "anthropic",
-  "claude-sonnet": "anthropic",
-  "deepseek-v3": "deepseek",
-  "gemini-pro": "google",
-  "grok-4": "x-ai",
-  "kimi-k2": "moonshotai",
-  "qwen-max": "qwen",
-} as const
-
-export type KnownModelID = keyof typeof MODEL_LOGO_PROVIDERS
+type KnownModelID = keyof typeof MODEL_LOGO_PROVIDERS
 
 function logoForProvider(provider: string): string {
   const logo = providerLogoURL(provider)
@@ -93,11 +86,7 @@ export function modelLogoURL(
 ): string | undefined {
   if (!modelID) return undefined
 
-  const provider =
-    MODEL_LOGO_PROVIDERS[modelID as KnownModelID] ??
-    LEGACY_CHAT_MODEL_LOGO_PROVIDERS[
-      modelID as keyof typeof LEGACY_CHAT_MODEL_LOGO_PROVIDERS
-    ]
+  const provider = MODEL_LOGO_PROVIDERS[modelID as KnownModelID]
 
   return provider ? providerLogoURL(provider) : undefined
 }

@@ -2,10 +2,8 @@ import type { components } from "@/lib/api/schema"
 
 export type RagSource = components["schemas"]["ragSourceResponse"]
 export type Connection = components["schemas"]["connectionResponse"]
-export type RagScope = components["schemas"]["ConfigurableResourceSummary"]
 
 export const RAG_SOURCES_QUERY_KEY = ["get", "/v1/rag/sources"] as const
-export const CONNECTIONS_QUERY_KEY = ["get", "/v1/connections"] as const
 
 // Providers we support as knowledge sources, with their display metadata. The
 // icon keys resolve through the shared icon registry (brand marks + globe).
@@ -18,9 +16,10 @@ export type ProviderMeta = {
   kind: "INTEGRATION" | "WEBSITE"
   // what the user selects to scope this source (used as the label + empty hint)
   scopeNoun: string
-  // the actual connection.provider values that map to this source. A GitHub
-  // connection reports its variant (github-app / github-app-code-reviews),
-  // not "github".
+  // the actual connection.provider values that map to this source. Only
+  // RAG-capable integrations belong here: github-app-code-reviews is excluded
+  // because its integration has supports_rag_source=false and the backend
+  // rejects it (internal/handler/rag_sources_create.go).
   connectionProviders: string[]
 }
 
@@ -31,7 +30,7 @@ export const PROVIDERS: ProviderMeta[] = [
     icon: "github",
     kind: "INTEGRATION",
     scopeNoun: "repositories",
-    connectionProviders: ["github-app", "github-app-code-reviews"],
+    connectionProviders: ["github-app"],
   },
   { provider: "notion", label: "Notion", icon: "notion", kind: "INTEGRATION", scopeNoun: "pages & databases", connectionProviders: ["notion"] },
   { provider: "slack", label: "Slack", icon: "slack", kind: "INTEGRATION", scopeNoun: "channels", connectionProviders: ["slack"] },
@@ -45,7 +44,7 @@ export function providerMeta(provider: string): ProviderMeta {
 
 // metaForConnectionProvider maps a raw connection.provider string (e.g.
 // "github-app") to its source meta.
-export function metaForConnectionProvider(cp?: string | null): ProviderMeta | undefined {
+function metaForConnectionProvider(cp?: string | null): ProviderMeta | undefined {
   if (!cp) return undefined
   return PROVIDERS.find((p) => p.connectionProviders.includes(cp))
 }

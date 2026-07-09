@@ -1,5 +1,5 @@
-import type { Agent } from "@/app/w/(chat)/_lib/agents"
-
-export type ChatHeaderAgent = Pick<Agent, "name" | "icon"> & {
+export type ChatHeaderAgent = {
+  name: string
+  icon: string
   avatarURL?: string
 }

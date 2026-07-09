@@ -3,12 +3,6 @@
 // act in a channel iff the agent's team owns the channel
 // (agent.team_id == channel.team_id, both non-null). There is no per-channel
 // assignment table anymore.
-//
-// System/external channels carry no team scope (team_id IS NULL — e.g. the
-// #system channel and provider origin='external' channels): any org agent may
-// act in them, preserving the historically permissive posture for shared
-// channels. That exemption lives in ActsInChannel so every caller inherits it
-// uniformly.
 package channelagents
 
 import (
@@ -23,14 +17,13 @@ import (
 )
 
 // ActsInChannel reports whether agentID may run in channelID. It is true when
-// the channel has no team scope (team_id IS NULL, or an external channel — the
-// shared-channel exemption) OR the agent belongs to the channel's owning team.
-// Both the channel and the agent are looked up scoped to orgID; a missing
-// channel or agent yields (false, nil).
+// the agent belongs to the channel's owning team. Both the channel and the
+// agent are looked up scoped to orgID; a missing channel or agent yields
+// (false, nil).
 func ActsInChannel(ctx context.Context, db *gorm.DB, orgID, channelID, agentID uuid.UUID) (bool, error) {
 	var channel model.Channel
 	err := db.WithContext(ctx).
-		Select("id", "team_id", "origin").
+		Select("id", "team_id").
 		Where("id = ? AND org_id = ?", channelID, orgID).
 		First(&channel).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -38,12 +31,6 @@ func ActsInChannel(ctx context.Context, db *gorm.DB, orgID, channelID, agentID u
 	}
 	if err != nil {
 		return false, fmt.Errorf("load channel: %w", err)
-	}
-	// System/external channels have no team to bound against: any org agent may
-	// act. (team_id IS NULL covers #system; the origin guard is belt-and-braces
-	// for any external channel that ever carries a team.)
-	if channel.TeamID == nil || channel.Origin == "external" {
-		return true, nil
 	}
 	var agent model.Agent
 	err = db.WithContext(ctx).
@@ -56,5 +43,5 @@ func ActsInChannel(ctx context.Context, db *gorm.DB, orgID, channelID, agentID u
 	if err != nil {
 		return false, fmt.Errorf("load agent: %w", err)
 	}
-	return agent.TeamID == *channel.TeamID, nil
+	return agent.TeamID == channel.TeamID, nil
 }

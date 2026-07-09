@@ -77,7 +77,7 @@ const PROVIDER_LOGO_ALIASES = {
   zai: "z-ai",
 } as const
 
-export type KnownProviderLogoID = keyof typeof PROVIDER_LOGOS
+type KnownProviderLogoID = keyof typeof PROVIDER_LOGOS
 type ProviderLogoAlias = keyof typeof PROVIDER_LOGO_ALIASES
 
 function normalizeProviderSlug(provider: string): string {

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import type { OrgDriveUploadItem } from "@/hooks/use-org-drive-file-uploads"
 import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
 
-export type AttachmentStatus = "uploading" | "describing" | "ready" | "error"
+type AttachmentStatus = "uploading" | "describing" | "ready" | "error"
 
 export type AttachmentDescriptionState =
   | { status: "describing" }

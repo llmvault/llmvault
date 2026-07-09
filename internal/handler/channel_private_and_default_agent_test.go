@@ -11,10 +11,10 @@ import (
 )
 
 // TestPrivateChannelVisibility asserts that channels.visibility == "private"
-// gates a channel to its explicit members even when its origin/team would
-// otherwise open it to the whole org: a private external channel and a private
-// team-less channel must be invisible/unusable to a non-member org member, yet
-// visible/usable to a channel member and to org managers.
+// gates a channel to its explicit members even when its team would otherwise
+// open it to the whole team: a private channel must be invisible/unusable to a
+// non-member org member, yet visible/usable to a channel member and to org
+// managers.
 func TestPrivateChannelVisibility(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
@@ -23,26 +23,20 @@ func TestPrivateChannelVisibility(t *testing.T) {
 	outsider := h.seedUser(t, fx.org.ID, "member")
 	insider := h.seedUser(t, fx.org.ID, "member")
 
-	// A private channel that is EITHER externally sourced OR team-less — both are
-	// normally open to any org member, so both must be gated by private.
+	// A private channel scoped to the fixture team — its team membership would
+	// normally open it to team members, so private must gate it to its members.
 	extCh := model.Channel{
 		OrgID: fx.org.ID, Name: "priv-ext-" + uuid.NewString()[:8], Kind: "standard",
-		Origin: "external", Visibility: "private", DefaultAgentID: fx.agent.ID,
+		Origin: "external", Visibility: "private", TeamID: fx.team.ID, DefaultAgentID: fx.agent.ID,
 	}
-	nullCh := model.Channel{
-		OrgID: fx.org.ID, Name: "priv-null-" + uuid.NewString()[:8], Kind: "standard",
-		Visibility: "private", DefaultAgentID: fx.agent.ID,
+	if err := h.db.Create(&extCh).Error; err != nil {
+		t.Fatalf("create channel: %v", err)
 	}
-	for _, c := range []*model.Channel{&extCh, &nullCh} {
-		if err := h.db.Create(c).Error; err != nil {
-			t.Fatalf("create channel: %v", err)
-		}
-		if err := h.db.Create(&model.ChannelMember{ChannelID: c.ID, UserID: insider.ID, Role: "member"}).Error; err != nil {
-			t.Fatalf("add channel member: %v", err)
-		}
+	if err := h.db.Create(&model.ChannelMember{ChannelID: extCh.ID, UserID: insider.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("add channel member: %v", err)
 	}
 	t.Cleanup(func() {
-		h.db.Where("channel_id IN ?", []uuid.UUID{extCh.ID, nullCh.ID}).Delete(&model.ChannelMember{})
+		h.db.Where("channel_id = ?", extCh.ID).Delete(&model.ChannelMember{})
 	})
 
 	listed := func(user model.User) map[string]bool {
@@ -65,34 +59,31 @@ func TestPrivateChannelVisibility(t *testing.T) {
 		return rr.Code
 	}
 
-	// A non-member org member must neither list nor view either private channel.
+	// A non-member org member must neither list nor view the private channel.
 	out := listed(outsider)
-	if out[extCh.ID.String()] || out[nullCh.ID.String()] {
-		t.Fatalf("outsider must not list private channels: %v", out)
+	if out[extCh.ID.String()] {
+		t.Fatalf("outsider must not list private channel: %v", out)
 	}
 	if code := getStatus(outsider, extCh.ID); code != http.StatusForbidden {
-		t.Fatalf("outsider get external = %d, want 403", code)
-	}
-	if code := getStatus(outsider, nullCh.ID); code != http.StatusForbidden {
-		t.Fatalf("outsider get team-less = %d, want 403", code)
+		t.Fatalf("outsider get private = %d, want 403", code)
 	}
 
-	// A channel member sees and can view them.
+	// A channel member sees and can view it.
 	in := listed(insider)
-	if !in[extCh.ID.String()] || !in[nullCh.ID.String()] {
-		t.Fatalf("insider must list both private channels: %v", in)
+	if !in[extCh.ID.String()] {
+		t.Fatalf("insider must list the private channel: %v", in)
 	}
 	if code := getStatus(insider, extCh.ID); code != http.StatusOK {
-		t.Fatalf("insider get external = %d, want 200", code)
+		t.Fatalf("insider get private = %d, want 200", code)
 	}
 
 	// Org managers keep org-wide visibility.
 	adm := listed(admin)
-	if !adm[extCh.ID.String()] || !adm[nullCh.ID.String()] {
-		t.Fatalf("admin must list both private channels: %v", adm)
+	if !adm[extCh.ID.String()] {
+		t.Fatalf("admin must list the private channel: %v", adm)
 	}
-	if code := getStatus(admin, nullCh.ID); code != http.StatusOK {
-		t.Fatalf("admin get team-less = %d, want 200", code)
+	if code := getStatus(admin, extCh.ID); code != http.StatusOK {
+		t.Fatalf("admin get private = %d, want 200", code)
 	}
 }
 

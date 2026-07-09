@@ -1,4 +1,4 @@
-export const CREDIT_USD_VALUE = 0.001
+const CREDIT_USD_VALUE = 0.001
 
 export interface SessionUsageSnapshot {
   cost_usd?: number

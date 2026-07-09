@@ -162,12 +162,17 @@ func newAppsRESTHarness(t *testing.T) *appsRESTHarness {
 		t.Fatalf("create membership: %v", err)
 	}
 	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Apps Rest Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-rest-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
-	h.otherChan = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-rest-other-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
+	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-rest-" + uuid.NewString(), TeamID: h.agent.TeamID, DefaultAgentID: h.agent.ID}
+	h.otherChan = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-rest-other-" + uuid.NewString(), TeamID: h.agent.TeamID, DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel, &h.otherChan} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("seed: %v", err)
 		}
+	}
+	// The user is an active member of the channels' team so member-authenticated
+	// launches resolve channel access (public channels open to their team).
+	if err := db.Create(&model.TeamMember{OrgID: h.org.ID, TeamID: h.agent.TeamID, UserID: h.user.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("seed team member: %v", err)
 	}
 	h.sheet = model.Sheet{ID: uuid.New(), OrgID: h.org.ID, ChannelID: h.channel.ID, Slug: "apps-rest-" + uuid.NewString()[:8], Name: "Rest Sheet"}
 	h.crossWire = model.Sheet{ID: uuid.New(), OrgID: h.org.ID, ChannelID: h.otherChan.ID, Slug: "apps-cross-" + uuid.NewString()[:8], Name: "Cross Sheet"}

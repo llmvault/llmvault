@@ -86,11 +86,12 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 		t.Fatalf("set agentB instructions: %v", err)
 	}
 
-	// Extra positive-control channels the member CAN use (external / null team).
+	// Extra positive-control channels the member CAN use — all scoped to the
+	// member's team (teamA), spanning standard / external / system kinds.
 	agentShared := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: fx.visibleAgent.TeamID, Name: "shared-" + uuid.NewString()[:8], Model: "test", Status: "active"}
-	chanNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "null-" + uuid.NewString()[:8], Kind: "standard", DefaultAgentID: agentShared.ID}
-	chanExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ext-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", DefaultAgentID: agentShared.ID}
-	chanSys := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "sys-" + uuid.NewString()[:8], Kind: "system", DefaultAgentID: agentShared.ID}
+	chanNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "null-" + uuid.NewString()[:8], Kind: "standard", TeamID: fx.visibleAgent.TeamID, DefaultAgentID: agentShared.ID}
+	chanExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ext-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", TeamID: fx.visibleAgent.TeamID, DefaultAgentID: agentShared.ID}
+	chanSys := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "sys-" + uuid.NewString()[:8], Kind: "system", TeamID: fx.visibleAgent.TeamID, DefaultAgentID: agentShared.ID}
 
 	triggerA := model.AgentTrigger{
 		ID: uuid.New(), OrgID: org.ID, AgentID: fx.visibleAgent.ID, TriggerType: "webhook",
@@ -146,10 +147,10 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 	// Knowledge grants are team-derived: grant srcA to teamA (visibleCh's team, so
 	// the member sees it) and srcB to teamB (hiddenCh's team, so the member does
 	// not). Mirrors the removed per-channel grants' intent.
-	if err := db.Create(&model.TeamRagSource{OrgID: org.ID, TeamID: *fx.visibleCh.TeamID, RagSourceID: srcA.ID}).Error; err != nil {
+	if err := db.Create(&model.TeamRagSource{OrgID: org.ID, TeamID: fx.visibleCh.TeamID, RagSourceID: srcA.ID}).Error; err != nil {
 		t.Fatalf("grant srcA: %v", err)
 	}
-	if err := db.Create(&model.TeamRagSource{OrgID: org.ID, TeamID: *fx.hiddenCh.TeamID, RagSourceID: srcB.ID}).Error; err != nil {
+	if err := db.Create(&model.TeamRagSource{OrgID: org.ID, TeamID: fx.hiddenCh.TeamID, RagSourceID: srcB.ID}).Error; err != nil {
 		t.Fatalf("grant srcB: %v", err)
 	}
 	// The installed agent for this catalog is only on chanB, so the member must

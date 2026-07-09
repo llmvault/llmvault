@@ -1,7 +1,7 @@
 import type { components } from "@/lib/api/schema"
 
 export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
-export type Payload = Record<string, unknown>
+type Payload = Record<string, unknown>
 
 export function compareSessionEvents(
   left: SessionEventResponse,
@@ -63,7 +63,7 @@ export function parseTimestamp(value: string): number | undefined {
   return Number.isNaN(time) ? undefined : time
 }
 
-export function durationBetween(startedAt: string, endedAt: string) {
+function durationBetween(startedAt: string, endedAt: string) {
   if (!startedAt || !endedAt) return undefined
   const started = Date.parse(startedAt)
   const ended = Date.parse(endedAt)

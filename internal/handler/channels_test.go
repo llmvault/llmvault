@@ -170,7 +170,7 @@ func TestIntegration_ChannelsListIsMembershipScoped(t *testing.T) {
 
 	extChannel := model.Channel{
 		OrgID:            fx.org.ID,
-		TeamID:           &privateTeam.ID,
+		TeamID:           privateTeam.ID,
 		Name:             "slack-qa",
 		Kind:             "standard",
 		Visibility:       "public",

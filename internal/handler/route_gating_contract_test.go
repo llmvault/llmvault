@@ -117,8 +117,8 @@ func TestRouteGating_ChannelCreateTeamMembership(t *testing.T) {
 	// team-owned), so each create uses the fixture agent of the target team to
 	// isolate this test to the team-membership gate under test.
 	agentForTeam := map[uuid.UUID]uuid.UUID{
-		*fx.visibleCh.TeamID: fx.visibleAgent.ID,
-		*fx.hiddenCh.TeamID:  fx.hiddenAgent.ID,
+		fx.visibleCh.TeamID: fx.visibleAgent.ID,
+		fx.hiddenCh.TeamID:  fx.hiddenAgent.ID,
 	}
 
 	var created []uuid.UUID
@@ -160,8 +160,8 @@ func TestRouteGating_ChannelCreateTeamMembership(t *testing.T) {
 		return rr.Code
 	}
 
-	teamA := fx.visibleCh.TeamID // member is an active member
-	teamB := fx.hiddenCh.TeamID  // member is NOT
+	teamA := &fx.visibleCh.TeamID // member is an active member
+	teamB := &fx.hiddenCh.TeamID  // member is NOT
 
 	if got := create(memberCaller(fx), teamA); got != http.StatusCreated {
 		t.Fatalf("member in own team: got %d want 201", got)
@@ -216,23 +216,27 @@ func TestRouteGating_SandboxExecVisibleAgentOnly(t *testing.T) {
 // TestRouteGating_ScheduleCreateTeamManage proves the trigger/schedule create
 // relaxation is guarded: creating a schedule bound to a channel is a manage-the-
 // channel's-team action, not merely use-the-channel. A member who may USE a
-// team-less channel (canUseChannel is open for it) is still denied (403) at the
-// binding-manage gate, while a manager passes it. This is the exact escalation
-// the relaxation must not open.
+// channel through explicit channel membership — but is NOT a member of that
+// channel's team — is still denied (403) at the binding-manage gate, while a
+// manager passes it. This is the exact escalation the relaxation must not open.
 func TestRouteGating_ScheduleCreateTeamManage(t *testing.T) {
 	db := connectTestDB(t)
 	fx := seedVisFixture(t, db)
 	h := handler.NewScheduleHandler(db)
 
-	// A team-less channel: any member may use it (canUseChannel true), and any org
-	// agent may act in it (team-less channels are unbounded), so the binding-manage
-	// gate is what decides.
-	ch := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, Name: "teamless-" + uuid.NewString()[:8], Kind: "standard", DefaultAgentID: fx.visibleAgent.ID}
+	// A private channel on teamB (which the member is NOT on) whose default agent
+	// is teamB's agent: the member may USE it via explicit channel membership, yet
+	// cannot MANAGE teamB, so the binding-manage gate is what decides.
+	ch := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, Name: "teamch-" + uuid.NewString()[:8], Kind: "standard", Visibility: "private", TeamID: fx.hiddenCh.TeamID, DefaultAgentID: fx.hiddenAgent.ID}
 	if err := db.Create(&ch).Error; err != nil {
-		t.Fatalf("seed team-less channel: %v", err)
+		t.Fatalf("seed team channel: %v", err)
+	}
+	if err := db.Create(&model.ChannelMember{ChannelID: ch.ID, UserID: fx.member.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("seed channel member: %v", err)
 	}
 	t.Cleanup(func() {
 		db.Where("org_id = ?", fx.org.ID).Delete(&model.AgentSchedule{})
+		db.Where("channel_id = ?", ch.ID).Delete(&model.ChannelMember{})
 		db.Where("id = ?", ch.ID).Delete(&model.Channel{})
 	})
 
@@ -240,7 +244,7 @@ func TestRouteGating_ScheduleCreateTeamManage(t *testing.T) {
 	create := func(c caller) int {
 		body := map[string]any{
 			"name":             "sched-" + uuid.NewString()[:6],
-			"agent_id":         fx.visibleAgent.ID.String(),
+			"agent_id":         fx.hiddenAgent.ID.String(),
 			"channel_id":       ch.ID.String(),
 			"task_prompt":      "do a thing",
 			"interval_seconds": interval,
@@ -254,10 +258,10 @@ func TestRouteGating_ScheduleCreateTeamManage(t *testing.T) {
 	}
 
 	if got := create(memberCaller(fx)); got != http.StatusForbidden {
-		t.Fatalf("member schedule on team-less channel: got %d want 403 (manage gate)", got)
+		t.Fatalf("member schedule on non-member team channel: got %d want 403 (manage gate)", got)
 	}
 	if got := create(adminCaller(fx)); got == http.StatusForbidden {
-		t.Fatalf("admin schedule on team-less channel: got 403, must pass the manage gate")
+		t.Fatalf("admin schedule on team channel: got 403, must pass the manage gate")
 	}
 }
 

@@ -1,4 +1,4 @@
-export const CREDIT_USD_VALUE = 0.001
+const CREDIT_USD_VALUE = 0.001
 
 export function creditsToUsageUSD(credits: number | undefined | null) {
   return (credits ?? 0) * CREDIT_USD_VALUE

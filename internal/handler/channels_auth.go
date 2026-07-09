@@ -63,8 +63,7 @@ func isOrgOwner(role string) bool {
 
 // canManageChannel reports whether the caller may manage the given channel under
 // the team-primary model: API-key callers and org managers always may; otherwise
-// the caller must be an active member of the channel's owning team. Team-less
-// channels (team_id IS NULL) are manageable only by managers/API keys.
+// the caller must be an active member of the channel's owning team.
 //
 // This REPLACES the previous channel-owner-based check
 // (canManageChannel(orgRole, memberRole, apiKey)): channel-member "owner" role no
@@ -74,10 +73,7 @@ func canManageChannel(ctx context.Context, db *gorm.DB, channel model.Channel, u
 	if apiKey || isOrgManager(role) {
 		return true
 	}
-	if channel.TeamID == nil {
-		return false
-	}
-	return canManageTeamResource(ctx, db, channel.OrgID, userID, role, *channel.TeamID)
+	return canManageTeamResource(ctx, db, channel.OrgID, userID, role, channel.TeamID)
 }
 
 func (h *ChannelHandler) authorizeChannel(w http.ResponseWriter, r *http.Request, requireManage bool) (model.Channel, *uuid.UUID, string, bool) {

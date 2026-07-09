@@ -1293,6 +1293,33 @@ var curatedProviders = []Provider{
 				},
 				Description: "Premium vector/SVG image model for higher-resolution production graphics, icons, logos, and illustrations.",
 			},
+			"tencent/hy3": {
+				ID:               "tencent/hy3",
+				Name:             "Hy3",
+				Family:           "hy",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				OpenWeights:      true,
+				ReleaseDate:      "2026-07-06",
+				Description:      "295B-parameter MoE from Tencent (21B active) with configurable reasoning effort, built for agentic workflows.",
+				Modalities: &Modalities{
+					Input:  []string{"text"},
+					Output: []string{"text"},
+				},
+				// Priced from the AtlasCloud endpoint — the only one supporting
+				// tool calls; the cheaper $0.14/$0.58 headline endpoint has no
+				// tools/structured-output support so agent traffic never hits it.
+				Cost: &Cost{
+					Input:     0.2,
+					Output:    0.8,
+					CacheRead: 0.5,
+				},
+				Limit: &Limit{
+					Context: 202752,
+					Output:  131072,
+				},
+			},
 			"qwen/qwen3.7-max": {
 				ID:               "qwen/qwen3.7-max",
 				Name:             "Qwen3.7 Max",
@@ -1337,6 +1364,52 @@ var curatedProviders = []Provider{
 				Limit: &Limit{
 					Context: 1000000,
 					Output:  65536,
+				},
+			},
+			"x-ai/grok-4.5": {
+				ID:               "x-ai/grok-4.5",
+				Name:             "Grok 4.5",
+				Family:           "grok",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				ReleaseDate:      "2026-07-08",
+				Description:      "xAI's smartest model with frontier performance on coding, knowledge work, and STEM.",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image", "pdf"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     2,
+					Output:    6,
+					CacheRead: 0.5,
+				},
+				Limit: &Limit{
+					Context: 500000,
+					Output:  500000,
+				},
+			},
+			"poolside/laguna-m.1": {
+				ID:          "poolside/laguna-m.1",
+				Name:        "Laguna M.1",
+				Family:      "laguna",
+				Reasoning:   true,
+				ToolCall:    true,
+				OpenWeights: true,
+				ReleaseDate: "2026-04-28",
+				Description: "Poolside's flagship coding agent model, optimized for complex software engineering and agentic coding workflows.",
+				Modalities: &Modalities{
+					Input:  []string{"text"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     0.2,
+					Output:    0.4,
+					CacheRead: 0.1,
+				},
+				Limit: &Limit{
+					Context: 262144,
+					Output:  32768,
 				},
 			},
 			"x-ai/grok-4.3": {

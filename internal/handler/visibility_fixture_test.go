@@ -47,8 +47,8 @@ func seedVisFixture(t *testing.T, db *gorm.DB) visFixture {
 	visibleAgent := mkAgent("Visible", teamA.ID)
 	hiddenAgent := mkAgent("Hidden", teamB.ID)
 
-	visibleCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "vis-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: visibleAgent.ID}
-	hiddenCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "hid-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamB.ID, DefaultAgentID: hiddenAgent.ID}
+	visibleCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "vis-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: teamA.ID, DefaultAgentID: visibleAgent.ID}
+	hiddenCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "hid-ch-" + uuid.NewString()[:8], Kind: "standard", TeamID: teamB.ID, DefaultAgentID: hiddenAgent.ID}
 
 	visibleSess := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: visibleCh.ID, AgentID: visibleAgent.ID, Status: "active"}
 	hiddenSess := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: hiddenCh.ID, AgentID: hiddenAgent.ID, Status: "active"}

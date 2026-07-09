@@ -120,8 +120,13 @@ func seedTriggerSessionFixture(t *testing.T, db *gorm.DB) (model.Org, model.Agen
 
 func seedTriggerChannel(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, name string) model.Channel {
 	t.Helper()
+	var a model.Agent
+	if err := db.Where("id = ?", agentID).First(&a).Error; err != nil {
+		t.Fatalf("lookup agent team: %v", err)
+	}
 	channel := model.Channel{
 		OrgID:          orgID,
+		TeamID:         a.TeamID,
 		Name:           name + "-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",
@@ -131,7 +136,6 @@ func seedTriggerChannel(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, nam
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}
-	// Team-less channel: any org agent may act in it under the team-primary model.
 	return channel
 }
 

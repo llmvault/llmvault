@@ -1,7 +1,7 @@
 import type { GitStatusEntry } from "@pierre/trees"
 import type { UploadedDriveAsset } from "@/app/w/(chat)/_lib/image-attachments"
 
-export type WorkspaceUploadStatus = "uploading" | "uploaded" | "error"
+type WorkspaceUploadStatus = "uploading" | "uploaded" | "error"
 
 export interface WorkspaceUploadItem {
   id: string

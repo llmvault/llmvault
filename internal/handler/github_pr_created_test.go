@@ -73,7 +73,7 @@ func seedPRCreatedFixture(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricKey
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
-	channel := model.Channel{OrgID: org.ID, Name: "repo-" + uuid.NewString()[:8], DefaultAgentID: agent.ID, Origin: "native"}
+	channel := model.Channel{OrgID: org.ID, Name: "repo-" + uuid.NewString()[:8], TeamID: agent.TeamID, DefaultAgentID: agent.ID, Origin: "native"}
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}

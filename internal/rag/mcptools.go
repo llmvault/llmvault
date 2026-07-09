@@ -170,10 +170,9 @@ func resolveKnowledgeChannel(ctx context.Context, db *gorm.DB, token *model.Toke
 //
 // Grants are TEAM-authoritative (team_rag_sources): a channel inherits exactly
 // the sources granted to its owning team. This mirrors the HTTP-side resolution
-// in handler.usableRagSourceIDs. A channel with no team, or a team with no
-// grants, has no knowledge access (deny-by-default). Results are still further
-// constrained to the caller's org by the Qdrant scoped filter
-// (qdrant.BuildScopedFilter) applied by the caller.
+// in handler.usableRagSourceIDs. A team with no grants has no knowledge access
+// (deny-by-default). Results are still further constrained to the caller's org
+// by the Qdrant scoped filter (qdrant.BuildScopedFilter) applied by the caller.
 //
 // Historically this read the now-removed channel_rag_sources table, which the
 // production grant writers never populated — so knowledge search returned zero
@@ -186,15 +185,11 @@ func channelSourceIDs(ctx context.Context, db *gorm.DB, orgID, channelID uuid.UU
 		First(&channel).Error; err != nil {
 		return nil, err
 	}
-	// No team → no team grants → no knowledge access.
-	if channel.TeamID == nil {
-		return []string{}, nil
-	}
 	var ids []uuid.UUID
 	if err := db.WithContext(ctx).
 		Model(&model.TeamRagSource{}).
 		Distinct("rag_source_id").
-		Where("org_id = ? AND team_id = ?", orgID, *channel.TeamID).
+		Where("org_id = ? AND team_id = ?", orgID, channel.TeamID).
 		Pluck("rag_source_id", &ids).Error; err != nil {
 		return nil, err
 	}

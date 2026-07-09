@@ -63,7 +63,7 @@ export const CHANNEL_CATEGORIES = [
 
 export type ChannelCategory = (typeof CHANNEL_CATEGORIES)[number]["value"]
 
-export function categoryLabel(value: string): string {
+function categoryLabel(value: string): string {
   return (
     CHANNEL_CATEGORIES.find((category) => category.value === value)?.label ??
     value
@@ -71,7 +71,7 @@ export function categoryLabel(value: string): string {
 }
 
 /** Channel fields added by the memory rework, not yet in the OpenAPI schema. */
-export type ChannelMemorySettings = {
+type ChannelMemorySettings = {
   category: string
   memoryMission: string
   /**
@@ -95,7 +95,7 @@ export function channelMemorySettings(channel: unknown): ChannelMemorySettings {
   }
 }
 
-export const OBSERVATION_KINDS: Record<
+const OBSERVATION_KINDS: Record<
   string,
   { label: string; chipClass: string }
 > = {
@@ -157,7 +157,7 @@ export type Observation = {
   archivedAt: string | null
 }
 
-export type DirectiveSource = "user-pinned" | "extracted-confirmed"
+type DirectiveSource = "user-pinned" | "extracted-confirmed"
 
 export type Directive = {
   id: string
@@ -202,7 +202,7 @@ function toDirective(raw: DirectiveResponse): Directive {
 // ---------------------------------------------------------------------------
 
 /** Observations page size for the paginated list. */
-export const OBSERVATIONS_PAGE_SIZE = 30
+const OBSERVATIONS_PAGE_SIZE = 30
 
 /**
  * openapi-react-query cache-key prefix for a channel's observation list. The

@@ -1,17 +1,19 @@
 package sandbox
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func agentSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.Sandbox, orgID uuid.UUID, agent *model.Agent, secrets *agentruntime.StartupSecrets, gitIdentity *agentGitIdentity, bugsinkDashboardURL string, glitchTipDashboardURL string) map[string]string {
+func agentSandboxEnvVars(ctx context.Context, db *gorm.DB, cfg *config.Config, runtimeSecret string, sb *model.Sandbox, orgID uuid.UUID, agent *model.Agent, secrets *agentruntime.StartupSecrets, gitIdentity *agentGitIdentity, bugsinkDashboardURL string, glitchTipDashboardURL string) map[string]string {
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	proxyBaseURL := cfg.ProxyOpenAIBaseURL()
 	envVars := map[string]string{
@@ -38,6 +40,11 @@ func agentSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.San
 		GitEmail:                  agentGitEmail(agent, gitIdentity),
 		BugsinkDashboardBaseURL:   bugsinkDashboardURL,
 		GlitchTipDashboardBaseURL: glitchTipDashboardURL,
+	}
+	if agent != nil {
+		if allowed, err := agentruntime.AllowedServiceProxyProviders(ctx, db, *agent); err == nil {
+			opts.AllowedServiceProxyProviders = allowed
+		}
 	}
 	agentruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, runtimeSecret, opts)
 	return envVars

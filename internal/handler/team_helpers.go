@@ -125,7 +125,7 @@ func (h *TeamHandler) attachTeamChannels(ctx context.Context, orgID uuid.UUID, o
 		Where("org_id = ? AND archived_at IS NULL AND team_id IN ?", orgID, ids)
 	if !orgWide {
 		q = q.Where(
-			"(channels.visibility <> ? AND (channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+			"(channels.visibility <> ? AND channels.team_id IN (?)) OR channels.id IN (?)",
 			"private", visibleTeamSubquery(h.db, userID), memberChannelIDSubquery(h.db, userID))
 	}
 	q = q.Order("channels.created_at DESC, channels.id DESC")

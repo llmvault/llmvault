@@ -45,7 +45,7 @@ async function getKey(): Promise<CryptoKey> {
 // Encrypt / Decrypt
 // ---------------------------------------------------------------------------
 
-export async function encrypt(data: SessionData): Promise<string> {
+async function encrypt(data: SessionData): Promise<string> {
   const key = await getKey()
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const plaintext = new TextEncoder().encode(JSON.stringify(data))
@@ -62,7 +62,7 @@ export async function encrypt(data: SessionData): Promise<string> {
   return btoa(String.fromCharCode(...buf))
 }
 
-export async function decrypt(cookie: string): Promise<SessionData | null> {
+async function decrypt(cookie: string): Promise<SessionData | null> {
   try {
     const key = await getKey()
     const buf = Uint8Array.from(atob(cookie), (c) => c.charCodeAt(0))
@@ -87,7 +87,7 @@ export async function decrypt(cookie: string): Promise<SessionData | null> {
 // Cookie helpers
 // ---------------------------------------------------------------------------
 
-export async function getSession(): Promise<SessionData | null> {
+async function getSession(): Promise<SessionData | null> {
   const store = await cookies()
   const cookie = store.get(COOKIE_NAME)
   if (!cookie?.value) return null
@@ -104,7 +104,7 @@ export function clearSessionCookie(): string {
   return `${COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
 }
 
-export function getSessionCookieName(): string {
+function getSessionCookieName(): string {
   return COOKIE_NAME
 }
 

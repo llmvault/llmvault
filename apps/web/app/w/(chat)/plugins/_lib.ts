@@ -8,7 +8,7 @@ export type PluginResourceRequirement =
 
 export type PluginCategory = "All" | "Featured" | string
 
-export const BASE_CATEGORIES: PluginCategory[] = ["All", "Featured"]
+const BASE_CATEGORIES: PluginCategory[] = ["All", "Featured"]
 
 export const PLUGINS_QUERY_KEY = ["get", "/v1/plugins"]
 
@@ -20,7 +20,7 @@ export function pluginCategory(plugin: ApiPlugin): string {
   return plugin.category || "Other"
 }
 
-export function pluginDetailCategory(plugin: ApiPlugin): string {
+function pluginDetailCategory(plugin: ApiPlugin): string {
   return plugin.detail_category || plugin.category || "Other"
 }
 
@@ -32,7 +32,7 @@ export function pluginIconColor(plugin: ApiPlugin): string {
   return plugin.icon_color || "#18181B"
 }
 
-export function pluginDeveloper(plugin: ApiPlugin): string {
+function pluginDeveloper(plugin: ApiPlugin): string {
   return plugin.developer || "Hivy"
 }
 
@@ -44,11 +44,11 @@ export function pluginName(plugin: ApiPlugin): string {
   return plugin.name || pluginSlug(plugin) || "Plugin"
 }
 
-export function pluginLongDescription(plugin: ApiPlugin): string {
+function pluginLongDescription(plugin: ApiPlugin): string {
   return plugin.long_description || pluginDescription(plugin)
 }
 
-export function pluginCapabilities(plugin: ApiPlugin): string[] {
+function pluginCapabilities(plugin: ApiPlugin): string[] {
   return plugin.capabilities?.length ? plugin.capabilities : ["Read"]
 }
 
@@ -58,7 +58,7 @@ export function pluginLogoProvider(plugin: ApiPlugin): string | null {
   return required[0].provider || null
 }
 
-export function pluginRequiredConnections(
+function pluginRequiredConnections(
   plugin: ApiPlugin
 ): PluginRequirement[] {
   return (plugin.required_connections ?? []).filter(
@@ -73,7 +73,7 @@ export function pluginShownRequiredConnections(
   return required.length > 0 ? required : pluginMissingRequirements(plugin)
 }
 
-export function pluginRequiredIntegrationProvider(
+function pluginRequiredIntegrationProvider(
   plugin: ApiPlugin
 ): string | null {
   const required = pluginRequiredConnections(plugin)
@@ -86,7 +86,7 @@ export function pluginRequiredIntegrationProvider(
   return required[0].provider || null
 }
 
-export function pluginRequiredDatabaseProvider(
+function pluginRequiredDatabaseProvider(
   plugin: ApiPlugin
 ): string | null {
   const required = pluginRequiredConnections(plugin)
@@ -109,7 +109,7 @@ export function pluginMissingRequirements(
   return plugin.missing_requirements ?? []
 }
 
-export function pluginResourceRequirements(
+function pluginResourceRequirements(
   plugin: ApiPlugin
 ): PluginResourceRequirement[] {
   return plugin.resource_requirements ?? []
@@ -141,7 +141,7 @@ export function pluginResourceSelectLabel(
   return `Select ${pluginResourceDisplayName(requirement).toLowerCase()}`
 }
 
-export function pluginNextMissingRequirement(
+function pluginNextMissingRequirement(
   plugin: ApiPlugin
 ): PluginRequirement | null {
   return (

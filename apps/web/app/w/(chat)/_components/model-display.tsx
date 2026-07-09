@@ -1,6 +1,5 @@
 import Image from "next/image"
 import { AppIcon } from "@/components/icon"
-import { modelById } from "@/app/w/(chat)/_lib/agents"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { modelLogoURL } from "@/lib/model-logos"
 import { cn } from "@/lib/utils"
@@ -18,18 +17,14 @@ export function displayModel(
   const summary = modelSummaryForId(id, summaries)
   if (summary) return displayModelSummary(id, summary)
 
-  try {
-    return modelById(id)
-  } catch {
-    return {
-      id,
-      label: id,
-      provider: "Agent model",
-    }
+  return {
+    id,
+    label: id,
+    provider: "Agent model",
   }
 }
 
-export function displayModelSummary(
+function displayModelSummary(
   id: string,
   summary: ModelSummary
 ): DisplayModel {

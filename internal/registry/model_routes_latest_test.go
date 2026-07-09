@@ -40,6 +40,63 @@ func TestOpenRouterMiniMaxM3AndGLM52Catalog(t *testing.T) {
 	}
 }
 
+func TestOpenRouterTencentHy3Catalog(t *testing.T) {
+	hy3, ok := Global().ResolveModel("openrouter", "hy3")
+	if !ok {
+		t.Fatal("hy3 route not found")
+	}
+	if hy3.UpstreamID != "tencent/hy3" {
+		t.Fatalf("hy3 upstream = %q, want tencent/hy3", hy3.UpstreamID)
+	}
+	if hy3.Model.Cost == nil || hy3.Model.Cost.Input != 0.2 || hy3.Model.Cost.Output != 0.8 || hy3.Model.Cost.CacheRead != 0.5 {
+		t.Fatalf("hy3 cost = %#v", hy3.Model.Cost)
+	}
+	if hy3.Model.Limit == nil || hy3.Model.Limit.Context != 202752 || hy3.Model.Limit.Output != 131072 {
+		t.Fatalf("hy3 limit = %#v", hy3.Model.Limit)
+	}
+	if !hy3.Model.ToolCall || !hy3.Model.StructuredOutput || !hy3.Model.Reasoning || !hy3.Model.OpenWeights {
+		t.Fatalf("hy3 capabilities = tool_call:%v structured:%v reasoning:%v open_weights:%v", hy3.Model.ToolCall, hy3.Model.StructuredOutput, hy3.Model.Reasoning, hy3.Model.OpenWeights)
+	}
+}
+
+func TestOpenRouterGrok45Catalog(t *testing.T) {
+	grok, ok := Global().ResolveModel("openrouter", "grok-4.5")
+	if !ok {
+		t.Fatal("grok-4.5 route not found")
+	}
+	if grok.UpstreamID != "x-ai/grok-4.5" {
+		t.Fatalf("grok-4.5 upstream = %q, want x-ai/grok-4.5", grok.UpstreamID)
+	}
+	if grok.Model.Cost == nil || grok.Model.Cost.Input != 2 || grok.Model.Cost.Output != 6 || grok.Model.Cost.CacheRead != 0.5 {
+		t.Fatalf("grok-4.5 cost = %#v", grok.Model.Cost)
+	}
+	if grok.Model.Limit == nil || grok.Model.Limit.Context != 500000 || grok.Model.Limit.Output != 500000 {
+		t.Fatalf("grok-4.5 limit = %#v", grok.Model.Limit)
+	}
+	if !grok.Model.ToolCall || !grok.Model.StructuredOutput || !grok.Model.Reasoning || grok.Model.OpenWeights {
+		t.Fatalf("grok-4.5 capabilities = tool_call:%v structured:%v reasoning:%v open_weights:%v", grok.Model.ToolCall, grok.Model.StructuredOutput, grok.Model.Reasoning, grok.Model.OpenWeights)
+	}
+}
+
+func TestOpenRouterLagunaM1Catalog(t *testing.T) {
+	laguna, ok := Global().ResolveModel("openrouter", "laguna-m.1")
+	if !ok {
+		t.Fatal("laguna-m.1 route not found")
+	}
+	if laguna.UpstreamID != "poolside/laguna-m.1" {
+		t.Fatalf("laguna-m.1 upstream = %q, want poolside/laguna-m.1", laguna.UpstreamID)
+	}
+	if laguna.Model.Cost == nil || laguna.Model.Cost.Input != 0.2 || laguna.Model.Cost.Output != 0.4 || laguna.Model.Cost.CacheRead != 0.1 {
+		t.Fatalf("laguna-m.1 cost = %#v", laguna.Model.Cost)
+	}
+	if laguna.Model.Limit == nil || laguna.Model.Limit.Context != 262144 || laguna.Model.Limit.Output != 32768 {
+		t.Fatalf("laguna-m.1 limit = %#v", laguna.Model.Limit)
+	}
+	if !laguna.Model.ToolCall || laguna.Model.StructuredOutput || !laguna.Model.Reasoning || !laguna.Model.OpenWeights {
+		t.Fatalf("laguna-m.1 capabilities = tool_call:%v structured:%v reasoning:%v open_weights:%v", laguna.Model.ToolCall, laguna.Model.StructuredOutput, laguna.Model.Reasoning, laguna.Model.OpenWeights)
+	}
+}
+
 func TestKimiK27CodeCatalog(t *testing.T) {
 	reg := Global()
 

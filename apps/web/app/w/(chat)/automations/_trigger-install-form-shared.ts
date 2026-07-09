@@ -1,11 +1,11 @@
 import type { components } from "@/lib/api/schema"
 
-export type Connection = components["schemas"]["connectionResponse"]
+type Connection = components["schemas"]["connectionResponse"]
 export type AvailableResource = components["schemas"]["AvailableResource"]
 
 export const slackReactionKey = "reaction_added"
 export const slackChannelResourceType = "slack_channel"
-export const githubIssueMentionKey = "issue_mention"
+const githubIssueMentionKey = "issue_mention"
 export const githubPrMentionKey = "pr_mention"
 // The code-reviews app also auto-reviews every new pull request (no mention).
 export const githubPrOpenedKey = "pr_opened"

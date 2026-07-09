@@ -9,7 +9,7 @@ export interface MediaAttachment {
   duration?: string
 }
 
-export interface Collaborator {
+interface Collaborator {
   id: string
   name: string
   initials: string
@@ -35,7 +35,7 @@ export type ConversationBlock =
   | ToolConversationBlock
   | ToolChainConversationBlock
 
-export interface AssistantConversationBlock {
+interface AssistantConversationBlock {
   type: "assistant"
   key?: string
   text: string
@@ -43,7 +43,7 @@ export interface AssistantConversationBlock {
   completedAt?: string
 }
 
-export interface UserConversationBlock {
+interface UserConversationBlock {
   type: "user"
   key?: string
   text: string
@@ -57,13 +57,13 @@ export interface UserConversationBlock {
   provider?: string
 }
 
-export interface ErrorConversationBlock {
+interface ErrorConversationBlock {
   type: "error"
   key?: string
   text: string
 }
 
-export interface AgentWorkConversationBlock {
+interface AgentWorkConversationBlock {
   type: "agent_work"
   key?: string
   duration?: string
@@ -87,7 +87,7 @@ export interface RequestUserInputQuestion {
   options: RequestUserInputOption[]
 }
 
-export interface RequestUserInputOption {
+interface RequestUserInputOption {
   label: string
   description: string
 }
@@ -100,7 +100,7 @@ export type RequestUserInputAnswers = Record<
   }
 >
 
-export interface ThinkingConversationBlock {
+interface ThinkingConversationBlock {
   type: "thinking"
   key?: string
   label?: string
@@ -129,7 +129,7 @@ export interface ToolConversationBlock {
   detail?: ToolCallDetail
 }
 
-export interface ToolChainConversationBlock {
+interface ToolChainConversationBlock {
   type: "tool_chain"
   key?: string
   tools: ToolConversationBlock[]

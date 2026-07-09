@@ -68,6 +68,7 @@ func seedReflectionFixture(t *testing.T, db *gorm.DB, eventAt time.Time) reflect
 	}
 	channel := model.Channel{
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "reflection-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",

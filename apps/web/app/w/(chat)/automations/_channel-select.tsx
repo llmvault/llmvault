@@ -6,7 +6,7 @@ import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 
-export type Channel = components["schemas"]["channelResponse"]
+type Channel = components["schemas"]["channelResponse"]
 
 /**
  * Native Hivy channels the current user can see. External-provider channels

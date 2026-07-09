@@ -47,14 +47,14 @@ func TestCreateHTTPTriggerDefaultsToTeamGeneral(t *testing.T) {
 	}
 	// An empty channel_id resolves to the agent's team #general (team-scoped,
 	// IsDefault), never a system channel.
-	if *trigger.ChannelID != fx.teamHome.ID {
-		t.Fatalf("trigger channel = %s, want team #general %s", trigger.ChannelID, fx.teamHome.ID)
+	if *trigger.ChannelID != fx.general.ID {
+		t.Fatalf("trigger channel = %s, want team #general %s", trigger.ChannelID, fx.general.ID)
 	}
 	var channel model.Channel
 	if err := db.First(&channel, "id = ?", *trigger.ChannelID).Error; err != nil {
 		t.Fatalf("load trigger channel: %v", err)
 	}
-	if channel.OrgID != fx.org.ID || channel.TeamID == nil || *channel.TeamID != fx.team.ID || !channel.IsDefault {
+	if channel.OrgID != fx.org.ID || channel.TeamID != fx.team.ID || !channel.IsDefault {
 		t.Fatalf("trigger channel = %#v, want team #general", channel)
 	}
 	// No system channel exists in the org at all.
@@ -110,7 +110,7 @@ func TestCreateHTTPTriggerUsesSelectedChannelAndAgentRestrictions(t *testing.T) 
 	if err := db.Create(&foreignTeam).Error; err != nil {
 		t.Fatalf("create foreign team: %v", err)
 	}
-	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: &foreignTeam.ID, Name: "foreign-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
+	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: foreignTeam.ID, Name: "foreign-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
 	if err := db.Create(&foreignChannel).Error; err != nil {
 		t.Fatalf("create foreign channel: %v", err)
 	}

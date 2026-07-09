@@ -59,7 +59,7 @@ export function agentDescription(agent: CatalogAgent | InstalledAgent): string {
   return firstText(agent.description, "No description available.")
 }
 
-export function agentCategory(agent: CatalogAgent): string {
+function agentCategory(agent: CatalogAgent): string {
   return firstText(agent.category, "General")
 }
 
@@ -77,7 +77,7 @@ export function agentAvatarURL(
   return undefined
 }
 
-export function agentIsFeatured(agent: CatalogAgent): boolean {
+function agentIsFeatured(agent: CatalogAgent): boolean {
   return Boolean(agent.official || agent.is_default)
 }
 
@@ -217,7 +217,7 @@ export function pluginEnabledForAgent(
 // Maps plugin slug -> friendly display name using the catalog agent's own
 // required/recommended plugin summaries. The 422 install response only carries
 // slugs, so this recovers a human name where the catalog knows one.
-export function agentPluginNameBySlug(
+function agentPluginNameBySlug(
   agent: CatalogAgent | undefined
 ): Map<string, string> {
   const map = new Map<string, string>()

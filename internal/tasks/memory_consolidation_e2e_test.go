@@ -42,6 +42,7 @@ func TestConsolidationConsumesAgentRetainedFacts(t *testing.T) {
 	channel := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "consolidate-" + uuid.NewString(),
 		Category:       "general",
 		DefaultAgentID: agent.ID,

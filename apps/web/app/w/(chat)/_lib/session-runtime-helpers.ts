@@ -19,7 +19,7 @@ import {
   type SessionRuntimeSummary,
 } from "@/app/w/(chat)/_lib/session-runtime-types"
 
-export interface SessionRuntimeUsageState {
+interface SessionRuntimeUsageState {
   usageBySessionId: Record<string, SessionUsageSummary | undefined>
   usageEventKeysBySessionId: Record<string, Record<string, boolean> | undefined>
 }

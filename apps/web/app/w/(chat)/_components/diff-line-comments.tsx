@@ -27,13 +27,13 @@ import {
 
 type CommentStatus = "draft" | "saved"
 
-export type DiffCommentTarget = {
+type DiffCommentTarget = {
   kind: "diff"
   lineNumber: number
   side: AnnotationSide
 }
 
-export type FileCommentTarget = {
+type FileCommentTarget = {
   kind: "file"
   lineNumber: number
 }

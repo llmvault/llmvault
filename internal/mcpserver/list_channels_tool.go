@@ -86,8 +86,7 @@ func handleListChannels(ctx context.Context, db *gorm.DB, agent *model.Agent, ac
 	out := make([]map[string]any, 0, len(channels))
 	for _, channel := range channels {
 		// Under the team-primary model an agent may only be used in channels its
-		// team owns (or the shared, team-less/external channels). Only surface
-		// channels the calling agent can actually act in.
+		// team owns. Only surface channels the calling agent can actually act in.
 		acts, err := channelagents.ActsInChannel(ctx, db, orgID, channel.ID, agent.ID)
 		if err != nil {
 			return cronToolError(err.Error()), nil

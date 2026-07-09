@@ -177,6 +177,35 @@ func TestRailwayProxy_InvalidAuth(t *testing.T) {
 	}
 }
 
+func TestRailwayProxy_TeamWithoutPluginDenied(t *testing.T) {
+	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("nango must not be called for an agent whose team lacks the railway plugin")
+	})
+	railwayHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("railway must not be called for an agent whose team lacks the railway plugin")
+	})
+
+	harness := newRailwayHarness(t, nangoHandler, railwayHandler)
+
+	encKey := testSymmetricKey(t)
+	otherTeam := seedTeam(t, harness.db, harness.orgID, "railway-no-plugin")
+	otherAgentID := seedProxyAgent(t, harness.db, harness.orgID, otherTeam.ID, "railway-no-plugin-agent")
+	otherSecret := "test-runtime-secret-railway-other"
+	seedProxySandbox(t, harness.db, encKey, harness.orgID, otherAgentID, otherSecret)
+
+	req := httptest.NewRequest(http.MethodPost,
+		"/internal/railway-proxy/"+otherAgentID.String(),
+		bytes.NewReader([]byte(`{"query":"query{me{name}}"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+otherSecret)
+	recorder := httptest.NewRecorder()
+	harness.router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for team without the railway plugin, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestRailwayProxy_NoRailwayConnection(t *testing.T) {
 	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("nango should not be called when no connection exists")

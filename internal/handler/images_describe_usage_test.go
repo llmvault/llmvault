@@ -20,6 +20,7 @@ func TestImageDescribe_EnqueuesModelUsageForSession(t *testing.T) {
 		Name:           "image-usage-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",
+		TeamID:         h.agent.TeamID,
 		DefaultAgentID: h.agent.ID,
 		Origin:         "native",
 	}

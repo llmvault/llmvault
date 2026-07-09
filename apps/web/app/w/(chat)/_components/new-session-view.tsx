@@ -10,7 +10,6 @@ import { Composer } from "@/app/w/(chat)/_components/composer"
 import { LogoMark } from "@/components/logo"
 import { PluginExamplePrompts } from "@/app/w/(chat)/_components/plugin-example-prompts"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
-import { AGENTS } from "@/app/w/(chat)/_lib/agents"
 import {
   CHAT_QUERY_STALE_TIME_MS,
   insertSessionIntoChannelCache,
@@ -127,12 +126,11 @@ export function SessionView({
     () => composerModelIds(modelSummaries),
     [modelSummaries]
   )
-  const fallbackAgent = AGENTS[0]
   const agentDefaultModelId = selectedAgent?.model?.trim()
   const defaultModelId =
     (agentDefaultModelId && modelIds.includes(agentDefaultModelId)
       ? agentDefaultModelId
-      : modelIds[0]) ?? fallbackAgent.defaultModelId
+      : modelIds[0]) ?? ""
   const [selectedModelID, setSelectedModelID] = useState<string | null>(null)
   const modelId =
     selectedModelID && modelIds.includes(selectedModelID)
@@ -287,7 +285,7 @@ export function SessionView({
           placeholder={
             selectedAgent?.name
               ? `Ask ${agentDisplayName(selectedAgent)} to do something...`
-              : fallbackAgent.placeholder
+              : "Ask an agent to do something..."
           }
         />
       </div>

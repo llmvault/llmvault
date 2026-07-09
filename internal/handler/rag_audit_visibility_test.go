@@ -37,8 +37,8 @@ func TestGetSourceChannels_ActorScopedVisibility(t *testing.T) {
 	// that channel a searcher of the source. teamA backs visibleCh (member sees
 	// it), teamB backs hiddenCh (only admin sees it).
 	grants := []any{
-		&model.TeamRagSource{OrgID: fx.org.ID, TeamID: *fx.visibleCh.TeamID, RagSourceID: src.ID},
-		&model.TeamRagSource{OrgID: fx.org.ID, TeamID: *fx.hiddenCh.TeamID, RagSourceID: src.ID},
+		&model.TeamRagSource{OrgID: fx.org.ID, TeamID: fx.visibleCh.TeamID, RagSourceID: src.ID},
+		&model.TeamRagSource{OrgID: fx.org.ID, TeamID: fx.hiddenCh.TeamID, RagSourceID: src.ID},
 	}
 	for _, g := range grants {
 		if err := db.Create(g).Error; err != nil {

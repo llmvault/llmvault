@@ -76,8 +76,8 @@ func seedTeamVisibility(t *testing.T, db *gorm.DB, fx channelFixture) visibility
 	if err := db.Create(&model.TeamMember{OrgID: fx.org.ID, TeamID: teamA.ID, UserID: fx.member.ID, Role: "member"}).Error; err != nil {
 		t.Fatalf("add member to teamA: %v", err)
 	}
-	usable := model.Channel{OrgID: fx.org.ID, Name: "vis-usable-" + uuid.NewString()[:8], DefaultAgentID: fx.agent.ID, TeamID: &teamA.ID}
-	unusable := model.Channel{OrgID: fx.org.ID, Name: "vis-unusable-" + uuid.NewString()[:8], DefaultAgentID: fx.agent.ID, TeamID: &teamB.ID}
+	usable := model.Channel{OrgID: fx.org.ID, Name: "vis-usable-" + uuid.NewString()[:8], DefaultAgentID: fx.agent.ID, TeamID: teamA.ID}
+	unusable := model.Channel{OrgID: fx.org.ID, Name: "vis-unusable-" + uuid.NewString()[:8], DefaultAgentID: fx.agent.ID, TeamID: teamB.ID}
 	if err := db.Create(&usable).Error; err != nil {
 		t.Fatalf("create usable channel: %v", err)
 	}

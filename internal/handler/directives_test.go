@@ -71,6 +71,7 @@ func (h *memoryControlHarness) seed(t *testing.T) (channelFixture, model.Channel
 		OrgID:          fx.org.ID,
 		Name:           "directives-" + uuid.NewString()[:8],
 		Category:       "engineering",
+		TeamID:         fx.agent.TeamID,
 		DefaultAgentID: fx.agent.ID,
 	}
 	if err := h.db.Create(&channel).Error; err != nil {

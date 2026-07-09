@@ -35,10 +35,9 @@ func provisionTeamDefaults(ctx context.Context, tx *gorm.DB, orgID, teamID, crea
 }
 
 func createDefaultGeneralChannelTx(ctx context.Context, tx *gorm.DB, orgID, teamID, userID, agentID uuid.UUID) (*model.Channel, error) {
-	teamRef := teamID
 	channel := model.Channel{
 		OrgID:          orgID,
-		TeamID:         &teamRef,
+		TeamID:         teamID,
 		Name:           defaultChannelName,
 		Description:    "General workspace channel",
 		Kind:           "standard",

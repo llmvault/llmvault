@@ -30,7 +30,7 @@ func TestChannelMemoriesDeleteHandler(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 	newChannel := func() uuid.UUID {
-		ch := model.Channel{OrgID: org.ID, Name: "c-" + uuid.NewString()[:8], Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, Origin: "native"}
+		ch := model.Channel{OrgID: org.ID, TeamID: team.ID, Name: "c-" + uuid.NewString()[:8], Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, Origin: "native"}
 		if err := db.Create(&ch).Error; err != nil {
 			t.Fatalf("create channel: %v", err)
 		}

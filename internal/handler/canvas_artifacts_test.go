@@ -59,7 +59,7 @@ func newCanvasArtifactHarness(t *testing.T) *canvasArtifactHarness {
 	encKey := testSymmetricKey(t)
 	org := createTestOrg(t, db)
 	agent := seedSessionAgent(t, db, org.ID)
-	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "Canvas", Kind: "standard", DefaultAgentID: agent.ID}
+	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "Canvas", Kind: "standard", TeamID: agent.TeamID, DefaultAgentID: agent.ID}
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}

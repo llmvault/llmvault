@@ -14,7 +14,7 @@ import {
   pluginLogoProvider,
 } from "@/app/w/(chat)/plugins/_lib"
 
-export function PluginColoredIcon({
+function PluginColoredIcon({
   icon,
   color,
   size = 20,
@@ -38,7 +38,7 @@ export function PluginColoredIcon({
  * white tile; everything else renders as a white glyph on the plugin's brand
  * color.
  */
-export function pluginHasBrandLogo(plugin: ApiPlugin): boolean {
+function pluginHasBrandLogo(plugin: ApiPlugin): boolean {
   return (
     pluginLogoProvider(plugin) !== null ||
     brandForIcon(pluginIcon(plugin)) !== undefined

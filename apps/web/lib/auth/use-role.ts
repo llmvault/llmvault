@@ -6,7 +6,7 @@ import { useAuth } from "./auth-context"
 // member` — an owner can do everything an admin can, an admin everything a
 // member can. These mirror the backend authorization tiers; the backend is
 // still the source of truth, the helpers here only gate the UI.
-export type OrgRole = "owner" | "admin" | "member"
+type OrgRole = "owner" | "admin" | "member"
 
 // isOwnerRole reports whether the role owns the org. Owner-only mutations
 // (transfer ownership, delete org, granting/revoking the owner role) gate on
@@ -23,7 +23,7 @@ export function isAdminRole(role: string | null | undefined): boolean {
 }
 
 // useRole returns the caller's role in the active org, or null when unknown.
-export function useRole(): string | null {
+function useRole(): string | null {
   const { activeOrg } = useAuth()
   return activeOrg?.role ?? null
 }

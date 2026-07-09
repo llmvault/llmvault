@@ -56,7 +56,7 @@ func seedSlackRoutingFixture(t *testing.T, db *gorm.DB) slackRoutingFixture {
 	connID := connection.ID
 	channel := model.Channel{
 		OrgID: org.ID, Name: "slack-eng-" + uuid.NewString()[:8], Kind: "standard",
-		Visibility: "public", TeamID: &team.ID, DefaultAgentID: ada.ID, Origin: "external",
+		Visibility: "public", TeamID: team.ID, DefaultAgentID: ada.ID, Origin: "external",
 		ExternalProvider: slackapp.Provider, ExternalConnectionID: &connID,
 		ExternalWorkspaceKey: connection.NangoConnectionID, ExternalResourceType: "slack_channel",
 		ExternalResourceKey: "C123", ExternalResourceName: "eng", ExternalMetadata: model.JSON{},

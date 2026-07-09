@@ -173,6 +173,7 @@ func seedSessionNameFixture(t *testing.T, db *gorm.DB, firstMessage string) mode
 
 	channel := model.Channel{
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "engineering-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",

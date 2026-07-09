@@ -84,9 +84,7 @@ type manageFixture struct {
 	teamOut model.Team
 	chTeam  model.Channel // standard, teamIn
 	chOther model.Channel // standard, teamOut
-	chNull  model.Channel // standard, no team
 	chExt   model.Channel // external origin, teamIn
-	chSys   model.Channel // system kind, no team
 }
 
 func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
@@ -98,14 +96,12 @@ func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
 	teamOut := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "out-" + uuid.NewString()[:8]}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: teamIn.ID, Name: "A-" + uuid.NewString()[:8], Model: "test", Status: "active"}
 
-	ch := func(name, kind, origin string, team *uuid.UUID) model.Channel {
+	ch := func(name, kind, origin string, team uuid.UUID) model.Channel {
 		return model.Channel{ID: uuid.New(), OrgID: org.ID, Name: name + "-" + uuid.NewString()[:8], Kind: kind, Origin: origin, TeamID: team, DefaultAgentID: agent.ID}
 	}
-	chTeam := ch("team", "standard", "native", &teamIn.ID)
-	chOther := ch("other", "standard", "native", &teamOut.ID)
-	chNull := ch("null", "standard", "native", nil)
-	chExt := ch("ext", "standard", "external", &teamIn.ID)
-	chSys := ch("sys", "system", "native", nil)
+	chTeam := ch("team", "standard", "native", teamIn.ID)
+	chOther := ch("other", "standard", "native", teamOut.ID)
+	chExt := ch("ext", "standard", "external", teamIn.ID)
 
 	rows := []any{
 		&org, &owner, &member,
@@ -113,7 +109,7 @@ func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
 		&teamIn, &teamOut, &agent,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamIn.ID, UserID: member.ID, Role: "member"},
-		&chTeam, &chOther, &chNull, &chExt, &chSys,
+		&chTeam, &chOther, &chExt,
 	}
 	for _, r := range rows {
 		if err := db.Create(r).Error; err != nil {
@@ -129,7 +125,7 @@ func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
 		db.Where("id IN ?", []uuid.UUID{owner.ID, member.ID}).Delete(&model.User{})
 		db.Delete(&model.Org{}, "id = ?", org.ID)
 	})
-	return manageFixture{org: org, owner: owner, member: member, teamIn: teamIn, teamOut: teamOut, chTeam: chTeam, chOther: chOther, chNull: chNull, chExt: chExt, chSys: chSys}
+	return manageFixture{org: org, owner: owner, member: member, teamIn: teamIn, teamOut: teamOut, chTeam: chTeam, chOther: chOther, chExt: chExt}
 }
 
 func TestCanManageTeamResourceHTTP(t *testing.T) {
@@ -168,18 +164,13 @@ func TestCanManageChannelMatrix(t *testing.T) {
 	member := fx.member.ID
 	cases := []tc{
 		// API key: always true, regardless of team.
-		{"apikey-null-team", fx.chNull, nil, "", true, true},
 		{"apikey-other-team", fx.chOther, nil, "", true, true},
 		// Manager (owner): always true.
 		{"owner-team", fx.chTeam, &owner, "owner", false, true},
-		{"owner-null", fx.chNull, &owner, "owner", false, true},
-		{"owner-system", fx.chSys, &owner, "owner", false, true},
 		// Member: gated by the channel's team.
 		{"member-own-team", fx.chTeam, &member, "member", false, true},
 		{"member-other-team", fx.chOther, &member, "member", false, false},
-		{"member-null-team", fx.chNull, &member, "member", false, false},
 		{"member-external-own-team", fx.chExt, &member, "member", false, true},
-		{"member-system", fx.chSys, &member, "member", false, false},
 		// nil user, non-manager: false.
 		{"nil-user-team", fx.chTeam, nil, "member", false, false},
 	}

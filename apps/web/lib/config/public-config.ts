@@ -7,7 +7,7 @@
 // This lets a single prebuilt web image be repointed at any domain purely by
 // setting env in docker-compose — the same model as the Go backend.
 
-export type PublicConfig = {
+type PublicConfig = {
   /** Public base URL of the API as reached by the BROWSER (OAuth redirects, SSE). */
   apiUrl: string
   /** Host serving integration connect flows + template logos. */

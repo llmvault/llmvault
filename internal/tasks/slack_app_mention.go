@@ -27,7 +27,6 @@ type SlackAppMentionHandler struct {
 	compileDeps        agentruntime.CompileDeps
 	enqueuer           enqueue.TaskEnqueuer
 	nangoClient        slackapp.ConnectionGetter
-	orgAgentEnsurer    OrgHivyAgentEnsurer
 	slackClientFactory func(string) slackapp.Client
 	waitFinal          func(context.Context, *agentruntime.Client, model.Session, string) (string, error)
 	mediaEnricher      SlackMediaEnricher
@@ -81,18 +80,17 @@ func WithSlackRouterCache(cacheManager *cache.Manager) SlackAppMentionOption {
 	}
 }
 
-func NewSlackAppMentionHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, ensurer OrgHivyAgentEnsurer, opts ...SlackAppMentionOption) *SlackAppMentionHandler {
+func NewSlackAppMentionHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer, nangoClient *nango.Client, opts ...SlackAppMentionOption) *SlackAppMentionHandler {
 	var getter slackapp.ConnectionGetter
 	if nangoClient != nil {
 		getter = nangoClient
 	}
 	h := &SlackAppMentionHandler{
-		db:              db,
-		orchestrator:    orchestrator,
-		compileDeps:     compileDeps,
-		enqueuer:        enq,
-		nangoClient:     getter,
-		orgAgentEnsurer: ensurer,
+		db:           db,
+		orchestrator: orchestrator,
+		compileDeps:  compileDeps,
+		enqueuer:     enq,
+		nangoClient:  getter,
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -153,6 +151,13 @@ func (h *SlackAppMentionHandler) processWithSlack(ctx context.Context, row *mode
 	}
 	channel, agent, err := h.resolveChannelAndAgent(ctx, row, client, token)
 	if err != nil {
+		if errors.Is(err, errSlackChannelNotConfigured) {
+			logging.FromContext(ctx).InfoContext(ctx, "slack_app_mention_channel_not_configured",
+				"slack_thread_event_id", row.ID.String(),
+				"slack_channel_id", row.SlackChannelID,
+			)
+			return nil
+		}
 		return err
 	}
 	if err := h.enrichSlackInboundContext(ctx, row, token, client); err != nil {

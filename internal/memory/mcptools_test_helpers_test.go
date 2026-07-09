@@ -47,7 +47,7 @@ func seedMemoryToolFixture(t *testing.T, db *gorm.DB) memoryToolFixture {
 	otherUser := model.User{ID: uuid.New(), Email: "memory-mcp-other-" + uuid.NewString() + "@example.com", Name: "Other Memory MCP"}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "memory-mcp-team-" + uuid.NewString()[:8]}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Memory MCP Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "memory-mcp-" + uuid.NewString(), DefaultAgentID: agent.ID, ExposeOrgMemories: true}
+	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "memory-mcp-" + uuid.NewString(), DefaultAgentID: agent.ID, ExposeOrgMemories: true}
 	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, CreatedBy: &user.ID, Status: "active"}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)

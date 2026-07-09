@@ -45,7 +45,11 @@ func createManageManager(t *testing.T, db *gorm.DB, orgID uuid.UUID) string {
 
 func createManageChannel(t *testing.T, db *gorm.DB, orgID, defaultAgentID uuid.UUID, name string) model.Channel {
 	t.Helper()
-	channel := model.Channel{ID: uuid.New(), OrgID: orgID, Name: name + " " + uuid.NewString(), DefaultAgentID: defaultAgentID, ExposeOrgMemories: true}
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "manage-channel-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team for channel %s: %v", name, err)
+	}
+	channel := model.Channel{ID: uuid.New(), OrgID: orgID, TeamID: team.ID, Name: name + " " + uuid.NewString(), DefaultAgentID: defaultAgentID, ExposeOrgMemories: true}
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel %s: %v", name, err)
 	}

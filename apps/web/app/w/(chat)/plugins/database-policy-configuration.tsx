@@ -10,26 +10,26 @@ export type DatabaseConnection =
   components["schemas"]["databaseConnectionResponse"]
 export type DatabasePolicy = components["schemas"]["Policy"]
 
-export interface SQLColumn {
+interface SQLColumn {
   schema: string
   table: string
   column: string
   data_type?: string
 }
 
-export interface TableNode {
+interface TableNode {
   key: string
   schema: string
   table: string
   columns: SQLColumn[]
 }
 
-export interface MongoField {
+interface MongoField {
   path: string
   type?: string
 }
 
-export interface MongoCollection {
+interface MongoCollection {
   collection: string
   fields: MongoField[]
 }

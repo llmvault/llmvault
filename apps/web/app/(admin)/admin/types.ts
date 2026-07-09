@@ -12,7 +12,7 @@ export type LLMProvider = Required<
   components["schemas"]["adminLLMProviderResponse"]
 >
 
-export type LoadState = "idle" | "loading" | "ready" | "error"
+type LoadState = "idle" | "loading" | "ready" | "error"
 export type AdminTab = "integrations" | "credentials"
 
 export const emptyCredentialForm = {

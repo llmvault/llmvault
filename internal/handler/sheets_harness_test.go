@@ -57,7 +57,8 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 		t.Fatalf("create user: %v", err)
 	}
 	// The user is an org member so channel-access checks resolve a role; the
-	// channels are native, non-team, so any member may use them.
+	// channels are scoped to the agent's team and the user is an active member of
+	// that team, so a member may use them.
 	membership := model.OrgMembership{UserID: h.user.ID, OrgID: h.org.ID, Role: "member"}
 	if err := db.Create(&membership).Error; err != nil {
 		t.Fatalf("create org membership: %v", err)
@@ -67,8 +68,11 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 	// them (fk_channels_default_agent is RESTRICT).
 	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	otherAgent := model.Agent{ID: uuid.New(), OrgID: &h.other.ID, TeamID: firstTeamID(t, db, h.other.ID), Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: agent.ID}
-	h.otherChannel = model.Channel{ID: uuid.New(), OrgID: h.other.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: otherAgent.ID}
+	if err := db.Create(&model.TeamMember{OrgID: h.org.ID, TeamID: agent.TeamID, UserID: h.user.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("create team member: %v", err)
+	}
+	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "sheets-ch-" + uuid.NewString(), TeamID: agent.TeamID, DefaultAgentID: agent.ID}
+	h.otherChannel = model.Channel{ID: uuid.New(), OrgID: h.other.ID, Name: "sheets-ch-" + uuid.NewString(), TeamID: otherAgent.TeamID, DefaultAgentID: otherAgent.ID}
 	for _, seed := range []any{&agent, &otherAgent, &h.channel, &h.otherChannel} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("create channel seed: %v", err)

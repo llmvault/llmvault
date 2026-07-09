@@ -56,7 +56,7 @@ describe("model logos", () => {
     expect(modelLogoURL("mistral-small-4")).toBe("/logos/mistralai.png")
   })
 
-  it("resolves provider aliases used by settings and older chat surfaces", () => {
+  it("resolves provider aliases used by settings surfaces", () => {
     for (const logoPath of Object.values(PROVIDER_LOGOS)) {
       expect(logoPath).toMatch(/^\/logos\/.+\.(jpe?g|png|svg|webp)$/)
       expect(logoPath).not.toContain("/logos/openrouter-")
@@ -67,6 +67,6 @@ describe("model logos", () => {
     expect(providerLogoURL("byte-plus")).toBe("/logos/byteplus.png")
     expect(providerLogoURL("xai")).toBe("/logos/x-ai.png")
     expect(providerLogoURL("zai")).toBe("/logos/z-ai.png")
-    expect(modelLogoURL("qwen-max")).toBe("/logos/qwen.png")
+    expect(modelLogoURL("qwen-max")).toBeUndefined()
   })
 })

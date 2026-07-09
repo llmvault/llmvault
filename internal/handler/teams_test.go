@@ -125,7 +125,7 @@ func TestIntegration_TeamsArchiveRejectsAssignedChannels(t *testing.T) {
 		Name:           "support",
 		Kind:           "standard",
 		Visibility:     "public",
-		TeamID:         &team.ID,
+		TeamID:         team.ID,
 		DefaultAgentID: agent.ID,
 		Origin:         "native",
 		CreatedBy:      &owner.ID,

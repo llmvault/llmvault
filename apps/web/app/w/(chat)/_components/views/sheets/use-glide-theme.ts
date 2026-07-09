@@ -61,7 +61,7 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-export function resolveGlideTheme(): Partial<Theme> {
+function resolveGlideTheme(): Partial<Theme> {
   const styles = getComputedStyle(document.documentElement)
   const read = (token: string, fallback: string) =>
     toCanvasColor(readToken(styles, token, fallback))

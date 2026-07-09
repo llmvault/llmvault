@@ -44,7 +44,7 @@ export function AutomationsTabs({
 }
 
 /** Shared page frame so every tab lays out identically to the Connections view. */
-export function AutomationsPageShell({ children }: { children: ReactNode }) {
+function AutomationsPageShell({ children }: { children: ReactNode }) {
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -59,7 +59,7 @@ export function AutomationsPageShell({ children }: { children: ReactNode }) {
  * card). Used as a placeholder until Schedules (DB schedules) and Webhooks
  * (HTTP-based triggers) are wired up.
  */
-export function AutomationPlaceholderView({
+function AutomationPlaceholderView({
   nav,
   title,
   description,

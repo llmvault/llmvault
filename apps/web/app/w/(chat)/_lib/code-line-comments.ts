@@ -1,4 +1,4 @@
-export type CodeLineCommentSide = "additions" | "deletions"
+type CodeLineCommentSide = "additions" | "deletions"
 
 export interface CodeLineCommentPayload {
   id?: string
@@ -64,7 +64,7 @@ export function codeLineCommentReferenceFromPayload(
   }
 }
 
-export function codeLineCommentReferenceToPayload(
+function codeLineCommentReferenceToPayload(
   comment: CodeLineCommentReference
 ): CodeLineCommentPayload {
   return {

@@ -218,7 +218,7 @@ export function SheetsView({ channelId }: { channelId?: string }) {
  * to (for grid mutations) and the sheet id. Reused by SheetsView (session
  * chat panel) and by the standalone /w/sheets dashboard right panel.
  */
-export function SheetPanel({
+function SheetPanel({
   channelId,
   sheetId,
 }: {

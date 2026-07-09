@@ -43,7 +43,7 @@ func TestIntegration_TeamsListIncludesScopedChannels(t *testing.T) {
 			Name:           name,
 			Kind:           "standard",
 			Visibility:     visibility,
-			TeamID:         &teamID,
+			TeamID:         teamID,
 			DefaultAgentID: agent.ID,
 			Origin:         "native",
 			CreatedBy:      &owner.ID,

@@ -2,7 +2,7 @@ import type { components } from "@/lib/api/schema"
 import type { AgentSandboxImage, AgentSandboxSize } from "../_lib"
 
 export type ModelSummary = components["schemas"]["modelSummary"]
-export type AgentCreateBody = components["schemas"]["agentMutationRequest"]
+type AgentCreateBody = components["schemas"]["agentMutationRequest"]
 export type AgentDetail = components["schemas"]["agentListItem"]
 type SubAgentDetail = components["schemas"]["subAgentResponse"]
 type ToolFilter = components["schemas"]["ToolFilter"]
@@ -13,8 +13,8 @@ export const DEFAULT_AGENT_MODEL = "deepseek-v4-flash"
 // A tool the agent can be granted. "runtime" tools are the built-in runtime
 // tools (model.RuntimeBuiltInToolIDs); "mcp" tools are gated via mcp_tool_filter.
 // hideForSubAgent tools are only offered on the top-level agent.
-export type ToolKind = "runtime" | "mcp"
-export type ToolDef = {
+type ToolKind = "runtime" | "mcp"
+type ToolDef = {
   id: string
   label: string
   kind: ToolKind
@@ -22,7 +22,7 @@ export type ToolDef = {
 }
 export type ToolGroup = { title: string; tools: ToolDef[] }
 
-export const TOOL_GROUPS: ToolGroup[] = [
+const TOOL_GROUPS: ToolGroup[] = [
   {
     title: "Filesystem & code",
     tools: [
@@ -98,11 +98,11 @@ export function toolGroupsFor(context: "agent" | "subagent"): ToolGroup[] {
   })).filter((group) => group.tools.length > 0)
 }
 
-export const RUNTIME_TOOL_IDS: string[] = ALL_TOOLS.filter(
+const RUNTIME_TOOL_IDS: string[] = ALL_TOOLS.filter(
   (tool) => tool.kind === "runtime"
 ).map((tool) => tool.id)
 
-export const MCP_TOOL_IDS: string[] = ALL_TOOLS.filter(
+const MCP_TOOL_IDS: string[] = ALL_TOOLS.filter(
   (tool) => tool.kind === "mcp"
 ).map((tool) => tool.id)
 
@@ -114,7 +114,7 @@ export type ToolSelection = Record<string, boolean>
 
 // Everything defaults on (matching the backend: full runtime toolset and all MCP
 // tools allowed unless denied).
-export function allToolsSelected(): ToolSelection {
+function allToolsSelected(): ToolSelection {
   return Object.fromEntries(
     [...RUNTIME_TOOL_IDS, ...MCP_TOOL_IDS].map((id) => [id, true])
   )
@@ -133,7 +133,7 @@ function runtimeToolsMap(selection: ToolSelection): Record<string, boolean> {
 // MCP tools the user turned off, expressed as a deny list (default = all allowed,
 // so only unchecked tools are denied). Always sent so an edit can also clear a
 // previously-set filter; an empty deny list normalizes to "no filter" server-side.
-export function mcpToolFilterFor(selection: ToolSelection): { deny: string[] } {
+function mcpToolFilterFor(selection: ToolSelection): { deny: string[] } {
   return { deny: MCP_TOOL_IDS.filter((id) => !selection[id]) }
 }
 
@@ -199,7 +199,7 @@ export function subAgentNameError(subAgents: SubAgentForm[]): string | null {
   return null
 }
 
-export function canSubmitAgent(form: AgentForm): boolean {
+function canSubmitAgent(form: AgentForm): boolean {
   return (
     form.name.trim().length > 0 &&
     form.model.trim().length > 0 &&

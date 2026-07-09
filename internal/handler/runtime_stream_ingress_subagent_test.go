@@ -163,6 +163,7 @@ func seedRuntimeIngressParent(t *testing.T, db *gorm.DB, orgID, agentID, channel
 		Name:           "chan-" + channelID.String()[:8],
 		Kind:           "standard",
 		Visibility:     "public",
+		TeamID:         firstTeamID(t, db, orgID),
 		DefaultAgentID: agentID,
 		Origin:         "native",
 	}).Error; err != nil {

@@ -1,4 +1,4 @@
-export interface SubagentIdentitySource {
+interface SubagentIdentitySource {
   jobId?: string | null
   childSessionId?: string | null
   agentName?: string | null

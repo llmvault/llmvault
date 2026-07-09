@@ -64,7 +64,7 @@ func TestRecentChannelSessionsOrdersByUpdatedAtDescAndLimits(t *testing.T) {
 	grace := seedAgent(t, db, org.ID, team.ID, "Grace-"+uuid.NewString()[:8])
 
 	channel := model.Channel{
-		OrgID: org.ID, Name: "eng-" + uuid.NewString()[:8], Kind: "standard",
+		OrgID: org.ID, TeamID: team.ID, Name: "eng-" + uuid.NewString()[:8], Kind: "standard",
 		Visibility: "public", DefaultAgentID: ada.ID, Origin: "native",
 	}
 	if err := db.Create(&channel).Error; err != nil {
@@ -73,7 +73,7 @@ func TestRecentChannelSessionsOrdersByUpdatedAtDescAndLimits(t *testing.T) {
 
 	// Another channel whose sessions must NOT leak into results.
 	other := model.Channel{
-		OrgID: org.ID, Name: "other-" + uuid.NewString()[:8], Kind: "standard",
+		OrgID: org.ID, TeamID: team.ID, Name: "other-" + uuid.NewString()[:8], Kind: "standard",
 		Visibility: "public", DefaultAgentID: ada.ID, Origin: "native",
 	}
 	if err := db.Create(&other).Error; err != nil {

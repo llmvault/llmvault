@@ -143,11 +143,16 @@ func (h *sessionHarness) seed(t *testing.T) sessionFixture {
 	// view-but-not-send access. (Formerly seeded with the removed "viewer" role.)
 	bystander := seedSessionUser(t, h.db, org.ID, "member")
 	agent := seedSessionAgent(t, h.db, org.ID)
+	// A private, team-scoped channel: the non-manager member and the bystander
+	// reach it through explicit channel membership (not team membership), so they
+	// may view/use it and see its sessions without gaining team-manage rights over
+	// another member's session (read stays private-by-default).
 	channel := model.Channel{
 		OrgID:          org.ID,
 		Name:           "engineering-" + uuid.NewString()[:8],
 		Kind:           "standard",
-		Visibility:     "public",
+		Visibility:     "private",
+		TeamID:         agent.TeamID,
 		DefaultAgentID: agent.ID,
 		Origin:         "native",
 		CreatedBy:      &owner.ID,
@@ -158,7 +163,11 @@ func (h *sessionHarness) seed(t *testing.T) sessionFixture {
 	if err := h.db.Create(&model.ChannelMember{ChannelID: channel.ID, UserID: owner.ID, Role: "owner"}).Error; err != nil {
 		t.Fatalf("create channel owner: %v", err)
 	}
-	// Team-less channel: any org agent may act in it under the team-primary model.
+	for _, u := range []model.User{member, bystander} {
+		if err := h.db.Create(&model.ChannelMember{ChannelID: channel.ID, UserID: u.ID, Role: "member"}).Error; err != nil {
+			t.Fatalf("create channel member: %v", err)
+		}
+	}
 	t.Cleanup(func() { cleanupSessionFixture(h.db, org.ID, owner.ID, member.ID, bystander.ID) })
 	return sessionFixture{org: org, owner: owner, member: member, bystander: bystander, agent: agent, channel: channel}
 }

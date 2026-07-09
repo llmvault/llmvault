@@ -1,12 +1,12 @@
 export type {
-  RowsQueryInput,
+  
   SheetFieldSpec,
-  SheetFieldType,
+  
   SheetFilterNode,
   SheetImportJob,
   SheetOperation,
   SheetPage,
-  SheetPageRef,
+  
   SheetField,
   SheetLiveEvent,
   SheetRelationRef,
@@ -14,7 +14,7 @@ export type {
   SheetRowsQueryResponse,
   SheetSort,
   SheetStructure,
-  SheetSummary,
+  
   SheetView,
 } from "@/app/w/(chat)/_lib/sheets-types"
 export {
@@ -24,7 +24,7 @@ export {
 
 export {
   isOwnMutation,
-  newMutationId,
+  
 } from "@/app/w/(chat)/_lib/sheets-mutation-id"
 
 export { rowsQuerySig, sheetKeys } from "@/app/w/(chat)/_lib/sheets-query-keys"

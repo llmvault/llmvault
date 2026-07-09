@@ -43,6 +43,7 @@ func seedMissionChannel(t *testing.T, db *gorm.DB, category string, mission *str
 	channel := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "mission-" + uuid.NewString(),
 		Description:    "ACME tier-1 queue",
 		Category:       category,

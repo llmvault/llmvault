@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestAgentSandboxEnvVarsUseAPIWebhookBaseURL(t *testing.T) {
 	}
 	agent := &model.Agent{ID: uuid.New()}
 	sb := &model.Sandbox{ID: uuid.New()}
-	env := agentSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
+	env := agentSandboxEnvVars(context.Background(), nil, cfg, "runtime-secret", sb, uuid.New(), agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
 
 	if got := env[agentruntime.AgentEnvCloudControlPlaneURL]; got != "http://host.docker.internal:8080" {
 		t.Fatalf("control plane url = %q", got)
@@ -53,7 +54,7 @@ func TestAgentSandboxEnvVarsUseAgentSandboxSentryDSN(t *testing.T) {
 	agent := &model.Agent{ID: uuid.New()}
 	sb := &model.Sandbox{ID: uuid.New()}
 
-	env := agentSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
+	env := agentSandboxEnvVars(context.Background(), nil, cfg, "runtime-secret", sb, uuid.New(), agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
 
 	if got := env[agentruntime.AgentEnvSentryDSN]; got != cfg.AgentSandboxSentryDSN {
 		t.Fatalf("sentry dsn = %q, want agent sandbox dsn", got)

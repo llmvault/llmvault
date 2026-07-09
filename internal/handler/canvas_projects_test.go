@@ -176,6 +176,7 @@ func seedCanvasProjectSession(t *testing.T, db *gorm.DB, orgID uuid.UUID) uuid.U
 		OrgID:          orgID,
 		Name:           "Canvas project test " + uuid.NewString()[:8],
 		Kind:           "standard",
+		TeamID:         agent.TeamID,
 		DefaultAgentID: agent.ID,
 	}
 	if err := db.Create(&channel).Error; err != nil {

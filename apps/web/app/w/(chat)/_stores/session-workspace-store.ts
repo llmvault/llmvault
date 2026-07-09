@@ -30,10 +30,10 @@ export {
 export type {
   WorkspaceRepoTreeCache,
   WorkspaceUploadItem,
-  WorkspaceUploadStatus,
+  
 } from "./session-workspace-types"
 
-export type SessionWorkspaceStatus = "idle" | "hydrating" | "ready"
+type SessionWorkspaceStatus = "idle" | "hydrating" | "ready"
 
 export type WorkspacePanelViewID =
   | "review"
@@ -476,7 +476,7 @@ export function useSessionWorkspaceHydration(scope: WorkspaceScope) {
   }, [orgId, setScope, userId])
 }
 
-export function sessionWorkspaceSnapshot(sessionId?: string) {
+function sessionWorkspaceSnapshot(sessionId?: string) {
   if (!sessionId) return DEFAULT_SESSION_WORKSPACE
   return (
     useSessionWorkspaceStore.getState().workspaces[sessionId] ??

@@ -9,7 +9,6 @@ import {
   useWorkspace,
   type ChatSession,
 } from "@/app/w/(chat)/_components/shell"
-import { DEFAULT_AGENT_ID, agentById } from "@/app/w/(chat)/_lib/agents"
 import {
   CHAT_QUERY_STALE_TIME_MS,
   CHANNEL_SESSIONS_INFINITE_KEY,
@@ -245,12 +244,10 @@ function sidebarSessionAgent(
   session: SidebarSessionResponse,
   agentsByID: Map<string, SidebarAgentResponse>
 ): SidebarSessionAgent {
-  const agentID = session.agent_id?.trim() || DEFAULT_AGENT_ID
-  const apiAgent = agentsByID.get(agentID)
-  const fallback = safeAgentById(agentID)
+  const apiAgent = apiAgentForSession(session, agentsByID)
   return {
-    name: apiAgent ? agentDisplayName(apiAgent) : fallback.name,
-    icon: apiAgent ? agentIcon(apiAgent) : fallback.icon,
+    name: apiAgent ? agentDisplayName(apiAgent) : "Agent",
+    icon: agentIcon(apiAgent),
     avatarURL: agentAvatarURL(apiAgent),
   }
 }
@@ -259,17 +256,13 @@ function chatSessionFromResponse(
   session: SidebarSessionResponse,
   apiAgent?: SidebarAgentResponse
 ): ChatSession {
-  const agentID = session.agent_id?.trim() || DEFAULT_AGENT_ID
-  const fallback = safeAgentById(agentID)
-  const modelId =
-    session.model?.trim() || agentModel(apiAgent) || fallback.defaultModelId
   return {
     title: sessionDisplayName(session),
-    agentId: agentID,
-    agentName: apiAgent ? agentDisplayName(apiAgent) : fallback.name,
-    agentIcon: apiAgent ? agentIcon(apiAgent) : fallback.icon,
+    agentId: session.agent_id?.trim() ?? "",
+    agentName: apiAgent ? agentDisplayName(apiAgent) : undefined,
+    agentIcon: apiAgent ? agentIcon(apiAgent) : undefined,
     agentAvatarURL: agentAvatarURL(apiAgent),
-    modelId,
+    modelId: session.model?.trim() || agentModel(apiAgent) || "",
     agentTurnStatus: session.agent_turn_status,
     agentTurnID: session.agent_turn_id,
     agentTurnStartedAt: session.agent_turn_started_at,
@@ -277,13 +270,5 @@ function chatSessionFromResponse(
     source: session.source,
     sourceResourceKey: session.source_resource_key,
     loaded: true,
-  }
-}
-
-function safeAgentById(id: string) {
-  try {
-    return agentById(id)
-  } catch {
-    return agentById(DEFAULT_AGENT_ID)
   }
 }

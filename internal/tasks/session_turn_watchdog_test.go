@@ -31,7 +31,7 @@ func watchdogSeedOrg(t *testing.T, db *gorm.DB) (orgID, agentID, channelID uuid.
 		t.Fatalf("create agent: %v", err)
 	}
 	channel := model.Channel{
-		OrgID: org.ID, Name: "turn-wd-" + uuid.NewString()[:8], Kind: "standard",
+		OrgID: org.ID, TeamID: team.ID, Name: "turn-wd-" + uuid.NewString()[:8], Kind: "standard",
 		Visibility: "public", DefaultAgentID: agent.ID, Origin: "native",
 	}
 	if err := db.Create(&channel).Error; err != nil {

@@ -8,7 +8,7 @@ import { recordedAudioFile } from "@/app/w/(chat)/_lib/audio-transcriptions"
 type TranscriptionUploadBody =
   paths["/v1/transcriptions"]["post"]["requestBody"]["content"]["multipart/form-data"]
 
-export interface TranscribeOrgAudioInput {
+interface TranscribeOrgAudioInput {
   blob: Blob
   filename?: string
   languageCode?: string

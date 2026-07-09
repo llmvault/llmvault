@@ -17,7 +17,7 @@ import {
   type WorkspaceUploadItem,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
 
-export type OrgDriveUploadStatus = "uploading" | "uploaded" | "error"
+type OrgDriveUploadStatus = "uploading" | "uploaded" | "error"
 
 export interface OrgDriveUploadItem {
   id: string

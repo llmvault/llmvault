@@ -69,7 +69,7 @@ export function eventTurnIDs(events: SessionEventResponse[]) {
   return [...turnIDs]
 }
 
-export type TerminalTurnOutcome = "completed" | "stopped" | "failed"
+type TerminalTurnOutcome = "completed" | "stopped" | "failed"
 
 export function terminalOutcomeForTurnEvents(
   events: SessionEventResponse[],

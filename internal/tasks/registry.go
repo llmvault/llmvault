@@ -144,10 +144,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSessionMessageDeliver,
 			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSlackAppMention,
-			NewSlackAppMentionHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer,
+			NewSlackAppMentionHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient,
 				WithSlackMediaEnricher(deps.SlackMediaEnricher), WithSlackRouterCache(deps.CacheManager)).Handle)
 		mux.HandleFunc(TypeSlackReactionTrigger,
-			NewSlackReactionTriggerHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient, deps.OrgAgentEnsurer,
+			NewSlackReactionTriggerHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer, deps.NangoClient,
 				WithSlackMediaEnricher(deps.SlackMediaEnricher)).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient

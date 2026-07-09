@@ -142,7 +142,7 @@ func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
 	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
-	channel := &model.Channel{ID: uuid.New(), OrgID: orgID, Name: "engineering", DefaultAgentID: agent.ID}
+	channel := &model.Channel{ID: uuid.New(), OrgID: orgID, TeamID: team.ID, Name: "engineering", DefaultAgentID: agent.ID}
 	if err := db.Create(channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}

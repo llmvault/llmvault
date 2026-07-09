@@ -83,7 +83,7 @@ func TestSearchMemoriesObservationsLayer(t *testing.T) {
 	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
 	client := connectMemoryToolClient(t, ctx, service, fixture.token)
 
-	otherChannel := model.Channel{ID: uuid.New(), OrgID: fixture.org.ID, Name: "memory-obs-other-" + uuid.NewString(), DefaultAgentID: fixture.agent.ID, ExposeOrgMemories: true}
+	otherChannel := model.Channel{ID: uuid.New(), OrgID: fixture.org.ID, TeamID: fixture.channel.TeamID, Name: "memory-obs-other-" + uuid.NewString(), DefaultAgentID: fixture.agent.ID, ExposeOrgMemories: true}
 	if err := db.Create(&otherChannel).Error; err != nil {
 		t.Fatalf("create other channel: %v", err)
 	}

@@ -18,7 +18,7 @@ interface RuntimeRepoListResponse {
   repos: RuntimeRepoInfo[]
 }
 
-export interface RuntimeTreeEntry {
+interface RuntimeTreeEntry {
   name: string
   path: string
   type: "directory" | "file"
@@ -45,7 +45,7 @@ export interface RuntimeRepoContent {
   limit?: number | null
 }
 
-export interface RuntimeRepoDiff {
+interface RuntimeRepoDiff {
   repo_id: string
   path?: string | null
   diff: string
@@ -67,7 +67,7 @@ export interface RuntimeRepoDiffFile {
   message?: string | null
 }
 
-export type RuntimeGitStatus =
+type RuntimeGitStatus =
   | "added"
   | "deleted"
   | "ignored"
@@ -229,7 +229,7 @@ function compareFileTreePaths(left: string, right: string) {
   return leftSegments.length - rightSegments.length
 }
 
-export class RuntimeRepoAccessError extends Error {}
+class RuntimeRepoAccessError extends Error {}
 
 export class RuntimeRepoHTTPError extends Error {
   constructor(

@@ -28,7 +28,7 @@ function resolveIconName(name: string): string {
  * Returns the hugeicons `IconSvgElement` or custom brand component, or
  * `undefined` when the name is unknown.
  */
-export function getAppIcon(name: string): RegisteredIcon | undefined {
+function getAppIcon(name: string): RegisteredIcon | undefined {
   return iconRegistry[resolveIconName(name)]
 }
 
@@ -40,7 +40,7 @@ function warnUnknownIcon(name: string) {
   console.warn(`[AppIcon] Unknown icon name "${name}" — rendering fallback. Add it to lib/icons/registry.ts.`)
 }
 
-export interface AppIconProps extends Omit<SVGProps<SVGSVGElement>, "ref" | "strokeWidth"> {
+interface AppIconProps extends Omit<SVGProps<SVGSVGElement>, "ref" | "strokeWidth"> {
   /** Registry key, e.g. "archive". Legacy "lucide:archive" forms still resolve. */
   icon: string
   className?: string

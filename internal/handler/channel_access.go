@@ -33,8 +33,8 @@ func canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel, orgR
 
 // memberChannelIDSubquery yields the ids of channels the given user is an
 // explicit member of. Used to re-admit private channels to the team-scoped
-// visibility predicates (a private channel is excluded from the origin/team
-// opening but visible to its members).
+// visibility predicates (a private channel is excluded from the team opening
+// but visible to its members).
 func memberChannelIDSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
 	q := db.Model(&model.ChannelMember{}).Select("channel_id").Where("deactivated_at IS NULL")
 	if userID == nil {
@@ -114,7 +114,7 @@ func visibleSessionIDSubquery(db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) *
 		Select("sessions.id").
 		Joins("JOIN channels ON channels.id = sessions.channel_id AND channels.archived_at IS NULL").
 		Where("sessions.org_id = ?", orgID).
-		Where("(channels.visibility <> ? AND (channels.team_id IS NULL OR channels.team_id IN (?))) OR channels.id IN (?)",
+		Where("(channels.visibility <> ? AND channels.team_id IN (?)) OR channels.id IN (?)",
 			"private", visibleTeamSubquery(db, userID), memberChannelIDSubquery(db, userID))
 }
 

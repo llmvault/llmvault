@@ -214,8 +214,8 @@ func newAppsTestHarness(t *testing.T) *appsTestHarness {
 		t.Fatalf("create team: %v", err)
 	}
 	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: h.team.ID, Name: "Apps Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-ch-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
-	h.otherChan = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-other-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
+	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, TeamID: h.team.ID, Name: "apps-ch-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
+	h.otherChan = model.Channel{ID: uuid.New(), OrgID: h.org.ID, TeamID: h.team.ID, Name: "apps-other-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel, &h.otherChan} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("seed: %v", err)

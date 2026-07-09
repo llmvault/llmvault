@@ -1,11 +1,11 @@
-export interface SettingsNavItem {
+interface SettingsNavItem {
   id: string
   label: string
   icon: string
   adminOnly?: boolean
 }
 
-export interface SettingsNavSection {
+interface SettingsNavSection {
   label: string
   items: SettingsNavItem[]
 }

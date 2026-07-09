@@ -73,7 +73,7 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required"})
 		return
 	}
-	if !h.canCreateChannelInTeam(ctx, org.ID, teamID) {
+	if !h.canCreateChannelInTeam(ctx, org.ID, *teamID) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the target team to create a channel in it"})
 		return
 	}
@@ -96,7 +96,7 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		MemoryMission:        channelMissionForCreate(&req, category),
 		Kind:                 "standard",
 		Visibility:           visibility,
-		TeamID:               teamID,
+		TeamID:               *teamID,
 		DefaultAgentID:       defaultAgentID,
 		ImageModel:           imageModel,
 		VectorImageModel:     vectorImageModel,

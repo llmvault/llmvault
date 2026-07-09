@@ -28,7 +28,13 @@ func findOrAutoCreateExternalChannel(ctx context.Context, db *gorm.DB, provision
 	if err != nil || found {
 		return channel, err
 	}
-	channel = buildExternalChannel(orgID, req)
+	var agent model.Agent
+	if err := db.WithContext(ctx).Select("team_id").
+		Where("id = ? AND org_id = ?", req.DefaultAgentID, orgID).
+		First(&agent).Error; err != nil {
+		return model.Channel{}, fmt.Errorf("load external channel default agent team: %w", err)
+	}
+	channel = buildExternalChannel(orgID, req, agent.TeamID)
 	if channel.Name == "" {
 		return model.Channel{}, fmt.Errorf("external resource name is required")
 	}
@@ -69,7 +75,7 @@ func findExternalChannel(ctx context.Context, db *gorm.DB, orgID uuid.UUID, req 
 	return channel, true, nil
 }
 
-func buildExternalChannel(orgID uuid.UUID, req externalChannelAutoCreateRequest) model.Channel {
+func buildExternalChannel(orgID uuid.UUID, req externalChannelAutoCreateRequest, teamID uuid.UUID) model.Channel {
 	displayName := strings.TrimSpace(req.ResourceName)
 	if displayName == "" {
 		displayName = req.ResourceKey
@@ -83,6 +89,7 @@ func buildExternalChannel(orgID uuid.UUID, req externalChannelAutoCreateRequest)
 		Name:                 providerPrefixedChannelName(req.Provider, displayName),
 		Kind:                 "standard",
 		Visibility:           "public",
+		TeamID:               teamID,
 		DefaultAgentID:       req.DefaultAgentID,
 		Origin:               "external",
 		ExternalProvider:     req.Provider,

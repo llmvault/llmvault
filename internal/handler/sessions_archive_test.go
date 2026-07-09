@@ -60,7 +60,7 @@ func TestIntegration_SessionsArchive_ExternalSessionByOrgMembersAndAdmin(t *test
 		Name:                 "slack-" + uuid.NewString()[:8],
 		Kind:                 "standard",
 		Visibility:           "public",
-		TeamID:               &team.ID,
+		TeamID:               team.ID,
 		DefaultAgentID:       fx.agent.ID,
 		Origin:               "external",
 		ExternalProvider:     "slack",
@@ -128,7 +128,7 @@ func TestIntegration_SessionsArchive_ByOrgAdminAndDeniesNonMembers(t *testing.T)
 		Name:           "team-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "private",
-		TeamID:         &team.ID,
+		TeamID:         team.ID,
 		DefaultAgentID: fx.agent.ID,
 		Origin:         "native",
 	}

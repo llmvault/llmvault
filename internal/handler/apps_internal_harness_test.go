@@ -68,7 +68,7 @@ func newAppsHarness(t *testing.T) *appsHarness {
 	// cascade removes it with the channel (fk_channels_default_agent is
 	// RESTRICT). The app row cascades with the org too.
 	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Apps Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-ch-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
+	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-ch-" + uuid.NewString(), TeamID: h.agent.TeamID, DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("create channel seed: %v", err)

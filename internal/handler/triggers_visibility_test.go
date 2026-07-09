@@ -15,10 +15,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// triggerVisFixture seeds a member who is NOT on a team, an admin, a channel any
-// member can use (external), and a team-scoped private channel the member cannot
-// use — each with its own agent + trigger. It exercises the read-side channel /
-// agent visibility gating for triggers and trigger-deliveries.
+// triggerVisFixture seeds a member on memberTeam, an admin, a channel the member
+// can use (scoped to memberTeam), and a team-scoped private channel on otherTeam
+// the member cannot use — each with its own agent + trigger. It exercises the
+// read-side channel / agent visibility gating for triggers and trigger-deliveries.
 type triggerVisFixture struct {
 	org          model.Org
 	member       model.User
@@ -45,12 +45,12 @@ func seedTriggerVisFixture(t *testing.T, db *gorm.DB) triggerVisFixture {
 	hiddenAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "hid-" + uuid.NewString(), Model: "test", Status: "active", TeamID: otherTeam.ID}
 	usableChan := model.Channel{
 		ID: uuid.New(), OrgID: org.ID, Name: "usable-" + uuid.NewString(),
-		DefaultAgentID: visibleAgent.ID, Origin: "external",
+		DefaultAgentID: visibleAgent.ID, Origin: "external", TeamID: memberTeam.ID,
 		ExternalProvider: "slack", ExternalResourceKey: "C0" + uuid.NewString()[:8],
 	}
 	teamChan := model.Channel{
 		ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString(),
-		DefaultAgentID: hiddenAgent.ID, Visibility: "private", TeamID: &otherTeam.ID,
+		DefaultAgentID: hiddenAgent.ID, Visibility: "private", TeamID: otherTeam.ID,
 	}
 	member := model.User{ID: uuid.New(), Email: "m-" + uuid.NewString() + "@ex.test", Name: "Member"}
 	admin := model.User{ID: uuid.New(), Email: "a-" + uuid.NewString() + "@ex.test", Name: "Admin"}

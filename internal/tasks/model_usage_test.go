@@ -39,6 +39,7 @@ func TestWriteModelUsageCreatesGenerationAndSessionEventIdempotently(t *testing.
 	}
 	channel := model.Channel{
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "model-usage-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",

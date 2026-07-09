@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
-    "generate": "openapi-typescript ../../docs/openapi.json -o lib/api/schema.d.ts"
+    "generate": "openapi-typescript ../../docs/openapi.json -o lib/api/schema.d.ts",
+    "knip": "knip"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -66,6 +67,7 @@
     "knip": "^6.7.0",
     "openapi-typescript": "^7.13.0",
     "postcss": "^8",
+    "postcss-load-config": "^6.0.1",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.1",

@@ -27,7 +27,11 @@ func seedMentionTrigger(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, rep
 
 func seedActiveSession(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID) model.Session {
 	t.Helper()
-	channel := model.Channel{OrgID: orgID, Name: "orig-" + uuid.NewString()[:8], DefaultAgentID: agentID, Origin: "native"}
+	var a model.Agent
+	if err := db.Where("id = ?", agentID).First(&a).Error; err != nil {
+		t.Fatalf("lookup agent team: %v", err)
+	}
+	channel := model.Channel{OrgID: orgID, TeamID: a.TeamID, Name: "orig-" + uuid.NewString()[:8], DefaultAgentID: agentID, Origin: "native"}
 	if err := db.Create(&channel).Error; err != nil {
 		t.Fatalf("create channel: %v", err)
 	}

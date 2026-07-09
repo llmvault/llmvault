@@ -168,6 +168,7 @@ func seedDefaultChannel(t *testing.T, h *channelHarness, fx channelFixture) stri
 		Name:           "general-" + uuid.NewString()[:8],
 		Kind:           "standard",
 		Visibility:     "public",
+		TeamID:         fx.agent.TeamID,
 		DefaultAgentID: fx.agent.ID,
 		IsDefault:      true,
 		Origin:         "native",

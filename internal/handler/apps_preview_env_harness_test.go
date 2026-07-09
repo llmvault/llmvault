@@ -102,7 +102,7 @@ func newPreviewEnvHarness(t *testing.T, opts previewHarnessOpts) *previewEnvHarn
 	}
 	h.org = createTestOrg(t, db)
 	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Preview Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "preview-ch-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
+	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "preview-ch-" + uuid.NewString(), TeamID: h.agent.TeamID, DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("seed: %v", err)

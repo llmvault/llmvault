@@ -61,8 +61,8 @@ func seedSheetsFixture(t *testing.T, db *gorm.DB) *sheetsFixture {
 	f.user = model.User{ID: uuid.New(), Email: "sheets-" + uuid.NewString() + "@example.com", Name: "Sheets Tester"}
 	f.agent = model.Agent{ID: uuid.New(), OrgID: &f.org.ID, TeamID: f.team.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	f.otherAgent = model.Agent{ID: uuid.New(), OrgID: &f.otherOrg.ID, TeamID: f.otherTeam.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	f.channel = model.Channel{ID: uuid.New(), OrgID: f.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.agent.ID}
-	f.otherChannel = model.Channel{ID: uuid.New(), OrgID: f.otherOrg.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.otherAgent.ID}
+	f.channel = model.Channel{ID: uuid.New(), OrgID: f.org.ID, TeamID: f.team.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.agent.ID}
+	f.otherChannel = model.Channel{ID: uuid.New(), OrgID: f.otherOrg.ID, TeamID: f.otherTeam.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.otherAgent.ID}
 	f.session = model.Session{ID: uuid.New(), OrgID: f.org.ID, ChannelID: f.channel.ID, AgentID: f.agent.ID}
 	for _, seed := range []any{&f.org, &f.otherOrg, &f.team, &f.otherTeam, &f.user, &f.agent, &f.otherAgent, &f.channel, &f.otherChannel, &f.session} {
 		if err := db.Create(seed).Error; err != nil {

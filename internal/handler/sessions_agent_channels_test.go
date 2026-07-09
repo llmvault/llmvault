@@ -24,7 +24,7 @@ func TestIntegration_SessionsUpdateRejectsChannelMoveWhenAgentUnavailable(t *tes
 	if err := h.db.Create(&team).Error; err != nil {
 		t.Fatalf("create team: %v", err)
 	}
-	teamChannel := seedSessionChannel(t, h, fx, "walled", fx.agent.ID, &team.ID)
+	teamChannel := seedSessionChannel(t, h, fx, "walled", fx.agent.ID, team.ID)
 	created := h.createSession(t, fx, fx.owner, "Initial team-less session")
 
 	move := h.doJSON(t, http.MethodPatch, "/v1/sessions/"+created.Session.ID, fx, fx.owner, map[string]any{
@@ -35,7 +35,7 @@ func TestIntegration_SessionsUpdateRejectsChannelMoveWhenAgentUnavailable(t *tes
 	}
 }
 
-func seedSessionChannel(t *testing.T, h *sessionHarness, fx sessionFixture, name string, agentID uuid.UUID, teamID *uuid.UUID) model.Channel {
+func seedSessionChannel(t *testing.T, h *sessionHarness, fx sessionFixture, name string, agentID uuid.UUID, teamID uuid.UUID) model.Channel {
 	t.Helper()
 	channel := model.Channel{
 		OrgID:          fx.org.ID,

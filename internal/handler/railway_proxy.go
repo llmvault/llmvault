@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -137,44 +139,28 @@ func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	h.proxyToRailway(w, r, body, railwayToken)
 }
 
-// getRailwayToken returns a Railway API token for the agent's org, using
-// the in-memory cache or fetching fresh from Nango. Cached by org ID so
-// all agents in the same org share one token.
 func (h *RailwayProxyHandler) getRailwayToken(w http.ResponseWriter, r *http.Request, agent *model.Agent, agentID uuid.UUID) (string, error) {
 	if agent.OrgID == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent has no org"})
 		return "", fmt.Errorf("no org")
 	}
-	orgID := *agent.OrgID
 
-	if entry, ok := h.cache.Get(orgID); ok {
-		return entry.token, nil
-	}
-
-	var conn model.Connection
-	err := h.db.
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", orgID, railwayProvider).
-		Order("connections.created_at ASC").
-		First(&conn).Error
+	result, err := connectionaccess.ResolveAgentProvider(r.Context(), h.db, *agent.OrgID, agentID, railwayProvider)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no railway connection for org"})
 			return "", fmt.Errorf("no connection")
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to look up connection"})
 		return "", fmt.Errorf("db error")
 	}
+	conn := result.Connection
 
-	var integration model.Integration
-	if err := h.db.Where("id = ?", conn.IntegrationID).First(&integration).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "railway-proxy: failed to load integration", "integration_id", conn.IntegrationID, "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load integration"})
-		return "", fmt.Errorf("integration error")
+	if entry, ok := h.cache.Get(conn.ID); ok {
+		return entry.token, nil
 	}
 
-	providerConfigKey := integration.UniqueKey
-	nangoConn, err := h.nango.GetConnection(r.Context(), conn.NangoConnectionID, providerConfigKey)
+	nangoConn, err := h.nango.GetConnection(r.Context(), conn.NangoConnectionID, result.ProviderConfigKey)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "railway-proxy: failed to fetch from nango",
 			"agent_id", agentID,
@@ -196,7 +182,7 @@ func (h *RailwayProxyHandler) getRailwayToken(w http.ResponseWriter, r *http.Req
 		return "", fmt.Errorf("no token")
 	}
 
-	h.cache.Add(orgID, &railwayTokenEntry{
+	h.cache.Add(conn.ID, &railwayTokenEntry{
 		token:    accessToken,
 		cachedAt: time.Now(),
 	})

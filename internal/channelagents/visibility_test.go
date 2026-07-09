@@ -95,8 +95,9 @@ func TestVisibleAgentIDsSubquery(t *testing.T) {
 	}
 }
 
-// TestActsInChannel verifies the team-match gate and the system/external
-// exemption.
+// TestActsInChannel verifies the team-match gate: an agent may act iff it
+// belongs to the channel's owning team. External channels are treated exactly
+// like native team channels.
 func TestActsInChannel(t *testing.T) {
 	db := connect(t)
 	ctx := context.Background()
@@ -108,11 +109,10 @@ func TestActsInChannel(t *testing.T) {
 	agentA := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "A", Model: "test", Status: "active", TeamID: teamA.ID}
 	agentB := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "B", Model: "test", Status: "active", TeamID: teamB.ID}
 
-	chTeamA := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ta-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: agentA.ID}
-	chNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "n-" + uuid.NewString()[:8], Kind: "system", DefaultAgentID: agentA.ID}
-	chExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "e-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", DefaultAgentID: agentA.ID}
+	chTeamA := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ta-" + uuid.NewString()[:8], Kind: "standard", TeamID: teamA.ID, DefaultAgentID: agentA.ID}
+	chExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "e-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", TeamID: teamA.ID, DefaultAgentID: agentA.ID}
 
-	for _, r := range []any{&org, &teamA, &teamB, &agentA, &agentB, &chTeamA, &chNull, &chExt} {
+	for _, r := range []any{&org, &teamA, &teamB, &agentA, &agentB, &chTeamA, &chExt} {
 		if err := db.Create(r).Error; err != nil {
 			t.Fatalf("seed: %v", err)
 		}
@@ -132,8 +132,8 @@ func TestActsInChannel(t *testing.T) {
 	}{
 		{"same team", chTeamA.ID, agentA.ID, true},
 		{"different team rejected", chTeamA.ID, agentB.ID, false},
-		{"system channel accepts any org agent", chNull.ID, agentB.ID, true},
-		{"external channel accepts any org agent", chExt.ID, agentB.ID, true},
+		{"external channel is team-scoped: same team", chExt.ID, agentA.ID, true},
+		{"external channel is team-scoped: different team rejected", chExt.ID, agentB.ID, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

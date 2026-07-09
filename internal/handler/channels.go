@@ -77,10 +77,10 @@ type channelResponse struct {
 	Kind                 string  `json:"kind"`
 	Visibility           string  `json:"visibility"`
 	TeamID               *string `json:"team_id,omitempty"`
-	// TeamName is the display name of the channel's owning team (empty for
-	// team-less channels). Lets the non-admin sidebar label team groups without
-	// a second round-trip; both managers and members receive the name of teams
-	// their visible channels belong to.
+	// TeamName is the display name of the channel's owning team. Lets the
+	// non-admin sidebar label team groups without a second round-trip; both
+	// managers and members receive the name of teams their visible channels
+	// belong to.
 	TeamName                 string             `json:"team_name,omitempty"`
 	DefaultAgentID           string             `json:"default_agent_id"`
 	ImageModel               string             `json:"image_model"`
@@ -193,7 +193,7 @@ func channelToResponse(channel model.Channel, role string, memberCount int64) ch
 		DefaultMemoryMission: memory.MissionTemplate(channel.Category),
 		Kind:                 channel.Kind,
 		Visibility:           channel.Visibility,
-		TeamID:               formatUUIDPtr(channel.TeamID),
+		TeamID:               formatUUIDPtr(&channel.TeamID),
 		DefaultAgentID:       channel.DefaultAgentID.String(),
 		ImageModel:           channel.ImageModel,
 		VectorImageModel:     channel.VectorImageModel,

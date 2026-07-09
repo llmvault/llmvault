@@ -99,9 +99,9 @@ func (h *AppsHandler) requireAppsOrg(w http.ResponseWriter, r *http.Request) (*m
 	return org, true
 }
 
-// canUseAppChannel mirrors canUseSheetChannel: org managers pass, API-key
-// callers only reach channels open to any org member, everyone else must be
-// able to use the channel (team membership).
+// canUseAppChannel mirrors canUseSheetChannel: access is strictly team-scoped.
+// Org managers and API-key callers pass; a human member must be able to use the
+// channel (team membership).
 func (h *AppsHandler) canUseAppChannel(ctx context.Context, orgID, channelID uuid.UUID) bool {
 	var channel model.Channel
 	if err := h.db.WithContext(ctx).
@@ -110,7 +110,7 @@ func (h *AppsHandler) canUseAppChannel(ctx context.Context, orgID, channelID uui
 		return false
 	}
 	if isAPIKeyRequest(ctx) {
-		return channel.Origin == "external" || channel.TeamID == nil
+		return canUseChannel(ctx, h.db, channel, "", nil, true)
 	}
 	var userID *uuid.UUID
 	if user, ok := middleware.UserFromContext(ctx); ok && user != nil {

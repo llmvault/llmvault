@@ -15,12 +15,11 @@ import (
 )
 
 type channelToolFixture struct {
-	org      model.Org
-	team     model.Team
-	agent    model.Agent
-	general  model.Channel
-	slack    model.Channel
-	teamHome model.Channel // team-scoped #general, the IsDefault channel empty channel_id resolves to
+	org     model.Org
+	team    model.Team
+	agent   model.Agent
+	general model.Channel // the team's #general: team-scoped, IsDefault, the channel empty channel_id resolves to
+	slack   model.Channel
 }
 
 func connectChannelToolTestDB(t *testing.T) *gorm.DB {
@@ -42,28 +41,20 @@ func seedChannelToolFixture(t *testing.T, db *gorm.DB) channelToolFixture {
 	org := model.Org{ID: uuid.New(), Name: "channel-tool-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Channel Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	// The agent's team #general: team-scoped and IsDefault, mirroring
+	// provisionTeamDefaults. An empty channel_id resolves here.
 	general := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          org.ID,
+		TeamID:         team.ID,
 		Name:           "general-" + uuid.NewString(),
-		DefaultAgentID: agent.ID,
-		IsDefault:      true,
-	}
-	// The agent's team #general: team-scoped and IsDefault, mirroring
-	// provisionTeamDefaults. An empty channel_id resolves here.
-	teamHome := model.Channel{
-		ID:             uuid.New(),
-		OrgID:          org.ID,
-		TeamID:         &team.ID,
-		Name:           "general",
-		Kind:           "standard",
-		Visibility:     "public",
 		DefaultAgentID: agent.ID,
 		IsDefault:      true,
 	}
 	slack := model.Channel{
 		ID:                   uuid.New(),
 		OrgID:                org.ID,
+		TeamID:               team.ID,
 		Name:                 "alerts-" + uuid.NewString(),
 		DefaultAgentID:       agent.ID,
 		Origin:               "external",
@@ -72,13 +63,13 @@ func seedChannelToolFixture(t *testing.T, db *gorm.DB) channelToolFixture {
 		ExternalResourceKey:  "C0" + uuid.NewString()[:8],
 		ExternalResourceName: "alerts",
 	}
-	for _, row := range []any{&org, &team, &agent, &general, &slack, &teamHome} {
+	for _, row := range []any{&org, &team, &agent, &general, &slack} {
 		if err := db.Create(row).Error; err != nil {
 			t.Fatalf("seed fixture row %T: %v", row, err)
 		}
 	}
 	t.Cleanup(func() { cleanupChannelToolOrg(t, db, org.ID) })
-	return channelToolFixture{org: org, team: team, agent: agent, general: general, slack: slack, teamHome: teamHome}
+	return channelToolFixture{org: org, team: team, agent: agent, general: general, slack: slack}
 }
 
 func cleanupChannelToolOrg(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
@@ -246,7 +237,7 @@ func TestListChannelsExcludesForeignTeamChannels(t *testing.T) {
 	if err := db.Create(&foreignTeam).Error; err != nil {
 		t.Fatalf("create foreign team: %v", err)
 	}
-	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: &foreignTeam.ID, Name: "foreign-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
+	foreignChannel := model.Channel{ID: uuid.New(), OrgID: fx.org.ID, TeamID: foreignTeam.ID, Name: "foreign-" + uuid.NewString(), DefaultAgentID: fx.agent.ID}
 	if err := db.Create(&foreignChannel).Error; err != nil {
 		t.Fatalf("create foreign channel: %v", err)
 	}
@@ -259,7 +250,7 @@ func TestListChannelsExcludesForeignTeamChannels(t *testing.T) {
 	if _, ok := entries[foreignChannel.ID.String()]; ok {
 		t.Fatalf("foreign-team channel should be excluded: %v", entries)
 	}
-	if _, ok := entries[fx.teamHome.ID.String()]; !ok {
+	if _, ok := entries[fx.general.ID.String()]; !ok {
 		t.Fatalf("agent's team channel missing from %v", entries)
 	}
 	if _, ok := entries[fx.slack.ID.String()]; !ok {

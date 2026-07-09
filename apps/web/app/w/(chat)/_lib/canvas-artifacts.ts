@@ -37,7 +37,7 @@ export interface CanvasArtifact {
   updatedAt?: string
 }
 
-export interface CanvasArtifactPreviewURL {
+interface CanvasArtifactPreviewURL {
   url: string
   expiresAt?: number
   expiresIn?: number
@@ -46,7 +46,7 @@ export interface CanvasArtifactPreviewURL {
 // Declared as a type alias (not an interface) so it carries an implicit index
 // signature and is assignable to the generated `JSON` body element type when
 // posted as an artifact comment.
-export type CanvasArtifactCommentPayload = {
+type CanvasArtifactCommentPayload = {
   artifact_id: string
   artifact_name: string
   artifact_slug?: string
@@ -91,7 +91,7 @@ export function useCanvasProjects(
  * Canvas artifacts for the org, optionally filtered by project/session, mapped
  * to the domain shape. `data` is always a normalized array.
  */
-export function useCanvasArtifacts(
+function useCanvasArtifacts(
   input: { projectId?: string | null; sessionId?: string | null } = {},
   options?: { enabled?: boolean }
 ) {
@@ -228,7 +228,7 @@ export function normalizeCanvasArtifactList(value: unknown): CanvasArtifact[] {
   return list.map(normalizeCanvasArtifact).filter(isPresent)
 }
 
-export function normalizeCanvasProject(
+function normalizeCanvasProject(
   value: unknown
 ): CanvasArtifactProject | null {
   const record = recordValue(value)
@@ -259,7 +259,7 @@ export function normalizeCanvasProject(
   }
 }
 
-export function normalizeCanvasArtifact(value: unknown): CanvasArtifact | null {
+function normalizeCanvasArtifact(value: unknown): CanvasArtifact | null {
   const record = recordValue(value)
   if (!record) return null
 

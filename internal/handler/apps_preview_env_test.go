@@ -48,7 +48,7 @@ func TestAppPreviewEnvForeignOrgAppIs404(t *testing.T) {
 	// An app that exists but belongs to a different org must 404.
 	otherOrg := createTestOrg(t, h.db)
 	otherAgent := model.Agent{ID: uuid.New(), OrgID: &otherOrg.ID, TeamID: firstTeamID(t, h.db, otherOrg.ID), Name: "Other " + uuid.NewString(), Model: "test", Status: "active"}
-	otherChan := model.Channel{ID: uuid.New(), OrgID: otherOrg.ID, Name: "other-" + uuid.NewString(), DefaultAgentID: otherAgent.ID}
+	otherChan := model.Channel{ID: uuid.New(), OrgID: otherOrg.ID, Name: "other-" + uuid.NewString(), TeamID: otherAgent.TeamID, DefaultAgentID: otherAgent.ID}
 	otherSheet := model.Sheet{ID: uuid.New(), OrgID: otherOrg.ID, ChannelID: otherChan.ID, Slug: "other-" + uuid.NewString()[:8], Name: "Other"}
 	for _, seed := range []any{&otherAgent, &otherChan, &otherSheet} {
 		if err := h.db.Create(seed).Error; err != nil {

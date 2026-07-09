@@ -19,7 +19,7 @@ import {
 
 export type CodeLineCommentSourceKind = "review" | "file" | "tool"
 
-export interface CodeLineCommentSourceInput {
+interface CodeLineCommentSourceInput {
   kind: CodeLineCommentSourceKind
   path: string
   repoId?: string
@@ -155,7 +155,7 @@ export function createCodeLineCommentSource(
   }
 }
 
-export function composeMessageWithLineComments(
+function composeMessageWithLineComments(
   text: string,
   comments: CodeLineComment[]
 ) {
@@ -190,7 +190,7 @@ export function codeLineCommentPayloads(
   }))
 }
 
-export function formatCodeLineCommentLocation(comment: CodeLineComment) {
+function formatCodeLineCommentLocation(comment: CodeLineComment) {
   return formatPersistedCodeLineCommentLocation({
     displayPath: comment.displayPath,
     path: comment.path,

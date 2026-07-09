@@ -231,6 +231,7 @@ func seedSlackReactionChannel(t *testing.T, db *gorm.DB, orgID uuid.UUID, conn m
 	channel := model.Channel{
 		OrgID:                orgID,
 		Name:                 "slack-general-" + uuid.NewString(),
+		TeamID:               agent.TeamID,
 		DefaultAgentID:       agent.ID,
 		Origin:               "external",
 		ExternalProvider:     slackapp.Provider,

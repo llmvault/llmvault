@@ -8,14 +8,14 @@ export const SIDEBAR_SESSION_SORT = "activity"
 export const CHANNEL_SESSIONS_INFINITE_KEY = "channel-sessions-infinite-v1"
 export const SESSION_EVENTS_INFINITE_KEY = "session-events-infinite-v1"
 
-export type ChannelResponse = components["schemas"]["channelResponse"]
-export type ChannelDetailResponse =
+type ChannelResponse = components["schemas"]["channelResponse"]
+type ChannelDetailResponse =
   components["schemas"]["channelDetailResponse"]
 export type SessionResponse = components["schemas"]["sessionResponse"]
 export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
 export type PaginatedChannels =
   components["schemas"]["paginatedResponse-channelResponse"]
-export type SessionDetailResponse =
+type SessionDetailResponse =
   components["schemas"]["sessionDetailResponse"]
 export type PaginatedSessions =
   components["schemas"]["paginatedResponse-sessionResponse"]

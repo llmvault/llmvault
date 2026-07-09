@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -87,20 +88,9 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owningAgent, err := h.resolveOwningAgent(ctx, *agent.OrgID, agent)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "agent is not attached to an agent")
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent is not attached to an agent"})
-			return
-		}
-		h.captureProxyFailure(ctx, eventCtx, http.StatusInternalServerError, "failed to resolve agent")
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve agent"})
-		return
-	}
-	eventCtx.AgentID = owningAgent.ID
+	eventCtx.AgentID = agent.ID
 
-	conn, err := h.resolveAttachedBugsinkConnection(ctx, owningAgent)
+	conn, providerConfigKey, err := h.resolveAttachedBugsinkConnection(ctx, agent)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "no bugsink connection attached to agent")
@@ -131,7 +121,7 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.nango.RawProxyRequest(ctx, r.Method, nangoProviderConfigKey(conn.Integration.UniqueKey), conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), r.Header.Get("Content-Type"))
+	resp, err := h.nango.RawProxyRequest(ctx, r.Method, providerConfigKey, conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), r.Header.Get("Content-Type"))
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "bugsink-proxy: nango proxy failed",
 			"agent_id", agentID,
@@ -188,34 +178,15 @@ func (h *BugsinkProxyHandler) authenticatedSandbox(ctx context.Context, agentID 
 	return false
 }
 
-func (h *BugsinkProxyHandler) resolveOwningAgent(ctx context.Context, orgID uuid.UUID, agent model.Agent) (model.Agent, error) {
-	if agent.OrgID != nil && *agent.OrgID == orgID {
-		return agent, nil
-	}
-	var owningAgent model.Agent
-	if err := h.db.WithContext(ctx).
-		Where("org_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, "archived").
-		Order("created_at ASC").
-		First(&owningAgent).Error; err != nil {
-		return model.Agent{}, err
-	}
-	return owningAgent, nil
-}
-
-func (h *BugsinkProxyHandler) resolveAttachedBugsinkConnection(ctx context.Context, agent model.Agent) (model.Connection, error) {
+func (h *BugsinkProxyHandler) resolveAttachedBugsinkConnection(ctx context.Context, agent model.Agent) (model.Connection, string, error) {
 	if agent.OrgID == nil {
-		return model.Connection{}, gorm.ErrRecordNotFound
+		return model.Connection{}, "", gorm.ErrRecordNotFound
 	}
-	var conn model.Connection
-	if err := h.db.WithContext(ctx).
-		Preload("Integration").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", *agent.OrgID, bugsinkProvider).
-		Order("connections.created_at ASC").
-		First(&conn).Error; err != nil {
-		return model.Connection{}, err
+	result, err := connectionaccess.ResolveAgentProvider(ctx, h.db, *agent.OrgID, agent.ID, bugsinkProvider)
+	if err != nil {
+		return model.Connection{}, "", err
 	}
-	return conn, nil
+	return result.Connection, result.ProviderConfigKey, nil
 }
 
 func (h *BugsinkProxyHandler) captureProxyFailure(ctx context.Context, eventCtx bugsinkProxyContext, status int, reason string) {

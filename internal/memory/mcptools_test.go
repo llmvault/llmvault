@@ -31,7 +31,7 @@ func TestMemoryMCPToolsChannelScoping(t *testing.T) {
 		}
 	}
 
-	otherChannel := model.Channel{ID: uuid.New(), OrgID: fixture.org.ID, Name: "memory-mcp-other-" + uuid.NewString(), DefaultAgentID: fixture.agent.ID, ExposeOrgMemories: true}
+	otherChannel := model.Channel{ID: uuid.New(), OrgID: fixture.org.ID, TeamID: fixture.channel.TeamID, Name: "memory-mcp-other-" + uuid.NewString(), DefaultAgentID: fixture.agent.ID, ExposeOrgMemories: true}
 	if err := db.Create(&otherChannel).Error; err != nil {
 		t.Fatalf("create other channel: %v", err)
 	}

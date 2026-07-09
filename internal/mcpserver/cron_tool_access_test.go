@@ -56,7 +56,7 @@ func TestCronListHidesSchedulesActorCannotUse(t *testing.T) {
 	db := connectChannelToolTestDB(t)
 	fx := seedActorEnforcementFixture(t, db)
 
-	usableJob := seedCronSchedule(t, db, fx, fx.general.ID)
+	usableJob := seedCronSchedule(t, db, fx, fx.usableChannel.ID)
 	hiddenJob := seedCronSchedule(t, db, fx, fx.teamChannel.ID)
 
 	// Member on neither team: sees only the usable-channel schedule.
@@ -102,7 +102,7 @@ func TestCronManageDeniedForSchedulesActorCannotUse(t *testing.T) {
 	fx := seedActorEnforcementFixture(t, db)
 
 	hiddenJob := seedCronSchedule(t, db, fx, fx.teamChannel.ID)
-	usableJob := seedCronSchedule(t, db, fx, fx.general.ID)
+	usableJob := seedCronSchedule(t, db, fx, fx.usableChannel.ID)
 
 	// Member cannot pause a schedule in a channel they aren't in.
 	pauseResult, err := handleCronTool(t.Context(), db, &fx.agent, cronToolArgs{

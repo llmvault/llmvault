@@ -40,11 +40,6 @@ import {
 import { Sidebar } from "@/app/w/(chat)/_components/sidebar"
 import { LineCommentsProvider } from "@/app/w/(chat)/_components/line-comments"
 import {
-  agentById,
-  DEFAULT_AGENT_ID,
-  type Agent,
-} from "@/app/w/(chat)/_lib/agents"
-import {
   agentAvatarURL,
   agentDisplayName,
   agentIcon,
@@ -88,7 +83,7 @@ const RIGHT_PANEL_SIZE_EPSILON = 0.1
 const PANEL_EASE = [0.32, 0.72, 0, 1] as const
 
 // A chat session is pinned to one agent for its whole lifetime; only the
-// model can change after creation, and only within the agent's model list.
+// model can change after creation.
 export interface ChatSession {
   title: string
   agentId: string
@@ -96,7 +91,6 @@ export interface ChatSession {
   agentIcon?: string
   agentAvatarURL?: string
   modelId: string
-  initialMessage?: string
   agentTurnStatus?: string
   agentTurnID?: string
   agentTurnStartedAt?: string
@@ -116,12 +110,6 @@ interface WorkspaceContextValue {
     session?: ChatSession,
     options?: { replace?: boolean }
   ) => void
-  startSession: (
-    agentId: string,
-    firstMessage: string,
-    modelId?: string
-  ) => void
-  setModel: (modelId: string) => void
   openView: (id: PanelViewID) => void
   sandboxAccess?: SessionSandboxAccess
   sandboxAccessPending: boolean
@@ -158,7 +146,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const [rightOpen, setRightOpenState] = useState(false)
   const sidebarOpenRef = useRef(DEFAULT_SIDEBAR_PREFERENCES.open)
   const rightOpenRef = useRef(false)
-  const [draftSession, setDraftSession] = useState<ChatSession | null>(null)
   const [renameSession, setRenameSession] =
     useState<RenameSessionTarget | null>(null)
   const [shareSessionID, setShareSessionID] = useState<string | null>(null)
@@ -276,8 +263,8 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       fetched ??
       preview ?? {
         title: routeSessionQuery.isError ? "Chat unavailable" : "Loading chat",
-        agentId: DEFAULT_AGENT_ID,
-        modelId: agentById(DEFAULT_AGENT_ID).defaultModelId,
+        agentId: "",
+        modelId: "",
         loaded: false,
       }
     )
@@ -288,7 +275,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     routeSessionQuery.data?.session,
     routeSessionQuery.isError,
   ])
-  const session = routeSession ?? draftSession
+  const session = routeSession
   const routeSandboxID = routeSessionQuery.data?.session?.sandbox_id ?? null
 
   const sidebarPanelRef = usePanelRef()
@@ -589,14 +576,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   )
 
   const startNewChat = useCallback(() => {
-    setDraftSession(null)
     setRoutePreviewSession(null)
     router.push("/w")
   }, [router])
 
   const openChannel = useCallback(
     (channelSlug: string) => {
-      setDraftSession(null)
       setRoutePreviewSession(null)
       router.push(`/w/channels/${channelSlug}`)
     },
@@ -610,7 +595,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       session?: ChatSession,
       options: { replace?: boolean } = {}
     ) => {
-      setDraftSession(null)
       setRoutePreviewSession(session ? { sessionId, session } : null)
       const href = `/w/channels/${channelSlug}/${sessionId}`
       if (options.replace) {
@@ -621,35 +605,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     },
     [router]
   )
-
-  const startSession = useCallback(
-    (agentId: string, firstMessage: string, modelId?: string) => {
-      const agent = agentById(agentId)
-      const title =
-        firstMessage.length > 44
-          ? `${firstMessage.slice(0, 44).trimEnd()}…`
-          : firstMessage
-      setDraftSession({
-        title,
-        agentId,
-        modelId:
-          modelId && agent.modelIds.includes(modelId)
-            ? modelId
-            : agent.defaultModelId,
-        initialMessage: firstMessage,
-      })
-    },
-    []
-  )
-
-  const setModel = useCallback((modelId: string) => {
-    setDraftSession((current) => {
-      if (!current) return current
-      const agent = safeStaticAgentById(current.agentId)
-      if (agent && !agent.modelIds.includes(modelId)) return current
-      return { ...current, modelId }
-    })
-  }, [])
 
   const runtimeAccessNeeded =
     Boolean(routeSessionID) &&
@@ -781,8 +736,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       startNewChat,
       openChannel,
       openChat,
-      startSession,
-      setModel,
       openView,
       sandboxAccess,
       sandboxAccessPending: sandboxAccessPendingForSession,
@@ -794,8 +747,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       startNewChat,
       openChannel,
       openChat,
-      startSession,
-      setModel,
       openView,
       sandboxAccess,
       sandboxAccessPendingForSession,
@@ -980,20 +931,15 @@ function chatSessionFromResponse(
   agentsByID?: Map<string, AgentResponse>
 ): ChatSession | null {
   if (!session) return null
-  const agentID = session.agent_id?.trim() || DEFAULT_AGENT_ID
-  const apiAgent = agentsByID?.get(agentID)
-  const staticAgent = safeStaticAgentById(agentID)
-  const fallbackAgent = staticAgent ?? agentById(DEFAULT_AGENT_ID)
+  const agentID = session.agent_id?.trim() ?? ""
+  const apiAgent = agentID ? agentsByID?.get(agentID) : undefined
   return {
     title: sessionDisplayName(session),
     agentId: agentID,
-    agentName: apiAgent ? agentDisplayName(apiAgent) : staticAgent?.name,
-    agentIcon: apiAgent ? agentIcon(apiAgent) : staticAgent?.icon,
+    agentName: apiAgent ? agentDisplayName(apiAgent) : undefined,
+    agentIcon: apiAgent ? agentIcon(apiAgent) : undefined,
     agentAvatarURL: agentAvatarURL(apiAgent),
-    modelId:
-      session.model?.trim() ||
-      agentModel(apiAgent) ||
-      fallbackAgent.defaultModelId,
+    modelId: session.model?.trim() || agentModel(apiAgent) || "",
     agentTurnStatus: session.agent_turn_status,
     agentTurnID: session.agent_turn_id,
     agentTurnStartedAt: session.agent_turn_started_at,
@@ -1004,23 +950,10 @@ function chatSessionFromResponse(
   }
 }
 
-function safeStaticAgentById(id: string): Agent | null {
-  try {
-    return agentById(id)
-  } catch {
-    return null
-  }
-}
-
-function safeAgentById(id: string): Agent {
-  return safeStaticAgentById(id) ?? agentById(DEFAULT_AGENT_ID)
-}
-
 function chatHeaderAgent(session: ChatSession): ChatHeaderAgent {
-  const fallback = safeAgentById(session.agentId)
   return {
-    name: session.agentName ?? fallback.name,
-    icon: session.agentIcon ?? fallback.icon,
+    name: session.agentName ?? "Agent",
+    icon: session.agentIcon ?? "bot",
     avatarURL: session.agentAvatarURL,
   }
 }

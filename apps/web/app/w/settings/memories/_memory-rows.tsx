@@ -143,7 +143,7 @@ export function ObservationRow({
   )
 }
 
-export type MenuItem = {
+type MenuItem = {
   key: string
   label: string
   icon: string
@@ -151,7 +151,7 @@ export type MenuItem = {
   onSelect: () => void
 }
 
-export function ActionsMenu({
+function ActionsMenu({
   label,
   items,
 }: {
@@ -310,7 +310,7 @@ export function EmptyCard({
   )
 }
 
-export function relativeTime(iso: string): string {
+function relativeTime(iso: string): string {
   if (!iso) return ""
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ""
@@ -327,7 +327,7 @@ export function relativeTime(iso: string): string {
   return `${Math.floor(months / 12)}y ago`
 }
 
-export function shortDate(iso: string): string {
+function shortDate(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ""
   return date.toLocaleDateString(undefined, {

@@ -48,7 +48,7 @@ const searchTools = new Set([
   "search_knowledge_base",
 ])
 
-export function toolStatus(event: SessionEventResponse): string {
+function toolStatus(event: SessionEventResponse): string {
   return stringValue(payloadRecord(event), "status")
 }
 

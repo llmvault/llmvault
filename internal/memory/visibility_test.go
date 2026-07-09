@@ -11,21 +11,19 @@ import (
 )
 
 // visibilityFixture builds on the base memory fixture an org whose member
-// (fx.user) belongs to teamA only, plus channels exercising every arm of the
-// team-based visibility predicate: team-A-scoped (usable), team-B-scoped (not
-// usable), team-less native (usable via team_id IS NULL), and externally
-// sourced under team B (usable via origin='external').
+// (fx.user) belongs to teamA only, plus channels exercising the team-based
+// visibility predicate: team-A-scoped (usable), team-B-scoped (not usable), and
+// externally sourced under team B (still team-scoped, so not usable by a teamA
+// member — external origin grants no org-wide access).
 type visibilityFixture struct {
-	fx           memoryToolFixture
-	chTeamA      uuid.UUID
-	chTeamB      uuid.UUID
-	chNativeNull uuid.UUID
-	chExternal   uuid.UUID
+	fx         memoryToolFixture
+	chTeamA    uuid.UUID
+	chTeamB    uuid.UUID
+	chExternal uuid.UUID
 	// memory ids by the channel they live in (mGlobal has no channel).
 	mGlobal uuid.UUID
 	mTeamA  uuid.UUID
 	mTeamB  uuid.UUID
-	mNull   uuid.UUID
 	mExt    uuid.UUID
 }
 
@@ -46,7 +44,7 @@ func seedVisibilityFixture(t *testing.T, db *gorm.DB, service *Service) visibili
 		t.Fatalf("add user to teamA: %v", err)
 	}
 
-	newChannel := func(name string, teamID *uuid.UUID, origin string) uuid.UUID {
+	newChannel := func(name string, teamID uuid.UUID, origin string) uuid.UUID {
 		ch := model.Channel{
 			ID:             uuid.New(),
 			OrgID:          fx.org.ID,
@@ -61,15 +59,13 @@ func seedVisibilityFixture(t *testing.T, db *gorm.DB, service *Service) visibili
 		return ch.ID
 	}
 	vf := visibilityFixture{fx: fx}
-	vf.chTeamA = newChannel("team-a-ch", &teamA.ID, "native")
-	vf.chTeamB = newChannel("team-b-ch", &teamB.ID, "native")
-	vf.chNativeNull = newChannel("native-null-ch", nil, "native")
-	vf.chExternal = newChannel("external-ch", &teamB.ID, "external")
+	vf.chTeamA = newChannel("team-a-ch", teamA.ID, "native")
+	vf.chTeamB = newChannel("team-b-ch", teamB.ID, "native")
+	vf.chExternal = newChannel("external-ch", teamB.ID, "external")
 
 	vf.mGlobal = seedReadyMemory(t, service, fx.org.ID, nil, "global memory")
 	vf.mTeamA = seedReadyMemory(t, service, fx.org.ID, &vf.chTeamA, "team A memory")
 	vf.mTeamB = seedReadyMemory(t, service, fx.org.ID, &vf.chTeamB, "team B memory (secret)")
-	vf.mNull = seedReadyMemory(t, service, fx.org.ID, &vf.chNativeNull, "native null channel memory")
 	vf.mExt = seedReadyMemory(t, service, fx.org.ID, &vf.chExternal, "external channel memory")
 
 	t.Cleanup(func() {
@@ -115,7 +111,7 @@ func TestListVisibilityRestrictsToUsableChannels(t *testing.T) {
 		t.Fatalf("member list: %v", err)
 	}
 	got := collectMemoryIDs(rows)
-	want := idSet(vf.mGlobal, vf.mTeamA, vf.mNull, vf.mExt)
+	want := idSet(vf.mGlobal, vf.mTeamA)
 	if len(got) != len(want) {
 		t.Fatalf("member sees %d memories, want %d: %v", len(got), len(want), got)
 	}
@@ -126,6 +122,9 @@ func TestListVisibilityRestrictsToUsableChannels(t *testing.T) {
 	}
 	if got[vf.mTeamB] {
 		t.Fatalf("LEAK: member saw team-B channel memory %s", vf.mTeamB)
+	}
+	if got[vf.mExt] {
+		t.Fatalf("LEAK: member saw team-B external channel memory %s", vf.mExt)
 	}
 
 	// Manager / API-key (unrestricted): sees everything including team B.
@@ -138,16 +137,16 @@ func TestListVisibilityRestrictsToUsableChannels(t *testing.T) {
 		t.Fatalf("admin list: %v", err)
 	}
 	adminGot := collectMemoryIDs(all)
-	for _, id := range []uuid.UUID{vf.mGlobal, vf.mTeamA, vf.mTeamB, vf.mNull, vf.mExt} {
+	for _, id := range []uuid.UUID{vf.mGlobal, vf.mTeamA, vf.mTeamB, vf.mExt} {
 		if !adminGot[id] {
 			t.Fatalf("admin/unrestricted should see memory %s but did not", id)
 		}
 	}
 }
 
-// TestListVisibilityNilUserSeesOnlyOpenChannels mirrors an empty team
-// membership: only external and team-less channels (plus global) survive.
-func TestListVisibilityNilUserSeesOnlyOpenChannels(t *testing.T) {
+// TestListVisibilityNilUserSeesOnlyGlobal mirrors an empty team membership: only
+// global (channel-less) memories survive.
+func TestListVisibilityNilUserSeesOnlyGlobal(t *testing.T) {
 	db := connectMemoryToolTestDB(t)
 	ctx := context.Background()
 	service := NewService(Config{DB: db, Embedder: staticMemoryToolEmbedder{vector: testMemoryVector()}})
@@ -163,11 +162,11 @@ func TestListVisibilityNilUserSeesOnlyOpenChannels(t *testing.T) {
 		t.Fatalf("nil-user list: %v", err)
 	}
 	got := collectMemoryIDs(rows)
-	want := idSet(vf.mGlobal, vf.mNull, vf.mExt)
+	want := idSet(vf.mGlobal)
 	if len(got) != len(want) {
 		t.Fatalf("nil user sees %d memories, want %d: %v", len(got), len(want), got)
 	}
-	if got[vf.mTeamA] || got[vf.mTeamB] {
+	if got[vf.mTeamA] || got[vf.mTeamB] || got[vf.mExt] {
 		t.Fatalf("LEAK: nil user saw team-scoped memory")
 	}
 }
@@ -199,10 +198,11 @@ func TestGroupedVisibilityOmitsUnusableChannels(t *testing.T) {
 	if seenChannels[vf.chTeamB] {
 		t.Fatalf("LEAK: grouped surfaced team-B channel %s to member", vf.chTeamB)
 	}
-	for _, want := range []uuid.UUID{vf.chTeamA, vf.chNativeNull, vf.chExternal} {
-		if !seenChannels[want] {
-			t.Fatalf("grouped omitted usable channel %s", want)
-		}
+	if seenChannels[vf.chExternal] {
+		t.Fatalf("LEAK: grouped surfaced team-B external channel %s to member", vf.chExternal)
+	}
+	if !seenChannels[vf.chTeamA] {
+		t.Fatalf("grouped omitted usable channel %s", vf.chTeamA)
 	}
 
 	// Unrestricted sees team B too.
@@ -240,8 +240,8 @@ func TestSearchVisibilityRestrictsToUsableChannels(t *testing.T) {
 		t.Fatalf("member search: %v", err)
 	}
 	for _, h := range hits {
-		if h.Memory.ID == vf.mTeamB {
-			t.Fatalf("LEAK: search returned team-B channel memory %s", vf.mTeamB)
+		if h.Memory.ID == vf.mTeamB || h.Memory.ID == vf.mExt {
+			t.Fatalf("LEAK: search returned unusable channel memory %s", h.Memory.ID)
 		}
 	}
 	// The usable memories are all present.
@@ -249,7 +249,7 @@ func TestSearchVisibilityRestrictsToUsableChannels(t *testing.T) {
 	for _, h := range hits {
 		found[h.Memory.ID] = true
 	}
-	for _, want := range []uuid.UUID{vf.mGlobal, vf.mTeamA, vf.mNull, vf.mExt} {
+	for _, want := range []uuid.UUID{vf.mGlobal, vf.mTeamA} {
 		if !found[want] {
 			t.Fatalf("search omitted usable memory %s", want)
 		}

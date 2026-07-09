@@ -23,15 +23,19 @@ func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[st
 		opts.BugsinkDashboardBaseURL = BugsinkDashboardBaseURL(ctx, deps.DB, *agent.OrgID, *agent)
 		opts.GlitchTipDashboardBaseURL = GlitchTipDashboardBaseURL(ctx, deps.DB, *agent.OrgID, *agent)
 	}
+	if allowed, err := AllowedServiceProxyProviders(ctx, deps.DB, *agent); err == nil {
+		opts.AllowedServiceProxyProviders = allowed
+	}
 	ApplyControlPlaneRuntimeEnv(env, deps.Cfg, agent, runtimeSecret, opts)
 }
 
 type ControlPlaneRuntimeEnvOptions struct {
-	SandboxID                 uuid.UUID
-	GitUsername               string
-	GitEmail                  string
-	BugsinkDashboardBaseURL   string
-	GlitchTipDashboardBaseURL string
+	SandboxID                    uuid.UUID
+	GitUsername                  string
+	GitEmail                     string
+	BugsinkDashboardBaseURL      string
+	GlitchTipDashboardBaseURL    string
+	AllowedServiceProxyProviders map[string]bool
 }
 
 func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agent *model.Agent, runtimeSecret string, opts ControlPlaneRuntimeEnvOptions) {
@@ -46,7 +50,7 @@ func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agen
 			env[AgentEnvDriveUploadURL] = AgentDriveUploadURL(controlPlaneBaseURL, agent.ID, opts.SandboxID)
 		}
 		if runtimeSecret != "" {
-			ApplyServiceProxyEnv(env, controlPlaneBaseURL, agent.ID, runtimeSecret)
+			ApplyServiceProxyEnv(env, controlPlaneBaseURL, agent.ID, runtimeSecret, opts.AllowedServiceProxyProviders)
 		}
 	}
 	env[AgentEnvGitHubNoKeyring] = "1"

@@ -127,7 +127,7 @@ func TestIntegration_ChannelDeleteKeepsTeamLastChannel(t *testing.T) {
 
 	makeTeamChannel := func(name string) model.Channel {
 		ch := model.Channel{
-			OrgID: fx.org.ID, TeamID: &team.ID, Name: name, Kind: "standard",
+			OrgID: fx.org.ID, TeamID: team.ID, Name: name, Kind: "standard",
 			Visibility: "public", DefaultAgentID: fx.agent.ID, Origin: "native",
 			CreatedBy: &fx.owner.ID,
 		}

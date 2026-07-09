@@ -13,7 +13,7 @@ import (
 // tests can prove sheets in one channel are invisible from another.
 func (f *sheetsFixture) newSameOrgChannel(t *testing.T) model.Channel {
 	t.Helper()
-	ch := model.Channel{ID: uuid.New(), OrgID: f.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.agent.ID}
+	ch := model.Channel{ID: uuid.New(), OrgID: f.org.ID, TeamID: f.team.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: f.agent.ID}
 	if err := f.db.Create(&ch).Error; err != nil {
 		t.Fatalf("create same-org channel: %v", err)
 	}

@@ -1,6 +1,6 @@
 import type { UploadedDriveAsset } from "./image-attachments"
 
-export interface RecordedAudioFileOptions {
+interface RecordedAudioFileOptions {
   filename?: string
   mimeType?: string
   timestamp?: number

@@ -123,7 +123,7 @@ func (h *AgentHandler) archiveAgentWithSessions(ctx context.Context, orgID uuid.
 
 // repointChannelsFromArchivedAgent moves every non-archived channel whose default
 // is agentID onto that channel's team Hivy (a team's undeletable default agent),
-// falling back to an org-level default Hivy for team-less channels. It returns
+// falling back to an org-level default Hivy when the team has none. It returns
 // errAgentChannelDefaultUnresolved when no replacement default agent exists, so
 // the archive fails closed rather than bricking the channel.
 func repointChannelsFromArchivedAgent(tx *gorm.DB, orgID, agentID uuid.UUID) error {
@@ -134,7 +134,7 @@ func repointChannelsFromArchivedAgent(tx *gorm.DB, orgID, agentID uuid.UUID) err
 	}
 	for i := range channels {
 		ch := &channels[i]
-		replacement, err := teamDefaultAgentID(tx, orgID, ch.TeamID, agentID)
+		replacement, err := teamDefaultAgentID(tx, orgID, &ch.TeamID, agentID)
 		if err != nil {
 			return err
 		}
