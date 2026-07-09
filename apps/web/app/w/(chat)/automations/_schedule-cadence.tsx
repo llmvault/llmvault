@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import { Input, ListBox, Select, TimeField } from "@heroui/react"
 import { Time } from "@internationalized/date"
 import { AppIcon } from "@/components/icon"
-import type { ScheduleItem } from "@/app/w/(chat)/automations/_data"
+import {
+  describeCron,
+  type ScheduleItem,
+} from "@/app/w/(chat)/automations/_data"
 
 type Frequency = "daily" | "weekly" | "hourly" | "interval" | "cron"
 
@@ -115,7 +118,7 @@ function buildCadence(args: {
     }
     return {
       body: { cron_expression: expr },
-      preview: `Runs on cron "${expr}" (UTC).`,
+      preview: `${describeCron(expr)}.`,
       local: "",
     }
   }

@@ -1,3 +1,4 @@
+import cronstrue from "cronstrue"
 import type { components } from "@/lib/api/schema"
 import {
   githubCodeReviewsProvider,
@@ -169,9 +170,21 @@ export function automationFromWebhookTrigger(
 
 export type ScheduleItem = components["schemas"]["scheduleResponse"]
 
+export function describeCron(expression: string): string {
+  try {
+    const text = cronstrue.toString(expression, {
+      use24HourTimeFormat: false,
+      verbose: false,
+    })
+    return `${text} (UTC)`
+  } catch {
+    return `Cron: ${expression}`
+  }
+}
+
 function scheduleCadenceLabel(schedule: ScheduleItem): string {
   if (schedule.schedule_kind === "cron" && schedule.cron_expression) {
-    return `Cron: ${schedule.cron_expression}`
+    return describeCron(schedule.cron_expression)
   }
   const seconds = schedule.interval_seconds ?? 0
   if (seconds > 0) {

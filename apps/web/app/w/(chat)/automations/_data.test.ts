@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   automationEventLabel,
+  describeCron,
   automationFromCatalog,
   automationFromInstalledTrigger,
   automationInstructions,
@@ -172,5 +173,19 @@ describe("automation catalog data", () => {
     expect(automation.description).toBe(
       "Disabled. Hivy runs when :eyes: is added in general."
     )
+  })
+})
+
+describe("describeCron", () => {
+  it("renders a readable UTC description", () => {
+    expect(describeCron("0 9 * * 1")).toBe("At 09:00 AM, only on Monday (UTC)")
+    expect(describeCron("*/15 * * * *")).toBe("Every 15 minutes (UTC)")
+    expect(describeCron("30 14 1 * *")).toBe(
+      "At 02:30 PM, on day 1 of the month (UTC)"
+    )
+  })
+
+  it("falls back to the raw expression when unparseable", () => {
+    expect(describeCron("not a cron")).toBe("Cron: not a cron")
   })
 })
