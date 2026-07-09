@@ -30,7 +30,7 @@ test.describe('Email/password login', () => {
     await page.waitForURL(/\/w/);
     await expect(page).toHaveURL(/\/w/);
 
-    // Confirm we see authenticated UI — the "Good morning" heading
-    await expect(page.getByRole('heading', { name: /Good morning/ })).toBeVisible();
+    // Confirm we see authenticated UI — a time-of-day greeting heading
+    await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
   });
 });
