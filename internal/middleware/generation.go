@@ -51,7 +51,7 @@ func NewGenerationWriter(ctx context.Context, db *gorm.DB, reg *registry.Registr
 		flushInterval: interval,
 	}
 	gw.wg.Add(1)
-	go gw.drain(ctx)
+	goroutine.Go(ctx, gw.drain)
 	return gw
 }
 
