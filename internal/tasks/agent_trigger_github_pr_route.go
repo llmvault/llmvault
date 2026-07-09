@@ -105,6 +105,16 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 		return nil, nil
 	}
 
+	// Mention-exclusive addressing: a comment/review that @mentions only the
+	// OTHER Hivy app (e.g. the code-reviews bot on a primary-owned PR) is not for
+	// the build session — the other app's mention trigger handles it. Skip before
+	// the write-access API call so an addressed-away event costs nothing.
+	if claimed, claimant := h.prRouteAddressedToOtherApp(ctx, payload, event, primaryHandle); claimed {
+		log.InfoContext(ctx, "github pr event addressed to other hivy app, skipping",
+			"repo", event.Repo, "event_key", key, "claimed_by", claimant)
+		return nil, nil
+	}
+
 	if skip, err := h.prRouteAuthorBlocked(ctx, conn, connOK, event); err != nil {
 		return nil, err
 	} else if skip {
