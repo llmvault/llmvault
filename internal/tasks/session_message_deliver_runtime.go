@@ -85,6 +85,7 @@ func sessionRuntimeAgent(agent *model.Agent, session model.Session) (*model.Agen
 		opts.ModelID = modelID
 	}
 	opts.ReasoningEffort = strings.TrimSpace(session.ReasoningEffort)
+	opts.ChannelID = session.ChannelID
 	return &runtimeAgent, opts
 }
 
