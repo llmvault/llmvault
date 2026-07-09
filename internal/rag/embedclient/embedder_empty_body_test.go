@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -104,5 +105,35 @@ func TestEmbedEmptyBodyErrorIsRetryable(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "empty response body") {
 		t.Fatalf("top-level message not informative: %v", err)
+	}
+}
+
+func TestSafeResponseHeadersRedactsCredentials(t *testing.T) {
+	in := http.Header{}
+	in.Set("Content-Type", "application/json")
+	in.Set("Content-Length", "0")
+	in.Set("X-Request-Id", "req-abc")
+	in.Set("Authorization", "Bearer sk-very-secret")
+	in.Set("X-Api-Key", "very-secret-key")
+	in.Set("Set-Cookie", "session=very-secret")
+	in.Set("X-Proxy-Secret", "hidden")
+	in.Add("X-Custom-Token", "abc")
+	in.Set("X-Stable-Trace", "keep-me")
+
+	got := safeResponseHeaders(in)
+
+	want := map[string]string{
+		"Content-Type":     "application/json",
+		"Content-Length":   "0",
+		"X-Request-Id":     "req-abc",
+		"Authorization":    "[redacted]",
+		"X-Api-Key":        "[redacted]",
+		"Set-Cookie":       "[redacted]",
+		"X-Proxy-Secret":   "[redacted]",
+		"X-Custom-Token":   "[redacted]",
+		"X-Stable-Trace":   "keep-me",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("safeResponseHeaders mismatch\n got: %#v\nwant: %#v", got, want)
 	}
 }

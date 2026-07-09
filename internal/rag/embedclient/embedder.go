@@ -104,16 +104,7 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, int
 				// "unexpected end of JSON input" and permanently fail the
 				// asynq task. Returning a normal error lets the existing
 				// retry/backoff loop handle it.
-				headers := map[string]string{}
-				for k, v := range resp.Header {
-					if len(v) == 0 {
-						continue
-					}
-					if strings.EqualFold(k, "Authorization") {
-						continue
-					}
-					headers[k] = v[0]
-				}
+				headers := safeResponseHeaders(resp.Header)
 				if hub := sentrygo.GetHubFromContext(ctx); hub != nil {
 					hub.AddBreadcrumb(&sentrygo.Breadcrumb{
 						Type:     "http",
@@ -187,4 +178,35 @@ func backoff(attempt int) {
 		d = 4 * time.Second
 	}
 	time.Sleep(d)
+}
+
+// safeResponseHeaders returns resp.Header with values redacted for keys that
+// look like they could carry credentials, matching the marker list used by
+// internal/handler.isSensitivePayloadKey (lowercased, with - and _ treated
+// as equivalent). Output is safe to ship to structured logs and Sentry
+// breadcrumbs.
+func safeResponseHeaders(h http.Header) map[string]string {
+	out := make(map[string]string, len(h))
+	for k, v := range h {
+		if len(v) == 0 {
+			continue
+		}
+		normalized := strings.ToLower(strings.ReplaceAll(k, "-", "_"))
+		sensitive := false
+		for _, marker := range []string{
+			"authorization", "password", "secret", "token",
+			"api_key", "apikey", "credential", "cookie", "set_cookie",
+		} {
+			if strings.Contains(normalized, marker) {
+				sensitive = true
+				break
+			}
+		}
+		if sensitive {
+			out[k] = "[redacted]"
+			continue
+		}
+		out[k] = v[0]
+	}
+	return out
 }
