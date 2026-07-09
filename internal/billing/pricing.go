@@ -35,6 +35,8 @@ var cachedTokenDiscount = map[string]float64{
 	"google-vertex": 0.25,
 }
 
+const defaultCacheReadDiscount = 0.25
+
 func CostUSDToCredits(cost float64) int64 {
 	if cost <= 0 {
 		return 0
@@ -71,9 +73,9 @@ func EstimateCostUSD(reg *registry.Registry, providerID, modelID string, inputTo
 	inputCost := float64(nonCachedInput) * route.Model.Cost.Input / 1_000_000
 	cacheReadPrice := route.Model.Cost.CacheRead
 	if cacheReadPrice == 0 && cachedTokens > 0 {
-		discount := cachedTokenDiscount[providerID]
-		if discount == 0 {
-			discount = 1
+		discount, ok := cachedTokenDiscount[providerID]
+		if !ok {
+			discount = defaultCacheReadDiscount
 		}
 		cacheReadPrice = route.Model.Cost.Input * discount
 	}

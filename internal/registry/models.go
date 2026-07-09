@@ -2274,8 +2274,9 @@ var curatedProviders = []Provider{
 					Output: []string{"text"},
 				},
 				Cost: &Cost{
-					Input:  0.435,
-					Output: 0.87,
+					Input:     0.435,
+					Output:    0.87,
+					CacheRead: 0.003625,
 				},
 				Limit: &Limit{
 					Context: 1048576,
