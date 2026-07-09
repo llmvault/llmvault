@@ -98,6 +98,18 @@ var slackWorkspaceChannelTypes = map[string]bool{
 	"group":   true,
 }
 
+// slackChannelSurfaceAllowed falls back to the conversation-ID prefix when the
+// event carries no channel_type: app_mention payloads never include that field
+// (only message events do). Slack IDs are C (public), G (private/group), or
+// D (DM) — the DM surface stays excluded either way.
+func slackChannelSurfaceAllowed(event slackapp.InboundEvent) bool {
+	if channelType := strings.TrimSpace(event.ChannelType); channelType != "" {
+		return slackWorkspaceChannelTypes[channelType]
+	}
+	id := strings.TrimSpace(event.ChannelID)
+	return strings.HasPrefix(id, "C") || strings.HasPrefix(id, "G")
+}
+
 func inboundAllowed(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.UUID, event slackapp.InboundEvent) (bool, string, error) {
 	if event.EventType == slackapp.EventAppMention {
 		// Authorized-sender gate: require a real workspace user and an
@@ -107,7 +119,7 @@ func inboundAllowed(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.U
 		if strings.TrimSpace(event.UserID) == "" {
 			return false, "no_sender", nil
 		}
-		if !slackWorkspaceChannelTypes[strings.TrimSpace(event.ChannelType)] {
+		if !slackChannelSurfaceAllowed(event) {
 			return false, "unsupported_channel_type", nil
 		}
 		return true, "", nil

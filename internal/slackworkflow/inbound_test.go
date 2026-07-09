@@ -83,6 +83,37 @@ func TestClaimInboundAcceptsEmptyAppMentionForWorkerEnrichment(t *testing.T) {
 	}
 }
 
+func TestClaimInboundAcceptsAppMentionWithoutChannelType(t *testing.T) {
+	db := connectWorkflowTestDB(t)
+	org, conn := seedWorkflowConnection(t, db)
+	event := slackEvent("EvNoType", slackapp.EventAppMention, "1710000006.000000", "")
+	event.ChannelType = ""
+
+	claim, err := ClaimInbound(t.Context(), db, org.ID, conn.ID, event)
+	if err != nil {
+		t.Fatalf("claim app mention: %v", err)
+	}
+	if !claim.Accepted || claim.Reason != "" {
+		t.Fatalf("app mention without channel_type accepted=%v reason=%q", claim.Accepted, claim.Reason)
+	}
+}
+
+func TestClaimInboundRejectsAppMentionFromDMSurface(t *testing.T) {
+	db := connectWorkflowTestDB(t)
+	org, conn := seedWorkflowConnection(t, db)
+	event := slackEvent("EvDM", slackapp.EventAppMention, "1710000007.000000", "")
+	event.ChannelType = ""
+	event.ChannelID = "D123DMCHAN"
+
+	claim, err := ClaimInbound(t.Context(), db, org.ID, conn.ID, event)
+	if err != nil {
+		t.Fatalf("claim app mention: %v", err)
+	}
+	if claim.Accepted || claim.Reason != "unsupported_channel_type" {
+		t.Fatalf("dm app mention accepted=%v reason=%q", claim.Accepted, claim.Reason)
+	}
+}
+
 func slackEvent(eventID, eventType, ts, threadTS string) slackapp.InboundEvent {
 	if threadTS == "" {
 		threadTS = ts
