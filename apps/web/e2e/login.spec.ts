@@ -30,7 +30,7 @@ test.describe('Email/password login', () => {
     await page.waitForURL(/\/w/);
     await expect(page).toHaveURL(/\/w/);
 
-    // Confirm we see authenticated UI — the "Good morning" heading
-    await expect(page.getByRole('heading', { name: /Good morning/ })).toBeVisible();
+    // Confirm we're in the authenticated workspace by checking the sidebar is present
+    await expect(page.getByRole('button', { name: 'New chat' })).toBeVisible();
   });
 });
