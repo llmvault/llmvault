@@ -24,6 +24,7 @@ func setupProxyAndAuxRoutes(
 	proxyHandler http.Handler,
 	auditWriter *middleware.AuditWriter,
 	generationWriter *middleware.GenerationWriter,
+	attributionCache *middleware.AttributionCache,
 	ctr *counter.Counter,
 	enqueuer enqueue.TaskEnqueuer,
 	runtimeCompileDeps agentruntime.CompileDeps,
@@ -44,7 +45,7 @@ func setupProxyAndAuxRoutes(
 		r.Use(middleware.RequireCredits(deps.Credits))
 		r.Use(middleware.RemainingCheck(ctr))
 		r.Use(middleware.Audit(auditWriter, "proxy.request"))
-		r.Use(middleware.Generation(generationWriter, database))
+		r.Use(middleware.Generation(generationWriter, database, attributionCache))
 		r.Handle("/*", proxyHandler)
 	})
 }

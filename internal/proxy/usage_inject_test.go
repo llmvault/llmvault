@@ -22,7 +22,7 @@ func decodeBody(t *testing.T, req *http.Request) map[string]json.RawMessage {
 func TestEnsureOpenRouterUsage_StreamingInjectsIncludeUsage(t *testing.T) {
 	req := makePostRequest(`{"model":"z-ai/glm-5.2","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
 
-	if err := EnsureOpenRouterUsage(req); err != nil {
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
 		t.Fatalf("EnsureOpenRouterUsage: %v", err)
 	}
 
@@ -43,7 +43,7 @@ func TestEnsureOpenRouterUsage_StreamingInjectsIncludeUsage(t *testing.T) {
 func TestEnsureOpenRouterUsage_NonStreamingOmitsStreamOptions(t *testing.T) {
 	req := makePostRequest(`{"model":"z-ai/glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
 
-	if err := EnsureOpenRouterUsage(req); err != nil {
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
 		t.Fatalf("EnsureOpenRouterUsage: %v", err)
 	}
 
@@ -59,7 +59,7 @@ func TestEnsureOpenRouterUsage_NonStreamingOmitsStreamOptions(t *testing.T) {
 func TestEnsureOpenRouterUsage_MergesExistingStreamOptions(t *testing.T) {
 	req := makePostRequest(`{"model":"z-ai/glm-5.2","stream":true,"stream_options":{"other":1},"messages":[]}`)
 
-	if err := EnsureOpenRouterUsage(req); err != nil {
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
 		t.Fatalf("EnsureOpenRouterUsage: %v", err)
 	}
 
@@ -79,7 +79,7 @@ func TestEnsureOpenRouterUsage_MergesExistingStreamOptions(t *testing.T) {
 func TestEnsureOpenRouterUsage_PreservesModelAndMessages(t *testing.T) {
 	req := makePostRequest(`{"model":"z-ai/glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
 
-	if err := EnsureOpenRouterUsage(req); err != nil {
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
 		t.Fatalf("EnsureOpenRouterUsage: %v", err)
 	}
 
@@ -95,12 +95,51 @@ func TestEnsureOpenRouterUsage_PreservesModelAndMessages(t *testing.T) {
 	}
 }
 
+func TestEnsureOpenRouterUsage_InjectsEndUser(t *testing.T) {
+	req := makePostRequest(`{"model":"z-ai/glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+
+	if err := EnsureOpenRouterUsage(req, "sess-123"); err != nil {
+		t.Fatalf("EnsureOpenRouterUsage: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if string(body["user"]) != `"sess-123"` {
+		t.Fatalf("user = %s, want \"sess-123\"", body["user"])
+	}
+}
+
+func TestEnsureOpenRouterUsage_EmptyEndUserOmitsUser(t *testing.T) {
+	req := makePostRequest(`{"model":"z-ai/glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
+		t.Fatalf("EnsureOpenRouterUsage: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["user"]; ok {
+		t.Fatalf("user field should be absent for empty end user")
+	}
+}
+
+func TestEnsureOpenRouterUsage_DoesNotClobberExistingUser(t *testing.T) {
+	req := makePostRequest(`{"model":"z-ai/glm-5.2","user":"caller","messages":[]}`)
+
+	if err := EnsureOpenRouterUsage(req, "sess-123"); err != nil {
+		t.Fatalf("EnsureOpenRouterUsage: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if string(body["user"]) != `"caller"` {
+		t.Fatalf("user = %s, want caller preserved", body["user"])
+	}
+}
+
 func TestEnsureOpenRouterUsage_LeavesNonChatPathUntouched(t *testing.T) {
 	body := `{"model":"z-ai/glm-5.2","input":"hi"}`
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/v1/embeddings", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	if err := EnsureOpenRouterUsage(req); err != nil {
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
 		t.Fatalf("EnsureOpenRouterUsage: %v", err)
 	}
 
@@ -114,7 +153,7 @@ func TestEnsureOpenRouterUsage_LeavesNonJSONUntouched(t *testing.T) {
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/v1/chat/completions", strings.NewReader("not json"))
 	req.Header.Set("Content-Type", "text/plain")
 
-	if err := EnsureOpenRouterUsage(req); err != nil {
+	if err := EnsureOpenRouterUsage(req, ""); err != nil {
 		t.Fatalf("EnsureOpenRouterUsage: %v", err)
 	}
 	raw, _ := io.ReadAll(req.Body)

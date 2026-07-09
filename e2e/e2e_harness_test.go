@@ -141,7 +141,7 @@ func newHarness(t *testing.T) *testHarness {
 		})
 	})
 
-	proxyHandler := handler.NewProxyHandler(cm, proxy.NewTransport())
+	proxyHandler := handler.NewProxyHandler(cm, nil, proxy.NewTransport())
 	r.Route("/v1/proxy", func(r chi.Router) {
 		r.Use(middleware.TokenAuth(signingKey, db))
 		r.Use(middleware.RemainingCheck(ctr))

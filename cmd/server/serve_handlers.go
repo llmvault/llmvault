@@ -59,6 +59,7 @@ type serveHandlers struct {
 	ragRuntime                 *ragRuntime
 	auditWriter                *middleware.AuditWriter
 	generationWriter           *middleware.GenerationWriter
+	attributionCache           *middleware.AttributionCache
 	runtimeCompileDeps         agentruntime.CompileDeps
 }
 
@@ -121,6 +122,7 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		ragRuntime:                 rest.ragRuntime,
 		auditWriter:                core.auditWriter,
 		generationWriter:           core.generationWriter,
+		attributionCache:           core.attributionCache,
 		runtimeCompileDeps:         core.runtimeCompileDeps,
 	}, nil
 }

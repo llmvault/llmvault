@@ -41,7 +41,7 @@ func TestGenerationCapturesAgentProxyCallsAndPreservesBillingFlag(t *testing.T) 
 				IsSystem:     tc.isSystem,
 			})
 
-			handler := Generation(gw, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := Generation(gw, db, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				captured, ok := observe.CapturedDataFromContext(r.Context())
 				if !ok {
 					t.Fatal("captured data missing from request context")
@@ -118,7 +118,7 @@ func TestGenerationResolvesSessionFromTokenSandbox(t *testing.T) {
 		IsSystem:     true,
 	})
 
-	handler := Generation(gw, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Generation(gw, db, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured, ok := observe.CapturedDataFromContext(r.Context())
 		if !ok {
 			t.Fatal("captured data missing from request context")
@@ -148,7 +148,7 @@ func TestGenerationLeavesSessionNilWithoutSandboxMeta(t *testing.T) {
 	}
 
 	var gen model.Generation
-	extractAttribution(db, "jti-plain", &gen)
+	extractAttribution(db, nil, "jti-plain", &gen)
 	if gen.SessionID != nil {
 		t.Fatalf("session_id = %v, want nil", gen.SessionID)
 	}

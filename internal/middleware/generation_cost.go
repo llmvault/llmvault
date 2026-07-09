@@ -22,32 +22,56 @@ func calculateCost(reg *registry.Registry, providerID, modelID string, usage obs
 	return cost
 }
 
-// extractAttribution reads token.meta to extract user_id and tags. Populated
-// into the Generation row for observability filtering.
-func extractAttribution(db *gorm.DB, jti string, gen *model.Generation) {
+func extractAttribution(db *gorm.DB, cache *AttributionCache, jti string, gen *model.Generation) {
+	attr, ok := attributionFor(db, cache, jti)
+	if !ok {
+		return
+	}
+	gen.UserID = attr.UserID
+	if len(attr.Tags) > 0 {
+		gen.Tags = append(gen.Tags, attr.Tags...)
+	}
+	gen.SessionID = attr.SessionID
+}
+
+func attributionFor(db *gorm.DB, cache *AttributionCache, jti string) (Attribution, bool) {
+	if attr, ok := cache.Get(jti); ok {
+		return attr, true
+	}
+	attr, ok := loadAttribution(db, jti)
+	if !ok {
+		return Attribution{}, false
+	}
+	cache.Set(jti, attr)
+	return attr, true
+}
+
+func loadAttribution(db *gorm.DB, jti string) (Attribution, bool) {
 	var token model.Token
 	if err := db.Select("meta").Where("jti = ?", jti).First(&token).Error; err != nil {
-		return
+		return Attribution{}, false
 	}
+	var attr Attribution
 	if token.Meta == nil {
-		return
+		return attr, true
 	}
 	if user, ok := token.Meta["user"].(string); ok {
-		gen.UserID = user
+		attr.UserID = user
 	}
 	if tags, ok := token.Meta["tags"].([]any); ok {
 		for _, t := range tags {
 			if s, ok := t.(string); ok {
-				gen.Tags = append(gen.Tags, s)
+				attr.Tags = append(attr.Tags, s)
 			}
 		}
 	}
-	gen.SessionID = sessionIDForSandbox(db, token.Meta)
+	if raw, ok := token.Meta[model.TokenMetaSandboxID].(string); ok {
+		attr.SandboxID = raw
+	}
+	attr.SessionID = sessionIDForSandbox(db, token.Meta)
+	return attr, true
 }
 
-// sessionIDForSandbox resolves the session that owns the token's sandbox.
-// Sandboxes are provisioned one-per-session at session create, so the
-// sandbox_id in an agent-proxy token identifies exactly one session.
 func sessionIDForSandbox(db *gorm.DB, meta model.JSON) *uuid.UUID {
 	raw, ok := meta[model.TokenMetaSandboxID].(string)
 	if !ok {

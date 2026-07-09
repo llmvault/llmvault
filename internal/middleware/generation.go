@@ -194,7 +194,7 @@ func (gw *GenerationWriter) Shutdown(ctx context.Context) {
 	}
 }
 
-func Generation(gw *GenerationWriter, db *gorm.DB) func(http.Handler) http.Handler {
+func Generation(gw *GenerationWriter, db *gorm.DB, attrCache *AttributionCache) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -211,13 +211,13 @@ func Generation(gw *GenerationWriter, db *gorm.DB) func(http.Handler) http.Handl
 
 			next.ServeHTTP(w, r)
 
-			gen := buildGeneration(r, claims, captured, providerID, gw.reg, db)
+			gen := buildGeneration(r, claims, captured, providerID, gw.reg, db, attrCache)
 			gw.Write(ctx, gen)
 		})
 	}
 }
 
-func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.CapturedData, providerID string, reg *registry.Registry, db *gorm.DB) model.Generation {
+func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.CapturedData, providerID string, reg *registry.Registry, db *gorm.DB, attrCache *AttributionCache) model.Generation {
 	genID := "gen_" + ulid.Make().String()
 
 	orgID, _ := uuid.Parse(claims.OrgID)
@@ -256,7 +256,7 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 		gen.OpenRouterGenerationID = &id
 	}
 
-	extractAttribution(db, claims.JTI, &gen)
+	extractAttribution(db, attrCache, claims.JTI, &gen)
 
 	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		gen.IPAddress = &ip

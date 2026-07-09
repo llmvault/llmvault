@@ -75,7 +75,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.subscriptionHandler, h.dashboardHandler, h.slackChannelHandler, h.channelHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.pluginHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, orchestrator, h.auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, h.integrationHandler, h.connectionHandler, h.credHandler)
-	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, h.proxyHandler, h.auditWriter, h.generationWriter, ctr, enqueuer, h.runtimeCompileDeps)
+	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, h.proxyHandler, h.auditWriter, h.generationWriter, h.attributionCache, ctr, enqueuer, h.runtimeCompileDeps)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
@@ -50,6 +51,7 @@ type serveHandlersCore struct {
 	mcpHandler                 *handler.MCPHandler
 	auditWriter                *middleware.AuditWriter
 	generationWriter           *middleware.GenerationWriter
+	attributionCache           *middleware.AttributionCache
 	runtimeCompileDeps         agentruntime.CompileDeps
 	sheetsService              *sheets.Service
 	runtimeStreamStore         *runtimestream.Store
@@ -157,7 +159,8 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	auditHandler := handler.NewAuditHandler(database)
 	generationHandler := handler.NewGenerationHandler(database)
 	reportingHandler := handler.NewReportingHandler(database)
-	proxyHandler := handler.NewProxyHandler(cacheManager, &proxy.CaptureTransport{Inner: sentryobs.WrapTransport(proxy.NewTransport())})
+	attributionCache := middleware.NewAttributionCache(50000, 20*time.Minute)
+	proxyHandler := handler.NewProxyHandler(cacheManager, attributionCache, &proxy.CaptureTransport{Inner: sentryobs.WrapTransport(proxy.NewTransport())})
 
 	return &serveHandlersCore{
 		providerHandler:            providerHandler,
@@ -175,6 +178,7 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		generationHandler:          generationHandler,
 		reportingHandler:           reportingHandler,
 		proxyHandler:               proxyHandler,
+		attributionCache:           attributionCache,
 		sheetsHandler:              sheetsHandler,
 		canvasHandler:              canvasHandler,
 		credHandler:                credHandler,

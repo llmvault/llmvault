@@ -14,7 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
-func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
+func NewDirector(cacheManager *cache.Manager, attrCache *middleware.AttributionCache) func(req *http.Request) {
 	return func(req *http.Request) {
 		claims, ok := middleware.ClaimsFromContext(req.Context())
 		if !ok {
@@ -103,7 +103,7 @@ func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 		AttachAuth(req, cred.AuthScheme, cred.APIKey)
 		if providerheaders.IsOpenRouter(cred.ProviderID, cred.BaseURL) {
 			providerheaders.ApplyOpenRouter(req)
-			if err := EnsureOpenRouterUsage(req); err != nil {
+			if err := EnsureOpenRouterUsage(req, openRouterEndUser(attrCache, claims.JTI)); err != nil {
 				logging.Capture(req.Context(), fmt.Errorf("proxy director: force usage accounting: %w", err))
 			}
 		}
@@ -114,6 +114,14 @@ func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 
 		req.Header.Set("X-Request-ID", uuid.New().String())
 	}
+}
+
+func openRouterEndUser(attrCache *middleware.AttributionCache, jti string) string {
+	attr, ok := attrCache.Get(jti)
+	if !ok || attr.SessionID == nil {
+		return ""
+	}
+	return attr.SessionID.String()
 }
 
 // stripProxyPrefix removes the /v1/proxy prefix from the path.
