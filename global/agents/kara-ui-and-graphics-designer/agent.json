@@ -11,7 +11,7 @@
   "enabled": true,
   "runtime": {
     "sandbox_image": "default",
-    "model": "mimo-v2.5-pro"
+    "model": "step-3.7-flash"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"
@@ -41,7 +41,7 @@
     "codebase-brand-extractor": {
       "name": "Codebase Brand Extractor",
       "description": "Read-only codebase brand extraction specialist for Kara. Use when Kara needs to derive a full brand system from an existing repository, app, website, design system, marketing copy, stylesheets, assets, or docs and return it in the Hivy brand database structure before creating or updating a Canvas brand.",
-      "model": "kimi-k2.7-code",
+      "model": "step-3.7-flash",
       "tools": {
         "bash": true,
         "check_bash_status": true,
@@ -66,8 +66,8 @@
     },
     "image-generator": {
       "name": "Image Generator",
-      "description": "Image generation specialist for Kara. Use when Kara needs generated images, image prompt refinement, visual prompt variants, image edits, product scenes, hero visuals, UI mockup imagery, icons, diagrams, illustrations, logo explorations, textures, sprites, or reference-based visual variants.",
-      "model": "kimi-k2.7-code",
+      "description": "Image generation specialist for you. Use when you need to generate images, image prompt refinement, visual prompt variants, image edits, product scenes, hero visuals, UI mockup imagery, icons, diagrams, illustrations, logo explorations, textures, sprites, or reference-based visual variants.",
+      "model": "step-3.7-flash",
       "tools": {},
       "mcp_tool_filter": {
         "allow": [
@@ -83,7 +83,7 @@
     "design-worker": {
       "name": "Design Worker",
       "description": "Canvas implementation specialist for Kara. Use when a design task has clear enough direction and needs concrete Canvas project/artifact creation, HTML editing, validation, browser preview, interaction testing, or sync work while Kara keeps the parent conversation and final user-facing judgment.",
-      "model": "kimi-k2.7-code",
+      "model": "step-3.7-flash",
       "tools": {
         "bash": true,
         "check_bash_status": true,
