@@ -84,7 +84,77 @@ func generationTestDB(t *testing.T) *gorm.DB {
 	if err := db.Exec(`CREATE TABLE tokens (id text PRIMARY KEY, jti text, meta text)`).Error; err != nil {
 		t.Fatalf("create tokens table: %v", err)
 	}
+	if err := db.Exec(`CREATE TABLE sessions (id text PRIMARY KEY, sandbox_id text)`).Error; err != nil {
+		t.Fatalf("create sessions table: %v", err)
+	}
 	return db
+}
+
+func TestGenerationResolvesSessionFromTokenSandbox(t *testing.T) {
+	db := generationTestDB(t)
+	orgID := uuid.New()
+	credID := uuid.New()
+	sandboxID := uuid.New()
+	sessionID := uuid.New()
+	if err := db.Exec(`INSERT INTO credentials (id, provider_id) VALUES (?, ?)`, credID.String(), "openrouter").Error; err != nil {
+		t.Fatalf("create credential: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO tokens (id, jti, meta) VALUES (?, ?, ?)`,
+		uuid.NewString(), "jti-sandbox", `{"type":"agent_proxy","sandbox_id":"`+sandboxID.String()+`"}`).Error; err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO sessions (id, sandbox_id) VALUES (?, ?)`, sessionID.String(), sandboxID.String()).Error; err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	gw := &GenerationWriter{entries: make(chan model.Generation, 1)}
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	req.RemoteAddr = "127.0.0.1:4321"
+	req = WithClaims(req, &TokenClaims{
+		OrgID:        orgID.String(),
+		CredentialID: credID.String(),
+		JTI:          "jti-sandbox",
+		TokenType:    model.TokenTypeAgentProxy,
+		IsSystem:     true,
+	})
+
+	handler := Generation(gw, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured, ok := observe.CapturedDataFromContext(r.Context())
+		if !ok {
+			t.Fatal("captured data missing from request context")
+		}
+		captured.Model = "gpt-4o-mini"
+		captured.Usage = observe.UsageData{InputTokens: 10, OutputTokens: 5}
+		captured.UpstreamStatus = http.StatusOK
+	}))
+
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	select {
+	case gen := <-gw.entries:
+		if gen.SessionID == nil || *gen.SessionID != sessionID {
+			t.Fatalf("session_id = %v, want %s", gen.SessionID, sessionID)
+		}
+	default:
+		t.Fatal("agent_proxy call did not queue a generation")
+	}
+}
+
+func TestGenerationLeavesSessionNilWithoutSandboxMeta(t *testing.T) {
+	db := generationTestDB(t)
+	if err := db.Exec(`INSERT INTO tokens (id, jti, meta) VALUES (?, ?, ?)`,
+		uuid.NewString(), "jti-plain", `{"type":"agent_proxy","user":"u1"}`).Error; err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	var gen model.Generation
+	extractAttribution(db, "jti-plain", &gen)
+	if gen.SessionID != nil {
+		t.Fatalf("session_id = %v, want nil", gen.SessionID)
+	}
+	if gen.UserID != "u1" {
+		t.Fatalf("user_id = %q, want u1", gen.UserID)
+	}
 }
 
 func TestTruncateValidUTF8SanitizesProviderErrorBytes(t *testing.T) {

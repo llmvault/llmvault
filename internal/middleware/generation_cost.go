@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -74,4 +75,24 @@ func extractAttribution(db *gorm.DB, jti string, gen *model.Generation) {
 			}
 		}
 	}
+	gen.SessionID = sessionIDForSandbox(db, token.Meta)
+}
+
+// sessionIDForSandbox resolves the session that owns the token's sandbox.
+// Sandboxes are provisioned one-per-session at session create, so the
+// sandbox_id in an agent-proxy token identifies exactly one session.
+func sessionIDForSandbox(db *gorm.DB, meta model.JSON) *uuid.UUID {
+	raw, ok := meta[model.TokenMetaSandboxID].(string)
+	if !ok {
+		return nil
+	}
+	sandboxID, err := uuid.Parse(raw)
+	if err != nil || sandboxID == uuid.Nil {
+		return nil
+	}
+	var session model.Session
+	if err := db.Select("id").Where("sandbox_id = ?", sandboxID).Take(&session).Error; err != nil {
+		return nil
+	}
+	return &session.ID
 }
