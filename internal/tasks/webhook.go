@@ -16,6 +16,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/netguard"
 )
 
 // WebhookForwardHandler delivers enriched webhook payloads to org endpoints.
@@ -28,7 +29,7 @@ type WebhookForwardHandler struct {
 func NewWebhookForwardHandler(encKey *crypto.SymmetricKey) *WebhookForwardHandler {
 	return &WebhookForwardHandler{
 		encKey:     encKey,
-		httpClient: &http.Client{Timeout: 25 * time.Second},
+		httpClient: &http.Client{Timeout: 25 * time.Second, Transport: netguard.NewTransport()},
 	}
 }
 
@@ -46,6 +47,10 @@ func (h *WebhookForwardHandler) Handle(ctx context.Context, t *asynq.Task) error
 	secret, err := h.encKey.DecryptString(p.EncryptedSecret)
 	if err != nil {
 		return fmt.Errorf("decrypt webhook secret: %w", err)
+	}
+
+	if err := netguard.ValidateURL(p.WebhookURL); err != nil {
+		return fmt.Errorf("reject webhook url: %w", err)
 	}
 
 	timestamp := time.Now().Unix()

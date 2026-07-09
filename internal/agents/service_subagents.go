@@ -82,7 +82,7 @@ func subAgentFilter(allow, deny []string) *model.ToolFilter {
 	allow = dedupeNonEmpty(allow)
 	deny = dedupeNonEmpty(deny)
 	if len(allow) == 0 && len(deny) == 0 {
-		return nil
+		return &model.ToolFilter{Allow: append([]string(nil), model.ReadOnlyMCPToolFloor...)}
 	}
 	return &model.ToolFilter{Allow: allow, Deny: deny}
 }

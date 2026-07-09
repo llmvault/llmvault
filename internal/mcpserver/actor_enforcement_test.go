@@ -138,6 +138,48 @@ func TestCronBlocksBindingChannelActorCannotUse(t *testing.T) {
 	}
 }
 
+func TestCronCreateBlocksCrossTeamTargeting(t *testing.T) {
+	db := connectChannelToolTestDB(t)
+	fx := seedActorEnforcementFixture(t, db)
+
+	otherAgent := model.Agent{ID: uuid.New(), OrgID: &fx.org.ID, TeamID: fx.team.ID, Name: "Other " + uuid.NewString(), Model: "test", Status: "active"}
+	if err := db.Create(&otherAgent).Error; err != nil {
+		t.Fatalf("seed other agent: %v", err)
+	}
+
+	// Targeting an agent on a team the actor doesn't belong to is denied, even
+	// when the named channel itself is usable.
+	crossTeam, err := handleCronTool(t.Context(), db, &fx.agent, cronToolArgs{
+		Action:          "create",
+		AgentID:         otherAgent.ID.String(),
+		TaskPrompt:      "do a thing",
+		IntervalSeconds: ptrInt64(3600),
+		ChannelID:       fx.general.ID.String(),
+		HivyActorUserID: fx.member.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("handleCronTool cross-team: %v", err)
+	}
+	if msg := decodeToolError(t, crossTeam); !strings.Contains(msg, "teams you belong to") {
+		t.Fatalf("expected cross-team agent denial, got %q", msg)
+	}
+
+	// An empty channel_id defaults to the agent's team #general; a member who
+	// isn't on that team can't use it, so the create is denied.
+	emptyChan, err := handleCronTool(t.Context(), db, &fx.agent, cronToolArgs{
+		Action:          "create",
+		TaskPrompt:      "do a thing",
+		IntervalSeconds: ptrInt64(3600),
+		HivyActorUserID: fx.member.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("handleCronTool empty-channel: %v", err)
+	}
+	if msg := decodeToolError(t, emptyChan); !strings.Contains(msg, "channels you belong to") {
+		t.Fatalf("expected default-channel denial, got %q", msg)
+	}
+}
+
 func channelNamesFromResult(t *testing.T, result *mcp.CallToolResult) map[string]bool {
 	t.Helper()
 	if result == nil || result.IsError || len(result.Content) == 0 {

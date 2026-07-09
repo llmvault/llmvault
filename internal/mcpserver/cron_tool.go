@@ -106,16 +106,6 @@ func decodeCronToolArgs(req *mcp.CallToolRequest) (cronToolArgs, error) {
 func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, args cronToolArgs) (*mcp.CallToolResult, error) {
 	// By default the job belongs to the calling agent; agent_id targets another
 	// agent in the same org (validated here).
-	agent := callingAgent
-	if strings.TrimSpace(args.AgentID) != "" {
-		target, errResult := resolveCronAgent(ctx, db, callingAgent, args.AgentID)
-		if errResult != nil {
-			return errResult, nil
-		}
-		agent = target
-	}
-	// Resolve the human on whose behalf this turn runs, so an explicit
-	// channel_id can't bind a run to a channel they aren't in.
 	orgID := uuid.Nil
 	if callingAgent != nil && callingAgent.OrgID != nil {
 		orgID = *callingAgent.OrgID
@@ -124,9 +114,25 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 	if err != nil {
 		return cronToolError(err.Error()), nil
 	}
+	agent := callingAgent
+	if strings.TrimSpace(args.AgentID) != "" {
+		target, errResult := resolveCronAgent(ctx, db, callingAgent, actor, args.AgentID)
+		if errResult != nil {
+			return errResult, nil
+		}
+		agent = target
+	}
 	switch args.Action {
 	case "create":
-		if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
+		channelText, err := agentschedule.ResolveScheduleChannel(ctx, db, orgID, agent.ID, args.ChannelID)
+		if err != nil {
+			return cronToolError(err.Error()), nil
+		}
+		resolvedChannel, err := uuid.Parse(channelText)
+		if err != nil || resolvedChannel == uuid.Nil {
+			return cronToolError("resolve channel: invalid channel id"), nil
+		}
+		if errResult := enforceActorChannelAccess(ctx, db, actor, resolvedChannel); errResult != nil {
 			return errResult, nil
 		}
 		expr := ""
@@ -137,15 +143,12 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 			JobID:           args.JobID,
 			Description:     args.Description,
 			TaskPrompt:      args.TaskPrompt,
-			ChannelID:       args.ChannelID,
+			ChannelID:       channelText,
 			IntervalSeconds: args.IntervalSeconds,
 			CronExpression:  expr,
 			RepeatCount:     args.RepeatCount,
 		}
-		var (
-			schedule *model.AgentSchedule
-			err      error
-		)
+		var schedule *model.AgentSchedule
 		if agent.ID == callingAgent.ID {
 			// Self-scheduling: tie the schedule to the caller's session.
 			schedule, err = agentschedule.CreateFromSession(ctx, db, agent, args.HivySessionID, input)
@@ -215,7 +218,7 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 // resolveCronAgent returns the target agent for a cron action, validating it
 // belongs to the calling agent's organization. Returns the calling agent when
 // agent_id matches it.
-func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, idText string) (*model.Agent, *mcp.CallToolResult) {
+func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, actor *access.Actor, idText string) (*model.Agent, *mcp.CallToolResult) {
 	id, err := uuid.Parse(strings.TrimSpace(idText))
 	if err != nil || id == uuid.Nil {
 		return nil, cronToolError("agent_id must be a valid UUID")
@@ -231,6 +234,16 @@ func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agen
 		Where("id = ? AND org_id = ? AND status <> ?", id, *callingAgent.OrgID, "archived").
 		First(&target).Error; err != nil {
 		return nil, cronToolError("agent not found in this organization")
+	}
+	if actor != nil && !actor.IsOrgManager() {
+		member, err := actor.IsTeamMember(ctx, db, target.TeamID)
+		if err != nil {
+			return nil, cronToolError("could not verify your access to that agent: " + err.Error())
+		}
+		if !member {
+			return nil, cronToolError("Not allowed: you can only manage agents on teams you belong to. " +
+				"Ask a member of that team or an organization admin to set this up.")
+		}
 	}
 	return &target, nil
 }

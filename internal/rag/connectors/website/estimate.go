@@ -9,8 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/usehivy/hivy/internal/netguard"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
+
+var sitemapClient = &http.Client{Transport: netguard.NewTransport()}
 
 // EstimateTotal reports how many pages the crawl is expected to index, so the
 // UI can render a determinate progress bar. It reads the site's own sitemap
@@ -121,13 +124,16 @@ func countSitemapURLs(ctx context.Context, sitemapURL string, seen map[string]st
 }
 
 func fetchSitemap(ctx context.Context, sitemapURL string) (sitemapDoc, bool) {
+	if err := netguard.ValidateURL(sitemapURL); err != nil {
+		return sitemapDoc{}, false
+	}
 	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, sitemapURL, nil)
 	if err != nil {
 		return sitemapDoc{}, false
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := sitemapClient.Do(req)
 	if err != nil {
 		return sitemapDoc{}, false
 	}

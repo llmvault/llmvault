@@ -78,22 +78,17 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 	if instructions == "" {
 		return cronToolError("instructions is required"), nil
 	}
-	agent := callingAgent
-	if strings.TrimSpace(args.AgentID) != "" {
-		target, errResult := resolveCronAgent(ctx, db, callingAgent, args.AgentID)
-		if errResult != nil {
-			return errResult, nil
-		}
-		agent = target
-	}
-
-	// Block binding the trigger to a channel the acting human isn't a member of.
 	actor, err := access.Resolve(ctx, db, token.OrgID, args.HivyActorUserID)
 	if err != nil {
 		return cronToolError(err.Error()), nil
 	}
-	if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
-		return errResult, nil
+	agent := callingAgent
+	if strings.TrimSpace(args.AgentID) != "" {
+		target, errResult := resolveCronAgent(ctx, db, callingAgent, actor, args.AgentID)
+		if errResult != nil {
+			return errResult, nil
+		}
+		agent = target
 	}
 
 	// Resolve the channel exactly like cron schedules do: an empty channel
@@ -107,6 +102,9 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 	resolved, err := uuid.Parse(channelText)
 	if err != nil || resolved == uuid.Nil {
 		return cronToolError("resolve channel: invalid channel id"), nil
+	}
+	if errResult := enforceActorChannelAccess(ctx, db, actor, resolved); errResult != nil {
+		return errResult, nil
 	}
 	channelID := &resolved
 

@@ -168,16 +168,15 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 		byName[s.Name] = s
 	}
 
-	// Explicit runtime picks stored verbatim; no MCP filter.
+	// Explicit runtime picks stored verbatim; MCP tools are floored to the
+	// read-only set rather than inheriting the parent's full grant.
 	explicit := byName["Explicit"]
 	if len(explicit.Tools) != 2 || explicit.Tools["read_file"] != true || explicit.Tools["grep"] != true {
 		t.Fatalf("Explicit sub tools = %#v, want exactly read_file+grep", explicit.Tools)
 	}
-	if explicit.McpToolFilter != nil {
-		t.Fatalf("Explicit sub must have nil filter, got: %#v", explicit.McpToolFilter)
-	}
+	assertReadOnlyMCPFloor(t, "Explicit", explicit.McpToolFilter)
 
-	// Empty picks default to the read-only sandbox set.
+	// Empty picks default to the read-only sandbox set and the read-only MCP floor.
 	empty := byName["Empty"]
 	wantReadOnly := map[string]bool{"read_file": true, "glob": true, "grep": true, "file_search": true}
 	if len(empty.Tools) != len(wantReadOnly) {
@@ -188,9 +187,7 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 			t.Fatalf("Empty sub missing read-only default %q: %#v", id, empty.Tools)
 		}
 	}
-	if empty.McpToolFilter != nil {
-		t.Fatalf("Empty sub must inherit (nil filter), got: %#v", empty.McpToolFilter)
-	}
+	assertReadOnlyMCPFloor(t, "Empty", empty.McpToolFilter)
 
 	// A single MCP pick keeps allow-list semantics and unions the read-only floor.
 	web := byName["WebPick"]
@@ -205,6 +202,23 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	}
 	if len(web.Tools) != 0 {
 		t.Fatalf("WebPick sub runtime tools must be empty, got: %#v", web.Tools)
+	}
+}
+
+func assertReadOnlyMCPFloor(t *testing.T, name string, f *model.ToolFilter) {
+	t.Helper()
+	if f == nil {
+		t.Fatalf("%s sub must be floored to the read-only MCP set, got nil (inherit-all)", name)
+	}
+	if len(f.Deny) != 0 {
+		t.Fatalf("%s sub floor must not carry a deny list, got: %#v", name, f.Deny)
+	}
+	allow := append([]string(nil), f.Allow...)
+	sort.Strings(allow)
+	want := append([]string(nil), model.ReadOnlyMCPToolFloor...)
+	sort.Strings(want)
+	if !reflect.DeepEqual(allow, want) {
+		t.Fatalf("%s sub allow = %v, want read-only floor %v", name, allow, want)
 	}
 }
 
