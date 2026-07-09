@@ -87,7 +87,7 @@ function safeDecodeURIComponent(value: string) {
 }
 
 function cleanUrl(url: string) {
-  return url.replace(/[),.;!?]+$/g, "")
+  return url.replace(/[),.;!?*]+$/g, "")
 }
 
 function hashString(value: string) {

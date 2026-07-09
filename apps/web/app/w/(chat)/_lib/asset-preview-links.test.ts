@@ -34,6 +34,20 @@ describe("asset preview links", () => {
     ])
   })
 
+  it("strips markdown emphasis trailing a preview URL", () => {
+    const attachments = assetPreviewAttachments(
+      `The image is at **${previewUrl}**`,
+      "assistant-2"
+    )
+
+    expect(attachments).toEqual([
+      expect.objectContaining({
+        filename: "example-com.png",
+        url: previewUrl,
+      }),
+    ])
+  })
+
   it("skips streamed preview URLs with incomplete percent escapes", () => {
     const firstEscape = previewUrl.indexOf("%2F")
     const partialUrls = [
