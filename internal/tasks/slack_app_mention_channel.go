@@ -120,9 +120,16 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Session{}, fmt.Errorf("load slack session: %w", err)
 	}
+	var generation int64
+	if err := h.db.WithContext(ctx).Model(&model.Session{}).
+		Where("org_id = ? AND source = ? AND source_id = ? AND source_resource_key = ?",
+			row.OrgID, model.SessionSourceExternal, row.ConnectionID, key).
+		Count(&generation).Error; err != nil {
+		return model.Session{}, fmt.Errorf("count slack sessions: %w", err)
+	}
 	connID := row.ConnectionID
 	session = model.Session{
-		ID:                stableSlackSessionID(*row),
+		ID:                stableSlackSessionID(*row, generation),
 		OrgID:             row.OrgID,
 		ChannelID:         channel.ID,
 		AgentID:           agent.ID,
@@ -179,7 +186,13 @@ func slackSessionResourceKey(row model.SlackThreadEvent) string {
 	return strings.Join(parts, ":")
 }
 
-func stableSlackSessionID(row model.SlackThreadEvent) uuid.UUID {
+// stableSlackSessionID is deterministic so concurrent deliveries collapse to
+// one session; the generation salts the id so an archived session's row never
+// blocks (or silently receives) a new conversation.
+func stableSlackSessionID(row model.SlackThreadEvent, generation int64) uuid.UUID {
 	key := "hivy:slack-session:" + slackSessionResourceKey(row)
+	if generation > 0 {
+		key = fmt.Sprintf("%s:gen:%d", key, generation)
+	}
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(key))
 }

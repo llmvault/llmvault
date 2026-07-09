@@ -69,6 +69,42 @@ func TestFindOrCreateTriggerSessionUsesConfiguredChannel(t *testing.T) {
 	}
 }
 
+func TestFindOrCreateTriggerSessionSkipsArchivedSession(t *testing.T) {
+	db := connectTestDB(t)
+	org, agent, _ := seedTriggerSessionFixture(t, db)
+	channel := seedTriggerChannel(t, db, org.ID, agent.ID, "triage")
+	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, &channel.ID)
+	handler := &AgentTriggerDispatchHandler{db: db}
+	resourceKey := "github/acme/repo/pulls/42"
+
+	first, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, resourceKey)
+	if err != nil {
+		t.Fatalf("create first session: %v", err)
+	}
+	if err := db.Model(&model.Session{}).Where("id = ?", first.ID).Update("status", "archived").Error; err != nil {
+		t.Fatalf("archive first session: %v", err)
+	}
+
+	second, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, resourceKey)
+	if err != nil {
+		t.Fatalf("create session after archive: %v", err)
+	}
+	if second.ID == first.ID {
+		t.Fatalf("archived session %s was reused", first.ID)
+	}
+	if second.Status != "active" {
+		t.Fatalf("second session status = %s, want active", second.Status)
+	}
+
+	reused, err := handler.findOrCreateTriggerSession(context.Background(), &agent, trigger, resourceKey)
+	if err != nil {
+		t.Fatalf("reuse second session: %v", err)
+	}
+	if reused.ID != second.ID {
+		t.Fatalf("reused session = %s, want %s", reused.ID, second.ID)
+	}
+}
+
 func seedTriggerSessionFixture(t *testing.T, db *gorm.DB) (model.Org, model.Agent, model.Sandbox) {
 	t.Helper()
 	org := model.Org{Name: "trigger-session-" + uuid.NewString()[:8], Active: true}

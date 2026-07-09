@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/channelagents"
@@ -39,8 +40,15 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 		return nil, fmt.Errorf("load trigger session: %w", err)
 	}
 
+	var generation int64
+	if err := h.db.WithContext(ctx).Model(&model.Session{}).
+		Where("org_id = ? AND agent_id = ? AND channel_id = ? AND source = ? AND source_resource_key = ?",
+			*agent.OrgID, agent.ID, channelID, triggerConversationSource, resourceKey).
+		Count(&generation).Error; err != nil {
+		return nil, fmt.Errorf("count trigger sessions: %w", err)
+	}
 	session = model.Session{
-		ID:                stableTriggerSessionID(trigger.ID, channelID, resourceKey),
+		ID:                stableTriggerSessionID(trigger.ID, channelID, resourceKey, generation),
 		OrgID:             *agent.OrgID,
 		ChannelID:         channelID,
 		AgentID:           agent.ID,
@@ -53,6 +61,16 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 		IntegrationScopes: model.JSON{},
 	}
 	if err := h.db.WithContext(ctx).Create(&session).Error; err != nil {
+		if isSessionDuplicateKey(err) {
+			var winner model.Session
+			findErr := h.db.WithContext(ctx).
+				Where("org_id = ? AND agent_id = ? AND channel_id = ? AND source = ? AND source_resource_key = ? AND status = ?",
+					*agent.OrgID, agent.ID, channelID, triggerConversationSource, resourceKey, "active").
+				First(&winner).Error
+			if findErr == nil {
+				return &winner, nil
+			}
+		}
 		return nil, fmt.Errorf("create trigger session: %w", err)
 	}
 	// Best-effort auto-naming, same as web/Slack; replaces the placeholder name.
@@ -87,6 +105,21 @@ func (h *AgentTriggerDispatchHandler) resolveTriggerChannel(ctx context.Context,
 	return channel.ID, nil
 }
 
-func stableTriggerSessionID(triggerID, channelID uuid.UUID, resourceKey string) uuid.UUID {
-	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("hivy:trigger-session:"+triggerID.String()+":"+channelID.String()+":"+resourceKey))
+// stableTriggerSessionID is deterministic so concurrent deliveries collapse to
+// one session. The generation (count of prior sessions for the same key, any
+// status) salts the id so an archived session's row never blocks a new one.
+func stableTriggerSessionID(triggerID, channelID uuid.UUID, resourceKey string, generation int64) uuid.UUID {
+	seed := "hivy:trigger-session:" + triggerID.String() + ":" + channelID.String() + ":" + resourceKey
+	if generation > 0 {
+		seed = fmt.Sprintf("%s:gen:%d", seed, generation)
+	}
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed))
+}
+
+func isSessionDuplicateKey(err error) bool {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

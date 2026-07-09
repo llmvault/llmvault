@@ -143,7 +143,7 @@ func seedSlackContinuationFixture(t *testing.T, db *gorm.DB) slackContinuationFi
 		TriggerID:      &trigger.ID,
 	}
 	session := model.Session{
-		ID:                stableSlackSessionID(sessionSeed),
+		ID:                stableSlackSessionID(sessionSeed, 0),
 		OrgID:             org.ID,
 		ChannelID:         channel.ID,
 		AgentID:           reactionAgent.ID,
