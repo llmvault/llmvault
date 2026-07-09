@@ -57,6 +57,23 @@ export function stripAttachmentTags(text: string): string {
   return text.replace(/<attachment\b[\s\S]*?<\/attachment>/gi, "").trim()
 }
 
+export function eventBlockKey(
+  event: SessionEventResponse,
+  prefix: string
+): string {
+  return `${prefix}:${event.id ?? event.event_id ?? event.sequence_number ?? event.event_at ?? "unknown"}`
+}
+
+export function eventErrorText(event: SessionEventResponse): string {
+  const payload = payloadRecord(event)
+  return (
+    stringValue(payload, "error") ||
+    stringValue(payload, "message") ||
+    stringValue(payload, "text") ||
+    "The session stream failed. Try sending your message again."
+  )
+}
+
 export function parseTimestamp(value: string): number | undefined {
   if (!value) return undefined
   const time = Date.parse(value)

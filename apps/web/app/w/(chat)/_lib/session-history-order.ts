@@ -1,11 +1,22 @@
+import type { ConversationBlock } from "@/app/w/(chat)/_lib/static-data"
 import {
   eventTurnID,
+  parseTimestamp,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
+export function isAutomatedUserBlock(block: ConversationBlock): boolean {
+  return (
+    block.type === "user" &&
+    typeof block.source === "string" &&
+    block.source !== "web"
+  )
+}
+
 export function orderActiveTurnAfterLatestUserMessage(
   events: SessionEventResponse[],
-  activeTurnID?: string
+  activeTurnID?: string,
+  activeTurnStartedAt?: string
 ): SessionEventResponse[] {
   const turnID = activeTurnID?.trim()
   if (!turnID) return events
@@ -24,11 +35,25 @@ export function orderActiveTurnAfterLatestUserMessage(
   const latestUserIndex = latestUserMessageIndex(otherEvents)
   if (latestUserIndex < 0) return events
 
+  if (turnStartsAfterAnchor(activeTurnStartedAt, otherEvents[latestUserIndex])) {
+    return events
+  }
+
   return [
     ...otherEvents.slice(0, latestUserIndex + 1),
     ...activeTurnEvents,
     ...otherEvents.slice(latestUserIndex + 1),
   ]
+}
+
+function turnStartsAfterAnchor(
+  activeTurnStartedAt: string | undefined,
+  anchor: SessionEventResponse | undefined
+) {
+  const turnStart = parseTimestamp(activeTurnStartedAt ?? "")
+  const anchorAt = parseTimestamp(anchor?.event_at ?? "")
+  if (turnStart === undefined || anchorAt === undefined) return false
+  return turnStart > anchorAt
 }
 
 function latestUserMessageIndex(events: SessionEventResponse[]) {

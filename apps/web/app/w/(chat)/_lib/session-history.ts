@@ -17,11 +17,16 @@ import {
   toolEventID,
 } from "@/app/w/(chat)/_lib/session-tools"
 import { codeLineCommentReferenceFromPayload } from "@/app/w/(chat)/_lib/code-line-comments"
-import { orderActiveTurnAfterLatestUserMessage } from "@/app/w/(chat)/_lib/session-history-order"
+import {
+  isAutomatedUserBlock,
+  orderActiveTurnAfterLatestUserMessage,
+} from "@/app/w/(chat)/_lib/session-history-order"
 import {
   compareSessionEvents,
-  eventTime,
+  eventBlockKey,
+  eventErrorText,
   eventText,
+  eventTime,
   eventTurnID,
   formatDuration,
   parseTimestamp,
@@ -69,7 +74,8 @@ export function sessionEventsToConversationBlocks(
   const mode = options.mode ?? "history"
   const ordered = orderActiveTurnAfterLatestUserMessage(
     [...events].sort(compareSessionEvents),
-    options.activeTurnID
+    options.activeTurnID,
+    options.activeTurnStartedAt
   )
   const duplicatedFinalTokens = duplicatedFinalTokenEvents(ordered)
   const turnInfoByID = new Map<string, TurnInfo>()
@@ -301,6 +307,12 @@ function groupAgentWork(
   const blocks: ConversationBlock[] = []
   let workTurnID: string | undefined
   let workItems: TimelineItem[] = []
+  let deferredItems: TimelineItem[] = []
+
+  const flushDeferred = () => {
+    for (const deferred of deferredItems) blocks.push(deferred.block)
+    deferredItems = []
+  }
 
   const flushWork = (completed: boolean, terminalAt?: number) => {
     if (workItems.length === 0) return
@@ -325,23 +337,32 @@ function groupAgentWork(
     if (item.terminal) {
       flushWork(true, item.at)
       blocks.push(item.block)
+      flushDeferred()
       continue
     }
 
     if (isAgentWorkItem(item)) {
       if (workItems.length > 0 && workTurnID !== item.turnID) {
         flushWork(false)
+        flushDeferred()
       }
       workTurnID = item.turnID
       workItems.push(item)
       continue
     }
 
+    if (workItems.length > 0 && isAutomatedUserBlock(item.block)) {
+      deferredItems.push(item)
+      continue
+    }
+
     flushWork(false)
+    flushDeferred()
     blocks.push(item.block)
   }
 
   flushWork(false)
+  flushDeferred()
   return blocks
 }
 
@@ -535,10 +556,6 @@ function eventIsLive(
   return mode === "live" || Boolean(turnID && turnID === options.activeTurnID)
 }
 
-function eventBlockKey(event: SessionEventResponse, prefix: string) {
-  return `${prefix}:${event.id ?? event.event_id ?? event.sequence_number ?? event.event_at ?? "unknown"}`
-}
-
 function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
   const value = payloadRecord(event).attachments
   if (!Array.isArray(value)) return []
@@ -578,14 +595,4 @@ function eventCodeLineComments(event: SessionEventResponse) {
     )
     return comment ? [comment] : []
   })
-}
-
-function eventErrorText(event: SessionEventResponse): string {
-  const payload = payloadRecord(event)
-  return (
-    stringValue(payload, "error") ||
-    stringValue(payload, "message") ||
-    stringValue(payload, "text") ||
-    "The session stream failed. Try sending your message again."
-  )
 }
