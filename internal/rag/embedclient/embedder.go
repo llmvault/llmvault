@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	sentrygo "github.com/getsentry/sentry-go"
+
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
@@ -96,6 +99,45 @@ func (e *Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, int
 		_ = resp.Body.Close()
 
 		if resp.StatusCode == http.StatusOK {
+			if len(respBody) == 0 {
+				// Empty 200 would crash json.Unmarshal with a misleading
+				// "unexpected end of JSON input" and permanently fail the
+				// asynq task. Returning a normal error lets the existing
+				// retry/backoff loop handle it.
+				headers := map[string]string{}
+				for k, v := range resp.Header {
+					if len(v) == 0 {
+						continue
+					}
+					if strings.EqualFold(k, "Authorization") {
+						continue
+					}
+					headers[k] = v[0]
+				}
+				if hub := sentrygo.GetHubFromContext(ctx); hub != nil {
+					hub.AddBreadcrumb(&sentrygo.Breadcrumb{
+						Type:     "http",
+						Category: "embed.empty_body",
+						Message:  fmt.Sprintf("embed upstream empty body: status=%d model=%s", resp.StatusCode, e.cfg.Model),
+						Level:    sentrygo.LevelWarning,
+						Data: map[string]any{
+							"status":         resp.StatusCode,
+							"model":          e.cfg.Model,
+							"content_length": resp.ContentLength,
+							"headers":        headers,
+						},
+					}, nil)
+				}
+				logging.FromContext(ctx).WarnContext(ctx, "embed upstream returned empty body",
+					"status", resp.StatusCode,
+					"model", e.cfg.Model,
+					"content_length", resp.ContentLength,
+					"headers", headers,
+				)
+				lastErr = fmt.Errorf("embed: empty response body (status=%d)", resp.StatusCode)
+				backoff(attempt)
+				continue
+			}
 			var out embedResponse
 			if err := json.Unmarshal(respBody, &out); err != nil {
 				return nil, 0, fmt.Errorf("embed: decode: %w", err)
