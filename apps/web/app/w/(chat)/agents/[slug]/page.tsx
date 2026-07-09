@@ -8,12 +8,8 @@ import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
-import {
-  PLUGINS_QUERY_KEY,
-  pluginName,
-  pluginSlug,
-  type ApiPlugin,
-} from "@/app/w/(chat)/plugins/_lib"
+import { PLUGINS_QUERY_KEY } from "@/app/w/(chat)/plugins/_lib"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import { AgentAvatar } from "../_agent-avatar"
 import { availableModelIds } from "@/app/w/(chat)/_lib/model-options"
 import {
@@ -23,7 +19,6 @@ import {
   agentMissingPlugins,
   agentName,
   agentRequiredPlugins,
-  agentRequiredPluginSlugs,
   normalizeAgentSandboxImage,
   normalizeAgentSandboxSize,
   pluginsBySlug,
@@ -54,6 +49,7 @@ export default function AgentDetailPage({
 }) {
   const { slug } = use(params)
   const queryClient = useQueryClient()
+  const isAdmin = useIsAdmin()
   // Installing/uninstalling a catalog agent is now team-scoped and member
   // reachable: each of the caller's teams gets its own clone, so the per-team
   // controls live in AgentTeamsSection. This page still lets anyone view and
@@ -68,14 +64,6 @@ export default function AgentDetailPage({
   })
   const updateAgentModel = $api.useMutation("patch", "/v1/agents/{id}/model")
   const updateAgent = $api.useMutation("patch", "/v1/agents/{id}")
-  const enableAgentPlugin = $api.useMutation(
-    "post",
-    "/v1/agents/{id}/plugins/{slug}"
-  )
-  const disableAgentPlugin = $api.useMutation(
-    "delete",
-    "/v1/agents/{id}/plugins/{slug}"
-  )
   const agent = agentQuery.data as CatalogAgent | undefined
   const installedAgentID = agent?.installed_agent_id ?? ""
   const installedAgentQuery = $api.useQuery(
@@ -86,26 +74,10 @@ export default function AgentDetailPage({
     },
     { enabled: installedAgentID.length > 0 }
   )
-  const agentPluginsQuery = $api.useQuery(
-    "get",
-    "/v1/agents/{id}/plugins",
-    {
-      params: { path: { id: installedAgentID } },
-    },
-    { enabled: installedAgentID.length > 0 }
-  )
   const installedAgent = installedAgentQuery.data as InstalledAgent | undefined
   const plugins = useMemo(() => pluginsQuery.data ?? [], [pluginsQuery.data])
-  const agentPlugins = useMemo(
-    () => agentPluginsQuery.data ?? [],
-    [agentPluginsQuery.data]
-  )
   const pluginLookup = useMemo(() => pluginsBySlug(plugins), [plugins])
   const requiredPlugins = agentRequiredPlugins(agent)
-  const requiredPluginSlugs = useMemo(
-    () => agentRequiredPluginSlugs(agent),
-    [agent]
-  )
   const missingPlugins = agentMissingPlugins(agent)
   const availableModels = useMemo(
     () => availableModelIds(agentModelsQuery.data ?? []),
@@ -125,8 +97,6 @@ export default function AgentDetailPage({
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
   const sandboxConfigBusy =
     installedAgentQuery.isLoading || updateAgent.isPending
-  const agentPluginBusy =
-    enableAgentPlugin.isPending || disableAgentPlugin.isPending
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: AGENT_CATALOG_QUERY_KEY })
@@ -137,9 +107,6 @@ export default function AgentDetailPage({
     })
     if (installedAgentID) {
       queryClient.invalidateQueries({ queryKey: queryKeys.agent() })
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.agentPlugins(),
-      })
     }
   }, [installedAgentID, queryClient])
 
@@ -200,37 +167,6 @@ export default function AgentDetailPage({
     )
   }
 
-  function handleAgentPluginToggle(plugin: ApiPlugin, selected: boolean) {
-    const pluginPathSlug = pluginSlug(plugin)
-    if (
-      !installedAgentID ||
-      !pluginPathSlug ||
-      requiredPluginSlugs.has(pluginPathSlug)
-    ) {
-      return
-    }
-    const mutation = selected ? enableAgentPlugin : disableAgentPlugin
-    mutation.mutate(
-      { params: { path: { id: installedAgentID, slug: pluginPathSlug } } },
-      {
-        onSuccess: () => {
-          toast.success(
-            `${pluginName(plugin)} ${
-              selected
-                ? "installed for this agent"
-                : "uninstalled from this agent"
-            }`
-          )
-          refresh()
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not update plugin access")
-          ),
-      }
-    )
-  }
-
   if (agentQuery.isLoading) {
     return <DetailSkeleton />
   }
@@ -261,12 +197,6 @@ export default function AgentDetailPage({
             </p>
           </div>
         </div>
-
-        {isDefaultAgent ? (
-          <span className="text-muted-foreground shrink-0 text-sm">
-            Default agent
-          </span>
-        ) : null}
       </header>
 
       {missingPlugins.length > 0 ? (
@@ -293,12 +223,10 @@ export default function AgentDetailPage({
           />
           <AgentPluginsSection
             agentID={installedAgentID}
-            agentName={agentName(agent)}
-            plugins={agentPlugins}
-            requiredSlugs={requiredPluginSlugs}
-            isLoading={agentPluginsQuery.isLoading}
-            isBusy={agentPluginBusy}
-            onToggle={handleAgentPluginToggle}
+            plugins={plugins}
+            teamId={installedAgent?.team_id ?? ""}
+            canManage={isAdmin}
+            isLoading={installedAgentQuery.isLoading || pluginsQuery.isLoading}
           />
           <SandboxImageSection
             selectedSandboxImage={selectedSandboxImage}

@@ -20,14 +20,14 @@ func TestSheetToolsGating(t *testing.T) {
 	fixture := seedSheetsFixture(t, db)
 	ensureSheetsPlugin(t, db)
 
-	// No agent_plugin_installs row → nothing registers.
+	// No team grant → nothing registers.
 	client := connectSheetToolsClient(t, ctx, fixture.svc, sheetAgentToken(fixture.org.ID, fixture.agent.ID))
 	if tools := listSheetToolNames(t, ctx, client); len(tools) != 0 {
 		t.Fatalf("tools registered without plugin install: %v", toolNameList(tools))
 	}
 
-	// Non-agent-proxy token → nothing registers even with an install.
-	installSheetsPlugin(t, db, fixture.org.ID, fixture.agent.ID)
+	// Non-agent-proxy token → nothing registers even with a grant.
+	installSheetsPlugin(t, db, fixture.org.ID, fixture.team.ID)
 	plainToken := &model.Token{OrgID: fixture.org.ID, Meta: model.JSON{}}
 	client = connectSheetToolsClient(t, ctx, fixture.svc, plainToken)
 	if tools := listSheetToolNames(t, ctx, client); len(tools) != 0 {

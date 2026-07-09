@@ -31,7 +31,7 @@ func ensureSheetsPlugin(t *testing.T, db *gorm.DB) model.Plugin {
 	var plugin model.Plugin
 	err := db.Where("slug = ? AND org_id IS NULL", SheetsPluginSlug).First(&plugin).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		plugin = model.Plugin{Slug: SheetsPluginSlug, Name: "Sheets", Status: model.PluginStatusActive}
+		plugin = model.Plugin{Slug: SheetsPluginSlug, Name: "Sheets", Status: model.PluginStatusActive, Manifest: model.RawJSON(`{}`)}
 		if err := db.Create(&plugin).Error; err != nil {
 			t.Fatalf("ensure sheets plugin: %v", err)
 		}
@@ -40,25 +40,31 @@ func ensureSheetsPlugin(t *testing.T, db *gorm.DB) model.Plugin {
 	if err != nil {
 		t.Fatalf("load sheets plugin: %v", err)
 	}
-	if plugin.Status != model.PluginStatusActive {
-		if err := db.Model(&plugin).Update("status", model.PluginStatusActive).Error; err != nil {
-			t.Fatalf("activate sheets plugin: %v", err)
-		}
+	// Force a plain (non-auto-install) manifest so the tool-gate is exercised via
+	// explicit team grants, not the shipped plugin's auto-install path.
+	if err := db.Model(&plugin).Updates(map[string]any{"status": model.PluginStatusActive, "manifest": model.RawJSON(`{}`)}).Error; err != nil {
+		t.Fatalf("normalize sheets plugin: %v", err)
 	}
 	return plugin
 }
 
-// installSheetsPlugin creates the agent_plugin_installs row that gates the
-// tool group for one agent.
-func installSheetsPlugin(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID) {
+// installSheetsPlugin grants the sheets plugin to the agent's team (org-install
+// + team_plugins) so it resolves into the agent's effective set.
+func installSheetsPlugin(t *testing.T, db *gorm.DB, orgID, teamID uuid.UUID) {
 	t.Helper()
 	plugin := ensureSheetsPlugin(t, db)
-	install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: plugin.ID}
-	if err := db.Create(&install).Error; err != nil {
-		t.Fatalf("install sheets plugin for agent: %v", err)
+	orgInstall := model.OrgPluginInstall{OrgID: orgID, PluginID: plugin.ID}
+	if err := db.Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).
+		FirstOrCreate(&orgInstall).Error; err != nil {
+		t.Fatalf("org-install sheets plugin: %v", err)
+	}
+	grant := model.TeamPlugin{OrgID: orgID, TeamID: teamID, PluginID: plugin.ID}
+	if err := db.Create(&grant).Error; err != nil {
+		t.Fatalf("grant sheets plugin to team: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("agent_id = ? AND plugin_id = ?", agentID, plugin.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("team_id = ? AND plugin_id = ?", teamID, plugin.ID).Delete(&model.TeamPlugin{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).Delete(&model.OrgPluginInstall{})
 	})
 }
 
@@ -97,7 +103,7 @@ func setupSheetTools(t *testing.T) (*sheetsFixture, *mcp.ClientSession) {
 	t.Helper()
 	db := connectSheetsTestDB(t)
 	fixture := seedSheetsFixture(t, db)
-	installSheetsPlugin(t, db, fixture.org.ID, fixture.agent.ID)
+	installSheetsPlugin(t, db, fixture.org.ID, fixture.team.ID)
 	client := connectSheetToolsClient(t, context.Background(), fixture.svc, sheetAgentToken(fixture.org.ID, fixture.agent.ID))
 	return fixture, client
 }

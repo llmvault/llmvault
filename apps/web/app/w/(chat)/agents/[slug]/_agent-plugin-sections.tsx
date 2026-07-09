@@ -1,7 +1,7 @@
 "use client"
 
 import NextLink from "next/link"
-import { Skeleton, Switch, Tooltip } from "@heroui/react"
+import { Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { PluginLogoTile } from "@/components/plugin-logo"
 import {
@@ -20,48 +20,50 @@ import {
 
 export function AgentPluginsSection({
   agentID,
-  agentName: name,
   plugins,
-  requiredSlugs,
+  teamId,
+  canManage,
   isLoading,
-  isBusy,
-  onToggle,
 }: {
   agentID: string
-  agentName: string
   plugins: ApiPlugin[]
-  requiredSlugs: ReadonlySet<string>
+  teamId: string
+  canManage: boolean
   isLoading: boolean
-  isBusy: boolean
-  onToggle: (plugin: ApiPlugin, selected: boolean) => void
 }) {
-  const installedPlugins = plugins.filter((plugin) => plugin.installed)
+  const effectivePlugins = plugins.filter(
+    (plugin) =>
+      plugin.auto_install === true || pluginEnabledForAgent(plugin, agentID)
+  )
+  const manageHref = teamId && canManage ? `/w/settings/teams/${teamId}` : null
   return (
     <section className="flex flex-col gap-3">
       <div>
         <h2 className="text-sm font-semibold text-foreground">Agent plugins</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Manage workspace plugins available to {name}.
+          Plugins are managed at the team level and shared by every agent in the
+          team.{" "}
+          {manageHref ? (
+            <NextLink
+              href={manageHref}
+              className="text-primary transition-colors hover:underline"
+            >
+              Manage in team settings
+            </NextLink>
+          ) : null}
         </p>
       </div>
 
       {isLoading ? (
         <AgentPluginSkeleton />
-      ) : installedPlugins.length > 0 ? (
+      ) : effectivePlugins.length > 0 ? (
         <div className="grid gap-3">
-          {installedPlugins.map((plugin) => {
-            const slug = pluginSlug(plugin)
-            return (
-              <AgentPluginCard
-                key={slug || plugin.id || plugin.name}
-                agentID={agentID}
-                plugin={plugin}
-                required={slug ? requiredSlugs.has(slug) : false}
-                isBusy={isBusy}
-                onToggle={onToggle}
-              />
-            )
-          })}
+          {effectivePlugins.map((plugin) => (
+            <AgentPluginRow
+              key={pluginSlug(plugin) || plugin.id || plugin.name}
+              plugin={plugin}
+            />
+          ))}
         </div>
       ) : (
         <AgentPluginsEmptyState />
@@ -118,24 +120,9 @@ export function NoRequirementsSection() {
   )
 }
 
-function AgentPluginCard({
-  agentID,
-  plugin,
-  required,
-  isBusy,
-  onToggle,
-}: {
-  agentID: string
-  plugin: ApiPlugin
-  required: boolean
-  isBusy: boolean
-  onToggle: (plugin: ApiPlugin, selected: boolean) => void
-}) {
+function AgentPluginRow({ plugin }: { plugin: ApiPlugin }) {
   const slug = pluginSlug(plugin)
-  const globalInstall = plugin.auto_install === true
-  const enabled =
-    required || globalInstall || pluginEnabledForAgent(plugin, agentID)
-  const disabled = required || globalInstall || isBusy || !slug
+  const alwaysOn = plugin.auto_install === true
   const details = (
     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
       <PluginLogoTile plugin={plugin} />
@@ -162,60 +149,10 @@ function AgentPluginCard({
       ) : (
         details
       )}
-      <AgentPluginSwitch
-        plugin={plugin}
-        enabled={enabled}
-        disabled={disabled}
-        required={required}
-        globalInstall={globalInstall}
-        onToggle={onToggle}
-      />
+      <span className="text-muted-foreground shrink-0 rounded-full bg-default px-2 py-0.5 text-xs">
+        {alwaysOn ? "Always on" : "From team"}
+      </span>
     </div>
-  )
-}
-
-function AgentPluginSwitch({
-  plugin,
-  enabled,
-  disabled,
-  required,
-  globalInstall,
-  onToggle,
-}: {
-  plugin: ApiPlugin
-  enabled: boolean
-  disabled: boolean
-  required: boolean
-  globalInstall: boolean
-  onToggle: (plugin: ApiPlugin, selected: boolean) => void
-}) {
-  const control = (
-    <Switch
-      aria-label={`${enabled ? "Uninstall" : "Install"} ${pluginName(plugin)} for this agent`}
-      isSelected={enabled}
-      isDisabled={disabled}
-      onChange={(selected) => onToggle(plugin, selected)}
-      className="shrink-0"
-    >
-      <Switch.Control>
-        <Switch.Thumb />
-      </Switch.Control>
-    </Switch>
-  )
-
-  if (!required && !globalInstall) {
-    return control
-  }
-
-  return (
-    <Tooltip delay={250} closeDelay={0}>
-      <Tooltip.Trigger className="flex shrink-0">{control}</Tooltip.Trigger>
-      <Tooltip.Content placement="left" offset={8} className="text-xs">
-        {globalInstall
-          ? "This plugin is installed for all agents and cannot be uninstalled here."
-          : "This plugin is required by this agent and cannot be uninstalled."}
-      </Tooltip.Content>
-    </Tooltip>
   )
 }
 

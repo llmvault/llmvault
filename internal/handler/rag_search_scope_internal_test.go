@@ -54,15 +54,15 @@ func TestUsableRagSourceIDs(t *testing.T) {
 
 	org := model.Org{ID: uuid.New(), Name: "rsrc-" + uuid.NewString()[:8], RateLimit: 1000, Active: true}
 	member := model.User{ID: uuid.New(), Email: "rsrc-" + uuid.NewString()[:8] + "@test.com", Name: "m"}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "a", Model: "test", Status: "active"}
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "ta-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "tb-" + uuid.NewString()[:8]}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: teamA.ID, Name: "a", Model: "test", Status: "active"}
 	visibleCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "vc-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: agent.ID}
 	hiddenCh := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "hc-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamB.ID, DefaultAgentID: agent.ID}
 
 	// Base rows first (sources + grants carry FKs to org/channels).
 	base := []any{
-		&org, &member, &agent, &teamA, &teamB, &visibleCh, &hiddenCh,
+		&org, &member, &teamA, &teamB, &agent, &visibleCh, &hiddenCh,
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
 	}

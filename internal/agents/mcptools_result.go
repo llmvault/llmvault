@@ -12,11 +12,12 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // --- output ------------------------------------------------------------------
 
-func agentResultJSON(ctx context.Context, db *gorm.DB, agent *model.Agent, frontendURL string, plugins []model.Plugin, skillSlugs []string, runtime model.JSON, mcpAllow []string) (*mcp.CallToolResult, error) {
+func agentResultJSON(ctx context.Context, db *gorm.DB, agent *model.Agent, frontendURL string, skillSlugs []string, runtime model.JSON, mcpAllow []string) (*mcp.CallToolResult, error) {
 	// Load the persisted plugin/skill/tool state so update responses reflect the
 	// stored values, not just the request.
 	pluginSlugs, err := agentPluginSlugs(ctx, db, agent)
@@ -45,18 +46,9 @@ func agentResultJSON(ctx context.Context, db *gorm.DB, agent *model.Agent, front
 }
 
 func agentPluginSlugs(ctx context.Context, db *gorm.DB, agent *model.Agent) ([]string, error) {
-	var pluginIDs []uuid.UUID
-	if err := db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
-		Where("agent_id = ?", agent.ID).Pluck("plugin_id", &pluginIDs).Error; err != nil {
+	slugs, err := pluginresolve.EffectivePluginSlugs(ctx, db, *agent)
+	if err != nil {
 		return nil, fmt.Errorf("load agent plugins: %w", err)
-	}
-	if len(pluginIDs) == 0 {
-		return []string{}, nil
-	}
-	var slugs []string
-	if err := db.WithContext(ctx).Model(&model.Plugin{}).
-		Where("id IN ?", pluginIDs).Order("slug ASC").Pluck("slug", &slugs).Error; err != nil {
-		return nil, fmt.Errorf("load plugin slugs: %w", err)
 	}
 	if slugs == nil {
 		slugs = []string{}
@@ -263,12 +255,4 @@ func hasActiveSubAgents(ctx context.Context, db *gorm.DB, parentID uuid.UUID) (b
 		return false, fmt.Errorf("count sub-agents: %w", err)
 	}
 	return count > 0, nil
-}
-
-func pluginIDs(plugins []model.Plugin) []uuid.UUID {
-	out := make([]uuid.UUID, 0, len(plugins))
-	for _, plugin := range plugins {
-		out = append(out, plugin.ID)
-	}
-	return out
 }

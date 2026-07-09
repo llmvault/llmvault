@@ -12,6 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sheets"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -78,10 +79,24 @@ func TestAgentSessionsSheetsE2E(t *testing.T) {
 		t.Fatalf("skills_list missing from pre-install server; tools=%v", sheetsE2EToolNameList(beforeTools))
 	}
 
-	// --- Install via the normal path: org install, then per-agent enable.
+	// --- Install via the normal path: org install, then grant the plugin to the
+	// default agent's team (per-agent plugin routes were removed; plugins now
+	// resolve from the team's grants).
 	agentSessionsInstallPlugin(t, ctx, apiBase, ownerToken, orgID, "sheets")
-	agentSessionsJSON(t, ctx, http.MethodPost, apiBase+"/v1/agents/"+defaultAgent.ID+"/plugins/sheets", ownerToken, orgID, nil, http.StatusOK, nil)
-	t.Log("sheets plugin installed for org and enabled for the default agent")
+	{
+		var sheetsPlugin model.Plugin
+		if err := db.Where("slug = ? AND org_id IS NULL", "sheets").First(&sheetsPlugin).Error; err != nil {
+			t.Fatalf("load sheets plugin: %v", err)
+		}
+		var defAgentRow model.Agent
+		if err := db.Where("id = ?", agentUUID).First(&defAgentRow).Error; err != nil {
+			t.Fatalf("load default agent: %v", err)
+		}
+		if err := db.Create(&model.TeamPlugin{OrgID: orgUUID, TeamID: defAgentRow.TeamID, PluginID: sheetsPlugin.ID}).Error; err != nil {
+			t.Fatalf("grant sheets plugin to team: %v", err)
+		}
+	}
+	t.Log("sheets plugin installed for org and granted to the default agent's team")
 
 	// Sheets tools are channel-scoped (see internal/sheets/mcptools.go) and derive
 	// their channel from the runtime-injected _hivy_session_id. Create a real

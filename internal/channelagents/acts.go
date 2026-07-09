@@ -56,5 +56,5 @@ func ActsInChannel(ctx context.Context, db *gorm.DB, orgID, channelID, agentID u
 	if err != nil {
 		return false, fmt.Errorf("load agent: %w", err)
 	}
-	return agent.TeamID != nil && *agent.TeamID == *channel.TeamID, nil
+	return agent.TeamID == *channel.TeamID, nil
 }

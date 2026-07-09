@@ -79,6 +79,7 @@ func newGitCredsHarness(t *testing.T, nangoHandler http.Handler) *gitCredsHarnes
 	agent := model.Agent{
 		ID:     agentID,
 		OrgID:  &orgID,
+		TeamID: firstTeamID(t, database, orgID),
 		Name:   "test-agent",
 		Status: "active",
 	}

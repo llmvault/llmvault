@@ -72,7 +72,7 @@ func TestResolveAgentProviderRequiresEnabledPlugin(t *testing.T) {
 		t.Fatal("expected resolver to deny provider without enabled plugin")
 	}
 
-	insertEnabledPlugin(t, db, fixture.orgID, fixture.agentID, "linear")
+	insertEnabledPlugin(t, db, fixture.orgID, fixture.teamID, "linear")
 	result, err := ResolveAgentProvider(context.Background(), db, fixture.orgID, fixture.agentID, "linear")
 	if err != nil {
 		t.Fatalf("resolve provider: %v", err)
@@ -88,7 +88,7 @@ func TestResolveAgentProviderRequiresEnabledPlugin(t *testing.T) {
 func TestResolveAgentProviderUsesEffectiveResources(t *testing.T) {
 	db := newResolverTestDB(t)
 	fixture := insertResolverFixture(t, db)
-	insertEnabledPlugin(t, db, fixture.orgID, fixture.agentID, "linear")
+	insertEnabledPlugin(t, db, fixture.orgID, fixture.teamID, "linear")
 	if err := db.Model(&model.Connection{}).Where("id = ?", fixture.connectionID).Update("meta", model.JSON{
 		"resources": map[string]any{"project": []any{map[string]any{"id": "default", "name": "Default"}}},
 	}).Error; err != nil {
@@ -117,6 +117,7 @@ func TestResolveAgentProviderUsesEffectiveResources(t *testing.T) {
 type resolverFixture struct {
 	orgID                uuid.UUID
 	userID               uuid.UUID
+	teamID               uuid.UUID
 	agentID              uuid.UUID
 	integrationID        uuid.UUID
 	integrationUniqueKey string
@@ -143,6 +144,7 @@ func insertResolverFixture(t *testing.T, db *gorm.DB) resolverFixture {
 	fixture := resolverFixture{
 		orgID:                uuid.New(),
 		userID:               uuid.New(),
+		teamID:               uuid.New(),
 		agentID:              uuid.New(),
 		integrationID:        uuid.New(),
 		integrationUniqueKey: "linear-" + uuid.NewString()[:8],
@@ -154,10 +156,14 @@ func insertResolverFixture(t *testing.T, db *gorm.DB) resolverFixture {
 	if err := db.Create(&model.User{ID: fixture.userID, Email: "resolver-" + uuid.NewString()[:8] + "@example.com"}).Error; err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
+	if err := db.Create(&model.Team{ID: fixture.teamID, OrgID: fixture.orgID, Name: "resolver-team-" + uuid.NewString()[:8]}).Error; err != nil {
+		t.Fatalf("insert team: %v", err)
+	}
 	description := ""
 	if err := db.Create(&model.Agent{
 		ID:          fixture.agentID,
 		OrgID:       &fixture.orgID,
+		TeamID:      fixture.teamID,
 		Name:        "resolver-agent-" + uuid.NewString()[:8],
 		Description: &description,
 		Model:       "test-model",
@@ -187,7 +193,7 @@ func insertResolverFixture(t *testing.T, db *gorm.DB) resolverFixture {
 	return fixture
 }
 
-func insertEnabledPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, agentID uuid.UUID, provider string) {
+func insertEnabledPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, teamID uuid.UUID, provider string) {
 	t.Helper()
 	pluginID := uuid.New()
 	if err := db.Create(&model.Plugin{
@@ -209,7 +215,7 @@ func insertEnabledPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, agentID uui
 	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: pluginID}).Error; err != nil {
 		t.Fatalf("insert org plugin install: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}).Error; err != nil {
-		t.Fatalf("insert agent plugin install: %v", err)
+	if err := db.Create(&model.TeamPlugin{OrgID: orgID, TeamID: teamID, PluginID: pluginID}).Error; err != nil {
+		t.Fatalf("insert team plugin: %v", err)
 	}
 }

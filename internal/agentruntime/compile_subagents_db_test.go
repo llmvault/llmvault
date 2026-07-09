@@ -84,14 +84,14 @@ func TestSubAgentNameUniquenessIsPerParent(t *testing.T) {
 	createSubAgent(t, db, org.ID, parentA.ID, subAgentSeed{Name: "Worker"})
 	createSubAgent(t, db, org.ID, parentB.ID, subAgentSeed{Name: "Worker"})
 
-	dup := userAgentRow(org.ID, "Worker")
+	dup := userAgentRow(org.ID, parentA.TeamID, "Worker")
 	dup.Type = model.AgentTypeSubAgent
 	dup.ParentAgentID = &parentA.ID
 	if err := db.Create(&dup).Error; err == nil {
 		t.Fatalf("expected duplicate sub-agent name under the same parent to be rejected")
 	}
 
-	dupTop := userAgentRow(org.ID, "Parent A")
+	dupTop := userAgentRow(org.ID, parentA.TeamID, "Parent A")
 	if err := db.Create(&dupTop).Error; err != nil {
 		t.Fatalf("duplicate top-level agent name should be allowed: %v", err)
 	}
@@ -113,10 +113,11 @@ func createOrg(t *testing.T, db *gorm.DB) model.Org {
 	return org
 }
 
-func userAgentRow(orgID uuid.UUID, name string) model.Agent {
+func userAgentRow(orgID, teamID uuid.UUID, name string) model.Agent {
 	return model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        teamID,
 		Type:          model.AgentTypeAgent,
 		Name:          name,
 		Model:         DefaultAgentModel,
@@ -132,7 +133,8 @@ func userAgentRow(orgID uuid.UUID, name string) model.Agent {
 
 func createUserAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string) model.Agent {
 	t.Helper()
-	agent := userAgentRow(orgID, name)
+	team := seedCompileTeam(t, db, orgID)
+	agent := userAgentRow(orgID, team.ID, name)
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create user agent: %v", err)
 	}
@@ -147,7 +149,11 @@ func createSubAgent(t *testing.T, db *gorm.DB, orgID, parentID uuid.UUID, seed s
 	}
 	desc := seed.Description
 	instructions := seed.Instructions
-	agent := userAgentRow(orgID, seed.Name)
+	var parent model.Agent
+	if err := db.Where("id = ?", parentID).First(&parent).Error; err != nil {
+		t.Fatalf("load parent agent: %v", err)
+	}
+	agent := userAgentRow(orgID, parent.TeamID, seed.Name)
 	agent.Type = model.AgentTypeSubAgent
 	agent.ParentAgentID = &parentID
 	agent.Description = &desc

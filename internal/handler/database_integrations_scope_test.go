@@ -109,11 +109,12 @@ func createDatabaseScopeTestOrg(t *testing.T, db *gorm.DB) model.Org {
 		t.Fatalf("create org: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.DatabaseConnection{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Sandbox{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 	return org
@@ -121,9 +122,16 @@ func createDatabaseScopeTestOrg(t *testing.T, db *gorm.DB) model.Org {
 
 func createDatabaseScopeTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, label string) model.Agent {
 	t.Helper()
+	// Each agent gets its own team so a plugin grant to one agent's team never
+	// leaks to the other (plugins resolve per team).
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "database-scope-" + label + "-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		ID:     uuid.New(),
 		OrgID:  &orgID,
+		TeamID: team.ID,
 		Name:   "database-scope-" + label + "-" + uuid.New().String()[:8],
 		Model:  "test-model",
 		Status: "active",
@@ -185,15 +193,9 @@ func installDatabaseScopePlugin(t *testing.T, db *gorm.DB, orgID, agentID uuid.U
 	}).Error; err != nil {
 		t.Fatalf("create org plugin install: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{
-		OrgID:    orgID,
-		AgentID:  agentID,
-		PluginID: pluginID,
-	}).Error; err != nil {
-		t.Fatalf("create agent plugin install: %v", err)
-	}
+	grantPluginToAgentTeam(t, db, orgID, agentID, pluginID)
 	t.Cleanup(func() {
-		db.Where("org_id = ? AND agent_id = ? AND plugin_id = ?", orgID, agentID, pluginID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.OrgPluginInstall{})
 		db.Where("plugin_id = ?", pluginID).Delete(&model.PluginIntegration{})
 		db.Where("id = ?", pluginID).Delete(&model.Plugin{})

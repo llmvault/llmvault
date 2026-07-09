@@ -13,14 +13,15 @@ import (
 func TestCompile_AppliesUserAgentAndSubAgentMcpFilter(t *testing.T) {
 	db := connectCompileTestDB(t)
 	org := createOrg(t, db)
+	team := seedCompileTeam(t, db, org.ID)
 
-	parent := userAgentRow(org.ID, "Filtered")
+	parent := userAgentRow(org.ID, team.ID, "Filtered")
 	parent.McpToolFilter = &model.ToolFilter{Deny: []string{"generate_image"}}
 	if err := db.Create(&parent).Error; err != nil {
 		t.Fatalf("create parent: %v", err)
 	}
 
-	sub := userAgentRow(org.ID, "Imager")
+	sub := userAgentRow(org.ID, team.ID, "Imager")
 	sub.Type = model.AgentTypeSubAgent
 	sub.ParentAgentID = &parent.ID
 	sub.McpToolFilter = &model.ToolFilter{Allow: []string{"generate_image"}}

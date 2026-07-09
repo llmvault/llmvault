@@ -47,7 +47,7 @@ func TestAppPreviewEnvForeignOrgAppIs404(t *testing.T) {
 
 	// An app that exists but belongs to a different org must 404.
 	otherOrg := createTestOrg(t, h.db)
-	otherAgent := model.Agent{ID: uuid.New(), OrgID: &otherOrg.ID, Name: "Other " + uuid.NewString(), Model: "test", Status: "active"}
+	otherAgent := model.Agent{ID: uuid.New(), OrgID: &otherOrg.ID, TeamID: firstTeamID(t, h.db, otherOrg.ID), Name: "Other " + uuid.NewString(), Model: "test", Status: "active"}
 	otherChan := model.Channel{ID: uuid.New(), OrgID: otherOrg.ID, Name: "other-" + uuid.NewString(), DefaultAgentID: otherAgent.ID}
 	otherSheet := model.Sheet{ID: uuid.New(), OrgID: otherOrg.ID, ChannelID: otherChan.ID, Slug: "other-" + uuid.NewString()[:8], Name: "Other"}
 	for _, seed := range []any{&otherAgent, &otherChan, &otherSheet} {
@@ -73,18 +73,6 @@ func TestAppPreviewEnvForeignOrgAppIs404(t *testing.T) {
 	}
 	if rr := h.fetch(t, h.secret, h.app.ID.String(), "3000"); rr.Code != 404 {
 		t.Fatalf("archived app status = %d body=%s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestAppPreviewEnvRequiresAppsPlugin(t *testing.T) {
-	h := newPreviewEnvHarness(t, previewHarnessOpts{})
-	// No plugin install: gated.
-	rr := h.fetch(t, h.secret, h.app.ID.String(), "3000")
-	if rr.Code != 403 {
-		t.Fatalf("plugin-not-installed status = %d body=%s", rr.Code, rr.Body.String())
-	}
-	if !strings.Contains(rr.Body.String(), "apps plugin") {
-		t.Fatalf("error should name the plugin gate, got %s", rr.Body.String())
 	}
 }
 

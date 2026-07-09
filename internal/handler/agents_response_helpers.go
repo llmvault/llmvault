@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
@@ -112,18 +114,28 @@ func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]ag
 	if len(agentIDs) == 0 {
 		return nil
 	}
-	var installs []model.AgentPluginInstall
-	if err := h.db.Where("agent_id IN ?", agentIDs).Find(&installs).Error; err != nil {
+	var agents []model.Agent
+	if err := h.db.Where("id IN ?", agentIDs).Find(&agents).Error; err != nil {
 		return nil
 	}
-	if len(installs) == 0 {
+	if len(agents) == 0 {
 		return nil
 	}
+	ctx := context.Background()
 	pluginIDSet := make(map[uuid.UUID]bool)
-	agentPlugins := make(map[uuid.UUID][]uuid.UUID, len(agentIDs))
-	for _, install := range installs {
-		pluginIDSet[install.PluginID] = true
-		agentPlugins[install.AgentID] = append(agentPlugins[install.AgentID], install.PluginID)
+	agentPlugins := make(map[uuid.UUID][]uuid.UUID, len(agents))
+	for _, agent := range agents {
+		ids, err := pluginresolve.EffectivePluginIDs(ctx, h.db, agent)
+		if err != nil {
+			return nil
+		}
+		agentPlugins[agent.ID] = ids
+		for _, id := range ids {
+			pluginIDSet[id] = true
+		}
+	}
+	if len(pluginIDSet) == 0 {
+		return nil
 	}
 	pluginIDs := make([]uuid.UUID, 0, len(pluginIDSet))
 	for id := range pluginIDSet {

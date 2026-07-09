@@ -70,29 +70,34 @@ func createUserDefaultOrg(ctx context.Context, tx *gorm.DB, credits *billing.Cre
 // provisionFirstTeam creates a named team, adds createdByUserID as its owner
 // member, and provisions the team's defaults (Hivy + #general). Shared by the
 // signup bootstrap and OrgHandler.Create so every org is born with at least one
-// self-sufficient team.
+// self-sufficient team. createdByUserID may be uuid.Nil for a userless caller
+// (system provisioning); the owner member and created_by are then left unset.
 func provisionFirstTeam(ctx context.Context, tx *gorm.DB, orgID, createdByUserID uuid.UUID, teamName string) (model.Team, error) {
 	teamName = normalizeTeamName(teamName)
 	if teamName == "" {
 		teamName = defaultTeamName
 	}
-	createdBy := createdByUserID
 	team := model.Team{
-		OrgID:     orgID,
-		Name:      teamName,
-		CreatedBy: &createdBy,
+		OrgID: orgID,
+		Name:  teamName,
+	}
+	if createdByUserID != uuid.Nil {
+		createdBy := createdByUserID
+		team.CreatedBy = &createdBy
 	}
 	if err := tx.WithContext(ctx).Create(&team).Error; err != nil {
 		return model.Team{}, fmt.Errorf("creating first team: %w", err)
 	}
-	teamMember := model.TeamMember{
-		OrgID:  orgID,
-		TeamID: team.ID,
-		UserID: createdByUserID,
-		Role:   "owner",
-	}
-	if err := tx.WithContext(ctx).Create(&teamMember).Error; err != nil {
-		return model.Team{}, fmt.Errorf("creating first team member: %w", err)
+	if createdByUserID != uuid.Nil {
+		teamMember := model.TeamMember{
+			OrgID:  orgID,
+			TeamID: team.ID,
+			UserID: createdByUserID,
+			Role:   "owner",
+		}
+		if err := tx.WithContext(ctx).Create(&teamMember).Error; err != nil {
+			return model.Team{}, fmt.Errorf("creating first team member: %w", err)
+		}
 	}
 	if _, _, err := provisionTeamDefaults(ctx, tx, orgID, team.ID, createdByUserID); err != nil {
 		return model.Team{}, err

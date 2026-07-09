@@ -87,6 +87,10 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if teamID == nil {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "team_id is required: pick a team you belong to for this agent"})
+		return
+	}
 	modelID := cleanStringPtr(req.Model)
 	if modelID == "" {
 		modelID = agentruntime.DefaultAgentModel
@@ -161,7 +165,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	avatarURL := cleanStringPtr(req.AvatarURL)
 	agent := model.Agent{
 		OrgID:                  &org.ID,
-		TeamID:                 teamID,
+		TeamID:                 *teamID,
 		Name:                   name,
 		Description:            &desc,
 		Instructions:           &instructions,
@@ -191,11 +195,12 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		for i := range subAgentRows {
 			subAgentRows[i].ParentAgentID = &agent.ID
+			subAgentRows[i].TeamID = agent.TeamID
 			if err := tx.Create(&subAgentRows[i]).Error; err != nil {
 				return err
 			}
 		}
-		return pluginstore.EnsureAutoInstalledForAgent(ctx, tx, org.ID, agent.ID)
+		return pluginstore.EnsureAutoInstalledForOrg(ctx, tx, org.ID)
 	}); err != nil {
 		if isDuplicateKeyError(err) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent name already exists"})

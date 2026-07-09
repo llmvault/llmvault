@@ -40,7 +40,7 @@ func seedVisFixture(t *testing.T, db *gorm.DB) visFixture {
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-b-" + uuid.NewString()[:8]}
 
 	mkAgent := func(name string, team uuid.UUID) model.Agent {
-		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: &team}
+		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: team}
 	}
 	// Agent visibility is team-membership based: the visible agent belongs to the
 	// member's team (teamA), the hidden agent to teamB.

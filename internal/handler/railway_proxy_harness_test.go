@@ -68,6 +68,7 @@ func newRailwayHarness(t *testing.T, nangoHandler http.Handler, railwayHandler h
 	agent := model.Agent{
 		ID:     agentID,
 		OrgID:  &orgID,
+		TeamID: firstTeamID(t, database, orgID),
 		Name:   "test-railway-agent",
 		Status: "active",
 	}

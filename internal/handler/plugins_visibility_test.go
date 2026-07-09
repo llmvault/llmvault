@@ -21,16 +21,19 @@ func TestPluginEnabledAgentIDs_ActorScopedVisibility(t *testing.T) {
 	rows := []any{
 		&plugin,
 		&model.OrgPluginInstall{ID: uuid.New(), OrgID: fx.org.ID, PluginID: plugin.ID},
-		&model.AgentPluginInstall{OrgID: fx.org.ID, AgentID: fx.visibleAgent.ID, PluginID: plugin.ID},
-		&model.AgentPluginInstall{OrgID: fx.org.ID, AgentID: fx.hiddenAgent.ID, PluginID: plugin.ID},
 	}
 	for _, r := range rows {
 		if err := db.Create(r).Error; err != nil {
 			t.Fatalf("seed plugin: %v", err)
 		}
 	}
+	// enabled_agent_ids is derived from each agent's effective set: grant the
+	// plugin to both agents' teams so both resolve it, then rely on actor-scoped
+	// visibility to hide the teamB agent from the member.
+	grantPluginToTeam(t, db, fx.org.ID, fx.visibleAgent.TeamID, plugin.ID)
+	grantPluginToTeam(t, db, fx.org.ID, fx.hiddenAgent.TeamID, plugin.ID)
 	t.Cleanup(func() {
-		db.Where("plugin_id = ?", plugin.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("plugin_id = ?", plugin.ID).Delete(&model.TeamPlugin{})
 		db.Where("plugin_id = ?", plugin.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
 	})
@@ -71,30 +74,5 @@ func TestPluginEnabledAgentIDs_ActorScopedVisibility(t *testing.T) {
 	apiKey := getEnabled(apiKeyCaller())
 	if !apiKey[fx.visibleAgent.ID.String()] || !apiKey[fx.hiddenAgent.ID.String()] {
 		t.Fatalf("api-key enabled_agent_ids must include both: %v", apiKey)
-	}
-}
-
-func TestListAgentPlugins_HiddenAgentIs404(t *testing.T) {
-	db := connectTestDB(t)
-	fx := seedVisFixture(t, db)
-	h := handler.NewPluginHandler(db)
-
-	status := func(c caller, agentID uuid.UUID) int {
-		req := httptest.NewRequest(http.MethodGet, "/v1/agents/"+agentID.String()+"/plugins", nil)
-		req = c.apply(req, fx.org)
-		req = withURLParam(req, "id", agentID.String())
-		rr := httptest.NewRecorder()
-		h.ListAgentPlugins(rr, req)
-		return rr.Code
-	}
-
-	if code := status(memberCaller(fx), fx.visibleAgent.ID); code != http.StatusOK {
-		t.Fatalf("member list plugins for visible agent = %d, want 200", code)
-	}
-	if code := status(memberCaller(fx), fx.hiddenAgent.ID); code != http.StatusNotFound {
-		t.Fatalf("member list plugins for hidden agent = %d, want 404", code)
-	}
-	if code := status(adminCaller(fx), fx.hiddenAgent.ID); code != http.StatusOK {
-		t.Fatalf("admin list plugins for hidden agent = %d, want 200", code)
 	}
 }

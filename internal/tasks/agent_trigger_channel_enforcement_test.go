@@ -15,7 +15,7 @@ import (
 func TestFindOrCreateTriggerSessionRejectsUnassignedChannel(t *testing.T) {
 	db := connectTestDB(t)
 	org, agent, _ := seedTriggerSessionFixture(t, db)
-	// A team the (team-less) fixture agent does not belong to.
+	// A team the fixture agent does not belong to.
 	team := model.Team{OrgID: org.ID, Name: "t-" + uuid.NewString()[:8]}
 	if err := db.Create(&team).Error; err != nil {
 		t.Fatalf("create team: %v", err)

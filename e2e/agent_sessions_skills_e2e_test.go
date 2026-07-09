@@ -103,9 +103,9 @@ func TestAgentSessionsSkillsMaterializeE2E(t *testing.T) {
 }
 
 // agentSessionsSeedScriptSkillFixture creates a plugin + a published skill whose
-// bundle ships a linked reference AND a runnable script, then installs the plugin
-// on the given agent (populating agent_plugin_installs, which the MCP skill
-// resolver keys off). Returns the skill slug. Cleaned up via t.Cleanup.
+// bundle ships a linked reference AND a runnable script, then grants the plugin
+// to the agent's team (team_plugins, which the effective-plugin resolver keys
+// off). Returns the skill slug. Cleaned up via t.Cleanup.
 func agentSessionsSeedScriptSkillFixture(t *testing.T, orgID, agentID uuid.UUID, runID string) string {
 	t.Helper()
 	db := agentSessionsOpenDB(t)
@@ -154,13 +154,20 @@ func agentSessionsSeedScriptSkillFixture(t *testing.T, orgID, agentID uuid.UUID,
 		t.Fatalf("create skill fixture: %v", err)
 	}
 
-	install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}
-	if err := db.Create(&install).Error; err != nil {
-		t.Fatalf("install plugin on agent: %v", err)
+	var agentRow model.Agent
+	if err := db.Where("id = ?", agentID).First(&agentRow).Error; err != nil {
+		t.Fatalf("load agent for plugin grant: %v", err)
+	}
+	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: pluginID}).Error; err != nil {
+		t.Fatalf("org-install plugin: %v", err)
+	}
+	if err := db.Create(&model.TeamPlugin{OrgID: orgID, TeamID: agentRow.TeamID, PluginID: pluginID}).Error; err != nil {
+		t.Fatalf("grant plugin to team: %v", err)
 	}
 
 	t.Cleanup(func() {
-		db.Where("agent_id = ? AND plugin_id = ?", agentID, pluginID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.TeamPlugin{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.OrgPluginInstall{})
 		db.Where("plugin_id = ?", pluginID).Delete(&model.Skill{})
 		db.Where("id = ?", pluginID).Delete(&model.Plugin{})
 	})

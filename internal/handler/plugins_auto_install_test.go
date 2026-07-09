@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
@@ -30,7 +29,8 @@ func TestAgentHandlerCreateAutoInstallsRuntimePlugin(t *testing.T) {
 	r := chi.NewRouter()
 	r.Post("/v1/agents", h.Create)
 
-	body := bytes.NewReader([]byte(`{"name":"Runtime Create Agent"}`))
+	teamID := firstTeamID(t, db, org.ID)
+	body := bytes.NewReader([]byte(`{"name":"Runtime Create Agent","team_id":"` + teamID.String() + `"}`))
 	req := httptest.NewRequest(http.MethodPost, "/v1/agents", body)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
@@ -58,7 +58,7 @@ func TestAgentHandlerCreateAutoInstallsRuntimePlugin(t *testing.T) {
 	if got, want := agent.SandboxImage, model.SandboxImageDefault; got != want {
 		t.Fatalf("sandbox_image = %q, want %q", got, want)
 	}
-	assertAgentPluginInstalled(t, db, org.ID, agentID, plugin.ID)
+	assertAgentEffectivePlugin(t, db, agentID, plugin.ID)
 	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
 }
 
@@ -108,10 +108,11 @@ func TestAgentCatalogInstallAutoInstallsRuntimePlugin(t *testing.T) {
 	if got, want := agent.SandboxImage, model.SandboxImageDeveloper; got != want {
 		t.Fatalf("sandbox_image = %q, want %q", got, want)
 	}
-	assertAgentPluginInstalled(t, db, org.ID, agent.ID, plugin.ID)
+	assertAgentEffectivePlugin(t, db, agent.ID, plugin.ID)
 	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
 }
 
+// An auto-install plugin cannot be uninstalled at the org level.
 func TestPluginHandlerRejectsRemovingAutoInstallPlugin(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
@@ -120,14 +121,10 @@ func TestPluginHandlerRejectsRemovingAutoInstallPlugin(t *testing.T) {
 	if err := db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: plugin.ID}).Error; err != nil {
 		t.Fatalf("create org install: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
-		t.Fatalf("create agent install: %v", err)
-	}
 
 	h := handler.NewPluginHandler(db)
 	r := chi.NewRouter()
 	r.Delete("/v1/plugins/{slug}/install", h.Uninstall)
-	r.Delete("/v1/agents/{id}/plugins/{slug}", h.DisableForAgent)
 
 	orgReq := httptest.NewRequest(http.MethodDelete, "/v1/plugins/"+plugin.Slug+"/install", nil)
 	orgReq = middleware.WithOrg(orgReq, &org)
@@ -137,69 +134,7 @@ func TestPluginHandlerRejectsRemovingAutoInstallPlugin(t *testing.T) {
 		t.Fatalf("org uninstall status = %d, body = %s", orgRR.Code, orgRR.Body.String())
 	}
 
-	agentReq := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agent.ID.String()+"/plugins/"+plugin.Slug, nil)
-	agentReq = middleware.WithOrg(agentReq, &org)
-	agentReq = middleware.WithAPIKeyClaims(agentReq, &middleware.APIKeyClaims{OrgID: org.ID.String()})
-	agentRR := httptest.NewRecorder()
-	r.ServeHTTP(agentRR, agentReq)
-	if agentRR.Code != http.StatusConflict {
-		t.Fatalf("agent disable status = %d, body = %s", agentRR.Code, agentRR.Body.String())
-	}
-
-	assertAgentPluginInstalled(t, db, org.ID, agent.ID, plugin.ID)
-	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
-}
-
-func TestPluginHandlerRejectsDisablingCatalogRequiredPlugin(t *testing.T) {
-	db := connectTestDB(t)
-	org := createTestOrg(t, db)
-	plugin := model.Plugin{
-		ID:     uuid.New(),
-		Slug:   "catalog-required-" + uuid.NewString()[:8],
-		Name:   "Catalog Required",
-		Status: model.PluginStatusActive,
-	}
-	if err := db.Create(&plugin).Error; err != nil {
-		t.Fatalf("create plugin: %v", err)
-	}
-	catalog := model.AgentCatalog{
-		ID:              uuid.New(),
-		Slug:            "catalog-required-agent-" + uuid.NewString()[:8],
-		Name:            "Catalog Required Agent " + uuid.NewString()[:8],
-		Model:           agentruntime.DefaultAgentModel,
-		SandboxImage:    model.SandboxImageDefault,
-		RequiredPlugins: pq.StringArray{plugin.Slug},
-		Manifest:        model.RawJSON(`{}`),
-		Status:          model.AgentCatalogStatusActive,
-	}
-	if err := db.Create(&catalog).Error; err != nil {
-		t.Fatalf("create catalog agent: %v", err)
-	}
-	agent := createAutoInstallHandlerTestAgent(t, db, org.ID)
-	if err := db.Model(&agent).Update("agent_catalog_id", catalog.ID).Error; err != nil {
-		t.Fatalf("attach catalog to agent: %v", err)
-	}
-	if err := db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: plugin.ID}).Error; err != nil {
-		t.Fatalf("create org install: %v", err)
-	}
-	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
-		t.Fatalf("create agent install: %v", err)
-	}
-
-	h := handler.NewPluginHandler(db)
-	r := chi.NewRouter()
-	r.Delete("/v1/agents/{id}/plugins/{slug}", h.DisableForAgent)
-
-	req := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agent.ID.String()+"/plugins/"+plugin.Slug, nil)
-	req = middleware.WithOrg(req, &org)
-	req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{OrgID: org.ID.String()})
-	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
-	if rr.Code != http.StatusConflict {
-		t.Fatalf("agent disable status = %d, body = %s", rr.Code, rr.Body.String())
-	}
-
-	assertAgentPluginInstalled(t, db, org.ID, agent.ID, plugin.ID)
+	assertAgentEffectivePlugin(t, db, agent.ID, plugin.ID)
 	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
 }
 
@@ -241,6 +176,7 @@ func createAutoInstallHandlerTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUI
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
 		Name:          fmt.Sprintf("runtime-locked-agent-%s", uuid.NewString()[:8]),
 		SandboxSize:   model.DefaultAgentSandboxSize,
 		Model:         agentruntime.DefaultAgentModel,
@@ -256,19 +192,6 @@ func createAutoInstallHandlerTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUI
 		t.Fatalf("create agent: %v", err)
 	}
 	return agent
-}
-
-func assertAgentPluginInstalled(t *testing.T, db *gorm.DB, orgID, agentID, pluginID uuid.UUID) {
-	t.Helper()
-	var count int64
-	if err := db.Model(&model.AgentPluginInstall{}).
-		Where("org_id = ? AND agent_id = ? AND plugin_id = ?", orgID, agentID, pluginID).
-		Count(&count).Error; err != nil {
-		t.Fatalf("count agent plugin install: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("agent plugin install count = %d, want 1", count)
-	}
 }
 
 func assertOrgPluginInstalled(t *testing.T, db *gorm.DB, orgID, pluginID uuid.UUID) {

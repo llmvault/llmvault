@@ -75,8 +75,13 @@ func seedTriggerSessionFixture(t *testing.T, db *gorm.DB) (model.Org, model.Agen
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{OrgID: org.ID, Name: "trigger-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		OrgID:         &org.ID,
+		TeamID:        team.ID,
 		Name:          "trigger-agent-" + uuid.NewString()[:8],
 		Model:         "test-model",
 		Tools:         model.JSON{},

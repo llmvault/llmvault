@@ -146,7 +146,7 @@ func TestCanUseChannelPrivate(t *testing.T) {
 	fx := seedPredicateFixture(t, db)
 	ctx := t.Context()
 
-	agent := model.Agent{ID: uuid.New(), OrgID: &fx.org.ID, Name: "a-" + uuid.NewString()[:8], Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &fx.org.ID, Name: "a-" + uuid.NewString()[:8], Model: "test", Status: "active", TeamID: fx.teamIn.ID}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

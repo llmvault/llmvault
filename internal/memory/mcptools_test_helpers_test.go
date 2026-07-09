@@ -45,7 +45,8 @@ func seedMemoryToolFixture(t *testing.T, db *gorm.DB) memoryToolFixture {
 	org := model.Org{ID: uuid.New(), Name: "memory-mcp-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	user := model.User{ID: uuid.New(), Email: "memory-mcp-" + uuid.NewString() + "@example.com", Name: "Memory MCP"}
 	otherUser := model.User{ID: uuid.New(), Email: "memory-mcp-other-" + uuid.NewString() + "@example.com", Name: "Other Memory MCP"}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Memory MCP Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "memory-mcp-team-" + uuid.NewString()[:8]}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Memory MCP Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "memory-mcp-" + uuid.NewString(), DefaultAgentID: agent.ID, ExposeOrgMemories: true}
 	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, CreatedBy: &user.ID, Status: "active"}
 	if err := db.Create(&org).Error; err != nil {
@@ -63,6 +64,9 @@ func seedMemoryToolFixture(t *testing.T, db *gorm.DB) memoryToolFixture {
 	if err := db.Create(&model.OrgMembership{OrgID: org.ID, UserID: otherUser.ID, Role: "member"}).Error; err != nil {
 		t.Fatalf("create other membership: %v", err)
 	}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
@@ -77,6 +81,7 @@ func seedMemoryToolFixture(t *testing.T, db *gorm.DB) memoryToolFixture {
 		db.Where("org_id = ?", org.ID).Delete(&model.Session{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
 		db.Delete(&model.Org{}, "id = ?", org.ID)
 		db.Delete(&model.User{}, "id IN ?", []uuid.UUID{user.ID, otherUser.ID})

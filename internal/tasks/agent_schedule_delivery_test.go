@@ -177,8 +177,14 @@ func seedScheduleRunFixture(t *testing.T, db *gorm.DB) scheduleRunFixture {
 		t.Fatalf("create org: %v", err)
 	}
 
+	team := model.Team{OrgID: org.ID, Name: "schedule-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+
 	agent := model.Agent{
 		OrgID:         &org.ID,
+		TeamID:        team.ID,
 		Name:          "Agent-" + uuid.NewString()[:8],
 		Model:         "deepseek-v4-flash",
 		Tools:         model.JSON{},

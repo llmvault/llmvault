@@ -64,7 +64,7 @@ func TestImageGenerationMCPToolReportsUnconfiguredBackend(t *testing.T) {
 	ctx := context.Background()
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "image-mcp-" + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: firstTeamID(t, db, org.ID), Name: "image-mcp-" + uuid.NewString(), Model: "test", Status: "active"}
 	sandboxID := uuid.New()
 	sandbox := model.Sandbox{
 		ID:                     sandboxID,

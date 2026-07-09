@@ -98,7 +98,6 @@ func buildAuthzRouter(db *gorm.DB) chi.Router {
 		// --- agents scope --------------------------------------------------------
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAPIKeyScopeOrJWT("agents"))
-			r.Post("/agents/{id}/plugins/{slug}", pluginHandler.EnableForAgent)
 			// Relaxed to team-members in the shipped router; the agent handlers
 			// enforce team-primary authorization (resolveAndAuthorizeAgentTeam /
 			// authorizeAgentMutation), so these routes are member-reachable and

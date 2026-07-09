@@ -155,7 +155,6 @@ export type AgentForm = {
   tools: ToolSelection
   sandboxImage: AgentSandboxImage
   sandboxSize: AgentSandboxSize
-  pluginSlugs: string[]
   subAgents: SubAgentForm[]
   teamId: string
 }
@@ -184,7 +183,6 @@ export function emptyAgentForm(): AgentForm {
     tools: allToolsSelected(),
     sandboxImage: "default",
     sandboxSize: "small",
-    pluginSlugs: [],
     subAgents: [],
     teamId: "",
   }
@@ -242,13 +240,9 @@ function subAgentFormFromDetail(
   }
 }
 
-// Maps a saved agent (plus its enabled plugin slugs) into editable form state.
-// The agent read type carries `team_id`, so the team picker preselects the
-// agent's current team (empty string = "no team").
-export function agentFormFromDetail(
-  agent: AgentDetail,
-  pluginSlugs: string[]
-): AgentForm {
+// Maps a saved agent into editable form state. The agent read type carries
+// `team_id`, so the team picker preselects the agent's current team.
+export function agentFormFromDetail(agent: AgentDetail): AgentForm {
   const model = agent.model ?? ""
   return {
     name: agent.name ?? "",
@@ -262,7 +256,6 @@ export function agentFormFromDetail(
     ),
     sandboxImage: (agent.sandbox_image as AgentSandboxImage) || "default",
     sandboxSize: (agent.sandbox_size as AgentSandboxSize) || "small",
-    pluginSlugs,
     subAgents: (agent.sub_agents ?? []).map((sub, index) =>
       subAgentFormFromDetail(sub, model, index)
     ),

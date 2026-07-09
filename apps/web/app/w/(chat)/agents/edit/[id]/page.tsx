@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useMemo, useState } from "react"
+import { use, useState } from "react"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -8,8 +8,7 @@ import { Button, Spinner, Tooltip, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
-import { pluginSlug, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
-import { INSTALLED_AGENTS_QUERY_KEY, pluginEnabledForAgent } from "../../_lib"
+import { INSTALLED_AGENTS_QUERY_KEY } from "../../_lib"
 import { RemoveAgentDialog } from "../../_remove-agent-dialog"
 import { AgentFormView } from "../../new/_agent-form"
 import {
@@ -18,8 +17,6 @@ import {
   type AgentDetail,
   type AgentForm,
 } from "../../new/_lib"
-
-const EMPTY_PLUGINS: ApiPlugin[] = []
 
 export default function EditAgentPage({
   params,
@@ -33,33 +30,12 @@ export default function EditAgentPage({
   const agentQuery = $api.useQuery("get", "/v1/agents/{id}", {
     params: { path: { id } },
   })
-  const agentPluginsQuery = $api.useQuery("get", "/v1/agents/{id}/plugins", {
-    params: { path: { id } },
-  })
   const updateAgent = $api.useMutation("patch", "/v1/agents/{id}")
-  const enablePlugin = $api.useMutation(
-    "post",
-    "/v1/agents/{id}/plugins/{slug}"
-  )
-  const disablePlugin = $api.useMutation(
-    "delete",
-    "/v1/agents/{id}/plugins/{slug}"
-  )
   const deleteAgent = $api.useMutation("delete", "/v1/agents/{id}")
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const agent = agentQuery.data as AgentDetail | undefined
-  const agentPlugins = agentPluginsQuery.data ?? EMPTY_PLUGINS
-  const enabledSlugs = useMemo(
-    () =>
-      agentPlugins
-        .filter((plugin) => pluginEnabledForAgent(plugin, id))
-        .map(pluginSlug)
-        .filter(Boolean),
-    [agentPlugins, id]
-  )
-  const saving =
-    updateAgent.isPending || enablePlugin.isPending || disablePlugin.isPending
+  const saving = updateAgent.isPending
 
   async function handleUpdate(form: AgentForm) {
     try {
@@ -67,23 +43,6 @@ export default function EditAgentPage({
         params: { path: { id } },
         body: buildCreateBody(form),
       })
-      const after = new Set(form.pluginSlugs)
-      for (const slug of form.pluginSlugs) {
-        if (enabledSlugs.includes(slug)) continue
-        try {
-          await enablePlugin.mutateAsync({ params: { path: { id, slug } } })
-        } catch (error) {
-          toast.danger(extractErrorMessage(error, `Could not enable ${slug}`))
-        }
-      }
-      for (const slug of enabledSlugs) {
-        if (after.has(slug)) continue
-        try {
-          await disablePlugin.mutateAsync({ params: { path: { id, slug } } })
-        } catch (error) {
-          toast.danger(extractErrorMessage(error, `Could not disable ${slug}`))
-        }
-      }
       queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
       toast.success(`${form.name.trim()} saved`)
       router.push("/w/agents")
@@ -110,7 +69,7 @@ export default function EditAgentPage({
     )
   }
 
-  if (agentQuery.isLoading || agentPluginsQuery.isLoading) {
+  if (agentQuery.isLoading) {
     return <CenteredSpinner />
   }
   if (!agent) {
@@ -138,9 +97,9 @@ export default function EditAgentPage({
     <>
       <AgentFormView
         heading="Edit agent"
-        subheading="Update this agent — its model, tools, plugins, and sub-agents."
+        subheading="Update this agent — its model, tools, and sub-agents."
         submitLabel="Save changes"
-        initialForm={agentFormFromDetail(agent, enabledSlugs)}
+        initialForm={agentFormFromDetail(agent)}
         saving={saving}
         onSave={handleUpdate}
         headerAction={

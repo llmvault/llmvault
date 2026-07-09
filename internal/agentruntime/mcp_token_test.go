@@ -138,8 +138,13 @@ func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Agent {
 	if err := db.Create(&cred).Error; err != nil {
 		t.Fatalf("create credential: %v", err)
 	}
+	team := model.Team{OrgID: org.ID, Name: "compile-token-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		OrgID:       &org.ID,
+		TeamID:      team.ID,
 		Name:        "Hivy",
 		Model:       DefaultAgentModel,
 		Status:      "active",

@@ -37,7 +37,8 @@ func TestConsolidationConsumesAgentRetainedFacts(t *testing.T) {
 	db := connectTestDB(t)
 
 	org := model.Org{ID: uuid.New(), Name: "consolidate-" + uuid.NewString(), Active: true, RateLimit: 1000}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Consolidate Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "consolidate-team-" + uuid.NewString()}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Consolidate Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          org.ID,
@@ -47,6 +48,7 @@ func TestConsolidationConsumesAgentRetainedFacts(t *testing.T) {
 	}
 	for _, seed := range []error{
 		db.Create(&org).Error,
+		db.Create(&team).Error,
 		db.Create(&agent).Error,
 		db.Create(&channel).Error,
 	} {
@@ -60,6 +62,7 @@ func TestConsolidationConsumesAgentRetainedFacts(t *testing.T) {
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentMemory{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 

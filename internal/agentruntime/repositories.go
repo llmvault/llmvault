@@ -11,6 +11,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 const defaultWorkspaceRepoDepth = 1
@@ -72,15 +73,21 @@ func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, ag
 		return nil, nil
 	}
 
+	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, *agent)
+	if err != nil {
+		return nil, fmt.Errorf("resolve agent effective plugins: %w", err)
+	}
+	if len(pluginIDs) == 0 {
+		return nil, nil
+	}
+
 	providers := []string{"github-app", "github-app-code-reviews"}
 	var conns []model.Connection
 	if err := db.WithContext(ctx).
 		Preload("Integration").
 		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
 		Joins("JOIN plugin_integrations ON plugin_integrations.provider = integrations.provider AND plugin_integrations.kind = ?", model.PluginIntegrationKindIntegration).
-		Joins("JOIN agent_plugin_installs ON agent_plugin_installs.plugin_id = plugin_integrations.plugin_id AND agent_plugin_installs.org_id = connections.org_id AND agent_plugin_installs.agent_id = ?", agent.ID).
-		Joins("JOIN org_plugin_installs ON org_plugin_installs.plugin_id = plugin_integrations.plugin_id AND org_plugin_installs.org_id = connections.org_id AND org_plugin_installs.revoked_at IS NULL").
-		Joins("JOIN plugins ON plugins.id = plugin_integrations.plugin_id AND plugins.status = ?", model.PluginStatusActive).
+		Where("plugin_integrations.plugin_id IN ?", pluginIDs).
 		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider IN ?", *agent.OrgID, providers).
 		Order("connections.created_at ASC").
 		Find(&conns).Error; err != nil {

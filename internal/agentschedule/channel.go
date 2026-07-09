@@ -45,13 +45,10 @@ func resolveTeamDefaultChannel(ctx context.Context, db *gorm.DB, orgID, agentID 
 	if err != nil {
 		return "", fmt.Errorf("load agent: %w", err)
 	}
-	if agent.TeamID == nil {
-		return "", fmt.Errorf("agent has no team; a schedule requires an explicit channel")
-	}
 	var channel model.Channel
 	err = db.WithContext(ctx).
 		Select("id").
-		Where("org_id = ? AND team_id = ? AND is_default = ? AND archived_at IS NULL", orgID, *agent.TeamID, true).
+		Where("org_id = ? AND team_id = ? AND is_default = ? AND archived_at IS NULL", orgID, agent.TeamID, true).
 		First(&channel).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", fmt.Errorf("agent's team has no default channel; a schedule requires an explicit channel")

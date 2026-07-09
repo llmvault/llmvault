@@ -133,8 +133,9 @@ func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
 	if err := db.Create(&model.Org{ID: orgID, Name: "env-org-" + uuid.NewString()[:8], Active: true}).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := seedCompileTeam(t, db, orgID)
 	agent := &model.Agent{
-		ID: uuid.New(), OrgID: &orgID, Name: "Hivy", Model: "deepseek-v4-flash",
+		ID: uuid.New(), OrgID: &orgID, TeamID: team.ID, Name: "Hivy", Model: "deepseek-v4-flash",
 		Tools: model.JSON{}, McpServers: model.RawJSON("[]"), Skills: model.JSON{},
 		RuntimeConfig: model.JSON{}, Permissions: model.JSON{}, Resources: model.JSON{}, Status: "active",
 	}

@@ -13,24 +13,11 @@ export default function CreateAgentPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const createAgent = $api.useMutation("post", "/v1/agents")
-  const enablePlugin = $api.useMutation("post", "/v1/agents/{id}/plugins/{slug}")
-  const saving = createAgent.isPending || enablePlugin.isPending
+  const saving = createAgent.isPending
 
   async function handleCreate(form: AgentForm) {
     try {
-      const response = await createAgent.mutateAsync({ body: buildCreateBody(form) })
-      const agentID = response.agent?.id
-      if (agentID) {
-        for (const slug of form.pluginSlugs) {
-          try {
-            await enablePlugin.mutateAsync({
-              params: { path: { id: agentID, slug } },
-            })
-          } catch (error) {
-            toast.danger(extractErrorMessage(error, `Could not enable ${slug}`))
-          }
-        }
-      }
+      await createAgent.mutateAsync({ body: buildCreateBody(form) })
       queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
       toast.success(`${form.name.trim()} created`)
       router.push("/w/agents")
@@ -42,7 +29,7 @@ export default function CreateAgentPage() {
   return (
     <AgentFormView
       heading="Create agent"
-      subheading="Set up a new workspace agent — its model, tools, plugins, and sub-agents."
+      subheading="Set up a new workspace agent — its model, tools, and sub-agents."
       submitLabel="Create agent"
       initialForm={emptyAgentForm()}
       saving={saving}

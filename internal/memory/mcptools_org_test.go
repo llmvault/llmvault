@@ -12,7 +12,11 @@ import (
 
 func createManageAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, isDefault bool) (model.Agent, *model.Token) {
 	t.Helper()
-	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Name: name + " " + uuid.NewString(), Model: "test", Status: "active", IsDefault: isDefault}
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "manage-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team %s: %v", name, err)
+	}
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, TeamID: team.ID, Name: name + " " + uuid.NewString(), Model: "test", Status: "active", IsDefault: isDefault}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent %s: %v", name, err)
 	}

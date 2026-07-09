@@ -15,73 +15,6 @@ import (
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
-func TestSkillManagerEnabled(t *testing.T) {
-	if skillManagerEnabled(nil) {
-		t.Fatal("nil agent must not be enabled")
-	}
-	if !skillManagerEnabled(&model.Agent{IsDefault: true}) {
-		t.Fatal("default agent must be enabled")
-	}
-	if skillManagerEnabled(&model.Agent{}) {
-		t.Fatal("non-default agent without allow-list must not be enabled")
-	}
-	allowed := &model.Agent{McpToolFilter: &model.ToolFilter{Allow: []string{"create_skill"}}}
-	if !skillManagerEnabled(allowed) {
-		t.Fatal("allow-listed agent must be enabled")
-	}
-	other := &model.Agent{McpToolFilter: &model.ToolFilter{Allow: []string{"create_agent"}}}
-	if skillManagerEnabled(other) {
-		t.Fatal("unrelated allow-list must not enable skill manager")
-	}
-}
-
-func TestValidateSkillFilePath(t *testing.T) {
-	valid := []string{
-		"references/api.md",
-		"scripts/check.sh",
-		"templates/proposal.md",
-		"assets/logo.svg",
-		"references/nested/deep.md",
-	}
-	for _, path := range valid {
-		if err := validateSkillFilePath(path); err != nil {
-			t.Errorf("path %q should be valid: %v", path, err)
-		}
-	}
-	invalid := []string{
-		"",
-		"SKILL.md",
-		"references",
-		"references/",
-		"/references/api.md",
-		"references/../secrets.md",
-		"../references/api.md",
-		"docs/api.md",
-		"references\\api.md",
-		"references/./api.md",
-	}
-	for _, path := range invalid {
-		if err := validateSkillFilePath(path); err == nil {
-			t.Errorf("path %q should be rejected", path)
-		}
-	}
-}
-
-func TestValidateSkillFieldsRejectsFrontmatterAndBadEnvNames(t *testing.T) {
-	if res := validateSkillFields("Name", "Use when testing.", "---\nname: x\n---\nbody", nil, nil); res == nil {
-		t.Fatal("content with frontmatter must be rejected")
-	}
-	if res := validateSkillFields("Name", "Use when testing.", "# Body", nil, []string{"lower_case"}); res == nil {
-		t.Fatal("lowercase env var name must be rejected")
-	}
-	if res := validateSkillFields("Name", "Use when testing.", "# Body", nil, []string{"HIVY_ORG_API_KEY"}); res != nil {
-		t.Fatalf("valid fields rejected: %v", toolResultText(res))
-	}
-	if res := validateSkillFields("Name", "", "# Body", nil, nil); res == nil {
-		t.Fatal("empty description must be rejected")
-	}
-}
-
 func connectManageTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := testdb.DatabaseURL("DATABASE_URL", "HIVY_DATABASE_URL", "TEST_DATABASE_URL")
@@ -208,10 +141,15 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 		t.Fatalf("bundle files not persisted: %#v", bundle)
 	}
 
-	// The skill resolves through the normal plugin-install entitlement chain.
+	// The skill resolves through the team-plugin entitlement chain.
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "manage-test-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		ID:          uuid.New(),
 		OrgID:       &org.ID,
+		TeamID:      team.ID,
 		Name:        "manage-test-agent",
 		SandboxSize: model.DefaultAgentSandboxSize,
 		Model:       "test-model",
@@ -224,15 +162,15 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 	pluginID, _ := uuid.Parse(pluginObj["id"].(string))
-	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: pluginID}).Error; err != nil {
-		t.Fatalf("attach plugin to agent: %v", err)
+	if err := db.Create(&model.TeamPlugin{OrgID: org.ID, TeamID: team.ID, PluginID: pluginID}).Error; err != nil {
+		t.Fatalf("grant plugin to team: %v", err)
 	}
 	resolved, err := loadAgentPublishedSkills(ctx, db, agent.ID)
 	if err != nil {
 		t.Fatalf("load agent skills: %v", err)
 	}
-	if len(resolved) != 1 || resolved[0].Slug != "deploy-checklist" {
-		t.Fatalf("agent should resolve the org skill, got %#v", resolved)
+	if !resolvedHasSkill(resolved, "deploy-checklist") {
+		t.Fatalf("agent should resolve the team-granted skill, got %#v", resolved)
 	}
 
 	// Update patches content and replaces files.
@@ -285,7 +223,16 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load agent skills after archive: %v", err)
 	}
-	if len(resolved) != 0 {
+	if resolvedHasSkill(resolved, "deploy-checklist") {
 		t.Fatalf("archived skill must not resolve, got %#v", resolved)
 	}
+}
+
+func resolvedHasSkill(skills []model.Skill, slug string) bool {
+	for _, s := range skills {
+		if s.Slug == slug {
+			return true
+		}
+	}
+	return false
 }

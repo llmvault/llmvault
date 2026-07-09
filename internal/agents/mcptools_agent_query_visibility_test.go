@@ -22,7 +22,7 @@ type agentVisibilityScenario struct {
 	member   model.User
 	inTeamA  model.Agent // owned by the member's team; visible to the member
 	inTeamB  model.Agent // owned by a team the member is not in; hidden
-	teamNull model.Agent // no team scope (unassigned/unusable); hidden
+	teamNull model.Agent // owned by a third team the member is not in; hidden
 }
 
 func seedAgentVisibility(t *testing.T, db *gorm.DB) agentVisibilityScenario {
@@ -33,19 +33,20 @@ func seedAgentVisibility(t *testing.T, db *gorm.DB) agentVisibilityScenario {
 
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-b-" + uuid.NewString()[:8]}
+	teamC := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-c-" + uuid.NewString()[:8]}
 
-	mkAgent := func(name string, team *uuid.UUID) model.Agent {
+	mkAgent := func(name string, team uuid.UUID) model.Agent {
 		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: team}
 	}
-	inTeamA := mkAgent("InTeamA", &teamA.ID)
-	inTeamB := mkAgent("InTeamB", &teamB.ID)
-	teamNull := mkAgent("TeamNull", nil)
+	inTeamA := mkAgent("InTeamA", teamA.ID)
+	inTeamB := mkAgent("InTeamB", teamB.ID)
+	teamNull := mkAgent("TeamNull", teamC.ID)
 
 	rows := []any{
 		&org, &admin, &member,
 		&model.OrgMembership{UserID: admin.ID, OrgID: org.ID, Role: "admin"},
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
-		&teamA, &teamB,
+		&teamA, &teamB, &teamC,
 		&inTeamA, &inTeamB, &teamNull,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
 	}
@@ -123,7 +124,7 @@ func TestGetAgent_ActorScopedVisibility(t *testing.T) {
 	}
 	// No actor keeps org-wide access.
 	if res, _ := handleGetAgent(ctx, db, token, "", "", getAgentArgs{AgentID: sc.teamNull.ID.String()}); res.IsError {
-		t.Fatalf("no-actor get of team-less agent errored: %s", errResultText(res))
+		t.Fatalf("no-actor get of third-team agent errored: %s", errResultText(res))
 	}
 }
 

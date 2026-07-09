@@ -23,7 +23,7 @@ const defaultChannelName = "general"
 // bootstrap that forces a first team at signup — so no team is ever left
 // without a Hivy or a channel.
 func provisionTeamDefaults(ctx context.Context, tx *gorm.DB, orgID, teamID, createdByUserID uuid.UUID) (*model.Agent, *model.Channel, error) {
-	agent, err := createHivyAgentWithDefaultsTx(ctx, tx, orgID, &teamID)
+	agent, err := createHivyAgentWithDefaultsTx(ctx, tx, orgID, teamID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("provision team Hivy agent: %w", err)
 	}

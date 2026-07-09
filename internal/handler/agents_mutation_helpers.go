@@ -82,10 +82,8 @@ func (h *AgentHandler) resolveAndAuthorizeAgentTeam(ctx context.Context, w http.
 }
 
 // authorizeAgentMutation gates update/archive of an existing agent on the actor
-// being able to manage the agent's owning team. Agents with team_id IS NULL
-// (legacy unassigned agents and the org-level Hivy default) are manager-only:
-// there is no team to authorize a plain member against. API-key callers are
-// trusted org-wide. Writes a 403/500 and returns false when not allowed.
+// being able to manage the agent's owning team. API-key callers are trusted
+// org-wide. Writes a 403/500 and returns false when not allowed.
 func (h *AgentHandler) authorizeAgentMutation(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, agent *model.Agent) bool {
 	userID, role, trusted, ok := h.agentActor(ctx, w, orgID)
 	if !ok {
@@ -94,14 +92,7 @@ func (h *AgentHandler) authorizeAgentMutation(ctx context.Context, w http.Respon
 	if trusted {
 		return true
 	}
-	if agent.TeamID == nil {
-		if isOrgManager(role) {
-			return true
-		}
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "only an org admin can manage an agent that is not assigned to a team"})
-		return false
-	}
-	if canManageTeamResource(ctx, h.db, orgID, userID, role, *agent.TeamID) {
+	if canManageTeamResource(ctx, h.db, orgID, userID, role, agent.TeamID) {
 		return true
 	}
 	writeJSON(w, http.StatusForbidden, errorResponse{Error: "you must be a member of the agent's team to manage it"})

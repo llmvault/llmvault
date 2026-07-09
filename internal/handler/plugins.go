@@ -110,7 +110,7 @@ func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Install plugin
-// @Description Installs a plugin for the current organization and enables it for eligible non-default agents when requirements are satisfied.
+// @Description Installs a plugin for the current organization when requirements are satisfied. Agents receive it through team grants.
 // @Tags plugins
 // @Produce json
 // @Param slug path string true "Plugin slug"
@@ -169,7 +169,7 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		} else {
 			return fmt.Errorf("load org plugin install: %w", err)
 		}
-		return pluginstore.EnsureInstalledPluginForEligibleAgents(ctx, tx, org.ID, plugin)
+		return pluginstore.RefreshPluginSkillInstallCounts(ctx, tx, plugin.ID)
 	})
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "install plugin", "error", err)
@@ -191,13 +191,14 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Uninstall plugin
-// @Description Uninstalls a plugin for the current organization and removes it from enabled agents.
+// @Description Uninstalls a plugin for the current organization and removes its team grants.
 // @Tags plugins
 // @Produce json
 // @Param slug path string true "Plugin slug"
 // @Success 200 {object} statusResponse
 // @Failure 401 {object} errorResponse
 // @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/plugins/{slug}/install [delete]
@@ -220,8 +221,18 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin is required and cannot be uninstalled"})
 		return
 	}
+	required, err := pluginRequiredByOrgAgents(ctx, h.db, org.ID, plugin.Slug)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "check plugin requirement", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check plugin requirement"})
+		return
+	}
+	if required {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin is required by an active agent and cannot be uninstalled"})
+		return
+	}
 	now := time.Now()
-	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.OrgPluginInstall{}).
 			Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
 			Update("revoked_at", &now).Error; err != nil {

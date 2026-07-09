@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // --- create_skill --------------------------------------------------------------
@@ -122,7 +123,7 @@ func handleCreateSkill(ctx context.Context, db *gorm.DB, token *model.Token, fro
 	if err := db.WithContext(ctx).Create(&skill).Error; err != nil {
 		return skillToolError("failed to create skill: " + err.Error()), nil
 	}
-	refreshSkillInstallCount(ctx, db, plugin.ID)
+	_ = pluginresolve.RefreshPluginSkillInstallCounts(ctx, db, plugin.ID)
 
 	return skillToolJSON(map[string]any{
 		"success": true,

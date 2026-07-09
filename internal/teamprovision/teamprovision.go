@@ -41,6 +41,11 @@ var (
 	ErrPluginAlwaysEnabled = errors.New("teamprovision: plugin is always enabled")
 	// ErrSourceNotFound means the RAG source does not exist in the given org.
 	ErrSourceNotFound = errors.New("teamprovision: rag source not found in org")
+	// ErrPluginRequiredByAgents means a non-archived agent on the team requires
+	// the plugin via its catalog's required_plugins. Disabling it would strip a
+	// plugin an active catalog agent depends on, so the toggle is refused. Callers
+	// map this to 409.
+	ErrPluginRequiredByAgents = errors.New("teamprovision: plugin is required by active team agents")
 )
 
 // PluginEnabledForTeam reports whether a team_plugins row exists for the pair.

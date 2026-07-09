@@ -57,6 +57,7 @@ func newHTTPTriggerHarness(t *testing.T) *httpTriggerHarness {
 	if err := database.Create(&model.Agent{
 		ID:        agentID,
 		OrgID:     &orgID,
+		TeamID:    firstTeamID(t, database, orgID),
 		Name:      "Agent",
 		Model:     "test-model",
 		IsManaged: true,

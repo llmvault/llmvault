@@ -11,22 +11,33 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // allowedSkillFileDirs are the top-level directories a skill bundle may ship
 // linked files under. Mirrors the runtime materialize allow-list.
 var allowedSkillFileDirs = []string{"references", "templates", "scripts", "assets"}
 
-// loadAgentPublishedSkills returns the published skills owned by the plugins
-// installed on the agent. This mirrors agentruntime.buildSkills so the MCP
-// tools surface exactly the skills the agent is entitled to.
+// loadAgentPublishedSkills returns the published skills owned by the plugins in
+// the agent's effective set (team grants ∪ auto-install ∪ default-agent). This
+// mirrors agentruntime.buildSkills so the MCP tools surface exactly the skills
+// the agent is entitled to.
 func loadAgentPublishedSkills(ctx context.Context, db *gorm.DB, agentID uuid.UUID) ([]model.Skill, error) {
 	if db == nil {
 		return nil, nil
 	}
-	var pluginIDs []uuid.UUID
-	if err := db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
-		Where("agent_id = ?", agentID).Pluck("plugin_id", &pluginIDs).Error; err != nil {
+	var agent model.Agent
+	if err := db.WithContext(ctx).
+		Preload("AgentCatalog").
+		Where("id = ?", agentID).
+		First(&agent).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, agent)
+	if err != nil {
 		return nil, err
 	}
 	if len(pluginIDs) == 0 {

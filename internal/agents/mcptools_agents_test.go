@@ -11,6 +11,7 @@ import (
 func TestListAndGetAgent(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := Deps{DB: db, DefaultModel: "deepseek-v4-flash"}
 	ctx := context.Background()
 
@@ -19,6 +20,7 @@ func TestListAndGetAgent(t *testing.T) {
 		Instructions:  "coordinate work",
 		Tools:         model.JSON{"bash": true},
 		McpToolFilter: &model.ToolFilter{Allow: []string{"web_search"}},
+		TeamID:        team.ID,
 		SubAgents:     []SubAgentInput{{Name: "Helper", Tools: model.JSON{"read_file": true}}},
 	})
 	if err != nil {

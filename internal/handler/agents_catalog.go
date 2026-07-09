@@ -191,7 +191,7 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		agent = created
-		return enableRequiredCatalogPlugins(ctx, tx, org.ID, agent.ID, catalog.RequiredPlugins)
+		return nil
 	})
 	if err != nil {
 		if isDuplicateKeyError(err) {

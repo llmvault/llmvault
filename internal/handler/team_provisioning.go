@@ -133,6 +133,7 @@ func (h *TeamProvisioningHandler) EnableTeamPlugin(w http.ResponseWriter, r *htt
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/orgs/current/teams/{teamID}/plugins/{pluginID} [delete]

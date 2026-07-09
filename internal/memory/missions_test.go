@@ -38,7 +38,8 @@ func TestChannelCategoriesAndTemplates(t *testing.T) {
 func seedMissionChannel(t *testing.T, db *gorm.DB, category string, mission *string) model.Channel {
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "mission-" + uuid.NewString(), Active: true, RateLimit: 1000}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Mission Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "mission-team-" + uuid.NewString()[:8]}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Mission Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          org.ID,
@@ -51,6 +52,9 @@ func seedMissionChannel(t *testing.T, db *gorm.DB, category string, mission *str
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
@@ -60,6 +64,7 @@ func seedMissionChannel(t *testing.T, db *gorm.DB, category string, mission *str
 	t.Cleanup(func() {
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 	return channel

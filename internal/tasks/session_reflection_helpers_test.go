@@ -46,8 +46,13 @@ func seedReflectionFixture(t *testing.T, db *gorm.DB, eventAt time.Time) reflect
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
+	team := model.Team{OrgID: org.ID, Name: "reflection-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		OrgID:         &org.ID,
+		TeamID:        team.ID,
 		Name:          "reflection-agent-" + uuid.NewString()[:8],
 		Model:         "deepseek-v4-flash",
 		Tools:         model.JSON{},

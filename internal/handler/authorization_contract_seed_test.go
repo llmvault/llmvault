@@ -68,7 +68,7 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 	t1 := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "T1-" + uuid.NewString()[:8]}
 	t2 := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "T2-" + uuid.NewString()[:8]}
 
-	mkAgent := func(team *uuid.UUID, name string) model.Agent {
+	mkAgent := func(team uuid.UUID, name string) model.Agent {
 		return model.Agent{
 			ID: uuid.New(), OrgID: &org.ID, TeamID: team, Name: name + "-" + uuid.NewString()[:8],
 			Model: "deepseek-v4-flash", Tools: model.JSON{}, McpServers: model.RawJSON("[]"),
@@ -76,12 +76,12 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 			Resources: model.JSON{}, Status: "active",
 		}
 	}
-	agentT1 := mkAgent(&t1.ID, "agentT1")
-	agentT1b := mkAgent(&t1.ID, "agentT1b")
-	agentT2 := mkAgent(&t2.ID, "agentT2")
-	hivyT1 := mkAgent(&t1.ID, "hivy")
+	agentT1 := mkAgent(t1.ID, "agentT1")
+	agentT1b := mkAgent(t1.ID, "agentT1b")
+	agentT2 := mkAgent(t2.ID, "agentT2")
+	hivyT1 := mkAgent(t1.ID, "hivy")
 	hivyT1.IsDefault = true
-	hivyT2 := mkAgent(&t2.ID, "hivy")
+	hivyT2 := mkAgent(t2.ID, "hivy")
 	hivyT2.IsDefault = true
 
 	chT1 := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "chT1-" + uuid.NewString()[:8], Kind: "standard", TeamID: &t1.ID, DefaultAgentID: agentT1.ID}
@@ -128,7 +128,6 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 		db.Where("channel_id IN (?)", db.Model(&model.Channel{}).Select("id").Where("org_id = ?", org.ID)).Delete(&model.ChannelMember{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentTrigger{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentSchedule{})
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamRagSource{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
@@ -138,8 +137,8 @@ func seedAuthzWorld(t *testing.T, db *gorm.DB) authzWorld {
 		db.Where("id = ?", integ.ID).Delete(&model.Integration{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Channel{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
 		db.Where("id IN ?", []uuid.UUID{owner.ID, admin.ID, m1.ID, m2.ID}).Delete(&model.User{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})

@@ -182,7 +182,7 @@ func agentSessionsSeedInstalledPluginFixture(t *testing.T, orgIDRaw, userIDRaw, 
 		t.Fatalf("create org plugin install fixture: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).Delete(&model.TeamPlugin{})
 		db.Where("id = ?", install.ID).Delete(&model.OrgPluginInstall{})
 	})
 	return plugin.ID

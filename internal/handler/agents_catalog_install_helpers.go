@@ -123,7 +123,6 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	desc := catalog.Description
 	avatarURL := catalog.AvatarURL
 	catalogID := catalog.ID
-	teamRef := teamID
 	// Instructions is intentionally left nil on the clone (a later user edit that
 	// sets it forks the clone). InstructionsSnapshot freezes the catalog template
 	// prompt at install: an un-forked clone resolves its prompt
@@ -132,7 +131,7 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	promptSnapshot := snapshotCatalogInstructions(catalog.Instructions)
 	agent := model.Agent{
 		OrgID:                  &orgID,
-		TeamID:                 &teamRef,
+		TeamID:                 teamID,
 		AgentCatalogID:         &catalogID,
 		InstructionsSnapshot:   promptSnapshot,
 		Name:                   catalog.Name,
@@ -156,24 +155,8 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return model.Agent{}, fmt.Errorf("create catalog agent: %w", err)
 	}
-	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
+	if err := pluginstore.EnsureAutoInstalledForOrg(ctx, tx, orgID); err != nil {
 		return model.Agent{}, err
 	}
 	return agent, nil
-}
-
-func enableRequiredCatalogPlugins(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID, slugs []string) error {
-	for _, slug := range slugs {
-		var plugin model.Plugin
-		err := tx.WithContext(ctx).
-			Where("slug = ? AND status = ?", slug, model.PluginStatusActive).
-			First(&plugin).Error
-		if err != nil {
-			return fmt.Errorf("load required plugin %q: %w", slug, err)
-		}
-		if err := enablePluginForAgent(ctx, tx, orgID, agentID, plugin.ID); err != nil {
-			return err
-		}
-	}
-	return nil
 }

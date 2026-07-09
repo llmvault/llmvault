@@ -16,6 +16,7 @@ import (
 	dbi "github.com/usehivy/hivy/internal/databaseintegration"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 type DatabaseProxyHandler struct {
@@ -141,13 +142,17 @@ func (h *DatabaseProxyHandler) resolveConnection(ctx context.Context, agent mode
 }
 
 func (h *DatabaseProxyHandler) hasDatabasePluginAccess(ctx context.Context, agent model.Agent, provider string) (bool, error) {
+	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, h.db, agent)
+	if err != nil {
+		return false, err
+	}
+	if len(pluginIDs) == 0 {
+		return false, nil
+	}
 	var count int64
-	err := h.db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
-		Joins("JOIN plugin_integrations ON plugin_integrations.plugin_id = agent_plugin_installs.plugin_id").
-		Joins("JOIN org_plugin_installs ON org_plugin_installs.plugin_id = agent_plugin_installs.plugin_id AND org_plugin_installs.org_id = agent_plugin_installs.org_id AND org_plugin_installs.revoked_at IS NULL").
-		Joins("JOIN plugins ON plugins.id = agent_plugin_installs.plugin_id AND plugins.status = ?", model.PluginStatusActive).
-		Where("agent_plugin_installs.org_id = ? AND agent_plugin_installs.agent_id = ?", *agent.OrgID, agent.ID).
-		Where("plugin_integrations.kind = ? AND plugin_integrations.provider = ?", model.PluginIntegrationKindDatabase, provider).
+	err = h.db.WithContext(ctx).Model(&model.PluginIntegration{}).
+		Where("plugin_id IN ?", pluginIDs).
+		Where("kind = ? AND provider = ?", model.PluginIntegrationKindDatabase, provider).
 		Count(&count).Error
 	return count > 0, err
 }

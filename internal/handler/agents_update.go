@@ -103,6 +103,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 				}
 				for i := range subAgentRows {
 					subAgentRows[i].ParentAgentID = &agent.ID
+					subAgentRows[i].TeamID = agent.TeamID
 					if err := tx.Create(&subAgentRows[i]).Error; err != nil {
 						return err
 					}

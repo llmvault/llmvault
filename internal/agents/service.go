@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 // ErrDuplicateName is returned by CreateAgent/UpdateAgent when the agent (or a
@@ -62,8 +61,8 @@ type SubAgentInput struct {
 	AutoLoadSkills model.AutoLoadSkills
 }
 
-// CreateInput is the resolved payload for CreateAgent. All tool/skill/plugin
-// values are pre-validated and normalized by the caller.
+// CreateInput is the resolved payload for CreateAgent. All tool/skill values
+// are pre-validated and normalized by the caller.
 type CreateInput struct {
 	Name         string
 	Description  string
@@ -74,9 +73,9 @@ type CreateInput struct {
 	McpToolFilter *model.ToolFilter
 	Skills        model.JSON
 
-	// PluginIDs are additional org-installed plugins to enable on the agent
-	// beyond the auto-installed set.
-	PluginIDs []uuid.UUID
+	// TeamID is the owning team for the new agent (and its sub-agents). Agents
+	// are never teamless; plugins resolve from the team's grants.
+	TeamID uuid.UUID
 
 	SubAgents []SubAgentInput
 }
@@ -96,17 +95,13 @@ type UpdateInput struct {
 	SetMcpFilter  bool              // when true, McpToolFilter (even nil) is written
 	Skills        *model.JSON
 
-	// SetPlugins, when true, replaces the agent's non-locked plugin installs
-	// with PluginIDs.
-	SetPlugins bool
-	PluginIDs  []uuid.UUID
-
 	SubAgents *[]SubAgentInput
 }
 
-// CreateAgent persists a top-level agent, its sub-agents, requested plugin
-// installs, and the auto-installed plugin set, in one transaction. It mirrors
-// the HTTP create handler's defaults so both paths behave identically.
+// CreateAgent persists a top-level agent and its sub-agents on the given team
+// in one transaction. Plugins are not per-agent: they resolve from the team's
+// grants. It mirrors the HTTP create handler's defaults so both paths behave
+// identically.
 func CreateAgent(ctx context.Context, deps Deps, orgID uuid.UUID, in CreateInput) (*model.Agent, error) {
 	if deps.DB == nil {
 		return nil, fmt.Errorf("agents: nil DB")
@@ -121,6 +116,9 @@ func CreateAgent(ctx context.Context, deps Deps, orgID uuid.UUID, in CreateInput
 	}
 	if err := deps.validateModel(ctx, orgID, modelID); err != nil {
 		return nil, err
+	}
+	if in.TeamID == uuid.Nil {
+		return nil, fmt.Errorf("team is required")
 	}
 
 	subRows, err := buildSubAgentRows(ctx, deps, orgID, modelID, in.SubAgents)
@@ -156,6 +154,7 @@ func CreateAgent(ctx context.Context, deps Deps, orgID uuid.UUID, in CreateInput
 	orgIDCopy := orgID
 	agent := model.Agent{
 		OrgID:         &orgIDCopy,
+		TeamID:        in.TeamID,
 		Name:          name,
 		Description:   &desc,
 		Instructions:  &instructions,
@@ -180,14 +179,12 @@ func CreateAgent(ctx context.Context, deps Deps, orgID uuid.UUID, in CreateInput
 		}
 		for i := range subRows {
 			subRows[i].ParentAgentID = &agent.ID
+			subRows[i].TeamID = agent.TeamID
 			if err := tx.Create(&subRows[i]).Error; err != nil {
 				return err
 			}
 		}
-		if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
-			return err
-		}
-		return attachPlugins(ctx, tx, orgID, agent.ID, in.PluginIDs)
+		return nil
 	}); err != nil {
 		return nil, mapWriteError(err)
 	}

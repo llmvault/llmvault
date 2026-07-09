@@ -41,8 +41,8 @@ func seedTriggerVisFixture(t *testing.T, db *gorm.DB) triggerVisFixture {
 	// team-membership based (channelagents.VisibleAgentIDsSubquery).
 	memberTeam := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "mteam-" + uuid.NewString()}
 	otherTeam := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "oteam-" + uuid.NewString()}
-	visibleAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "vis-" + uuid.NewString(), Model: "test", Status: "active", TeamID: &memberTeam.ID}
-	hiddenAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "hid-" + uuid.NewString(), Model: "test", Status: "active", TeamID: &otherTeam.ID}
+	visibleAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "vis-" + uuid.NewString(), Model: "test", Status: "active", TeamID: memberTeam.ID}
+	hiddenAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "hid-" + uuid.NewString(), Model: "test", Status: "active", TeamID: otherTeam.ID}
 	usableChan := model.Channel{
 		ID: uuid.New(), OrgID: org.ID, Name: "usable-" + uuid.NewString(),
 		DefaultAgentID: visibleAgent.ID, Origin: "external",

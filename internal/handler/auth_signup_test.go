@@ -11,6 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
@@ -137,14 +138,19 @@ func TestCreateUserDefaultOrg_AutoInstallsGlobalRuntimePluginOnHivy(t *testing.T
 	if err := db.Where("org_id = ?", org.ID).First(&agent).Error; err != nil {
 		t.Fatalf("load Hivy agent: %v", err)
 	}
-	var agentInstallCount int64
-	if err := db.Model(&model.AgentPluginInstall{}).
-		Where("org_id = ? AND agent_id = ? AND plugin_id = ?", org.ID, agent.ID, plugin.ID).
-		Count(&agentInstallCount).Error; err != nil {
-		t.Fatalf("count agent runtime install: %v", err)
+	effective, err := pluginresolve.EffectivePluginIDs(context.Background(), db, agent)
+	if err != nil {
+		t.Fatalf("resolve Hivy effective plugins: %v", err)
 	}
-	if agentInstallCount != 1 {
-		t.Fatalf("agent runtime install count = %d, want 1", agentInstallCount)
+	found := false
+	for _, id := range effective {
+		if id == plugin.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("Hivy effective set missing auto-install runtime plugin %s", plugin.ID)
 	}
 	var orgInstallCount int64
 	if err := db.Model(&model.OrgPluginInstall{}).

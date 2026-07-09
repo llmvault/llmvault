@@ -36,15 +36,9 @@ func installTestPluginAccess(t *testing.T, db *gorm.DB, orgID uuid.UUID, agentID
 	}).Error; err != nil {
 		t.Fatalf("create test org plugin install: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{
-		OrgID:    orgID,
-		AgentID:  agentID,
-		PluginID: pluginID,
-	}).Error; err != nil {
-		t.Fatalf("create test agent plugin install: %v", err)
-	}
+	grantPluginToAgentTeam(t, db, orgID, agentID, pluginID)
 	t.Cleanup(func() {
-		db.Where("org_id = ? AND agent_id = ? AND plugin_id = ?", orgID, agentID, pluginID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.OrgPluginInstall{})
 		db.Where("plugin_id = ?", pluginID).Delete(&model.PluginIntegration{})
 		db.Where("id = ?", pluginID).Delete(&model.Plugin{})

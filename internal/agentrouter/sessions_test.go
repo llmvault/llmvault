@@ -28,10 +28,11 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func seedAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string) model.Agent {
+func seedAgent(t *testing.T, db *gorm.DB, orgID, teamID uuid.UUID, name string) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		OrgID:         &orgID,
+		TeamID:        teamID,
 		Name:          name,
 		Model:         "deepseek-v4-flash",
 		Tools:         model.JSON{},
@@ -55,8 +56,12 @@ func TestRecentChannelSessionsOrdersByUpdatedAtDescAndLimits(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	ada := seedAgent(t, db, org.ID, "Ada-"+uuid.NewString()[:8])
-	grace := seedAgent(t, db, org.ID, "Grace-"+uuid.NewString()[:8])
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "router-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	ada := seedAgent(t, db, org.ID, team.ID, "Ada-"+uuid.NewString()[:8])
+	grace := seedAgent(t, db, org.ID, team.ID, "Grace-"+uuid.NewString()[:8])
 
 	channel := model.Channel{
 		OrgID: org.ID, Name: "eng-" + uuid.NewString()[:8], Kind: "standard",
@@ -102,6 +107,7 @@ func TestRecentChannelSessionsOrdersByUpdatedAtDescAndLimits(t *testing.T) {
 		db.Where("org_id = ?", org.ID).Delete(&model.Session{})
 		db.Where("id IN ?", []uuid.UUID{channel.ID, other.ID}).Delete(&model.Channel{})
 		db.Where("id IN ?", []uuid.UUID{ada.ID, grace.ID}).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 

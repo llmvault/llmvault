@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // Tool names for the agent-facing sheets MCP tool group (plan §1).
@@ -41,8 +42,8 @@ const (
 
 // NewToolsFunc returns the sheets ToolsFunc. It registers the eight sheets
 // tools on the MCP server ONLY when the calling token is an agent proxy for
-// an active agent that has the `sheets` plugin installed
-// (agent_plugin_installs), mirroring the conditional-gating precedent of
+// an active agent whose team-resolved effective plugin set includes the
+// `sheets` plugin, mirroring the conditional-gating precedent of
 // agents.NewToolsFunc/agentBuilderEnabled. Registering nothing when the
 // plugin is absent keeps the tool surface out of un-enrolled agents' prompts
 // entirely.
@@ -63,7 +64,7 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 			First(&agent).Error; err != nil {
 			return
 		}
-		if !sheetsPluginInstalled(ctx, svc.db, token.OrgID, agentID) {
+		if !sheetsPluginInstalled(ctx, svc.db, agent) {
 			return
 		}
 		registerSheetCreate(server, svc, token, agentID)
@@ -77,17 +78,11 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 	}
 }
 
-// sheetsPluginInstalled reports whether the sheets plugin is installed for
-// this agent: an agent_plugin_installs row joined to the active plugin with
-// slug "sheets", scoped to the caller's org.
-func sheetsPluginInstalled(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) bool {
-	var count int64
-	err := db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
-		Joins("JOIN plugins ON plugins.id = agent_plugin_installs.plugin_id").
-		Where("agent_plugin_installs.agent_id = ? AND agent_plugin_installs.org_id = ? AND plugins.slug = ? AND plugins.status = ?",
-			agentID, orgID, SheetsPluginSlug, model.PluginStatusActive).
-		Count(&count).Error
-	return err == nil && count > 0
+// sheetsPluginInstalled reports whether the sheets plugin is in the agent's
+// effective plugin set (team grants ∪ auto-install ∪ default-agent).
+func sheetsPluginInstalled(ctx context.Context, db *gorm.DB, agent model.Agent) bool {
+	has, err := pluginresolve.AgentHasPluginSlug(ctx, db, agent, SheetsPluginSlug)
+	return err == nil && has
 }
 
 func sheetToolAgentProxy(token *model.Token) bool {

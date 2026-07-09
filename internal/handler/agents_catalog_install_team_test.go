@@ -47,7 +47,6 @@ func seedCatalogInstallFixture(t *testing.T, db *gorm.DB) catalogInstallFixture 
 		}
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
@@ -109,7 +108,7 @@ func TestInstallCatalog_SystemPluginOnly_IntoTeam(t *testing.T) {
 	if err := db.Where("org_id = ? AND agent_catalog_id = ?", fx.org.ID, catalog.ID).First(&agent).Error; err != nil {
 		t.Fatalf("load clone: %v", err)
 	}
-	if agent.TeamID == nil || *agent.TeamID != fx.teamA.ID {
+	if agent.TeamID != fx.teamA.ID {
 		t.Fatalf("clone team_id = %v, want %s", agent.TeamID, fx.teamA.ID)
 	}
 	if agent.AgentCatalogID == nil || *agent.AgentCatalogID != catalog.ID {
@@ -189,7 +188,7 @@ func TestInstallCatalog_TeamProvisionedPlugin_EnablesOnClone(t *testing.T) {
 	if err := db.Where("org_id = ? AND agent_catalog_id = ?", fx.org.ID, catalog.ID).First(&agent).Error; err != nil {
 		t.Fatalf("load clone: %v", err)
 	}
-	assertAgentPluginInstalled(t, db, fx.org.ID, agent.ID, plugin.ID)
+	assertAgentEffectivePlugin(t, db, agent.ID, plugin.ID)
 }
 
 func TestInstallCatalog_TwoTeams_TwoClones(t *testing.T) {

@@ -92,6 +92,7 @@ func createArchiveTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name str
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
 		Name:          name,
 		IsDefault:     isDefault,
 		Model:         "deepseek-v4-flash",

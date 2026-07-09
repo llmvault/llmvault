@@ -18,7 +18,6 @@ type createAgentArgs struct {
 	Description  string             `json:"description"`
 	Instructions string             `json:"instructions"`
 	Model        string             `json:"model"`
-	PluginSlugs  []string           `json:"plugin_slugs"`
 	Skills       []string           `json:"skills"`
 	Tools        []string           `json:"tools"`
 	SubAgents    []subAgentToolArgs `json:"sub_agents"`
@@ -32,10 +31,10 @@ type subAgentToolArgs struct {
 	Tools        []string `json:"tools"`
 }
 
-func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
+func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, teamID uuid.UUID, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolCreateAgent,
-		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. Use list_org_plugins to discover valid plugin_slugs and skills.",
+		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. The new agent joins the calling agent's team and inherits that team's plugins (plugins are team-managed, not set per agent).",
 		InputSchema: createAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if errResult := requireOrgManager(ctx, deps.DB, token.OrgID, req, "creating an agent"); errResult != nil {
@@ -45,11 +44,11 @@ func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 		if errResult := decodeArgs(req, &args); errResult != nil {
 			return errResult, nil
 		}
-		return handleCreateAgent(ctx, deps, token, frontendURL, args)
+		return handleCreateAgent(ctx, deps, token, teamID, frontendURL, args)
 	})
 }
 
-func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, frontendURL string, args createAgentArgs) (*mcp.CallToolResult, error) {
+func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, teamID uuid.UUID, frontendURL string, args createAgentArgs) (*mcp.CallToolResult, error) {
 	if strings.TrimSpace(args.Name) == "" {
 		return toolError("name is required"), nil
 	}
@@ -70,10 +69,6 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, front
 	if err != nil {
 		return toolError(err.Error()), nil
 	}
-	plugins, err := resolvePluginSlugs(ctx, deps.DB, token.OrgID, args.PluginSlugs)
-	if err != nil {
-		return toolError(err.Error()), nil
-	}
 	subAgents, errResult := buildSubAgentToolInputs(ctx, deps, token.OrgID, args.SubAgents)
 	if errResult != nil {
 		return errResult, nil
@@ -87,14 +82,14 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		Tools:         runtime,
 		McpToolFilter: parentDenyFilter(mcpAllow),
 		Skills:        skillsJSON(skillSlugs),
-		PluginIDs:     pluginIDs(plugins),
+		TeamID:        teamID,
 		SubAgents:     subAgents,
 	}
 	agent, err := CreateAgent(ctx, deps, token.OrgID, in)
 	if err != nil {
 		return toolError(err.Error()), nil
 	}
-	return agentResultJSON(ctx, deps.DB, agent, frontendURL, plugins, skillSlugs, runtime, mcpAllow)
+	return agentResultJSON(ctx, deps.DB, agent, frontendURL, skillSlugs, runtime, mcpAllow)
 }
 
 // --- update_agent ------------------------------------------------------------
@@ -106,7 +101,6 @@ type updateAgentArgs struct {
 	Instructions *string             `json:"instructions"`
 	Model        *string             `json:"model"`
 	Status       *string             `json:"status"`
-	PluginSlugs  *[]string           `json:"plugin_slugs"`
 	Skills       *[]string           `json:"skills"`
 	Tools        *[]string           `json:"tools"`
 	SubAgents    *[]subAgentToolArgs `json:"sub_agents"`
@@ -115,7 +109,7 @@ type updateAgentArgs struct {
 func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateAgent,
-		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (plugin_slugs, skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Use list_org_plugins to discover valid plugin_slugs and skills.",
+		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Plugins are team-managed and cannot be set per agent. Use list_org_plugins to discover valid skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if errResult := requireOrgManager(ctx, deps.DB, token.OrgID, req, "changing an agent"); errResult != nil {
@@ -150,7 +144,6 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 	}
 
 	var (
-		plugins    []model.Plugin
 		skillSlugs []string
 		runtime    model.JSON
 		mcpAllow   []string
@@ -190,14 +183,6 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		s := skillsJSON(skillSlugs)
 		in.Skills = &s
 	}
-	if args.PluginSlugs != nil {
-		plugins, err = resolvePluginSlugs(ctx, deps.DB, token.OrgID, *args.PluginSlugs)
-		if err != nil {
-			return toolError(err.Error()), nil
-		}
-		in.SetPlugins = true
-		in.PluginIDs = pluginIDs(plugins)
-	}
 	if args.SubAgents != nil {
 		subAgents, errResult := buildSubAgentToolInputs(ctx, deps, token.OrgID, *args.SubAgents)
 		if errResult != nil {
@@ -210,7 +195,7 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 	if err != nil {
 		return toolError(err.Error()), nil
 	}
-	return agentResultJSON(ctx, deps.DB, agent, frontendURL, plugins, skillSlugs, runtime, mcpAllow)
+	return agentResultJSON(ctx, deps.DB, agent, frontendURL, skillSlugs, runtime, mcpAllow)
 }
 
 // buildSubAgentToolInputs routes each sub-agent's tools/skills through the same

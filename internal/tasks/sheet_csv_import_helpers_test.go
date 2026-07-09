@@ -92,9 +92,10 @@ func newSheetImportFixture(t *testing.T, fields []sheets.FieldSpec) *sheetImport
 	}
 	f.org = model.Org{ID: uuid.New(), Name: "csvimport-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	f.user = model.User{ID: uuid.New(), Email: "csvimport-" + uuid.NewString() + "@example.com", Name: "Importer"}
-	agent := model.Agent{ID: uuid.New(), OrgID: &f.org.ID, Name: "Import Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	team := model.Team{ID: uuid.New(), OrgID: f.org.ID, Name: "csvimport-team-" + uuid.NewString()}
+	agent := model.Agent{ID: uuid.New(), OrgID: &f.org.ID, TeamID: team.ID, Name: "Import Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{ID: uuid.New(), OrgID: f.org.ID, Name: "csvimport-ch-" + uuid.NewString(), DefaultAgentID: agent.ID}
-	for _, seed := range []any{&f.org, &f.user, &agent, &channel} {
+	for _, seed := range []any{&f.org, &f.user, &team, &agent, &channel} {
 		if err := db.Create(seed).Error; err != nil {
 			t.Fatalf("seed fixture record: %v", err)
 		}

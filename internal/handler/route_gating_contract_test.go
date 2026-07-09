@@ -113,26 +113,29 @@ func TestRouteGating_ChannelCreateTeamMembership(t *testing.T) {
 	fx := seedVisFixture(t, db)
 	h := handler.NewChannelHandler(db)
 
-	// A team-less default agent is valid for a channel in ANY team (the cross-team
-	// default rule only applies when both the channel and agent are team-scoped),
-	// so it isolates this test to the team-membership gate under test.
-	defAgent := model.Agent{ID: uuid.New(), OrgID: &fx.org.ID, Name: "rg-def-" + uuid.NewString()[:8], Model: "test", Status: "active"}
-	if err := db.Create(&defAgent).Error; err != nil {
-		t.Fatalf("seed default agent: %v", err)
+	// The default agent must belong to the channel's team (agents are always
+	// team-owned), so each create uses the fixture agent of the target team to
+	// isolate this test to the team-membership gate under test.
+	agentForTeam := map[uuid.UUID]uuid.UUID{
+		*fx.visibleCh.TeamID: fx.visibleAgent.ID,
+		*fx.hiddenCh.TeamID:  fx.hiddenAgent.ID,
 	}
 
 	var created []uuid.UUID
 	t.Cleanup(func() {
 		db.Where("channel_id IN ?", created).Delete(&model.ChannelMember{})
 		db.Where("id IN ?", created).Delete(&model.Channel{})
-		db.Where("id = ?", defAgent.ID).Delete(&model.Agent{})
 	})
 
 	create := func(c caller, teamID *uuid.UUID) int {
+		agentID := fx.visibleAgent.ID
+		if teamID != nil {
+			agentID = agentForTeam[*teamID]
+		}
 		body := map[string]any{
 			"name":             "rg-" + uuid.NewString()[:8],
 			"category":         "general",
-			"default_agent_id": defAgent.ID.String(),
+			"default_agent_id": agentID.String(),
 		}
 		if teamID != nil {
 			body["team_id"] = teamID.String()

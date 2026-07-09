@@ -144,6 +144,7 @@ func seedRuntimeIngressParent(t *testing.T, db *gorm.DB, orgID, agentID, channel
 	if err := db.Create(&model.Agent{
 		ID:            agentID,
 		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
 		Name:          "Agent-" + agentID.String()[:8],
 		Model:         "test-model",
 		Tools:         model.JSON{},

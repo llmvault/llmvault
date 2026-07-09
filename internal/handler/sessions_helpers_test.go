@@ -179,6 +179,7 @@ func seedSessionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
 		Name:          "Agent-" + uuid.NewString()[:8],
 		Description:   ptrString("session test agent"),
 		Model:         "deepseek-v4-flash",

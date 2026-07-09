@@ -212,6 +212,7 @@ func seedSlackReactionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Ag
 	t.Helper()
 	agent := model.Agent{
 		OrgID:  &orgID,
+		TeamID: firstTeamID(t, db, orgID),
 		Name:   "slack-reaction-agent-" + uuid.NewString(),
 		Model:  "gpt-5",
 		Status: "active",

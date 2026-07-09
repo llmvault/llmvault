@@ -75,8 +75,12 @@ func seedSlackContinuationFixture(t *testing.T, db *gorm.DB) slackContinuationFi
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	defaultAgent := seedSlackContinuationAgent(t, db, org.ID, "default")
-	reactionAgent := seedSlackContinuationAgent(t, db, org.ID, "reaction")
+	team := model.Team{OrgID: org.ID, Name: "slack-continuity-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	defaultAgent := seedSlackContinuationAgent(t, db, org.ID, team.ID, "default")
+	reactionAgent := seedSlackContinuationAgent(t, db, org.ID, team.ID, "reaction")
 	user := model.User{Email: "slack-continuity-" + uuid.NewString() + "@example.com"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
@@ -188,10 +192,11 @@ func seedSlackContinuationFixture(t *testing.T, db *gorm.DB) slackContinuationFi
 	}
 }
 
-func seedSlackContinuationAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, prefix string) model.Agent {
+func seedSlackContinuationAgent(t *testing.T, db *gorm.DB, orgID, teamID uuid.UUID, prefix string) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		OrgID:         &orgID,
+		TeamID:        teamID,
 		Name:          "slack-" + prefix + "-" + uuid.NewString()[:8],
 		Model:         "test-model",
 		Tools:         model.JSON{},

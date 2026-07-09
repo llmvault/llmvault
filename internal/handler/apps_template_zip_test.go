@@ -94,7 +94,7 @@ func newTemplateZipHarness(t *testing.T) *templateZipHarness {
 	}
 
 	h := &templateZipHarness{db: db}
-	h.agent = model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Tmpl Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	h.agent = model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: firstTeamID(t, db, org.ID), Name: "Tmpl Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	if err := db.Create(&h.agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

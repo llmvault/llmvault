@@ -19,14 +19,14 @@ func TestAppToolsGating(t *testing.T) {
 	h := newAppsTestHarness(t)
 	ensureAppsPlugin(t, h.db)
 
-	// No agent_plugin_installs row → nothing registers.
+	// No team grant → nothing registers.
 	client := connectAppToolsClient(t, ctx, h.svc, appAgentToken(h.org.ID, h.agent.ID))
 	if tools := listAppToolNames(t, ctx, client); len(tools) != 0 {
 		t.Fatalf("tools registered without plugin install: %v", appToolNameList(tools))
 	}
 
-	// Non-agent-proxy token → nothing registers even with an install.
-	installAppsPlugin(t, h.db, h.org.ID, h.agent.ID)
+	// Non-agent-proxy token → nothing registers even with a grant.
+	installAppsPlugin(t, h.db, h.org.ID, h.team.ID)
 	plainToken := &model.Token{OrgID: h.org.ID, Meta: model.JSON{}}
 	client = connectAppToolsClient(t, ctx, h.svc, plainToken)
 	if tools := listAppToolNames(t, ctx, client); len(tools) != 0 {

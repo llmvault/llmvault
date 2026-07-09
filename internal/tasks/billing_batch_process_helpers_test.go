@@ -148,8 +148,13 @@ func seedOrgWithCredentialAndCredits(t *testing.T, db *gorm.DB, granted int64) (
 
 func seedAgentWithToken(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID, agentModel string) string {
 	t.Helper()
+	team := model.Team{OrgID: orgID, Name: "billing-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
 	agent := model.Agent{
 		OrgID:  &orgID,
+		TeamID: team.ID,
 		Name:   "billing-test-" + uuid.NewString()[:8],
 		Model:  agentModel,
 		Status: "active",
@@ -171,6 +176,7 @@ func seedAgentWithToken(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID, agen
 	t.Cleanup(func() {
 		db.Unscoped().Delete(&tok)
 		db.Unscoped().Delete(&agent)
+		db.Unscoped().Delete(&team)
 	})
 	return jti
 }

@@ -68,7 +68,7 @@ func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.Respo
 			return uuid.Nil, false
 		}
 	}
-	if teamID != nil && agent.TeamID != nil && *teamID != *agent.TeamID {
+	if teamID != nil && *teamID != agent.TeamID {
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "default agent belongs to a different team than this channel"})
 		return uuid.Nil, false
 	}

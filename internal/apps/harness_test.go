@@ -172,6 +172,7 @@ type appsTestHarness struct {
 	cfg      *config.Config
 
 	org        model.Org
+	team       model.Team
 	agent      model.Agent
 	channel    model.Channel
 	sheet      model.Sheet
@@ -208,7 +209,11 @@ func newAppsTestHarness(t *testing.T) *appsTestHarness {
 	if err := db.Create(&h.org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Apps Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	h.team = model.Team{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&h.team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: h.team.ID, Name: "Apps Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-ch-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
 	h.otherChan = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-other-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel, &h.otherChan} {

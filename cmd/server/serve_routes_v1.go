@@ -245,11 +245,6 @@ func setupV1Routes(
 					r.Get("/agents/catalog/{slug}", agentHandler.GetCatalog)
 					r.Get("/agents/models", agentHandler.ListModels)
 					r.Get("/agents/{id}", agentHandler.Get)
-					if pluginHandler != nil {
-						r.Get("/agents/{id}/plugins", pluginHandler.ListAgentPlugins)
-						r.Post("/agents/{id}/plugins/{slug}", pluginHandler.EnableForAgent)
-						r.Delete("/agents/{id}/plugins/{slug}", pluginHandler.DisableForAgent)
-					}
 					r.Get("/triggers", triggerHandler.List)
 					r.Get("/triggers/{id}", triggerHandler.Get)
 					r.Get("/schedules", scheduleHandler.List)

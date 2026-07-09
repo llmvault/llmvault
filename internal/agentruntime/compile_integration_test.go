@@ -23,11 +23,13 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 		t.Fatalf("create org: %v", err)
 	}
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
+	team := seedCompileTeam(t, db, org.ID)
 	description := "Coordinates platform engineering work."
 	instructions := "Use production telemetry before recommending a rollback."
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
+		TeamID:        team.ID,
 		Name:          "Aria",
 		Description:   &description,
 		Instructions:  &instructions,
@@ -86,11 +88,14 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if !strings.Contains(requirePromptString(t, company.Content), "<company>") {
 		t.Fatalf("company content is not XML wrapped: %q", requirePromptString(t, company.Content))
 	}
-	if len(dynamic) != 1 {
-		t.Fatalf("dynamic segment count = %d (want 1: only mcp_tools when agent has no skills)", len(dynamic))
+	// mcp_tools is always the final dynamic segment. A leading "Available skills"
+	// hint may precede it when the agent's team resolves any skill-bearing plugin
+	// (including the global auto-install plugins), so assert on the last segment.
+	if len(dynamic) < 1 {
+		t.Fatalf("expected at least the mcp_tools dynamic segment, got %d", len(dynamic))
 	}
-	if got := requireListSegment3Type(t, dynamic[0]); got != "mcp_tools" {
-		t.Fatalf("first dynamic segment type = %q, want mcp_tools", got)
+	if got := requireListSegment3Type(t, dynamic[len(dynamic)-1]); got != "mcp_tools" {
+		t.Fatalf("last dynamic segment type = %q, want mcp_tools", got)
 	}
 }
 
@@ -134,10 +139,12 @@ func TestCompile_SkillsAppearsAsStaticPromptHintWhenInstalled(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := seedCompileTeam(t, db, org.ID)
 	category := "engineering"
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
+		TeamID:        team.ID,
 		Name:          "Aria",
 		Category:      &category,
 		Model:         DefaultAgentModel,
@@ -172,8 +179,11 @@ func TestCompile_SkillsAppearsAsStaticPromptHintWhenInstalled(t *testing.T) {
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
-		t.Fatalf("install plugin: %v", err)
+	if err := db.Create(&model.OrgPluginInstall{OrgID: org.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("org-install plugin: %v", err)
+	}
+	if err := db.Create(&model.TeamPlugin{OrgID: org.ID, TeamID: team.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("grant plugin to team: %v", err)
 	}
 
 	def, err := Compile(context.Background(), CompileDeps{DB: db, Cfg: &config.Config{}}, &agent)

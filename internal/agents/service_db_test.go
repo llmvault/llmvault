@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
@@ -35,12 +36,32 @@ func testOrg(t *testing.T, db *gorm.DB) model.Org {
 		t.Fatalf("create org: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 	return org
+}
+
+// testTeam creates a team in the org for agent seeding (agents.team_id is NOT
+// NULL).
+func testTeam(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Team {
+	t.Helper()
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "agents-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	return team
+}
+
+// grantTeamPlugin grants an org-installed plugin to a team (team_plugins).
+func grantTeamPlugin(t *testing.T, db *gorm.DB, orgID, teamID, pluginID uuid.UUID) {
+	t.Helper()
+	if err := db.Create(&model.TeamPlugin{OrgID: orgID, TeamID: teamID, PluginID: pluginID}).Error; err != nil {
+		t.Fatalf("grant plugin to team: %v", err)
+	}
 }
 
 // seedInstalledPlugin creates an active plugin, installs it for the org, and
@@ -153,7 +174,9 @@ func TestValidateSkillSlugs_NoSkillsAvailable(t *testing.T) {
 func TestCreateAgent_PersistsToolsSkillsAndPlugin(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	plugin := seedInstalledPlugin(t, db, org.ID, "search", "web-summary")
+	grantTeamPlugin(t, db, org.ID, team.ID, plugin.ID)
 	deps := noopDeps(db)
 
 	runtime, mcpAllow, err := SplitTools([]string{"bash", "web_search"})
@@ -166,7 +189,7 @@ func TestCreateAgent_PersistsToolsSkillsAndPlugin(t *testing.T) {
 		Tools:         runtime,
 		McpToolFilter: allowFilter(mcpAllow),
 		Skills:        skillsJSON([]string{"web-summary"}),
-		PluginIDs:     []uuid.UUID{plugin.ID},
+		TeamID:        team.ID,
 	})
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -183,20 +206,35 @@ func TestCreateAgent_PersistsToolsSkillsAndPlugin(t *testing.T) {
 	if got := agentSkillSlugs(agent); len(got) != 1 || got[0] != "web-summary" {
 		t.Fatalf("skills = %#v, want [web-summary]", got)
 	}
-	var count int64
-	db.Model(&model.AgentPluginInstall{}).Where("agent_id = ? AND plugin_id = ?", agent.ID, plugin.ID).Count(&count)
-	if count != 1 {
-		t.Fatalf("agent plugin installs = %d, want 1", count)
+	// The plugin is granted via the agent's team, so it resolves into the
+	// agent's effective plugin set (no per-agent install rows).
+	slugs, err := pluginresolve.EffectivePluginSlugs(context.Background(), db, *agent)
+	if err != nil {
+		t.Fatalf("resolve effective plugins: %v", err)
 	}
+	if !containsSlug(slugs, plugin.Slug) {
+		t.Fatalf("effective plugins = %#v, want to contain %q", slugs, plugin.Slug)
+	}
+}
+
+func containsSlug(slugs []string, want string) bool {
+	for _, s := range slugs {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCreateAgent_SubAgentSkills(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 
 	agent, err := CreateAgent(context.Background(), deps, org.ID, CreateInput{
-		Name: "Parent",
+		Name:   "Parent",
+		TeamID: team.ID,
 		SubAgents: []SubAgentInput{{
 			Name:   "Helper",
 			Tools:  model.JSON{"grep": true},
@@ -222,9 +260,10 @@ func TestUpdateAgent_PatchAndOwnership(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
 	other := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 
-	agent, err := CreateAgent(context.Background(), deps, org.ID, CreateInput{Name: "Patch Me", Instructions: "before"})
+	agent, err := CreateAgent(context.Background(), deps, org.ID, CreateInput{Name: "Patch Me", Instructions: "before", TeamID: team.ID})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

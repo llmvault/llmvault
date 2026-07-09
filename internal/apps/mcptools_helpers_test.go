@@ -27,7 +27,7 @@ func ensureAppsPlugin(t *testing.T, db *gorm.DB) model.Plugin {
 	var plugin model.Plugin
 	err := db.Where("slug = ? AND org_id IS NULL", AppsPluginSlug).First(&plugin).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		plugin = model.Plugin{Slug: AppsPluginSlug, Name: "Apps", Status: model.PluginStatusActive}
+		plugin = model.Plugin{Slug: AppsPluginSlug, Name: "Apps", Status: model.PluginStatusActive, Manifest: model.RawJSON(`{}`)}
 		if err := db.Create(&plugin).Error; err != nil {
 			t.Fatalf("ensure apps plugin: %v", err)
 		}
@@ -36,25 +36,31 @@ func ensureAppsPlugin(t *testing.T, db *gorm.DB) model.Plugin {
 	if err != nil {
 		t.Fatalf("load apps plugin: %v", err)
 	}
-	if plugin.Status != model.PluginStatusActive {
-		if err := db.Model(&plugin).Update("status", model.PluginStatusActive).Error; err != nil {
-			t.Fatalf("activate apps plugin: %v", err)
-		}
+	// Force a plain (non-auto-install) manifest so the tool-gate is exercised via
+	// explicit team grants, not the shipped plugin's auto-install path.
+	if err := db.Model(&plugin).Updates(map[string]any{"status": model.PluginStatusActive, "manifest": model.RawJSON(`{}`)}).Error; err != nil {
+		t.Fatalf("normalize apps plugin: %v", err)
 	}
 	return plugin
 }
 
-// installAppsPlugin creates the agent_plugin_installs row that gates the tool
-// group for one agent.
-func installAppsPlugin(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID) {
+// installAppsPlugin grants the apps plugin to the agent's team (org-install +
+// team_plugins) so it resolves into the agent's effective set.
+func installAppsPlugin(t *testing.T, db *gorm.DB, orgID, teamID uuid.UUID) {
 	t.Helper()
 	plugin := ensureAppsPlugin(t, db)
-	install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: plugin.ID}
-	if err := db.Create(&install).Error; err != nil {
-		t.Fatalf("install apps plugin for agent: %v", err)
+	orgInstall := model.OrgPluginInstall{OrgID: orgID, PluginID: plugin.ID}
+	if err := db.Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).
+		FirstOrCreate(&orgInstall).Error; err != nil {
+		t.Fatalf("org-install apps plugin: %v", err)
+	}
+	grant := model.TeamPlugin{OrgID: orgID, TeamID: teamID, PluginID: plugin.ID}
+	if err := db.Create(&grant).Error; err != nil {
+		t.Fatalf("grant apps plugin to team: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("agent_id = ? AND plugin_id = ?", agentID, plugin.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("team_id = ? AND plugin_id = ?", teamID, plugin.ID).Delete(&model.TeamPlugin{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, plugin.ID).Delete(&model.OrgPluginInstall{})
 	})
 }
 
@@ -103,7 +109,7 @@ func seedAppsSession(t *testing.T, h *appsTestHarness, channelID uuid.UUID) mode
 func setupAppTools(t *testing.T) (*appsTestHarness, *mcp.ClientSession, model.Session) {
 	t.Helper()
 	h := newAppsTestHarness(t)
-	installAppsPlugin(t, h.db, h.org.ID, h.agent.ID)
+	installAppsPlugin(t, h.db, h.org.ID, h.team.ID)
 	session := seedAppsSession(t, h, h.channel.ID)
 	client := connectAppToolsClient(t, context.Background(), h.svc, appAgentToken(h.org.ID, h.agent.ID))
 	return h, client, session

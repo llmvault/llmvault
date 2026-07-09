@@ -52,10 +52,11 @@ func assertBaselineGranted(t *testing.T, tools model.JSON) {
 func TestCreateAgent_SkillOnlyPick_GrantsBaseline(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 	token := &model.Token{OrgID: org.ID}
 
-	res, _ := handleCreateAgent(context.Background(), deps, token, "https://app.test", createAgentArgs{
+	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name:  "Skill Only",
 		Tools: []string{"skills_list", "skill_view"},
 	})
@@ -82,10 +83,11 @@ func TestCreateAgent_SkillOnlyPick_GrantsBaseline(t *testing.T) {
 func TestCreateAgent_PicksTwoMCP_DenyRest(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 	token := &model.Token{OrgID: org.ID}
 
-	res, _ := handleCreateAgent(context.Background(), deps, token, "https://app.test", createAgentArgs{
+	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name:  "Two MCP",
 		Tools: []string{"cron", "web_search"},
 	})
@@ -113,10 +115,11 @@ func TestCreateAgent_PicksTwoMCP_DenyRest(t *testing.T) {
 func TestCreateAgent_AllMCPPicked_NilFilter(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 	token := &model.Token{OrgID: org.ID}
 
-	res, _ := handleCreateAgent(context.Background(), deps, token, "https://app.test", createAgentArgs{
+	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name:  "All MCP",
 		Tools: append([]string{"lsp"}, parentAssignableMCPTools()...),
 	})
@@ -138,10 +141,11 @@ func TestCreateAgent_AllMCPPicked_NilFilter(t *testing.T) {
 func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 	token := &model.Token{OrgID: org.ID}
 
-	res, _ := handleCreateAgent(context.Background(), deps, token, "https://app.test", createAgentArgs{
+	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name: "Coordinator",
 		SubAgents: []subAgentToolArgs{
 			{Name: "Explicit", Tools: []string{"read_file", "grep"}},
@@ -210,11 +214,12 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 func TestUpdateAgent_ToolsReplacementKeepsBaselineAndSubagentTask(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 	token := &model.Token{OrgID: org.ID}
 	ctx := context.Background()
 
-	createRes, _ := handleCreateAgent(ctx, deps, token, "https://app.test", createAgentArgs{
+	createRes, _ := handleCreateAgent(ctx, deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name:      "Patchable",
 		Tools:     []string{"web_search"},
 		SubAgents: []subAgentToolArgs{{Name: "Worker", Tools: []string{"read_file"}}},
@@ -250,11 +255,12 @@ func TestUpdateAgent_ToolsReplacementKeepsBaselineAndSubagentTask(t *testing.T) 
 func TestUpdateAgent_ToolsWithoutSubAgents_DropsSubagentTask(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 	token := &model.Token{OrgID: org.ID}
 	ctx := context.Background()
 
-	createRes, _ := handleCreateAgent(ctx, deps, token, "https://app.test", createAgentArgs{
+	createRes, _ := handleCreateAgent(ctx, deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name:  "NoSubs",
 		Tools: []string{"web_search"},
 	})

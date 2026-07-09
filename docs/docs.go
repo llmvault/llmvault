@@ -2139,189 +2139,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/agents/{id}/plugins": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns plugins installed in the current organization and their enablement state for one installed agent.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "List agent plugins",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/pluginResponse"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/agents/{id}/plugins/{slug}": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Enables an organization-installed plugin for one installed agent.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "Enable plugin for agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Plugin slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/pluginResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Disables a plugin for one installed agent unless the plugin is required for that agent.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "Disable plugin for agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Plugin slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/statusResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/api-keys": {
             "get": {
                 "security": [
@@ -8850,6 +8667,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -9259,7 +9082,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Installs a plugin for the current organization and enables it for eligible non-default agents when requirements are satisfied.",
+                "description": "Installs a plugin for the current organization when requirements are satisfied. Agents receive it through team grants.",
                 "produces": [
                     "application/json"
                 ],
@@ -9315,7 +9138,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Uninstalls a plugin for the current organization and removes it from enabled agents.",
+                "description": "Uninstalls a plugin for the current organization and removes its team grants.",
                 "produces": [
                     "application/json"
                 ],
@@ -9347,6 +9170,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }

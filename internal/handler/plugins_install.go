@@ -2,58 +2,40 @@ package handler
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
 	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
-func enablePluginForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID, pluginID uuid.UUID) error {
-	if err := pluginstore.CheckGitHubIdentityExclusiveOnAdd(ctx, tx, orgID, agentID, pluginID); err != nil {
-		return err
-	}
-	install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}
-	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&install).Error; err != nil {
-		return fmt.Errorf("enable plugin for agent: %w", err)
-	}
-	// Skills are inherited dynamically from the plugin at runtime, so there is
-	// nothing to materialize here beyond the plugin install itself.
-	return refreshPluginSkillInstallCounts(ctx, tx, pluginID)
-}
-
+// disablePluginForOrg drops the plugin's team grants across the org when the org
+// uninstalls it, then refreshes the plugin's skill install counts. The resolver's
+// intersection with active org installs already makes stale grants inert; the
+// delete keeps team_plugins clean.
 func disablePluginForOrg(ctx context.Context, tx *gorm.DB, orgID, pluginID uuid.UUID) error {
-	var installs []model.AgentPluginInstall
-	if err := tx.WithContext(ctx).Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Find(&installs).Error; err != nil {
-		return err
-	}
-	for _, install := range installs {
-		if err := disablePluginForAgent(ctx, tx, orgID, install.AgentID, pluginID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func disablePluginForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID, pluginID uuid.UUID) error {
 	if err := tx.WithContext(ctx).
-		Where("org_id = ? AND agent_id = ? AND plugin_id = ?", orgID, agentID, pluginID).
-		Delete(&model.AgentPluginInstall{}).Error; err != nil {
+		Where("org_id = ? AND plugin_id = ?", orgID, pluginID).
+		Delete(&model.TeamPlugin{}).Error; err != nil {
 		return err
 	}
-	return refreshPluginSkillInstallCounts(ctx, tx, pluginID)
+	return pluginstore.RefreshPluginSkillInstallCounts(ctx, tx, pluginID)
 }
 
-// refreshPluginSkillInstallCounts sets each of the plugin's skills' install_count
-// to the number of agents that have the plugin installed (skills are inherited
-// through plugin installs, so per-skill counts mirror the plugin's reach).
-func refreshPluginSkillInstallCounts(ctx context.Context, tx *gorm.DB, pluginID uuid.UUID) error {
-	return tx.WithContext(ctx).Model(&model.Skill{}).
-		Where("plugin_id = ?", pluginID).
-		UpdateColumn("install_count", gorm.Expr(
-			"(SELECT COUNT(*) FROM agent_plugin_installs WHERE plugin_id = ?)", pluginID,
-		)).Error
+// pluginRequiredByOrgAgents reports whether any non-archived agent in the org has
+// the plugin's slug among its catalog's required plugins.
+func pluginRequiredByOrgAgents(ctx context.Context, db *gorm.DB, orgID uuid.UUID, slug string) (bool, error) {
+	if slug == "" {
+		return false, nil
+	}
+	var count int64
+	if err := db.WithContext(ctx).Model(&model.Agent{}).
+		Joins("JOIN agent_catalog ON agent_catalog.id = agents.agent_catalog_id").
+		Where("agents.org_id = ? AND agents.status <> ?", orgID, "archived").
+		Where("? = ANY(agent_catalog.required_plugins)", slug).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

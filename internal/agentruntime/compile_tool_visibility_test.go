@@ -34,9 +34,10 @@ func compiledRuntimeToolTypes(tools []map[string]any) []string {
 func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 	db := connectCompileTestDB(t)
 	org := createOrg(t, db)
+	team := seedCompileTeam(t, db, org.ID)
 
 	// Parent: only bash, read_file, grep enabled; deny the web_search MCP tool.
-	parent := userAgentRow(org.ID, "RestrictedParent")
+	parent := userAgentRow(org.ID, team.ID, "RestrictedParent")
 	parent.Tools = model.JSON{"bash": true, "read_file": true, "grep": true}
 	parent.McpToolFilter = &model.ToolFilter{Deny: []string{"web_search"}}
 	if err := db.Create(&parent).Error; err != nil {
@@ -46,7 +47,7 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 	// Sub-agent: a DIFFERENT set (read_file, write_file) and the OPPOSITE MCP
 	// filter (allow web_search). write_file is enabled here but not on the
 	// parent; grep is enabled on the parent but not here.
-	sub := userAgentRow(org.ID, "RestrictedSub")
+	sub := userAgentRow(org.ID, team.ID, "RestrictedSub")
 	sub.Type = model.AgentTypeSubAgent
 	sub.ParentAgentID = &parent.ID
 	sub.Tools = model.JSON{"read_file": true, "write_file": true}

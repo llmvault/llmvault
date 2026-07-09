@@ -33,6 +33,7 @@ func TestAgentHandler_UpdateConnectionResourcesStoresOnAgent(t *testing.T) {
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
+		TeamID:        firstTeamID(t, db, org.ID),
 		IsManaged:     true,
 		Model:         agentruntime.DefaultAgentModel,
 		Status:        "active",

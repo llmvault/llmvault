@@ -62,6 +62,7 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	if err := db.Create(&model.Agent{
 		ID:     agentID,
 		OrgID:  &orgID,
+		TeamID: firstTeamID(t, db, orgID),
 		Name:   "stream-agent",
 		Status: "active",
 	}).Error; err != nil {

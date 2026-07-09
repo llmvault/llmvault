@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/usehivy/hivy/internal/billing"
-	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
 type sessionUsageResponse struct {
@@ -33,29 +32,26 @@ func (h *SessionHandler) GetUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var row struct {
-		CostUSD float64
+		DebitedCredits int64
+		UnbilledCost   float64
 	}
 	if err := h.db.WithContext(r.Context()).Raw(`
 		SELECT
-			COALESCE(SUM(
-				CASE
-					WHEN jsonb_typeof(payload->'usage'->'cost') = 'number'
-						THEN GREATEST((payload->'usage'->>'cost')::numeric, 0)
-					ELSE 0
-				END
-			), 0)::float8 AS cost_usd
-		FROM session_events
+			COALESCE(SUM(credits_debited), 0) AS debited_credits,
+			COALESCE(SUM(CASE WHEN billed_at IS NULL THEN GREATEST(cost, 0) ELSE 0 END), 0)::float8 AS unbilled_cost
+		FROM generations
 		WHERE session_id = ?
-		  AND event_type = ?`, session.ID, runtimeevents.EventModelUsage).Scan(&row).Error; err != nil {
+		  AND is_system = true`, session.ID).Scan(&row).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session usage"})
 		return
 	}
 
-	if row.CostUSD < 0 {
-		row.CostUSD = 0
+	credits := row.DebitedCredits + billing.CostUSDToCredits(row.UnbilledCost)
+	if credits < 0 {
+		credits = 0
 	}
 	writeJSON(w, http.StatusOK, sessionUsageResponse{
-		CostUSD: row.CostUSD,
-		Credits: billing.CostUSDToCredits(row.CostUSD),
+		CostUSD: float64(credits) * billing.CreditUSDValue,
+		Credits: credits,
 	})
 }

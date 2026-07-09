@@ -51,7 +51,7 @@ func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token 
 		registerListOrgPlugins(server, deps.DB, token, frontendURL)
 		registerListAgents(server, deps.DB, token)
 		registerGetAgent(server, deps.DB, token, frontendURL)
-		registerCreateAgent(server, deps, token, frontendURL)
+		registerCreateAgent(server, deps, token, agent.TeamID, frontendURL)
 		registerUpdateAgent(server, deps, token, frontendURL)
 	}
 }

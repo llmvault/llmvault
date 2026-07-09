@@ -69,7 +69,7 @@ func seedPRCreatedFixture(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricKey
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	agent := model.Agent{OrgID: &org.ID, Name: "pr-agent-" + uuid.NewString()[:8], Model: "gpt-5", Status: "active"}
+	agent := model.Agent{OrgID: &org.ID, TeamID: firstTeamID(t, db, org.ID), Name: "pr-agent-" + uuid.NewString()[:8], Model: "gpt-5", Status: "active"}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

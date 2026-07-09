@@ -87,8 +87,8 @@ func seedTeamMember(t *testing.T, db *gorm.DB, orgID, teamID, userID uuid.UUID) 
 	}
 }
 
-// seedTeamAgent inserts an active agent optionally owned by a team.
-func seedTeamAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, teamID *uuid.UUID) model.Agent {
+// seedTeamAgent inserts an active agent owned by a team.
+func seedTeamAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, teamID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		OrgID:         &orgID,
@@ -149,7 +149,7 @@ func TestAgentCreate_MemberCreatesInOwnTeam(t *testing.T) {
 	if err := fx.db.First(&stored, "id = ?", out.Agent.ID).Error; err != nil {
 		t.Fatalf("load stored: %v", err)
 	}
-	if stored.TeamID == nil || *stored.TeamID != fx.teamA.ID {
+	if stored.TeamID != fx.teamA.ID {
 		t.Fatalf("stored team_id=%v, want %v", stored.TeamID, fx.teamA.ID)
 	}
 }
@@ -180,11 +180,11 @@ func TestAgentCreate_ManagerCreatesAnywhere(t *testing.T) {
 	if inTeam.Code != http.StatusCreated {
 		t.Fatalf("manager+team status=%d, want 201; body=%s", inTeam.Code, inTeam.Body.String())
 	}
-	// With no team at all (manager-only).
+	// Agents always belong to a team: even a manager cannot create one without.
 	noTeam := fx.doAgentReq(t, http.MethodPost, "/v1/agents", &fx.owner,
 		map[string]any{"name": "Mgr No Team Agent"})
-	if noTeam.Code != http.StatusCreated {
-		t.Fatalf("manager+noteam status=%d, want 201; body=%s", noTeam.Code, noTeam.Body.String())
+	if noTeam.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("manager+noteam status=%d, want 422; body=%s", noTeam.Code, noTeam.Body.String())
 	}
 }
 
@@ -201,7 +201,7 @@ func TestAgentCreate_UnknownTeamRejected(t *testing.T) {
 
 func TestAgentUpdate_MemberInTeamAllowed(t *testing.T) {
 	fx := newAgentAuthzHarness(t)
-	agent := seedTeamAgent(t, fx.db, fx.org.ID, &fx.teamA.ID)
+	agent := seedTeamAgent(t, fx.db, fx.org.ID, fx.teamA.ID)
 	rr := fx.doAgentReq(t, http.MethodPatch, "/v1/agents/"+agent.ID.String(), &fx.memberA,
 		map[string]any{"description": "edited by team member"})
 	if rr.Code != http.StatusOK {
@@ -211,7 +211,7 @@ func TestAgentUpdate_MemberInTeamAllowed(t *testing.T) {
 
 func TestAgentUpdate_CrossTeamMemberDenied(t *testing.T) {
 	fx := newAgentAuthzHarness(t)
-	agent := seedTeamAgent(t, fx.db, fx.org.ID, &fx.teamB.ID)
+	agent := seedTeamAgent(t, fx.db, fx.org.ID, fx.teamB.ID)
 	rr := fx.doAgentReq(t, http.MethodPatch, "/v1/agents/"+agent.ID.String(), &fx.memberA,
 		map[string]any{"description": "should be blocked"})
 	if rr.Code != http.StatusForbidden {
@@ -219,24 +219,9 @@ func TestAgentUpdate_CrossTeamMemberDenied(t *testing.T) {
 	}
 }
 
-func TestAgentUpdate_NullTeamIsManagerOnly(t *testing.T) {
-	fx := newAgentAuthzHarness(t)
-	agent := seedTeamAgent(t, fx.db, fx.org.ID, nil)
-	member := fx.doAgentReq(t, http.MethodPatch, "/v1/agents/"+agent.ID.String(), &fx.memberA,
-		map[string]any{"description": "member edit"})
-	if member.Code != http.StatusForbidden {
-		t.Fatalf("member status=%d, want 403; body=%s", member.Code, member.Body.String())
-	}
-	owner := fx.doAgentReq(t, http.MethodPatch, "/v1/agents/"+agent.ID.String(), &fx.owner,
-		map[string]any{"description": "owner edit"})
-	if owner.Code != http.StatusOK {
-		t.Fatalf("owner status=%d, want 200; body=%s", owner.Code, owner.Body.String())
-	}
-}
-
 func TestAgentArchive_CrossTeamMemberDenied(t *testing.T) {
 	fx := newAgentAuthzHarness(t)
-	agent := seedTeamAgent(t, fx.db, fx.org.ID, &fx.teamB.ID)
+	agent := seedTeamAgent(t, fx.db, fx.org.ID, fx.teamB.ID)
 	denied := fx.doAgentReq(t, http.MethodDelete, "/v1/agents/"+agent.ID.String(), &fx.memberA, nil)
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("cross-team archive status=%d, want 403; body=%s", denied.Code, denied.Body.String())

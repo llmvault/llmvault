@@ -8,6 +8,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
@@ -17,7 +18,7 @@ type pluginListData struct {
 	skills       map[uuid.UUID][]model.Skill
 	reqs         map[uuid.UUID][]model.PluginIntegration
 	installCount map[uuid.UUID]int64
-	enabled      map[uuid.UUID][]model.AgentPluginInstall
+	enabled      map[uuid.UUID][]uuid.UUID
 }
 
 func (h *PluginHandler) loadPluginListData(ctx context.Context, orgID uuid.UUID, plugins []model.Plugin, scope pluginActorScope) (pluginListData, error) {
@@ -25,7 +26,7 @@ func (h *PluginHandler) loadPluginListData(ctx context.Context, orgID uuid.UUID,
 		skills:       map[uuid.UUID][]model.Skill{},
 		reqs:         map[uuid.UUID][]model.PluginIntegration{},
 		installCount: map[uuid.UUID]int64{},
-		enabled:      map[uuid.UUID][]model.AgentPluginInstall{},
+		enabled:      map[uuid.UUID][]uuid.UUID{},
 	}
 	if len(plugins) == 0 {
 		return data, nil
@@ -72,18 +73,33 @@ func (h *PluginHandler) loadPluginListData(ctx context.Context, orgID uuid.UUID,
 		data.installCount[c.PluginID] = c.Count
 	}
 
-	// enabled_agent_ids must not reveal agents the caller cannot see: a
-	// non-manager member only learns about agents visible to them.
-	enabledQ := h.db.WithContext(ctx).Where("org_id = ? AND plugin_id IN ?", orgID, ids)
+	// enabled_agent_ids is derived from each agent's effective plugin set. It must
+	// not reveal agents the caller cannot see, so a non-manager member's query is
+	// scoped to agents visible to them. Each visible agent's effective set is
+	// resolved once and inverted into plugin -> agent IDs (the pair rule is applied
+	// per agent by the resolver).
+	agentsQ := h.db.WithContext(ctx).Where("org_id = ? AND status <> ?", orgID, "archived")
 	if !scope.orgWide {
-		enabledQ = enabledQ.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, scope.userID))
+		agentsQ = agentsQ.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, scope.userID))
 	}
-	var enabled []model.AgentPluginInstall
-	if err := enabledQ.Find(&enabled).Error; err != nil {
+	var agents []model.Agent
+	if err := agentsQ.Order("created_at ASC").Find(&agents).Error; err != nil {
 		return pluginListData{}, err
 	}
-	for _, row := range enabled {
-		data.enabled[row.PluginID] = append(data.enabled[row.PluginID], row)
+	pluginSet := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		pluginSet[id] = true
+	}
+	for _, agent := range agents {
+		effective, err := pluginresolve.EffectivePluginIDs(ctx, h.db, agent)
+		if err != nil {
+			return pluginListData{}, err
+		}
+		for _, pid := range effective {
+			if pluginSet[pid] {
+				data.enabled[pid] = append(data.enabled[pid], agent.ID)
+			}
+		}
 	}
 	return data, nil
 }
@@ -98,10 +114,10 @@ func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, p
 		newPluginConnCache(h, orgID))
 }
 
-func (h *PluginHandler) assemblePluginResponse(ctx context.Context, orgID uuid.UUID, plugin model.Plugin, skills []model.Skill, reqs []model.PluginIntegration, installCount int64, enabled []model.AgentPluginInstall, cache *pluginConnCache) (pluginResponse, error) {
+func (h *PluginHandler) assemblePluginResponse(ctx context.Context, orgID uuid.UUID, plugin model.Plugin, skills []model.Skill, reqs []model.PluginIntegration, installCount int64, enabled []uuid.UUID, cache *pluginConnCache) (pluginResponse, error) {
 	enabledIDs := make([]string, 0, len(enabled))
-	for _, row := range enabled {
-		enabledIDs = append(enabledIDs, row.AgentID.String())
+	for _, agentID := range enabled {
+		enabledIDs = append(enabledIDs, agentID.String())
 	}
 	missing, err := cache.computeMissing(ctx, reqs)
 	if err != nil {

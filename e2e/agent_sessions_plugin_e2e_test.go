@@ -103,7 +103,7 @@ func agentSessionsSeedPluginFixture(t *testing.T, orgIDRaw, userIDRaw, runID str
 		t.Fatalf("create plugin skill fixture: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ? AND plugin_id = ?", orgID, pluginID).Delete(&model.OrgPluginInstall{})
 		db.Where("plugin_id = ?", pluginID).Delete(&model.Skill{})
 		db.Where("plugin_id = ?", pluginID).Delete(&model.PluginIntegration{})

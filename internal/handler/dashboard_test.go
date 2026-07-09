@@ -157,7 +157,7 @@ func seedDashboardConnection(t *testing.T, db *gorm.DB, orgID, userID uuid.UUID,
 
 func seedDashboardSchedule(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	t.Helper()
-	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Model: "gpt-5.4", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, TeamID: firstTeamID(t, db, orgID), Model: "gpt-5.4", Status: "active"}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

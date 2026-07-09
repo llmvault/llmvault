@@ -202,7 +202,7 @@ func TestRelationAndAttachmentValidation(t *testing.T) {
 	}
 
 	// A foreign org's agent — its drive keys must stay unreachable from f.org.
-	foreignAgent := model.Agent{ID: uuid.New(), OrgID: &f.otherOrg.ID, Name: "Foreign Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	foreignAgent := model.Agent{ID: uuid.New(), OrgID: &f.otherOrg.ID, TeamID: f.otherTeam.ID, Name: "Foreign Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	if err := db.Create(&foreignAgent).Error; err != nil {
 		t.Fatalf("seed foreign agent: %v", err)
 	}

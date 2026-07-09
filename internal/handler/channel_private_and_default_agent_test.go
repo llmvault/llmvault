@@ -112,15 +112,15 @@ func TestResolveDefaultAgentID_SameTeam(t *testing.T) {
 	if err := h.db.Create(&teamY).Error; err != nil {
 		t.Fatalf("create teamY: %v", err)
 	}
-	mkAgent := func(team *uuid.UUID) model.Agent {
+	mkAgent := func(team uuid.UUID) model.Agent {
 		a := model.Agent{OrgID: &fx.org.ID, Name: "a-" + uuid.NewString()[:8], Model: "test", Status: "active", TeamID: team}
 		if err := h.db.Create(&a).Error; err != nil {
 			t.Fatalf("create agent: %v", err)
 		}
 		return a
 	}
-	agentX := mkAgent(&teamX.ID)
-	agentY := mkAgent(&teamY.ID)
+	agentX := mkAgent(teamX.ID)
+	agentY := mkAgent(teamY.ID)
 
 	// teamX channel with a teamY default agent -> rejected.
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{

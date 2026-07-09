@@ -45,12 +45,15 @@ func TestAuthorizationContract_AgentCRUD(t *testing.T) {
 		{"m1-own-team", w.callerM1(), map[string]any{"name": "m1a", "team_id": w.t1.ID.String()}},
 		{"admin-t1", w.callerA(), map[string]any{"name": "a1", "team_id": w.t1.ID.String()}},
 		{"owner-t2", w.callerO(), map[string]any{"name": "a2", "team_id": w.t2.ID.String()}},
-		{"admin-no-team", w.callerA(), map[string]any{"name": "a3"}},
 	}
 	for _, tc := range allowCreate {
 		if rr := authzReq(router, w, tc.cl, http.MethodPost, "/v1/agents", tc.body); rr.Code != http.StatusCreated {
 			t.Fatalf("agent.create %s: got %d want 201; body=%s", tc.name, rr.Code, rr.Body.String())
 		}
+	}
+	// Agents always belong to a team: even a manager cannot create one without.
+	if rr := authzReq(router, w, w.callerA(), http.MethodPost, "/v1/agents", map[string]any{"name": "a3"}); rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("agent.create admin-no-team: got %d want 422; body=%s", rr.Code, rr.Body.String())
 	}
 
 	// --- Update -------------------------------------------------------------
@@ -95,32 +98,3 @@ func TestAuthorizationContract_AgentCRUD(t *testing.T) {
 	}
 }
 
-// TestAuthorizationContract_AgentPluginBounding covers matrix area 3: enabling a
-// plugin on an agent is a member-reachable route whose HANDLER enforces (a) the
-// actor manages the agent's team, and (b) the plugin is within the agent's
-// team's grant. M1 (T1 member) may enable a T1-granted plugin on a T1 agent
-// (200); enabling a plugin NOT granted to T1 is bounded to 422; M2 (foreign
-// team) is denied managing the T1 agent's plugins (403).
-func TestAuthorizationContract_AgentPluginBounding(t *testing.T) {
-	db := connectTestDB(t)
-	w := seedAuthzWorld(t, db)
-	router := buildAuthzRouter(db)
-
-	granted := "/v1/agents/" + w.agentT1.ID.String() + "/plugins/" + w.pluginGranted.Slug
-	ungranted := "/v1/agents/" + w.agentT1.ID.String() + "/plugins/" + w.pluginUngranted.Slug
-
-	// M2 may not manage a T1 agent's plugins. The agent is not even visible to a
-	// foreign-team member, so the route resolves it to 404 (indistinguishable from
-	// nonexistent) — a tighter denial than a bare 403.
-	if rr := authzReq(router, w, w.callerM2(), http.MethodPost, granted, nil); rr.Code != http.StatusNotFound {
-		t.Fatalf("m2 enable-on-t1-agent: got %d want 404 (agent not visible); body=%s", rr.Code, rr.Body.String())
-	}
-	// M1 may enable a plugin granted to the agent's team.
-	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, granted, nil); rr.Code != http.StatusOK {
-		t.Fatalf("m1 enable granted plugin: got %d want 200; body=%s", rr.Code, rr.Body.String())
-	}
-	// A plugin NOT granted to the agent's team is bounded to 422.
-	if rr := authzReq(router, w, w.callerM1(), http.MethodPost, ungranted, nil); rr.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("m1 enable ungranted plugin: got %d want 422; body=%s", rr.Code, rr.Body.String())
-	}
-}

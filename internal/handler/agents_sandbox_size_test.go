@@ -143,6 +143,7 @@ func createSandboxConfigTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, im
 	agent := model.Agent{
 		ID:              uuid.New(),
 		OrgID:           &orgID,
+		TeamID:          firstTeamID(t, db, orgID),
 		Name:            "sandbox-config-" + randSuffix(),
 		SandboxImage:    image,
 		SandboxSize:     size,

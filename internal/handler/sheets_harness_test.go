@@ -65,8 +65,8 @@ func newSheetsHarness(t *testing.T) *sheetsHarness {
 	// Default agents for the channels are created without their own cleanup so
 	// the org cascade removes them together with the channels that reference
 	// them (fk_channels_default_agent is RESTRICT).
-	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
-	otherAgent := model.Agent{ID: uuid.New(), OrgID: &h.other.ID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	otherAgent := model.Agent{ID: uuid.New(), OrgID: &h.other.ID, TeamID: firstTeamID(t, db, h.other.ID), Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	h.otherChannel = model.Channel{ID: uuid.New(), OrgID: h.other.ID, Name: "sheets-ch-" + uuid.NewString(), DefaultAgentID: otherAgent.ID}
 	for _, seed := range []any{&agent, &otherAgent, &h.channel, &h.otherChannel} {
@@ -184,7 +184,7 @@ func (h *sheetsHarness) do(t *testing.T, org *model.Org, method, path string, bo
 // Rows are cascade-deleted with the org (createTestOrg cleanup).
 func (h *sheetsHarness) createAgent(t *testing.T, orgID uuid.UUID) model.Agent {
 	t.Helper()
-	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, TeamID: firstTeamID(t, h.db, orgID), Name: "Sheets Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	if err := h.db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

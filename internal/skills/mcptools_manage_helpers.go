@@ -264,19 +264,11 @@ func normalizeStringList(values []string) []string {
 	return out
 }
 
-func refreshSkillInstallCount(ctx context.Context, db *gorm.DB, pluginID uuid.UUID) {
-	_ = db.WithContext(ctx).Model(&model.Skill{}).
-		Where("plugin_id = ?", pluginID).
-		UpdateColumn("install_count", gorm.Expr(
-			"(SELECT COUNT(*) FROM agent_plugin_installs WHERE plugin_id = ?)", pluginID,
-		)).Error
-}
-
 func environmentSettingsURL(frontendURL string) string {
 	base := strings.TrimRight(strings.TrimSpace(frontendURL), "/")
 	return base + "/w/settings/environments"
 }
 
 func skillPublishHint(pluginSlug string) string {
-	return "Published. Agents with the \"" + pluginSlug + "\" plugin attached see it in skills_list immediately (their static prompt hint refreshes next session). Attach the plugin to more agents via get_agent + update_agent (plugin_slugs replaces the set)."
+	return "Published. Agents on a team that has the \"" + pluginSlug + "\" plugin enabled see it in skills_list immediately (their static prompt hint refreshes next session). Plugins are team-managed: grant the plugin to a team in team settings to reach more agents."
 }

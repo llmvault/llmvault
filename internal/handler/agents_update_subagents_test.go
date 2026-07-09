@@ -31,7 +31,7 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	create := postCreateAgent(t, h, &org, `{
+	create := postCreateAgent(t, db, h, &org, `{
 		"name": "Editable",
 		"mcp_tool_filter": { "deny": ["generate_image"] },
 		"sub_agents": [{ "name": "Old", "tools": { "read_file": true } }]

@@ -15,8 +15,8 @@ import (
 func TestScheduleDeliverRejectsUnassignedChannel(t *testing.T) {
 	db := connectTestDB(t)
 	fx := seedScheduleRunFixture(t, db)
-	// Scope the schedule's channel to a team the (team-less) fixture agent does
-	// not belong to, so the agent may no longer act in it.
+	// Scope the schedule's channel to a team the fixture agent does not belong
+	// to, so the agent may no longer act in it.
 	team := model.Team{OrgID: fx.org.ID, Name: "t-" + uuid.NewString()[:8]}
 	if err := db.Create(&team).Error; err != nil {
 		t.Fatalf("create team: %v", err)

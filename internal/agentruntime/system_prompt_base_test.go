@@ -73,9 +73,11 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := seedCompileTeam(t, db, orgID)
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        team.ID,
 		Name:          "Runtime Agent",
 		Status:        "active",
 		Tools:         model.JSON{},
@@ -135,9 +137,11 @@ func TestRenderEnvironmentContextUsesAgentSandboxSize(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := seedCompileTeam(t, db, orgID)
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        team.ID,
 		Name:          "Runtime Agent",
 		SandboxSize:   "xlarge",
 		Status:        "active",

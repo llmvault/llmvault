@@ -100,6 +100,7 @@ func buildModelUsagePayload(input modelUsageInput) tasks.ModelUsageWritePayload 
 	if input.Session == nil {
 		return payload
 	}
+	payload.Generation.SessionID = &input.Session.ID
 
 	eventPayload := model.JSON{
 		"session_id":    input.Session.ID.String(),

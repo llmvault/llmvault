@@ -84,7 +84,7 @@ func newAssetsListHarness(t *testing.T) *assetsListHarness {
 	}
 	mkAgent := func(orgID uuid.UUID, name string) uuid.UUID {
 		id := uuid.New()
-		if err := db.Create(&model.Agent{ID: id, OrgID: &orgID, Name: name, Status: "active"}).Error; err != nil {
+		if err := db.Create(&model.Agent{ID: id, OrgID: &orgID, TeamID: firstTeamID(t, db, orgID), Name: name, Status: "active"}).Error; err != nil {
 			t.Fatalf("create agent: %v", err)
 		}
 		return id

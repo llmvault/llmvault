@@ -67,15 +67,3 @@ type OrgPluginInstall struct {
 }
 
 func (OrgPluginInstall) TableName() string { return "org_plugin_installs" }
-
-type AgentPluginInstall struct {
-	OrgID     uuid.UUID `gorm:"type:uuid;not null;index"`
-	Org       Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	AgentID   uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Agent     Agent     `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
-	PluginID  uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Plugin    Plugin    `gorm:"foreignKey:PluginID;constraint:OnDelete:CASCADE"`
-	CreatedAt time.Time
-}
-
-func (AgentPluginInstall) TableName() string { return "agent_plugin_installs" }

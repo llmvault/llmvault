@@ -161,7 +161,7 @@ func newAppsRESTHarness(t *testing.T) *appsRESTHarness {
 	if err := db.Create(&membership).Error; err != nil {
 		t.Fatalf("create membership: %v", err)
 	}
-	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Apps Rest Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Apps Rest Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-rest-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
 	h.otherChan = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "apps-rest-other-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel, &h.otherChan} {

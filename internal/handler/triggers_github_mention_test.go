@@ -59,9 +59,7 @@ func seedGitHubPluginForAgent(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUI
 	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: plugin.ID}).Error; err != nil {
 		t.Fatalf("create org plugin install: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: plugin.ID}).Error; err != nil {
-		t.Fatalf("create agent plugin install: %v", err)
-	}
+	grantPluginToAgentTeam(t, db, orgID, agentID, plugin.ID)
 }
 
 // The split issue/PR mention keys resolve to their own templates, so install

@@ -46,8 +46,10 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	// model catalog so the documented model-change payload can execute.
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	skillSlug := "github-triage-" + uuid.NewString()[:8]
 	plugin := seedInstalledPlugin(t, db, org.ID, "github", skillSlug)
+	grantTeamPlugin(t, db, org.ID, team.ID, plugin.ID)
 	deps := Deps{DB: db, DefaultModel: "deepseek-v4-flash", Models: []string{"deepseek-v4-flash", "test-model-alt"}}
 	token := &model.Token{OrgID: org.ID}
 	const frontend = "https://app.test"
@@ -78,7 +80,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	if err := json.Unmarshal([]byte(replace(abPayloadCreate)), &cArgs); err != nil {
 		t.Fatalf("create payload: %v", err)
 	}
-	createRes, _ := handleCreateAgent(ctx, deps, token, frontend, cArgs)
+	createRes, _ := handleCreateAgent(ctx, deps, token, team.ID, frontend, cArgs)
 	created := builderResultJSON(t, createRes)
 	agentObj := created["agent"].(map[string]any)
 	agentID := agentObj["id"].(string)
@@ -201,23 +203,15 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	}
 
 	// 9. The errors documented in the skill's recovery table, verbatim fragments.
-	notInstalled := model.Plugin{ID: uuid.New(), Slug: "vercel-" + uuid.NewString()[:8], Name: "Vercel Test", Status: model.PluginStatusActive, Manifest: model.RawJSON(`{}`)}
-	if err := db.Create(&notInstalled).Error; err != nil {
-		t.Fatalf("create uninstalled plugin: %v", err)
-	}
-	t.Cleanup(func() { db.Where("id = ?", notInstalled.ID).Delete(&model.Plugin{}) })
-
 	createErr := func(args createAgentArgs, wants ...string) {
 		t.Helper()
-		res, _ := handleCreateAgent(ctx, deps, token, frontend, args)
+		res, _ := handleCreateAgent(ctx, deps, token, team.ID, frontend, args)
 		assertBuilderToolError(t, res, wants...)
 	}
 	createErr(createAgentArgs{}, "name is required")
 	createErr(createAgentArgs{Name: "Bad Tool Agent", Tools: []string{"browser"}}, "unknown tool", "allowed tools are:")
 	createErr(createAgentArgs{Name: "Bad Model Agent", Model: "gpt-99"}, "unknown model", "allowed models are:")
 	createErr(createAgentArgs{Name: "Bad Skill Agent", Skills: []string{"nope-skill"}}, "unknown skill")
-	createErr(createAgentArgs{Name: "Bad Plugin Agent", PluginSlugs: []string{"nope-plugin"}}, "unknown plugin")
-	createErr(createAgentArgs{Name: "Uninstalled Plugin Agent", PluginSlugs: []string{notInstalled.Slug}}, "is not installed for this org")
 	createErr(createAgentArgs{Name: "Sub Missing", SubAgents: []subAgentToolArgs{{Name: " "}}}, "sub-agent name is required")
 	createErr(createAgentArgs{Name: "Sub Dup", SubAgents: []subAgentToolArgs{{Name: "Twin"}, {Name: "Twin"}}}, "duplicate sub-agent name")
 
@@ -230,7 +224,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	badStatus, _ := handleUpdateAgent(ctx, deps, token, frontend, updateAgentArgs{AgentID: agentID, Status: strPtr("paused")})
 	assertBuilderToolError(t, badStatus, "status must be active or archived")
 
-	defaultAgent, err := CreateAgent(ctx, deps, org.ID, CreateInput{Name: "Default Assistant " + uuid.NewString()[:8]})
+	defaultAgent, err := CreateAgent(ctx, deps, org.ID, CreateInput{Name: "Default Assistant " + uuid.NewString()[:8], TeamID: team.ID})
 	if err != nil {
 		t.Fatalf("create default agent: %v", err)
 	}

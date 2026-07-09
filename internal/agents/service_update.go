@@ -115,14 +115,10 @@ func UpdateAgent(ctx context.Context, deps Deps, orgID, agentID uuid.UUID, in Up
 			}
 			for i := range subRows {
 				subRows[i].ParentAgentID = &agent.ID
+				subRows[i].TeamID = agent.TeamID
 				if err := tx.Create(&subRows[i]).Error; err != nil {
 					return err
 				}
-			}
-		}
-		if in.SetPlugins {
-			if err := replacePlugins(ctx, tx, orgID, agent.ID, in.PluginIDs); err != nil {
-				return err
 			}
 		}
 		return nil

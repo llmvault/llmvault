@@ -31,7 +31,7 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	org := createTestOrg(t, db)
 	seedDefaultModelCredential(t, db)
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
 	})

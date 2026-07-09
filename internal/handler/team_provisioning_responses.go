@@ -107,6 +107,8 @@ func (h *TeamProvisioningHandler) writeProvisionError(w http.ResponseWriter, err
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is not installed for this org"})
 	case errors.Is(err, teamprovision.ErrPluginAlwaysEnabled):
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is always enabled and cannot be toggled per team"})
+	case errors.Is(err, teamprovision.ErrPluginRequiredByAgents):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin is required by an active team agent and cannot be disabled"})
 	default:
 		return false
 	}

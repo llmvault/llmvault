@@ -150,10 +150,8 @@ func toAgentResponse(a model.Agent) agentResponse {
 		s := a.SandboxTemplateID.String()
 		resp.SandboxTemplateID = &s
 	}
-	if a.TeamID != nil {
-		s := a.TeamID.String()
-		resp.TeamID = &s
-	}
+	teamID := a.TeamID.String()
+	resp.TeamID = &teamID
 	if a.AgentCatalog != nil {
 		resp.Catalog = toAgentCatalogSummary(*a.AgentCatalog)
 	}

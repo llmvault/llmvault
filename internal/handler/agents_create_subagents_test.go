@@ -30,7 +30,7 @@ func TestCreateAgent_WithSubAgentsPersistsRowsAndResponse(t *testing.T) {
 			{"name": "Writer", "instructions": "Draft output.", "tools": {"write_file": true}}
 		]
 	}`
-	rr := postCreateAgent(t, h, &org, body)
+	rr := postCreateAgent(t, db, h, &org, body)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}
@@ -79,7 +79,7 @@ func TestCreateAgent_EnablesSubagentTaskWhenSubAgentsPresent(t *testing.T) {
 	h := newAgentHandlerForTest(db)
 
 	body := `{"name":"Restricted Parent","tools":{"read_file":true},"sub_agents":[{"name":"Helper"}]}`
-	rr := postCreateAgent(t, h, &org, body)
+	rr := postCreateAgent(t, db, h, &org, body)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}
@@ -97,7 +97,7 @@ func TestCreateAgent_RejectsDuplicateSubAgentNames(t *testing.T) {
 	h := newAgentHandlerForTest(db)
 
 	body := `{"name":"Dup Parent","sub_agents":[{"name":"Twin"},{"name":"Twin"}]}`
-	rr := postCreateAgent(t, h, &org, body)
+	rr := postCreateAgent(t, db, h, &org, body)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", rr.Code, rr.Body.String())
 	}
@@ -110,7 +110,7 @@ func TestCreateAgent_RejectsBlankSubAgentName(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	rr := postCreateAgent(t, h, &org, `{"name":"Blank Sub Parent","sub_agents":[{"name":"   "}]}`)
+	rr := postCreateAgent(t, db, h, &org, `{"name":"Blank Sub Parent","sub_agents":[{"name":"   "}]}`)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", rr.Code, rr.Body.String())
 	}
@@ -124,7 +124,7 @@ func TestCreateAgent_RejectsUnknownSubAgentModel(t *testing.T) {
 	h := newAgentHandlerForTest(db)
 
 	body := `{"name":"Bad Model Parent","sub_agents":[{"name":"Worker","model":"totally-made-up-model"}]}`
-	rr := postCreateAgent(t, h, &org, body)
+	rr := postCreateAgent(t, db, h, &org, body)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", rr.Code, rr.Body.String())
 	}
@@ -139,7 +139,7 @@ func TestCreateAgent_SubAgentsExcludedFromListAndReturnedByGet(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	create := postCreateAgent(t, h, &org, `{"name":"Team Lead","sub_agents":[{"name":"Aide"}]}`)
+	create := postCreateAgent(t, db, h, &org, `{"name":"Team Lead","sub_agents":[{"name":"Aide"}]}`)
 	if create.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, body = %s", create.Code, create.Body.String())
 	}
@@ -207,7 +207,7 @@ func TestCreateAgent_PersistsMcpToolFilter(t *testing.T) {
 			{ "name": "Imager", "mcp_tool_filter": { "allow": ["generate_image"] } }
 		]
 	}`
-	rr := postCreateAgent(t, h, &org, body)
+	rr := postCreateAgent(t, db, h, &org, body)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}

@@ -41,7 +41,7 @@ func seedScheduleChannelFixture(t *testing.T, db *gorm.DB) scheduleChannelFixtur
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "schedule-channel-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: &team.ID, Name: "Schedule Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Schedule Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "work-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	target := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ops-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	teamHome := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: &team.ID, Name: "general", Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, IsDefault: true}
@@ -104,25 +104,6 @@ func TestCreateFromSessionDefaultsToTeamGeneral(t *testing.T) {
 	}
 	if systemCount != 0 {
 		t.Fatalf("created %d system channels", systemCount)
-	}
-}
-
-func TestCreateFromSessionTeamlessAgentRequiresExplicitChannel(t *testing.T) {
-	db := connectScheduleTestDB(t)
-	fx := seedScheduleChannelFixture(t, db)
-	// Strip the agent's team: a legacy org-level agent has no team #general.
-	if err := db.Model(&model.Agent{}).Where("id = ?", fx.agent.ID).Update("team_id", nil).Error; err != nil {
-		t.Fatalf("clear agent team: %v", err)
-	}
-	fx.agent.TeamID = nil
-	interval := int64(60)
-	_, err := CreateFromSession(t.Context(), db, &fx.agent, fx.session.ID.String(), CreateInput{
-		JobID:           "job-" + uuid.NewString(),
-		TaskPrompt:      "summarize weekly activity",
-		IntervalSeconds: &interval,
-	})
-	if err == nil || !strings.Contains(err.Error(), "agent has no team") {
-		t.Fatalf("teamless default channel error = %v, want agent has no team", err)
 	}
 }
 

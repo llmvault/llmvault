@@ -94,9 +94,9 @@ func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
 	org := model.Org{ID: uuid.New(), Name: "mng-" + uuid.NewString()[:8], Active: true, RateLimit: 1000}
 	owner := model.User{ID: uuid.New(), Email: "o-" + uuid.NewString()[:8] + "@t.com", Name: "owner"}
 	member := model.User{ID: uuid.New(), Email: "m-" + uuid.NewString()[:8] + "@t.com", Name: "member"}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "A-" + uuid.NewString()[:8], Model: "test", Status: "active"}
 	teamIn := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "in-" + uuid.NewString()[:8]}
 	teamOut := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "out-" + uuid.NewString()[:8]}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: teamIn.ID, Name: "A-" + uuid.NewString()[:8], Model: "test", Status: "active"}
 
 	ch := func(name, kind, origin string, team *uuid.UUID) model.Channel {
 		return model.Channel{ID: uuid.New(), OrgID: org.ID, Name: name + "-" + uuid.NewString()[:8], Kind: kind, Origin: origin, TeamID: team, DefaultAgentID: agent.ID}
@@ -108,10 +108,10 @@ func seedManageFixture(t *testing.T, db *gorm.DB) manageFixture {
 	chSys := ch("sys", "system", "native", nil)
 
 	rows := []any{
-		&org, &owner, &member, &agent,
+		&org, &owner, &member,
 		&model.OrgMembership{UserID: owner.ID, OrgID: org.ID, Role: "owner"},
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
-		&teamIn, &teamOut,
+		&teamIn, &teamOut, &agent,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamIn.ID, UserID: member.ID, Role: "member"},
 		&chTeam, &chOther, &chNull, &chExt, &chSys,
 	}

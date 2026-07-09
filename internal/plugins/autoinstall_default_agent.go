@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // PluginDefaultAgentInstall reports whether the plugin should be installed only
@@ -16,7 +17,7 @@ import (
 // auto_install. Such plugins still appear in the catalog for opt-in install on
 // other agents.
 func PluginDefaultAgentInstall(plugin model.Plugin) bool {
-	return manifestBool(plugin.Manifest, "default_agent_install")
+	return pluginresolve.PluginDefaultAgentInstall(plugin)
 }
 
 func defaultAgentInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugin, error) {
@@ -36,11 +37,11 @@ func defaultAgentInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugi
 	return out, nil
 }
 
-// EnsureDefaultAgentPluginsForAgent attaches every active "default_agent_install"
-// plugin to the org and the given agent. Call this only for an org's default
-// (Hivy) agent, at provisioning time.
-func EnsureDefaultAgentPluginsForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID) error {
-	if orgID == uuid.Nil || agentID == uuid.Nil {
+// EnsureDefaultAgentPluginsForOrg installs every active "default_agent_install"
+// plugin at the org level and refreshes skill install counts. The org's default
+// (Hivy) agent resolves these plugins from the org install; other agents do not.
+func EnsureDefaultAgentPluginsForOrg(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) error {
+	if orgID == uuid.Nil {
 		return nil
 	}
 	plugins, err := defaultAgentInstallPlugins(ctx, tx)
@@ -51,10 +52,7 @@ func EnsureDefaultAgentPluginsForAgent(ctx context.Context, tx *gorm.DB, orgID, 
 		if err := ensureOrgPluginInstall(ctx, tx, orgID, plugin.ID); err != nil {
 			return err
 		}
-		if err := ensureAgentPluginInstall(ctx, tx, orgID, agentID, plugin.ID); err != nil {
-			return err
-		}
-		if err := refreshPluginSkillInstallCounts(ctx, tx, plugin.ID); err != nil {
+		if err := RefreshPluginSkillInstallCounts(ctx, tx, plugin.ID); err != nil {
 			return err
 		}
 	}
@@ -62,8 +60,8 @@ func EnsureDefaultAgentPluginsForAgent(ctx context.Context, tx *gorm.DB, orgID, 
 }
 
 // ReconcileDefaultAgentInstalled backfills active "default_agent_install" plugins
-// into every org (that has a default agent) and each org's default agent
-// (agents.is_default = true). It never touches non-default agents.
+// into the install set of every org that has a default agent, and refreshes skill
+// install counts. The default agent resolves these plugins from the org install.
 func ReconcileDefaultAgentInstalled(ctx context.Context, tx *gorm.DB) error {
 	plugins, err := defaultAgentInstallPlugins(ctx, tx)
 	if err != nil {
@@ -91,19 +89,7 @@ func ReconcileDefaultAgentInstalled(ctx context.Context, tx *gorm.DB) error {
 		`, plugin.ID, "archived", plugin.ID).Error; err != nil {
 			return fmt.Errorf("backfill org default-agent plugin %q: %w", plugin.Slug, err)
 		}
-		if err := tx.WithContext(ctx).Exec(`
-			INSERT INTO agent_plugin_installs (org_id, agent_id, plugin_id, created_at)
-			SELECT agents.org_id, agents.id, ?, NOW()
-			FROM agents
-			WHERE agents.org_id IS NOT NULL
-				AND agents.is_default = true
-				AND agents.status <> ?
-			FOR KEY SHARE OF agents
-			ON CONFLICT DO NOTHING
-		`, plugin.ID, "archived").Error; err != nil {
-			return fmt.Errorf("backfill default-agent plugin %q: %w", plugin.Slug, err)
-		}
-		if err := refreshPluginSkillInstallCounts(ctx, tx, plugin.ID); err != nil {
+		if err := RefreshPluginSkillInstallCounts(ctx, tx, plugin.ID); err != nil {
 			return err
 		}
 	}
@@ -124,20 +110,9 @@ func ensureOrgPluginInstall(ctx context.Context, tx *gorm.DB, orgID, pluginID uu
 	return nil
 }
 
-func ensureAgentPluginInstall(ctx context.Context, tx *gorm.DB, orgID, agentID, pluginID uuid.UUID) error {
-	install := model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}
-	if err := tx.WithContext(ctx).
-		Clauses(clause.OnConflict{DoNothing: true}).
-		Create(&install).Error; err != nil {
-		return fmt.Errorf("ensure agent plugin install: %w", err)
-	}
-	return nil
-}
-
-func refreshPluginSkillInstallCounts(ctx context.Context, tx *gorm.DB, pluginID uuid.UUID) error {
-	return tx.WithContext(ctx).Model(&model.Skill{}).
-		Where("plugin_id = ?", pluginID).
-		UpdateColumn("install_count", gorm.Expr(
-			"(SELECT COUNT(*) FROM agent_plugin_installs WHERE plugin_id = ?)", pluginID,
-		)).Error
+// RefreshPluginSkillInstallCounts sets each of the plugin's skills' install_count
+// to the number of non-archived agents whose effective plugin set contains the
+// plugin.
+func RefreshPluginSkillInstallCounts(ctx context.Context, tx *gorm.DB, pluginID uuid.UUID) error {
+	return pluginresolve.RefreshPluginSkillInstallCounts(ctx, tx, pluginID)
 }

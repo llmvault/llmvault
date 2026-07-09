@@ -87,7 +87,7 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 	}
 
 	// Extra positive-control channels the member CAN use (external / null team).
-	agentShared := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "shared-" + uuid.NewString()[:8], Model: "test", Status: "active"}
+	agentShared := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: fx.visibleAgent.TeamID, Name: "shared-" + uuid.NewString()[:8], Model: "test", Status: "active"}
 	chanNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "null-" + uuid.NewString()[:8], Kind: "standard", DefaultAgentID: agentShared.ID}
 	chanExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ext-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", DefaultAgentID: agentShared.ID}
 	chanSys := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "sys-" + uuid.NewString()[:8], Kind: "system", DefaultAgentID: agentShared.ID}
@@ -132,8 +132,6 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 		&triggerA, &triggerB, &schedA, &schedB, &deliveryB,
 		&plugin, &catalog,
 		&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: plugin.ID},
-		&model.AgentPluginInstall{OrgID: org.ID, AgentID: fx.visibleAgent.ID, PluginID: plugin.ID},
-		&model.AgentPluginInstall{OrgID: org.ID, AgentID: fx.hiddenAgent.ID, PluginID: plugin.ID},
 		&srcA, &srcB,
 	}
 	for _, r := range rows {
@@ -141,6 +139,10 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 			t.Fatalf("seed contract row %T: %v", r, err)
 		}
 	}
+	// enabled_agent_ids is team-derived: grant the plugin to both agents' teams so
+	// each agent resolves it, mirroring the removed per-agent installs' intent.
+	grantPluginToTeam(t, db, org.ID, fx.visibleAgent.TeamID, plugin.ID)
+	grantPluginToTeam(t, db, org.ID, fx.hiddenAgent.TeamID, plugin.ID)
 	// Knowledge grants are team-derived: grant srcA to teamA (visibleCh's team, so
 	// the member sees it) and srcB to teamB (hiddenCh's team, so the member does
 	// not). Mirrors the removed per-channel grants' intent.
@@ -191,7 +193,7 @@ func seedContractWorld(t *testing.T, db *gorm.DB) contractWorld {
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentTriggerDelivery{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentSchedule{})
 		db.Where("org_id = ?", org.ID).Delete(&model.AgentTrigger{})
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
 		db.Where("id = ?", catalog.ID).Delete(&model.AgentCatalog{})

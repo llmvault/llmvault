@@ -20,9 +20,14 @@ func TestCreateAgentSandboxUsesConfiguredSandboxSize(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "sandbox-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        team.ID,
 		Name:          "Runtime Agent",
 		SandboxSize:   "xlarge",
 		Model:         "gpt-5.4",
@@ -40,6 +45,7 @@ func TestCreateAgentSandboxUsesConfiguredSandboxSize(t *testing.T) {
 	t.Cleanup(func() {
 		db.Where("agent_id = ?", agent.ID).Delete(&model.Sandbox{})
 		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 
@@ -98,9 +104,14 @@ func TestCreateAgentSandboxUsesOrgSandboxExposedPorts(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "sandbox-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        team.ID,
 		Name:          "Preview Agent",
 		Model:         "gpt-5.4",
 		Status:        "active",
@@ -117,6 +128,7 @@ func TestCreateAgentSandboxUsesOrgSandboxExposedPorts(t *testing.T) {
 	t.Cleanup(func() {
 		db.Where("agent_id = ?", agent.ID).Delete(&model.Sandbox{})
 		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 
@@ -160,9 +172,14 @@ func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "sandbox-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        team.ID,
 		Name:          "Developer Agent",
 		SandboxImage:  model.SandboxImageDeveloper,
 		SandboxSize:   "large",
@@ -181,6 +198,7 @@ func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
 	t.Cleanup(func() {
 		db.Where("agent_id = ?", agent.ID).Delete(&model.Sandbox{})
 		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 

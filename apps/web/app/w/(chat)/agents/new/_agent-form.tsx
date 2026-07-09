@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { Button, Input, ListBox, Select, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
-import type { ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import {
   AGENT_SANDBOX_IMAGE_OPTIONS,
   AGENT_SANDBOX_SIZE_OPTIONS,
@@ -16,7 +15,6 @@ import {
 import { ModelSelect } from "@/components/model-select"
 import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
-import { PluginsField } from "./_plugins-field"
 import { TeamSelect } from "./_team-select"
 import {
   DEFAULT_AGENT_MODEL,
@@ -29,7 +27,6 @@ import {
 
 const AGENT_TOOL_GROUPS = toolGroupsFor("agent")
 const EMPTY_MODELS: ModelSummary[] = []
-const EMPTY_PLUGINS: ApiPlugin[] = []
 
 // Shared form used by both the create and edit pages so they stay identical.
 // The parent owns the API call (create vs update) via onSave and reflects
@@ -53,9 +50,7 @@ export function AgentFormView({
 }) {
   const router = useRouter()
   const modelsQuery = $api.useQuery("get", "/v1/agents/models")
-  const pluginsQuery = $api.useQuery("get", "/v1/plugins")
   const models = modelsQuery.data ?? EMPTY_MODELS
-  const plugins = pluginsQuery.data ?? EMPTY_PLUGINS
 
   const [form, setForm] = useState<AgentForm>(initialForm)
 
@@ -180,27 +175,8 @@ export function AgentFormView({
       </Section>
 
       <Section
-        title="Plugins"
-        description="Workspace plugins this agent can access."
-      >
-        <PluginsField
-          plugins={plugins}
-          selectedSlugs={form.pluginSlugs}
-          isLoading={pluginsQuery.isLoading}
-          disabled={saving}
-          onPluginToggle={(slug, selected) =>
-            update({
-              pluginSlugs: selected
-                ? [...form.pluginSlugs, slug]
-                : form.pluginSlugs.filter((item) => item !== slug),
-            })
-          }
-        />
-      </Section>
-
-      <Section
         title="Team"
-        description="Optionally scope this agent to a team. Leave unset to keep it workspace-wide."
+        description="The team this agent belongs to. It automatically has all of the team's plugins."
       >
         <TeamSelect
           value={form.teamId}

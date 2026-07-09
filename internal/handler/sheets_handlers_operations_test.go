@@ -18,7 +18,7 @@ import (
 // a 404 on both the sheet and the channel listing, never the data.
 func TestSheetsChannelVisibilityDenied(t *testing.T) {
 	h := newSheetsHarness(t)
-	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Team Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, h.db, h.org.ID), Name: "Team Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	team := model.Team{ID: uuid.New(), OrgID: h.org.ID, Name: "team-" + uuid.NewString()}
 	teamCh := model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "team-ch-" + uuid.NewString(), DefaultAgentID: agent.ID, TeamID: &team.ID}
 	for _, seed := range []any{&agent, &team, &teamCh} {

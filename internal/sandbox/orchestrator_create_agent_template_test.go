@@ -37,9 +37,14 @@ func TestCreateAgentSandboxUsesReadySandboxTemplateExternalID(t *testing.T) {
 	if err := db.Create(&tmpl).Error; err != nil {
 		t.Fatalf("create template: %v", err)
 	}
+	team := model.Team{ID: uuid.New(), OrgID: orgID, Name: "sandbox-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		ID:                uuid.New(),
 		OrgID:             &orgID,
+		TeamID:            team.ID,
 		Name:              "Template Agent",
 		SandboxTemplateID: &tmpl.ID,
 		SandboxSize:       "small",
@@ -59,6 +64,7 @@ func TestCreateAgentSandboxUsesReadySandboxTemplateExternalID(t *testing.T) {
 		db.Where("agent_id = ?", agent.ID).Delete(&model.Sandbox{})
 		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
 		db.Where("id = ?", tmpl.ID).Delete(&model.SandboxTemplate{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 

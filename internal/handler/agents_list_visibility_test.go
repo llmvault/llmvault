@@ -22,7 +22,7 @@ type agentVisFixture struct {
 	member      model.User
 	visibleTeam model.Agent // owned by the member's team; visible
 	otherTeam   model.Agent // owned by another team; hidden
-	teamNull    model.Agent // no team scope; hidden from the member
+	teamNull    model.Agent // owned by a third team the member is not on; hidden
 }
 
 func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
@@ -33,21 +33,22 @@ func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
 
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-b-" + uuid.NewString()[:8]}
+	teamC := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-c-" + uuid.NewString()[:8]}
 
-	mkAgent := func(name string, team *uuid.UUID) model.Agent {
+	mkAgent := func(name string, team uuid.UUID) model.Agent {
 		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: team}
 	}
 	// Agent visibility is team-membership based: a non-manager sees exactly the
 	// agents belonging to teams they are on.
-	visibleTeam := mkAgent("VisibleTeam", &teamA.ID)
-	otherTeam := mkAgent("OtherTeam", &teamB.ID)
-	teamNull := mkAgent("TeamNull", nil)
+	visibleTeam := mkAgent("VisibleTeam", teamA.ID)
+	otherTeam := mkAgent("OtherTeam", teamB.ID)
+	teamNull := mkAgent("ThirdTeam", teamC.ID)
 
 	rows := []any{
 		&org, &admin, &member,
 		&model.OrgMembership{UserID: admin.ID, OrgID: org.ID, Role: "admin"},
 		&model.OrgMembership{UserID: member.ID, OrgID: org.ID, Role: "member"},
-		&teamA, &teamB,
+		&teamA, &teamB, &teamC,
 		&visibleTeam, &otherTeam, &teamNull,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
 	}
@@ -58,8 +59,8 @@ func seedAgentVisFixture(t *testing.T, db *gorm.DB) agentVisFixture {
 	}
 	t.Cleanup(func() {
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
 		db.Where("id IN ?", []uuid.UUID{admin.ID, member.ID}).Delete(&model.User{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})

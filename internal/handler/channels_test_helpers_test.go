@@ -19,12 +19,28 @@ func createChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, us
 
 func createChannelForTestInTeam(t *testing.T, h *channelHarness, fx channelFixture, user model.User, name, visibility string, teamID uuid.UUID) string {
 	t.Helper()
+	agentID := fx.agent.ID
+	if teamID != fx.agent.TeamID {
+		agent := model.Agent{
+			OrgID:  &fx.org.ID,
+			TeamID: teamID,
+			Name:   "chan-agent-" + uuid.NewString()[:8],
+			Model:  "deepseek-v4-flash",
+			Status: "active",
+			Tools:  model.JSON{}, McpServers: model.RawJSON("[]"), Skills: model.JSON{},
+			RuntimeConfig: model.JSON{}, Permissions: model.JSON{}, Resources: model.JSON{},
+		}
+		if err := h.db.Create(&agent).Error; err != nil {
+			t.Fatalf("create channel agent: %v", err)
+		}
+		agentID = agent.ID
+	}
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, user, map[string]any{
 		"name":             name,
 		"visibility":       visibility,
 		"category":         "general",
 		"team_id":          teamID.String(),
-		"default_agent_id": fx.agent.ID.String(),
+		"default_agent_id": agentID.String(),
 	})
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create channel %s status=%d body=%s", name, rr.Code, rr.Body.String())
@@ -113,11 +129,27 @@ func seedChannelTeam(t *testing.T, h *channelHarness, fx channelFixture, name st
 
 func createTeamChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, name string, teamID uuid.UUID) string {
 	t.Helper()
+	agentID := fx.agent.ID
+	if teamID != fx.agent.TeamID {
+		agent := model.Agent{
+			OrgID:  &fx.org.ID,
+			TeamID: teamID,
+			Name:   "chan-agent-" + uuid.NewString()[:8],
+			Model:  "deepseek-v4-flash",
+			Status: "active",
+			Tools:  model.JSON{}, McpServers: model.RawJSON("[]"), Skills: model.JSON{},
+			RuntimeConfig: model.JSON{}, Permissions: model.JSON{}, Resources: model.JSON{},
+		}
+		if err := h.db.Create(&agent).Error; err != nil {
+			t.Fatalf("create team channel agent: %v", err)
+		}
+		agentID = agent.ID
+	}
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
 		"name":             name,
 		"team_id":          teamID.String(),
 		"category":         "general",
-		"default_agent_id": fx.agent.ID.String(),
+		"default_agent_id": agentID.String(),
 	})
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create team channel %s status=%d body=%s", name, rr.Code, rr.Body.String())

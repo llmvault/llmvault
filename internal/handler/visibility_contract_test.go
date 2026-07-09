@@ -76,7 +76,6 @@ func buildContractRouter(db *gorm.DB) chi.Router {
 			r.Get("/agents", agentHandler.List)
 			r.Get("/agents/catalog", agentHandler.ListCatalog)
 			r.Get("/agents/{id}", agentHandler.Get)
-			r.Get("/agents/{id}/plugins", pluginHandler.ListAgentPlugins)
 			r.Get("/agents/{id}/trigger-deliveries", deliveryHandler.List)
 			r.Get("/triggers", triggerHandler.List)
 			r.Get("/triggers/{id}", triggerHandler.Get)
@@ -121,7 +120,6 @@ func TestVisibilityContract(t *testing.T) {
 		{"agents.list", "/v1/agents", 200, B.visibleAgent.ID.String(), 200, B.hiddenAgent.ID.String()},
 		{"agents.get.hidden", "/v1/agents/" + B.hiddenAgent.ID.String(), 404, "", 200, w.agentBInstr},
 		{"agents.catalog", "/v1/agents/catalog", 200, w.catalogSlug, 200, B.hiddenAgent.ID.String()},
-		{"agents.plugins.hidden", "/v1/agents/" + B.hiddenAgent.ID.String() + "/plugins", 404, "", 200, w.pluginSlug},
 		{"agents.deliveries.hidden", "/v1/agents/" + B.hiddenAgent.ID.String() + "/trigger-deliveries", 404, "", 200, w.deliveryBMark},
 		{"triggers.list", "/v1/triggers", 200, w.triggerA.String(), 200, w.triggerB.String()},
 		{"triggers.get.hidden", "/v1/triggers/" + w.triggerB.String(), 404, "", 200, w.triggerBInstr},

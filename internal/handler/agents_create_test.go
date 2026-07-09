@@ -43,9 +43,20 @@ func newAgentHandlerForTest(db *gorm.DB) *handler.AgentHandler {
 	return handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 }
 
-func postCreateAgent(t *testing.T, h *handler.AgentHandler, org *model.Org, body string) *httptest.ResponseRecorder {
+func postCreateAgent(t *testing.T, db *gorm.DB, h *handler.AgentHandler, org *model.Org, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, "/v1/agents", strings.NewReader(body))
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("parse create-agent body: %v", err)
+	}
+	if _, ok := payload["team_id"]; !ok {
+		payload["team_id"] = firstTeamID(t, db, org.ID).String()
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal create-agent body: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/agents", strings.NewReader(string(raw)))
 	req = middleware.WithOrg(req, org)
 	rr := httptest.NewRecorder()
 	h.Create(rr, req)
@@ -76,7 +87,7 @@ func TestCreateAgent_MinimalDefaultsFullToolset(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	rr := postCreateAgent(t, h, &org, `{"name":"Minimal Agent"}`)
+	rr := postCreateAgent(t, db, h, &org, `{"name":"Minimal Agent"}`)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}
@@ -115,7 +126,7 @@ func TestCreateAgent_RestrictsToolsToRequested(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	rr := postCreateAgent(t, h, &org, `{"name":"Scoped Agent","tools":{"read_file":true,"grep":true}}`)
+	rr := postCreateAgent(t, db, h, &org, `{"name":"Scoped Agent","tools":{"read_file":true,"grep":true}}`)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}
@@ -141,7 +152,7 @@ func TestCreateAgent_RejectsInvalidToolKey(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	rr := postCreateAgent(t, h, &org, `{"name":"Bad Tool Agent","tools":{"not_a_real_tool":true}}`)
+	rr := postCreateAgent(t, db, h, &org, `{"name":"Bad Tool Agent","tools":{"not_a_real_tool":true}}`)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", rr.Code, rr.Body.String())
 	}
@@ -156,11 +167,11 @@ func TestCreateAgent_DuplicateNameAllowed(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	first := postCreateAgent(t, h, &org, `{"name":"Shared Name"}`)
+	first := postCreateAgent(t, db, h, &org, `{"name":"Shared Name"}`)
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first create status = %d, body = %s", first.Code, first.Body.String())
 	}
-	second := postCreateAgent(t, h, &org, `{"name":"Shared Name"}`)
+	second := postCreateAgent(t, db, h, &org, `{"name":"Shared Name"}`)
 	if second.Code != http.StatusCreated {
 		t.Fatalf("second create status = %d, want 201; body = %s", second.Code, second.Body.String())
 	}

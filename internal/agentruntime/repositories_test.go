@@ -40,7 +40,7 @@ func TestBuildAgentRuntimeConfigUpdateIncludesWorkspaceRepos(t *testing.T) {
 	if err := db.Create(&model.User{ID: userID, Email: "repo-config-" + uuid.NewString()[:8] + "@example.com"}).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	installGitHubPlugin(t, db, *agent.OrgID, agent.ID, "github-app")
+	installGitHubPlugin(t, db, *agent.OrgID, agent.TeamID, "github-app")
 	integrationID := uuid.New()
 	if err := db.Create(&model.Integration{
 		ID:          integrationID,
@@ -102,14 +102,19 @@ func TestBuildAgentRuntimeConfigUpdateIncludesWorkspaceRepos(t *testing.T) {
 	}
 }
 
-func installGitHubPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, agentID uuid.UUID, provider string) {
+// installGitHubPlugin grants the GitHub plugin to a team only (org-install +
+// team_plugins, NO per-agent row). This is the production-incident regression:
+// a team grant alone must resolve the plugin into every team agent's effective
+// set, so repo clone config is emitted.
+func installGitHubPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, teamID uuid.UUID, provider string) {
 	t.Helper()
 	pluginID := uuid.New()
 	if err := db.Create(&model.Plugin{
-		ID:     pluginID,
-		Slug:   "repo-config-" + provider + "-" + uuid.NewString()[:8],
-		Name:   "GitHub",
-		Status: model.PluginStatusActive,
+		ID:       pluginID,
+		Slug:     "repo-config-" + provider + "-" + uuid.NewString()[:8],
+		Name:     "GitHub",
+		Status:   model.PluginStatusActive,
+		Manifest: model.RawJSON(`{}`),
 	}).Error; err != nil {
 		t.Fatalf("create plugin: %v", err)
 	}
@@ -124,7 +129,7 @@ func installGitHubPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, agentID uui
 	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: pluginID}).Error; err != nil {
 		t.Fatalf("create org plugin install: %v", err)
 	}
-	if err := db.Create(&model.AgentPluginInstall{OrgID: orgID, AgentID: agentID, PluginID: pluginID}).Error; err != nil {
-		t.Fatalf("create agent plugin install: %v", err)
+	if err := db.Create(&model.TeamPlugin{OrgID: orgID, TeamID: teamID, PluginID: pluginID}).Error; err != nil {
+		t.Fatalf("grant plugin to team: %v", err)
 	}
 }

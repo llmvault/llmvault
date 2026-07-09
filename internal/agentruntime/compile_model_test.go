@@ -223,9 +223,11 @@ func TestCompile_LoadsCatalogRuntimeToolsByID(t *testing.T) {
 	if err := db.Create(&catalog).Error; err != nil {
 		t.Fatalf("create catalog: %v", err)
 	}
+	team := seedCompileTeam(t, db, org.ID)
 	agent := model.Agent{
 		ID:             uuid.New(),
 		OrgID:          &org.ID,
+		TeamID:         team.ID,
 		AgentCatalogID: &catalog.ID,
 		Name:           "Hakaree",
 		Model:          "deepseek-v4-pro",

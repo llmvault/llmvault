@@ -77,6 +77,7 @@ func createAgentModelUpdateTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID)
 	agent := model.Agent{
 		ID:              uuid.New(),
 		OrgID:           &orgID,
+		TeamID:          firstTeamID(t, db, orgID),
 		Name:            "model-update-" + uuid.NewString()[:8],
 		Description:     ptrString("model update test agent"),
 		SandboxSize:     model.DefaultAgentSandboxSize,

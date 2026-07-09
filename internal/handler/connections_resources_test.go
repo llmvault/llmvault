@@ -47,13 +47,7 @@ func TestConnectionHandler_UpdateResourcesDoesNotQueueAgentClone(t *testing.T) {
 		t.Fatalf("create org plugin install: %v", err)
 	}
 	agent := createResourceTestAgent(t, db, org.ID, "session")
-	if err := db.Create(&model.AgentPluginInstall{
-		OrgID:    org.ID,
-		AgentID:  agent.ID,
-		PluginID: plugin.ID,
-	}).Error; err != nil {
-		t.Fatalf("create agent plugin install: %v", err)
-	}
+	grantPluginToAgentTeam(t, db, org.ID, agent.ID, plugin.ID)
 	conn := model.Connection{
 		ID:                uuid.New(),
 		OrgID:             org.ID,
@@ -66,7 +60,7 @@ func TestConnectionHandler_UpdateResourcesDoesNotQueueAgentClone(t *testing.T) {
 		t.Fatalf("create connection: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.AgentPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Connection{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
@@ -114,6 +108,7 @@ func createResourceTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, strateg
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
 		Name:          "Resource " + strategy + " " + uuid.NewString()[:8],
 		IsManaged:     true,
 		Model:         agentruntime.DefaultAgentModel,

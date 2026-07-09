@@ -17,8 +17,13 @@ func TestWriteModelUsageCreatesGenerationAndSessionEventIdempotently(t *testing.
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{OrgID: org.ID, Name: "model-usage-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
 		OrgID:         &org.ID,
+		TeamID:        team.ID,
 		Name:          "metering-agent-" + uuid.NewString()[:8],
 		Model:         "deepseek-v4-flash",
 		Tools:         model.JSON{},

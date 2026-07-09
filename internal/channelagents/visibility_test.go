@@ -45,7 +45,7 @@ func visibleIDs(t *testing.T, db *gorm.DB, orgID uuid.UUID, userID *uuid.UUID) m
 
 // TestVisibleAgentIDsSubquery verifies the team-primary visibility rule: a
 // non-manager user sees exactly the agents belonging to teams they actively
-// belong to. Team-less agents are never visible; a nil user sees nothing.
+// belong to; a nil user sees nothing.
 func TestVisibleAgentIDsSubquery(t *testing.T) {
 	db := connect(t)
 
@@ -55,16 +55,15 @@ func TestVisibleAgentIDsSubquery(t *testing.T) {
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "b-" + uuid.NewString()[:8]}
 
-	mkAgent := func(name string, team *uuid.UUID) model.Agent {
+	mkAgent := func(name string, team uuid.UUID) model.Agent {
 		return model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: name, Model: "test", Status: "active", TeamID: team}
 	}
-	inTeamA := mkAgent("InTeamA", &teamA.ID)
-	inTeamB := mkAgent("InTeamB", &teamB.ID)
-	teamNull := mkAgent("TeamNull", nil)
+	inTeamA := mkAgent("InTeamA", teamA.ID)
+	inTeamB := mkAgent("InTeamB", teamB.ID)
 
 	rows := []any{
 		&org, &member, &teamA, &teamB,
-		&inTeamA, &inTeamB, &teamNull,
+		&inTeamA, &inTeamB,
 		&model.TeamMember{OrgID: org.ID, TeamID: teamA.ID, UserID: member.ID, Role: "member"},
 	}
 	for _, r := range rows {
@@ -80,16 +79,13 @@ func TestVisibleAgentIDsSubquery(t *testing.T) {
 		db.Delete(&model.Org{}, "id = ?", org.ID)
 	})
 
-	// A member of teamA sees teamA's agent only — not teamB's, not the team-less
-	// agent.
+	// A member of teamA sees teamA's agent only — not teamB's.
 	got := visibleIDs(t, db, org.ID, &member.ID)
 	if !got[inTeamA.ID] {
 		t.Fatalf("member should see teamA agent %s; got %v", inTeamA.ID, got)
 	}
-	for _, hidden := range []model.Agent{inTeamB, teamNull} {
-		if got[hidden.ID] {
-			t.Fatalf("member must NOT see %s (%s); got %v", hidden.Name, hidden.ID, got)
-		}
+	if got[inTeamB.ID] {
+		t.Fatalf("member must NOT see %s (%s); got %v", inTeamB.Name, inTeamB.ID, got)
 	}
 
 	// A nil user (no membership) sees no agents.
@@ -109,15 +105,14 @@ func TestActsInChannel(t *testing.T) {
 	teamA := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "a-" + uuid.NewString()[:8]}
 	teamB := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "b-" + uuid.NewString()[:8]}
 
-	agentA := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "A", Model: "test", Status: "active", TeamID: &teamA.ID}
-	agentB := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "B", Model: "test", Status: "active", TeamID: &teamB.ID}
-	agentNull := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "N", Model: "test", Status: "active"}
+	agentA := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "A", Model: "test", Status: "active", TeamID: teamA.ID}
+	agentB := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "B", Model: "test", Status: "active", TeamID: teamB.ID}
 
 	chTeamA := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "ta-" + uuid.NewString()[:8], Kind: "standard", TeamID: &teamA.ID, DefaultAgentID: agentA.ID}
 	chNull := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "n-" + uuid.NewString()[:8], Kind: "system", DefaultAgentID: agentA.ID}
 	chExt := model.Channel{ID: uuid.New(), OrgID: org.ID, Name: "e-" + uuid.NewString()[:8], Kind: "standard", Origin: "external", DefaultAgentID: agentA.ID}
 
-	for _, r := range []any{&org, &teamA, &teamB, &agentA, &agentB, &agentNull, &chTeamA, &chNull, &chExt} {
+	for _, r := range []any{&org, &teamA, &teamB, &agentA, &agentB, &chTeamA, &chNull, &chExt} {
 		if err := db.Create(r).Error; err != nil {
 			t.Fatalf("seed: %v", err)
 		}
@@ -137,7 +132,6 @@ func TestActsInChannel(t *testing.T) {
 	}{
 		{"same team", chTeamA.ID, agentA.ID, true},
 		{"different team rejected", chTeamA.ID, agentB.ID, false},
-		{"team-less agent rejected in team channel", chTeamA.ID, agentNull.ID, false},
 		{"system channel accepts any org agent", chNull.ID, agentB.ID, true},
 		{"external channel accepts any org agent", chExt.ID, agentB.ID, true},
 	}

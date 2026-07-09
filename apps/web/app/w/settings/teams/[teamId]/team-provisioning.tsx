@@ -160,7 +160,7 @@ function TeamPluginsSection({
     <section className="flex flex-col gap-3">
       <SectionHeader
         title="Plugins"
-        description="Choose which workspace plugins this team can install."
+        description="Plugins enabled here are available to every agent in this team."
       />
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {isLoading ? (

@@ -45,10 +45,13 @@ func EnablePlugin(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uuid
 		EnabledBy: enabledBy,
 	}
 	// DoNothing keeps the original enabled_by/created_at on a repeat enable.
-	return db.WithContext(ctx).Clauses(clause.OnConflict{
+	if err := db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "team_id"}, {Name: "plugin_id"}},
 		DoNothing: true,
-	}).Create(&row).Error
+	}).Create(&row).Error; err != nil {
+		return err
+	}
+	return plugins.RefreshPluginSkillInstallCounts(ctx, db, pluginID)
 }
 
 // DisablePlugin removes pluginID from teamID's plugin allowlist. Idempotent:
@@ -69,9 +72,42 @@ func DisablePlugin(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uui
 	} else if always {
 		return ErrPluginAlwaysEnabled
 	}
-	return db.WithContext(ctx).
+	// A team admin cannot strip a plugin that an active catalog agent on the team
+	// requires — its effective set would lose a plugin its catalog depends on.
+	if required, err := pluginRequiredByTeamAgents(ctx, db, teamID, pluginID); err != nil {
+		return err
+	} else if required {
+		return ErrPluginRequiredByAgents
+	}
+	if err := db.WithContext(ctx).
 		Where("org_id = ? AND team_id = ? AND plugin_id = ?", orgID, teamID, pluginID).
-		Delete(&model.TeamPlugin{}).Error
+		Delete(&model.TeamPlugin{}).Error; err != nil {
+		return err
+	}
+	return plugins.RefreshPluginSkillInstallCounts(ctx, db, pluginID)
+}
+
+// pluginRequiredByTeamAgents reports whether any non-archived agent on the team
+// has the plugin's slug among its catalog's required plugins.
+func pluginRequiredByTeamAgents(ctx context.Context, db *gorm.DB, teamID, pluginID uuid.UUID) (bool, error) {
+	var slug string
+	if err := db.WithContext(ctx).Model(&model.Plugin{}).
+		Where("id = ?", pluginID).
+		Pluck("slug", &slug).Error; err != nil {
+		return false, err
+	}
+	if slug == "" {
+		return false, nil
+	}
+	var count int64
+	if err := db.WithContext(ctx).Model(&model.Agent{}).
+		Joins("JOIN agent_catalog ON agent_catalog.id = agents.agent_catalog_id").
+		Where("agents.team_id = ? AND agents.status <> ?", teamID, "archived").
+		Where("? = ANY(agent_catalog.required_plugins)", slug).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // pluginAlwaysEnabled reports whether pluginID names an auto-install system

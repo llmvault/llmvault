@@ -101,7 +101,7 @@ func newPreviewEnvHarness(t *testing.T, opts previewHarnessOpts) *previewEnvHarn
 		provider: &previewStubProvider{id: opts.providerID, endpoints: map[int]string{}},
 	}
 	h.org = createTestOrg(t, db)
-	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, Name: "Preview Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	h.agent = model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: firstTeamID(t, db, h.org.ID), Name: "Preview Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	h.channel = model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "preview-ch-" + uuid.NewString(), DefaultAgentID: h.agent.ID}
 	for _, seed := range []any{&h.agent, &h.channel} {
 		if err := db.Create(seed).Error; err != nil {
@@ -135,6 +135,7 @@ func newPreviewEnvHarness(t *testing.T, opts previewHarnessOpts) *previewEnvHarn
 		db.Delete(&model.App{}, "org_id = ?", h.org.ID)
 		db.Delete(&model.Sandbox{}, "id = ?", h.sandbox.ID)
 		db.Delete(&model.Sheet{}, "id = ?", h.sheet.ID)
+		db.Delete(&model.Channel{}, "id = ?", h.channel.ID)
 		db.Delete(&model.Agent{}, "id = ?", h.agent.ID)
 	})
 
@@ -174,8 +175,8 @@ func mustEncodePreviewAuthPEM(t *testing.T) string {
 	return pem
 }
 
-// installPreviewAppsPlugin gives the harness agent the apps plugin install
-// the endpoint gates on (global plugin row + per-agent install).
+// installAppsPlugin gives the harness agent the apps plugin the endpoint gates
+// on (global plugin row + org install + team grant).
 func (h *previewEnvHarness) installAppsPlugin(t *testing.T) {
 	t.Helper()
 	var plugin model.Plugin
@@ -192,12 +193,13 @@ func (h *previewEnvHarness) installAppsPlugin(t *testing.T) {
 			t.Fatalf("activate apps plugin: %v", err)
 		}
 	}
-	install := model.AgentPluginInstall{OrgID: h.org.ID, AgentID: h.agent.ID, PluginID: plugin.ID}
-	if err := h.db.Create(&install).Error; err != nil {
-		t.Fatalf("install apps plugin: %v", err)
+	if err := h.db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: h.org.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("install apps plugin for org: %v", err)
 	}
+	grantPluginToAgentTeam(t, h.db, h.org.ID, h.agent.ID, plugin.ID)
 	t.Cleanup(func() {
-		h.db.Where("agent_id = ? AND plugin_id = ?", h.agent.ID, plugin.ID).Delete(&model.AgentPluginInstall{})
+		h.db.Where("org_id = ? AND plugin_id = ?", h.org.ID, plugin.ID).Delete(&model.TeamPlugin{})
+		h.db.Where("org_id = ? AND plugin_id = ?", h.org.ID, plugin.ID).Delete(&model.OrgPluginInstall{})
 	})
 }
 

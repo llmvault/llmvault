@@ -117,6 +117,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 	agent := &model.Agent{
 		ID:     uuid.New(),
 		OrgID:  &org.ID,
+		TeamID: firstTeamID(t, db, org.ID),
 		Name:   "image-agent-" + uuid.NewString()[:8],
 		Status: "active",
 	}

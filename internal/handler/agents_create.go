@@ -34,7 +34,18 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 
 	var out *model.Agent
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		agent, err := createHivyAgentWithDefaultsTx(ctx, tx, orgID, nil)
+		teamID, err := orgOldestTeamIDTx(ctx, tx, orgID)
+		if err != nil {
+			return err
+		}
+		if teamID == uuid.Nil {
+			team, err := provisionFirstTeam(ctx, tx, orgID, uuid.Nil, "")
+			if err != nil {
+				return err
+			}
+			teamID = team.ID
+		}
+		agent, err := ensureTeamHivyTx(ctx, tx, orgID, teamID)
 		if err != nil {
 			return err
 		}
@@ -55,15 +66,46 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 	return out, nil
 }
 
-// createHivyAgentWithDefaultsTx creates the default Hivy agent. teamID is the
-// team the Hivy belongs to (each team gets its own undeletable Hivy clone); it
-// is nil only for the legacy org-level fallback (ensureHivyAgent), which
-// creates a single team-less default agent.
-func createHivyAgentWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID *uuid.UUID) (*model.Agent, error) {
+// orgOldestTeamIDTx returns the org's oldest team, or uuid.Nil when the org has
+// no team yet.
+func orgOldestTeamIDTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (uuid.UUID, error) {
+	var team model.Team
+	err := tx.WithContext(ctx).
+		Where("org_id = ?", orgID).
+		Order("created_at ASC").
+		First(&team).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return uuid.Nil, nil
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("lookup oldest team: %w", err)
+	}
+	return team.ID, nil
+}
+
+// ensureTeamHivyTx returns the team's existing Hivy agent or creates it.
+func ensureTeamHivyTx(ctx context.Context, tx *gorm.DB, orgID, teamID uuid.UUID) (*model.Agent, error) {
+	var existing model.Agent
+	err := tx.WithContext(ctx).
+		Where("org_id = ? AND team_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, teamID, "archived").
+		Order("created_at ASC").
+		First(&existing).Error
+	if err == nil {
+		return &existing, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("lookup team Hivy agent: %w", err)
+	}
+	return createHivyAgentWithDefaultsTx(ctx, tx, orgID, teamID)
+}
+
+// createHivyAgentWithDefaultsTx creates a team's default Hivy agent. teamID is
+// the team the Hivy belongs to (each team gets its own undeletable Hivy clone).
+func createHivyAgentWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID, teamID uuid.UUID) (*model.Agent, error) {
 	return createHivyAgentTx(ctx, tx, orgID, teamID)
 }
 
-func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID *uuid.UUID) (*model.Agent, error) {
+func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID, teamID uuid.UUID) (*model.Agent, error) {
 	catalog, hasCatalog, err := loadDefaultAgentCatalog(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -128,12 +170,13 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, teamID
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return nil, fmt.Errorf("create Hivy agent: %w", err)
 	}
-	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
+	if err := pluginstore.EnsureAutoInstalledForOrg(ctx, tx, orgID); err != nil {
 		return nil, err
 	}
-	// The default Hivy agent also gets plugins flagged "default_agent_install"
-	// (e.g. the agent-builder capability), which are not installed on other agents.
-	if err := pluginstore.EnsureDefaultAgentPluginsForAgent(ctx, tx, orgID, agent.ID); err != nil {
+	// The default Hivy agent also resolves plugins flagged "default_agent_install"
+	// (e.g. the agent-builder capability), which other agents do not. Ensure the
+	// org has them installed so the resolver can surface them.
+	if err := pluginstore.EnsureDefaultAgentPluginsForOrg(ctx, tx, orgID); err != nil {
 		return nil, err
 	}
 

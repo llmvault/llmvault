@@ -37,6 +37,7 @@ func newRawProviderProxyHarness(t *testing.T, provider string, nangoHandler http
 	agent := model.Agent{
 		ID:     uuid.New(),
 		OrgID:  &org.ID,
+		TeamID: firstTeamID(t, db, org.ID),
 		Name:   provider + "-proxy-agent",
 		Status: "active",
 	}

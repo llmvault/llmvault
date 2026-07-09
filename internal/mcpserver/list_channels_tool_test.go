@@ -41,7 +41,7 @@ func seedChannelToolFixture(t *testing.T, db *gorm.DB) channelToolFixture {
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "channel-tool-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: &team.ID, Name: "Channel Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Channel Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	general := model.Channel{
 		ID:             uuid.New(),
 		OrgID:          org.ID,

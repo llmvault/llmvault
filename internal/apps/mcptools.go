@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // Tool names for the agent-facing apps MCP tool group (apps plan §6). The
@@ -45,7 +46,7 @@ const (
 
 // NewToolsFunc returns the apps ToolsFunc. It registers the five app tools on
 // the MCP server ONLY when the calling token is an agent proxy for an active
-// agent that has the `apps` plugin installed (agent_plugin_installs),
+// agent whose team-resolved effective plugin set includes the `apps` plugin,
 // mirroring sheets.NewToolsFunc. Registering nothing when the plugin is
 // absent keeps the tool surface out of un-enrolled agents' prompts entirely.
 func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
@@ -65,7 +66,7 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 			First(&agent).Error; err != nil {
 			return
 		}
-		if !PluginInstalled(ctx, svc.db, token.OrgID, agentID) {
+		if !PluginInstalled(ctx, svc.db, agent) {
 			return
 		}
 		registerAppCreate(server, svc, token, agentID)
@@ -76,18 +77,12 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 	}
 }
 
-// PluginInstalled reports whether the apps plugin is installed for this
-// agent: an agent_plugin_installs row joined to the active plugin with slug
-// "apps", scoped to the caller's org. Exported because the preview-env
-// endpoint gates on the same install (handler.AppPreviewEnv).
-func PluginInstalled(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) bool {
-	var count int64
-	err := db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
-		Joins("JOIN plugins ON plugins.id = agent_plugin_installs.plugin_id").
-		Where("agent_plugin_installs.agent_id = ? AND agent_plugin_installs.org_id = ? AND plugins.slug = ? AND plugins.status = ?",
-			agentID, orgID, AppsPluginSlug, model.PluginStatusActive).
-		Count(&count).Error
-	return err == nil && count > 0
+// PluginInstalled reports whether the apps plugin is in the agent's effective
+// plugin set (team grants ∪ auto-install ∪ default-agent). Exported because the
+// preview-env endpoint gates on the same entitlement (handler.AppPreviewEnv).
+func PluginInstalled(ctx context.Context, db *gorm.DB, agent model.Agent) bool {
+	has, err := pluginresolve.AgentHasPluginSlug(ctx, db, agent, AppsPluginSlug)
+	return err == nil && has
 }
 
 func appToolAgentProxy(token *model.Token) bool {

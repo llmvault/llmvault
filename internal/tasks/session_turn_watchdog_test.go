@@ -18,8 +18,12 @@ func watchdogSeedOrg(t *testing.T, db *gorm.DB) (orgID, agentID, channelID uuid.
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{OrgID: org.ID, Name: "turn-wd-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	agent := model.Agent{
-		OrgID: &org.ID, Name: "turn-wd-" + uuid.NewString()[:8], Model: "m",
+		OrgID: &org.ID, TeamID: team.ID, Name: "turn-wd-" + uuid.NewString()[:8], Model: "m",
 		Tools: model.JSON{}, McpServers: model.RawJSON("[]"), Skills: model.JSON{},
 		RuntimeConfig: model.JSON{}, Permissions: model.JSON{}, Resources: model.JSON{}, Status: "active",
 	}

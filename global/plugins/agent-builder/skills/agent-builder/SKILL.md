@@ -37,7 +37,7 @@ Response: `{ "agents": [ { "id", "name", "description", "model", "status", "is_d
 {}
 ```
 
-Response: `{ "installed": [...], "available": [...] }` where each plugin is `{ "id", "slug", "name", "description", "category", "skills": [{ "slug", "name", "description" }], "required_connections": [{ "provider", "kind", "required" }], "install_url" }` — and `available` entries also carry `missing_requirements`. The `slug` values here are what `plugin_slugs` accepts; the skill `slug` values are what `skills` accepts. **Only ever use slugs you saw in this response.**
+Response: `{ "installed": [...], "available": [...] }` where each plugin is `{ "id", "slug", "name", "description", "category", "skills": [{ "slug", "name", "description" }], "required_connections": [{ "provider", "kind", "required" }], "install_url" }` — and `available` entries also carry `missing_requirements`. The skill `slug` values here are what `skills` accepts. Plugins themselves are **team-managed**: an agent has all of its team's plugins — you cannot set them per agent. **Only ever use skill slugs you saw in this response.**
 
 ### `get_agent`
 
@@ -54,7 +54,6 @@ Response: `{ "agent": { "id", "name", "description", "instructions", "model", "s
   "name": "Support Triage",
   "description": "Triages incoming support requests, drafts replies, and escalates edge cases to a human.",
   "instructions": "<role>\nYou are Support Triage for the team's support inbox. Your mission: every incoming request is classified, answered when known, or escalated to a human — nothing sits untouched.\n</role>\n\n<core_principle>\n**Never guess on anything ambiguous, angry, or contractual — escalate it.** A wrong confident answer costs more than a handoff.\n</core_principle>\n\n<strict_workflow>\n1. Read the full request before doing anything.\n2. Classify it: bug, billing, how-to, or feature request.\n3. If a known solution covers it, delegate the reply to your Responder sub-agent and review the draft before sending.\n4. If it is ambiguous, angry, or contractual, escalate to a human — do not reply.\n</strict_workflow>\n\n<boundaries>\n1. Never promise refunds, legal terms, or delivery timelines.\n2. Never reply to legal threats — escalate immediately.\n3. Search the web only when the answer likely changed recently.\n</boundaries>\n\n<communication>\nVoice: warm, direct, under 8 sentences.\n</communication>",
-  "plugin_slugs": ["github"],
   "skills": ["github-triage"],
   "tools": ["web_search", "web_fetch"],
   "sub_agents": [
@@ -92,7 +91,7 @@ Archive an agent (removes it from `list_agents`; it stops running):
 
 ## Arrays replace — the rule that bites hardest
 
-`tools`, `plugin_slugs`, `skills`, and `sub_agents` are **set-replace, not merge.** To add or remove one item you re-send the entire intended list.
+`tools`, `skills`, and `sub_agents` are **set-replace, not merge.** To add or remove one item you re-send the entire intended list.
 
 Worked example — add `generate_image` to Support Triage without wiping the rest. First `get_agent`; its response shows `"tools": ["web_search", "web_fetch"]` (the echo lists **only optional capabilities** — baseline, floor, and auto-granted `subagent_task` are on the agent but never appear here). Send back the **full current list plus the new tool:**
 
@@ -117,8 +116,7 @@ For `sub_agents`, replacement means **delete-and-recreate the whole set.** To ke
 | `instructions` | both | no | The agent's system prompt. Write it with `<prompt_architecture>` / `<agent_template>`. |
 | `model` | both | no | **Strict enum in the schema — pick only from it.** Omit on create → org default; omit on update → unchanged. |
 | `status` | update only | no | `active` or `archived`. |
-| `plugin_slugs` | both | no | Must be **installed and active** — from `list_org_plugins.installed`. Replaces the set. Auto-installed org plugins stay attached regardless. |
-| `skills` | both | no | Skill slugs from **installed** plugins only. Replaces the set. |
+| `skills` | both | no | Skill slugs from the team's plugins only. Replaces the set. Plugins are team-managed and cannot be set here. |
 | `tools` | both | no | Strict enum of **optional capabilities only** (see `<baseline_tools>`). Replaces the optional set; baseline is never affected. |
 | `sub_agents` | both | no | Array of `{ name (required), description, instructions, skills, tools }`. Replaces the **entire** set (delete-and-recreate). Names unique within one parent. No `model` field. |
 

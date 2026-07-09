@@ -35,8 +35,8 @@ func seedSlackRoutingFixture(t *testing.T, db *gorm.DB) slackRoutingFixture {
 	if err := db.Create(&team).Error; err != nil {
 		t.Fatalf("create team: %v", err)
 	}
-	ada := seedNamedAgent(t, db, org.ID, "Ada", &team.ID)
-	grace := seedNamedAgent(t, db, org.ID, "Grace", &team.ID)
+	ada := seedNamedAgent(t, db, org.ID, "Ada", team.ID)
+	grace := seedNamedAgent(t, db, org.ID, "Grace", team.ID)
 
 	user := model.User{Email: "slack-routing-" + uuid.NewString() + "@example.com"}
 	if err := db.Create(&user).Error; err != nil {
@@ -80,7 +80,7 @@ func seedSlackRoutingFixture(t *testing.T, db *gorm.DB) slackRoutingFixture {
 	return slackRoutingFixture{org: org, team: team, connection: connection, channel: channel, ada: ada, grace: grace}
 }
 
-func seedNamedAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, teamID *uuid.UUID) model.Agent {
+func seedNamedAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, name string, teamID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		OrgID: &orgID, Name: name, Model: "test-model", TeamID: teamID,
@@ -130,10 +130,14 @@ func TestResolveChannelAndAgentNameMatchRoutesToNamedAgent(t *testing.T) {
 func TestResolveChannelAndAgentSingleAssignedShortCircuitsToDefault(t *testing.T) {
 	db := connectTestDB(t)
 	f := seedSlackRoutingFixture(t, db)
-	// Remove Grace from the team so the channel's team pool has only Ada.
+	// Move Grace to another team so the channel's team pool has only Ada.
+	otherTeam := model.Team{OrgID: f.org.ID, Name: "slack-other-" + uuid.NewString()[:8]}
+	if err := db.Create(&otherTeam).Error; err != nil {
+		t.Fatalf("create other team: %v", err)
+	}
 	if err := db.Model(&model.Agent{}).Where("id = ?", f.grace.ID).
-		Update("team_id", nil).Error; err != nil {
-		t.Fatalf("clear grace team: %v", err)
+		Update("team_id", otherTeam.ID).Error; err != nil {
+		t.Fatalf("move grace team: %v", err)
 	}
 
 	handler := &SlackAppMentionHandler{db: db}
