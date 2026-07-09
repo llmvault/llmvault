@@ -17,3 +17,14 @@ All payloads sourced from https://github.com/octokit/webhooks/tree/main/payload-
 | `check_suite.completed.json` | `check_suite/completed.payload.json` | conclusion=success, suite id=118578147, one PR (#2) in `pull_requests[]` |
 | `pull_request_review.submitted.json` | `pull_request_review/submitted.payload.json` | state=commented, review id=237895671, PR #2 |
 | `pull_request_review_comment.created.json` | `pull_request_review_comment/created.payload.json` | comment id=284312630 on README.md line 265, PR #2 |
+
+## GitHub REST API response fixtures
+
+These are REST API responses (not webhook payloads), modeled on the example responses in the official GitHub REST docs. They pin the PR-route enrichment parsers.
+
+| File | Source (GitHub REST docs) | Notes |
+|---|---|---|
+| `rest_check_suites.list.json` | [List check suites for a Git reference](https://docs.github.com/en/rest/checks/suites#list-check-suites-for-a-git-reference) | 4 suites for one head SHA: completed/success (3 runs), completed/failure (2 runs), in_progress (1 run), queued (0 runs). Exercises settle-gating + aggregate summary. |
+| `rest_review_comments.list.json` | [List comments for a pull request review](https://docs.github.com/en/rest/pulls/reviews#list-comments-for-a-pull-request-review) | 2 inline comments, `pull_request_review_id`=42; second has `line`=null (uses `original_line`). |
+| `rest_collaborator_permission.write.json` | [Get repository permissions for a user](https://docs.github.com/en/rest/collaborators/collaborators#get-repository-permissions-for-a-user) | `permission`=write, `role_name`=maintain (write-access author). |
+| `rest_collaborator_permission.read.json` | same | `permission`=read, `role_name`=read (drive-by, must be rejected). |

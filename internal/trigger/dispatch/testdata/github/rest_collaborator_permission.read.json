@@ -1,0 +1,17 @@
+{
+  "permission": "read",
+  "role_name": "read",
+  "user": {
+    "login": "driveby",
+    "id": 2,
+    "type": "User",
+    "permissions": {
+      "pull": true,
+      "triage": false,
+      "push": false,
+      "maintain": false,
+      "admin": false
+    },
+    "role_name": "read"
+  }
+}

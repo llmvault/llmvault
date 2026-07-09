@@ -1,0 +1,17 @@
+{
+  "permission": "write",
+  "role_name": "maintain",
+  "user": {
+    "login": "octocat",
+    "id": 1,
+    "type": "User",
+    "permissions": {
+      "pull": true,
+      "triage": true,
+      "push": true,
+      "maintain": true,
+      "admin": false
+    },
+    "role_name": "maintain"
+  }
+}

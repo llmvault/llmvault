@@ -1,0 +1,60 @@
+[
+  {
+    "url": "https://api.github.com/repos/octocat/Hello-World/pulls/comments/10",
+    "pull_request_review_id": 42,
+    "id": 10,
+    "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDEw",
+    "diff_hunk": "@@ -16,33 +16,40 @@ public class Connection : IConnection...",
+    "path": "file1.txt",
+    "position": 1,
+    "original_position": 4,
+    "commit_id": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+    "original_commit_id": "9c48853fa3dc5c1c3d6f1f1cd1f2743e72652840",
+    "user": {
+      "login": "octocat",
+      "id": 1,
+      "type": "User"
+    },
+    "body": "Great stuff!",
+    "created_at": "2011-04-14T16:00:49Z",
+    "updated_at": "2011-04-14T16:00:49Z",
+    "html_url": "https://github.com/octocat/Hello-World/pull/1#discussion-diff-10",
+    "pull_request_url": "https://api.github.com/repos/octocat/Hello-World/pulls/1",
+    "author_association": "COLLABORATOR",
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 2,
+    "original_line": 2,
+    "side": "RIGHT"
+  },
+  {
+    "url": "https://api.github.com/repos/octocat/Hello-World/pulls/comments/11",
+    "pull_request_review_id": 42,
+    "id": 11,
+    "node_id": "MDI0OlB1bGxSZXF1ZXN0UmV2aWV3Q29tbWVudDEx",
+    "diff_hunk": "@@ -1,5 +1,7 @@\n package main\n \n+import \"fmt\"",
+    "path": "main.go",
+    "position": null,
+    "original_position": 8,
+    "commit_id": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+    "original_commit_id": "9c48853fa3dc5c1c3d6f1f1cd1f2743e72652840",
+    "user": {
+      "login": "octocat",
+      "id": 1,
+      "type": "User"
+    },
+    "body": "This import is unused.",
+    "created_at": "2011-04-14T16:01:12Z",
+    "updated_at": "2011-04-14T16:01:12Z",
+    "html_url": "https://github.com/octocat/Hello-World/pull/1#discussion-diff-11",
+    "pull_request_url": "https://api.github.com/repos/octocat/Hello-World/pulls/1",
+    "author_association": "COLLABORATOR",
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": null,
+    "original_line": 88,
+    "side": "RIGHT"
+  }
+]

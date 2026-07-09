@@ -85,11 +85,27 @@ func newReactionCapture(t *testing.T) (*nango.Client, *reactionCapture) {
 	t.Helper()
 	rc := &reactionCapture{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/proxy")
+		// GETs are the PR-route enrichment calls (write-access filter, review
+		// comments, check-suite settling); answer them permissively so routing
+		// proceeds, and record only the reaction POSTs.
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			switch {
+			case strings.HasSuffix(path, "/permission"):
+				_, _ = w.Write([]byte(`{"permission":"write","role_name":"write"}`))
+			case strings.HasSuffix(path, "/check-suites"):
+				_, _ = w.Write([]byte(`{"total_count":0,"check_suites":[]}`))
+			default:
+				_, _ = w.Write([]byte(`[]`))
+			}
+			return
+		}
 		body, _ := io.ReadAll(r.Body)
 		rc.mu.Lock()
 		rc.calls = append(rc.calls, reactionCall{
 			method:            r.Method,
-			path:              strings.TrimPrefix(r.URL.Path, "/proxy"),
+			path:              path,
 			body:              strings.TrimSpace(string(body)),
 			providerConfigKey: r.Header.Get("Provider-Config-Key"),
 		})

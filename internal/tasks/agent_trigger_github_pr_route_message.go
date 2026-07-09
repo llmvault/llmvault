@@ -1,6 +1,8 @@
 package tasks
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -55,24 +57,54 @@ func writeCheckSuiteMessage(b *strings.Builder, payload AgentTriggerDispatchPayl
 	writeKV(b, "pull_request", "#"+prNumber)
 	writeKV(b, "head_branch", event.HeadBranch)
 	writeKV(b, "head_sha", event.HeadSHA)
-	writeKV(b, "conclusion", event.Conclusion)
-	writeKV(b, "status", event.Status)
+	if s := event.CheckSummary; s != nil {
+		writeKV(b, "check_suites", strconv.Itoa(s.Total))
+		writeKV(b, "passed", strconv.Itoa(s.Success))
+		writeKV(b, "failed", strconv.Itoa(s.Failure))
+		if s.Neutral > 0 {
+			writeKV(b, "neutral", strconv.Itoa(s.Neutral))
+		}
+		writeKV(b, "overall", s.Overall)
+	} else {
+		writeKV(b, "conclusion", event.Conclusion)
+		writeKV(b, "status", event.Status)
+	}
 	writeKV(b, "resource_key", resourceKey)
 
 	b.WriteString("\nGuidance:\n")
-	if strings.EqualFold(event.Conclusion, "success") {
-		b.WriteString("The checks passed. Continue with your task. If a brief status note would help reviewers, post it on the pull request; otherwise no GitHub action is required.\n")
+	if checkSuiteOverall(event) == "success" {
+		b.WriteString("All checks passed. Continue with your task. If a brief status note would help reviewers, post it on the pull request; otherwise no GitHub action is required.\n")
 		return
-	}
-	conclusion := event.Conclusion
-	if strings.TrimSpace(conclusion) == "" {
-		conclusion = "not successful"
 	}
 	branch := event.HeadBranch
 	if strings.TrimSpace(branch) == "" {
 		branch = "the PR branch"
 	}
-	b.WriteString("The checks did not pass (conclusion: " + conclusion + "). Investigate the failing checks with the gh CLI (for example `gh pr checks " + prNumber + "` and `gh run view --log-failed`), fix the underlying problem, and push the fix to " + branch + ". Report what you changed on the pull request.\n")
+	b.WriteString("The checks did not all pass (" + checkSuiteConclusionText(event) + "). Investigate the failing checks with the gh CLI (for example `gh pr checks " + prNumber + "` and `gh run view --log-failed`), fix the underlying problem, and push the fix to " + branch + ". Report what you changed on the pull request.\n")
+}
+
+// checkSuiteOverall reports the aggregate outcome, preferring the multi-suite
+// summary so a green last suite cannot mask an earlier red one, falling back to
+// the single suite's conclusion when the aggregate was unavailable.
+func checkSuiteOverall(event prRouteEvent) string {
+	if event.CheckSummary != nil {
+		return event.CheckSummary.Overall
+	}
+	if strings.EqualFold(event.Conclusion, "success") {
+		return "success"
+	}
+	return "failure"
+}
+
+func checkSuiteConclusionText(event prRouteEvent) string {
+	if s := event.CheckSummary; s != nil {
+		return fmt.Sprintf("overall: failure, %d of %d suites failed", s.Failure, s.Total)
+	}
+	conclusion := strings.TrimSpace(event.Conclusion)
+	if conclusion == "" {
+		conclusion = "not successful"
+	}
+	return "conclusion: " + conclusion
 }
 
 func writeReviewMessage(b *strings.Builder, payload AgentTriggerDispatchPayload, event prRouteEvent, prNumber, resourceKey string) {
@@ -86,13 +118,48 @@ func writeReviewMessage(b *strings.Builder, payload AgentTriggerDispatchPayload,
 	writeKV(b, "state", event.ReviewState)
 	writeKV(b, "resource_key", resourceKey)
 
-	if strings.TrimSpace(event.ReviewBody) != "" {
+	hasBody := strings.TrimSpace(event.ReviewBody) != ""
+	if hasBody {
 		b.WriteString("\nReview:\n")
 		b.WriteString(truncateForPrompt(event.ReviewBody, githubMentionBodyLimit))
 		b.WriteByte('\n')
 	}
+	if len(event.ReviewComments) > 0 {
+		b.WriteString("\nInline comments:\n")
+		writeReviewComments(b, event.ReviewComments)
+	}
+
 	b.WriteString("\nGuidance:\n")
+	if !hasBody && len(event.ReviewComments) == 0 {
+		if strings.EqualFold(event.ReviewState, "approved") {
+			b.WriteString("The reviewer approved the pull request with no written feedback. No changes are required; continue with your task.\n")
+			return
+		}
+		b.WriteString("The reviewer submitted a review with no written feedback and no inline comments. No action is required for this review.\n")
+		return
+	}
 	b.WriteString("Address the review feedback — make the requested code changes if changes were requested — then reply to the review on GitHub so the reviewer sees your response.\n")
+}
+
+func writeReviewComments(b *strings.Builder, comments []githubReviewComment) {
+	for i, c := range comments {
+		loc := strings.TrimSpace(c.Path)
+		if c.Line > 0 {
+			loc += ":" + strconv.Itoa(c.Line)
+		}
+		if loc == "" {
+			loc = "(unlocated)"
+		}
+		b.WriteString(strconv.Itoa(i+1) + ". " + loc + "\n")
+		if strings.TrimSpace(c.DiffHunk) != "" {
+			b.WriteString(truncateForPrompt(c.DiffHunk, githubMentionCommentLimit))
+			b.WriteByte('\n')
+		}
+		if strings.TrimSpace(c.Body) != "" {
+			b.WriteString(truncateForPrompt(c.Body, githubMentionCommentLimit))
+			b.WriteByte('\n')
+		}
+	}
 }
 
 func writeCommentMessage(b *strings.Builder, payload AgentTriggerDispatchPayload, event prRouteEvent, prNumber, resourceKey string) {
