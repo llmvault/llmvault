@@ -53,6 +53,7 @@ import {
   latestInputRequestBlock,
 } from "@/app/w/(chat)/_lib/session-input-requests"
 import {
+  ensureSessionNotices,
   ensureSessionStream,
   hydrateSessionRuntimeFromResponse,
   interruptSessionTurn,
@@ -299,6 +300,7 @@ export function SessionThreadView({
       queryClient,
       replay: replayModeForLoadedSession(activeBackendTurnID),
     })
+    ensureSessionNotices(sessionId, { queryClient })
   }, [
     activeBackendTurnID,
     historyLoadedForStream,

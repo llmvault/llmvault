@@ -63,9 +63,10 @@ func GroupLinks(baseURL string, links []string, minSize int) (SectionDiscovery, 
 	groups := map[string]*group{}
 	seen := map[string]struct{}{}
 
+	baseHost := canonicalHost(base.Host)
 	for _, raw := range links {
 		u, err := url.Parse(strings.TrimSpace(raw))
-		if err != nil || u.Host != base.Host {
+		if err != nil || canonicalHost(u.Host) != baseHost {
 			continue
 		}
 		path := normalizePath(u.Path)
@@ -119,6 +120,10 @@ func GroupLinks(baseURL string, links []string, minSize int) (SectionDiscovery, 
 		out.Pages = out.Pages[:maxUngroupedPages]
 	}
 	return out, nil
+}
+
+func canonicalHost(host string) string {
+	return strings.TrimPrefix(strings.ToLower(host), "www.")
 }
 
 // normalizePath strips the fragment/query already dropped by the caller and

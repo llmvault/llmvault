@@ -52,13 +52,14 @@ func (s *Service) SyncArtifactForAgent(ctx context.Context, agentID uuid.UUID, r
 
 	var project model.CanvasProject
 	var artifact model.CanvasArtifact
+	var created bool
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var loadErr error
 		project, loadErr = s.upsertProject(ctx, tx, org.ID, agent.ID, req.Project, projectSlug)
 		if loadErr != nil {
 			return loadErr
 		}
-		artifact, loadErr = s.upsertArtifact(ctx, tx, org.ID, agent.ID, project.ID, req, artifactSlug)
+		artifact, created, loadErr = s.upsertArtifact(ctx, tx, org.ID, agent.ID, project.ID, req, artifactSlug)
 		if loadErr != nil {
 			return loadErr
 		}
@@ -86,6 +87,20 @@ func (s *Service) SyncArtifactForAgent(ctx context.Context, agentID uuid.UUID, r
 	})
 	if err != nil {
 		return nil, err
+	}
+	if s.publisher != nil && req.SessionID != nil {
+		s.publisher.PublishArtifactSynced(ctx, ArtifactSyncedNotice{
+			OrgID:     artifact.OrgID,
+			SessionID: *req.SessionID,
+			Payload: ArtifactSyncedPayload{
+				ArtifactID:   artifact.ID.String(),
+				ProjectID:    artifact.CanvasProjectID.String(),
+				Slug:         artifact.Slug,
+				Name:         artifact.Name,
+				ArtifactType: artifact.Type,
+				Created:      created,
+			},
+		})
 	}
 	artifactResp, err := s.artifactResponse(ctx, artifact, true)
 	if err != nil {
@@ -142,7 +157,7 @@ func (s *Service) upsertProject(ctx context.Context, tx *gorm.DB, orgID, agentID
 	return project, nil
 }
 
-func (s *Service) upsertArtifact(ctx context.Context, tx *gorm.DB, orgID, agentID, projectID uuid.UUID, req SyncRequest, slug string) (model.CanvasArtifact, error) {
+func (s *Service) upsertArtifact(ctx context.Context, tx *gorm.DB, orgID, agentID, projectID uuid.UUID, req SyncRequest, slug string) (model.CanvasArtifact, bool, error) {
 	var artifact model.CanvasArtifact
 	id, _ := uuid.Parse(strings.TrimSpace(req.Artifact.ID))
 	q := tx.WithContext(ctx).Where("org_id = ? AND canvas_project_id = ? AND archived_at IS NULL", orgID, projectID)
@@ -165,17 +180,17 @@ func (s *Service) upsertArtifact(ctx context.Context, tx *gorm.DB, orgID, agentI
 			"source_session_id": req.SessionID,
 		}
 		if err := tx.Model(&artifact).Updates(updates).Error; err != nil {
-			return model.CanvasArtifact{}, fmt.Errorf("update canvas artifact: %w", err)
+			return model.CanvasArtifact{}, false, fmt.Errorf("update canvas artifact: %w", err)
 		}
 		artifact.Slug = slug
 		artifact.Type = req.Artifact.Type
 		artifact.Name = name
 		artifact.ManifestJSON = req.Artifact.Manifest
 		artifact.SourceSessionID = req.SessionID
-		return artifact, nil
+		return artifact, false, nil
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.CanvasArtifact{}, fmt.Errorf("load canvas artifact: %w", err)
+		return model.CanvasArtifact{}, false, fmt.Errorf("load canvas artifact: %w", err)
 	}
 	artifact = model.CanvasArtifact{
 		OrgID:            orgID,
@@ -188,9 +203,9 @@ func (s *Service) upsertArtifact(ctx context.Context, tx *gorm.DB, orgID, agentI
 		CreatedByAgentID: &agentID,
 	}
 	if err := tx.Create(&artifact).Error; err != nil {
-		return model.CanvasArtifact{}, fmt.Errorf("create canvas artifact: %w", err)
+		return model.CanvasArtifact{}, false, fmt.Errorf("create canvas artifact: %w", err)
 	}
-	return artifact, nil
+	return artifact, true, nil
 }
 
 func (s *Service) storeArtifactFile(ctx context.Context, orgID uuid.UUID, projectSlug, artifactSlug string, artifactID uuid.UUID, input SyncFileInput) (model.CanvasArtifactFile, error) {

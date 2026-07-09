@@ -1460,10 +1460,10 @@ definitions:
         type: string
       team_name:
         description: |-
-          TeamName is the display name of the channel's owning team (empty for
-          team-less channels). Lets the non-admin sidebar label team groups without
-          a second round-trip; both managers and members receive the name of teams
-          their visible channels belong to.
+          TeamName is the display name of the channel's owning team. Lets the
+          non-admin sidebar label team groups without a second round-trip; both
+          managers and members receive the name of teams their visible channels
+          belong to.
         type: string
       updated_at:
         type: string
@@ -11384,9 +11384,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Crawls a site's links via Spider and groups them into sections
-        (path clusters) and individual pages, so a website knowledge source can be
-        scoped to a set of URLs.
+      description: Crawls a site's links via the configured web crawl provider and
+        groups them into sections (path clusters) and individual pages, so a website
+        knowledge source can be scoped to a set of URLs.
       parameters:
       - description: Website URL
         in: body
@@ -12500,6 +12500,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Stream session name updates (SSE)
+      tags:
+      - sessions
+  /v1/sessions/{id}/notices:
+    get:
+      description: Server-sent-events stream that forwards typed notices scoped to
+        the session or its org. Content-Type is text/event-stream.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Stream session notices (SSE)
       tags:
       - sessions
   /v1/sessions/{id}/participants:

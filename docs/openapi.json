@@ -12245,7 +12245,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Crawls a site's links via Spider and groups them into sections (path clusters) and individual pages, so a website knowledge source can be scoped to a set of URLs.",
+        "description": "Crawls a site's links via the configured web crawl provider and groups them into sections (path clusters) and individual pages, so a website knowledge source can be scoped to a set of URLs.",
         "tags": [
           "rag"
         ],
@@ -14396,6 +14396,64 @@
               "text/event-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/sessionNameUpdateResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{id}/notices": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Server-sent-events stream that forwards typed notices scoped to the session or its org. Content-Type is text/event-stream.",
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Stream session notices (SSE)",
+        "parameters": [
+          {
+            "description": "Session ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }
@@ -20068,7 +20126,7 @@
             "type": "string"
           },
           "team_name": {
-            "description": "TeamName is the display name of the channel's owning team (empty for\nteam-less channels). Lets the non-admin sidebar label team groups without\na second round-trip; both managers and members receive the name of teams\ntheir visible channels belong to.",
+            "description": "TeamName is the display name of the channel's owning team. Lets the\nnon-admin sidebar label team groups without a second round-trip; both\nmanagers and members receive the name of teams their visible channels\nbelong to.",
             "type": "string"
           },
           "updated_at": {

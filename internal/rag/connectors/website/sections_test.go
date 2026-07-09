@@ -77,6 +77,48 @@ func TestGroupLinks(t *testing.T) {
 	}
 }
 
+func TestGroupLinksWWWEquivalence(t *testing.T) {
+	links := []string{
+		"https://example.com/",
+		"https://www.example.com/listings",
+		"https://www.example.com/listings/1",
+		"https://WWW.Example.Com/listings/2",
+		"https://example.com/listings/1",
+		"https://www.example.com/pricing",
+	}
+
+	got, err := GroupLinks("https://example.com", links, 3)
+	if err != nil {
+		t.Fatalf("GroupLinks: %v", err)
+	}
+
+	var listings *DiscoveredSection
+	for i := range got.Sections {
+		if got.Sections[i].PathPrefix == "/listings" {
+			listings = &got.Sections[i]
+		}
+	}
+	if listings == nil {
+		t.Fatalf("expected a /listings section; got sections %+v, pages %+v", got.Sections, got.Pages)
+	}
+	if listings.PageCount != 3 {
+		t.Fatalf("listings PageCount = %d, want 3: %v", listings.PageCount, listings.URLs)
+	}
+	for _, u := range listings.URLs {
+		if u[:19] != "https://example.com" {
+			t.Fatalf("section URL not re-rooted on base origin: %s", u)
+		}
+	}
+
+	pagePaths := map[string]bool{}
+	for _, p := range got.Pages {
+		pagePaths[p.Path] = true
+	}
+	if !pagePaths["/pricing"] {
+		t.Fatalf("expected www-hosted /pricing to be kept as a page; got %+v", got.Pages)
+	}
+}
+
 func TestFirstSegmentAndHumanize(t *testing.T) {
 	cases := map[string]string{
 		"/docs/getting-started": "docs",

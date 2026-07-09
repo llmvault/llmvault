@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/proxy"
+	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/sheets"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -51,6 +52,7 @@ type serveHandlersCore struct {
 	generationWriter           *middleware.GenerationWriter
 	runtimeCompileDeps         agentruntime.CompileDeps
 	sheetsService              *sheets.Service
+	runtimeStreamStore         *runtimestream.Store
 }
 
 // buildServeHandlersCore constructs the sheets/canvas/mcp/credential/auth
@@ -82,8 +84,12 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	// handlers and the sheets MCP tool group.
 	sheetsService := buildSheetsService(database, redisClient, enqueuer)
 	sheetsHandler := buildSheetsHandler(cfg, database, redisClient, signingKey, sheetsService)
+	runtimeStreamStore := runtimestream.NewStore(redisClient, cfg.RuntimeRedisStreamShardCount)
 	canvasArtifactStore := buildCanvasArtifactStore(cfg)
 	canvasArtifactService := canvasartifact.NewService(database, canvasArtifactStore)
+	if redisClient != nil {
+		canvasArtifactService.WithPublisher(canvasartifact.NewRuntimeNoticePublisher(runtimeStreamStore))
+	}
 	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey).WithArtifactService(canvasArtifactService)
 
 	generationWriter := middleware.NewGenerationWriter(ctx, database, reg, 10000)
@@ -179,5 +185,6 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		generationWriter:           generationWriter,
 		runtimeCompileDeps:         runtimeCompileDeps,
 		sheetsService:              sheetsService,
+		runtimeStreamStore:         runtimeStreamStore,
 	}, nil
 }

@@ -17,6 +17,12 @@ import {
 import { getSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 import { useSessionRuntimeStore } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { isSubagentFrame } from "@/app/w/(chat)/_lib/session-subagents"
+import {
+  handleSessionNotice,
+  noticeStreamHTTPStatus,
+  runSessionNoticeCatchUp,
+  subscribeToSessionNotices,
+} from "@/app/w/(chat)/_lib/session-notices"
 import { extractErrorMessage as errorMessage } from "@/lib/api/error"
 
 const STREAM_WATCHDOG_MS = 0
@@ -40,6 +46,13 @@ interface EnsureStreamOptions {
 }
 
 const controllers = new Map<string, StreamControllerRecord>()
+
+interface NoticeControllerRecord {
+  abort: AbortController
+  stopped: boolean
+}
+
+const noticeControllers = new Map<string, NoticeControllerRecord>()
 
 export function hydrateSessionRuntimeFromResponse(
   session: SessionResponse | undefined,
@@ -109,6 +122,73 @@ export async function interruptSessionTurn(
 
 export function stopAllSessionStreams() {
   for (const sessionId of controllers.keys()) stopController(sessionId)
+}
+
+export function ensureSessionNotices(
+  sessionId: string,
+  options: { queryClient: QueryClient }
+) {
+  const existing = noticeControllers.get(sessionId)
+  if (existing && !existing.stopped) return
+  const controller: NoticeControllerRecord = {
+    abort: new AbortController(),
+    stopped: false,
+  }
+  noticeControllers.set(sessionId, controller)
+  void runSessionNotices(sessionId, controller, options.queryClient)
+}
+
+export function stopAllSessionNotices() {
+  for (const sessionId of noticeControllers.keys()) {
+    stopNoticeController(sessionId)
+  }
+}
+
+function stopNoticeController(sessionId: string) {
+  const controller = noticeControllers.get(sessionId)
+  if (!controller) return
+  controller.stopped = true
+  controller.abort.abort()
+  noticeControllers.delete(sessionId)
+}
+
+async function runSessionNotices(
+  sessionId: string,
+  controller: NoticeControllerRecord,
+  queryClient: QueryClient
+) {
+  let attempt = 0
+  while (!controller.abort.signal.aborted && !controller.stopped) {
+    try {
+      await subscribeToSessionNotices(sessionId, {
+        signal: controller.abort.signal,
+        onOpen: () => {
+          attempt = 0
+          runSessionNoticeCatchUp(queryClient, sessionId)
+        },
+        onNotice: (notice) =>
+          handleSessionNotice(queryClient, sessionId, notice),
+      })
+    } catch (error) {
+      if (controller.abort.signal.aborted || controller.stopped) return
+      if (!shouldReconnectNotices(error)) {
+        stopNoticeController(sessionId)
+        return
+      }
+    }
+    if (controller.abort.signal.aborted || controller.stopped) return
+    attempt += 1
+    const delay = Math.min(2000, attempt * 400)
+    await new Promise((resolve) => setTimeout(resolve, delay))
+  }
+}
+
+function shouldReconnectNotices(error: unknown) {
+  const status = noticeStreamHTTPStatus(error)
+  if (status !== undefined) {
+    return status !== 400 && status !== 401 && status !== 403 && status !== 404
+  }
+  return true
 }
 
 async function runSessionStream(

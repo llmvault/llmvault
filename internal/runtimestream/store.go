@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -241,6 +242,28 @@ func (s *Store) PublishCommitted(ctx context.Context, event model.SessionEvent) 
 	}
 	if err := s.client.Publish(ctx, LiveChannel(event.SessionID.String()), string(raw)).Err(); err != nil {
 		return fmt.Errorf("publish committed runtime event: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) PublishNotice(ctx context.Context, sessionID uuid.UUID, n Notice) error {
+	if s == nil || s.client == nil {
+		return fmt.Errorf("runtime stream store is not configured")
+	}
+	if n.PublishedAt.IsZero() {
+		n.PublishedAt = time.Now().UTC()
+	}
+	raw, err := json.Marshal(LiveMessage{
+		Kind:      LiveKindNotice,
+		SessionID: sessionID.String(),
+		Notice:    &n,
+		Published: n.PublishedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal notice message: %w", err)
+	}
+	if err := s.client.Publish(ctx, LiveChannel(sessionID.String()), string(raw)).Err(); err != nil {
+		return fmt.Errorf("publish session notice: %w", err)
 	}
 	return nil
 }

@@ -192,7 +192,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		handler.WithChannelEnqueuer(enqueuer),
 	)
 	teamHandler := handler.NewTeamHandler(database)
-	runtimeStreamStore := runtimestream.NewStore(redisClient, cfg.RuntimeRedisStreamShardCount)
+	runtimeStreamStore := core.runtimeStreamStore
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).
 		WithRuntimeStreamKey(sandboxEncKey).
 		WithRuntimeDelivery(orchestrator, runtimeCompileDeps).

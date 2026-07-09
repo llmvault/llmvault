@@ -40,6 +40,7 @@ type WorkerDeps struct {
 	SlackMediaEnricher SlackMediaEnricher
 	Storage            storage.Reader        // nil disables the sheet CSV import worker
 	SheetEvents        sheets.EventPublisher // nil disables sheet realtime events from workers
+	UsageNotices       UsageNoticePublisher  // nil disables usage.updated notices from the model-usage worker
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -52,7 +53,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	mux.HandleFunc(TypeAPIKeyUpdate, NewAPIKeyHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeAuditWrite, NewAuditHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeGenerationWrite, NewGenerationHandler(deps.DB).Handle)
-	mux.HandleFunc(TypeModelUsageWrite, NewModelUsageHandler(deps.DB).Handle)
+	mux.HandleFunc(TypeModelUsageWrite, NewModelUsageHandler(deps.DB, deps.UsageNotices).Handle)
 
 	mux.HandleFunc(TypeWebhookForward, NewWebhookForwardHandler(deps.EncKey).Handle)
 

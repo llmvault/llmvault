@@ -20,6 +20,8 @@ export const queryKeys = {
   channel: () => ["get", "/v1/channels/{id}"] as const,
   channelSessions: () => ["get", "/v1/channels/{id}/sessions"] as const,
   sessions: () => ["get", "/v1/sessions"] as const,
+  sessionUsage: (id: string) =>
+    ["get", "/v1/sessions/{id}/usage", { params: { path: { id } } }] as const,
   connections: () => ["get", "/v1/connections"] as const,
   plugins: () => ["get", "/v1/plugins"] as const,
   plugin: () => ["get", "/v1/plugins/{slug}"] as const,
@@ -34,4 +36,7 @@ export const queryKeys = {
   billingSubscription: () => ["get", "/v1/billing/subscription"] as const,
   usage: () => ["get", "/v1/usage"] as const,
   dashboard: () => ["get", "/v1/dashboard"] as const,
+  canvasProjects: () => ["get", "/v1/canvas/projects"] as const,
+  canvasArtifacts: () => ["get", "/v1/canvas/artifacts"] as const,
+  canvasArtifact: () => ["get", "/v1/canvas/artifacts/{artifactID}"] as const,
 } as const

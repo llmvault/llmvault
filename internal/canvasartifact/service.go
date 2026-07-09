@@ -14,12 +14,19 @@ import (
 )
 
 type Service struct {
-	db    *gorm.DB
-	store FileStore
+	db        *gorm.DB
+	store     FileStore
+	publisher NoticePublisher
 }
 
 func NewService(db *gorm.DB, store FileStore) *Service {
 	return &Service{db: db, store: store}
+}
+
+// WithPublisher injects the session notice publisher. Nil disables publishing.
+func (s *Service) WithPublisher(p NoticePublisher) *Service {
+	s.publisher = p
+	return s
 }
 
 func (s *Service) CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, req ProjectCreateRequest) (*ProjectResponse, error) {

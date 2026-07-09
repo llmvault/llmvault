@@ -23,6 +23,10 @@ const (
 
 	LiveKindRuntime   = "runtime"
 	LiveKindCommitted = "committed"
+	LiveKindNotice    = "notice"
+
+	NoticeTypeArtifactSynced = "artifact.synced"
+	NoticeTypeUsageUpdated   = "usage.updated"
 
 	ProjectorGroup = "runtime-db-projector"
 )
@@ -51,7 +55,16 @@ type LiveMessage struct {
 	RuntimeSeq int64             `json:"runtime_seq,omitempty"`
 	Event      *Event            `json:"event,omitempty"`
 	Committed  *SessionEventView `json:"committed,omitempty"`
+	Notice     *Notice           `json:"notice,omitempty"`
 	Published  time.Time         `json:"published_at"`
+}
+
+type Notice struct {
+	Type        string          `json:"type"`
+	OrgID       uuid.UUID       `json:"org_id"`
+	SessionID   *uuid.UUID      `json:"session_id,omitempty"`
+	Data        json.RawMessage `json:"data"`
+	PublishedAt time.Time       `json:"published_at"`
 }
 
 type SessionEventView struct {

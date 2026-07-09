@@ -8,6 +8,7 @@ import {
   useCanvasProjects,
   type CanvasViewportMode,
 } from "@/app/w/(chat)/_lib/canvas-artifacts"
+import { usePanelArtifactTargetStore } from "@/app/w/(chat)/_stores/panel-artifact-target-store"
 import { extractErrorMessage as errorMessage } from "@/lib/api/error"
 import {
   CanvasArtifactHeader,
@@ -28,6 +29,21 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   )
   const [viewport, setViewport] = useState<CanvasViewportMode>("desktop")
 
+  // Target selection (from an artifact.synced notice) wins until the user picks
+  // an artifact themselves, at which point the target is cleared and local
+  // selection takes over.
+  const artifactTarget = usePanelArtifactTargetStore((state) =>
+    state.target?.sessionId === sessionId ? state.target.artifactId : null
+  )
+  const clearArtifactTarget = usePanelArtifactTargetStore(
+    (state) => state.clear
+  )
+  const activeArtifactId = artifactTarget ?? selectedArtifactId
+  const selectArtifact = (artifactId: string | null) => {
+    setSelectedArtifactId(artifactId)
+    clearArtifactTarget()
+  }
+
   const projectsQuery = useCanvasProjects(activeSessionId)
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const selectedProject = useMemo(
@@ -44,10 +60,10 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   )
   const listedArtifact = useMemo(
     () =>
-      artifacts.find((artifact) => artifact.id === selectedArtifactId) ??
+      artifacts.find((artifact) => artifact.id === activeArtifactId) ??
       artifacts[0] ??
       null,
-    [artifacts, selectedArtifactId]
+    [artifacts, activeArtifactId]
   )
 
   const detailQuery = useCanvasArtifact(listedArtifact?.id)
@@ -114,9 +130,9 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
         }}
         onSelectProject={(projectId) => {
           setSelectedProjectId(projectId)
-          setSelectedArtifactId(null)
+          selectArtifact(null)
         }}
-        onSelectArtifact={setSelectedArtifactId}
+        onSelectArtifact={selectArtifact}
       />
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <div className="flex min-h-0 flex-1 flex-col">

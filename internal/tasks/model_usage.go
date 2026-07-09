@@ -8,13 +8,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+type UsageNoticePublisher interface {
+	PublishUsageUpdated(ctx context.Context, orgID, sessionID uuid.UUID) error
+}
 
 type ModelUsageWritePayload struct {
 	Generation   model.Generation    `json:"generation"`
@@ -66,11 +72,12 @@ func EnqueueModelUsageWrite(ctx context.Context, enq enqueue.TaskEnqueuer, paylo
 }
 
 type ModelUsageHandler struct {
-	db *gorm.DB
+	db      *gorm.DB
+	notices UsageNoticePublisher
 }
 
-func NewModelUsageHandler(db *gorm.DB) *ModelUsageHandler {
-	return &ModelUsageHandler{db: db}
+func NewModelUsageHandler(db *gorm.DB, notices UsageNoticePublisher) *ModelUsageHandler {
+	return &ModelUsageHandler{db: db, notices: notices}
 }
 
 func (h *ModelUsageHandler) Handle(ctx context.Context, task *asynq.Task) error {
@@ -78,7 +85,20 @@ func (h *ModelUsageHandler) Handle(ctx context.Context, task *asynq.Task) error 
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal model usage payload: %w", err)
 	}
-	return WriteModelUsage(ctx, h.db, payload)
+	if err := WriteModelUsage(ctx, h.db, payload); err != nil {
+		return err
+	}
+	h.publishUsageUpdated(ctx, payload.Generation)
+	return nil
+}
+
+func (h *ModelUsageHandler) publishUsageUpdated(ctx context.Context, gen model.Generation) {
+	if h.notices == nil || gen.SessionID == nil {
+		return
+	}
+	if err := h.notices.PublishUsageUpdated(ctx, gen.OrgID, *gen.SessionID); err != nil {
+		logging.Capture(ctx, fmt.Errorf("publish usage.updated notice: %w", err))
+	}
 }
 
 func WriteModelUsage(ctx context.Context, db *gorm.DB, payload ModelUsageWritePayload) error {

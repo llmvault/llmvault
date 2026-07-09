@@ -14,7 +14,10 @@ import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import type { components } from "@/lib/api/schema"
 import { clearSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
-import { stopAllSessionStreams } from "@/app/w/(chat)/_stores/session-stream-manager"
+import {
+  stopAllSessionNotices,
+  stopAllSessionStreams,
+} from "@/app/w/(chat)/_stores/session-stream-manager"
 import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-workspace-store"
 
 type User = components["schemas"]["userResponse"]
@@ -133,6 +136,7 @@ export function AuthProvider({
   const logout = useCallback(async () => {
     await logoutMutation.mutateAsync({ body: {} })
     stopAllSessionStreams()
+    stopAllSessionNotices()
     clearSessionSandboxAccess()
     queryClient.clear()
     await clearPersistedSessionWorkspaces()
