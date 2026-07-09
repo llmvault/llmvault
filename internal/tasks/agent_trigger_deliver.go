@@ -125,6 +125,9 @@ func triggerSessionEventID(payload AgentTriggerDispatchPayload) string {
 // side effects (like the eyes acknowledgment) exactly once per event.
 func (h *AgentTriggerDispatchHandler) enqueueTriggerSessionMessage(ctx context.Context, session *model.Session, compiled compiledTriggerMessage, eventID, source string) (bool, error) {
 	created := false
+	var appendedOrgID uuid.UUID
+	var appendedEventID string
+	var appendedEventAt time.Time
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		created = false
 		var locked model.Session
@@ -139,6 +142,9 @@ func (h *AgentTriggerDispatchHandler) enqueueTriggerSessionMessage(ctx context.C
 		if err != nil {
 			return err
 		}
+		appendedOrgID = locked.OrgID
+		appendedEventID = event.ID.String()
+		appendedEventAt = event.EventAt
 		var existing model.SessionMessageQueue
 		err = tx.Where("session_id = ? AND session_event_id = ?", locked.ID, event.ID).First(&existing).Error
 		if err == nil {
@@ -171,6 +177,9 @@ func (h *AgentTriggerDispatchHandler) enqueueTriggerSessionMessage(ctx context.C
 	})
 	if err != nil {
 		return false, err
+	}
+	if created {
+		publishSessionEventsAppended(ctx, h.sessionEventNotices, appendedOrgID, session.ID, appendedEventID, appendedEventAt)
 	}
 	return created, nil
 }

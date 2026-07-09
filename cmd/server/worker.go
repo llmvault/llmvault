@@ -122,9 +122,9 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	}
 	if deps.Redis != nil {
 		workerDeps.SheetEvents = sheets.NewRedisEventPublisher(deps.Redis)
-		workerDeps.UsageNotices = newRuntimeStreamUsageNoticePublisher(
-			runtimestream.NewStore(deps.Redis, cfg.RuntimeRedisStreamShardCount),
-		)
+		noticeStore := runtimestream.NewStore(deps.Redis, cfg.RuntimeRedisStreamShardCount)
+		workerDeps.UsageNotices = newRuntimeStreamUsageNoticePublisher(noticeStore)
+		workerDeps.SessionEventNotices = newRuntimeStreamSessionEventsNoticePublisher(noticeStore)
 	}
 	if deps.Orchestrator != nil && workerDeps.AgentCompile.EncKey != nil {
 		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandbox.AgentRuntimeConfigPush) error {

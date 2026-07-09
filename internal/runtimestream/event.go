@@ -25,8 +25,9 @@ const (
 	LiveKindCommitted = "committed"
 	LiveKindNotice    = "notice"
 
-	NoticeTypeArtifactSynced = "artifact.synced"
-	NoticeTypeUsageUpdated   = "usage.updated"
+	NoticeTypeArtifactSynced        = "artifact.synced"
+	NoticeTypeUsageUpdated          = "usage.updated"
+	NoticeTypeSessionEventsAppended = "session.events.appended"
 
 	ProjectorGroup = "runtime-db-projector"
 )

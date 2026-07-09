@@ -89,10 +89,11 @@ func (h *AgentScheduleScanHandler) Handle(ctx context.Context, _ *asynq.Task) er
 }
 
 type AgentScheduleDeliverHandler struct {
-	db           *gorm.DB
-	orchestrator *sandbox.Orchestrator
-	compileDeps  agentruntime.CompileDeps
-	enqueuer     enqueue.TaskEnqueuer
+	db                  *gorm.DB
+	orchestrator        *sandbox.Orchestrator
+	compileDeps         agentruntime.CompileDeps
+	enqueuer            enqueue.TaskEnqueuer
+	sessionEventNotices SessionEventsNoticePublisher
 }
 
 func NewAgentScheduleDeliverHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enqueuer enqueue.TaskEnqueuer) *AgentScheduleDeliverHandler {
@@ -134,6 +135,9 @@ func (h *AgentScheduleDeliverHandler) Handle(ctx context.Context, task *asynq.Ta
 func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runID uuid.UUID) (uuid.UUID, bool, error) {
 	var sessionID uuid.UUID
 	var created bool
+	var appendedOrgID uuid.UUID
+	var appendedEventID string
+	var appendedEventAt time.Time
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var run model.AgentScheduleRun
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -191,6 +195,9 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		if err != nil {
 			return err
 		}
+		appendedOrgID = run.OrgID
+		appendedEventID = event.ID.String()
+		appendedEventAt = event.EventAt
 		sessionEventID := event.ID
 		queue := model.SessionMessageQueue{
 			OrgID:          run.OrgID,
@@ -219,6 +226,9 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		}
 		return nil
 	})
+	if err == nil && created {
+		publishSessionEventsAppended(ctx, h.sessionEventNotices, appendedOrgID, sessionID, appendedEventID, appendedEventAt)
+	}
 	return sessionID, created, err
 }
 

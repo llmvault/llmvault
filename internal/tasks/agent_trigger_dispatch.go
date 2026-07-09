@@ -32,12 +32,13 @@ func init() {
 }
 
 type AgentTriggerDispatchHandler struct {
-	db           *gorm.DB
-	orchestrator *sandbox.Orchestrator
-	compileDeps  agentruntime.CompileDeps
-	enqueuer     enqueue.TaskEnqueuer
-	catalog      *catalog.Catalog
-	nangoClient  *nango.Client
+	db                  *gorm.DB
+	orchestrator        *sandbox.Orchestrator
+	compileDeps         agentruntime.CompileDeps
+	enqueuer            enqueue.TaskEnqueuer
+	catalog             *catalog.Catalog
+	nangoClient         *nango.Client
+	sessionEventNotices SessionEventsNoticePublisher
 }
 
 func NewAgentTriggerDispatchHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enqueuer ...enqueue.TaskEnqueuer) *AgentTriggerDispatchHandler {

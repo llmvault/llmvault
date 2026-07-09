@@ -1,6 +1,7 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source"
 import type { QueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/api/query-keys"
+import { chatQueryKeys } from "@/app/w/(chat)/_lib/chat-cache"
 import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
 import { usePanelArtifactTargetStore } from "@/app/w/(chat)/_stores/panel-artifact-target-store"
 
@@ -103,6 +104,11 @@ export function handleSessionNotice(
         queryKey: queryKeys.sessionUsage(sessionId),
       })
       break
+    case "session.events.appended":
+      void queryClient.invalidateQueries({
+        queryKey: chatQueryKeys.sessionEvents(sessionId),
+      })
+      break
   }
 }
 
@@ -115,6 +121,9 @@ export function runSessionNoticeCatchUp(
   void queryClient.invalidateQueries({ queryKey: queryKeys.canvasArtifact() })
   void queryClient.invalidateQueries({
     queryKey: queryKeys.sessionUsage(sessionId),
+  })
+  void queryClient.invalidateQueries({
+    queryKey: chatQueryKeys.sessionEvents(sessionId),
   })
 }
 

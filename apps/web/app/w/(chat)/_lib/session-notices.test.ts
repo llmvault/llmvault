@@ -1,8 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest"
 import { queryKeys } from "@/lib/api/query-keys"
+import { chatQueryKeys } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   handleSessionNotice,
+  runSessionNoticeCatchUp,
   type SessionNotice,
 } from "@/app/w/(chat)/_lib/session-notices"
 import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
@@ -99,6 +101,32 @@ describe("handleSessionNotice", () => {
     const keys = invalidatedKeys(invalidateQueries)
     expect(keys).toContainEqual(queryKeys.sessionUsage(SESSION_ID))
     expect(usePanelArtifactTargetStore.getState().target).toBeNull()
+  })
+
+  it("session.events.appended invalidates the session-events query", () => {
+    const { client, invalidateQueries } = mockQueryClient()
+
+    handleSessionNotice(
+      client,
+      SESSION_ID,
+      notice({
+        type: "session.events.appended",
+        data: { event_id: "event-9", event_at: "2026-07-09T00:00:00Z" },
+      })
+    )
+
+    const keys = invalidatedKeys(invalidateQueries)
+    expect(keys).toContainEqual(chatQueryKeys.sessionEvents(SESSION_ID))
+    expect(usePanelArtifactTargetStore.getState().target).toBeNull()
+  })
+
+  it("catch-up invalidates the session-events query", () => {
+    const { client, invalidateQueries } = mockQueryClient()
+
+    runSessionNoticeCatchUp(client, SESSION_ID)
+
+    const keys = invalidatedKeys(invalidateQueries)
+    expect(keys).toContainEqual(chatQueryKeys.sessionEvents(SESSION_ID))
   })
 
   it("ignores unknown notice types without touching queries or stores", () => {

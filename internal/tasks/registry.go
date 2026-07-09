@@ -22,25 +22,26 @@ import (
 
 // WorkerDeps holds the dependencies needed by task handlers.
 type WorkerDeps struct {
-	DB                 *gorm.DB
-	Orchestrator       *sandbox.Orchestrator   // nil if sandbox not configured
-	EncKey             *crypto.SymmetricKey    // nil if not configured
-	EmailSend          EmailSenderFunc         // nil if email not configured
-	EmailSendTemplate  EmailTemplateSenderFunc // nil if template email not configured
-	SkillFetcher       *skills.GitFetcher      // nil disables git skill hydration
-	NangoClient        *nango.Client           // nil disables deterministic enrichment
-	CacheManager       *cache.Manager          // nil disables tasks that need credential decryption
-	Credits            *billing.CreditsService // required for billing-token-spend deduction
-	Subscriptions      *subscription.Service   // required for renewal worker
-	Enqueuer           enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
-	PreContextCache    precontext.Cache        // nil disables agent pre-context cache invalidation
-	PreContextBuilder  precontext.Builder      // nil disables runtime pre-context injection
-	AgentCompile       agentruntime.CompileDeps
-	OrgAgentEnsurer    OrgHivyAgentEnsurer
-	SlackMediaEnricher SlackMediaEnricher
-	Storage            storage.Reader        // nil disables the sheet CSV import worker
-	SheetEvents        sheets.EventPublisher // nil disables sheet realtime events from workers
-	UsageNotices       UsageNoticePublisher  // nil disables usage.updated notices from the model-usage worker
+	DB                  *gorm.DB
+	Orchestrator        *sandbox.Orchestrator   // nil if sandbox not configured
+	EncKey              *crypto.SymmetricKey    // nil if not configured
+	EmailSend           EmailSenderFunc         // nil if email not configured
+	EmailSendTemplate   EmailTemplateSenderFunc // nil if template email not configured
+	SkillFetcher        *skills.GitFetcher      // nil disables git skill hydration
+	NangoClient         *nango.Client           // nil disables deterministic enrichment
+	CacheManager        *cache.Manager          // nil disables tasks that need credential decryption
+	Credits             *billing.CreditsService // required for billing-token-spend deduction
+	Subscriptions       *subscription.Service   // required for renewal worker
+	Enqueuer            enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
+	PreContextCache     precontext.Cache        // nil disables agent pre-context cache invalidation
+	PreContextBuilder   precontext.Builder      // nil disables runtime pre-context injection
+	AgentCompile        agentruntime.CompileDeps
+	OrgAgentEnsurer     OrgHivyAgentEnsurer
+	SlackMediaEnricher  SlackMediaEnricher
+	Storage             storage.Reader               // nil disables the sheet CSV import worker
+	SheetEvents         sheets.EventPublisher        // nil disables sheet realtime events from workers
+	UsageNotices        UsageNoticePublisher         // nil disables usage.updated notices from the model-usage worker
+	SessionEventNotices SessionEventsNoticePublisher // nil disables session.events.appended notices from trigger/schedule injection
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -152,9 +153,11 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 				WithSlackMediaEnricher(deps.SlackMediaEnricher)).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
+		triggerHandler.sessionEventNotices = deps.SessionEventNotices
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)
-		mux.HandleFunc(TypeAgentScheduleDeliver,
-			NewAgentScheduleDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
+		scheduleHandler := NewAgentScheduleDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
+		scheduleHandler.sessionEventNotices = deps.SessionEventNotices
+		mux.HandleFunc(TypeAgentScheduleDeliver, scheduleHandler.Handle)
 		mux.HandleFunc(TypeAgentGitHubResourcesClone,
 			NewAgentGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.AgentCompile).Handle)
 	}
