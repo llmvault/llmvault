@@ -25,7 +25,8 @@ type ColumnInfo struct {
 }
 
 func ExecuteSQL(ctx context.Context, provider, dsn, query string, policy Policy) (QueryResult, error) {
-	if err := ValidateSQL(provider, query, policy); err != nil {
+	prepared, err := PrepareSQL(provider, query, policy)
+	if err != nil {
 		return QueryResult{}, err
 	}
 	db, err := openSQL(provider, dsn)
@@ -33,7 +34,7 @@ func ExecuteSQL(ctx context.Context, provider, dsn, query string, policy Policy)
 		return QueryResult{}, err
 	}
 	defer db.Close()
-	rows, err := db.QueryContext(ctx, query)
+	rows, err := db.QueryContext(ctx, prepared)
 	if err != nil {
 		return QueryResult{}, fmt.Errorf("execute query: %w", err)
 	}

@@ -28,6 +28,19 @@ curl -fsS "$HIVY_MYSQL_URL" \
   --data-binary 'SELECT id, created_at FROM users LIMIT 20;' | jq
 ```
 
+## Schema introspection
+
+Inspect schema and table structure with standard `information_schema` queries. This works even on connections that have an access policy configured.
+
+```bash
+run_mysql 'SELECT table_name, column_name, data_type
+           FROM information_schema.columns
+           WHERE table_schema = DATABASE()
+           ORDER BY table_name, ordinal_position;' | jq
+```
+
+Results reflect the access policy: on a restricted connection, introspection only returns the tables, columns, and constraints the policy allows, and denied objects do not appear. Use `information_schema` for structure discovery; `SHOW`/`DESCRIBE` are not available on policy-restricted connections.
+
 ## jq filtering
 
 The proxy returns JSON with `columns`, `rows`, `row_count`, and `truncated`. Always pipe through `jq` and return only the data needed for the answer. Avoid dumping full row arrays unless the user explicitly needs raw rows.
