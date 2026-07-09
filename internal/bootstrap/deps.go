@@ -25,8 +25,8 @@ import (
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/sandbox"
-	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/storage"
+	"github.com/usehivy/hivy/internal/webcrawl"
 
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
@@ -48,8 +48,8 @@ type Deps struct {
 	SigningKey      []byte
 	SandboxEncKey   *crypto.SymmetricKey
 	Orchestrator    *sandbox.Orchestrator
-	SpiderClient    *spider.Client              // nil if spider not configured
-	ToolUsageWriter *middleware.ToolUsageWriter // nil if spider not configured
+	WebProvider     webcrawl.Provider           // nil if no web provider configured
+	ToolUsageWriter *middleware.ToolUsageWriter // nil if no web provider configured
 	BillingRegistry *billing.Registry           // always non-nil; may have zero providers
 	Credits         *billing.CreditsService     // credit ledger service
 	Subscriptions   *subscription.Service       // wraps registry+credits with the renewal worker
@@ -179,12 +179,11 @@ func New(ctx context.Context) (*Deps, error) {
 	actionsCatalog := catalog.Global()
 	logging.FromContext(ctx).InfoContext(ctx, "actions catalog ready", "providers", len(actionsCatalog.ListProviders()))
 
-	var spiderClient *spider.Client
+	webProvider := buildWebProvider(cfg)
 	var toolUsageWriter *middleware.ToolUsageWriter
-	if cfg.SpiderAPIKey != "" {
-		spiderClient = spider.NewClient(cfg.SpiderBaseURL, cfg.SpiderAPIKey)
+	if webProvider != nil {
 		toolUsageWriter = middleware.NewToolUsageWriter(ctx, database, 10000)
-		logging.FromContext(ctx).InfoContext(ctx, "spider client ready")
+		logging.FromContext(ctx).InfoContext(ctx, "web provider ready", "providers", webProvider.Name())
 	}
 
 	sandboxEncKey, orchestrator, err := buildSandboxOrchestrator(ctx, cfg, database)
@@ -226,7 +225,7 @@ func New(ctx context.Context) (*Deps, error) {
 		SigningKey:      signingKey,
 		SandboxEncKey:   sandboxEncKey,
 		Orchestrator:    orchestrator,
-		SpiderClient:    spiderClient,
+		WebProvider:     webProvider,
 		ToolUsageWriter: toolUsageWriter,
 		BillingRegistry: billingRegistry,
 		Credits:         credits,

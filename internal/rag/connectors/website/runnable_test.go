@@ -3,13 +3,12 @@ package website
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 type stubSource struct{ cfg json.RawMessage }
@@ -19,40 +18,58 @@ func (s *stubSource) OrgID() string           { return "org-1" }
 func (s *stubSource) SourceKind() string      { return Kind }
 func (s *stubSource) Config() json.RawMessage { return s.cfg }
 
+// fakeProvider serves a canned Scrape result (or error) per URL. Page-level
+// failures and non-2xx statuses arrive as errors, matching how the real
+// provider adapters surface them.
+type fakeProvider struct {
+	pages map[string]webcrawl.Page
+	errs  map[string]error
+}
+
+func (f *fakeProvider) Name() string { return "fake" }
+
+func (f *fakeProvider) Scrape(_ context.Context, req webcrawl.ScrapeRequest) (webcrawl.Page, error) {
+	if err, ok := f.errs[req.URL]; ok {
+		return webcrawl.Page{}, err
+	}
+	if p, ok := f.pages[req.URL]; ok {
+		return p, nil
+	}
+	return webcrawl.Page{}, fmt.Errorf("fake: no page for %s", req.URL)
+}
+
+func (f *fakeProvider) Crawl(context.Context, webcrawl.CrawlRequest) ([]webcrawl.Page, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (f *fakeProvider) Search(context.Context, webcrawl.SearchRequest) ([]webcrawl.SearchResult, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (f *fakeProvider) Map(context.Context, webcrawl.MapRequest) ([]string, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func TestRun_ScrapesEachURL(t *testing.T) {
-	// One scrape (POST /v1/crawl, limit=1) per configured URL: /  -> doc,
-	// /a -> empty content (skipped), /b -> 5xx (failure), /c -> doc.
-	byURL := map[string]spider.Response{
-		"https://example.com/":  {URL: "https://example.com/", Content: "# Home", StatusCode: 200},
-		"https://example.com/a": {URL: "https://example.com/a", Content: "", StatusCode: 200},
-		"https://example.com/b": {URL: "https://example.com/b", Content: "", StatusCode: 500, Error: "bad gateway"},
-		"https://example.com/c": {URL: "https://example.com/c", Content: "## C body", StatusCode: 200},
+	// One scrape per configured URL: /  -> doc, /a -> empty content (skipped),
+	// /b -> page-level error (failure), /c -> doc.
+	web := &fakeProvider{
+		pages: map[string]webcrawl.Page{
+			"https://example.com/":  {URL: "https://example.com/", Content: "# Home", StatusCode: 200},
+			"https://example.com/a": {URL: "https://example.com/a", Content: "", StatusCode: 200},
+			"https://example.com/c": {URL: "https://example.com/c", Content: "## C body", StatusCode: 200},
+		},
+		errs: map[string]error{
+			"https://example.com/b": fmt.Errorf("scrape https://example.com/b: status 500"),
+		},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var p spider.SpiderParams
-		_ = json.NewDecoder(r.Body).Decode(&p)
-		resp, ok := byURL[p.URL]
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		if resp.StatusCode >= 500 {
-			w.WriteHeader(resp.StatusCode)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode([]spider.Response{resp})
-	}))
-	defer srv.Close()
-
-	cli := spider.NewClient(srv.URL, "k")
 	c := NewConnector(WebsiteConfig{URLs: []string{
 		"https://example.com/",
 		"https://example.com/a",
 		"https://example.com/b",
 		"https://example.com/c",
-	}}, cli)
+	}}, web)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -85,6 +102,42 @@ func TestRun_ScrapesEachURL(t *testing.T) {
 	}
 	if fails[0].FailedDocument == nil || fails[0].FailedDocument.DocID != "https://example.com/b" {
 		t.Errorf("failure didn't pin to /b: %+v", fails[0])
+	}
+}
+
+func TestRun_URLFallbackAndMaxPages(t *testing.T) {
+	// A page with empty URL falls back to the requested URL; MaxPages caps the
+	// list so the second URL is never scraped.
+	web := &fakeProvider{
+		pages: map[string]webcrawl.Page{
+			"https://example.com/one": {URL: "", Content: "# One", StatusCode: 200},
+			"https://example.com/two": {URL: "https://example.com/two", Content: "# Two", StatusCode: 200},
+		},
+	}
+
+	c := NewConnector(WebsiteConfig{
+		URLs:     []string{"https://example.com/one", "https://example.com/two"},
+		MaxPages: 1,
+	}, web)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	out, err := c.Run(ctx, &stubSource{}, nil, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var docs []*interfaces.Document
+	for ev := range out {
+		if ev.Doc != nil {
+			docs = append(docs, ev.Doc)
+		}
+	}
+	if len(docs) != 1 {
+		t.Fatalf("docs: got %d, want 1 (MaxPages cap) (%v)", len(docs), urlsOf(docs))
+	}
+	if got := docs[0].Link; got != "https://example.com/one" {
+		t.Errorf("URL fallback failed: Link = %q, want %q", got, "https://example.com/one")
 	}
 }
 

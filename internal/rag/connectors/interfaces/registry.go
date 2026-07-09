@@ -10,17 +10,17 @@ import (
 
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/nango"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 // BuildDeps carries shared clients a connector may need at construction.
 // Add a field here when a new connector arrives with new infra needs;
 // keeps Factory's signature stable.
 type BuildDeps struct {
-	Nango  *nango.Client
-	Spider *spider.Client
-	DB     *gorm.DB
-	KMS    *crypto.KeyWrapper
+	Nango *nango.Client
+	Web   webcrawl.Provider
+	DB    *gorm.DB
+	KMS   *crypto.KeyWrapper
 }
 
 // Factory constructs a Connector instance bound to a specific Source

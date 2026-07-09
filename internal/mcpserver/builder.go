@@ -11,7 +11,7 @@ import (
 )
 
 // WebToolsFunc is a callback that registers web_fetch and web_search on a
-// server. Used to avoid an import cycle between mcpserver and spider.
+// server. Used to avoid an import cycle between mcpserver and webcrawl.
 type WebToolsFunc func(server *mcp.Server, token *model.Token)
 
 // KnowledgeToolsFunc registers org-scoped knowledge-base search tools.

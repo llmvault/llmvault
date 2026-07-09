@@ -12,7 +12,7 @@ import (
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 type Deps struct {
@@ -20,7 +20,7 @@ type Deps struct {
 	Qdrant          *qdrant.Client
 	Embedder        *embedclient.Embedder
 	Nango           *nango.Client
-	Spider          *spider.Client
+	Web             webcrawl.Provider
 	KMS             *crypto.KeyWrapper
 	Credits         *billing.CreditsService
 	PreContextCache precontext.Cache

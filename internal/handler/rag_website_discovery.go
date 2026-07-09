@@ -10,7 +10,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/rag/connectors/website"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 type discoverWebsiteSectionsRequest struct {
@@ -19,7 +19,7 @@ type discoverWebsiteSectionsRequest struct {
 
 // DiscoverWebsiteSections handles POST /v1/rag/website/discover-sections.
 // @Summary Discover the sections of a website
-// @Description Crawls a site's links via Spider and groups them into sections (path clusters) and individual pages, so a website knowledge source can be scoped to a set of URLs.
+// @Description Crawls a site's links via the configured web crawl provider and groups them into sections (path clusters) and individual pages, so a website knowledge source can be scoped to a set of URLs.
 // @Tags rag
 // @Accept json
 // @Produce json
@@ -34,7 +34,7 @@ func (h *RAGSourceHandler) DiscoverWebsiteSections(w http.ResponseWriter, r *htt
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
-	if h.spider == nil {
+	if h.web == nil {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "website discovery is not configured"})
 		return
 	}
@@ -56,41 +56,17 @@ func (h *RAGSourceHandler) DiscoverWebsiteSections(w http.ResponseWriter, r *htt
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 
-	// discoveryPageLimit caps how many pages Spider crawls to enumerate links —
-	// enough to surface the site's sections without a full crawl.
+	// discoveryPageLimit caps how many URLs the map enumerates — enough to
+	// surface the site's sections without a full crawl.
 	const discoveryPageLimit = 300
-	limit := discoveryPageLimit
-	pages, err := h.spider.Links(ctx, spider.SpiderParams{
-		URL:             target,
-		RequestType:     "smart",
-		Limit:           &limit,
-		ReturnPageLinks: boolPtr(true),
-		RespectRobots:   boolPtr(true),
-	})
+	urls, err := h.web.Map(ctx, webcrawl.MapRequest{URL: target, Limit: discoveryPageLimit})
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "website discovery: spider links failed", "url", target, "error", err)
+		logging.FromContext(ctx).ErrorContext(ctx, "website discovery: map failed", "url", target, "error", err)
 		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to crawl site: " + err.Error()})
 		return
 	}
 
-	// Aggregate every discovered URL: crawled page URLs plus the links on them.
-	set := make(map[string]struct{}, len(pages)*8)
-	for _, p := range pages {
-		if p.URL != "" {
-			set[p.URL] = struct{}{}
-		}
-		for _, link := range p.Links {
-			if link != "" {
-				set[link] = struct{}{}
-			}
-		}
-	}
-	all := make([]string, 0, len(set))
-	for u := range set {
-		all = append(all, u)
-	}
-
-	result, err := website.GroupLinks(target, all, 0)
+	result, err := website.GroupLinks(target, urls, 0)
 	if err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: err.Error()})
 		return

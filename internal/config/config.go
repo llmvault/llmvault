@@ -59,7 +59,7 @@ type Config struct {
 	SMTPUsername string `env:"HIVY_SMTP_USERNAME"`
 	SMTPPassword string `env:"HIVY_SMTP_PASSWORD"`
 	SMTPTLS      string `env:"HIVY_SMTP_TLS" envDefault:"starttls"` // starttls | ssl | none
-	EmailFrom    string `env:"HIVY_EMAIL_FROM"` // e.g. "Acme <hello@acme.com>"; required for SMTP delivery
+	EmailFrom    string `env:"HIVY_EMAIL_FROM"`                     // e.g. "Acme <hello@acme.com>"; required for SMTP delivery
 	// Substituted into templates as {{{siteUrl}}} (footer links) and
 	// {{{assetBaseUrl}}} (logo image base).
 	EmailSiteURL  string `env:"HIVY_EMAIL_SITE_URL"`
@@ -142,9 +142,13 @@ type Config struct {
 	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.example.com)
 	CaddyAdminURL      string `env:"HIVY_CADDY_ADMIN_URL"`  // Caddy admin API proxy (e.g. https://caddy-admin.daytona.example.com)
 
-	// Spider (web crawling/search via spider.cloud)
-	SpiderAPIKey  string `env:"HIVY_SPIDER_CLOUD_API_KEY"`                                  // empty = spider disabled
-	SpiderBaseURL string `env:"HIVY_SPIDER_BASE_URL" envDefault:"https://api.spider.cloud"` // Spider.cloud API endpoint
+	// Web crawl/search providers, enabled by their API keys. Priority per
+	// operation is hardcoded in bootstrap: scrape/crawl/map go spider then
+	// firecrawl; search goes serper then firecrawl (spider is not used for
+	// search).
+	SpiderAPIKey    string `env:"HIVY_SPIDER_CLOUD_API_KEY"` // empty = spider disabled
+	FirecrawlAPIKey string `env:"HIVY_FIRECRAWL_API_KEY"`    // empty = firecrawl disabled
+	SerperAPIKey    string `env:"HIVY_SERPER_API_KEY"`       // empty = serper disabled
 
 	// S3 (agent drive storage and uploads; empty HIVY_AWS_S3_BUCKET_NAME disables storage-backed uploads)
 	S3Bucket          string `env:"HIVY_AWS_S3_BUCKET_NAME"`

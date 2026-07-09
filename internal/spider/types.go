@@ -1,5 +1,10 @@
 package spider
 
+import (
+	"bytes"
+	"encoding/json"
+)
+
 // SpiderParams covers common parameters for crawl, links, and screenshot endpoints.
 // Maps to the Spider.cloud POST body for /v1/crawl, /v1/links, /v1/screenshot.
 type SpiderParams struct {
@@ -77,8 +82,11 @@ type Response struct {
 	URL string `json:"url,omitempty"`
 	// The page content (HTML, markdown, text, etc. depending on return_format).
 	Content string `json:"content,omitempty"`
-	// The HTTP status code of the page fetch.
+	// The HTTP status code of the page fetch. The official spider-clients
+	// structs name this field "status" while legacy responses carried
+	// "status_code"; both are decoded — read via HTTPStatus, not directly.
 	StatusCode int `json:"status_code,omitempty"`
+	Status     int `json:"status,omitempty"`
 	// Raw binary content when rawContent mode is used. Base64-encoded in JSON.
 	RawContent []byte `json:"raw_content,omitempty"`
 	// HTTP response headers. Present when return_headers is true.
@@ -89,17 +97,41 @@ type Response struct {
 	Error string `json:"error,omitempty"`
 }
 
+// HTTPStatus returns the page fetch status regardless of which field name the
+// API used, 0 when absent.
+func (r Response) HTTPStatus() int {
+	if r.StatusCode != 0 {
+		return r.StatusCode
+	}
+	return r.Status
+}
+
 // SearchResult is a single item from the /v1/search endpoint.
-// Search returns {"content": [...]} where each item has title/description/url.
 type SearchResult struct {
 	URL         string `json:"url,omitempty"`
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
-// SearchResponse is the top-level response from /v1/search.
+// SearchResponse is the top-level response from /v1/search. The endpoint has
+// been observed returning both {"content": [...]} and a bare array of
+// results; UnmarshalJSON accepts either.
 type SearchResponse struct {
 	Content []SearchResult `json:"content"`
+}
+
+func (s *SearchResponse) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		return json.Unmarshal(trimmed, &s.Content)
+	}
+	type plain SearchResponse
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*s = SearchResponse(p)
+	return nil
 }
 
 // TransformResponse is the top-level response from /v1/transform.

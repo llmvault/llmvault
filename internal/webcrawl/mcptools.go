@@ -1,4 +1,4 @@
-package spider
+package webcrawl
 
 import (
 	"context"
@@ -11,15 +11,15 @@ import (
 )
 
 // NewWebToolsFunc returns a callback compatible with mcpserver.WebToolsFunc.
-func NewWebToolsFunc(client *Client) func(server *mcp.Server, token *model.Token) {
+func NewWebToolsFunc(provider Provider) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
-		registerWebFetch(server, client)
-		registerWebSearch(server, client)
-		registerWebCrawl(server, client)
+		registerWebFetch(server, provider)
+		registerWebSearch(server, provider)
+		registerWebCrawl(server, provider)
 	}
 }
 
-func registerWebFetch(server *mcp.Server, client *Client) {
+func registerWebFetch(server *mcp.Server, provider Provider) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "web_fetch",
@@ -46,11 +46,11 @@ Returns the page content as text (markdown by default).`,
 				"required": []string{"url"},
 			},
 		},
-		WebFetchHandler(client),
+		WebFetchHandler(provider),
 	)
 }
 
-func registerWebSearch(server *mcp.Server, client *Client) {
+func registerWebSearch(server *mcp.Server, provider Provider) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "web_search",
@@ -78,11 +78,11 @@ Returns an array of search results, each with url, title, and description.`,
 				"required": []string{"query"},
 			},
 		},
-		WebSearchHandler(client),
+		WebSearchHandler(provider),
 	)
 }
 
-func registerWebCrawl(server *mcp.Server, client *Client) {
+func registerWebCrawl(server *mcp.Server, provider Provider) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "web_crawl",
@@ -116,12 +116,12 @@ Prefer web_search to discover URLs and web_fetch to read one known page. Reach f
 				"required": []string{"url"},
 			},
 		},
-		WebCrawlHandler(client),
+		WebCrawlHandler(provider),
 	)
 }
 
-// WebFetchHandler returns an MCP tool handler that fetches a URL via Spider.
-func WebFetchHandler(client *Client) mcp.ToolHandler {
+// WebFetchHandler returns an MCP tool handler that fetches a URL via the provider.
+func WebFetchHandler(provider Provider) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var params struct {
 			URL          string `json:"url"`
@@ -133,35 +133,26 @@ func WebFetchHandler(client *Client) mcp.ToolHandler {
 		if params.URL == "" {
 			return toolError("url is required"), nil
 		}
-		if params.ReturnFormat == "" {
-			params.ReturnFormat = "markdown"
+		format := Format(params.ReturnFormat)
+		if format == "" {
+			format = FormatMarkdown
 		}
 
-		results, err := client.Crawl(ctx, SpiderParams{
-			URL:          params.URL,
-			ReturnFormat: params.ReturnFormat,
-			RequestType:  "smart",
-		})
+		page, err := provider.Scrape(ctx, ScrapeRequest{URL: params.URL, Format: format})
 		if err != nil {
 			return toolError("web fetch failed: " + err.Error()), nil
 		}
-		if len(results) == 0 {
-			return toolError("no content returned for URL"), nil
-		}
-		if results[0].Error != "" {
-			return toolError("web fetch error: " + results[0].Error), nil
-		}
 
 		return toolJSON(map[string]any{
-			"url":     results[0].URL,
-			"content": results[0].Content,
-			"status":  results[0].StatusCode,
+			"url":     page.URL,
+			"content": page.Content,
+			"status":  page.StatusCode,
 		})
 	}
 }
 
-// WebSearchHandler returns an MCP tool handler that performs a web search via Spider.
-func WebSearchHandler(client *Client) mcp.ToolHandler {
+// WebSearchHandler returns an MCP tool handler that performs a web search via the provider.
+func WebSearchHandler(provider Provider) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var params struct {
 			Query string `json:"query"`
@@ -174,27 +165,22 @@ func WebSearchHandler(client *Client) mcp.ToolHandler {
 			return toolError("query is required"), nil
 		}
 
-		sp := SearchParams{
-			SpiderParams: SpiderParams{
-				RequestType: "smart",
-			},
-			Search: params.Query,
-		}
-		if params.Num != nil {
-			sp.Num = params.Num
+		sr := SearchRequest{Query: params.Query}
+		if params.Num != nil && *params.Num > 0 {
+			sr.Limit = *params.Num
 		}
 
-		results, err := client.Search(ctx, sp)
+		results, err := provider.Search(ctx, sr)
 		if err != nil {
 			return toolError("web search failed: " + err.Error()), nil
 		}
 
-		return toolJSON(results.Content)
+		return toolJSON(results)
 	}
 }
 
-// WebCrawlHandler returns an MCP tool handler that crawls a website via Spider.
-func WebCrawlHandler(client *Client) mcp.ToolHandler {
+// WebCrawlHandler returns an MCP tool handler that crawls a website via the provider.
+func WebCrawlHandler(provider Provider) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var params struct {
 			URL          string `json:"url"`
@@ -208,8 +194,9 @@ func WebCrawlHandler(client *Client) mcp.ToolHandler {
 		if params.URL == "" {
 			return toolError("url is required"), nil
 		}
-		if params.ReturnFormat == "" {
-			params.ReturnFormat = "markdown"
+		format := Format(params.ReturnFormat)
+		if format == "" {
+			format = FormatMarkdown
 		}
 
 		limit := 10
@@ -220,17 +207,12 @@ func WebCrawlHandler(client *Client) mcp.ToolHandler {
 			limit = 100
 		}
 
-		sp := SpiderParams{
-			URL:          params.URL,
-			ReturnFormat: params.ReturnFormat,
-			RequestType:  "smart",
-			Limit:        &limit,
-		}
-		if params.Depth != nil {
-			sp.Depth = params.Depth
+		cr := CrawlRequest{URL: params.URL, Limit: limit, Format: format}
+		if params.Depth != nil && *params.Depth > 0 {
+			cr.Depth = *params.Depth
 		}
 
-		results, err := client.Crawl(ctx, sp)
+		results, err := provider.Crawl(ctx, cr)
 		if err != nil {
 			return toolError("web crawl failed: " + err.Error()), nil
 		}
@@ -239,18 +221,12 @@ func WebCrawlHandler(client *Client) mcp.ToolHandler {
 		}
 
 		pages := make([]map[string]any, 0, len(results))
-		for _, result := range results {
-			if result.Error != "" {
-				continue
-			}
+		for _, page := range results {
 			pages = append(pages, map[string]any{
-				"url":     result.URL,
-				"content": result.Content,
-				"status":  result.StatusCode,
+				"url":     page.URL,
+				"content": page.Content,
+				"status":  page.StatusCode,
 			})
-		}
-		if len(pages) == 0 {
-			return toolError("all crawled pages returned errors"), nil
 		}
 
 		return toolJSON(pages)

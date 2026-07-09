@@ -17,7 +17,7 @@ import (
 // Tools map.
 //
 // IMPORTANT: this list must stay in sync with the MCP tools actually registered
-// on the "hivy" MCP server (see internal/spider, internal/memory, internal/skills,
+// on the "hivy" MCP server (see internal/webcrawl, internal/memory, internal/skills,
 // internal/rag, internal/mcpserver/cron_tool.go, internal/mcpserver/http_trigger_tool.go,
 // internal/mcpserver/list_channels_tool.go, internal/handler/images_mcp.go).
 // The privileged agent-builder tools (create_agent, update_agent) and the

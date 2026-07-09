@@ -8,7 +8,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 func (c *WebsiteConnector) Run(
@@ -30,15 +30,9 @@ func (c *WebsiteConnector) Run(
 			if ctx.Err() != nil || i >= max {
 				return
 			}
-			r, err := c.spider.Scrape(ctx, pageURL)
+			r, err := c.web.Scrape(ctx, webcrawl.ScrapeRequest{URL: pageURL})
 			if err != nil {
 				if !interfaces.Send(ctx, out, interfaces.NewDocFailure(scrapeFailure(pageURL, err))) {
-					return
-				}
-				continue
-			}
-			if r.Error != "" || (r.StatusCode != 0 && r.StatusCode >= 400) {
-				if !interfaces.Send(ctx, out, interfaces.NewDocFailure(pageFailure(pageURL, r))) {
 					return
 				}
 				continue
@@ -79,12 +73,4 @@ func (c *WebsiteConnector) FinalCheckpoint() (json.RawMessage, error) {
 
 func scrapeFailure(pageURL string, err error) *interfaces.ConnectorFailure {
 	return interfaces.NewDocumentFailure(canonicalURL(pageURL), pageURL, "website: scrape failed", err)
-}
-
-func pageFailure(pageURL string, r spider.Response) *interfaces.ConnectorFailure {
-	msg := r.Error
-	if msg == "" {
-		msg = "spider returned non-2xx status"
-	}
-	return interfaces.NewDocumentFailure(canonicalURL(pageURL), pageURL, msg, nil)
 }

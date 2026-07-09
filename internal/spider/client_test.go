@@ -47,7 +47,7 @@ func TestCrawl_Success(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, spiderResponse)
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-api-key")
+	client := newClientWithEndpoint(srv.URL, "test-api-key")
 	limit := 1
 	results, err := client.Crawl(context.Background(), SpiderParams{
 		URL:          "https://example.com",
@@ -107,7 +107,7 @@ func TestSearch_Success(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, spiderResponse)
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	searchLimit := 5
 	results, err := client.Search(context.Background(), SearchParams{
 		Search:      "golang testing",
@@ -147,7 +147,7 @@ func TestLinks_Success(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, spiderResponse)
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	results, err := client.Links(context.Background(), SpiderParams{URL: "https://example.com"})
 	if err != nil {
 		t.Fatalf("Links() error: %v", err)
@@ -175,7 +175,7 @@ func TestScreenshot_Success(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, spiderResponse)
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	results, err := client.Screenshot(context.Background(), SpiderParams{URL: "https://example.com"})
 	if err != nil {
 		t.Fatalf("Screenshot() error: %v", err)
@@ -203,7 +203,7 @@ func TestTransform_Success(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, spiderResponse)
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	results, err := client.Transform(context.Background(), TransformParams{
 		Data: []TransformInput{
 			{HTML: "<h1>Hello</h1>", URL: "https://example.com"},

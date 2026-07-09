@@ -38,7 +38,7 @@ func TestCrawlStream_EmitsResponsesInOrder(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(srv.URL, "k")
+	c := newClientWithEndpoint(srv.URL, "k")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -88,7 +88,7 @@ func TestCrawlStream_MultipleDecodeErrorsDoNotDeadlock(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(srv.URL, "k")
+	c := newClientWithEndpoint(srv.URL, "k")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -123,7 +123,7 @@ func TestCrawlStream_PropagatesUpstreamError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(srv.URL, "k")
+	c := newClientWithEndpoint(srv.URL, "k")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 

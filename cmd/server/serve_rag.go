@@ -15,7 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 	"github.com/usehivy/hivy/internal/resources"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 type ragRuntime struct {
@@ -33,10 +33,10 @@ func setupRAGRuntime(
 	mcpHandler *handler.MCPHandler,
 	nangoClient *nango.Client,
 	cat *catalog.Catalog,
-	spiderClient *spider.Client,
+	web webcrawl.Provider,
 ) (*ragRuntime, error) {
 	discovery := resources.NewDiscovery(cat, nangoClient)
-	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, billing.NewCreditsService(db), discovery, cat, spiderClient)
+	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, billing.NewCreditsService(db), discovery, cat, web)
 	searchHandler, qd, embedder, reranker, err := buildRAGSearch(cfg, db)
 	if err != nil {
 		return nil, err

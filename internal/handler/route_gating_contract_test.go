@@ -35,11 +35,6 @@ func seedOwner(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.User {
 
 func ownerCaller(u model.User) caller { return caller{user: &u} }
 
-// TestRouteGating_MiddlewareTiers proves the middleware-level authorization
-// tiers this build sets: billing money-moves are owner-only, connections /
-// plugin-install are admin-only, and the api-keys / tokens inventory lists are
-// admin (or scoped API key), never a bare member. Stub handlers stand in for the
-// real ones so the gate — not the handler body — is what's under test.
 func TestRouteGating_MiddlewareTiers(t *testing.T) {
 	db := connectTestDB(t)
 	fx := seedVisFixture(t, db)
@@ -104,10 +99,6 @@ func TestRouteGating_MiddlewareTiers(t *testing.T) {
 	}
 }
 
-// TestRouteGating_ChannelCreateTeamMembership proves POST /v1/channels enforces
-// team membership: a non-manager may create a channel only inside a team they
-// belong to, never in another team or a team-less channel; managers/API keys are
-// unrestricted.
 func TestRouteGating_ChannelCreateTeamMembership(t *testing.T) {
 	db := connectTestDB(t)
 	fx := seedVisFixture(t, db)

@@ -21,7 +21,7 @@ func TestScrape_RetriesOnceOn5xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	r, err := NewClient(srv.URL, "k").Scrape(context.Background(), "https://x.test/p")
+	r, err := newClientWithEndpoint(srv.URL, "k").Scrape(context.Background(), "https://x.test/p")
 	if err != nil {
 		t.Fatalf("Scrape: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestScrape_Persistent5xxFailsAfterOneRetry(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := NewClient(srv.URL, "k").Scrape(context.Background(), "https://x.test/p"); err == nil {
+	if _, err := newClientWithEndpoint(srv.URL, "k").Scrape(context.Background(), "https://x.test/p"); err == nil {
 		t.Fatal("expected error on persistent 500")
 	}
 	if got := atomic.LoadInt32(&attempts); got != 2 {
@@ -57,7 +57,7 @@ func TestScrape_NoRetryOn4xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := NewClient(srv.URL, "k").Scrape(context.Background(), "https://x.test/p"); err == nil {
+	if _, err := newClientWithEndpoint(srv.URL, "k").Scrape(context.Background(), "https://x.test/p"); err == nil {
 		t.Fatal("expected error on 400")
 	}
 	if got := atomic.LoadInt32(&attempts); got != 1 {

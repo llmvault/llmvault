@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/resources"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 type RAGSourceHandler struct {
@@ -22,11 +22,11 @@ type RAGSourceHandler struct {
 	credits   *billing.CreditsService
 	discovery *resources.Discovery
 	catalog   *catalog.Catalog
-	spider    *spider.Client
+	web       webcrawl.Provider
 }
 
-func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog, spiderClient *spider.Client) *RAGSourceHandler {
-	return &RAGSourceHandler{db: db, enq: enq, credits: credits, discovery: discovery, catalog: cat, spider: spiderClient}
+func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog, web webcrawl.Provider) *RAGSourceHandler {
+	return &RAGSourceHandler{db: db, enq: enq, credits: credits, discovery: discovery, catalog: cat, web: web}
 }
 
 type ragSourceResponse struct {

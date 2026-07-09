@@ -23,18 +23,13 @@ func main() {
 		fmt.Println("HIVY_SPIDER_CLOUD_API_KEY not set")
 		os.Exit(1)
 	}
-	base := os.Getenv("HIVY_SPIDER_BASE_URL")
-	if base == "" {
-		base = "https://api.spider.cloud"
-	}
-
-	client := spider.NewClient(base, key)
+	client := spider.NewClient(key)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	limit := 300
 	yes := true
-	fmt.Printf("crawling %s (limit %d) via %s ...\n", target, limit, base)
+	fmt.Printf("crawling %s (limit %d) ...\n", target, limit)
 	pages, err := client.Links(ctx, spider.SpiderParams{
 		URL:             target,
 		RequestType:     "smart",

@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const baseURL = "https://api.spider.cloud"
+
 // Client communicates with the Spider.cloud REST API.
 type Client struct {
 	endpoint   string
@@ -18,7 +20,11 @@ type Client struct {
 }
 
 // NewClient creates a Spider.cloud API client.
-func NewClient(endpoint, apiKey string) *Client {
+func NewClient(apiKey string) *Client {
+	return newClientWithEndpoint(baseURL, apiKey)
+}
+
+func newClientWithEndpoint(endpoint, apiKey string) *Client {
 	return &Client{
 		endpoint: endpoint,
 		apiKey:   apiKey,

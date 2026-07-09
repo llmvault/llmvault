@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 // canonicalURL normalises a URL so re-crawls hit the same qdrant point
@@ -25,12 +25,12 @@ func canonicalURL(raw string) string {
 	return u.String()
 }
 
-func responseToDocument(r spider.Response) interfaces.Document {
-	docID := canonicalURL(r.URL)
+func responseToDocument(p webcrawl.Page) interfaces.Document {
+	docID := canonicalURL(p.URL)
 	return interfaces.Document{
 		DocID:      docID,
-		SemanticID: r.URL,
-		Link:       r.URL,
-		Sections:   []interfaces.Section{{Text: r.Content}},
+		SemanticID: p.URL,
+		Link:       p.URL,
+		Sections:   []interfaces.Section{{Text: p.Content}},
 	}
 }

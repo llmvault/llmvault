@@ -1,10 +1,9 @@
-// Package website is a RAG connector that crawls a public website via
-// the Spider.cloud client and emits one Document per page in markdown.
+// Package website is a RAG connector that crawls a public website via the
+// configured webcrawl.Provider and emits one Document per page in markdown.
 //
-// Crawl strategy: BFS from the seed URL, with sitemap-aware discovery
-// turned on so the site's own curated URL list fills the budget first.
-// MaxPages caps the run (default 500). Subdomains and link-budget
-// tunables stay zero-valued for v1; revisit when callers need them.
+// It scrapes each configured URL to markdown; MaxPages caps the list
+// (default 500). Subdomains and link-budget tunables stay zero-valued for v1;
+// revisit when callers need them.
 package website
 
 import (
@@ -12,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 const Kind = "WEBSITE"
@@ -20,12 +19,12 @@ const Kind = "WEBSITE"
 var _ interfaces.Connector = (*WebsiteConnector)(nil)
 
 type WebsiteConnector struct {
-	cfg    WebsiteConfig
-	spider *spider.Client
+	cfg WebsiteConfig
+	web webcrawl.Provider
 }
 
-func NewConnector(cfg WebsiteConfig, sp *spider.Client) *WebsiteConnector {
-	return &WebsiteConnector{cfg: cfg, spider: sp}
+func NewConnector(cfg WebsiteConfig, web webcrawl.Provider) *WebsiteConnector {
+	return &WebsiteConnector{cfg: cfg, web: web}
 }
 
 func (c *WebsiteConnector) Kind() string { return Kind }
@@ -40,8 +39,8 @@ func Build(src interfaces.Source, deps interfaces.BuildDeps) (interfaces.Connect
 	if err != nil {
 		return nil, err
 	}
-	if deps.Spider == nil {
-		return nil, fmt.Errorf("website: spider client not configured")
+	if deps.Web == nil {
+		return nil, fmt.Errorf("website: web crawl provider not configured")
 	}
-	return NewConnector(cfg, deps.Spider), nil
+	return NewConnector(cfg, deps.Web), nil
 }

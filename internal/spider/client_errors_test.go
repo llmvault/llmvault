@@ -16,7 +16,7 @@ func TestCrawl_APIError(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	_, err := client.Crawl(context.Background(), SpiderParams{URL: "https://example.com"})
 	if err == nil {
 		t.Fatal("expected error for 429 response, got nil")
@@ -30,7 +30,7 @@ func TestCrawl_ServerError(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	_, err := client.Crawl(context.Background(), SpiderParams{URL: "https://example.com"})
 	if err == nil {
 		t.Fatal("expected error for 500 response, got nil")
@@ -44,7 +44,7 @@ func TestCrawl_InvalidJSON(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	_, err := client.Crawl(context.Background(), SpiderParams{URL: "https://example.com"})
 	if err == nil {
 		t.Fatal("expected error for invalid JSON response, got nil")
@@ -58,7 +58,7 @@ func TestCrawl_EmptyResponse(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, []Response{})
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	results, err := client.Crawl(context.Background(), SpiderParams{URL: "https://example.com"})
 	if err != nil {
 		t.Fatalf("Crawl() error: %v", err)
@@ -81,7 +81,7 @@ func TestCrawl_MultiplePages(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, spiderResponse)
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	limit := 3
 	results, err := client.Crawl(context.Background(), SpiderParams{
 		URL:   "https://example.com",
@@ -101,7 +101,7 @@ func TestCrawl_ContextCanceled(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -118,7 +118,7 @@ func TestSearch_OptionalParams(t *testing.T) {
 	srv := mockSpiderAPI(t, &captured, &mu, http.StatusOK, SearchResponse{Content: []SearchResult{}})
 	t.Cleanup(srv.Close)
 
-	client := NewClient(srv.URL, "test-key")
+	client := newClientWithEndpoint(srv.URL, "test-key")
 	fetchContent := true
 	_, err := client.Search(context.Background(), SearchParams{
 		Search:           "test query",

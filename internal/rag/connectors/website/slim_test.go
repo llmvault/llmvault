@@ -9,7 +9,7 @@ import (
 
 func TestListAllSlim_OneDocPerURL(t *testing.T) {
 	urls := []string{"https://acme.com/library", "https://acme.com/blog"}
-	c := NewConnector(WebsiteConfig{URLs: urls}, nil) // slim never touches spider
+	c := NewConnector(WebsiteConfig{URLs: urls}, nil) // slim never touches the web provider
 
 	ch, err := c.ListAllSlim(context.Background(), &stubSource{})
 	if err != nil {

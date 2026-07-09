@@ -17,8 +17,8 @@ import (
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/sheets"
-	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 // serveHandlersCore holds the first half of the handlers/services built by
@@ -94,8 +94,8 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	}
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
-	if deps.SpiderClient != nil {
-		mcpHandler.SetWebTools(spider.NewWebToolsFunc(deps.SpiderClient))
+	if deps.WebProvider != nil {
+		mcpHandler.SetWebTools(webcrawl.NewWebToolsFunc(deps.WebProvider))
 	}
 	runtimeCompileDeps := agentruntime.CompileDeps{
 		DB:         database,

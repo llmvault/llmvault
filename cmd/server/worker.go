@@ -60,7 +60,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	}
 
 	preContextCache := precontext.NewRedisCache(deps.Redis)
-	ragDeps := buildRagDeps(ctx, cfg, deps.DB, deps.NangoClient, deps.SpiderClient, deps.KMS, preContextCache)
+	ragDeps := buildRagDeps(ctx, cfg, deps.DB, deps.NangoClient, deps.WebProvider, deps.KMS, preContextCache)
 	memorySearchService := buildMemorySearchService(cfg, deps.DB, deps.CacheManager)
 	var knowledgeSearcher precontext.KnowledgeSearcher
 	var knowledgeEmbedder precontext.Embedder

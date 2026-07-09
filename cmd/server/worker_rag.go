@@ -14,7 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
-	"github.com/usehivy/hivy/internal/spider"
+	"github.com/usehivy/hivy/internal/webcrawl"
 )
 
 func buildRagDeps(
@@ -22,7 +22,7 @@ func buildRagDeps(
 	cfg *config.Config,
 	db *gorm.DB,
 	nangoClient *nango.Client,
-	spiderClient *spider.Client,
+	web webcrawl.Provider,
 	kms *crypto.KeyWrapper,
 	preContextCache precontext.Cache,
 ) *ragtasks.Deps {
@@ -69,7 +69,7 @@ func buildRagDeps(
 		Qdrant:          qd,
 		Embedder:        embedder,
 		Nango:           nangoClient,
-		Spider:          spiderClient,
+		Web:             web,
 		KMS:             kms,
 		Credits:         billing.NewCreditsService(db),
 		PreContextCache: preContextCache,
