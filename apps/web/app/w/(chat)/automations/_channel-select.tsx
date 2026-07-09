@@ -8,23 +8,12 @@ import type { components } from "@/lib/api/schema"
 
 type Channel = components["schemas"]["channelResponse"]
 
-/**
- * Native Hivy channels the current user can see. External-provider channels
- * (Slack channels, auto-created repo channels, etc.) are excluded — a trigger's
- * session channel must be a plain Hivy channel, not an external event source.
- */
 export function useHivyChannels() {
   const query = $api.useQuery("get", "/v1/channels", {
     params: { query: { limit: 100 } },
   })
   const channels = useMemo(
-    () =>
-      (query.data?.data ?? []).filter(
-        (channel) =>
-          Boolean(channel.id) &&
-          !channel.external_provider &&
-          !channel.external_connection_id
-      ),
+    () => (query.data?.data ?? []).filter((channel) => Boolean(channel.id)),
     [query.data?.data]
   )
   return { channels, isLoading: query.isLoading, isError: query.isError }
