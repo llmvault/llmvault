@@ -22,7 +22,7 @@ Generate each image at its tile's ratio: `1:1` for squares, `16:9` for wide stri
 ## Consistency techniques
 
 1. **Shared prompt prefix** (strongest lever): identical style/palette/lighting sentence starting every tile prompt.
-2. **Anchor + remix**: generate the first (largest) tile with `generate_image`, save it, then produce the remaining tiles with `remix_image` referencing the anchor (see `references/consistent-assets.md`).
+2. **Anchor + remix**: generate the first (largest) tile with `hivy_generate_image`, save it, then produce the remaining tiles with `hivy_remix_image` referencing the anchor (see `references/consistent-assets.md`).
 3. Generate all tiles in one session, and 2 variants per tile — mismatched tiles get swapped from variants.
 
 ## Example prompt set

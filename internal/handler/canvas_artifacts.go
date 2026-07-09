@@ -173,6 +173,10 @@ func (h *CanvasHandler) PreviewArtifactURL(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load canvas artifact"})
 		return
 	}
+	if artifact.SourceSessionID == nil || *artifact.SourceSessionID != sessionID {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "canvas artifact not found"})
+		return
+	}
 	entryPath, err := h.previewEntryPath(r, artifact)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "canvas artifact preview file not found"})

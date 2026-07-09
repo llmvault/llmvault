@@ -20,11 +20,6 @@ type ConnectionRequirement struct {
 	Required bool   `json:"required"`
 }
 
-// orgInstalledPlugin is one active, org-installed plugin resolved by slug.
-type orgInstalledPlugin struct {
-	plugin model.Plugin
-}
-
 // resolvePluginSlugs validates that every requested slug is an ACTIVE
 // org-installed plugin and returns the matching plugin rows. On an unknown or
 // uninstalled slug it returns a helpful error listing the installed slugs and

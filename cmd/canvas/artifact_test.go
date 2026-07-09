@@ -113,7 +113,7 @@ func TestArtifactValidateReturnsStructuredCorrectionFeedback(t *testing.T) {
     <section><h1>Landing Page</h1></section>
   </main>
 </body></html>`
-	if err := os.WriteFile(htmlPath, []byte(badHTML), 0o644); err != nil {
+	if err := os.WriteFile(htmlPath, []byte(badHTML), 0o600); err != nil {
 		t.Fatalf("write bad html: %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestArtifactValidateTreatsHeadingIssuesAsWarnings(t *testing.T) {
     <section data-canvas-id="hero"><p>No heading here.</p></section>
   </main>
 </body></html>`
-	if err := os.WriteFile(htmlPath, []byte(html), 0o644); err != nil {
+	if err := os.WriteFile(htmlPath, []byte(html), 0o600); err != nil {
 		t.Fatalf("write html: %v", err)
 	}
 

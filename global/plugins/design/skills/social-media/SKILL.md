@@ -37,13 +37,13 @@ This skill depends on the `canvas` skill for all artifact mechanics. Load it bef
 
 1. **Read the brief.** Identify: genre (carousel, celebration card, quote card, …), platform(s), the single message per asset, and the brand voice. State a one-line design read (per `design-taste`): `Reading this as: [genre] for [audience], with a [tone] visual language, leaning toward [style direction].` If the user's ask could go two materially different directions, ask ONE focused question.
 2. **Resolve the brand.** `canvas brands list`, then `canvas brands view <brand-id>` for the default or user-chosen brand. Extract: background/foreground/muted/border colors, accent(s) or gradient, font families, logo asset. No brand? Follow the `design-taste` Brand Source Rule (choose a defensible palette, persist with `canvas brands create`, tell the user).
-3. **Pick format and dimensions.** Open `references/formats.md`. It maps every asset type to export pixels, the Canvas artifact type, the `default_viewport`, the generation aspect ratio, and platform safe zones.
+3. **Pick format and dimensions.** Open `references/formats.md`. It maps every asset type to export pixels, the Canvas artifact type, the generation aspect ratio, and platform safe zones.
 4. **Plan the artifacts.** One Canvas project per campaign or asset family (`canvas project create --name "Social — <campaign>"` or reuse via `canvas project list`). Then:
-   - Slide set (carousel, story sequence): ONE `presentation` artifact; one HTML file per slide under `slides/`; manifest `slides` array in swipe order; `default_viewport` = the slide's exact pixels.
-   - Single asset (celebration card, quote card, announcement, thumbnail, banner): ONE `web_page` artifact with `index.html` sized exactly; `default_viewport` = the asset's pixels.
+   - Slide set (carousel, story sequence): ONE `presentation` artifact; one HTML file per slide under `slides/`; manifest `slides` array in swipe order; each slide's body sized to the slide's exact pixels.
+   - Single asset (celebration card, quote card, announcement, thumbnail, banner): ONE `web_page` artifact with `index.html`, its body sized to the asset's exact pixels.
    - Multi-platform campaign: one artifact per dimension, sharing the same generated backdrops by URL.
 5. **Choose a style direction.** Open `references/styles.md` and pick exactly one direction for the whole set (gradient-glow, editorial-typographic, illustration-driven, soft-3D-object, photographic, duotone-wash, vector-accent). The direction fixes the shared style sentence used in every prompt of the set.
-6. **Run the image gate, then plan and generate backdrops.** Open `references/backdrop-system.md`. First decide whether the asset needs generated images at all (the gate at the top of that file — many assets ship stronger with zero). For the slides/assets that pass the gate: assign backdrop roles, write one prompt per role (not per slide), generate with `generate_image`, review against the checklist, and record each result's `public_url` + `drive_asset_id` in a role map. This is the only step that spends image credits.
+6. **Run the image gate, then plan and generate backdrops.** Open `references/backdrop-system.md`. First decide whether the asset needs generated images at all (the gate at the top of that file — many assets ship stronger with zero). For the slides/assets that pass the gate: assign backdrop roles, write one prompt per role (not per slide), generate with `hivy_generate_image`, review against the checklist, and record each result's `public_url` + `drive_asset_id` in a role map. This is the only step that spends image credits.
 7. **Build the HTML.** Open `references/slide-kit.md`. Compose each slide/asset file with the fixed-size boilerplate, brand tokens as CSS custom properties, the backdrop's `public_url` as a layered `background-image`, and the brand chrome (logo lockup, slide index, footer). Semantic structure and `data-canvas-id` anchors per the `canvas` skill.
 8. **Follow the genre recipe.** Open `references/recipes.md` for the genre's slide-by-slide plan, image budget, and copy patterns — including a fully worked 10-slide carousel.
 9. **Validate, QA, sync.** Per the `canvas` skill: `canvas artifact validate`, Agent Browser QA at the exact viewport (`browser set viewport 1080 1350` for a 4:5 post), inspect every slide at full size — text collisions with image energy, contrast in text zones, glyph clipping on display type — then `canvas artifact verify` and `canvas artifact sync`.
@@ -64,9 +64,9 @@ Budgets below are ceilings for sets that pass the image gate — a text-led vers
 
 ## Image tools in this skill
 
-- `generate_image` — backdrops and scene art. Returns `{drive_asset_id, public_url, …}`; the `public_url` goes straight into the HTML. Use `count: 2` for load-bearing backdrops (hook, closer) and pick the better.
-- `remix_image` — when a new backdrop must contain something that already exists (a recurring mascot, a product, next month's episode of a series). Requires `reference_asset_ids`; read `imagegen` → `references/consistent-assets.md` first.
-- `generate_vector_image` — crisp vector decoration (confetti, sparkles, badges, dividers) for the vector-accent style; SVG scales to any export size.
+- `hivy_generate_image` — backdrops and scene art. Returns `{drive_asset_id, public_url, …}`; the `public_url` goes straight into the HTML. Use `count: 2` for load-bearing backdrops (hook, closer) and pick the better.
+- `hivy_remix_image` — when a new backdrop must contain something that already exists (a recurring mascot, a product, next month's episode of a series). Requires `reference_asset_ids`; read `imagegen` → `references/consistent-assets.md` first.
+- `hivy_generate_vector_image` — crisp vector decoration (confetti, sparkles, badges, dividers) for the vector-accent style; SVG scales to any export size.
 
 All prompting depth — hard rules, clause order, style keywords, iteration method — is the `imagegen` skill's domain. This skill's `references/backdrop-system.md` applies those rules to the social-backdrop case; for anything beyond it, load `imagegen`.
 
@@ -74,7 +74,7 @@ All prompting depth — hard rules, clause order, style keywords, iteration meth
 
 Load only what the current step needs.
 
-- `references/formats.md` — every platform/asset type: export pixels, ratio, Canvas artifact type, `default_viewport`, generation aspect mapping, safe zones. Load at step 3.
+- `references/formats.md` — every platform/asset type: export pixels, ratio, Canvas artifact type, generation aspect mapping, safe zones. Load at step 3.
 - `references/backdrop-system.md` — backdrop roles, image budgets, the set-consistency method, prompt skeletons, tested worked prompts, the reuse ledger, review checklist. Load at step 6.
 - `references/slide-kit.md` — the fixed-size HTML boilerplate, brand token block, chrome components, type scale, scrims and text-safety, fonts, `data-canvas-id` conventions. Load at step 7.
 - `references/styles.md` — the seven style directions with prompt templates and CSS notes. Load at step 5.

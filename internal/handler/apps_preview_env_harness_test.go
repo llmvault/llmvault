@@ -143,10 +143,11 @@ func newPreviewEnvHarness(t *testing.T, opts previewHarnessOpts) *previewEnvHarn
 	h.svc = apps.NewService(db, opts.cfg, encKey, h.provider, nil, nil, h.authPEM)
 
 	app, err := h.svc.CreateApp(context.Background(), apps.CreateAppParams{
-		OrgID:     h.org.ID,
-		ChannelID: h.channel.ID,
-		SheetID:   h.sheet.ID,
-		Name:      "Preview App " + uuid.NewString()[:8],
+		OrgID:            h.org.ID,
+		ChannelID:        h.channel.ID,
+		SheetID:          h.sheet.ID,
+		Name:             "Preview App " + uuid.NewString()[:8],
+		CreatedByAgentID: &h.agent.ID,
 	})
 	if err != nil {
 		t.Fatalf("create app: %v", err)

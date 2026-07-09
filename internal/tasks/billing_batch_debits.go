@@ -46,15 +46,24 @@ func planCumulativeDebits(tx *gorm.DB, rows []unbilledRow, perRowResults map[str
 		if err != nil {
 			return nil, err
 		}
-		if balance < delta {
+
+		debitable := delta
+		if headroom := balance - billing.CreditOverdraftFloor; headroom < debitable {
+			debitable = headroom
+		}
+		if debitable <= 0 {
 			markRowsInsufficient(rowsByOrg[orgID], perRowResults)
 			continue
 		}
 
-		allocateCurrentRowCredits(rowsByOrg[orgID], perRowResults, delta)
+		if debitable < delta {
+			debitPartialToFloor(rowsByOrg[orgID], perRowResults, debitable)
+		} else {
+			allocateCurrentRowCredits(rowsByOrg[orgID], perRowResults, debitable)
+		}
 		entries = append(entries, model.CreditLedgerEntry{
 			OrgID:   orgID,
-			Amount:  -delta,
+			Amount:  -debitable,
 			Reason:  billing.ReasonLLMTokens,
 			RefType: "generation_batch",
 			RefID:   batchRefID,
@@ -128,6 +137,26 @@ func markRowsInsufficient(rows []unbilledRow, perRowResults map[string]rowBillin
 		result.BillingErr = billingErrInsufFunds
 		result.Credits = 0
 		perRowResults[row.ID] = result
+	}
+}
+
+// debitPartialToFloor distributes a debit that stops short of the org's full
+// delta because taking the whole delta would breach the overdraft floor. Rows
+// left unpaid by the partial allocation are marked insufficient so they stay
+// queued; the sum of allocated credits equals the debit written to the ledger.
+func debitPartialToFloor(rows []unbilledRow, perRowResults map[string]rowBillingResult, debitable int64) {
+	for _, row := range rows {
+		result := perRowResults[row.ID]
+		result.Credits = 0
+		perRowResults[row.ID] = result
+	}
+	allocateCurrentRowCredits(rows, perRowResults, debitable)
+	for _, row := range rows {
+		result := perRowResults[row.ID]
+		if result.Credits == 0 {
+			result.BillingErr = billingErrInsufFunds
+			perRowResults[row.ID] = result
+		}
 	}
 }
 

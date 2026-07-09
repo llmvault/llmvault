@@ -31,13 +31,16 @@ canvas artifact create --project <project-slug-or-id> --type presentation --name
 canvas artifact validate /workspace/canvas/projects/<project>/artifacts/<artifact>
 canvas artifact verify /workspace/canvas/projects/<project>/artifacts/<artifact>
 canvas artifact sync /workspace/canvas/projects/<project>/artifacts/<artifact>
+canvas artifact watch stop /workspace/canvas/projects/<project>/artifacts/<artifact>
 ```
 
 Use an existing project from `canvas project list` when the work clearly belongs there. Create a new project when the user is starting a new initiative, redesign, deck, campaign, or artifact family.
 
 `canvas artifact create` scaffolds the artifact locally. Edit the generated HTML files directly. `canvas artifact validate` and `canvas artifact verify` return structured JSON; read the `issues` array, apply the `fix` guidance, and rerun until errors are gone. Treat warnings as quality feedback unless the user explicitly asks for a rough sketch.
 
-Run `canvas artifact sync` after validation and browser QA. The runtime watcher may sync changes automatically, but an explicit final sync gives the agent a clear result to report.
+`canvas artifact create` also starts a watcher on the new artifact (the `watch` object in the create output confirms it). While the watcher runs, every file change is validated and — when validation passes — synced automatically, so the user sees edits live in Canvas as you work; validation failures are logged to the watcher's `log_path` instead of syncing. Run `canvas artifact watch stop <artifact-path>` when the work is done (the exact command is in the create output as `stop_command`); `canvas artifact watch <artifact-path>` restarts it later, and `canvas artifact watch status` lists active watchers.
+
+Run `canvas artifact sync` after validation and browser QA. The watcher syncs changes automatically, but an explicit final sync gives the agent a clear result to report.
 
 ## File Layout
 
@@ -204,13 +207,13 @@ During QA:
 
 Use image-generation tools when a prototype needs real visual material and no suitable asset exists.
 
-Use `generate_image` for:
+Use `hivy_generate_image` for:
 
 - Hero photos or illustrations.
 - Product scenes, editorial imagery, lifestyle scenes, backgrounds with real subject matter.
 - App mockup imagery, feature visuals, campaign graphics, and social/cover previews.
 
-Use `generate_vector_image` for:
+Use `hivy_generate_vector_image` for:
 
 - Icons, simple illustrations, decorative vector systems, pattern assets, diagram-like visuals, and exploratory logo marks.
 
@@ -220,7 +223,7 @@ Prompt image tools with concrete design direction:
 {
   "prompt": "Create a clean editorial hero image for a B2B operations dashboard: laptop showing abstract workflow cards, confident daylight studio, restrained teal and graphite palette, no legible text, generous negative space on the left.",
   "aspect_ratio": "16:9",
-  "type": "hero image",
+  "type": "photo",
   "count": 1
 }
 ```

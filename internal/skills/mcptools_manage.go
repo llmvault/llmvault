@@ -115,7 +115,7 @@ type createOrgPluginArgs struct {
 func registerCreateOrgPluginTool(server *mcp.Server, db *gorm.DB, token *model.Token) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolCreateOrgPlugin,
-		Description: "Create an org-owned plugin: a named group (e.g. \"Sales\", \"Engineering\") that holds this organization's custom skills. Skills always live inside a plugin — create or reuse one before calling create_skill. The plugin is installed on the org immediately; attach it to agents with update_agent(plugin_slugs). Check list_org_plugins first to reuse an existing group instead of creating a near-duplicate.",
+		Description: "Create an org-owned plugin: a named group (e.g. \"Sales\", \"Engineering\") that holds this organization's custom skills. Skills always live inside a plugin — create or reuse one before calling create_skill. The plugin is installed on the org immediately; to make agents use its skills, an org owner or admin then enables it for a team in team settings (plugins are team-resolved — there is no tool to attach a plugin to an agent). Check list_org_plugins first to reuse an existing group instead of creating a near-duplicate.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -218,6 +218,6 @@ func handleCreateOrgPlugin(ctx context.Context, db *gorm.DB, token *model.Token,
 			"name":     plugin.Name,
 			"category": plugin.Category,
 		},
-		"hint": "Plugin created and installed on the org. Add skills with create_skill(plugin_slug=\"" + plugin.Slug + "\"). To make agents use them, attach the plugin with update_agent — plugin_slugs REPLACES the agent's set, so call get_agent first and include its existing plugins.",
+		"hint": "Plugin created and installed on the org. Add skills with create_skill(plugin_slug=\"" + plugin.Slug + "\"). To make agents use them, an org owner or admin enables this plugin for a team in team settings — plugins are team-resolved, and there is no tool to attach one to an agent.",
 	})
 }

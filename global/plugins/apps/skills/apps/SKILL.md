@@ -142,10 +142,12 @@ The template ships with routing, data fetching, and error handling pre-wired. Bu
 ```bash
 make deps    # cd web && npm ci — ONCE per sandbox; node_modules is cached after
 make all     # bundle + source → dist/bundle.zip + dist/source.zip
-make test    # go test ./... — a compile-level check; the template ships without tests
+make test    # go test ./... AND cd web && npm test (vitest) — needs make deps for the web half
 ```
 
-`make all` runs the Vite build plus a 1–2 s Go compile — that is your whole iteration cost after the first `make deps`. App sandboxes are **linux/amd64**; builder sandboxes are already linux/amd64, so the default native build produces the right `server` binary. Building anywhere else, cross-compile: `GOOS=linux GOARCH=amd64 make all`.
+`make all` runs the Vite build plus a 1–2 s Go compile — that is your whole iteration cost after the first `make deps`. App sandboxes are **linux/amd64**, and the Makefile defaults `GOOS=linux GOARCH=amd64 CGO_ENABLED=0`, so a plain `make all` produces the right `server` binary from any builder — no cross-compile flags to set.
+
+`make test` runs both suites: `go test ./...` and, in `web/`, `npm test` (`vitest run --passWithNoTests`, so it needs `make deps` for node_modules). The delivered template zip strips all test files (`*_test.go`, `*.test.*`, `vitest.config.*`, `__tests__/`, `testdata/`, `fixtures/`), so out of the box both halves pass with nothing to run — `make test` is a build/type check, not a quality gate. It only exercises real tests once you write your own.
 
 Fix every build failure before previewing or publishing. Do **not** write tests for the app unless it has grown genuinely complex — multi-page flows, tricky server logic; the template's own machinery is already tested by the platform. Your verification is the running app: preview it and drive it in the headless browser (step 7).
 
@@ -241,7 +243,7 @@ These are requirements for every screen you ship — the template already wires 
 - `make deps` once per sandbox, then `make all` per iteration; deploy target is linux/amd64.
 - Verify before reporting: `app_status`, `/healthz`, and a clean `app_logs` read after every publish. Never hand the user a URL you have not checked — previews included. Check the raw URL's `/healthz` and `/` with `curl`; a direct browser open or curl of `/api/*` hitting the sign-in wall or a 401 with `launch_url` is expected there, not a check failure.
 - Always share the `?app=<app_id>`-hinted URL `make preview` prints or `app_publish` returns — never a bare `{port}-{id}.<preview-domain>` or alias without it. Preview links are ephemeral (die with the builder session); say so when sharing one — only a deployed app's link is durable.
-- No test suites for the app unless it has grown genuinely complex (multi-page flows, tricky server logic) — verify in the headless browser on the preview instead; `make test` is a compile check, not your quality gate.
+- No test suites for the app unless it has grown genuinely complex (multi-page flows, tricky server logic) — verify in the headless browser on the preview instead; `make test` (`go test ./...` plus `vitest`) is a build/type check on the test-stripped template, not your quality gate.
 - Rows in mutations cap at 100 per call; queries clamp to 100 with cursor paging — handle `NextCursor` in handlers that need full data.
 - Env: the channel's custom env vars are injected into the app (read with `os.Getenv`); `HIVY_*` names are platform-reserved. Never echo or log secret values.
 - Do not shadow `/healthz` or `/auth/callback`.

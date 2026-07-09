@@ -87,7 +87,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	triggers := h.loadAgentTriggers(agentIDs...)
-	skills := h.loadAgentSkills(agentIDs...)
+	skills := h.loadAgentSkills(ctx, agentIDs...)
 
 	items := make([]agentListItem, len(agents))
 	for i, a := range agents {
@@ -164,8 +164,8 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	base := toAgentResponse(agent)
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
-	base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
-	base.SubAgents = h.loadSubAgentResponses(r.Context(), agent.ID)
+	base.AttachedSkills = h.markAgentSkillLocks(ctx, org.ID, &agent, h.loadAgentSkills(ctx, agent.ID)[agent.ID])
+	base.SubAgents = h.loadSubAgentResponses(ctx, agent.ID)
 	writeJSON(w, http.StatusOK, agentListItem{agentResponse: base})
 }
 
@@ -190,7 +190,7 @@ func (h *AgentHandler) actorOrgRole(ctx context.Context, orgID uuid.UUID, userID
 func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {
 	base := toAgentResponse(agent)
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
-	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
+	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(ctx, agent.ID)[agent.ID])
 	return agentListItem{agentResponse: base}
 }
 

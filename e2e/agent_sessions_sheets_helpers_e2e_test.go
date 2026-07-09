@@ -82,7 +82,7 @@ func sheetsE2EConnectMCP(t *testing.T, ctx context.Context, db *gorm.DB, svc *sh
 			model.TokenMetaAgentID: agentID.String(),
 		},
 	}
-	server, err := mcpserver.BuildServer(ctx, token, db, nil, nil, nil, nil, nil, skills.NewToolsFunc(db, "http://localhost:3000"), nil, sheets.NewToolsFunc(svc), nil)
+	server, err := mcpserver.BuildServer(ctx, token, db, nil, nil, nil, nil, nil, skills.NewToolsFunc(db, "http://localhost:3000"), nil, sheets.NewToolsFunc(svc), nil) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	if err != nil {
 		t.Fatalf("build MCP server: %v", err)
 	}

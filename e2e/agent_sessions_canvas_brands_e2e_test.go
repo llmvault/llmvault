@@ -133,7 +133,7 @@ func agentSessionsLaunchCanvasRuntime(t *testing.T, ctx context.Context, apiBase
 	if err != nil {
 		t.Fatalf("docker %s failed: %v\n%s", strings.Join(args, " "), err, out)
 	}
-	t.Cleanup(func() {
+	t.Cleanup(func() { //nolint:contextcheck // cleanup runs after the test context is cancelled; detached context is intentional
 		rmCtx, rmCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer rmCancel()
 		_ = exec.CommandContext(rmCtx, "docker", "rm", "-f", containerName).Run()
@@ -170,7 +170,7 @@ func agentSessionsCreateCanvasSandboxRow(t *testing.T, ctx context.Context, orgI
 	if err := db.WithContext(ctx).Create(&sb).Error; err != nil {
 		t.Fatalf("create canvas brands sandbox fixture: %v", err)
 	}
-	t.Cleanup(func() {
+	t.Cleanup(func() { //nolint:contextcheck // cleanup runs after the test context is cancelled; detached context is intentional
 		db.WithContext(context.Background()).Where("id = ?", sb.ID).Delete(&model.Sandbox{})
 	})
 	return sb

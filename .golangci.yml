@@ -76,6 +76,13 @@ issues:
     - cmd/fetchactions-oas3
     - skills/upload
     - .ignored
+    # Throwaway local experiments — not part of any build or CI target.
+    - scratch
+
+  # Never truncate results: the default caps (50 per linter, 3 per identical
+  # issue) hid real violations for months.
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
   exclude-rules:
     # Tests can use anything they want for test output and assertions.
@@ -99,6 +106,8 @@ issues:
     - path: cmd/buildtemplates/
       linters: [forbidigo, depguard, sloglint]
     - path: cmd/fake-nango/
+      linters: [forbidigo, depguard, sloglint]
+    - path: cmd/reflect-replay/
       linters: [forbidigo, depguard, sloglint]
     - path: cmd/server/
       linters: [sloglint]

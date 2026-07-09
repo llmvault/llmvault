@@ -186,7 +186,7 @@ func TestEnvVarValuesAreUnrepresentable(t *testing.T) {
 		}
 	}
 
-	const secret = "sk_live_SUPER_SECRET_VALUE_9f8e7d"
+	const secret = "sk_live_SUPER_SECRET_VALUE_9f8e7d" //nolint:gosec // fake fixture value, not a real credential
 	row := model.ChannelEnvVar{
 		Name:           "STRIPE_API_KEY",
 		Description:    "Stripe secret key for the billing sandbox",

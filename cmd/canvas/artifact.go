@@ -28,6 +28,8 @@ func artifactCommand(args []string) error {
 		return artifactValidateCommand(args[1:], true)
 	case "sync":
 		return artifactSyncCommand(args[1:])
+	case "watch":
+		return artifactWatchCommand(args[1:])
 	default:
 		return fmt.Errorf("unknown artifact subcommand %q", args[0])
 	}
@@ -81,6 +83,13 @@ func artifactCreateCommand(args []string) error {
 		"slug":          slug,
 		"type":          strings.TrimSpace(*artifactType),
 	}
+	if canvasRuntimeConfigured() {
+		if watch, err := startArtifactWatcher(root); err != nil {
+			result["watch"] = map[string]any{"watching": false, "error": err.Error()}
+		} else {
+			result["watch"] = watch
+		}
+	}
 	return printJSON(result)
 }
 
@@ -105,7 +114,7 @@ func writeProjectManifest(projectDir, slug, name, now string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	return os.WriteFile(path, append(data, '\n'), 0o600)
 }
 
 func artifactListCommand(args []string) error {
@@ -217,7 +226,7 @@ func writeArtifactFiles(root string, manifest canvasArtifactManifest) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(target, []byte(defaultHTML(manifest, file)), 0o644); err != nil {
+		if err := os.WriteFile(target, []byte(defaultHTML(manifest, file)), 0o600); err != nil {
 			return err
 		}
 	}
@@ -225,7 +234,7 @@ func writeArtifactFiles(root string, manifest canvasArtifactManifest) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(root, "artifact.json"), append(data, '\n'), 0o644)
+	return os.WriteFile(filepath.Join(root, "artifact.json"), append(data, '\n'), 0o600)
 }
 
 func defaultHTML(manifest canvasArtifactManifest, file canvasArtifactFile) string {

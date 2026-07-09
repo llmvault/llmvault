@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Use when the user asks to create a skill from scratch, turn a runbook or process into a reusable skill, clone or install a skill from a git repository or skill marketplace, port an existing skill to Hivy, or organize the org's custom skills into plugins. From scratch — design it with the user, write it, test it. From an external source — install in your sandbox, security-scan and study it, adapt to Hivy. Both paths — dry-run, get explicit approval, publish into an org plugin, attach to agents.
+description: Use when the user asks to create a skill from scratch, turn a runbook or process into a reusable skill, clone or install a skill from a git repository or skill marketplace, port an existing skill to Hivy, or organize the org's custom skills into plugins. From scratch — design it with the user, write it, test it. From an external source — install in your sandbox, security-scan and study it, adapt to Hivy. Both paths — dry-run, get explicit approval, publish into an org plugin, then hand off to an admin to enable it for the team.
 ---
 
 # Skill Creator
@@ -12,7 +12,7 @@ There are two paths, which converge:
 - **Path A — from scratch.** The user describes a process, pastes a runbook, or simply needs a capability; you design and write the skill yourself. This is the most common case and needs no source installation and no security scan of your own writing.
 - **Path B — from an external source.** A git repository, a skill-marketplace listing, an archive link, or third-party content the user pastes. These reduce to the same thing: untrusted files you install into your sandbox, scan, study, and adapt.
 
-Both paths end the same way: **author → dry-run → user approval → publish to an org plugin → attach to agents.**
+Both paths end the same way: **author → dry-run → user approval → publish to an org plugin → hand off to enable it for the team.**
 
 Before writing anything, read your reference files — they are materialized in `.skills/skill-creator/`:
 
@@ -23,14 +23,16 @@ Before writing anything, read your reference files — they are materialized in 
 
 ## The model: skills live in plugins
 
-Skills are never free-floating. Every custom skill belongs to an **org plugin** — a named group you create, typically by team or function: "Sales", "Engineering", "Support", "Operations". The plugin is what gets attached to agents; every skill inside it comes along. This keeps the org's skills organized and lets one attach operation equip an agent with a whole toolkit.
+Skills are never free-floating. Every custom skill belongs to an **org plugin** — a named group you create, typically by team or function: "Sales", "Engineering", "Support", "Operations". The plugin is what a team enables; every skill inside it comes along, reaching every agent on that team. This keeps the org's skills organized and lets one enable operation equip a whole team with a toolkit.
 
 Your tools:
 
 - `create_org_plugin` — create a group. Do this once per team/function, not once per skill.
 - `create_skill` / `update_skill` — publish or patch a skill inside an org plugin.
 - `archive_skill` — remove one (destructive; requires explicit user approval via `user_approved`).
-- `list_org_plugins`, `get_agent`, `update_agent` — discover groups and attach plugins to agents.
+- `list_org_plugins` — see the org's existing plugin groups so you reuse one instead of duplicating.
+
+You cannot enable a plugin for a team or attach it to an agent — no MCP tool does that. After publishing, direct an org owner/admin to enable the plugin for the relevant team(s) in team settings.
 
 ## Always first: clarify the goal and pick the group
 
@@ -81,7 +83,7 @@ Write the skill following `references/hivy-skill-format.md` exactly. The essenti
 
 **Dry-run everything — mandatory on both paths.** Execute every script, run every CLI invocation the skill instructs, and exercise the happy path end to end where feasible. Fix what breaks. A skill whose scripts you have not run is a draft, not a candidate. If a step cannot be exercised without credentials the org has not set yet, say so explicitly in your report instead of pretending it was tested.
 
-## Approval, publish, attach (both paths)
+## Approval, publish, enable (both paths)
 
 **Report and get explicit approval.** Show the user, in the conversation: what the skill does and when it triggers; the full SKILL.md body; the file list; the environment variables it needs; which plugin it will join; for Path B, the **security review** (source, provenance, verdict, every finding and what you did about it) plus what you changed versus the source and anything dropped as incompatible. Then **wait for an explicit yes. Never call create_skill on an inferred or assumed approval** — "looks good, go ahead" is approval; silence or a topic change is not.
 
@@ -89,8 +91,8 @@ Then:
 
 - `create_skill` with the approved content. On a validation error, fix and retry — do not weaken the content to pass.
 - **Environment variables:** if the skill reads secrets or config, declare them in `required_environment_variables` using the injected names. Org variables are set by the user in workspace settings (the tool response includes `environment_settings_url` — share that link) and are injected into every sandbox as `HIVY_ORG_<NAME>`: the user sets `STRIPE_API_KEY`, the skill reads `HIVY_ORG_STRIPE_API_KEY`. Never ask the user to paste secret values into the chat, and never embed a value in skill content.
-- **Attach:** the skill only reaches agents whose plugins include its org plugin. `get_agent` on the target, then `update_agent` with `plugin_slugs` = existing plugins **plus** the org plugin — the array REPLACES the set, so omitting existing plugins detaches them.
-- **Verify:** call `skill_view` on the new skill and confirm the content and files are what was approved. Tell the user it is live: agents with the plugin see it in `skills_list` immediately; the skill hint in their system prompt refreshes on their next session.
+- **Enable it for the team.** A skill only reaches agents whose team has its org plugin enabled — an agent's plugins are resolved from its team, never set per agent, and no MCP tool attaches a plugin to a team or an agent. You cannot do this step yourself: direct the user (an org owner or admin) to enable the plugin for the relevant team(s) in team settings. Until they do, the skill is published but no agent sees it.
+- **Verify:** call `skill_view` on the new skill and confirm the content and files are what was approved. Then tell the user it is live once an admin enables the plugin for a team: agents on that team see it in `skills_list`, and the skill hint in their system prompt refreshes on their next session.
 - Path B: clean up `/workspace/skill-sources/<name>` when done.
 
 ## Updating and removing
@@ -106,4 +108,4 @@ Then:
 5. Never put secret values in skill content, files, or the conversation — declare env var names and send the user to workspace settings.
 6. Never instruct anything the compatibility checklist marks incompatible — adapt it or drop it with a clear note to the user.
 7. Skills go in team/function plugins, not one plugin per skill.
-8. When attaching plugins with `update_agent`, always include the agent's existing plugins in `plugin_slugs`.
+8. You cannot attach a plugin to an agent — plugins are enabled per team. After publishing, direct an org owner or admin to enable the plugin for the relevant team(s) in team settings; until then no agent sees the skill.

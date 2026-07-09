@@ -63,7 +63,7 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	if res, _ := handleListAgents(ctx, db, token, ""); res == nil || res.IsError {
 		t.Fatalf("list_agents with documented %s payload failed", abPayloadListEmpty)
 	}
-	pluginsOut := map[string]any{}
+	var pluginsOut map[string]any
 	{
 		res, _ := handleListOrgPlugins(ctx, db, token, frontend)
 		pluginsOut = builderResultJSON(t, res)

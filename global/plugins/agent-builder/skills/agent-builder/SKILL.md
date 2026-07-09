@@ -69,7 +69,7 @@ Response: `{ "agent": { "id", "name", "description", "instructions", "model", "s
 
 What the example deliberately omits: `model` (org default — see `<model_selection>`); a `model` field on the sub-agent (sub-agents **always** inherit the parent's model; the schema has no such field — do not send one); and any baseline tools in `tools` — `tools` lists **only optional capabilities.** Every agent automatically gets the baseline sandbox tools and the read-only floor (see `<baseline_tools>`).
 
-The response is `{ "agent": { …same shape as get_agent… }, "url" }`. **Verify it:** confirm the `plugins`, `skills`, `tools`, and `sub_agents` match your intent before telling the user anything succeeded.
+The response is `{ "agent": { "id", "name", "status", "model", "plugins", "skills", "tools", "sub_agents" }, "url" }` — a **leaner** shape than `get_agent`: it omits `description`, `instructions`, and `is_default`, and each `sub_agents` entry is just `id` + `name`. **Verify it:** confirm the `plugins`, `skills`, `tools`, and `sub_agents` match your intent before telling the user anything succeeded.
 
 ### `update_agent` — a true patch
 
@@ -84,6 +84,10 @@ Archive an agent (removes it from `list_agents`; it stops running):
 ```json
 { "agent_id": "7c9e6679-…", "status": "archived" }
 ```
+
+### Who may create and update agents
+
+`create_agent` and `update_agent` act **on behalf of the human in the session.** A run with **no human actor** — an automated trigger or schedule — is refused (fail closed): agent building can't happen unattended. The acting human must be an **org owner or admin**, or an **active member of the relevant team** — for `create_agent`, the calling agent's team (where the new agent is created); for `update_agent`, the target agent's team. Owners and admins may act on any team. When the check fails, the tool returns an authorization error: surface it and stop — retrying won't help; the right person has to make the change (or run it themselves).
 
 </tools>
 
@@ -361,13 +365,13 @@ The tools return precise errors — match and act:
 | `unknown model … allowed models are:` | Model not in the enum. Pick from the list, or omit `model`. |
 | `unknown skill … available skills are:` | Skill slug doesn't exist for this org. Use one from the error or `list_org_plugins`. |
 | `no skills are available to this org` | No installed plugin provides skills. Share the relevant plugin's `install_url`. |
-| `is not installed for this org` (plugin) | Plugin exists but isn't installed — the error names unmet requirements. Share its `install_url`; proceed with what's installed. |
-| `unknown plugin` | Slug doesn't exist. Enumerate with `list_org_plugins`. |
 | `agent_id must be a valid UUID` / `agent not found` | Wrong or stale id. Call `list_agents`. |
 | `sub-agent name is required` / `duplicate sub-agent name` | Fix the sub-agent list: every entry named, names unique within the parent. |
 | `default agent cannot be renamed` | The org's default keeps its name. Change other fields only; tell the user. |
 | `status must be active or archived` | Only those two values. |
 | a credentials error on a model | Org lacks credentials for that model. Tell the user, then omit `model` or pick another. |
+| an authorization error — the acting user isn't an org owner/admin or a member of the relevant team | You (or the person you're acting for) aren't allowed to build agents on this team. Ask an org owner/admin, or a member of that team, to make the change. Don't retry. |
+| refused because there's no acting user (automated trigger/schedule) | These tools need a human in the session and fail closed on unattended runs. Run it interactively. |
 | You replaced a list by mistake | `get_agent` for current state; send a corrective `update_agent` with the intended full lists. |
 
 </errors>

@@ -36,7 +36,7 @@ These failure modes recur across image models. Violating these rules produces br
 
 ## Generating with the image tools
 
-Use `generate_image` (raster) or `generate_vector_image` (SVG) for new images:
+Use `hivy_generate_image` (raster) or `hivy_generate_vector_image` (SVG) for new images:
 
 - `prompt` — up to 4000 chars; 400–900 chars is the sweet spot.
 - `aspect_ratio` — supported: `16:9`, `9:16`, `3:2`, `2:3`, `4:3`, `3:4`, `1:1`. Take it from the pattern file; don't default to one ratio for everything.
@@ -44,11 +44,11 @@ Use `generate_image` (raster) or `generate_vector_image` (SVG) for new images:
 - `type` — hint such as `photo`, `illustration`, `logo`, `icon`.
 - `reference_asset_ids` — up to 10 drive assets for loose style guidance.
 
-Use `remix_image` when the new image must contain something that already exists — a recurring character, a specific product, or the next sibling in a set. It takes `prompt` + `reference_asset_ids` (the master asset) and preserves the identity of what the references show. Elements are only consistent *within* one generation; across generations the model reinvents whatever it redraws — so identity-critical raster work MUST go through `remix_image` with the master-asset workflow in `references/consistent-assets.md`.
+Use `hivy_remix_image` when the new image must contain something that already exists — a recurring character, a specific product, or the next sibling in a set. It takes `prompt` + `reference_asset_ids` (the master asset) and preserves the identity of what the references show. Elements are only consistent *within* one generation; across generations the model reinvents whatever it redraws — so identity-critical raster work MUST go through `hivy_remix_image` with the master-asset workflow in `references/consistent-assets.md`.
 
 **Vector illustration systems are also an exception: load the `illustration-system` skill.** When the user wants a *set* of flat vector illustrations in one consistent style (spot/section illustrations, empty states, "more like these samples"), that skill holds the style across subjects with a written style contract plus reference conditioning, natively in SVG. The raster sibling-set workflow below remains correct for photos, 3D, and painterly sets.
 
-**Logos are the exception: load the `logo-design` skill and do the work there.** It generates the mark as a native SVG (`generate_vector_image`), refines with reference-conditioned regeneration until the user approves, then composes every lockup and variant deterministically from the same vector geometry — byte-identical, no remix drift, delivered as a full SVG + transparent-PNG pack. Never build a logo by generating a raster lockup and remixing variants from it; that workflow is superseded.
+**Logos are the exception: load the `logo-design` skill and do the work there.** It generates the mark as a native SVG (`hivy_generate_vector_image`), refines with reference-conditioned regeneration until the user approves, then composes every lockup and variant deterministically from the same vector geometry — byte-identical, no remix drift, delivered as a full SVG + transparent-PNG pack. Never build a logo by generating a raster lockup and remixing variants from it; that workflow is superseded.
 
 ## Pattern families
 
@@ -151,6 +151,6 @@ Load only the file(s) relevant to the current task.
 - `references/hero-patterns/<slug>.md` — one file per hero-section pattern (slugs in the tables above): layout anatomy, image requirements, aspect ratio, example prompts, pitfalls. Load after picking a pattern; never more than two.
 - `references/product-ui-vignette.md` — the product-UI-vignette family: visual system contract, text and geometry rules, tested archetype menu (stat cards, flows, chat, kanban, dark mode), set-consistency method, review checklist.
 - `references/backgrounds.md` — the backgrounds family: the recede directive, generate-vs-CSS gate, tested recipes (material texture, mesh gradient, tone-on-tone patterns, dark mode), recurring model behaviors, review checklist.
-- `references/consistent-assets.md` — identity-critical assets (logos, characters, products, sibling sets): the master-asset workflow, `remix_image` usage, invariant prompt language, worked logo-package example, review checklist. REQUIRED reading before any logo generation or multi-image set.
+- `references/consistent-assets.md` — identity-critical assets (logos, characters, products, sibling sets): the master-asset workflow, `hivy_remix_image` usage, invariant prompt language, worked logo-package example, review checklist. REQUIRED reading before any logo generation or multi-image set.
 - `references/prompting.md` — the detailed fallback guide: intent rules, use-case taxonomy, specificity and augmentation policy, composition, lighting/camera/material language, text-in-image rules, reference-image roles, transparent/cutout prompts, edit invariants, iteration method.
 - `references/sample-prompts.md` — copy/paste recipes by use case for generation and edits, plus asset-type templates (game assets, wireframes, logos, diagrams).

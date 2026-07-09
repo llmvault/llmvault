@@ -180,8 +180,9 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	}
 
 	var trigger model.AgentTrigger
-	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(r.Context(), tx, orgID, agentID, channelID, template); err != nil {
+	ctx := r.Context()
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateTriggerAgent(ctx, tx, orgID, agentID, channelID, template); err != nil {
 			return err
 		}
 		trigger = model.AgentTrigger{

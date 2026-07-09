@@ -201,12 +201,17 @@ func (h *SheetsHandler) UpdateField(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
+	if !ok {
 		return
 	}
 	fieldID := chi.URLParam(r, "fieldID")
 	if !sheets.ValidFieldID(fieldID) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "fieldID must be a field id"})
+		return
+	}
+	if err := h.svc.FieldInPage(r.Context(), org.ID, pageID, fieldID); err != nil {
+		writeSheetsError(w, r, err)
 		return
 	}
 	var req updateFieldRequest
@@ -247,12 +252,17 @@ func (h *SheetsHandler) ArchiveField(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
+	if !ok {
 		return
 	}
 	fieldID := chi.URLParam(r, "fieldID")
 	if !sheets.ValidFieldID(fieldID) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "fieldID must be a field id"})
+		return
+	}
+	if err := h.svc.FieldInPage(r.Context(), org.ID, pageID, fieldID); err != nil {
+		writeSheetsError(w, r, err)
 		return
 	}
 	if err := h.svc.ArchiveField(r.Context(), org.ID, fieldID, sheetsActor(r)); err != nil {

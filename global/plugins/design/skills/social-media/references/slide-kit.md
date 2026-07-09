@@ -127,7 +127,7 @@ Text belongs in the backdrop's quiet zone by plan. Where copy must approach an e
 
 ## Vector accents (optional layer)
 
-For the vector-accent style (`references/styles.md`): `generate_vector_image` produces SVG decoration (confetti, sparkle clusters, badges). Reference the returned `public_url` in an `<img>` for one-off placement, and request the exact brand hexes in the prompt so no recoloring is needed. Position absolutely; keep decoration OUT of the text column.
+For the vector-accent style (`references/styles.md`): `hivy_generate_vector_image` produces SVG decoration (confetti, sparkle clusters, badges). Reference the returned `public_url` in an `<img>` for one-off placement, and request the exact brand hexes in the prompt so no recoloring is needed. Position absolutely; keep decoration OUT of the text column.
 
 ## Per-slide discipline
 

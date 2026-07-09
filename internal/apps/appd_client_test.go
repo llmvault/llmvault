@@ -129,9 +129,12 @@ func TestDeployWithBootRetry(t *testing.T) {
 			return
 		}
 		served.Store(true)
-		server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_ = json.NewEncoder(w).Encode(AppdDeployResponse{NewSHA: "booted"})
-		})}
+		server := &http.Server{
+			ReadHeaderTimeout: 5 * time.Second,
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(AppdDeployResponse{NewSHA: "booted"})
+			}),
+		}
 		_ = server.Serve(late)
 	}()
 
@@ -153,7 +156,6 @@ func TestDeployWithBootRetry(t *testing.T) {
 // yet listening) is retried within the boot window and eventually succeeds.
 func TestDeployWithBootRetryGatewayStatus(t *testing.T) {
 	for _, bootStatus := range []int{http.StatusBadGateway, http.StatusServiceUnavailable} {
-		bootStatus := bootStatus
 		t.Run(http.StatusText(bootStatus), func(t *testing.T) {
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

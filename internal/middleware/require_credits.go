@@ -3,8 +3,11 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/billing"
 )
 
 // BalanceChecker is the minimal contract RequireCredits needs from the
@@ -19,11 +22,11 @@ type BalanceChecker interface {
 // It runs after TokenAuth in the proxy middleware chain. For BYOK calls
 // (claims.IsSystem == false) it's a no-op — those don't consume credits for
 // inference. For platform-keys calls it rejects with HTTP 402 Payment
-// Required when the org's balance is at zero.
+// Required once the org's balance has reached the overdraft floor.
 //
-// The check is coarse (balance > 0, not balance > estimate): if a request
-// slips through while the balance is razor-thin, the post-deduct task may
-// drive it slightly negative. The next call then 402s cleanly.
+// The check is coarse (balance > floor, not balance > estimate): inference
+// stays admitted through a small overdraft, and the post-deduct task caps the
+// balance at the floor. Once there, calls 402 cleanly.
 func RequireCredits(credits BalanceChecker) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,10 +69,10 @@ func RequireCredits(credits BalanceChecker) func(http.Handler) http.Handler {
 				return
 			}
 
-			if balance <= 0 {
+			if balance <= billing.CreditOverdraftFloor {
 				writeJSON(w, http.StatusPaymentRequired, map[string]string{
 					"error":   "insufficient credits",
-					"balance": "0",
+					"balance": strconv.FormatInt(balance, 10),
 				})
 				return
 			}

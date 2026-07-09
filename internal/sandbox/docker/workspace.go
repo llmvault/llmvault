@@ -5,8 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"strings"
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
@@ -52,56 +50,4 @@ func workspaceVolumeFromInspect(info container.InspectResponse) string {
 		}
 	}
 	return ""
-}
-
-func (d *Driver) prepareUpgradeWorkspace(ctx context.Context, externalID string, info container.InspectResponse, targetName string, imageRef string, labels map[string]string) (string, error) {
-	if volumeName := workspaceVolumeFromInspect(info); volumeName != "" {
-		return volumeName, nil
-	}
-	volumeName := workspaceVolumeName(targetName)
-	if err := d.ensureWorkspaceVolume(ctx, volumeName, labels); err != nil {
-		return "", err
-	}
-	if err := d.copyWorkspaceToVolume(ctx, externalID, imageRef, volumeName, labels); err != nil {
-		_ = d.removeWorkspaceVolume(context.WithoutCancel(ctx), volumeName)
-		return "", err
-	}
-	return volumeName, nil
-}
-
-func (d *Driver) copyWorkspaceToVolume(ctx context.Context, externalID string, imageRef string, volumeName string, labels map[string]string) error {
-	archive, _, err := d.cli.CopyFromContainer(ctx, externalID, workspaceMountPath)
-	if err != nil {
-		if isWorkspaceCopyNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("copying workspace from docker container %s: %w", externalID, err)
-	}
-	defer archive.Close()
-
-	helper, err := d.createDockerContainer(ctx, dockerContainerSpec{
-		Name:            containerName("hivy-workspace-copy"),
-		ImageRef:        imageRef,
-		Labels:          labels,
-		WorkspaceVolume: volumeName,
-	})
-	if err != nil {
-		return fmt.Errorf("creating docker workspace copy helper: %w", err)
-	}
-	defer func() {
-		_ = d.cli.ContainerRemove(context.WithoutCancel(ctx), helper.ID, container.RemoveOptions{Force: true})
-	}()
-
-	if err := d.cli.CopyToContainer(ctx, helper.ID, "/", archive, container.CopyToContainerOptions{AllowOverwriteDirWithFile: true}); err != nil && err != io.EOF {
-		return fmt.Errorf("copying workspace into docker volume %s: %w", volumeName, err)
-	}
-	return nil
-}
-
-func isWorkspaceCopyNotFound(err error) bool {
-	if cerrdefs.IsNotFound(err) {
-		return true
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "could not find the file") || strings.Contains(msg, "no such file")
 }

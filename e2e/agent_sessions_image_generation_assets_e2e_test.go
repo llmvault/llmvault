@@ -52,7 +52,7 @@ func saveAgentSessionsImageArtifacts(t *testing.T, ctx context.Context, dir, mod
 			t.Fatalf("download %s artifact returned %d: %s", mode, resp.StatusCode, strings.TrimSpace(string(body)))
 		}
 		path := filepath.Join(dir, fmt.Sprintf("%s-%d%s", mode, index+1, agentSessionsImageArtifactExt(result.ContentType)))
-		if err := os.WriteFile(path, body, 0o644); err != nil {
+		if err := os.WriteFile(path, body, 0o600); err != nil {
 			t.Fatalf("write %s artifact: %v", mode, err)
 		}
 		paths = append(paths, path)

@@ -143,7 +143,8 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// A new team is provisioned to be self-sufficient in one transaction: the
 	// team row, the creator as an owner team member, then the team's default
 	// Hivy agent and #general channel.
-	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	ctx := r.Context()
+	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&team).Error; err != nil {
 			return err
 		}
@@ -162,7 +163,7 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if userID != nil {
 			createdBy = *userID
 		}
-		if _, _, err := provisionTeamDefaults(r.Context(), tx, org.ID, team.ID, createdBy); err != nil {
+		if _, _, err := provisionTeamDefaults(ctx, tx, org.ID, team.ID, createdBy); err != nil {
 			return err
 		}
 		return nil

@@ -14,10 +14,11 @@ The single most important rule: **inspect the repo's existing conventions before
 ```bash
 git --version
 gh --version
-gh auth status   # must say "Logged in"
 ```
 
-If `gh auth status` fails, ask the user to run `gh auth login` themselves — do not attempt browser auth on their behalf.
+Auth is handled for you. Inside Hivy, `gh` is wrapped so every invocation fetches a fresh GitHub App token from the control plane, and git authenticates through the same credential helper — there is no `gh auth login`, no interactive login, and no browser to authenticate against. You never manage tokens yourself.
+
+If a `gh` command fails with an auth/permission error (e.g. "control plane rejected gh command"), it means no GitHub App connection is resolved for this agent — not something a terminal command can fix. Tell the user to connect GitHub in Hivy and make sure the GitHub plugin is enabled for this agent's team. Do not attempt `gh auth login`, `gh auth status`, or any browser auth.
 
 ---
 
@@ -229,7 +230,8 @@ Useful flags:
 - `--assignee @me` — self-assign.
 - `--label "bug,needs-review"` — only labels that already exist (see 1d).
 - `--body-file pr.md` — when the body is large; easier than escaping.
-- `--web` — print the URL and open in browser instead of creating via API (use only if the user asks).
+
+Do not use `--web` — there is no browser in the sandbox, so it has nothing to open. Always create PRs non-interactively via `--body`/`--body-file`.
 
 Once the PR is open, you're done for now — **do not poll it unless the user explicitly asks**. Comments, reviews, and check results on this PR will be delivered to you as new messages in this session (see section 0). End your turn and respond when the next event arrives. (If the user asks you to watch or check the PR, do as they say.)
 
@@ -478,8 +480,7 @@ gh pr view <number> --comments
 ## Quick command index
 
 ```bash
-# Auth & repo info
-gh auth status
+# Repo info (auth is automatic — no login step)
 gh repo view --json defaultBranchRef,nameWithOwner
 
 # Branch

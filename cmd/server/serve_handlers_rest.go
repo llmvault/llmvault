@@ -78,8 +78,8 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	preContextCache := precontext.NewRedisCache(redisClient)
 	memorySearchService := buildMemorySearchService(cfg, database, cacheManager)
 	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
-	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))
-	mcpHandler.SetSkillTools(skills.NewToolsFunc(database, cfg.FrontendURL))
+	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
+	mcpHandler.SetSkillTools(skills.NewToolsFunc(database, cfg.FrontendURL)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	// Assignable agent models: the full text-output catalog minus the scribe
 	// transcription model. Used verbatim as the strict `model` enum in the
 	// agent-builder tools; per-org credential availability is enforced at call
@@ -123,8 +123,8 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 			return err
 		},
 	}
-	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL))
-	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetsService))
+	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
+	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetsService)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,
@@ -152,7 +152,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	appsService := buildAppsService(cfg, database, sandboxEncKey, orchestrator, sheetsService, deps.RSAKey)
 	if appsService != nil {
 		appsHandler = handler.NewAppsHandler(database, appsService, deps.RSAKey)
-		mcpHandler.SetAppsTools(apps.NewToolsFunc(appsService))
+		mcpHandler.SetAppsTools(apps.NewToolsFunc(appsService)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	}
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 	if uploadsHandler != nil {

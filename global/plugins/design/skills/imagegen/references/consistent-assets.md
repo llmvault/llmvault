@@ -10,17 +10,17 @@ The core fact, verified by direct testing: **within one generation, elements are
 
 1. **Let the model be creative exactly once.** Generate the richest single asset as the master — for a character, a clear full-body anchor pose; for a product, the clean three-quarter studio shot. Generate several candidates (`count: 3–4`) and have the user pick the winner.
 2. **Derive mechanically whenever possible.** Cropping a detail out of the winning master is pixel-exact and free. Recolors, reversals, and rearrangements of flat assets can be done in SVG/CSS/an image editor with zero drift. Never regenerate what you can crop or compose.
-3. **Use `remix_image` only for variants that require redrawing** — the character in a new pose, the product from a new angle, the next sibling in a set.
+3. **Use `hivy_remix_image` only for variants that require redrawing** — the character in a new pose, the product from a new angle, the next sibling in a set.
 
-## The `remix_image` tool
+## The `hivy_remix_image` tool
 
-`remix_image` generates a new image *guided by reference images*, preserving the identity of what the references show:
+`hivy_remix_image` generates a new image *guided by reference images*, preserving the identity of what the references show:
 
 - `prompt` — what to produce, written with invariant language (below).
 - `reference_asset_ids` — 1–10 drive asset IDs; pass the master asset (and only what's needed — extra references dilute identity).
-- `aspect_ratio`, `count` — as with `generate_image`. Use `count: 2–3` and pick the most faithful, not the prettiest.
+- `aspect_ratio`, `count` — as with `hivy_generate_image`. Use `count: 2–3` and pick the most faithful, not the prettiest.
 
-Use `generate_image` when creating something new; use `remix_image` whenever the new image must contain something that already exists.
+Use `hivy_generate_image` when creating something new; use `hivy_remix_image` whenever the new image must contain something that already exists.
 
 ## Invariant prompt language — what makes identity hold
 
@@ -53,7 +53,7 @@ style contract plus reference conditioning. The levers below are for raster sets
 (photographic, 3D, painterly) and recurring characters:
 
 - **Shared style contract**: one verbatim sentence (medium, palette, lighting, background treatment) prefixed to every prompt in the set.
-- **Anchor + remix**: generate the first/largest asset with `generate_image`, then produce the rest with `remix_image` referencing the anchor — "same character, same style, same palette… now [new scene/pose/concept]". For characters add: "do not redesign the character; preserve facial features, proportions, outfit, and color palette."
+- **Anchor + remix**: generate the first/largest asset with `hivy_generate_image`, then produce the rest with `hivy_remix_image` referencing the anchor — "same character, same style, same palette… now [new scene/pose/concept]". For characters add: "do not redesign the character; preserve facial features, proportions, outfit, and color palette."
 
 ## Review checklist (reject → re-remix)
 

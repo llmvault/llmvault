@@ -146,6 +146,20 @@ func seedOrgWithCredentialAndCredits(t *testing.T, db *gorm.DB, granted int64) (
 	return orgID, cred.ID
 }
 
+// adjustLedger writes a non-LLM ledger entry so a test can position an org's
+// balance (e.g. at the overdraft floor) without touching the llm_tokens debit
+// total the batch reads back.
+func adjustLedger(t *testing.T, db *gorm.DB, orgID uuid.UUID, amount int64) {
+	t.Helper()
+	if err := db.Create(&model.CreditLedgerEntry{
+		OrgID:  orgID,
+		Amount: amount,
+		Reason: billing.ReasonAdjustment,
+	}).Error; err != nil {
+		t.Fatalf("adjust ledger: %v", err)
+	}
+}
+
 func seedAgentWithToken(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID, agentModel string) string {
 	t.Helper()
 	team := model.Team{OrgID: orgID, Name: "billing-team-" + uuid.NewString()[:8]}

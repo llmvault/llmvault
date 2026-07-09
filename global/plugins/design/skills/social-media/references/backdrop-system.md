@@ -112,7 +112,7 @@ These four shipped a real 4-slide carousel + celebration card and are safe start
 
 ## Generating and the role map
 
-Call `generate_image` once per role at the mapped aspect ratio (`references/formats.md`). Use `count: 2` on `hook`, `closer`, and `subject` (pick the better take); `count: 1` is fine for `content`. As results return, build the role map and keep it in your notes through the whole task:
+Call `hivy_generate_image` once per role at the mapped aspect ratio (`references/formats.md`). Use `count: 2` on `hook`, `closer`, and `subject` (pick the better take); `count: 1` is fine for `content`. As results return, build the role map and keep it in your notes through the whole task:
 
 ```text
 role     | drive_asset_id | public_url            | verdict
@@ -137,5 +137,5 @@ Regenerate only for: drift that a scrim can't hide, objects/artifacts in the qui
 
 - Within a set: the same `public_url` appears in every slide file that consumes the role. Zero extra credits, guaranteed consistency.
 - Across formats: same URL, recomposed with `background-position`/`background-size` per geometry (`references/formats.md` aspect rules).
-- Across time (a series — "Tip Tuesday #7", next month's episode): pass the accepted backdrop's `drive_asset_id` as `reference_asset_ids` to `remix_image` with invariant language ("same palette, same lighting, same material treatment — do not redesign"), changing only the scene element that must change. Read `imagegen` → `references/consistent-assets.md` before any remix chain.
+- Across time (a series — "Tip Tuesday #7", next month's episode): pass the accepted backdrop's `drive_asset_id` as `reference_asset_ids` to `hivy_remix_image` with invariant language ("same palette, same lighting, same material treatment — do not redesign"), changing only the scene element that must change. Read `imagegen` → `references/consistent-assets.md` before any remix chain.
 - Recolor/reskin for a sub-brand: prefer regenerating with the new palette in the shared style sentence over remixing — atmosphere is cheap; identity is what remix protects.

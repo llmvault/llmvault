@@ -119,8 +119,9 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 	if req.Name != nil {
 		name = strings.TrimSpace(*req.Name)
 	}
-	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(r.Context(), tx, orgID, parsed.agentID, channelID, template); err != nil {
+	ctx := r.Context()
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateTriggerAgent(ctx, tx, orgID, parsed.agentID, channelID, template); err != nil {
 			return err
 		}
 		return tx.Model(&model.AgentTrigger{}).

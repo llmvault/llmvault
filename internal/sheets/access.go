@@ -59,6 +59,28 @@ func (s *Service) FieldInChannel(ctx context.Context, orgID, channelID uuid.UUID
 			fieldID, orgID, channelID))
 }
 
+// FieldInPage verifies the field belongs to pageID and both are active. The
+// REST layer, having already authorized the addressed sheet's channel, calls
+// this keyed on the path's pageID so a field of any other page — same org
+// included — is indistinguishable from a missing one.
+func (s *Service) FieldInPage(ctx context.Context, orgID, pageID uuid.UUID, fieldID string) error {
+	return s.channelGuard(s.db.WithContext(ctx).
+		Model(&model.SheetField{}).
+		Where("sheet_fields.id = ? AND sheet_fields.org_id = ? AND sheet_fields.page_id = ? AND sheet_fields.archived_at IS NULL",
+			fieldID, orgID, pageID))
+}
+
+// ViewInPage verifies the view belongs to pageID and both are active. The REST
+// layer, having already authorized the addressed sheet's channel, calls this
+// keyed on the path's pageID so a view of any other page — same org included —
+// is indistinguishable from a missing one.
+func (s *Service) ViewInPage(ctx context.Context, orgID, pageID, viewID uuid.UUID) error {
+	return s.channelGuard(s.db.WithContext(ctx).
+		Model(&model.SheetView{}).
+		Where("sheet_views.id = ? AND sheet_views.org_id = ? AND sheet_views.page_id = ? AND sheet_views.archived_at IS NULL",
+			viewID, orgID, pageID))
+}
+
 // ImportJobInChannel verifies the import job's page's sheet belongs to channelID.
 func (s *Service) ImportJobInChannel(ctx context.Context, orgID, channelID, jobID uuid.UUID) error {
 	return s.channelGuard(s.db.WithContext(ctx).

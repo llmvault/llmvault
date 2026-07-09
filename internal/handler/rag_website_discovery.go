@@ -53,6 +53,9 @@ func (h *RAGSourceHandler) DiscoverWebsiteSections(w http.ResponseWriter, r *htt
 		target = "https://" + target
 	}
 
+	// Backstop only: the router bounds each provider's map attempt at 15s
+	// (Hierarchy.MapTimeout), so the user-facing latency ceiling is
+	// providers × 15s. Worker-side crawls (RAG ingest) have no such bound.
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 

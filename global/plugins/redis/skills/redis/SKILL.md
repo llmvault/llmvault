@@ -42,7 +42,7 @@ or:
 
 ## jq filtering
 
-The proxy returns JSON with `command`, `result`, `row_count`, and `truncated`. Always pipe through `jq` and return only the data needed for the answer. Avoid dumping large arrays unless the user explicitly needs raw values.
+The proxy returns JSON with `command` and `result` always present; `row_count` and `truncated` are omitted when they would be `0`/`false`, so treat them as absent-by-default (use `.row_count // 0` and `.truncated // false` rather than keying on them). Always pipe through `jq` and return only the data needed for the answer. Avoid dumping large arrays unless the user explicitly needs raw values.
 
 ```bash
 run_redis() {
@@ -66,7 +66,7 @@ run_redis '{"command":"TTL","args":["session:abc"]}' | jq '{ttl_seconds:.result}
 
 # 3. Sample keys with a bounded scan.
 run_redis '{"command":"SCAN","args":["0","MATCH","user:*","COUNT","20"]}' \
-  | jq '{scan:.result, truncated}'
+  | jq '{scan:.result, truncated:(.truncated // false)}'
 
 # 4. Read a bounded list range.
 run_redis '{"command":"LRANGE","args":["events","0","19"]}' \

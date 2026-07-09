@@ -166,6 +166,6 @@ func (h *TeamProvisioningHandler) respondTeamRagSources(w http.ResponseWriter, r
 }
 
 func (h *TeamProvisioningHandler) fail(w http.ResponseWriter, r *http.Request, msg string, err error) {
-	logging.FromContext(r.Context()).ErrorContext(r.Context(), msg, "error", err)
+	logging.FromContext(r.Context()).ErrorContext(r.Context(), "team provisioning request failed", "detail", msg, "error", err)
 	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: msg})
 }

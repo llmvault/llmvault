@@ -26,26 +26,42 @@ func actorUserIDFromRequest(req *mcp.CallToolRequest) string {
 	return probe.ActorUserID
 }
 
-// requireOrgManager gates the privileged agent-builder tools on the acting
-// human being an org owner/admin. Returning a nil result means allowed.
+// requireTeamManager gates the privileged agent-builder tools on the acting
+// human being able to manage the agent's owning team: an org owner/admin always
+// may, otherwise the actor must be an active member of teamID. Returning a nil
+// result means allowed. This mirrors the REST agent-write path
+// (handler.authorizeAgentMutation / resolveAndAuthorizeAgentTeam).
 //
 // A run with no human actor (automated trigger/schedule/system run) fails
-// closed: these tools mutate org-wide agents and must not be reachable from an
-// externally-triggerable run without a manager behind it. `action` names what
-// is being attempted, e.g. "creating an agent".
-func requireOrgManager(ctx context.Context, db *gorm.DB, orgID uuid.UUID, req *mcp.CallToolRequest, action string) *mcp.CallToolResult {
+// closed: these tools mutate agents and must not be reachable from an
+// externally-triggerable run without a person behind it. A nil/zero teamID is
+// manager-only — there is no team to authorize a plain member against, mirroring
+// the REST rule that an unassigned agent is a manager action. `action` names
+// what is being attempted, e.g. "creating an agent".
+func requireTeamManager(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, req *mcp.CallToolRequest, action string) *mcp.CallToolResult {
 	actor, err := access.Resolve(ctx, db, orgID, actorUserIDFromRequest(req))
 	if err != nil {
 		return toolError(err.Error())
 	}
 	if actor == nil {
-		return toolError("Not allowed: " + action + " must be done on behalf of an organization admin or owner, " +
+		return toolError("Not allowed: " + action + " must be done on behalf of an organization member, " +
 			"but this run has no human actor (it was started by an automated trigger or schedule).")
 	}
-	if !actor.IsOrgManager() {
-		return toolError("Not allowed: " + action + " requires an organization admin or owner. " +
-			"The person you're acting for has the role \"" + actor.OrgRole + "\", which can't create or change agents. " +
+	if actor.IsOrgManager() {
+		return nil
+	}
+	if teamID == uuid.Nil {
+		return toolError("Not allowed: " + action + " for an agent with no team requires an organization admin or owner. " +
 			"Ask an organization admin or owner to make this change.")
+	}
+	ok, err := actor.CanManageTeamResource(ctx, db, teamID)
+	if err != nil {
+		return toolError(err.Error())
+	}
+	if !ok {
+		return toolError("Not allowed: " + action + " requires you to be a member of the agent's team. " +
+			"The person you're acting for is not a member of that team. " +
+			"Ask a member of the team or an organization admin or owner to make this change.")
 	}
 	return nil
 }

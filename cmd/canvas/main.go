@@ -85,6 +85,9 @@ Usage:
   %[1]s artifact validate <artifact-path>
   %[1]s artifact verify <artifact-path>
   %[1]s artifact sync <artifact-path>
+  %[1]s artifact watch <artifact-path>
+  %[1]s artifact watch stop <artifact-path>
+  %[1]s artifact watch status [<artifact-path>]
   %[1]s brands list
   %[1]s brands view <brand-id>
   %[1]s brands create --name "Brand" [--json '{"colors":{...}}']
@@ -163,16 +166,20 @@ func projectCommand(args []string) error {
 }
 
 func postControlPlane(path string, payload any, out any) error {
+	return postControlPlaneCtx(context.Background(), path, payload, out)
+}
+
+func postControlPlaneCtx(ctx context.Context, path string, payload any, out any) error {
 	base := strings.TrimRight(mustEnv(envControlPlaneURL), "/")
-	return requestJSON(http.MethodPost, base+path, mustEnv(envRuntimeSecret), payload, out)
+	return requestJSON(ctx, http.MethodPost, base+path, mustEnv(envRuntimeSecret), payload, out)
 }
 
 func getControlPlane(path string, out any) error {
 	base := strings.TrimRight(mustEnv(envControlPlaneURL), "/")
-	return requestJSON(http.MethodGet, base+path, mustEnv(envRuntimeSecret), nil, out)
+	return requestJSON(context.Background(), http.MethodGet, base+path, mustEnv(envRuntimeSecret), nil, out)
 }
 
-func requestJSON(method, targetURL, bearer string, payload any, out any) error {
+func requestJSON(ctx context.Context, method, targetURL, bearer string, payload any, out any) error {
 	var body io.Reader
 	if payload != nil {
 		raw, err := json.Marshal(payload)
@@ -181,7 +188,7 @@ func requestJSON(method, targetURL, bearer string, payload any, out any) error {
 		}
 		body = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequestWithContext(context.Background(), method, targetURL, body)
+	req, err := http.NewRequestWithContext(ctx, method, targetURL, body)
 	if err != nil {
 		return err
 	}

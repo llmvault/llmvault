@@ -83,5 +83,5 @@ For a recurring series (weekly tips, monthly changelog, every teammate's birthda
 
 1. Design episode 1 as above and get it approved.
 2. Record in the artifact notes (or a `templates/` file in the artifact): the role map with `drive_asset_id`s, the style sentence, and the layout systems used.
-3. Next episode: copy the artifact's HTML, change only copy — same backdrops when the mood repeats, or `remix_image` from the recorded asset ids when the scene must evolve but stay on-model.
+3. Next episode: copy the artifact's HTML, change only copy — same backdrops when the mood repeats, or `hivy_remix_image` from the recorded asset ids when the scene must evolve but stay on-model.
 4. Never restyle mid-series without the user asking — recognizability is the point of a series.

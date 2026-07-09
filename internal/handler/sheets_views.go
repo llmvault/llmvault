@@ -107,11 +107,16 @@ func (h *SheetsHandler) UpdateView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
+	if !ok {
 		return
 	}
 	viewID, ok := sheetsPathUUID(w, r, "viewID")
 	if !ok {
+		return
+	}
+	if err := h.svc.ViewInPage(r.Context(), org.ID, pageID, viewID); err != nil {
+		writeSheetsError(w, r, err)
 		return
 	}
 	var req updateViewRequest
@@ -148,11 +153,16 @@ func (h *SheetsHandler) ArchiveView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := h.sheetsNestedPageID(w, r, org); !ok {
+	pageID, ok := h.sheetsNestedPageID(w, r, org)
+	if !ok {
 		return
 	}
 	viewID, ok := sheetsPathUUID(w, r, "viewID")
 	if !ok {
+		return
+	}
+	if err := h.svc.ViewInPage(r.Context(), org.ID, pageID, viewID); err != nil {
+		writeSheetsError(w, r, err)
 		return
 	}
 	if err := h.svc.ArchiveView(r.Context(), org.ID, viewID); err != nil {

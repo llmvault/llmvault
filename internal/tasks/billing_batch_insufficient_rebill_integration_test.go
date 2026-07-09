@@ -11,7 +11,8 @@ import (
 // debits it, rather than losing the spend forever.
 func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 	db := connectDB(t)
-	orgID, credID := seedOrgWithCredentialAndCredits(t, db, 10) // far less than one gen costs
+	orgID, credID := seedOrgWithCredentialAndCredits(t, db, 0)
+	adjustLedger(t, db, orgID, billing.CreditOverdraftFloor) // already at the floor
 
 	genID := insertGeneration(t, db, orgID, credID, defaultGenOpts())
 
@@ -29,8 +30,8 @@ func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 	}
 
 	balBefore, _ := billing.NewCreditsService(db).Balance(orgID)
-	if balBefore != 10 {
-		t.Fatalf("balance should be untouched while insufficient: %d", balBefore)
+	if balBefore != billing.CreditOverdraftFloor {
+		t.Fatalf("balance should stay at the floor while insufficient: %d", balBefore)
 	}
 
 	if err := billing.NewCreditsService(db).Grant(orgID, 10_000, billing.ReasonTopup, "topup", "tx-1", nil); err != nil {
@@ -52,7 +53,7 @@ func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 	}
 
 	balAfter, _ := billing.NewCreditsService(db).Balance(orgID)
-	wantAfter := int64(10 + 10_000 - creditsForTestCost(1))
+	wantAfter := int64(billing.CreditOverdraftFloor + 10_000 - creditsForTestCost(1))
 	if balAfter != wantAfter {
 		t.Errorf("balance after rebill = %d, want %d", balAfter, wantAfter)
 	}
@@ -62,7 +63,8 @@ func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 // it is stamped billed_at (credits_debited=0) and leaves the queue.
 func TestBatch_InsufficientHotLoopCapped(t *testing.T) {
 	db := connectDB(t)
-	orgID, credID := seedOrgWithCredentialAndCredits(t, db, 10) // never enough
+	orgID, credID := seedOrgWithCredentialAndCredits(t, db, 0)
+	adjustLedger(t, db, orgID, billing.CreditOverdraftFloor) // already at the floor, never enough
 
 	genID := insertGeneration(t, db, orgID, credID, defaultGenOpts())
 

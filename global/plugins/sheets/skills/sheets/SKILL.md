@@ -5,7 +5,7 @@ description: Use when work produces structured or tabular data the user should k
 
 # Sheets
 
-Use this skill whenever work produces structured, row-shaped output the user will revisit: lead lists, research results, scraped data, inventories, comparisons, trackers. Sheets are first-party, org-scoped storage that users browse, filter, and edit live in the Sheets panel of the web app.
+Use this skill whenever work produces structured, row-shaped output the user will revisit: lead lists, research results, scraped data, inventories, comparisons, trackers. Sheets are first-party, channel-scoped storage that users browse, filter, and edit live in the Sheets panel of the web app. A sheet belongs to the channel the session runs in — `sheet_list`, `sheet_create`, and every read or write operate within that channel, and you only see and touch sheets in it.
 
 Prefer a sheet over a markdown table or a loose CSV file for anything the user will keep, browse, edit, or ask about later. A markdown table in chat is disposable; a sheet is durable, queryable, and editable by the user. Only use inline markdown tables for small throwaway summaries inside a reply.
 
@@ -26,7 +26,7 @@ Because payloads key by field ID, you cannot write or filter correctly from memo
 
 Run this loop for sheet work:
 
-1. **`sheet_list`** — see what already exists. Reuse an existing sheet when one fits the work; never create a duplicate "Leads v2" when "Leads" exists.
+1. **`sheet_list`** — see what already exists in this channel. Reuse an existing sheet when one fits the work; never create a duplicate "Leads v2" when "Leads" exists in the channel.
 
 ```json
 {}
@@ -227,7 +227,7 @@ Query competitor rows first to get their UUIDs, then write the link as an array 
 }
 ```
 
-When reading, pass `resolve_relations: true` to `rows_query` and relation cells hydrate from bare UUIDs into `{id, label}` pairs (the label comes from the target page's display field). Relation filtering supports `contains` (linked to row X), `is_empty`, and `is_not_empty` only — you cannot filter through a relation into the target row's fields (e.g. "where linked company's status = qualified" is not supported; query the target page separately and use the resulting row IDs).
+When reading, pass `resolve_relations: true` to `rows_query`. This does **not** rewrite the cells in place — each row's `data` still holds bare UUIDs. Instead the response carries a separate top-level `relations` map of `{id, label}` pairs (the label comes from the target page's display field); join `data`'s UUIDs against it to render human-readable links. Relation filtering supports `contains` (linked to row X), `is_empty`, and `is_not_empty` only — you cannot filter through a relation into the target row's fields (e.g. "where linked company's status = qualified" is not supported; query the target page separately and use the resulting row IDs).
 
 ### Attachments — worked example
 
@@ -318,7 +318,7 @@ Revert applies the exact inverse: inserts are archived, updates restore prior va
 - Always call `sheet_describe` before writing to or querying a sheet you did not create in this session. Never guess field IDs.
 - Key `data` payloads and filters by field ID (`fld_…`), never by field name.
 - Batch `rows_write` at ≤100 rows per call. Never loop single-row calls for bulk work; never exceed the cap.
-- Reuse existing sheets from `sheet_list`; never create a duplicate sheet for the same data.
+- Reuse existing sheets from `sheet_list` (scoped to this channel); never create a duplicate sheet for the same data.
 - Query fresh before bulk updates — humans edit rows in the web app while you work; stale row IDs and values will clobber their edits.
 - Archive, don't destroy: deletes are archives, and `archive_field`/`archive_page`/`archive_sheet` are the only removal actions. Only archive things the user asked you to remove.
 - No blobs in cells: no HTML, base64, file contents, or JSON dumps. Attachments are drive object keys; text is plain text.

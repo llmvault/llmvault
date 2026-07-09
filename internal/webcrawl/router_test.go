@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeProvider struct {
@@ -190,6 +191,65 @@ func TestRouterMap(t *testing.T) {
 		if !strings.Contains(err.Error(), sub) {
 			t.Errorf("error %q missing %q", err.Error(), sub)
 		}
+	}
+}
+
+func TestRouterMapAttemptTimeoutFallsBack(t *testing.T) {
+	hung := &fakeProvider{name: "hung", mapFn: func(ctx context.Context, _ MapRequest) ([]string, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}}
+	fast := &fakeProvider{name: "fast", mapFn: func(context.Context, MapRequest) ([]string, error) {
+		return []string{"https://example.com"}, nil
+	}}
+	r := NewRouter(Hierarchy{Map: []Provider{hung, fast}, MapTimeout: 20 * time.Millisecond})
+
+	start := time.Now()
+	urls, err := r.Map(context.Background(), MapRequest{URL: "https://example.com"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 1 || urls[0] != "https://example.com" {
+		t.Fatalf("unexpected urls: %+v", urls)
+	}
+	if hung.calls != 1 || fast.calls != 1 {
+		t.Fatalf("call counts: hung=%d fast=%d", hung.calls, fast.calls)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("fallback took %s; per-attempt timeout not applied", elapsed)
+	}
+}
+
+func TestRouterNoAttemptTimeoutPassesParentContext(t *testing.T) {
+	var hadDeadline bool
+	p := &fakeProvider{name: "a", mapFn: func(ctx context.Context, _ MapRequest) ([]string, error) {
+		_, hadDeadline = ctx.Deadline()
+		return []string{"u"}, nil
+	}}
+	r := NewRouter(Hierarchy{Map: []Provider{p}})
+	if _, err := r.Map(context.Background(), MapRequest{URL: "u"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hadDeadline {
+		t.Fatal("provider context has a deadline; zero timeout must not add one")
+	}
+}
+
+func TestRouterStopsWhenParentContextDone(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	first := &fakeProvider{name: "a", mapFn: func(context.Context, MapRequest) ([]string, error) {
+		cancel()
+		return nil, errors.New("boom")
+	}}
+	second := &fakeProvider{name: "b", mapFn: func(context.Context, MapRequest) ([]string, error) {
+		return []string{"u"}, nil
+	}}
+	r := NewRouter(Hierarchy{Map: []Provider{first, second}})
+	if _, err := r.Map(ctx, MapRequest{URL: "u"}); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if second.calls != 0 {
+		t.Fatalf("second provider called %d times after parent context ended", second.calls)
 	}
 }
 

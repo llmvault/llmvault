@@ -76,6 +76,46 @@ func TestAppPreviewEnvForeignOrgAppIs404(t *testing.T) {
 	}
 }
 
+// TestAppPreviewEnvForeignAgentSameOrgIs404 proves preview-env is bound to the
+// app's creating agent: a builder agent cannot fetch another team's app secret +
+// channel env by passing that app's id, even within the same org (H2 IDOR).
+func TestAppPreviewEnvForeignAgentSameOrgIs404(t *testing.T) {
+	h := newPreviewEnvHarness(t, previewHarnessOpts{})
+	h.installAppsPlugin(t)
+
+	// A second team's agent + channel + sheet in the SAME org, owning its own app.
+	otherAgent := model.Agent{ID: uuid.New(), OrgID: &h.org.ID, TeamID: seedTeam(t, h.db, h.org.ID, "other-team").ID, Name: "Other Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	otherChan := model.Channel{ID: uuid.New(), OrgID: h.org.ID, Name: "other-ch-" + uuid.NewString(), TeamID: otherAgent.TeamID, DefaultAgentID: otherAgent.ID}
+	otherSheet := model.Sheet{ID: uuid.New(), OrgID: h.org.ID, ChannelID: otherChan.ID, Slug: "other-" + uuid.NewString()[:8], Name: "Other"}
+	for _, seed := range []any{&otherAgent, &otherChan, &otherSheet} {
+		if err := h.db.Create(seed).Error; err != nil {
+			t.Fatalf("seed other team: %v", err)
+		}
+	}
+	t.Cleanup(func() {
+		h.db.Delete(&model.Channel{}, "id = ?", otherChan.ID)
+		h.db.Delete(&model.Agent{}, "id = ?", otherAgent.ID)
+	})
+	foreign, err := h.svc.CreateApp(context.Background(), apps.CreateAppParams{
+		OrgID: h.org.ID, ChannelID: otherChan.ID, SheetID: otherSheet.ID, Name: "Foreign App",
+		CreatedByAgentID: &otherAgent.ID,
+	})
+	if err != nil {
+		t.Fatalf("create foreign app: %v", err)
+	}
+
+	// The harness agent's sandbox bearer is valid, but the app belongs to another
+	// agent — it must be indistinguishable from a missing one.
+	if rr := h.fetch(t, h.secret, foreign.ID.String(), "3000"); rr.Code != 404 {
+		t.Fatalf("foreign-agent app status = %d body=%s, want 404", rr.Code, rr.Body.String())
+	}
+
+	// The caller's OWN app still resolves.
+	if rr := h.fetch(t, h.secret, h.app.ID.String(), "3000"); rr.Code != 200 {
+		t.Fatalf("own app status = %d body=%s, want 200", rr.Code, rr.Body.String())
+	}
+}
+
 func TestAppPreviewEnvHappyPathMicrosandbox(t *testing.T) {
 	h := newPreviewEnvHarness(t, previewHarnessOpts{})
 	h.installAppsPlugin(t)

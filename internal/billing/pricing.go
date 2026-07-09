@@ -12,6 +12,11 @@ const (
 	// CreditUSDValue is the customer-facing value of one credit for metered usage.
 	CreditUSDValue = 0.001
 
+	// CreditOverdraftFloor is the most negative balance an org may reach before
+	// platform inference is cut off. Inference stays admitted until the balance
+	// hits this floor; the batch debiter never drives it below.
+	CreditOverdraftFloor int64 = -50
+
 	CostSourceProvider = "provider_reported"
 	CostSourceRegistry = "registry_estimated"
 

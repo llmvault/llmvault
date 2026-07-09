@@ -2,11 +2,13 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -37,7 +39,7 @@ func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, team
 		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. The new agent joins the calling agent's team and inherits that team's plugins (plugins are team-managed, not set per agent).",
 		InputSchema: createAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if errResult := requireOrgManager(ctx, deps.DB, token.OrgID, req, "creating an agent"); errResult != nil {
+		if errResult := requireTeamManager(ctx, deps.DB, token.OrgID, teamID, req, "creating an agent"); errResult != nil {
 			return errResult, nil
 		}
 		var args createAgentArgs
@@ -112,15 +114,35 @@ func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Plugins are team-managed and cannot be set per agent. Use list_org_plugins to discover valid skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if errResult := requireOrgManager(ctx, deps.DB, token.OrgID, req, "changing an agent"); errResult != nil {
-			return errResult, nil
-		}
 		var args updateAgentArgs
 		if errResult := decodeArgs(req, &args); errResult != nil {
 			return errResult, nil
 		}
+		agentID, err := uuid.Parse(strings.TrimSpace(args.AgentID))
+		if err != nil || agentID == uuid.Nil {
+			return toolError("agent_id must be a valid UUID"), nil
+		}
+		if errResult := authorizeUpdateTarget(ctx, deps, token.OrgID, req, agentID); errResult != nil {
+			return errResult, nil
+		}
 		return handleUpdateAgent(ctx, deps, token, frontendURL, args)
 	})
+}
+
+// authorizeUpdateTarget loads the update target scoped to the org — a cross-org
+// id reports as not found so the gate never leaks existence across orgs — then
+// gates the actor on managing the agent's owning team (org managers always,
+// otherwise active team membership; a nil-team agent is manager-only). Returning
+// a nil result means allowed.
+func authorizeUpdateTarget(ctx context.Context, deps Deps, orgID uuid.UUID, req *mcp.CallToolRequest, agentID uuid.UUID) *mcp.CallToolResult {
+	agent, err := loadOrgAgent(ctx, deps.DB, orgID, agentID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return toolError(ErrAgentNotFound.Error())
+		}
+		return toolError("failed to load agent: " + err.Error())
+	}
+	return requireTeamManager(ctx, deps.DB, orgID, agent.TeamID, req, "changing an agent")
 }
 
 func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, frontendURL string, args updateAgentArgs) (*mcp.CallToolResult, error) {

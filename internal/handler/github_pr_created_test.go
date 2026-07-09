@@ -181,7 +181,9 @@ func TestGitHubPRCreatedNoActiveSession(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
 	var body map[string]string
-	json.Unmarshal(rr.Body.Bytes(), &body)
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
 	if body["status"] != "no_active_session" {
 		t.Fatalf("status=%q, want no_active_session", body["status"])
 	}

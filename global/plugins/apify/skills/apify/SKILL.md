@@ -81,7 +81,8 @@ curl -fsS "$APIFY_API/users/me" \
 - **Running an Actor or Task consumes the user's Apify compute credits and can cost real money.** CONFIRM WITH THE USER before starting any Actor run or Task run. State which Actor you will run, the input, and the expected result count.
 - Before running a paid Actor, check its pricing (see "Inspect an Actor") and give a rough cost estimate. If the estimate is more than a few dollars, warn explicitly and get a clear go-ahead.
 - Prefer read-only `GET` calls for discovery and result retrieval. Only issue `POST` run calls after the user confirms.
-- Do not abort, delete, or mutate Actors, tasks, schedules, datasets, key-value stores, or runs unless the user explicitly asks.
+- Deletes and removals are hard-blocked by the platform proxy: any `DELETE` request, or any path or JSON body containing `delete`, `remove`, `destroy`, `archive`, or `trash`, is rejected with HTTP 403 regardless of what the user asked for. Do not attempt to delete Actors, tasks, schedules, datasets, or key-value stores through the proxy — expect a 403 even on explicit request, and direct the user to the Apify console for those operations.
+- Aborting a run is not blocked, so you may abort a run when the user explicitly asks. Otherwise leave runs, Actors, and tasks unmutated.
 - Datasets can be large. Start with a small `limit` (and `fields=` to select columns) and summarize instead of dumping full payloads unless the user asks for raw data.
 - Always pipe responses through `jq` to extract only the fields you need — never let raw multi-megabyte JSON into your context.
 

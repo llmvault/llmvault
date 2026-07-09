@@ -44,7 +44,7 @@ func TestAppsRealtimeE2E(t *testing.T) {
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
-	password := "apps-realtime-e2e-password"
+	password := "apps-realtime-e2e-password" //nolint:gosec // test fixture password, not a real credential
 	ownerEmail := "apps-realtime-owner-" + runID + "@example.com"
 	ownerName := "Apps Realtime Owner " + runID
 

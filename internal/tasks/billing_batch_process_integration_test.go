@@ -251,7 +251,8 @@ func TestBatch_UnresolvableModelMarksError(t *testing.T) {
 
 func TestBatch_InsufficientBalanceMarksRowsAndContinues(t *testing.T) {
 	db := connectDB(t)
-	orgPoor, credPoor := seedOrgWithCredentialAndCredits(t, db, 10) // far less than 123
+	orgPoor, credPoor := seedOrgWithCredentialAndCredits(t, db, 0)
+	adjustLedger(t, db, orgPoor, billing.CreditOverdraftFloor) // already at the floor
 	orgRich, credRich := seedOrgWithCredentialAndCredits(t, db, 10_000)
 
 	poorID := insertGeneration(t, db, orgPoor, credPoor, defaultGenOpts())
@@ -279,8 +280,8 @@ func TestBatch_InsufficientBalanceMarksRowsAndContinues(t *testing.T) {
 
 	bp, _ := billing.NewCreditsService(db).Balance(orgPoor)
 	br, _ := billing.NewCreditsService(db).Balance(orgRich)
-	if bp != 10 {
-		t.Errorf("poor org balance changed despite insufficient credits: %d", bp)
+	if bp != billing.CreditOverdraftFloor {
+		t.Errorf("poor org at the floor should not overdraft further: %d, want %d", bp, billing.CreditOverdraftFloor)
 	}
 	if br != 10_000-creditsForTestCost(1) {
 		t.Errorf("rich org should be deducted normally: %d", br)

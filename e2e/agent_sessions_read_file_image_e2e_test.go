@@ -117,7 +117,7 @@ func agentSessionsCopyImageFixtureToSandbox(t *testing.T, ctx context.Context, e
 	if err != nil {
 		t.Fatalf("copy image fixture to sandbox: %v\n%s", err, out)
 	}
-	out, err = exec.CommandContext(ctx, "docker", "exec", externalID, "sh", "-lc", "test -s "+sandboxPath+" && file "+sandboxPath).CombinedOutput()
+	out, err = exec.CommandContext(ctx, "docker", "exec", externalID, "sh", "-lc", "test -s "+sandboxPath+" && file "+sandboxPath).CombinedOutput() //nolint:gosec // test-controlled input
 	if err != nil {
 		t.Fatalf("verify image fixture in sandbox: %v\n%s", err, out)
 	}

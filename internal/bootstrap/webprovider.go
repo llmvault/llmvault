@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"time"
+
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/firecrawl"
 	"github.com/usehivy/hivy/internal/serper"
@@ -38,6 +40,9 @@ func buildWebProvider(cfg *config.Config) webcrawl.Provider {
 		Crawl:  crawl,
 		Search: search,
 		Map:    siteMap,
+		// Map backs the user-facing website discovery endpoint: each provider
+		// gets 15s before the router falls back to the next one.
+		MapTimeout: 15 * time.Second,
 	})
 }
 

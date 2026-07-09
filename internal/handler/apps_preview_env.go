@@ -65,6 +65,10 @@ func (h *UploadsHandler) AppPreviewEnv(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load app"})
 		return
 	}
+	if app.CreatedByAgentID == nil || *app.CreatedByAgentID != agent.ID {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "app not found"})
+		return
+	}
 	if !apps.PluginInstalled(r.Context(), h.db, *agent) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "the apps plugin is not installed for this agent"})
 		return

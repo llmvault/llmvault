@@ -1,6 +1,6 @@
 # Formats — dimensions, artifact plans, and aspect mapping
 
-This file is the canonical dimension table for social assets. Every asset is built at its export pixel size with a fixed-size body (`references/slide-kit.md`). The Canvas `default_viewport` in `artifact.json` must equal the export pixels so the preview shows the asset 1:1.
+This file is the canonical dimension table for social assets. Every asset is built at its export pixel size with a fixed-size body (`references/slide-kit.md`) — that fixed body is what makes the Canvas preview show the asset 1:1, and it is where the export dimensions live.
 
 ## Dimension table
 
@@ -18,7 +18,7 @@ This file is the canonical dimension table for social assets. Every asset is bui
 | Pinterest pin | 1000×1500 | 2:3 | `web_page` | `2:3` | Native generation ratio exists — no crop loss. |
 | LinkedIn banner | 1584×396 | 4:1 | `web_page` | `16:9` | Extreme crop — see banner rules. |
 
-Supported generation ratios (`generate_image`): `16:9`, `9:16`, `3:2`, `2:3`, `4:3`, `3:4`, `1:1`.
+Supported generation ratios (`hivy_generate_image`): `16:9`, `9:16`, `3:2`, `2:3`, `4:3`, `3:4`, `1:1`.
 
 ## Aspect mapping rules
 
@@ -47,7 +47,7 @@ Backdrop energy may fill the whole frame; *type may not*. In the slide kit this 
 - **Multi-format campaigns**: one artifact per dimension in the same project, e.g. `ig-carousel-launch` (presentation, 1080×1350), `story-launch` (web_page, 1080×1920), `x-post-launch` (web_page, 1600×900). They share generated backdrops by `public_url` but each recomposes layout for its geometry.
 - **Naming**: artifact names describe platform + genre + subject: `IG carousel — launch`, `Birthday card — Amara`, `X header — brand refresh`. Slugs derive automatically.
 
-After `canvas artifact create`, edit `artifact.json` to set the viewport, e.g. for an IG portrait carousel:
+After `canvas artifact create`, edit `artifact.json` to set the name and slide list, e.g. for an IG portrait carousel:
 
 ```json
 {
@@ -55,7 +55,6 @@ After `canvas artifact create`, edit `artifact.json` to set the viewport, e.g. f
   "kind": "hivy.canvas.artifact",
   "type": "presentation",
   "name": "IG carousel — launch",
-  "default_viewport": { "width": 1080, "height": 1350 },
   "slides": [
     "slides/slide-001.html",
     "slides/slide-002.html"
@@ -63,7 +62,7 @@ After `canvas artifact create`, edit `artifact.json` to set the viewport, e.g. f
 }
 ```
 
-Keep every existing manifest field the scaffold created; only change `default_viewport`, `name`, and the `slides`/`files` lists. When you add a slide file, add it to the manifest in the same edit, then re-run `canvas artifact validate`.
+Keep every existing manifest field the scaffold created; only change `name` and the `slides`/`files` lists. When you add a slide file, add it to the manifest in the same edit, then re-run `canvas artifact validate`. The export pixels are carried by the fixed-size body (`references/slide-kit.md`), not the manifest; QA at that size with `browser set viewport <w> <h>`.
 
 ## Export note
 

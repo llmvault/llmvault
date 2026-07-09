@@ -110,18 +110,17 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 
 // loadAgentSkills batch-loads skill summaries for one or more agents. Skills are
 // inherited from the plugins installed on each agent.
-func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]agentSkillSummary {
+func (h *AgentHandler) loadAgentSkills(ctx context.Context, agentIDs ...uuid.UUID) map[uuid.UUID][]agentSkillSummary {
 	if len(agentIDs) == 0 {
 		return nil
 	}
 	var agents []model.Agent
-	if err := h.db.Where("id IN ?", agentIDs).Find(&agents).Error; err != nil {
+	if err := h.db.WithContext(ctx).Where("id IN ?", agentIDs).Find(&agents).Error; err != nil {
 		return nil
 	}
 	if len(agents) == 0 {
 		return nil
 	}
-	ctx := context.Background()
 	pluginIDSet := make(map[uuid.UUID]bool)
 	agentPlugins := make(map[uuid.UUID][]uuid.UUID, len(agents))
 	for _, agent := range agents {
@@ -142,7 +141,7 @@ func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]ag
 		pluginIDs = append(pluginIDs, id)
 	}
 	var skills []model.Skill
-	if err := h.db.Select("id, name, description, human_description, source_type, plugin_id").
+	if err := h.db.WithContext(ctx).Select("id, name, description, human_description, source_type, plugin_id").
 		Where("plugin_id IN ? AND hidden = false AND status = ?", pluginIDs, model.SkillStatusPublished).
 		Find(&skills).Error; err != nil {
 		return nil

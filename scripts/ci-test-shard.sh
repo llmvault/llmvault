@@ -103,7 +103,7 @@ internal_core_shard_packages() {
     7) select_internal_core_packages mcp mcp/catalog mcpserver skills resources providergroups ;;
     8) select_internal_core_packages agents agentsandbox apps ;;
     9) select_internal_core_packages model registry db migrations testdb counter memory ;;
-    10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider enqueue email ;;
+    10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider firecrawl serper webcrawl enqueue email ;;
     11) select_internal_core_packages evals observability/sentry observe sheets ;;
     *)
       echo "invalid internal-core shard index: $shard_index" >&2
@@ -128,6 +128,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/microsandbox/runner \
     github.com/usehivy/hivy/internal/microsandbox/security \
     github.com/usehivy/hivy/internal/netguard \
+    github.com/usehivy/hivy/internal/pluginresolve \
     github.com/usehivy/hivy/internal/plugins \
     github.com/usehivy/hivy/internal/precontext \
     github.com/usehivy/hivy/internal/quiver \

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -129,7 +130,7 @@ func brandsUpdateCommand(args []string) error {
 
 func patchControlPlane(path string, payload any, out any) error {
 	base := strings.TrimRight(mustEnv(envControlPlaneURL), "/")
-	return requestJSON(http.MethodPatch, base+path, mustEnv(envRuntimeSecret), payload, out)
+	return requestJSON(context.Background(), http.MethodPatch, base+path, mustEnv(envRuntimeSecret), payload, out)
 }
 
 func agentCanvasPath(resource string) string {

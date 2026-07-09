@@ -72,7 +72,7 @@ the hero pattern tables in `SKILL.md` and use the example prompts inside
 ### logo-brand
 
 Real logo work does not use these raster recipes — load the `logo-design` skill
-instead. It generates the mark as a native SVG (`generate_vector_image`) with
+instead. It generates the mark as a native SVG (`hivy_generate_vector_image`) with
 constructive-geometry prompts and composes every variant (lockups, app icon,
 monochrome, reverse, favicon) deterministically from the same geometry, so the
 mark stays byte-identical across the whole pack. A raster logo generated here
@@ -192,7 +192,7 @@ Wireframes are the sanctioned exception to the no-layout-vocabulary rule — see
 
 Logo work is owned by the `logo-design` skill — do not prompt logos with the
 raster recipes in this file. That skill generates marks as native SVG via
-`generate_vector_image`, prompts by *construction* (strokes, arcs, ratios,
+`hivy_generate_vector_image`, prompts by *construction* (strokes, arcs, ratios,
 terminals, negative space — see its `references/mark-prompts.md`), covers custom
 letterforms and monograms (`references/type-and-color-prompts.md`), and builds the
 full production pack (lockups, app icon, monochrome, reverse, favicon, transparent

@@ -4,9 +4,6 @@ package notion
 // Sent on every request via the Notion-Version header.
 const notionVersion = "2026-03-11"
 
-// notionPageSize is the API maximum for list/search endpoints.
-const notionPageSize = 100
-
 // NotionPage is a page (or database-rendered-as-page) returned by the
 // pages/databases/search endpoints. Properties are kept as a loose map
 // because their shape is polymorphic per property type.

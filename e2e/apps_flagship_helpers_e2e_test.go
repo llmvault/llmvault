@@ -134,7 +134,7 @@ func assertAppsFlagshipSystemdSandbox(t *testing.T, ctx context.Context, db *gor
 		}
 		t.Fatalf("app sandbox entrypoint=%v want [/sbin/init] — the sandbox did not boot systemd as PID 1", got)
 	}
-	out, err := exec.CommandContext(ctx, "docker", "exec", sb.ExternalID, "systemctl", "is-active", "hivy-appd").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "exec", sb.ExternalID, "systemctl", "is-active", "hivy-appd").CombinedOutput() //nolint:gosec // test-controlled input
 	state := strings.TrimSpace(string(out))
 	if err != nil || state != "active" {
 		t.Fatalf("systemctl is-active hivy-appd = %q (err=%v) — hivy-appd is not a live systemd service", state, err)

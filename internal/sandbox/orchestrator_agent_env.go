@@ -41,10 +41,8 @@ func agentSandboxEnvVars(ctx context.Context, db *gorm.DB, cfg *config.Config, r
 		BugsinkDashboardBaseURL:   bugsinkDashboardURL,
 		GlitchTipDashboardBaseURL: glitchTipDashboardURL,
 	}
-	if agent != nil {
-		if allowed, err := agentruntime.AllowedServiceProxyProviders(ctx, db, *agent); err == nil {
-			opts.AllowedServiceProxyProviders = allowed
-		}
+	if allowed, err := agentruntime.AllowedServiceProxyProviders(ctx, db, *agent); err == nil {
+		opts.AllowedServiceProxyProviders = allowed
 	}
 	agentruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, runtimeSecret, opts)
 	return envVars

@@ -135,7 +135,7 @@ Tie-breakers when the map gives no clear answer:
 1. One genre for the whole set — never mix genres across slides.
 2. The shared style sentence (see `references/backdrop-system.md`) is the genre's style keywords + palette + texture words, repeated **verbatim** in every prompt.
 3. Reuse a scene *vocabulary*: the same named elements (the crane, the courier, the same little workers) appear across roles so slides feel like one world. Describe them identically each time.
-4. A recurring *specific* character (the same mascot in different poses) is identity work: generate the master once, then `remix_image` with `reference_asset_ids` + invariants ("do not redesign; preserve proportions, palette, and defining features") per `imagegen` → `references/consistent-assets.md`.
+4. A recurring *specific* character (the same mascot in different poses) is identity work: generate the master once, then `hivy_remix_image` with `reference_asset_ids` + invariants ("do not redesign; preserve proportions, palette, and defining features") per `imagegen` → `references/consistent-assets.md`.
 5. `content`-slide illustrations should be the genre's *quietest* reduction (a sparse corner of the scene, linework only, a single paper layer) — or pure CSS in the genre's palette. Full scenes on every slide exhaust the eye and the budget.
 6. The image gate still applies per slide: an illustration carousel with a full scene on the hook, reduced texture on two beats, and CSS elsewhere is the shape to aim for.
 

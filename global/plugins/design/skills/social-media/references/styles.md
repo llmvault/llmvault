@@ -27,7 +27,7 @@ For each direction: when to pick it, the shared style sentence template, backdro
 
 - This direction has its own catalog: **load `references/illustration-styles.md`** to choose the specific genre (flat vector, isometric, soft 3D, risograph, line + spot color, paper collage, gouache, clay miniature), get its tested prompt template, and map genre → brand/industry. Do not prompt an illustration from this summary alone.
 - Backdrops: full-bleed illustrated scenes — force it: "the scene fills the entire canvas edge to edge, no empty margins." Quiet zone = a flat color field *inside* the scene (a wall, sky band, tabletop) named as scenery. One scene per chapter of the story; content slides reuse a simplified corner of the same world.
-- Set consistency: shared style sentence verbatim + same character/prop vocabulary; for a recurring character across slides, generate the master once and `remix_image` the rest (see `imagegen` → `references/consistent-assets.md`).
+- Set consistency: shared style sentence verbatim + same character/prop vocabulary; for a recurring character across slides, generate the master once and `hivy_remix_image` the rest (see `imagegen` → `references/consistent-assets.md`).
 - CSS: type sits on the scene's flat fields; pick the darkest brand ink for text rather than white-on-busy.
 - Failure watch: centered-vignette gravity (hard rule: full-bleed language every prompt); style drift between slides (never paraphrase the style sentence).
 
@@ -62,7 +62,7 @@ For each direction: when to pick it, the shared style sentence template, backdro
 
 **Pick when:** layering celebration/energy onto an otherwise CSS-built asset (confetti on a birthday card, sparkles on a launch post), or when decoration must stay crisp across multiple export sizes. Combines with directions 1, 2, 4.
 
-- Use `generate_vector_image`: `Scattered confetti of small flat circles and thin rectangles in <accent-a>, <accent-b>, and <neutral>, drifting diagonally, generous spacing, on a transparent background. No text, no letters.`
+- Use `hivy_generate_vector_image`: `Scattered confetti of small flat circles and thin rectangles in <accent-a>, <accent-b>, and <neutral>, drifting diagonally, generous spacing, on a transparent background. No text, no letters.`
 - Place the returned SVG `public_url` via absolutely-positioned `<img>` layers (one behind text, one in front at low density for depth). Request exact brand hexes in the prompt.
 - Failure watch: decoration invading the text column — position layers so density falls to zero behind copy.
 

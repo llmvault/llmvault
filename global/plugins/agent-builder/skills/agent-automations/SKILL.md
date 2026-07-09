@@ -34,7 +34,9 @@ Call `cron` with `action:"create"`:
   for a simple repeating interval (use one, not both).
 - `channel_id` *(optional)* — the **Hivy channel UUID** the run's conversation
   lives in. This is never a Slack/provider channel id — see "Channels" below.
-  Omit it and the run lands in the org's private **system** channel.
+  Omit it and the run lands in the agent's team **#general** (its team's default
+  channel). An agent with no team has no default channel and must be given an
+  explicit `channel_id`.
 - `repeat_count` *(optional)* — stop after N runs.
 
 Manage existing jobs with the same tool: `action:"list" | "update" | "pause" |
@@ -70,7 +72,7 @@ Use this when an external system should run the agent on demand:
 - `agent_id` — the agent to run.
 - `instructions` — what the agent should do each time it's called.
 - `channel_id` *(optional)* — the run's conversation channel: a **Hivy channel
-  UUID** (see "Channels" below). Omitted → the org's system channel.
+  UUID** (see "Channels" below). Omitted → the agent's team **#general**.
 - `secret` *(optional, recommended)* — a shared secret the caller must send.
 
 It returns a **`url`** — give it to the user. They (or their system) POST to it
@@ -94,16 +96,17 @@ To find the right Hivy channel UUID, call **`list_channels`** (no arguments):
 ```
 
 It returns every channel you can schedule into: `id` (the UUID to use), `name`,
-`kind`, `is_default` (the org's #general), `is_system`, and — for channels
-linked to an external app — `external_provider`, `external_resource_name`, and
+`kind`, `visibility`, `is_default` (marks each team's default #general), and — for
+channels linked to an external app — `external_provider`, `external_resource_name`, and
 `external_resource_key` (the provider's own id, e.g. the Slack `C0XXXXXXX`).
 That last field is how you translate: when the user says "this channel" in a
 Slack conversation, match your context's `slack_channel_id` against
 `external_resource_key` and use that channel's `id`.
 
 When the user names no channel, **omit `channel_id`** — the run lands in the
-org's private **system** channel (auto-created for every org). Say so in your
-recap so the user knows where to find the run history.
+agent's team **#general** (its team's default channel). Say so in your recap so
+the user knows where to find the run history. (An agent with no team has no
+default channel and requires an explicit `channel_id`.)
 
 ## Delivering output (e.g. posting to Slack)
 

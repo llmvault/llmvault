@@ -63,7 +63,7 @@ Marketing pages need 3–6 vignettes that read as siblings:
 
 1. One shared contract sentence (background family, card style, palette, typography) pasted verbatim into every prompt.
 2. Rotate background hues across the set from one palette; keep card treatment identical.
-3. Generate the anchor image first; produce the rest with `remix_image` referencing the anchor (see `references/consistent-assets.md`).
+3. Generate the anchor image first; produce the rest with `hivy_remix_image` referencing the anchor (see `references/consistent-assets.md`).
 4. Generate `count: 2–4` per vignette and pick the most consistent sibling, not the prettiest loner.
 
 ## Generation parameters

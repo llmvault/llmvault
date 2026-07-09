@@ -38,7 +38,7 @@ func RecentChannelSessions(ctx context.Context, db *gorm.DB, orgID, channelID uu
 
 	sessions := make([]RecentSession, 0, len(rows))
 	for _, r := range rows {
-		sessions = append(sessions, RecentSession{Name: r.Name, AgentName: r.AgentName})
+		sessions = append(sessions, RecentSession(r))
 	}
 	return sessions, nil
 }

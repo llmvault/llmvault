@@ -4,10 +4,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/middleware"
 )
 
@@ -82,27 +85,53 @@ func TestRequireCredits_SystemWithBalancePasses(t *testing.T) {
 	}
 }
 
-func TestRequireCredits_SystemWithZeroBalanceReturns402(t *testing.T) {
+func TestRequireCredits_SystemWithZeroBalancePassesWithinOverdraft(t *testing.T) {
+	// Zero balance is inside the overdraft window (> floor), so inference is
+	// still admitted; the batch debiter caps the balance at the floor later.
 	orgID := uuid.New()
 	checker := &fakeBalance{values: map[uuid.UUID]int64{orgID: 0}}
 	claims := &middleware.TokenClaims{OrgID: orgID.String(), IsSystem: true}
 
 	w := runWithClaims(t, claims, checker)
-	if w.Code != http.StatusPaymentRequired {
-		t.Fatalf("zero balance should return 402, got %d; body=%s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("zero balance is within overdraft and should pass, got %d; body=%s", w.Code, w.Body.String())
 	}
 }
 
-func TestRequireCredits_SystemWithNegativeBalanceReturns402(t *testing.T) {
-	// Happens when an in-flight post-deduct drove the balance below zero.
-	// Next call must fail closed.
+func TestRequireCredits_SystemAboveFloorPasses(t *testing.T) {
+	// A small overdraft (above the floor) still admits inference.
 	orgID := uuid.New()
 	checker := &fakeBalance{values: map[uuid.UUID]int64{orgID: -17}}
 	claims := &middleware.TokenClaims{OrgID: orgID.String(), IsSystem: true}
 
 	w := runWithClaims(t, claims, checker)
+	if w.Code != http.StatusOK {
+		t.Fatalf("balance above floor should pass, got %d", w.Code)
+	}
+}
+
+func TestRequireCredits_SystemAtFloorReturns402(t *testing.T) {
+	orgID := uuid.New()
+	checker := &fakeBalance{values: map[uuid.UUID]int64{orgID: billing.CreditOverdraftFloor}}
+	claims := &middleware.TokenClaims{OrgID: orgID.String(), IsSystem: true}
+
+	w := runWithClaims(t, claims, checker)
 	if w.Code != http.StatusPaymentRequired {
-		t.Fatalf("negative balance should return 402, got %d", w.Code)
+		t.Fatalf("balance at floor should return 402, got %d; body=%s", w.Code, w.Body.String())
+	}
+	if got := w.Body.String(); !strings.Contains(got, strconv.FormatInt(billing.CreditOverdraftFloor, 10)) {
+		t.Errorf("402 body should report the real balance, got %s", got)
+	}
+}
+
+func TestRequireCredits_SystemBelowFloorReturns402(t *testing.T) {
+	orgID := uuid.New()
+	checker := &fakeBalance{values: map[uuid.UUID]int64{orgID: billing.CreditOverdraftFloor - 10}}
+	claims := &middleware.TokenClaims{OrgID: orgID.String(), IsSystem: true}
+
+	w := runWithClaims(t, claims, checker)
+	if w.Code != http.StatusPaymentRequired {
+		t.Fatalf("balance below floor should return 402, got %d", w.Code)
 	}
 }
 
