@@ -54,10 +54,10 @@ func TestRequireOrgManager(t *testing.T) {
 		t.Fatalf("owner should be allowed: %v", res.Content)
 	}
 
-	// No actor (automated run) is not blocked — preserves existing behavior until
-	// the runtime injects identity.
-	if res := requireOrgManager(t.Context(), db, org.ID, reqFor(""), "creating an agent"); res != nil {
-		t.Fatalf("automated run (no actor) should not be blocked: %v", res.Content)
+	// No actor (automated run) fails closed: these tools mutate org-wide agents
+	// and must not be reachable from an externally-triggerable run.
+	if res := requireOrgManager(t.Context(), db, org.ID, reqFor(""), "creating an agent"); res == nil {
+		t.Fatal("automated run (no actor) must be blocked from creating agents")
 	}
 
 	// A present-but-non-member id is a hard, explicit error (never silently allowed).

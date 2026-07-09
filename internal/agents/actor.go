@@ -29,17 +29,18 @@ func actorUserIDFromRequest(req *mcp.CallToolRequest) string {
 // requireOrgManager gates the privileged agent-builder tools on the acting
 // human being an org owner/admin. Returning a nil result means allowed.
 //
-// When there is no human actor (automated trigger/system run, or a deploy where
-// the runtime does not yet inject identity) the check is skipped so existing
-// flows keep working; the user-facing tightening applies once a real actor is
-// present. `action` names what is being attempted, e.g. "creating an agent".
+// A run with no human actor (automated trigger/schedule/system run) fails
+// closed: these tools mutate org-wide agents and must not be reachable from an
+// externally-triggerable run without a manager behind it. `action` names what
+// is being attempted, e.g. "creating an agent".
 func requireOrgManager(ctx context.Context, db *gorm.DB, orgID uuid.UUID, req *mcp.CallToolRequest, action string) *mcp.CallToolResult {
 	actor, err := access.Resolve(ctx, db, orgID, actorUserIDFromRequest(req))
 	if err != nil {
 		return toolError(err.Error())
 	}
 	if actor == nil {
-		return nil
+		return toolError("Not allowed: " + action + " must be done on behalf of an organization admin or owner, " +
+			"but this run has no human actor (it was started by an automated trigger or schedule).")
 	}
 	if !actor.IsOrgManager() {
 		return toolError("Not allowed: " + action + " requires an organization admin or owner. " +
