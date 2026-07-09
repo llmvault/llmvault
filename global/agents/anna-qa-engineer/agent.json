@@ -32,13 +32,6 @@
     "subagent_task": true,
     "request_user_input": true
   },
-  "skill_filter": {
-    "allow": [
-      "browser",
-      "drive",
-      "playwright-testing"
-    ]
-  },
   "auto_load_skills": [
     {
       "name": "browser",

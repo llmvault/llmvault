@@ -38,15 +38,6 @@
       "remix_image"
     ]
   },
-  "skill_filter": {
-    "allow": [
-      "canvas",
-      "design-taste",
-      "landing-page-copy",
-      "logo-design",
-      "presentation-creator"
-    ]
-  },
   "sub_agents": {
     "codebase-brand-extractor": {
       "name": "Codebase Brand Extractor",
@@ -70,9 +61,6 @@
           "remix_image"
         ]
       },
-      "skill_filter": {
-        "allow": []
-      },
       "prompt": {
         "instructions": "./sub_agents/codebase-brand-extractor/instructions.md"
       }
@@ -87,11 +75,6 @@
           "generate_image",
           "generate_vector_image",
           "remix_image"
-        ]
-      },
-      "skill_filter": {
-        "allow": [
-          "imagegen"
         ]
       },
       "prompt": {
@@ -118,15 +101,6 @@
           "generate_image",
           "generate_vector_image",
           "remix_image"
-        ]
-      },
-      "skill_filter": {
-        "allow": [
-          "canvas",
-          "design-taste",
-          "landing-page-copy",
-          "logo-design",
-          "presentation-creator"
         ]
       },
       "prompt": {

@@ -21,7 +21,6 @@ type Manifest struct {
 	Runtime        RuntimeManifest             `json:"runtime"`
 	Tools          map[string]any              `json:"tools,omitempty"`
 	McpToolFilter  *ToolFilterManifest         `json:"mcp_tool_filter,omitempty"`
-	SkillFilter    *SkillFilterManifest        `json:"skill_filter,omitempty"`
 	AutoLoadSkills model.AutoLoadSkills        `json:"auto_load_skills,omitempty"`
 	Prompt         PromptManifest              `json:"prompt"`
 	Plugins        PluginManifest              `json:"plugins"`
@@ -47,10 +46,6 @@ type PluginManifest struct {
 	Recommended []string `json:"recommended"`
 }
 
-type SkillFilterManifest struct {
-	Allow []string `json:"allow,omitempty"`
-}
-
 type ToolFilterManifest struct {
 	Allow []string `json:"allow,omitempty"`
 	Deny  []string `json:"deny,omitempty"`
@@ -62,7 +57,6 @@ type SubAgentManifest struct {
 	Model          string               `json:"model"`
 	Tools          map[string]any       `json:"tools,omitempty"`
 	McpToolFilter  *ToolFilterManifest  `json:"mcp_tool_filter,omitempty"`
-	SkillFilter    *SkillFilterManifest `json:"skill_filter,omitempty"`
 	AutoLoadSkills model.AutoLoadSkills `json:"auto_load_skills,omitempty"`
 	Prompt         PromptManifest       `json:"prompt"`
 	instructions   string               `json:"-"`

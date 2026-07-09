@@ -50,7 +50,6 @@ type AgentCatalogSubAgent struct {
 	Model          string         `json:"model,omitempty"`
 	Tools          JSON           `json:"tools,omitempty"`
 	McpToolFilter  *ToolFilter    `json:"mcp_tool_filter,omitempty"`
-	SkillFilter    *SkillFilter   `json:"skill_filter,omitempty"`
 	AutoLoadSkills AutoLoadSkills `json:"auto_load_skills,omitempty"`
 	Instructions   string         `json:"instructions"`
 }

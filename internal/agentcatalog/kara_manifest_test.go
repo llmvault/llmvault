@@ -39,9 +39,6 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 	if kara.McpToolFilter == nil || !reflect.DeepEqual(kara.McpToolFilter.Deny, imageTools) {
 		t.Fatalf("kara mcp tool filter = %#v", kara.McpToolFilter)
 	}
-	if kara.SkillFilter == nil || containsString(kara.SkillFilter.Allow, "imagegen") {
-		t.Fatalf("kara skill filter exposes imagegen: %#v", kara.SkillFilter)
-	}
 
 	imageGenerator, ok := kara.SubAgents["image-generator"]
 	if !ok {
@@ -53,18 +50,12 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 	if !reflect.DeepEqual(imageGenerator.McpToolFilter.Allow, imageTools) {
 		t.Fatalf("image-generator mcp tool filter = %#v", imageGenerator.McpToolFilter)
 	}
-	if !reflect.DeepEqual(imageGenerator.SkillFilter.Allow, []string{"imagegen"}) {
-		t.Fatalf("image-generator skill filter = %#v", imageGenerator.SkillFilter)
-	}
 	assertManifestToolDisabled(t, imageGenerator.Tools, "bash")
 	assertManifestToolDisabled(t, imageGenerator.Tools, "read_file")
 
 	designWorker := kara.SubAgents["design-worker"]
 	if designWorker.McpToolFilter == nil || !reflect.DeepEqual(designWorker.McpToolFilter.Deny, imageTools) {
 		t.Fatalf("design-worker mcp tool filter = %#v", designWorker.McpToolFilter)
-	}
-	if designWorker.SkillFilter == nil || containsString(designWorker.SkillFilter.Allow, "imagegen") {
-		t.Fatalf("design-worker skill filter exposes imagegen: %#v", designWorker.SkillFilter)
 	}
 
 	var stored map[string]model.AgentCatalogSubAgent
@@ -75,16 +66,4 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 	if storedImageGenerator.McpToolFilter == nil || !reflect.DeepEqual(storedImageGenerator.McpToolFilter.Allow, imageTools) {
 		t.Fatalf("stored image-generator mcp tool filter = %#v", storedImageGenerator.McpToolFilter)
 	}
-	if storedImageGenerator.SkillFilter == nil || !reflect.DeepEqual(storedImageGenerator.SkillFilter.Allow, []string{"imagegen"}) {
-		t.Fatalf("stored image-generator skill filter = %#v", storedImageGenerator.SkillFilter)
-	}
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }

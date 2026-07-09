@@ -1,42 +1,18 @@
 package skills
 
 import (
-	"context"
 	"encoding/json"
 	"sort"
 	"strings"
 
-	"gorm.io/gorm"
-
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// resolveSkillFilter resolves the agent's skill allow-filter from its own
-// Skills config, else its catalog manifest. Mirrors
-// agentruntime.resolveAgentSkillFilter.
-func resolveSkillFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.SkillFilter {
+func resolveSkillFilter(agent *model.Agent) *model.SkillFilter {
 	if agent == nil {
 		return nil
 	}
-	if filter := skillFilterFromAgentSkills(agent.Skills); filter != nil {
-		return filter
-	}
-	if agent.AgentCatalog != nil {
-		if filter := skillFilterFromCatalogManifest(agent.AgentCatalog.Manifest); filter != nil {
-			return filter
-		}
-	}
-	if db == nil || agent.AgentCatalogID == nil {
-		return nil
-	}
-	var catalog model.AgentCatalog
-	if err := db.WithContext(ctx).
-		Select("manifest").
-		Where("id = ? AND status = ?", *agent.AgentCatalogID, model.AgentCatalogStatusActive).
-		First(&catalog).Error; err != nil {
-		return nil
-	}
-	return skillFilterFromCatalogManifest(catalog.Manifest)
+	return skillFilterFromAgentSkills(agent.Skills)
 }
 
 // skillAllowed reports whether a skill slug is permitted by the allow-filter.
@@ -68,19 +44,6 @@ func skillFilterFromAgentSkills(skills model.JSON) *model.SkillFilter {
 		return decodeSkillFilter(map[string]any(skills))
 	}
 	return nil
-}
-
-func skillFilterFromCatalogManifest(raw model.RawJSON) *model.SkillFilter {
-	if strings.TrimSpace(string(raw)) == "" {
-		return nil
-	}
-	var payload struct {
-		SkillFilter *skillFilterJSON `json:"skill_filter"`
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil || payload.SkillFilter == nil {
-		return nil
-	}
-	return skillFilterFromPayload(payload.SkillFilter)
 }
 
 func decodeSkillFilter(raw any) *model.SkillFilter {

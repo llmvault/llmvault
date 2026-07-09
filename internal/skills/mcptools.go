@@ -158,7 +158,7 @@ func handleSkillView(ctx context.Context, db *gorm.DB, token *model.Token, agent
 	if err != nil {
 		return skillToolError("failed to load skills: " + err.Error()), nil
 	}
-	filter := resolveSkillFilter(ctx, db, agent)
+	filter := resolveSkillFilter(agent)
 
 	var found *model.Skill
 	for i := range all {

@@ -78,7 +78,7 @@ func AgentSkillSummaries(ctx context.Context, db *gorm.DB, agent *model.Agent) (
 	if err != nil {
 		return nil, err
 	}
-	filter := resolveSkillFilter(ctx, db, agent)
+	filter := resolveSkillFilter(agent)
 	out := make([]SkillSummary, 0, len(all))
 	for _, skill := range all {
 		if !skillAllowed(skill.Slug, filter) {

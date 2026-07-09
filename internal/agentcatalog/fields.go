@@ -94,7 +94,6 @@ func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {
 			Model:          strings.TrimSpace(subAgent.Model),
 			Tools:          normalizeToolSelection(subAgent.Tools),
 			McpToolFilter:  normalizeManifestToolFilter(subAgent.McpToolFilter),
-			SkillFilter:    normalizeManifestSkillFilter(subAgent.SkillFilter),
 			AutoLoadSkills: autoLoad,
 			Instructions:   strings.TrimSpace(subAgent.instructions),
 		}
@@ -113,15 +112,6 @@ func normalizeManifestToolFilter(filter *ToolFilterManifest) *model.ToolFilter {
 	allow := normalizeManifestStringList(filter.Allow)
 	deny := normalizeManifestStringList(filter.Deny)
 	return &model.ToolFilter{Allow: allow, Deny: deny}
-}
-
-func normalizeManifestSkillFilter(filter *SkillFilterManifest) *model.SkillFilter {
-	if filter == nil || filter.Allow == nil {
-		return nil
-	}
-	allow := normalizeStrings(filter.Allow)
-	sort.Strings(allow)
-	return &model.SkillFilter{Allow: allow}
 }
 
 func normalizeManifestStringList(values []string) []string {

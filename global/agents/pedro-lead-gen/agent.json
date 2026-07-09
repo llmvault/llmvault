@@ -31,13 +31,6 @@
     "search_sessions": true,
     "request_user_input": true
   },
-  "skill_filter": {
-    "allow": [
-      "apify",
-      "sheets",
-      "drive"
-    ]
-  },
   "auto_load_skills": [
     {
       "name": "apify"
