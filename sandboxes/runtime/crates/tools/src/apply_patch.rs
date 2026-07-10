@@ -270,6 +270,10 @@ impl JsonTool for ApplyPatchTool {
     async fn call(&self, args: Value) -> Result<Value> {
         self.execute(args).await
     }
+
+    fn errors_are_safe(&self) -> bool {
+        true
+    }
 }
 
 async fn apply_prepared_op(op: PreparedOp) -> std::io::Result<()> {

@@ -18,6 +18,9 @@ pub enum ToolExecutionError {
     MissingRequired(String),
     TimedOut { tool: String, seconds: u64 },
     Tool(anyhow::Error),
+    // A failure from a tool that declared errors_are_safe(): the message is a
+    // benign, model- and user-facing usage error and must not be redacted.
+    SafeTool(anyhow::Error),
 }
 
 impl ToolExecutionError {
@@ -27,13 +30,22 @@ impl ToolExecutionError {
             Self::TimedOut { tool, seconds } => {
                 format!("tool `{tool}` timed out after {seconds}s")
             }
-            Self::Tool(error) => error.to_string(),
+            Self::Tool(error) | Self::SafeTool(error) => error.to_string(),
         }
     }
 
     pub fn is_safe_argument_error(&self) -> bool {
         matches!(self, Self::MissingRequired(_))
+            || matches!(self, Self::SafeTool(_))
             || matches!(self, Self::Tool(error) if is_safe_tool_argument_error(&error.to_string()))
+    }
+}
+
+fn classify_tool_error(errors_are_safe: bool, error: anyhow::Error) -> ToolExecutionError {
+    if errors_are_safe {
+        ToolExecutionError::SafeTool(error)
+    } else {
+        ToolExecutionError::Tool(error)
     }
 }
 
@@ -65,12 +77,15 @@ impl ToolExecutor {
         {
             return Err(ToolExecutionError::MissingRequired(message));
         }
+        let errors_are_safe = tool.errors_are_safe();
         let execution = tool.call(call.arguments.clone());
         let Some(timeout) = tool_timeout(&call.name, self.timeout) else {
-            return execution.await.map_err(ToolExecutionError::Tool);
+            return execution
+                .await
+                .map_err(|error| classify_tool_error(errors_are_safe, error));
         };
         match tokio::time::timeout(timeout, execution).await {
-            Ok(result) => result.map_err(ToolExecutionError::Tool),
+            Ok(result) => result.map_err(|error| classify_tool_error(errors_are_safe, error)),
             Err(_) => Err(ToolExecutionError::TimedOut {
                 tool: call.name.clone(),
                 seconds: timeout.as_secs(),
@@ -205,5 +220,68 @@ mod tests {
             err,
             ToolExecutionError::TimedOut { tool, seconds: 1 } if tool == "slow_tool"
         ));
+    }
+
+    struct FailingTool {
+        name: &'static str,
+        safe: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl JsonTool for FailingTool {
+        fn definition(&self) -> ToolDefinition {
+            ToolDefinition {
+                name: self.name.to_string(),
+                description: "Always fails.".to_string(),
+                parameters: json!({"type": "object"}),
+            }
+        }
+
+        async fn call(&self, _args: Value) -> anyhow::Result<Value> {
+            Err(anyhow::anyhow!("old_text not found in file"))
+        }
+
+        fn errors_are_safe(&self) -> bool {
+            self.safe
+        }
+    }
+
+    #[tokio::test]
+    async fn safe_tool_errors_are_classified_safe() {
+        let executor = ToolExecutor::new(
+            vec![Arc::new(FailingTool {
+                name: "edit_file",
+                safe: true,
+            })],
+            1,
+        );
+
+        let err = executor
+            .execute(&tool_call("edit_file"))
+            .await
+            .expect_err("tool should error");
+
+        assert!(matches!(err, ToolExecutionError::SafeTool(_)));
+        assert!(err.is_safe_argument_error());
+        assert_eq!(err.raw_message(), "old_text not found in file");
+    }
+
+    #[tokio::test]
+    async fn unsafe_tool_errors_stay_redactable() {
+        let executor = ToolExecutor::new(
+            vec![Arc::new(FailingTool {
+                name: "bash",
+                safe: false,
+            })],
+            1,
+        );
+
+        let err = executor
+            .execute(&tool_call("bash"))
+            .await
+            .expect_err("tool should error");
+
+        assert!(matches!(err, ToolExecutionError::Tool(_)));
+        assert!(!err.is_safe_argument_error());
     }
 }

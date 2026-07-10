@@ -136,6 +136,10 @@ impl JsonTool for WriteTool {
     async fn call(&self, args: Value) -> Result<Value> {
         self.execute(args).await
     }
+
+    fn errors_are_safe(&self) -> bool {
+        true
+    }
 }
 
 fn map_path_error(error: PathPolicyError) -> anyhow::Error {

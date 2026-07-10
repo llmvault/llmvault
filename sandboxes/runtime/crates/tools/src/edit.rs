@@ -191,6 +191,7 @@ impl EditTool {
             "edits_applied": parsed.edits.len(),
             "bytes_written": final_bytes.len(),
             "diff": diff,
+            "message": "File successfully edited. On your next edit to this file you must read it first with read_file, so you have the latest content.",
         }))
     }
 }
@@ -207,6 +208,10 @@ impl JsonTool for EditTool {
 
     async fn call(&self, args: Value) -> Result<Value> {
         self.execute(args).await
+    }
+
+    fn errors_are_safe(&self) -> bool {
+        true
     }
 }
 

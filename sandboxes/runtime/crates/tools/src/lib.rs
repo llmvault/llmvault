@@ -36,6 +36,16 @@ pub use write::WriteTool;
 pub trait JsonTool: Send + Sync {
     fn definition(&self) -> ToolDefinition;
     async fn call(&self, args: serde_json::Value) -> anyhow::Result<serde_json::Value>;
+
+    /// Whether every error this tool returns is safe to surface to the end user
+    /// verbatim — i.e. it is a deterministic usage/validation message with no
+    /// internal or sensitive detail. Defaults to false so errors are redacted;
+    /// file tools whose failures are benign (e.g. "old_text not found", "read
+    /// the file first") override this so users and operators see the real cause
+    /// instead of a generic "something went wrong".
+    fn errors_are_safe(&self) -> bool {
+        false
+    }
 }
 
 pub fn schema_for<T: schemars::JsonSchema>() -> serde_json::Value {
