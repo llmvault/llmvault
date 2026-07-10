@@ -2159,6 +2159,177 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn incomplete_plan_defers_final_until_plan_is_complete() {
+        struct TestPlanUpdater;
+        #[async_trait::async_trait]
+        impl PlanUpdater for TestPlanUpdater {
+            async fn update_plan(
+                &self,
+                _session_id: &SessionId,
+                payload: UpdatePlanPayload,
+            ) -> anyhow::Result<domain::UpdatePlanResult> {
+                Ok(domain::UpdatePlanResult {
+                    ok: true,
+                    explanation: payload.explanation,
+                    plan: payload.plan,
+                })
+            }
+        }
+
+        let requests: Arc<tokio::sync::Mutex<Vec<serde_json::Value>>> =
+            Arc::new(tokio::sync::Mutex::new(Vec::new()));
+        let handler_requests = requests.clone();
+        async fn plan_handler(
+            axum::extract::State(requests): axum::extract::State<
+                Arc<tokio::sync::Mutex<Vec<serde_json::Value>>>,
+            >,
+            Json(body): Json<serde_json::Value>,
+        ) -> impl IntoResponse {
+            let request_number = {
+                let mut requests = requests.lock().await;
+                let request_number = requests.len() + 1;
+                requests.push(body);
+                request_number
+            };
+
+            let tool_call = |id: &str, plan: serde_json::Value| {
+                let arguments = serde_json::json!({ "plan": plan }).to_string();
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": {
+                            "tool_calls": [{
+                                "index": 0,
+                                "id": id,
+                                "function": { "name": "update_plan", "arguments": arguments }
+                            }]
+                        }
+                    }]
+                });
+                let done = serde_json::json!({
+                    "choices": [{ "delta": {}, "finish_reason": "tool_calls" }]
+                });
+                format!("data: {chunk}\n\ndata: {done}\n\ndata: [DONE]\n\n")
+            };
+            let final_text = |text: &str| {
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": { "content": text },
+                        "finish_reason": "stop",
+                    }]
+                });
+                format!("data: {chunk}\n\ndata: [DONE]\n\n")
+            };
+
+            let body = match request_number {
+                1 => tool_call(
+                    "call_plan_1",
+                    serde_json::json!([
+                        {"step": "write logout test", "status": "completed"},
+                        {"step": "fix import and run test", "status": "pending"}
+                    ]),
+                ),
+                2 => final_text("Progress so far. Next step: I need to fix the import."),
+                3 => tool_call(
+                    "call_plan_2",
+                    serde_json::json!([
+                        {"step": "write logout test", "status": "completed"},
+                        {"step": "fix import and run test", "status": "completed"}
+                    ]),
+                ),
+                _ => final_text(
+                    "Done. I wrote the logout test, fixed the import, and the run passed — full summary.",
+                ),
+            };
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                body,
+            )
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new()
+            .route("/chat/completions", post(plan_handler))
+            .with_state(handler_requests);
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        definition.tools = None;
+        definition.limits.max_turns_per_session = 10;
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir())
+            .with_plan_updater(Arc::new(TestPlanUpdater));
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("plan-continuation-session"),
+                TurnInput::text("add a logout test"),
+                None,
+            )
+            .await
+            .expect("run turn");
+        let events = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate");
+
+        let continuation = events
+            .iter()
+            .find_map(|event| match event {
+                AgentEvent::RunEvent { event, payload } if event == "plan_continuation_injected" => {
+                    Some(payload.clone())
+                }
+                _ => None,
+            })
+            .expect("plan_continuation_injected event");
+        assert_eq!(continuation["incomplete_items"], serde_json::json!(1));
+
+        let finals: Vec<&str> = events
+            .iter()
+            .filter_map(|event| match event {
+                AgentEvent::FinalMessage { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            finals,
+            vec!["Done. I wrote the logout test, fixed the import, and the run passed — full summary."],
+            "exactly one final, emitted only after the plan completed"
+        );
+        assert!(
+            !finals.iter().any(|text| text.contains("Next step")),
+            "the premature progress snapshot must never be emitted as a final"
+        );
+
+        let requests = requests.lock().await;
+        let after_premature = requests
+            .get(2)
+            .expect("model request after the premature completion");
+        let messages_text = after_premature["messages"].to_string();
+        assert!(
+            messages_text.contains("not marked completed"),
+            "continuation reminder must be injected into the next request"
+        );
+        assert!(messages_text.contains("complete summary of everything you accomplished"));
+        assert!(
+            messages_text.contains("Next step: I need to fix the import"),
+            "the model's premature text must be retained in context so no work is lost"
+        );
+    }
+
+    #[tokio::test]
     async fn output_budget_warning_is_latched_to_a_single_emission() {
         // Every model response is a tool call (so the loop iterates) plus a usage
         // event whose completion tokens alone exceed 80% of the budget. The
