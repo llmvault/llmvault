@@ -177,6 +177,11 @@ impl EditTool {
         })
         .await;
         outcome.map_err(|e| anyhow!("write failed for {}: {e}", parsed.path))?;
+        if let Some(ref files_read) = self.files_read {
+            if let Ok(mut guard) = files_read.lock() {
+                guard.insert(resolved.clone(), file_read_snapshot(final_bytes));
+            }
+        }
         if let Some(search) = &self.search {
             search.notify_files_changed();
         }
@@ -191,7 +196,6 @@ impl EditTool {
             "edits_applied": parsed.edits.len(),
             "bytes_written": final_bytes.len(),
             "diff": diff,
-            "message": "File successfully edited. On your next edit to this file you must read it first with read_file, so you have the latest content.",
         }))
     }
 }

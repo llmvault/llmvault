@@ -198,6 +198,51 @@ async fn edit_file_rejects_stale_content_after_read() {
 }
 
 #[tokio::test]
+async fn edit_file_allows_consecutive_edits_without_reread() {
+    let dir = temp_dir("hivy-consecutive-edit");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("config.txt"), "value=one\n").unwrap();
+
+    let config = WriteFileConfig {
+        allowed_roots: vec![],
+        max_file_size_bytes: 1024 * 1024,
+        deny_globs: vec![],
+        atomic: true,
+    };
+    let read_config = ReadFileConfig {
+        allowed_roots: vec![],
+        max_file_size_bytes: 1024 * 1024,
+        deny_globs: vec![],
+    };
+    let files_read = Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
+    let read = ReadTool::new(read_config, dir.clone(), Arc::new(LocalFsOperations))
+        .with_files_read(files_read.clone());
+    read.call(json!({"path": "config.txt"}))
+        .await
+        .expect("read should succeed");
+
+    let edit =
+        EditTool::new(config, dir.clone(), Arc::new(LocalFsOperations)).with_files_read(files_read);
+    edit.call(json!({
+        "path": "config.txt",
+        "edits": [{"old_text": "value=one\n", "new_text": "value=two\n"}]
+    }))
+    .await
+    .expect("first edit should succeed");
+    edit.call(json!({
+        "path": "config.txt",
+        "edits": [{"old_text": "value=two\n", "new_text": "value=three\n"}]
+    }))
+    .await
+    .expect("second consecutive edit should succeed without re-reading");
+
+    let final_contents = std::fs::read_to_string(dir.join("config.txt")).unwrap();
+    assert_eq!(final_contents, "value=three\n");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
 async fn lsp_document_symbols_use_static_fallback_without_server_install() {
     let dir = temp_dir("hivy-lsp-tool");
     std::fs::create_dir_all(&dir).unwrap();
