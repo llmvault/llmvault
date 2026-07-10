@@ -17,8 +17,9 @@ var gitHubPairProviders = []string{"github-app", "github-app-code-reviews"}
 
 // EffectivePluginIDs resolves the plugins an agent effectively has: the global
 // auto-install set, the default-agent set when the agent is its team's default,
-// and the agent's team grants intersected with the org's active installs, with
-// the GitHub identity pair rule applied so at most one GitHub App survives.
+// and the agent's team grants intersected with the org's active installs minus
+// any per-agent disabled overrides. The GitHub identity pair rule is then
+// applied so at most one GitHub App survives.
 func EffectivePluginIDs(ctx context.Context, db *gorm.DB, agent model.Agent) ([]uuid.UUID, error) {
 	set := map[uuid.UUID]bool{}
 
@@ -45,8 +46,14 @@ func EffectivePluginIDs(ctx context.Context, db *gorm.DB, agent model.Agent) ([]
 		if err != nil {
 			return nil, err
 		}
+		disabled, err := disabledTeamPluginIDs(ctx, db, agent.ID, teamPluginIDs)
+		if err != nil {
+			return nil, err
+		}
 		for _, id := range teamPluginIDs {
-			set[id] = true
+			if !disabled[id] {
+				set[id] = true
+			}
 		}
 	}
 
@@ -140,6 +147,28 @@ func teamGrantedPluginIDs(ctx context.Context, db *gorm.DB, teamID uuid.UUID) ([
 		return nil, fmt.Errorf("load team plugin grants: %w", err)
 	}
 	return ids, nil
+}
+
+// disabledTeamPluginIDs returns disabled overrides limited to the team-granted
+// candidates that are being resolved. Keeping dormant rows when a team plugin
+// is revoked means a later re-enable does not unexpectedly restore it for an
+// agent the user explicitly opted out of.
+func disabledTeamPluginIDs(ctx context.Context, db *gorm.DB, agentID uuid.UUID, teamPluginIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	disabled := make(map[uuid.UUID]bool)
+	if agentID == uuid.Nil || len(teamPluginIDs) == 0 {
+		return disabled, nil
+	}
+	var ids []uuid.UUID
+	if err := db.WithContext(ctx).
+		Model(&model.AgentPluginOverride{}).
+		Where("agent_id = ? AND plugin_id IN ?", agentID, teamPluginIDs).
+		Pluck("plugin_id", &ids).Error; err != nil {
+		return nil, fmt.Errorf("load disabled agent plugins: %w", err)
+	}
+	for _, id := range ids {
+		disabled[id] = true
+	}
+	return disabled, nil
 }
 
 func applyGitHubPairRule(ctx context.Context, db *gorm.DB, agent model.Agent, set map[uuid.UUID]bool) error {

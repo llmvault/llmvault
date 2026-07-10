@@ -36,7 +36,7 @@ type subAgentToolArgs struct {
 func registerCreateAgent(server *mcp.Server, deps Deps, token *model.Token, teamID uuid.UUID, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolCreateAgent,
-		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. The new agent joins the calling agent's team and inherits that team's plugins (plugins are team-managed, not set per agent).",
+		Description: "Create a new agent for this organization. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Grant the parent skills, optionally pick a model (defaults to the org default), and optionally define sub-agents. The new agent joins the calling agent's team and inherits that team's plugins by default. Plugins are enabled at the team level; a user can disable an optional inherited plugin for one agent in Agent details, but this tool does not manage those overrides.",
 		InputSchema: createAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if errResult := requireTeamManager(ctx, deps.DB, token.OrgID, teamID, req, "creating an agent"); errResult != nil {
@@ -111,7 +111,7 @@ type updateAgentArgs struct {
 func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateAgent,
-		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Plugins are team-managed and cannot be set per agent. Use list_org_plugins to discover valid skills.",
+		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Plugins are enabled at the team level and inherited by default; users may disable optional inherited plugins for one agent in Agent details, but this tool cannot manage those overrides. Use list_org_plugins to discover valid skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args updateAgentArgs

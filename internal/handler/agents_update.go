@@ -69,6 +69,10 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	disabledPluginIDs, ok := h.normalizeDisabledAgentPluginIDsForRequest(ctx, w, org.ID, &agent, req.DisabledPluginIDs)
+	if !ok {
+		return
+	}
 	updates := map[string]any{}
 	if !h.applyAgentUpdateFields(w, ctx, &agent, &req, updates) {
 		return
@@ -87,7 +91,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if len(updates) > 0 || req.SubAgents != nil {
+	if len(updates) > 0 || req.SubAgents != nil || req.DisabledPluginIDs != nil {
 		if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if len(updates) > 0 {
 				if err := tx.Model(&model.Agent{}).
@@ -109,6 +113,12 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+			if req.DisabledPluginIDs != nil {
+				disabledBy, _ := currentRequestUserID(ctx)
+				if err := replaceAgentPluginOverrides(ctx, tx, org.ID, agent.ID, disabledPluginIDs, disabledBy); err != nil {
+					return err
+				}
+			}
 			return nil
 		}); err != nil {
 			if isDuplicateKeyError(err) {
@@ -120,7 +130,12 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item := h.agentListItem(ctx, org.ID, agent)
+	item, err := h.agentListItem(ctx, org.ID, agent)
+	if err != nil {
+		log.ErrorContext(ctx, "load updated agent response", "error", err, "agent_id", agent.ID, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
+		return
+	}
 	item.SubAgents = h.loadSubAgentResponses(ctx, agent.ID)
 	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: item})
 }

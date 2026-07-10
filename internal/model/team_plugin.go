@@ -7,8 +7,9 @@ import (
 )
 
 // TeamPlugin provisions a plugin to a team. Teams are the provisioning unit:
-// a team's agents may install only the plugins granted to the team here. The
-// set of rows for a team is its plugin allowlist. Unique per (team, plugin).
+// their agents inherit active grants by default, unless an individual agent
+// has an optional-plugin override. The set of rows for a team is its plugin
+// allowlist. Unique per (team, plugin).
 type TeamPlugin struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID         uuid.UUID  `gorm:"type:uuid;not null;index:idx_team_plugins_org_team,priority:1"`

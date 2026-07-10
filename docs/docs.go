@@ -15447,6 +15447,13 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "disabled_plugin_ids": {
+                    "description": "DisabledPluginIDs lists optional team plugins disabled only for this agent.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "icon": {
                     "type": "string"
                 },
@@ -15547,6 +15554,13 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "disabled_plugin_ids": {
+                    "description": "DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.\nOmit it to leave overrides unchanged; send [] to restore all team plugins.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "icon": {
                     "type": "string"
@@ -15650,6 +15664,13 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "disabled_plugin_ids": {
+                    "description": "DisabledPluginIDs lists optional team plugins disabled only for this agent.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "icon": {
                     "type": "string"

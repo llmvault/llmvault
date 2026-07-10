@@ -37,7 +37,7 @@ Response: `{ "agents": [ { "id", "name", "description", "model", "status", "is_d
 {}
 ```
 
-Response: `{ "installed": [...], "available": [...] }` where each plugin is `{ "id", "slug", "name", "description", "category", "skills": [{ "slug", "name", "description" }], "required_connections": [{ "provider", "kind", "required" }], "install_url" }` — and `available` entries also carry `missing_requirements`. The skill `slug` values here are what `skills` accepts. Plugins themselves are **team-managed**: an agent has all of its team's plugins — you cannot set them per agent. **Only ever use skill slugs you saw in this response.**
+Response: `{ "installed": [...], "available": [...] }` where each plugin is `{ "id", "slug", "name", "description", "category", "skills": [{ "slug", "name", "description" }], "required_connections": [{ "provider", "kind", "required" }], "install_url" }` — and `available` entries also carry `missing_requirements`. The skill `slug` values here are what `skills` accepts. Plugins are **team-managed and inherited by default**: this tool cannot enable a plugin for just one agent, although a user can disable an optional inherited plugin in Agent details. **Only ever use skill slugs you saw in this response.**
 
 ### `get_agent`
 
@@ -120,7 +120,7 @@ For `sub_agents`, replacement means **delete-and-recreate the whole set.** To ke
 | `instructions` | both | no | The agent's system prompt. Write it with `<prompt_architecture>` / `<agent_template>`. |
 | `model` | both | no | **Strict enum in the schema — pick only from it.** Omit on create → org default; omit on update → unchanged. |
 | `status` | update only | no | `active` or `archived`. |
-| `skills` | both | no | Skill slugs from the team's plugins only. Replaces the set. Plugins are team-managed and cannot be set here. |
+| `skills` | both | no | Skill slugs from the team's inherited plugins only. Replaces the set. Plugins are enabled for the team; user-managed optional-plugin disables live in Agent details, not here. |
 | `tools` | both | no | Strict enum of **optional capabilities only** (see `<baseline_tools>`). Replaces the optional set; baseline is never affected. |
 | `sub_agents` | both | no | Array of `{ name (required), description, instructions, skills, tools }`. Replaces the **entire** set (delete-and-recreate). Names unique within one parent. No `model` field. |
 

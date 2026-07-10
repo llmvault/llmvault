@@ -78,7 +78,13 @@ func (h *AgentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	agent.Status = "archived"
-	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
+	item, err := h.agentListItem(ctx, org.ID, agent)
+	if err != nil {
+		log.ErrorContext(ctx, "load archived agent response", "error", err, "agent_id", agent.ID, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
+		return
+	}
+	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: item})
 }
 
 // Sentinels returned by archiveAgentWithSessions so both DELETE /agents/{id} and

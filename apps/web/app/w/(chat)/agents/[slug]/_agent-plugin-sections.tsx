@@ -1,7 +1,7 @@
 "use client"
 
 import NextLink from "next/link"
-import { Skeleton } from "@heroui/react"
+import { Skeleton, Switch } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { PluginLogoTile } from "@/components/plugin-logo"
 import {
@@ -22,27 +22,44 @@ export function AgentPluginsSection({
   agentID,
   plugins,
   teamId,
+  teamPluginIDs,
+  disabledPluginIDs,
+  requiredPluginSlugs,
   canManage,
+  isSaving,
   isLoading,
+  onDisabledPluginIDsChange,
 }: {
   agentID: string
   plugins: ApiPlugin[]
   teamId: string
+  teamPluginIDs: string[]
+  disabledPluginIDs: string[]
+  requiredPluginSlugs: string[]
   canManage: boolean
+  isSaving: boolean
   isLoading: boolean
+  onDisabledPluginIDsChange: (pluginIDs: string[]) => void
 }) {
-  const effectivePlugins = plugins.filter(
-    (plugin) =>
-      plugin.auto_install === true || pluginEnabledForAgent(plugin, agentID)
-  )
+  const teamPluginIDSet = new Set(teamPluginIDs)
+  const disabledPluginIDSet = new Set(disabledPluginIDs)
+  const requiredPluginSlugSet = new Set(requiredPluginSlugs)
+  const effectivePlugins = plugins.filter((plugin) => {
+    const id = plugin.id
+    return Boolean(
+      plugin.auto_install === true ||
+      (id && teamPluginIDSet.has(id)) ||
+      pluginEnabledForAgent(plugin, agentID)
+    )
+  })
   const manageHref = teamId && canManage ? `/w/settings/teams/${teamId}` : null
   return (
     <section className="flex flex-col gap-3">
       <div>
         <h2 className="text-sm font-semibold text-foreground">Agent plugins</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Plugins are managed at the team level and shared by every agent in the
-          team.{" "}
+          Team plugins are inherited by default. Disable an optional plugin here
+          for only this agent.{" "}
           {manageHref ? (
             <NextLink
               href={manageHref}
@@ -62,6 +79,23 @@ export function AgentPluginsSection({
             <AgentPluginRow
               key={pluginSlug(plugin) || plugin.id || plugin.name}
               plugin={plugin}
+              inheritedFromTeam={Boolean(
+                plugin.id && teamPluginIDSet.has(plugin.id)
+              )}
+              disabled={Boolean(
+                plugin.id && disabledPluginIDSet.has(plugin.id)
+              )}
+              required={requiredPluginSlugSet.has(pluginSlug(plugin))}
+              canManage={canManage}
+              isSaving={isSaving}
+              onDisabledChange={(disabled) => {
+                const id = plugin.id
+                if (!id) return
+                const next = new Set(disabledPluginIDSet)
+                if (disabled) next.add(id)
+                else next.delete(id)
+                onDisabledPluginIDsChange(Array.from(next))
+              }}
             />
           ))}
         </div>
@@ -120,9 +154,27 @@ export function NoRequirementsSection() {
   )
 }
 
-function AgentPluginRow({ plugin }: { plugin: ApiPlugin }) {
+function AgentPluginRow({
+  plugin,
+  inheritedFromTeam,
+  disabled,
+  required,
+  canManage,
+  isSaving,
+  onDisabledChange,
+}: {
+  plugin: ApiPlugin
+  inheritedFromTeam: boolean
+  disabled: boolean
+  required: boolean
+  canManage: boolean
+  isSaving: boolean
+  onDisabledChange: (disabled: boolean) => void
+}) {
   const slug = pluginSlug(plugin)
-  const alwaysOn = plugin.auto_install === true
+  const alwaysOn = plugin.auto_install === true || !inheritedFromTeam
+  const locked = alwaysOn || required
+  const enabled = locked || !disabled
   const details = (
     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
       <PluginLogoTile plugin={plugin} />
@@ -149,9 +201,22 @@ function AgentPluginRow({ plugin }: { plugin: ApiPlugin }) {
       ) : (
         details
       )}
-      <span className="text-muted-foreground shrink-0 rounded-full bg-default px-2 py-0.5 text-xs">
-        {alwaysOn ? "Always on" : "From team"}
-      </span>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="text-muted-foreground rounded-full bg-default px-2 py-0.5 text-xs">
+          {required ? "Required" : alwaysOn ? "Always on" : "From team"}
+        </span>
+        <Switch
+          aria-label={`${enabled ? "Disable" : "Enable"} ${pluginName(plugin)}`}
+          isSelected={enabled}
+          isDisabled={locked || !canManage || isSaving}
+          onChange={() => onDisabledChange(enabled)}
+          className="shrink-0"
+        >
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch>
+      </div>
     </div>
   )
 }

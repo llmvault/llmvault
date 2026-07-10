@@ -17,7 +17,7 @@ import (
 func registerListOrgPlugins(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolListOrgPlugins,
-		Description: "List the plugins available to this organization, split into installed and available. Each plugin lists its skills, required connections, and an install_url (the page to send the user to install/connect it); available plugins also list missing_requirements. Plugins are team-managed, so an agent has all of its team's plugins; use this to discover which skills you can pass to create_agent / update_agent.",
+		Description: "List the plugins available to this organization, split into installed and available. Each plugin lists its skills, required connections, and an install_url (the page to send the user to install/connect it); available plugins also list missing_requirements. Plugins are enabled at the team level and inherited by default; a user may disable an optional inherited plugin for one agent in Agent details. Use this to discover which skills you can pass to create_agent / update_agent.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,

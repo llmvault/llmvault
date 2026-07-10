@@ -91,7 +91,7 @@ Then:
 
 - `create_skill` with the approved content. On a validation error, fix and retry — do not weaken the content to pass.
 - **Environment variables:** if the skill reads secrets or config, declare them in `required_environment_variables` using the injected names. Org variables are set by the user in workspace settings (the tool response includes `environment_settings_url` — share that link) and are injected into every sandbox as `HIVY_ORG_<NAME>`: the user sets `STRIPE_API_KEY`, the skill reads `HIVY_ORG_STRIPE_API_KEY`. Never ask the user to paste secret values into the chat, and never embed a value in skill content.
-- **Enable it for the team.** A skill only reaches agents whose team has its org plugin enabled — an agent's plugins are resolved from its team, never set per agent, and no MCP tool attaches a plugin to a team or an agent. You cannot do this step yourself: direct the user (an org owner or admin) to enable the plugin for the relevant team(s) in team settings. Until they do, the skill is published but no agent sees it.
+- **Enable it for the team.** A skill only reaches agents whose team has its org plugin enabled — an agent inherits the team's plugins by default, and no MCP tool attaches a plugin directly to an agent. A user may later disable an optional inherited plugin for one agent in Agent details. You cannot do this step yourself: direct the user (an org owner or admin) to enable the plugin for the relevant team(s) in team settings. Until they do, the skill is published but no agent sees it.
 - **Verify:** call `skill_view` on the new skill and confirm the content and files are what was approved. Then tell the user it is live once an admin enables the plugin for a team: agents on that team see it in `skills_list`, and the skill hint in their system prompt refreshes on their next session.
 - Path B: clean up `/workspace/skill-sources/<name>` when done.
 
@@ -108,4 +108,4 @@ Then:
 5. Never put secret values in skill content, files, or the conversation — declare env var names and send the user to workspace settings.
 6. Never instruct anything the compatibility checklist marks incompatible — adapt it or drop it with a clear note to the user.
 7. Skills go in team/function plugins, not one plugin per skill.
-8. You cannot attach a plugin to an agent — plugins are enabled per team. After publishing, direct an org owner or admin to enable the plugin for the relevant team(s) in team settings; until then no agent sees the skill.
+8. You cannot enable a plugin directly for an agent — plugins are enabled per team and inherited by default. After publishing, direct an org owner or admin to enable the plugin for the relevant team(s) in team settings; users can later disable optional inherited plugins for individual agents in Agent details.

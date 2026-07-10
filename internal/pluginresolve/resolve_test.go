@@ -119,6 +119,17 @@ func (f resolveFixture) grantTeamPlugin(t *testing.T, teamID, pluginID uuid.UUID
 	t.Cleanup(func() { f.db.Where("team_id = ? AND plugin_id = ?", teamID, pluginID).Delete(&model.TeamPlugin{}) })
 }
 
+func (f resolveFixture) disableAgentPlugin(t *testing.T, agentID, pluginID uuid.UUID) {
+	t.Helper()
+	override := model.AgentPluginOverride{OrgID: f.org.ID, AgentID: agentID, PluginID: pluginID}
+	if err := f.db.Create(&override).Error; err != nil {
+		t.Fatalf("disable agent plugin: %v", err)
+	}
+	t.Cleanup(func() {
+		f.db.Where("agent_id = ? AND plugin_id = ?", agentID, pluginID).Delete(&model.AgentPluginOverride{})
+	})
+}
+
 func (f resolveFixture) addIntegration(t *testing.T, pluginID uuid.UUID, provider string) {
 	t.Helper()
 	integ := model.PluginIntegration{
@@ -228,6 +239,37 @@ func TestEffectivePluginIDs_TeamGrantIncludedAndScoped(t *testing.T) {
 	}
 	if containsID(outIDs, plugin.ID) {
 		t.Fatalf("team-granted plugin leaked to an agent in another team")
+	}
+}
+
+func TestEffectivePluginIDs_AgentOverrideDisablesOnlyThatTeamPlugin(t *testing.T) {
+	f := newResolveFixture(t)
+	teamPlugin := f.seedPlugin(t, false, "resolve-team-override", `{}`, model.PluginStatusActive)
+	autoPlugin := f.seedPlugin(t, true, "resolve-auto-override", `{"auto_install":true}`, model.PluginStatusActive)
+	f.installOrgPlugin(t, teamPlugin.ID, false)
+	f.grantTeamPlugin(t, f.team.ID, teamPlugin.ID)
+
+	disabled := f.seedAgent(t, f.team.ID, false, nil)
+	enabled := f.seedAgent(t, f.team.ID, false, nil)
+	f.disableAgentPlugin(t, disabled.ID, teamPlugin.ID)
+
+	disabledIDs, err := EffectivePluginIDs(context.Background(), f.db, disabled)
+	if err != nil {
+		t.Fatalf("resolve disabled agent: %v", err)
+	}
+	if containsID(disabledIDs, teamPlugin.ID) {
+		t.Fatal("disabled team plugin remained effective")
+	}
+	if !containsID(disabledIDs, autoPlugin.ID) {
+		t.Fatal("agent override must not remove auto-install plugin")
+	}
+
+	enabledIDs, err := EffectivePluginIDs(context.Background(), f.db, enabled)
+	if err != nil {
+		t.Fatalf("resolve enabled agent: %v", err)
+	}
+	if !containsID(enabledIDs, teamPlugin.ID) {
+		t.Fatal("agent override leaked to another agent")
 	}
 }
 

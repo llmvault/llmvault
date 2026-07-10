@@ -88,12 +88,18 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	triggers := h.loadAgentTriggers(agentIDs...)
 	skills := h.loadAgentSkills(ctx, agentIDs...)
+	disabledByAgent, err := h.loadDisabledAgentPluginIDs(ctx, org.ID, agentIDs...)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent plugins"})
+		return
+	}
 
 	items := make([]agentListItem, len(agents))
 	for i, a := range agents {
 		base := toAgentResponse(a)
 		base.Triggers = triggers[a.ID]
 		base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &a, skills[a.ID])
+		base.DisabledPluginIDs = disabledByAgent[a.ID]
 		items[i] = agentListItem{agentResponse: base}
 	}
 
@@ -163,6 +169,12 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	base := toAgentResponse(agent)
+	disabledByAgent, err := h.loadDisabledAgentPluginIDs(ctx, org.ID, agent.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent plugins"})
+		return
+	}
+	base.DisabledPluginIDs = disabledByAgent[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(ctx, org.ID, &agent, h.loadAgentSkills(ctx, agent.ID)[agent.ID])
 	base.SubAgents = h.loadSubAgentResponses(ctx, agent.ID)
@@ -187,11 +199,16 @@ func (h *AgentHandler) actorOrgRole(ctx context.Context, orgID uuid.UUID, userID
 	return membership.Role, err
 }
 
-func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {
+func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) (agentListItem, error) {
 	base := toAgentResponse(agent)
+	disabledByAgent, err := h.loadDisabledAgentPluginIDs(ctx, orgID, agent.ID)
+	if err != nil {
+		return agentListItem{}, err
+	}
+	base.DisabledPluginIDs = disabledByAgent[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(ctx, agent.ID)[agent.ID])
-	return agentListItem{agentResponse: base}
+	return agentListItem{agentResponse: base}, nil
 }
 
 func (h *AgentHandler) markAgentSkillLocks(ctx context.Context, orgID uuid.UUID, agent *model.Agent, skills []agentSkillSummary) []agentSkillSummary {

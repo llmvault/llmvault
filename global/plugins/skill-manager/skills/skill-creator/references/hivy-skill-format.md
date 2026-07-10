@@ -3,7 +3,7 @@
 ## How a skill reaches an agent
 
 1. You publish a skill into an org plugin with `create_skill`.
-2. An org owner/admin enables that plugin for a team (team settings). Every agent on the team then carries the plugin — plugins are resolved from the team, never set per agent, and no MCP tool attaches a plugin to a team or an agent.
+2. An org owner/admin enables that plugin for a team (team settings). Every agent on the team then inherits the plugin by default. A user can disable an optional inherited plugin for one agent in Agent details; no MCP tool attaches a plugin directly to an agent.
 3. The agent's system prompt lists the skill as one `name: description` line, and `skills_list` returns it.
 4. When the agent calls `skill_view(name)`, the platform composes a SKILL.md (generated frontmatter + your content) and **materializes the whole bundle into `.skills/<slug>/` in the agent's workspace**: `SKILL.md` plus every supporting file at its declared path.
 

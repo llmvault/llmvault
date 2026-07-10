@@ -163,6 +163,20 @@ func TestRefreshPluginSkillInstallCountsUsesEffectiveAgents(t *testing.T) {
 	if stored.InstallCount != 1 {
 		t.Fatalf("skill install_count = %d, want 1 (one effective non-archived agent)", stored.InstallCount)
 	}
+	if err := db.Create(&model.AgentPluginOverride{OrgID: org.ID, AgentID: granted.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("disable plugin for granted agent: %v", err)
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return RefreshPluginSkillInstallCounts(context.Background(), tx, plugin.ID)
+	}); err != nil {
+		t.Fatalf("refresh skill install counts after override: %v", err)
+	}
+	if err := db.First(&stored, "id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("reload skill: %v", err)
+	}
+	if stored.InstallCount != 0 {
+		t.Fatalf("skill install_count = %d, want 0 after agent override", stored.InstallCount)
+	}
 }
 
 func seedAutoInstallTeam(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Team {

@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -202,7 +203,13 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = h.db.WithContext(ctx).Preload("AgentCatalog").First(&agent, "id = ?", agent.ID).Error
-	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
+	item, err := h.agentListItem(ctx, org.ID, agent)
+	if err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "load installed agent response", "error", err, "agent_id", agent.ID, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
+		return
+	}
+	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: item})
 }
 
 // UninstallCatalog handles DELETE /v1/agents/catalog/{slug}/install.

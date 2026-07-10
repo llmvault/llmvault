@@ -75,6 +75,13 @@ export default function AgentDetailPage({
     { enabled: installedAgentID.length > 0 }
   )
   const installedAgent = installedAgentQuery.data as InstalledAgent | undefined
+  const installedAgentTeamID = installedAgent?.team_id ?? ""
+  const teamPluginsQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current/teams/{teamID}/plugins",
+    { params: { path: { teamID: installedAgentTeamID } } },
+    { enabled: Boolean(installedAgentTeamID), retry: false }
+  )
   const plugins = useMemo(() => pluginsQuery.data ?? [], [pluginsQuery.data])
   const pluginLookup = useMemo(() => pluginsBySlug(plugins), [plugins])
   const requiredPlugins = agentRequiredPlugins(agent)
@@ -92,11 +99,28 @@ export default function AgentDetailPage({
     installedAgent?.sandbox_size
   )
   const teams = teamsQuery.data?.data ?? EMPTY_TEAMS
+  const teamPluginIDs = useMemo(
+    () =>
+      (teamPluginsQuery.data?.data ?? [])
+        .map((plugin) => plugin.id)
+        .filter((id): id is string => Boolean(id)),
+    [teamPluginsQuery.data?.data]
+  )
+  const disabledPluginIDs = installedAgent?.disabled_plugin_ids ?? []
+  const requiredPluginSlugs = useMemo(
+    () =>
+      requiredPlugins
+        .map((plugin) => plugin.slug)
+        .filter((slug): slug is string => Boolean(slug)),
+    [requiredPlugins]
+  )
   const isDefaultAgent = Boolean(agent?.is_default)
   const hasInstalledClone = installedAgentID.length > 0
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
   const sandboxConfigBusy =
     installedAgentQuery.isLoading || updateAgent.isPending
+  const canManageAgentPlugins =
+    isAdmin || teams.some((team) => team.id === installedAgentTeamID)
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: AGENT_CATALOG_QUERY_KEY })
@@ -167,6 +191,26 @@ export default function AgentDetailPage({
     )
   }
 
+  function handleDisabledPluginIDsChange(pluginIDs: string[]) {
+    if (!installedAgentID) return
+    updateAgent.mutate(
+      {
+        params: { path: { id: installedAgentID } },
+        body: { disabled_plugin_ids: pluginIDs },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Agent plugins updated")
+          refresh()
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not update agent plugins")
+          ),
+      }
+    )
+  }
+
   if (agentQuery.isLoading) {
     return <DetailSkeleton />
   }
@@ -224,9 +268,18 @@ export default function AgentDetailPage({
           <AgentPluginsSection
             agentID={installedAgentID}
             plugins={plugins}
-            teamId={installedAgent?.team_id ?? ""}
-            canManage={isAdmin}
-            isLoading={installedAgentQuery.isLoading || pluginsQuery.isLoading}
+            teamId={installedAgentTeamID}
+            teamPluginIDs={teamPluginIDs}
+            disabledPluginIDs={disabledPluginIDs}
+            requiredPluginSlugs={requiredPluginSlugs}
+            canManage={canManageAgentPlugins}
+            isSaving={updateAgent.isPending}
+            isLoading={
+              installedAgentQuery.isLoading ||
+              pluginsQuery.isLoading ||
+              teamPluginsQuery.isLoading
+            }
+            onDisabledPluginIDsChange={handleDisabledPluginIDsChange}
           />
           <SandboxImageSection
             selectedSandboxImage={selectedSandboxImage}

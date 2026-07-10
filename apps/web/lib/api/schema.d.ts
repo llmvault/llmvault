@@ -17228,6 +17228,8 @@ export interface components {
             created_at?: string;
             default_reasoning_effort?: string;
             description?: string;
+            /** @description DisabledPluginIDs lists optional team plugins disabled only for this agent. */
+            disabled_plugin_ids?: string[];
             icon?: string;
             id?: string;
             image_model?: string;
@@ -17257,6 +17259,11 @@ export interface components {
             avatar_url?: string;
             default_reasoning_effort?: string;
             description?: string;
+            /**
+             * @description DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
+             *     Omit it to leave overrides unchanged; send [] to restore all team plugins.
+             */
+            disabled_plugin_ids?: string[];
             icon?: string;
             image_model?: string;
             instructions?: string;
@@ -17287,6 +17294,8 @@ export interface components {
             created_at?: string;
             default_reasoning_effort?: string;
             description?: string;
+            /** @description DisabledPluginIDs lists optional team plugins disabled only for this agent. */
+            disabled_plugin_ids?: string[];
             icon?: string;
             id?: string;
             image_model?: string;

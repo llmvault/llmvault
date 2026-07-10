@@ -74,7 +74,8 @@ type CreateInput struct {
 	Skills        model.JSON
 
 	// TeamID is the owning team for the new agent (and its sub-agents). Agents
-	// are never teamless; plugins resolve from the team's grants.
+	// are never teamless; plugins resolve from the team's grants minus any
+	// per-agent optional-plugin overrides.
 	TeamID uuid.UUID
 
 	SubAgents []SubAgentInput

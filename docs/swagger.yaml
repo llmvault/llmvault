@@ -730,6 +730,12 @@ definitions:
         type: string
       description:
         type: string
+      disabled_plugin_ids:
+        description: DisabledPluginIDs lists optional team plugins disabled only for
+          this agent.
+        items:
+          type: string
+        type: array
       icon:
         type: string
       id:
@@ -797,6 +803,13 @@ definitions:
         type: string
       description:
         type: string
+      disabled_plugin_ids:
+        description: |-
+          DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
+          Omit it to leave overrides unchanged; send [] to restore all team plugins.
+        items:
+          type: string
+        type: array
       icon:
         type: string
       image_model:
@@ -865,6 +878,12 @@ definitions:
         type: string
       description:
         type: string
+      disabled_plugin_ids:
+        description: DisabledPluginIDs lists optional team plugins disabled only for
+          this agent.
+        items:
+          type: string
+        type: array
       icon:
         type: string
       id:

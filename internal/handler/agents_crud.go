@@ -38,6 +38,9 @@ type agentMutationRequest struct {
 	Resources              *model.JSON            `json:"resources,omitempty"`
 	SandboxTools           *[]string              `json:"sandbox_tools,omitempty"`
 	SubAgents              *[]subAgentInput       `json:"sub_agents,omitempty"`
+	// DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
+	// Omit it to leave overrides unchanged; send [] to restore all team plugins.
+	DisabledPluginIDs *[]string `json:"disabled_plugin_ids,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -189,9 +192,19 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxTools:           pq.StringArray(sandboxTools),
 		Status:                 "active",
 	}
+	disabledPluginIDs, ok := h.normalizeDisabledAgentPluginIDsForRequest(ctx, w, org.ID, &agent, req.DisabledPluginIDs)
+	if !ok {
+		return
+	}
+	disabledBy, _ := currentRequestUserID(ctx)
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&agent).Error; err != nil {
 			return err
+		}
+		if req.DisabledPluginIDs != nil {
+			if err := replaceAgentPluginOverrides(ctx, tx, org.ID, agent.ID, disabledPluginIDs, disabledBy); err != nil {
+				return err
+			}
 		}
 		for i := range subAgentRows {
 			subAgentRows[i].ParentAgentID = &agent.ID
@@ -210,7 +223,12 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create agent"})
 		return
 	}
-	item := h.agentListItem(ctx, org.ID, agent)
+	item, err := h.agentListItem(ctx, org.ID, agent)
+	if err != nil {
+		log.ErrorContext(ctx, "load created agent response", "error", err, "agent_id", agent.ID, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
+		return
+	}
 	item.SubAgents = make([]subAgentResponse, 0, len(subAgentRows))
 	for _, sub := range subAgentRows {
 		item.SubAgents = append(item.SubAgents, toSubAgentResponse(sub))
