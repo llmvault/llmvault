@@ -2,6 +2,40 @@ package registry
 
 import "testing"
 
+func TestOpenRouterGPT56Catalog(t *testing.T) {
+	for _, test := range []struct {
+		canonicalID string
+		upstreamID  string
+		input       float64
+		output      float64
+		cacheRead   float64
+		cacheWrite  float64
+	}{
+		{"gpt-5.6-luna", "openai/gpt-5.6-luna-pro", 1, 6, 0.1, 1.25},
+		{"gpt-5.6-terra", "openai/gpt-5.6-terra-pro", 2.5, 15, 0.25, 3.125},
+		{"gpt-5.6-sol", "openai/gpt-5.6-sol-pro", 5, 30, 0.5, 6.25},
+	} {
+		t.Run(test.canonicalID, func(t *testing.T) {
+			route, ok := Global().ResolveModel("openrouter", test.canonicalID)
+			if !ok {
+				t.Fatalf("%s route not found", test.canonicalID)
+			}
+			if route.UpstreamID != test.upstreamID {
+				t.Fatalf("upstream = %q, want %q", route.UpstreamID, test.upstreamID)
+			}
+			if route.Model.Cost == nil || route.Model.Cost.Input != test.input || route.Model.Cost.Output != test.output || route.Model.Cost.CacheRead != test.cacheRead || route.Model.Cost.CacheWrite != test.cacheWrite {
+				t.Fatalf("cost = %#v", route.Model.Cost)
+			}
+			if route.Model.Limit == nil || route.Model.Limit.Context != 1050000 || route.Model.Limit.Output != 128000 {
+				t.Fatalf("limit = %#v", route.Model.Limit)
+			}
+			if !route.Model.ToolCall || !route.Model.StructuredOutput || !route.Model.Reasoning {
+				t.Fatalf("capabilities = tool_call:%v structured:%v reasoning:%v", route.Model.ToolCall, route.Model.StructuredOutput, route.Model.Reasoning)
+			}
+		})
+	}
+}
+
 func TestOpenRouterMiniMaxM3AndGLM52Catalog(t *testing.T) {
 	reg := Global()
 
