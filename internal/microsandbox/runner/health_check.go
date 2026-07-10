@@ -53,7 +53,16 @@ func waitForHTTPHealthCheck(ctx context.Context, sandboxID string, guestPort, ho
 		}
 		resp, doErr := client.Do(req)
 		if doErr != nil {
-			last = doErr.Error()
+			// Only treat this as a "transient" error worth retrying when
+			// the probe didn't hit its deadline; a context-deadline error
+			// means we've already spent the whole timeout on one probe and
+			// should fall through to the timeout path below instead of
+			// clobbering the last observed status with a deadline string.
+			if probeCtx.Err() == nil {
+				last = doErr.Error()
+			} else {
+				last = fmt.Sprintf("status=%d (probe deadline)", lastStatusOrZero(resp))
+			}
 		} else {
 			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
 			_ = resp.Body.Close()
@@ -164,4 +173,11 @@ func minDuration(a, b time.Duration) time.Duration {
 		return a
 	}
 	return b
+}
+
+func lastStatusOrZero(resp *http.Response) int {
+	if resp == nil {
+		return 0
+	}
+	return resp.StatusCode
 }
