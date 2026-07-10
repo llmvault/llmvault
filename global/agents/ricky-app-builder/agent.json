@@ -13,7 +13,7 @@
   "runtime": {
     "sandbox_image": "developer",
     "model": "deepseek-v4-flash",
-    "reasoning_effort": "medium"
+    "reasoning_effort": "low"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"

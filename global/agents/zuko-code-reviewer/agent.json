@@ -12,7 +12,8 @@
   "default": false,
   "runtime": {
     "sandbox_image": "developer",
-    "model": "deepseek-v4-pro"
+    "model": "deepseek-v4-pro",
+    "reasoning_effort": "low"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"

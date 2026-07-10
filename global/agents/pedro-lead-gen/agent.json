@@ -13,7 +13,7 @@
   "runtime": {
     "sandbox_image": "developer",
     "model": "mimo-v2.5-pro",
-    "reasoning_effort": "medium"
+    "reasoning_effort": "low"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"

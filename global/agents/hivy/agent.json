@@ -12,7 +12,8 @@
   "default": true,
   "runtime": {
     "sandbox_image": "default",
-    "model": "deepseek-v4-flash"
+    "model": "deepseek-v4-flash",
+    "reasoning_effort": "low"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"

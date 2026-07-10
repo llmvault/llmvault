@@ -11,7 +11,8 @@
   "enabled": true,
   "runtime": {
     "sandbox_image": "default",
-    "model": "step-3.7-flash"
+    "model": "step-3.7-flash",
+    "reasoning_effort": "low"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"
