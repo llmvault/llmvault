@@ -100,6 +100,14 @@ func connectMemoryToolClient(t *testing.T, ctx context.Context, service *Service
 	t.Helper()
 	server := mcp.NewServer(&mcp.Implementation{Name: "hivy-test", Version: "v1"}, nil)
 	NewToolsFunc(service)(server, token) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
+	// search_memories is intentionally not mounted in production (see
+	// searchMemoriesToolMounted); mount it directly here so its behavior stays
+	// under test. Guarded so re-enabling the production flag can't double-register.
+	if !searchMemoriesToolMounted {
+		if agentID, err := memoryToolAgentID(token); err == nil {
+			registerSearchMemoriesTool(server, service, token, agentID)
+		}
+	}
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
 		t.Fatalf("connect server: %v", err)

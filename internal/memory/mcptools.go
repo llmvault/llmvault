@@ -23,11 +23,21 @@ const (
 //
 // Agents are read-only on memory: every write flows through background
 // reflection/consolidation, and corrections or deletions happen in the
-// memories UI. search_memories registers for every agent proxy token and is
-// auto-scoped to the session's channel. The privileged manage_memories tool
+// memories UI. search_memories is temporarily not mounted (see
+// searchMemoriesToolMounted); when enabled it registers for every agent proxy
+// token and is auto-scoped to the session's channel. The privileged manage_memories tool
 // (also read-only: search + overview) additionally requires the calling agent
 // to be the org's default agent; the agent row is loaded once here to
 // evaluate that gate. A failed agent load never blocks the base tool.
+//
+// searchMemoriesToolMounted is intentionally false: an agent's memories are
+// already auto-injected into its context, so the search_memories MCP tool is
+// redundant, and agents were observed confusing it with knowledge-base/session
+// search (and calling it against the currently-unreliable embed path).
+// Temporarily unmounted — registerSearchMemoriesTool and handleSearchMemories
+// below are kept intact; flip this to true to re-enable.
+const searchMemoriesToolMounted = false
+
 func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || service == nil || service.cfg.DB == nil || !memoryToolAgentProxy(token) {
@@ -41,7 +51,9 @@ func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token)
 		if agent, err := service.loadOrgAgent(context.Background(), token.OrgID, agentID); err == nil {
 			manage = agent.IsDefault
 		}
-		registerSearchMemoriesTool(server, service, token, agentID)
+		if searchMemoriesToolMounted {
+			registerSearchMemoriesTool(server, service, token, agentID)
+		}
 		if manage {
 			registerManageMemoriesTool(server, service, token)
 		}
