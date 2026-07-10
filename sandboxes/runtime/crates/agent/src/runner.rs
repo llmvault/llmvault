@@ -1255,9 +1255,7 @@ mod tests {
     #[test]
     fn plan_continuation_capped_per_turn() {
         let plan = vec![plan_item("a", PlanItemStatus::Pending)];
-        assert!(
-            plan_continuation_reminder(&plan, MAX_PLAN_CONTINUATIONS_PER_TURN, None).is_none()
-        );
+        assert!(plan_continuation_reminder(&plan, MAX_PLAN_CONTINUATIONS_PER_TURN, None).is_none());
     }
 
     #[test]
@@ -1270,9 +1268,7 @@ mod tests {
             plan_item("a", PlanItemStatus::Completed),
             plan_item("b", PlanItemStatus::Pending),
         ];
-        assert!(
-            plan_continuation_reminder(&progressed, 1, Some(&first.fingerprint)).is_some()
-        );
+        assert!(plan_continuation_reminder(&progressed, 1, Some(&first.fingerprint)).is_some());
     }
 
     fn test_definition() -> AgentDefinition {
@@ -2273,7 +2269,9 @@ mod tests {
         let continuation = events
             .iter()
             .find_map(|event| match event {
-                AgentEvent::RunEvent { event, payload } if event == "plan_continuation_injected" => {
+                AgentEvent::RunEvent { event, payload }
+                    if event == "plan_continuation_injected" =>
+                {
                     Some(payload.clone())
                 }
                 _ => None,
