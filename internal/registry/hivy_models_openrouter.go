@@ -2,6 +2,24 @@ package registry
 
 var coreHivyModelsOpenRouter = []HivyModel{
 	{
+		ID: "gpt-5.6-luna",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "openai/gpt-5.6-luna-pro"},
+		},
+	},
+	{
+		ID: "gpt-5.6-terra",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "openai/gpt-5.6-terra-pro"},
+		},
+	},
+	{
+		ID: "gpt-5.6-sol",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "openai/gpt-5.6-sol-pro"},
+		},
+	},
+	{
 		ID: "gemini-3.5-flash",
 		Routes: []ModelRoute{
 			{ProviderID: "google", ModelID: "gemini-3.5-flash"},

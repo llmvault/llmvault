@@ -12,7 +12,7 @@
   "default": false,
   "runtime": {
     "sandbox_image": "developer",
-    "model": "deepseek-v4-pro",
+    "model": "grok-4.5",
     "reasoning_effort": "low"
   },
   "prompt": {
@@ -30,7 +30,7 @@
     "generalist-reviewer": {
       "name": "Generalist Reviewer",
       "description": "Single-pass reviewer that inspects the diff and surrounding code and reports bug, security, and performance findings from one investigation. Dispatched for standard reviews; replaced by the three specialists on a deep review.",
-      "model": "glm-5.2",
+      "model": "claude-sonnet-5",
       "tools": {
         "bash": true,
         "read_file": true,
@@ -49,7 +49,7 @@
     "bug-reviewer": {
       "name": "Bug Reviewer",
       "description": "Deep-review specialist for correctness defects: logic errors, contract/interface mismatches, state and concurrency bugs, bad error handling, and unchecked failure paths in the changed code.",
-      "model": "glm-5.2",
+      "model": "claude-sonnet-5",
       "tools": {
         "bash": true,
         "read_file": true,
@@ -68,7 +68,7 @@
     "security-reviewer": {
       "name": "Security Reviewer",
       "description": "Deep-review specialist for exploitable security flaws: auth/access-control gaps, injection, unsafe trust boundaries, data exposure, and committed secrets. Flags secrets and confirmed critical vulns as non-waivable blocks.",
-      "model": "glm-5.2",
+      "model": "claude-sonnet-5",
       "tools": {
         "bash": true,
         "read_file": true,
@@ -87,7 +87,7 @@
     "performance-reviewer": {
       "name": "Performance Reviewer",
       "description": "Deep-review specialist for material performance regressions: N+1s, unbounded loading, hot-path blowups, blocking I/O, and needless allocation in the changed code.",
-      "model": "glm-5.2",
+      "model": "claude-sonnet-5",
       "tools": {
         "bash": true,
         "read_file": true,
@@ -106,7 +106,7 @@
     "business-logic-validator": {
       "name": "Business Logic Validator",
       "description": "Validates the PR against the linked ticket/issue acceptance criteria when a task reference is present: confirms the change does what the task asked and flags gaps or scope drift. Skipped when no task is linked.",
-      "model": "glm-5.2",
+      "model": "claude-sonnet-5",
       "tools": {
         "bash": true,
         "read_file": true,
