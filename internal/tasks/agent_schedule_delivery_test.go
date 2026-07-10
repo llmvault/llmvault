@@ -161,6 +161,55 @@ func TestScheduleDeliverIsIdempotentAcrossRuns(t *testing.T) {
 	}
 }
 
+// A scheduled session must inherit the agent's configured reasoning effort, and
+// fall back to "high" only when the agent leaves it unset.
+func TestScheduleDeliverNewSessionHonorsAgentReasoningEffort(t *testing.T) {
+	db := connectTestDB(t)
+
+	deliver := func(t *testing.T, fx scheduleRunFixture) model.Session {
+		t.Helper()
+		enq := &fakeTaskEnqueuer{}
+		handler := &AgentScheduleDeliverHandler{db: db, enqueuer: enq}
+		task, _, err := NewAgentScheduleDeliverTask(AgentScheduleDeliverPayload{RunID: fx.run.ID})
+		if err != nil {
+			t.Fatalf("new task: %v", err)
+		}
+		if err := handler.Handle(context.Background(), task); err != nil {
+			t.Fatalf("handle: %v", err)
+		}
+		var run model.AgentScheduleRun
+		if err := db.First(&run, "id = ?", fx.run.ID).Error; err != nil {
+			t.Fatalf("reload run: %v", err)
+		}
+		if run.SessionID == nil {
+			t.Fatal("expected run.session_id to be set")
+		}
+		var session model.Session
+		if err := db.First(&session, "id = ?", *run.SessionID).Error; err != nil {
+			t.Fatalf("load session: %v", err)
+		}
+		return session
+	}
+
+	t.Run("honors configured effort", func(t *testing.T) {
+		fx := seedScheduleRunFixture(t, db)
+		if err := db.Model(&model.Agent{}).Where("id = ?", fx.agent.ID).
+			Update("default_reasoning_effort", "medium").Error; err != nil {
+			t.Fatalf("set agent effort: %v", err)
+		}
+		if got := deliver(t, fx).ReasoningEffort; got != "medium" {
+			t.Fatalf("reasoning_effort = %q, want medium", got)
+		}
+	})
+
+	t.Run("falls back to high when unset", func(t *testing.T) {
+		fx := seedScheduleRunFixture(t, db)
+		if got := deliver(t, fx).ReasoningEffort; got != "high" {
+			t.Fatalf("reasoning_effort = %q, want high", got)
+		}
+	})
+}
+
 type scheduleRunFixture struct {
 	org       model.Org
 	agent     model.Agent

@@ -134,7 +134,7 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 		ChannelID:         channel.ID,
 		AgentID:           agent.ID,
 		Model:             agent.Model,
-		ReasoningEffort:   "high",
+		ReasoningEffort:   sessionReasoningEffort(agent),
 		Source:            model.SessionSourceExternal,
 		SourceID:          &connID,
 		SourceResourceKey: key,

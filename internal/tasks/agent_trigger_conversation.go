@@ -53,6 +53,7 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 		ChannelID:         channelID,
 		AgentID:           agent.ID,
 		Model:             agent.Model,
+		ReasoningEffort:   sessionReasoningEffort(*agent),
 		Source:            triggerConversationSource,
 		SourceID:          &trigger.ID,
 		SourceResourceKey: resourceKey,
