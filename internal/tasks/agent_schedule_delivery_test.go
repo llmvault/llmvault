@@ -202,10 +202,10 @@ func TestScheduleDeliverNewSessionHonorsAgentReasoningEffort(t *testing.T) {
 		}
 	})
 
-	t.Run("falls back to high when unset", func(t *testing.T) {
+	t.Run("falls back to backend default (low) when unset", func(t *testing.T) {
 		fx := seedScheduleRunFixture(t, db)
-		if got := deliver(t, fx).ReasoningEffort; got != "high" {
-			t.Fatalf("reasoning_effort = %q, want high", got)
+		if got := deliver(t, fx).ReasoningEffort; got != model.DefaultReasoningEffort {
+			t.Fatalf("reasoning_effort = %q, want %q", got, model.DefaultReasoningEffort)
 		}
 	})
 }

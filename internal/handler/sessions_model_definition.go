@@ -30,12 +30,15 @@ func normalizeSessionReasoningEffort(value string) (string, error) {
 }
 
 // resolveSessionReasoningEffort picks the reasoning effort for a new session:
-// an explicit per-session value always wins, otherwise the agent's configured
-// default is used, otherwise empty (the session applies its own default).
+// an explicit per-session (frontend) value always wins, otherwise the agent's
+// configured default is used, otherwise the backend default (low).
 func resolveSessionReasoningEffort(req createSessionRequest, agent model.Agent) string {
 	explicit, _ := normalizeSessionReasoningEffort(createSessionReasoningEffort(req))
 	if explicit != "" {
 		return explicit
 	}
-	return strings.TrimSpace(agent.DefaultReasoningEffort)
+	if agentDefault := strings.TrimSpace(agent.DefaultReasoningEffort); agentDefault != "" {
+		return agentDefault
+	}
+	return model.DefaultReasoningEffort
 }

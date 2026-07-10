@@ -38,10 +38,10 @@ func TestResolveSessionReasoningEffort(t *testing.T) {
 			want:         "high",
 		},
 		{
-			name:         "empty when neither set",
+			name:         "backend default (low) when neither set",
 			req:          createSessionRequest{},
 			agentDefault: "",
-			want:         "",
+			want:         model.DefaultReasoningEffort,
 		},
 		{
 			name:         "invalid explicit falls back to agent default",
