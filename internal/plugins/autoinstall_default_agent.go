@@ -23,6 +23,7 @@ func PluginDefaultAgentInstall(plugin model.Plugin) bool {
 func defaultAgentInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugin, error) {
 	var rows []model.Plugin
 	if err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "KEY SHARE"}).
 		Where("status = ? AND org_id IS NULL", model.PluginStatusActive).
 		Order("slug ASC").
 		Find(&rows).Error; err != nil {

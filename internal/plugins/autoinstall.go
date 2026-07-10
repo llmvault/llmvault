@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/pluginresolve"
@@ -26,6 +27,7 @@ func PluginLocked(plugin model.Plugin) bool {
 func autoInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugin, error) {
 	var rows []model.Plugin
 	if err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "KEY SHARE"}).
 		Where("status = ? AND org_id IS NULL", model.PluginStatusActive).
 		Order("slug ASC").
 		Find(&rows).Error; err != nil {
