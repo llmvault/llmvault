@@ -56,7 +56,7 @@ export function createDefaultSessionWorkspace(
     lastTouchedAt,
     composer: {
       text: "",
-      effort: "High",
+      effort: "Low",
       uploads: [],
       attachmentDescriptions: {},
     },
