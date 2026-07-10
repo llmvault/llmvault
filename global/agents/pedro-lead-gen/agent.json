@@ -26,14 +26,6 @@
     "search_sessions": true,
     "request_user_input": true
   },
-  "auto_load_skills": [
-    {
-      "name": "apify"
-    },
-    {
-      "name": "sheets"
-    }
-  ],
   "plugins": {
     "required": [
       "apify",

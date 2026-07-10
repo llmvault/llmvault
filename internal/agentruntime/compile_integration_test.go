@@ -68,17 +68,16 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
 	baseContent := requirePromptString(t, base.Content)
-	if !strings.Contains(baseContent, "Default to action.") {
+	if !strings.Contains(baseContent, "Claim work only when session evidence verifies it.") {
 		t.Fatalf("base system prompt missing from first cacheable segment: %#v", cacheable[0])
 	}
 	if !strings.Contains(baseContent, "You are Aria, an AI agent running in Hivy's sandbox environment.") {
 		t.Fatalf("base identity missing agent sentence: %q", baseContent)
 	}
-	if strings.Contains(baseContent, "model_adapter") {
-		t.Fatalf("base must not carry a standalone model_adapter section: %q", baseContent)
-	}
-	if !strings.Contains(baseContent, "- Prefer concrete tool calls over extended thinking.") {
-		t.Fatalf("model adapter guidance did not fold into the base tool contract: %q", baseContent)
+	for _, unwanted := range []string{"model_tool_use", "Model tool use", "Use simple JSON tool arguments"} {
+		if strings.Contains(string(body), unwanted) {
+			t.Fatalf("compiled prompt retained unsupported model-specific guidance %q: %s", unwanted, string(body))
+		}
 	}
 	instructionsSegment := requireStaticPromptSegmentByTitle(t, cacheable, "Instructions")
 	if !strings.Contains(requirePromptString(t, instructionsSegment.Content), "<instructions>\n"+instructions+"\n</instructions>") {
@@ -204,7 +203,6 @@ func TestCompile_SkillsAppearsAsStaticPromptHintWhenInstalled(t *testing.T) {
 		t.Fatalf("last dynamic segment = %q, want mcp_tools", got)
 	}
 }
-
 
 func compileTestSkill(slug, name string, orgID *uuid.UUID) model.Skill {
 	desc := name + " description"

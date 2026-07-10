@@ -153,7 +153,7 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "subagent_task", Name: "Delegate to sub-agent", Description: "Delegate a task to one of the agent's sub-agents.", Category: "runtime.orchestration"},
 	{ID: "search_sessions", Name: "Search sessions", Description: "Search prior sessions for relevant context.", Category: "runtime.orchestration"},
 	{ID: "request_user_input", Name: "Ask user", Description: "Ask the user a question and wait for their reply.", Category: "runtime.orchestration"},
-	{ID: "update_plan", Name: "Update plan", Description: "Create and update the structured task plan for the current session.", Category: "runtime.orchestration"},
+	{ID: "update_plan", Name: "Update plan", Description: "Create or update a concise visible plan for multi-step work.", Category: "runtime.orchestration"},
 
 	// Hivy MCP tools surfaced to the agent runtime (AssignableMCPTools).
 	{ID: "web_search", Name: "Web search", Description: "Search the web and return results with titles, descriptions, and URLs.", Category: "mcp.web"},

@@ -27,17 +27,6 @@
     "subagent_task": true,
     "request_user_input": true
   },
-  "auto_load_skills": [
-    {
-      "name": "browser",
-      "files": [
-        "references/commands.md"
-      ]
-    },
-    {
-      "name": "playwright-testing"
-    }
-  ],
   "plugins": {
     "required": [
       "playwright"

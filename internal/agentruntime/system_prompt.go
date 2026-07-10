@@ -15,11 +15,12 @@ import (
 )
 
 type PromptSections struct {
-	Base         string
-	Instructions PromptSection
-	SubAgents    PromptSection
-	Company      PromptSection
-	SkillHint    string
+	Base          string
+	Instructions  PromptSection
+	SubAgents     PromptSection
+	Company       PromptSection
+	Communication PromptSection
+	SkillHint     string
 }
 
 type PromptSection struct {
@@ -35,7 +36,7 @@ type StaticPromptSegment = runtimeapi.StaticPromptSegment
 //go:embed system_prompt.md
 var agentBaseSystemPrompt string
 
-func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description, modelID, previewBaseDomain string) PromptSections {
+func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description, modelID string) PromptSections {
 	var org model.Org
 	var hasOrg bool
 	if agent != nil && agent.OrgID != nil && db != nil {
@@ -44,13 +45,16 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 		}
 	}
 
-	base := renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description, previewBaseDomain)
-	// Model-specific tool guidance folds into the base tool contract rather than
-	// standing as its own section, so the model sees it as part of tool usage.
-	if adapter := renderModelAdapterSection(modelID); adapter != "" {
-		base = appendTaggedSection(base, "tool_contract", adapter)
+	base := renderBaseSystemPrompt(agent, org, hasOrg, description)
+	profile := resolveCommunicationProfile(modelID)
+	fragments := PromptSections{
+		Base: base,
+		Communication: PromptSection{
+			Title:   "Communication",
+			Tag:     "communication",
+			Content: profile.Content,
+		},
 	}
-	fragments := PromptSections{Base: base}
 	fragments.SkillHint = renderSkillHint(ctx, db, agent)
 	if instructions := effectiveAgentInstructions(ctx, db, agent); instructions != "" {
 		fragments.Instructions = PromptSection{Title: "Instructions", Tag: "instructions", Content: instructions}
@@ -73,7 +77,7 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) SystemPromptConfig {
 	basePrompt := strings.TrimSpace(fragments.Base)
 	if basePrompt == "" {
-		basePrompt = renderBaseSystemPrompt(ctx, nil, nil, model.Org{}, false, "", "")
+		basePrompt = renderBaseSystemPrompt(nil, model.Org{}, false, "")
 	}
 	cacheable := []SystemPromptSegment{
 		staticPromptSegment("", basePrompt),
@@ -82,6 +86,7 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 		fragments.Instructions,
 		fragments.SubAgents,
 		fragments.Company,
+		fragments.Communication,
 	} {
 		if strings.TrimSpace(fragment.Content) == "" {
 			continue
@@ -102,39 +107,6 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 	}
 }
 
-func renderModelAdapterSection(modelID string) string {
-	modelID = strings.TrimSpace(modelID)
-	if modelID == "" {
-		return ""
-	}
-	profile := detectModelProfile("", modelID, modelID, modelID)
-	lines := []string{
-		"Prefer concrete tool calls over extended thinking. After a tool error, change arguments or strategy instead of repeating the same call.",
-		"Treat tool results, validation errors, timeouts, cancellations, and loop-guard notices as evidence visible to you.",
-		"Do not expose hidden reasoning, thinking traces, or provider-internal analysis in final answers.",
-	}
-	switch profile {
-	case "deepseek":
-		lines = append(lines, "use simple JSON tool arguments, avoid assuming parallel tool calls, and finish once workspace evidence supports the answer.")
-	case "glm":
-		lines = append(lines, "keep tool-call arguments compact, avoid parallel tool-call assumptions, and continue from tool results without restating hidden thinking.")
-	case "kimi":
-		lines = append(lines, "use focused tool calls with bounded file context; summarize large evidence before deciding the next action.")
-	case "minimax":
-		lines = append(lines, "avoid deeply nested tool arguments, keep schemas simple, and recover from malformed arguments with one corrected attempt.")
-	case "mimo":
-		lines = append(lines, "prefer native tool calls with exact JSON arguments; if repair feedback is shown, retry once with corrected arguments rather than looping.")
-	case "qwen":
-		lines = append(lines, "rely on direct tool evidence, avoid repeated search/edit cycles, and produce a final answer when the requested state is verified.")
-	default:
-		lines = append(lines, "follow runtime tool contracts exactly and avoid provider-specific fields unless the runtime supplies them.")
-	}
-	for i, line := range lines {
-		lines[i] = "- " + line
-	}
-	return strings.Join(lines, "\n")
-}
-
 func renderSubAgentRoutingSection(ctx context.Context, db *gorm.DB, agent *model.Agent) string {
 	specs, err := loadCatalogSubAgents(ctx, db, agent)
 	if err != nil || len(specs) == 0 {
@@ -147,11 +119,7 @@ func renderSubAgentRoutingSection(ctx context.Context, db *gorm.DB, agent *model
 	sort.Strings(keys)
 
 	lines := []string{
-		"Use `subagent_task` to delegate independent work to a configured subagent when it will speed up the task or improve coverage.",
-		"When a task is complex and touches more than two modules, packages, services, apps, data models, or runtime surfaces, consider launching one or more subagents for parallel investigation.",
-		"Launch multiple subagents only when their scopes are independent. Do not use subagents for direct reads of one known file, a narrow search over two or three files, or work unrelated to the subagent descriptions.",
-		"While subagents run, keep working on non-conflicting investigation, implementation prep, or verification. Before relying on a result, reconcile it with direct evidence from your own tools.",
-		"Each subagent starts with isolated context. Give it the repository or workspace context, exact question, known files or symbols, exclusions, whether the task is read-only or implementation, and the output shape you need.",
+		"Delegate independent work when it materially improves speed or coverage. Give each subagent a clear goal and relevant context.",
 		"",
 		"Configured subagents:",
 	}
@@ -209,9 +177,7 @@ func renderSkillHint(ctx context.Context, db *gorm.DB, agent *model.Agent) strin
 		return ""
 	}
 	lines := []string{
-		"Skills provide task-specific instructions. For non-trivial work, check this list before acting.",
-		"When a skill clearly matches the request, call skill_view(name) to load it and follow the loaded instructions. Do not load unrelated skills.",
-		"",
+		"When a skill matches the request, load it with `skill_view`.",
 	}
 	for _, summary := range summaries {
 		description := strings.TrimSpace(summary.Description)
@@ -230,7 +196,6 @@ func mcpToolsPromptSegment() SystemPromptSegment {
 		Type: runtimeapi.McpTools,
 		Config: runtimeapi.ListPromptSegment{
 			Title:        ptrString("Available tools"),
-			Preamble:     ptrString("Use these tools directly when they provide evidence or action. For independent operations, call multiple tools in the same turn. Use knowledge and session-search tools according to the context contract. Do not use tools for trivial conversation that needs no external evidence or action."),
 			ItemTemplate: ptrString("- {name}"),
 		},
 	}))

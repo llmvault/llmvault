@@ -240,7 +240,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
-	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID, deps.Cfg.PreviewBaseDomain)
+	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID)
 	logPhase("build prompt sections", "model", modelID)
 	mcpToolFilter := resolveAgentMCPToolFilter(ctx, deps.DB, agent)
 	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, modelID)

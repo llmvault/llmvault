@@ -199,8 +199,7 @@ fn update_plan_tool(updater: Arc<dyn PlanUpdater>, session_id: SessionId) -> Arc
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "update_plan".into(),
-            description: "Replace the current visible task plan with a concise checklist of steps."
-                .into(),
+            description: "Create or update a concise visible plan for multi-step work.".into(),
             parameters: json!({
                 "type": "object",
                 "additionalProperties": false,
