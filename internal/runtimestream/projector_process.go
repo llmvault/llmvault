@@ -148,25 +148,6 @@ func (p *Projector) projectSessionState(ctx context.Context, event Event) error 
 			return err
 		}
 	}
-	// Only a cleanly completed turn (not stopped/failed/interrupted) warrants a
-	// plan-progress reminder — a human stopping the agent must never trigger it.
-	// The heavy plan read + message injection run in an asynq task off this hot
-	// streaming path.
-	if event.EventType == runtimeevents.EventTurnCompleted {
-		if err := p.enqueuePlanTurnReminder(ctx, sessionID, event.TurnID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Projector) enqueuePlanTurnReminder(ctx context.Context, sessionID uuid.UUID, turnID string) error {
-	if p.enqueuer == nil {
-		return nil
-	}
-	if err := tasks.EnqueuePlanTurnReminder(ctx, p.enqueuer, sessionID, turnID); err != nil {
-		return fmt.Errorf("enqueue plan turn reminder: %w", err)
-	}
 	return nil
 }
 

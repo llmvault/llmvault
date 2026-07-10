@@ -9,7 +9,8 @@ use std::sync::Arc;
 use async_stream::stream;
 use domain::{
     default_parent_builtin_tool_specs, default_subagent_builtin_tool_specs, AgentDefinition,
-    ConfigStore, ModelConfig, SafetyConfig, SessionId, ToolSpec,
+    ConfigStore, ModelConfig, PlanItem, PlanItemStatus, SafetyConfig, SessionId, ToolSpec,
+    UpdatePlanPayload,
 };
 use futures::{stream::BoxStream, StreamExt};
 use mcp::McpRegistry;
@@ -233,6 +234,9 @@ impl AgentRunner for RigAgentRunner {
                 }),
             };
             let mut completed_with_final = false;
+            let mut current_plan: Vec<PlanItem> = Vec::new();
+            let mut plan_reminders_used: usize = 0;
+            let mut last_plan_reminder_fp: Option<String> = None;
             let mut effective_turn = 0u32;
             let mut consecutive_empty_responses = 0u32;
             let mut consecutive_model_failures = 0u32;
@@ -629,18 +633,46 @@ impl AgentRunner for RigAgentRunner {
                     }
 
                     if reason.is_some_and(|r| r.is_complete()) && !turn_text.is_empty() {
-                        // Model finished normally with text — this is a real completion
                         consecutive_empty_responses = 0;
                         consecutive_model_failures = 0;
                         had_thinking = false;
-                        final_text = turn_text.clone();
-                        completed_with_final = true;
-                        let assistant = AgentMessage::assistant(turn_text);
+                        let assistant = AgentMessage::assistant(turn_text.clone());
                         if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &assistant).await {
                             yield AgentEvent::Error { message: error.to_string() };
                             return;
                         }
                         messages.push(assistant);
+                        if !is_subagent_definition {
+                            if let Some(continuation) = plan_continuation_reminder(
+                                &current_plan,
+                                plan_reminders_used,
+                                last_plan_reminder_fp.as_deref(),
+                            ) {
+                                plan_reminders_used += 1;
+                                last_plan_reminder_fp = Some(continuation.fingerprint);
+                                yield AgentEvent::RunEvent {
+                                    event: "plan_continuation_injected".to_string(),
+                                    payload: serde_json::json!({
+                                        "session_id": session_id.as_str(),
+                                        "turn_id": turn_id,
+                                        "incomplete_items": continuation.incomplete_count,
+                                        "reminders_used": plan_reminders_used,
+                                    }),
+                                };
+                                let instruction = AgentMessage::system(continuation.message);
+                                if let Err(error) =
+                                    append_model_message(event_repo.as_deref(), &session_id, &instruction).await
+                                {
+                                    yield AgentEvent::Error { message: error.to_string() };
+                                    return;
+                                }
+                                messages.push(instruction);
+                                effective_turn += 1;
+                                continue;
+                            }
+                        }
+                        final_text = turn_text;
+                        completed_with_final = true;
                         break;
                     }
 
@@ -867,6 +899,13 @@ impl AgentRunner for RigAgentRunner {
                         match execution {
                             Ok(result) => {
                                 error_tracker.reset(&call.name);
+                                if call.name == "update_plan" {
+                                    if let Ok(payload) =
+                                        serde_json::from_value::<UpdatePlanPayload>(call.arguments.clone())
+                                    {
+                                        current_plan = payload.plan;
+                                    }
+                                }
                                 emit_tool_invoked(emitter.clone(), &session_id, &call.name, &call.arguments, &result).await;
                                 yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
                                 let message = AgentMessage::tool_result(call.id, result.to_string());
@@ -1084,6 +1123,78 @@ fn repeat_loop_instruction(tool_name: &str, args: &serde_json::Value) -> String 
     )
 }
 
+const MAX_PLAN_CONTINUATIONS_PER_TURN: usize = 3;
+
+struct PlanContinuation {
+    fingerprint: String,
+    message: String,
+    incomplete_count: usize,
+}
+
+fn plan_status_label(status: &PlanItemStatus) -> &'static str {
+    match status {
+        PlanItemStatus::Pending => "pending",
+        PlanItemStatus::InProgress => "in_progress",
+        PlanItemStatus::Completed => "completed",
+    }
+}
+
+fn plan_continuation_reminder(
+    plan: &[PlanItem],
+    reminders_used: usize,
+    last_fingerprint: Option<&str>,
+) -> Option<PlanContinuation> {
+    if reminders_used >= MAX_PLAN_CONTINUATIONS_PER_TURN {
+        return None;
+    }
+    let incomplete: Vec<&PlanItem> = plan
+        .iter()
+        .filter(|item| !matches!(item.status, PlanItemStatus::Completed))
+        .collect();
+    if incomplete.is_empty() {
+        return None;
+    }
+    let fingerprint = incomplete
+        .iter()
+        .map(|item| format!("{}|{}", item.step, plan_status_label(&item.status)))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if last_fingerprint == Some(fingerprint.as_str()) {
+        return None;
+    }
+    let (noun, verb) = if incomplete.len() == 1 {
+        ("item", "is")
+    } else {
+        ("items", "are")
+    };
+    let mut message = String::from("<system_reminder>\n");
+    message.push_str(&format!(
+        "Your plan still has {} {} that {} not marked completed:\n",
+        incomplete.len(),
+        noun,
+        verb
+    ));
+    for item in &incomplete {
+        message.push_str(&format!(
+            "- {} ({})\n",
+            item.step,
+            plan_status_label(&item.status)
+        ));
+    }
+    message.push_str(
+        "\nDo not end your turn yet — keep working until every step is completed. When you do \
+         finish, your final message must include a complete summary of everything you accomplished \
+         this turn, including the work you just described, so none of it is lost. If the work is \
+         genuinely complete, call update_plan to mark the remaining steps completed before you give \
+         your final answer.\n</system_reminder>",
+    );
+    Some(PlanContinuation {
+        fingerprint,
+        message,
+        incomplete_count: incomplete.len(),
+    })
+}
+
 fn truncate_for_prompt(text: &str, max_bytes: usize) -> String {
     if text.len() <= max_bytes {
         return text.to_string();
@@ -1110,6 +1221,67 @@ mod tests {
     use crate::tool_executor::{is_safe_tool_argument_error, missing_required_argument_message};
 
     use super::*;
+
+    fn plan_item(step: &str, status: PlanItemStatus) -> PlanItem {
+        PlanItem {
+            step: step.to_string(),
+            status,
+        }
+    }
+
+    #[test]
+    fn plan_continuation_none_when_all_completed() {
+        let plan = vec![
+            plan_item("a", PlanItemStatus::Completed),
+            plan_item("b", PlanItemStatus::Completed),
+        ];
+        assert!(plan_continuation_reminder(&plan, 0, None).is_none());
+    }
+
+    #[test]
+    fn plan_continuation_none_when_plan_empty() {
+        assert!(plan_continuation_reminder(&[], 0, None).is_none());
+    }
+
+    #[test]
+    fn plan_continuation_reminds_on_incomplete_and_summarizes() {
+        let plan = vec![
+            plan_item("write test", PlanItemStatus::Completed),
+            plan_item("fix import", PlanItemStatus::InProgress),
+            plan_item("run test", PlanItemStatus::Pending),
+        ];
+        let reminder = plan_continuation_reminder(&plan, 0, None).expect("reminder");
+        assert_eq!(reminder.incomplete_count, 2);
+        assert!(reminder.message.contains("fix import (in_progress)"));
+        assert!(reminder.message.contains("run test (pending)"));
+        assert!(!reminder.message.contains("write test"));
+        assert!(reminder
+            .message
+            .contains("complete summary of everything you accomplished"));
+    }
+
+    #[test]
+    fn plan_continuation_capped_per_turn() {
+        let plan = vec![plan_item("a", PlanItemStatus::Pending)];
+        assert!(
+            plan_continuation_reminder(&plan, MAX_PLAN_CONTINUATIONS_PER_TURN, None).is_none()
+        );
+    }
+
+    #[test]
+    fn plan_continuation_skips_when_no_progress_since_last_reminder() {
+        let plan = vec![plan_item("a", PlanItemStatus::Pending)];
+        let first = plan_continuation_reminder(&plan, 0, None).expect("first reminder");
+        assert!(plan_continuation_reminder(&plan, 1, Some(&first.fingerprint)).is_none());
+
+        let progressed = vec![
+            plan_item("a", PlanItemStatus::Completed),
+            plan_item("b", PlanItemStatus::Pending),
+        ];
+        assert!(
+            plan_continuation_reminder(&progressed, 1, Some(&first.fingerprint)).is_some()
+        );
+    }
 
     fn test_definition() -> AgentDefinition {
         AgentDefinition {
