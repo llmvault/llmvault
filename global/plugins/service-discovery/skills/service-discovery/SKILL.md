@@ -9,24 +9,18 @@ Without this skill, every session re-enumerates the same infrastructure: list th
 
 The loop is always the same four steps:
 
-1. **Check memory first** — the inventory may already exist.
+1. **Use the session's injected memory first** — the inventory may already exist.
 2. **Discover** what's missing via the service's proxy (using that service's own skill for exact API syntax).
 3. **Report** the durable facts compactly and explicitly — your stated inventory is what memory captures.
 4. **Reuse** remembered IDs in every future session instead of re-enumerating.
 
-## Step 1 — always check memory first
+## Step 1 — use injected memory first
 
-Never discover before searching. Discovery inventories follow a consistent shape, so one search tells you what you already know:
-
-```json
-{ "query": "railway services inventory" }
-```
-
-`search_memories` automatically searches the channel your session is running in (plus org-wide facts, when this channel is configured to expose them) — there are no scope arguments. Swap the provider name (`railway` → `vercel` / `notion` / `slack`) per service. If the results cover what you need and the user hasn't asked for a refresh — use them and stop. Only discover what is missing or explicitly stale. `tags` are optional exact slug filters matched against observation entities; leave them empty on the first call and narrow only with a tag you have seen in results.
+Never re-enumerate facts already present in the session context. If the injected context covers what you need and the user has not asked for a refresh, use it and stop. Otherwise discover only what is missing or explicitly stale. Treat the current context as channel-scoped unless you use the default agent's org-wide memory view below.
 
 ## How discovery facts become memory
 
-**You do not write memory.** Memory is written automatically by background reflection over your sessions: after the session, reflection extracts the durable facts you stated and consolidation folds them into this channel's observations, which future sessions auto-load and `search_memories` returns. Corrections and deletions happen in the memories UI, not through tools.
+**You do not write memory.** Memory is written automatically by background reflection over your sessions: after the session, reflection extracts the durable facts you stated and consolidation folds them into this channel's observations, which future sessions auto-load. Corrections and deletions happen in the memories UI, not through tools.
 
 That makes your final report the write path. State the inventory explicitly and compactly:
 
@@ -38,7 +32,7 @@ That makes your final report the write path. State the inventory explicitly and 
 
 **What must NEVER be stated as a durable fact:** tokens, secrets, environment-variable *values*, connection strings, deployment statuses, message contents. Memory is re-injected into prompts; secrets in memory leak, and volatile data rots.
 
-**Timing fact:** facts from this session become searchable and auto-loaded only after background reflection and consolidation run — from a later session onward, not immediately. If a search right after discovery misses them, that is normal.
+**Timing fact:** facts from this session become auto-loaded only after background reflection and consolidation run — from a later session onward, not immediately.
 
 ## Refreshing
 
@@ -46,7 +40,7 @@ When the user asks for a refresh (or a remembered ID turns out wrong), re-discov
 
 ## Viewing memories across channels (default Hivy agent only)
 
-If you are the org's default agent you have one extra tool: **`manage_memories`** — a read-only view over memories across *every* channel plus org-wide facts (regular `search_memories` only ever sees the current channel). It also requires the human you are acting for to be an org admin or owner. Use it for:
+If you are the org's default agent you have one extra tool: **`manage_memories`** — a read-only view over memories across *every* channel plus org-wide facts. It also requires the human you are acting for to be an org admin or owner. Use it for:
 
 **Search across everything** — when the user asks about another channel's inventory:
 
@@ -97,7 +91,7 @@ Discover one provider at a time, and only the providers the user asked about (or
 
 ## Rules
 
-- Memory first, discovery second — never re-enumerate what you already know.
+- Injected memory first, discovery second — never re-enumerate what you already know.
 - One clear statement per project/service group: IDs + names + domains only.
 - Never state secrets, env values, connection strings, statuses, or message contents as durable facts.
 - Memory is read-only to you: reflection writes it from what you report; the memories UI is where humans correct or delete it.

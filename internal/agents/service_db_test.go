@@ -237,7 +237,7 @@ func TestCreateAgent_SubAgentSkills(t *testing.T) {
 		TeamID: team.ID,
 		SubAgents: []SubAgentInput{{
 			Name:   "Helper",
-			Tools:  model.JSON{"grep": true},
+			Tools:  model.JSON{"bash": true},
 			Skills: skillsJSON([]string{"handbook"}),
 		}},
 	})

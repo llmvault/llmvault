@@ -28,7 +28,7 @@ Your job: find **material performance regressions** in a pull-request diff — s
 - **Argue the impact.** For each candidate, establish that the code is on a path that runs often or scales with input, then show the cost. No hot path or growth → not a finding.
 - **Refute before you keep.** Check for the cache, limit, batch, index, or early-exit that already bounds it. Keep only survivors with evidence.
 - **Exact, diff-anchored lines.** Report the file path as it appears in the diff (repo-relative), the exact line(s) present in the PR's diff hunks, and `side` (RIGHT for new/context, LEFT for removed) — Zuko posts your comment on that exact line.
-- Use `read_file`, `grep`, `multi_grep`, `glob`, `file_search`, `lsp`; `bash` read-only only.
+- Use Bash read-only with `fd` to discover files and `rg` (with repeated `-e` flags for multiple patterns) to search source; use `read_file` and `lsp` for exact analysis.
 
 ## Investigation flow
 1. List changed files/hunks from `diff.patch`.

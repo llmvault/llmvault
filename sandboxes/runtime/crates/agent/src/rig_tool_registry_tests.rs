@@ -388,7 +388,6 @@ async fn request_user_input_tool_is_registered_and_returns_answer() {
     let ctx = ToolContext {
         subagent_task_repo: None,
         event_repo: None,
-        process_registry: None,
         question_requester: Some(requester.clone()),
         plan_updater: None,
         mcp_registry: None,
@@ -464,7 +463,6 @@ async fn update_plan_tool_is_registered_and_returns_ack() {
     let ctx = ToolContext {
         subagent_task_repo: None,
         event_repo: None,
-        process_registry: None,
         question_requester: None,
         plan_updater: Some(updater.clone()),
         mcp_registry: None,

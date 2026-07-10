@@ -613,25 +613,6 @@ pub async fn handle_inbound(
             }
             subagent_task_wait_deadline = None;
 
-            if runner.active_background_processes(&current_inbound.session_id) > 0 {
-                if !published_waiting {
-                    if let Some(stream_id) = session_stream_id.as_deref() {
-                        let metadata = stream_event_metadata(&current_inbound);
-                        turn_event_sink
-                            .publish_waiting(
-                                stream_id,
-                                &current_inbound.session_id,
-                                "background_processes",
-                                metadata.as_ref(),
-                            )
-                            .await;
-                    }
-                    published_waiting = true;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                continue;
-            }
-
             if published_waiting {
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 let follow_ups = coordinator.drain_queued(&current_inbound.session_id);

@@ -88,6 +88,9 @@ func TestManageMemoriesToolGating(t *testing.T) {
 		if got != tc.want {
 			t.Fatalf("%s: manage_memories registered = %v, want %v", tc.name, got, tc.want)
 		}
+		if !tc.want && len(tools.Tools) != 0 {
+			t.Fatalf("%s: unexpected memory tools registered: %#v", tc.name, tools.Tools)
+		}
 	}
 }
 

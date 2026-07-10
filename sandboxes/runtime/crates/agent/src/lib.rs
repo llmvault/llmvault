@@ -159,10 +159,6 @@ pub trait AgentRunner: Send + Sync + 'static {
         user_input: TurnInput,
         definition_override: Option<Arc<AgentDefinition>>,
     ) -> Result<BoxStream<'static, AgentEvent>>;
-
-    fn active_background_processes(&self, _session_id: &SessionId) -> usize {
-        0
-    }
 }
 
 #[async_trait]

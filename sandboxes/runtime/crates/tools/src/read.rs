@@ -13,7 +13,6 @@ use crate::image_description::describe_image_file;
 use crate::lsp::LspService;
 use crate::operations::ReadOperations;
 use crate::path::{build_glob_set, enforce_deny_globs, resolve_read_path, PathPolicyError};
-use crate::search::SearchService;
 use crate::truncate::{truncate_head, TruncationReason, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES};
 use crate::{file_read_snapshot, schema_for, FileReadRegistry, JsonTool, ToolDefinition};
 
@@ -46,7 +45,6 @@ pub struct ReadTool {
     operations: Arc<dyn ReadOperations>,
     runtime_env: Arc<HashMap<String, String>>,
     files_read: Option<FileReadRegistry>,
-    search: Option<SearchService>,
     lsp: Option<LspService>,
     session_id: Option<String>,
 }
@@ -63,7 +61,6 @@ impl ReadTool {
             operations,
             runtime_env: Arc::new(HashMap::new()),
             files_read: None,
-            search: None,
             lsp: None,
             session_id: None,
         }
@@ -76,11 +73,6 @@ impl ReadTool {
 
     pub fn with_runtime_env(mut self, runtime_env: Arc<HashMap<String, String>>) -> Self {
         self.runtime_env = runtime_env;
-        self
-    }
-
-    pub fn with_search_service(mut self, search: SearchService) -> Self {
-        self.search = Some(search);
         self
     }
 
@@ -171,9 +163,6 @@ impl ReadTool {
             if let Ok(mut guard) = files_read.lock() {
                 guard.insert(resolved.to_path_buf(), file_read_snapshot(bytes));
             }
-        }
-        if let Some(search) = &self.search {
-            search.track_access(resolved);
         }
         if let Some(lsp) = &self.lsp {
             lsp.touch_file(resolved).await;

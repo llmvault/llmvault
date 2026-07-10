@@ -183,7 +183,6 @@ impl AgentRunner for RigAgentRunner {
         tool_context.runtime_env = runtime_env;
         let subagent_task_repo = self.subagent_task_repo.clone();
         let event_repo_for_tools = self.event_repo.clone();
-        let process_registry = self.tool_context.process_registry.clone();
         let mcp_registry = self.mcp_registry.clone();
 
         let tool_specs = effective_tool_specs(&snapshot, is_subagent_definition);
@@ -197,7 +196,6 @@ impl AgentRunner for RigAgentRunner {
                 question_requester: self.question_requester.clone(),
                 plan_updater: self.plan_updater.clone(),
                 event_repo: event_repo_for_tools.clone(),
-                process_registry: Some(process_registry.clone()),
                 mcp_registry: mcp_registry.clone(),
                 workspace_root: tool_context.workspace_root.clone(),
                 outbound_emitter: self.outbound_emitter.clone(),
@@ -1043,12 +1041,6 @@ impl AgentRunner for RigAgentRunner {
             yield AgentEvent::FinalMessage { text: final_text };
         }))
     }
-
-    fn active_background_processes(&self, session_id: &SessionId) -> usize {
-        self.tool_context
-            .process_registry
-            .running_for_session(session_id.as_str())
-    }
 }
 
 fn is_billing_model_error(error: &crate::AgentError) -> bool {
@@ -1323,14 +1315,9 @@ mod tests {
             ToolSpec::Bash(_) => "bash",
             ToolSpec::ReadFile(_) => "read_file",
             ToolSpec::WriteFile(_) => "write_file",
-            ToolSpec::FileSearch(_) => "file_search",
-            ToolSpec::Glob(_) => "glob",
-            ToolSpec::Grep(_) => "grep",
-            ToolSpec::MultiGrep(_) => "multi_grep",
             ToolSpec::ApplyPatch(_) => "apply_patch",
             ToolSpec::Lsp(_) => "lsp",
             ToolSpec::SubagentTask(_) => "subagent_task",
-            ToolSpec::CheckBashStatus => "check_bash_status",
             ToolSpec::SearchSessions => "search_sessions",
             ToolSpec::RequestUserInput => "request_user_input",
             ToolSpec::UpdatePlan => "update_plan",
@@ -1353,7 +1340,6 @@ mod tests {
             "read_file",
             "write_file",
             "subagent_task",
-            "check_bash_status",
             "search_sessions",
             "request_user_input",
             "update_plan",
@@ -1373,7 +1359,6 @@ mod tests {
             "bash",
             "read_file",
             "write_file",
-            "check_bash_status",
             "search_sessions",
             "update_plan",
         ] {

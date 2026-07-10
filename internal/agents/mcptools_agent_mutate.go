@@ -233,10 +233,10 @@ func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID uuid.UUID, ar
 		if err != nil {
 			return nil, toolError(fmt.Sprintf("sub-agent %q: %s", sub.Name, err.Error()))
 		}
-		// A sub-agent that picked nothing defaults to a read-only sandbox set so it
-		// is still useful without inheriting the parent's full tool grant.
+		// A sub-agent that picked nothing defaults to read_file so it is still
+		// useful without inheriting the parent's full tool grant.
 		if len(runtime) == 0 && len(mcpAllow) == 0 {
-			runtime = model.JSON{"read_file": true, "glob": true, "grep": true, "file_search": true}
+			runtime = model.JSON{"read_file": true}
 		}
 		// A non-empty allow list keeps allow-list semantics but must never lock the
 		// sub-agent out of the read-only MCP floor.

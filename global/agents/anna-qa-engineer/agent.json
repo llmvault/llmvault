@@ -22,11 +22,6 @@
     "bash": true,
     "read_file": true,
     "write_file": true,
-    "file_search": true,
-    "glob": true,
-    "grep": true,
-    "multi_grep": true,
-    "check_bash_status": true,
     "search_sessions": true,
     "update_plan": true,
     "subagent_task": true,
@@ -58,12 +53,7 @@
       "model": "deepseek-v4-flash",
       "tools": {
         "bash": true,
-        "check_bash_status": true,
-        "read_file": true,
-        "file_search": true,
-        "glob": true,
-        "grep": true,
-        "multi_grep": true
+        "read_file": true
       },
       "mcp_tool_filter": {
         "allow": [

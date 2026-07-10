@@ -23,7 +23,7 @@ func TestPutRuntimeConfig_PushesCompiledSubAgents(t *testing.T) {
 	createSubAgent(t, db, org.ID, parent.ID, subAgentSeed{
 		Name:         "Researcher",
 		Instructions: "Find sources.",
-		Tools:        model.JSON{"grep": true},
+		Tools:        model.JSON{"bash": true},
 	})
 	createSubAgent(t, db, org.ID, parent.ID, subAgentSeed{
 		Name:         "Writer",
@@ -97,8 +97,8 @@ func TestPutRuntimeConfig_PushesCompiledSubAgents(t *testing.T) {
 	if _, ok := toolTypesByName["Writer"]; !ok {
 		t.Fatalf("pushed sub-agents missing Writer: %#v", toolTypesByName)
 	}
-	if !containsString(toolTypesByName["Researcher"], "builtin.grep") {
-		t.Fatalf("Researcher tools = %#v, want builtin.grep", toolTypesByName["Researcher"])
+	if !containsString(toolTypesByName["Researcher"], "builtin.bash") {
+		t.Fatalf("Researcher tools = %#v, want builtin.bash", toolTypesByName["Researcher"])
 	}
 	if !containsString(toolTypesByName["Writer"], "builtin.write_file") {
 		t.Fatalf("Writer tools = %#v, want builtin.write_file", toolTypesByName["Writer"])

@@ -14,9 +14,6 @@ import (
 
 const (
 	defaultRuntimeMaxFileSizeBytes  = 5 * 1024 * 1024
-	defaultSearchMaxOutputBytes     = 256 * 1024
-	defaultSearchMaxResults         = 100
-	defaultSearchTimeoutSeconds     = 10
 	defaultBashTimeoutSeconds       = 60
 	defaultLspTimeoutSeconds        = 15
 	defaultRuntimeBashMaxOutputSize = 5 * 1024 * 1024
@@ -26,14 +23,9 @@ var runtimeToolOrder = []string{
 	"bash",
 	"read_file",
 	"write_file",
-	"file_search",
-	"glob",
-	"grep",
-	"multi_grep",
 	"apply_patch",
 	"lsp",
 	"subagent_task",
-	"check_bash_status",
 	"search_sessions",
 	"request_user_input",
 	"update_plan",
@@ -157,6 +149,10 @@ func expandRuntimeToolID(raw string) ([]string, bool) {
 		return []string{key}, true
 	}
 	switch key {
+	case "file_search", "glob", "grep", "multi_grep", "check_bash_status":
+		// These retired tools are accepted only as no-ops for persisted selections,
+		// so installed agents continue to compile while new selections reject them.
+		return nil, true
 	case "Read":
 		return []string{"read_file"}, true
 	case "write":
@@ -164,7 +160,7 @@ func expandRuntimeToolID(raw string) ([]string, bool) {
 	case "edit", "multiedit":
 		return []string{"write_file"}, true
 	case "LS":
-		return []string{"glob"}, true
+		return nil, true
 	case "todowrite", "todoread":
 		return []string{"update_plan"}, true
 	case "skill":

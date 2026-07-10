@@ -78,7 +78,6 @@ mod openapi {
             domain::BashConfig,
             domain::ReadFileConfig,
             domain::WriteFileConfig,
-            domain::SearchConfig,
             domain::ApplyPatchConfig,
             domain::LspConfig,
             domain::LspServerConfig,

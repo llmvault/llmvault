@@ -17,7 +17,7 @@ import (
 // Tools map.
 //
 // IMPORTANT: this list must stay in sync with the MCP tools actually registered
-// on the "hivy" MCP server (see internal/webcrawl, internal/memory, internal/skills,
+// on the "hivy" MCP server (see internal/webcrawl, internal/skills,
 // internal/rag, internal/mcpserver/cron_tool.go, internal/mcpserver/http_trigger_tool.go,
 // internal/mcpserver/list_channels_tool.go, internal/handler/images_mcp.go).
 // The privileged agent-builder tools (create_agent, update_agent) and the
@@ -28,7 +28,6 @@ var AssignableMCPTools = []string{
 	"generate_image",
 	"generate_vector_image",
 	"remix_image",
-	"search_memories",
 	"skills_list",
 	"skill_view",
 	"search_knowledge_base",
@@ -97,7 +96,7 @@ var parentAssignableMCPToolSet = stringSet(parentAssignableMCPTools())
 // skill/channel floor are always granted and are intentionally excluded, so they
 // never appear in the parent schema enum. Derived from the source lists by set
 // subtraction. In practice: lsp, web_search, web_fetch, generate_image,
-// generate_vector_image, remix_image, search_memories, search_knowledge_base,
+// generate_vector_image, remix_image, search_knowledge_base,
 // cron, create_http_trigger.
 func ParentAssignableToolIDs() []string {
 	runtime := optionalRuntimeToolIDs()

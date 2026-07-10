@@ -28,7 +28,7 @@ func TestCompile_LoadsUserAgentSubAgentsFromDB(t *testing.T) {
 		Name:         "Researcher",
 		Description:  "Researches delegated work.",
 		Instructions: "Gather context first.",
-		Tools:        model.JSON{"grep": true},
+		Tools:        model.JSON{"bash": true},
 	})
 
 	def, err := Compile(context.Background(), CompileDeps{DB: db, Cfg: &config.Config{}}, &parent)

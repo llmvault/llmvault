@@ -173,7 +173,7 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 			t.Fatalf("stream did not contain %s; names=%v events=%s", want, eventNames, summarizeEvents(events))
 		}
 	}
-	requiredTools := []string{"search_sessions", "fixture_requirements", "file_search", "glob", "grep", "multi_grep", "lsp", "apply_patch", "read_file", "write_file", "edit_file", "bash", "check_bash_status", "subagent_task"}
+	requiredTools := []string{"search_sessions", "fixture_requirements", "lsp", "apply_patch", "read_file", "write_file", "edit_file", "bash", "subagent_task"}
 	for _, tool := range requiredTools {
 		if tools[tool] == 0 {
 			t.Fatalf("missing required tool call %s; tools=%v events=%s", tool, tools, summarizeEvents(events))
@@ -200,7 +200,7 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 		}
 	}
 	text := finalText.String()
-	requiredFinalText := append([]string{agentRuntimeE2EToken, "E2E_PASS", "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"}, agentRuntimeE2EAllSubagentMarkers()...)
+	requiredFinalText := append([]string{agentRuntimeE2EToken, "E2E_PASS", "REAL_REPOS_CONFIRMED", "BASH_SEARCH_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"}, agentRuntimeE2EAllSubagentMarkers()...)
 	for _, want := range requiredFinalText {
 		if !strings.Contains(text, want) {
 			t.Fatalf("final text missing %q; events=%s\nfinals:\n%s", want, summarizeEvents(events), text)

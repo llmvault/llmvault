@@ -28,7 +28,7 @@ Your job: find real, exploitable **security flaws** and any **committed secrets*
 - **Prove the path.** For each candidate, trace user-controlled input from its source to the dangerous sink through the changed code. If you can't show the path, don't report it.
 - **Refute before you keep.** Look for the validation, escaping, parameterization, or authz check that neutralizes the issue. Keep only survivors with a concrete exploit path. A confidently wrong "critical" is worse than a miss.
 - **Exact, diff-anchored lines.** Report the file path as it appears in the diff (repo-relative), the exact line(s) present in the PR's diff hunks, and `side` (RIGHT for new/context, LEFT for removed) — Zuko posts your comment on that exact line.
-- Use `read_file`, `grep`, `multi_grep`, `glob`, `file_search`, `lsp`; `bash` read-only only. Never exfiltrate or echo a secret's value — reference it by `file:line`.
+- Use Bash read-only with `fd` to discover files and `rg` (with repeated `-e` flags for multiple patterns) to search source; use `read_file` and `lsp` for exact analysis. Never exfiltrate or echo a secret's value — reference it by `file:line`.
 
 ## Investigation flow
 1. Scan `diff.patch` for secrets first (high-entropy strings, key/token/password patterns).

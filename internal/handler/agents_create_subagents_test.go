@@ -26,7 +26,7 @@ func TestCreateAgent_WithSubAgentsPersistsRowsAndResponse(t *testing.T) {
 		"name": "Research Lead",
 		"instructions": "Coordinate the team.",
 		"sub_agents": [
-			{"name": "Researcher", "instructions": "Find sources.", "tools": {"grep": true, "read_file": true}},
+			{"name": "Researcher", "instructions": "Find sources.", "tools": {"bash": true, "read_file": true}},
 			{"name": "Writer", "instructions": "Draft output.", "tools": {"write_file": true}}
 		]
 	}`
@@ -65,8 +65,8 @@ func TestCreateAgent_WithSubAgentsPersistsRowsAndResponse(t *testing.T) {
 	if subRows[0].Name != "Researcher" || subRows[1].Name != "Writer" {
 		t.Fatalf("sub-agent names = %q,%q", subRows[0].Name, subRows[1].Name)
 	}
-	if _, ok := subRows[0].Tools["grep"]; !ok {
-		t.Fatalf("Researcher tools = %#v, want grep", subRows[0].Tools)
+	if _, ok := subRows[0].Tools["bash"]; !ok {
+		t.Fatalf("Researcher tools = %#v, want bash", subRows[0].Tools)
 	}
 }
 

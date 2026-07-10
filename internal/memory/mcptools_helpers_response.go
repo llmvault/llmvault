@@ -16,15 +16,6 @@ const (
 	memoryLayerFacts        = "facts"
 )
 
-func observationToolSearchResponses(hits []ObservationHit) []map[string]any {
-	out := make([]map[string]any, 0, len(hits))
-	for _, hit := range hits {
-		similarity := hit.Similarity
-		out = append(out, observationToolResponse(hit.Observation, &similarity))
-	}
-	return out
-}
-
 func observationToolResponse(obs model.AgentObservation, similarity *float64) map[string]any {
 	out := map[string]any{
 		"id":                obs.ID.String(),
@@ -46,15 +37,6 @@ func observationToolResponse(obs model.AgentObservation, similarity *float64) ma
 	// plus how it changed over time.
 	if history := ObservationHistory(obs, searchHistoryMaxEntries); len(history) > 0 {
 		out["history"] = history
-	}
-	return out
-}
-
-func memoryToolSearchResponses(hits []SearchHit) []map[string]any {
-	out := make([]map[string]any, 0, len(hits))
-	for _, hit := range hits {
-		similarity := hit.Similarity
-		out = append(out, memoryToolMemoryResponse(hit.Memory, &similarity))
 	}
 	return out
 }

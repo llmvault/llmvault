@@ -20,13 +20,8 @@
   },
   "tools": {
     "bash": true,
-    "check_bash_status": true,
     "read_file": true,
     "write_file": true,
-    "file_search": true,
-    "glob": true,
-    "grep": true,
-    "multi_grep": true,
     "update_plan": true,
     "search_sessions": true,
     "request_user_input": true

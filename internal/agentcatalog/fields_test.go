@@ -95,13 +95,11 @@ func TestGlobalHakareeManifestIncludesPortedSubAgents(t *testing.T) {
 		assertManifestToolDisabled(t, subAgent.Tools, "apply_patch")
 		assertManifestToolDisabled(t, subAgent.Tools, "subagent_task")
 	}
-	assertManifestToolEnabled(t, hakaree.SubAgents["codebase-explorer"].Tools, "multi_grep")
+	assertManifestToolEnabled(t, hakaree.SubAgents["codebase-explorer"].Tools, "bash")
 	assertManifestToolEnabled(t, hakaree.SubAgents["codebase-explorer"].Tools, "lsp")
 	assertManifestToolEnabled(t, hakaree.SubAgents["librarian"].Tools, "bash")
-	assertManifestToolEnabled(t, hakaree.SubAgents["librarian"].Tools, "check_bash_status")
-	assertManifestToolEnabled(t, hakaree.SubAgents["oracle"].Tools, "multi_grep")
+	assertManifestToolEnabled(t, hakaree.SubAgents["oracle"].Tools, "bash")
 	assertManifestToolEnabled(t, hakaree.SubAgents["oracle"].Tools, "lsp")
-	assertManifestToolDisabled(t, hakaree.SubAgents["oracle"].Tools, "bash")
 
 	var stored map[string]model.AgentCatalogSubAgent
 	if err := json.Unmarshal(catalogSubAgentsJSON(*hakaree), &stored); err != nil {
@@ -131,7 +129,7 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
   "runtime": {"sandbox_image": "developer", "model": "deepseek-v4-pro"},
   "tools": {
     "read_file": true,
-    "grep": {"max_results": 25},
+    "bash": {"timeout_seconds": 25},
     "lsp": false
   },
   "mcp_tool_filter": {"deny": ["generate_image", "generate_vector_image", "generate_image", " "]},
@@ -144,7 +142,7 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
       "model": "qwen3.7-plus",
       "tools": {
         "read_file": true,
-        "multi_grep": true
+        "bash": true
       },
       "mcp_tool_filter": {"allow": ["generate_image", "generate_vector_image", "generate_image", " "]},
       "prompt": {"instructions": "./sub_agents/codebase-explorer/instructions.md"}
@@ -176,12 +174,12 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
 	if _, ok := tools["lsp"]; ok {
 		t.Fatalf("disabled lsp tool should be omitted: %#v", tools)
 	}
-	grep, ok := tools["grep"].(map[string]any)
+	bash, ok := tools["bash"].(map[string]any)
 	if !ok {
-		t.Fatalf("grep config = %#v", tools["grep"])
+		t.Fatalf("bash config = %#v", tools["bash"])
 	}
-	if grep["max_results"] != float64(25) {
-		t.Fatalf("grep max_results = %#v", grep["max_results"])
+	if bash["timeout_seconds"] != float64(25) {
+		t.Fatalf("bash timeout_seconds = %#v", bash["timeout_seconds"])
 	}
 
 	raw, ok := updates["sub_agents"].(model.RawJSON)
@@ -193,7 +191,7 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
 		t.Fatalf("decode sub_agents: %v", err)
 	}
 	subTools := subAgents["codebase-explorer"].Tools
-	if subTools["read_file"] != true || subTools["multi_grep"] != true {
+	if subTools["read_file"] != true || subTools["bash"] != true {
 		t.Fatalf("subagent tools = %#v", subTools)
 	}
 	subMCPFilter := subAgents["codebase-explorer"].McpToolFilter

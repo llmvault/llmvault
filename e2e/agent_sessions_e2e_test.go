@@ -148,8 +148,8 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	interruptCommand := "python3 -c 'import pathlib,time; time.sleep(8); pathlib.Path(\"" + interruptSentinelPath + "\").write_text(\"done\")'"
 	interruptSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions interrupt E2E.",
-		"Before replying, call bash exactly once with this foreground command: " + interruptCommand + ".",
-		"Do not run it in the background. If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
+		"Before replying, call bash exactly once with this command: " + interruptCommand + ".",
+		"If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created interrupt session id=%s queued=%t", interruptSession.Session.ID, interruptSession.Queued)
 	if interruptSession.Session.ID == "" {

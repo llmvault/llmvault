@@ -22,11 +22,6 @@
     "bash": true,
     "read_file": true,
     "write_file": true,
-    "file_search": true,
-    "glob": true,
-    "grep": true,
-    "multi_grep": true,
-    "check_bash_status": true,
     "update_plan": true,
     "request_user_input": true
   },

@@ -148,7 +148,7 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name: "Coordinator",
 		SubAgents: []subAgentToolArgs{
-			{Name: "Explicit", Tools: []string{"read_file", "grep"}},
+			{Name: "Explicit", Tools: []string{"read_file", "bash"}},
 			{Name: "Empty"},
 			{Name: "WebPick", Tools: []string{"web_search"}},
 		},
@@ -171,14 +171,14 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	// Explicit runtime picks stored verbatim; MCP tools are floored to the
 	// read-only set rather than inheriting the parent's full grant.
 	explicit := byName["Explicit"]
-	if len(explicit.Tools) != 2 || explicit.Tools["read_file"] != true || explicit.Tools["grep"] != true {
-		t.Fatalf("Explicit sub tools = %#v, want exactly read_file+grep", explicit.Tools)
+	if len(explicit.Tools) != 2 || explicit.Tools["read_file"] != true || explicit.Tools["bash"] != true {
+		t.Fatalf("Explicit sub tools = %#v, want exactly read_file+bash", explicit.Tools)
 	}
 	assertReadOnlyMCPFloor(t, "Explicit", explicit.McpToolFilter)
 
-	// Empty picks default to the read-only sandbox set and the read-only MCP floor.
+	// Empty picks default to read_file plus the read-only MCP floor.
 	empty := byName["Empty"]
-	wantReadOnly := map[string]bool{"read_file": true, "glob": true, "grep": true, "file_search": true}
+	wantReadOnly := map[string]bool{"read_file": true}
 	if len(empty.Tools) != len(wantReadOnly) {
 		t.Fatalf("Empty sub tools = %#v, want read-only default", empty.Tools)
 	}

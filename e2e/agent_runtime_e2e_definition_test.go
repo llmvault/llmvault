@@ -145,19 +145,13 @@ func loadAgentRuntimeE2EHakareeManifest(t *testing.T) agentRuntimeE2EAgentManife
 
 func agentRuntimeE2ETools() []any {
 	writeConfig := map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}, "atomic": true}
-	searchConfig := map[string]any{"allowed_roots": []string{}, "deny_globs": []string{}, "max_results": 120, "max_output_bytes": 262144, "timeout_seconds": 20, "include_hidden": false, "respect_gitignore": true, "follow_symlinks": false, "enable_content_indexing": true}
 	return []any{
 		map[string]any{"type": "builtin.bash", "config": map[string]any{"workdir": ".", "timeout_seconds": 90, "max_output_bytes": 1048576, "deny_patterns": []string{"rm -rf /", "mkfs", "shutdown", "reboot"}, "env_passthrough": []string{"PATH", "HOME"}, "sandbox": "process_isolated"}},
 		map[string]any{"type": "builtin.read_file", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}}},
 		map[string]any{"type": "builtin.write_file", "config": writeConfig},
-		map[string]any{"type": "builtin.file_search", "config": searchConfig},
-		map[string]any{"type": "builtin.glob", "config": searchConfig},
-		map[string]any{"type": "builtin.grep", "config": searchConfig},
-		map[string]any{"type": "builtin.multi_grep", "config": searchConfig},
 		map[string]any{"type": "builtin.apply_patch", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}, "atomic": true}},
 		map[string]any{"type": "builtin.lsp", "config": map[string]any{"enabled": true, "allowed_roots": []string{}, "timeout_seconds": 20}},
 		map[string]any{"type": "builtin.subagent_task", "config": map[string]any{"agents": agentRuntimeE2EHakareeSubagents}},
-		map[string]any{"type": "builtin.check_bash_status"},
 		map[string]any{"type": "builtin.search_sessions"},
 	}
 }
@@ -196,13 +190,9 @@ func agentRuntimeE2ESubagent(model map[string]any, key, name, description string
 }
 
 func agentRuntimeE2ESubagentTools() []any {
-	searchConfig := map[string]any{"allowed_roots": []string{}, "deny_globs": []string{}, "max_results": 20, "max_output_bytes": 32768, "timeout_seconds": 10, "include_hidden": false, "respect_gitignore": true, "follow_symlinks": false, "enable_content_indexing": true}
 	return []any{
+		map[string]any{"type": "builtin.bash", "config": map[string]any{"workdir": ".", "timeout_seconds": 30, "max_output_bytes": 262144, "deny_patterns": []string{"rm -rf /", "mkfs", "shutdown", "reboot"}, "env_passthrough": []string{"PATH", "HOME"}, "sandbox": "process_isolated"}},
 		map[string]any{"type": "builtin.read_file", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 262144, "deny_globs": []string{}}},
-		map[string]any{"type": "builtin.file_search", "config": searchConfig},
-		map[string]any{"type": "builtin.glob", "config": searchConfig},
-		map[string]any{"type": "builtin.grep", "config": searchConfig},
-		map[string]any{"type": "builtin.multi_grep", "config": searchConfig},
 		map[string]any{"type": "builtin.lsp", "config": map[string]any{"enabled": true, "allowed_roots": []string{}, "timeout_seconds": 10}},
 	}
 }

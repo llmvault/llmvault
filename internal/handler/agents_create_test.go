@@ -126,14 +126,14 @@ func TestCreateAgent_RestrictsToolsToRequested(t *testing.T) {
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	rr := postCreateAgent(t, db, h, &org, `{"name":"Scoped Agent","tools":{"read_file":true,"grep":true}}`)
+	rr := postCreateAgent(t, db, h, &org, `{"name":"Scoped Agent","tools":{"read_file":true,"bash":true}}`)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}
 	resp := decodeCreateAgent(t, rr)
 
-	if len(resp.Agent.Tools) != 2 || resp.Agent.Tools["read_file"] != true || resp.Agent.Tools["grep"] != true {
-		t.Fatalf("tools = %#v, want exactly read_file+grep", resp.Agent.Tools)
+	if len(resp.Agent.Tools) != 2 || resp.Agent.Tools["read_file"] != true || resp.Agent.Tools["bash"] != true {
+		t.Fatalf("tools = %#v, want exactly read_file+bash", resp.Agent.Tools)
 	}
 
 	var stored model.Agent

@@ -29,7 +29,7 @@ Your job: find real, verifiable **correctness bugs** in a pull-request diff by t
 - **Trace, don't guess.** Open the changed function, read its callers and callees, and follow the actual execution and error paths before concluding.
 - **Refute before you keep.** Try to prove each candidate is NOT a bug — look for the guard, early return, or invariant that makes it safe. Keep only what survives with evidence; drop the rest. A false positive costs more than a missed weak finding.
 - **Exact, diff-anchored lines.** Report the file path as it appears in the diff (repo-relative), the exact line(s) present in the PR's diff hunks, and `side` (RIGHT for new/context, LEFT for removed) — Zuko posts your comment on that exact line.
-- Use `read_file`, `grep`, `multi_grep`, `glob`, `file_search`, `lsp`; `bash` read-only only.
+- Use Bash read-only with `fd` to discover files and `rg` (with repeated `-e` flags for multiple patterns) to search source; use `read_file` and `lsp` for exact analysis.
 
 ## Investigation flow
 1. List changed files/hunks from `diff.patch`.

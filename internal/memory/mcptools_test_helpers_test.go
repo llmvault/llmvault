@@ -100,14 +100,6 @@ func connectMemoryToolClient(t *testing.T, ctx context.Context, service *Service
 	t.Helper()
 	server := mcp.NewServer(&mcp.Implementation{Name: "hivy-test", Version: "v1"}, nil)
 	NewToolsFunc(service)(server, token) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
-	// search_memories is intentionally not mounted in production (see
-	// searchMemoriesToolMounted); mount it directly here so its behavior stays
-	// under test. Guarded so re-enabling the production flag can't double-register.
-	if !searchMemoriesToolMounted {
-		if agentID, err := memoryToolAgentID(token); err == nil {
-			registerSearchMemoriesTool(server, service, token, agentID)
-		}
-	}
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
 		t.Fatalf("connect server: %v", err)
@@ -126,15 +118,12 @@ func assertMemoryToolDescriptions(t *testing.T, tools []*mcp.Tool) {
 	for _, tool := range tools {
 		byName[tool.Name] = tool
 	}
-	for _, name := range []string{"search_memories"} {
-		if byName[name] == nil {
-			t.Fatalf("tool %s not registered", name)
+	if tool := byName[manageMemoriesToolName]; tool != nil {
+		if len(tool.Description) < 120 {
+			t.Fatalf("tool %s has weak description %q", tool.Name, tool.Description)
 		}
-		if len(byName[name].Description) < 120 {
-			t.Fatalf("tool %s has weak description %q", name, byName[name].Description)
-		}
-		if !strings.Contains(byName[name].Description, "channel") {
-			t.Fatalf("tool %s description does not mention channel scoping: %q", name, byName[name].Description)
+		if !strings.Contains(tool.Description, "organization") {
+			t.Fatalf("tool %s description does not describe its org scope: %q", tool.Name, tool.Description)
 		}
 	}
 	assertMemoryToolSchemas(t, tools)
@@ -149,13 +138,6 @@ func assertMemoryToolSchemas(t *testing.T, tools []*mcp.Tool) {
 		}
 		if strings.Contains(string(schema), "_hivy_session_id") {
 			t.Fatalf("tool %s exposes _hivy_session_id in schema: %s", tool.Name, schema)
-		}
-		if tool.Name == "search_memories" && strings.Contains(string(schema), "limit") {
-			t.Fatalf("search_memories exposes agent-controlled limit: %s", schema)
-		}
-		// Regular agent tools must not carry any scope/owner concept anymore.
-		if tool.Name == "search_memories" && strings.Contains(string(schema), "target") {
-			t.Fatalf("tool %s still exposes a target argument: %s", tool.Name, schema)
 		}
 	}
 }
@@ -174,6 +156,25 @@ func callMemoryTool(t *testing.T, ctx context.Context, client *mcp.ClientSession
 		t.Fatalf("decode %s response %q: %v", name, memoryToolText(result), err)
 	}
 	return out
+}
+
+func resultIDSet(resp map[string]any) map[string]bool {
+	out := map[string]bool{}
+	for _, raw := range resp["results"].([]any) {
+		out[raw.(map[string]any)["id"].(string)] = true
+	}
+	return out
+}
+
+func assertMemoryToolError(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string, args map[string]any, want string) {
+	t.Helper()
+	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		t.Fatalf("call %s: %v", name, err)
+	}
+	if !result.IsError || !strings.Contains(memoryToolText(result), want) {
+		t.Fatalf("%s error = %v text %q, want %q", name, result.IsError, memoryToolText(result), want)
+	}
 }
 
 // seedReadyMemory stores a memory scoped to channelID (nil = org-wide) and marks

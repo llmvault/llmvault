@@ -851,6 +851,13 @@
           "agent": {
             "$ref": "#/components/schemas/AgentMeta"
           },
+          "auto_load_skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoLoadSkill"
+            },
+            "description": "Skills the runtime loads into the session automatically on the first\nturn (before the first model call), so the agent starts with the skill\ncontent already in context and its `.skills/` files materialized. Absent\nin old configs (serde default = empty), which deserialize unchanged."
+          },
           "context": {
             "$ref": "#/components/schemas/ContextConfig"
           },
@@ -975,6 +982,26 @@
           },
           "url": {
             "type": "string"
+          }
+        }
+      },
+      "AutoLoadSkill": {
+        "type": "object",
+        "description": "A skill to auto-load, optionally with specific linked files to also load.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Relative linked-file paths, each loaded via `skill_view {name, file_path}`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Skill slug, passed to `skill_view` as `{\"name\": ...}`."
           }
         }
       },
@@ -2633,50 +2660,6 @@
           }
         }
       },
-      "SearchConfig": {
-        "type": "object",
-        "properties": {
-          "allowed_roots": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "deny_globs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "enable_content_indexing": {
-            "type": "boolean"
-          },
-          "follow_symlinks": {
-            "type": "boolean"
-          },
-          "include_hidden": {
-            "type": "boolean"
-          },
-          "max_output_bytes": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "max_results": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "respect_gitignore": {
-            "type": "boolean"
-          },
-          "timeout_seconds": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          }
-        }
-      },
       "Session": {
         "type": "object",
         "required": [
@@ -2777,6 +2760,13 @@
           "text"
         ],
         "properties": {
+          "actor_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Hivy user id of the human sending this message, set by the backend. Flows\nthrough to agent tool calls as `_hivy_actor_user_id`. Absent for\nautomated (trigger/cron/system) posts."
+          },
           "attachments": {
             "type": "array",
             "items": {
@@ -3130,78 +3120,6 @@
             ],
             "properties": {
               "config": {
-                "$ref": "#/components/schemas/SearchConfig"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.file_search"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "config",
-              "type"
-            ],
-            "properties": {
-              "config": {
-                "$ref": "#/components/schemas/SearchConfig"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.glob"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "config",
-              "type"
-            ],
-            "properties": {
-              "config": {
-                "$ref": "#/components/schemas/SearchConfig"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.grep"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "config",
-              "type"
-            ],
-            "properties": {
-              "config": {
-                "$ref": "#/components/schemas/SearchConfig"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.multi_grep"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "config",
-              "type"
-            ],
-            "properties": {
-              "config": {
                 "$ref": "#/components/schemas/ApplyPatchConfig"
               },
               "type": {
@@ -3244,20 +3162,6 @@
                 "type": "string",
                 "enum": [
                   "builtin.subagent_task"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.check_bash_status"
                 ]
               }
             }

@@ -18,7 +18,6 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 		"generate_image",
 		"generate_vector_image",
 		"remix_image",
-		"search_memories",
 		"search_knowledge_base",
 		"cron",
 		"create_http_trigger",
@@ -26,8 +25,8 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ParentAssignableToolIDs() = %v, want %v", got, want)
 	}
-	if len(got) != 10 {
-		t.Fatalf("parent enum length = %d, want 10", len(got))
+	if len(got) != 9 {
+		t.Fatalf("parent enum length = %d, want 9", len(got))
 	}
 	// No baseline or read-only floor id may appear in the parent enum.
 	for _, id := range got {

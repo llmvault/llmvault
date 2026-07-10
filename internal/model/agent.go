@@ -146,14 +146,9 @@ type BuiltInToolDefinition struct {
 var ValidBuiltInTools = []BuiltInToolDefinition{
 	// Runtime-native built-in tools (RuntimeBuiltInToolIDs / ToolSpec enum).
 	{ID: "bash", Name: "Bash", Description: "Execute shell commands in the sandbox and return their output.", Category: "runtime.shell"},
-	{ID: "check_bash_status", Name: "Bash status", Description: "Check the status and output of a running or completed background bash command.", Category: "runtime.shell"},
 	{ID: "read_file", Name: "Read file", Description: "Read file contents with an optional line range.", Category: "runtime.filesystem"},
 	{ID: "write_file", Name: "Write file", Description: "Create or overwrite a file with new content.", Category: "runtime.filesystem"},
 	{ID: "apply_patch", Name: "Apply patch", Description: "Apply a multi-file patch to create, update, or delete files.", Category: "runtime.filesystem"},
-	{ID: "file_search", Name: "File search", Description: "Fuzzy-search for file paths by name.", Category: "runtime.search"},
-	{ID: "glob", Name: "Glob", Description: "Find files matching a glob pattern.", Category: "runtime.search"},
-	{ID: "grep", Name: "Grep", Description: "Search file contents by pattern (plain, regex, or fuzzy).", Category: "runtime.search"},
-	{ID: "multi_grep", Name: "Multi grep", Description: "Search file contents for several patterns in one pass.", Category: "runtime.search"},
 	{ID: "lsp", Name: "LSP", Description: "Language Server Protocol operations for code navigation and diagnostics.", Category: "runtime.code_intelligence"},
 	{ID: "subagent_task", Name: "Delegate to sub-agent", Description: "Delegate a task to one of the agent's sub-agents.", Category: "runtime.orchestration"},
 	{ID: "search_sessions", Name: "Search sessions", Description: "Search prior sessions for relevant context.", Category: "runtime.orchestration"},
@@ -166,7 +161,6 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "generate_image", Name: "Generate image", Description: "Generate a raster image from a text prompt.", Category: "mcp.image"},
 	{ID: "generate_vector_image", Name: "Generate vector image", Description: "Generate an SVG vector image from a text prompt.", Category: "mcp.image"},
 	{ID: "remix_image", Name: "Remix image", Description: "Generate a new image from a text prompt and one or more reference images.", Category: "mcp.image"},
-	{ID: "search_memories", Name: "Search memories", Description: "Search the agent's long-term memory for relevant observations.", Category: "mcp.memory"},
 	{ID: "skills_list", Name: "List skills", Description: "List the skills available to the agent.", Category: "mcp.skills"},
 	{ID: "skill_view", Name: "View skill", Description: "View the full contents of a skill.", Category: "mcp.skills"},
 	{ID: "search_knowledge_base", Name: "Search knowledge base", Description: "Search the organization's synced knowledge base (Slack, GitHub, Linear, Notion, websites, and uploaded files).", Category: "mcp.knowledge"},
@@ -215,14 +209,9 @@ var RuntimeBuiltInToolIDs = []string{
 	"bash",
 	"read_file",
 	"write_file",
-	"file_search",
-	"glob",
-	"grep",
-	"multi_grep",
 	"apply_patch",
 	"lsp",
 	"subagent_task",
-	"check_bash_status",
 	"search_sessions",
 	"request_user_input",
 	"update_plan",
@@ -230,20 +219,15 @@ var RuntimeBuiltInToolIDs = []string{
 
 // BaselineRuntimeToolIDs is the subset of RuntimeBuiltInToolIDs every
 // top-level agent needs to operate its sandbox: shell, file read/write/edit,
-// search, planning, session search, and asking the user. The agent-builder
+// planning, session search, and asking the user. Agents use Bash with fd and
+// rg for file discovery and content search. The agent-builder
 // MCP tools always grant these to parent agents and only expose the remaining
-// runtime tools for selection. Sub-agents are exempt so read-only sub-agents
-// stay expressible.
+// runtime tools for selection. Sub-agents have their own tool selection.
 var BaselineRuntimeToolIDs = []string{
 	"bash",
-	"check_bash_status",
 	"read_file",
 	"write_file",
 	"apply_patch",
-	"file_search",
-	"glob",
-	"grep",
-	"multi_grep",
 	"update_plan",
 	"search_sessions",
 	"request_user_input",

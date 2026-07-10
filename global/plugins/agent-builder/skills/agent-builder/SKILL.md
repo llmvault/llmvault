@@ -130,13 +130,13 @@ For `sub_agents`, replacement means **delete-and-recreate the whole set.** To ke
 ### Tools — baseline is automatic, the enum is the extras
 
 **Every agent automatically gets** (do not list these; they are not in the enum):
-- Baseline sandbox tools: `bash`, `check_bash_status`, `read_file`, `write_file`, `apply_patch`, `file_search`, `glob`, `grep`, `multi_grep`, `update_plan`, `search_sessions`, `request_user_input`.
+- Baseline sandbox tools: `bash`, `read_file`, `write_file`, `apply_patch`, `update_plan`, `search_sessions`, `request_user_input`. Use Bash with `fd` to discover files and `rg` to search file contents; use repeated `-e` flags for several patterns.
 - The read-only MCP floor: `skills_list`, `skill_view` (how it reads its skills — granting `skills` alone is enough) and `list_channels`.
 - `subagent_task`, added automatically whenever the agent has `sub_agents`.
 
-**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `remix_image`, `search_memories`, `search_knowledge_base`, `cron`, `create_http_trigger`. The schema's `tools` enum is authoritative. Grant only what the job needs. (Memory is read-only to agents: `search_memories` is the only memory tool — writes happen automatically via background reflection.)
+**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `remix_image`, `search_knowledge_base`, `cron`, `create_http_trigger`. The schema's `tools` enum is authoritative. Grant only what the job needs. Durable memory is auto-injected into future session context; writes happen automatically via background reflection.
 
-Sub-agents' `tools` accept the full set (baseline included), so a deliberately narrow read-only sub-agent is expressible; a sub-agent with no `tools` defaults to read-only file tools.
+Sub-agents' `tools` accept the full set (baseline included), so a deliberately narrow read-only sub-agent is expressible; a sub-agent with no `tools` defaults to `read_file`. Grant `bash` explicitly when it needs `fd` or `rg`.
 
 **`create_agent`, `update_agent`, and `list_org_plugins` are not grantable.** You cannot build another builder; don't try, don't promise it.
 </baseline_tools>
@@ -396,7 +396,7 @@ The tools return precise errors — match and act:
 - Write instructions with the tag architecture (`<prompt_architecture>` / `<agent_template>`); reference only capabilities the agent has.
 - `get_agent` before every `update_agent`.
 - Arrays replace. Re-send the full intended list, always (for `tools`: the full *optional* list — baseline and floor are automatic and untouchable).
-- Sub-agents: no `model` field; whole set replaced on update; `subagent_task` added to the parent automatically; empty sub-agent `tools` default to read-only file tools.
+- Sub-agents: no `model` field; whole set replaced on update; `subagent_task` added to the parent automatically; empty sub-agent `tools` default to `read_file`; grant Bash when the sub-agent needs `fd` or `rg`.
 - Never grant or promise `create_agent`/`update_agent`/`list_org_plugins` on a created agent — not grantable.
 - Don't reconfigure or rename the org's default assistant beyond what the user asked.
 - Don't promise capabilities that need an uninstalled plugin or missing connection — share the `install_url`.

@@ -31,7 +31,7 @@ Use the `git-github` skill / `gh` (and any connected task tool available to you)
 - **Ground every finding in the task text.** Quote or reference the specific criterion. No criterion → no gap.
 - **Verify against the code.** Confirm a requirement is truly unmet by reading the changed code, not just skimming the diff.
 - **Refute before you keep.** Check whether the requirement is satisfied elsewhere in the change before calling it a gap.
-- Report the diff-relative file path and exact line(s) present in the diff hunk (with `side`) for any gap anchored to code, so Zuko can post on that line; a gap with no code location has no anchor and is posted as a top-level PR comment. Use `read_file`, `grep`, `multi_grep`, `glob`, `file_search`; `bash`/`gh` read-only.
+- Report the diff-relative file path and exact line(s) present in the diff hunk (with `side`) for any gap anchored to code, so Zuko can post on that line; a gap with no code location has no anchor and is posted as a top-level PR comment. Use Bash read-only with `fd` for file discovery and `rg` (with repeated `-e` flags for multiple patterns) for source search; use `read_file` for exact code. `gh` is read-only.
 
 ## Investigation flow
 1. Read the linked task; extract concrete acceptance criteria / expectations.

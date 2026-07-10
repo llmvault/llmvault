@@ -65,8 +65,6 @@ func agentRuntimeFileTools() []any {
 		map[string]any{"type": "builtin.bash", "config": map[string]any{"workdir": ".", "timeout_seconds": 90, "max_output_bytes": 1048576, "deny_patterns": []string{"rm -rf /", "mkfs", "shutdown", "reboot"}, "env_passthrough": []string{"PATH", "HOME"}, "sandbox": "process_isolated"}},
 		map[string]any{"type": "builtin.read_file", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}}},
 		map[string]any{"type": "builtin.write_file", "config": writeConfig},
-		map[string]any{"type": "builtin.check_bash_status"},
 		map[string]any{"type": "builtin.search_sessions"},
 	}
 }
-

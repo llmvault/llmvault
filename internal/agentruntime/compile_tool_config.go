@@ -48,18 +48,6 @@ func defaultRuntimeToolConfig(id string) (map[string]any, bool) {
 			"deny_globs":          []any{},
 			"atomic":              true,
 		}, true
-	case "file_search", "glob", "grep", "multi_grep":
-		return map[string]any{
-			"allowed_roots":           []any{},
-			"deny_globs":              []any{},
-			"max_results":             defaultSearchMaxResults,
-			"max_output_bytes":        defaultSearchMaxOutputBytes,
-			"timeout_seconds":         defaultSearchTimeoutSeconds,
-			"include_hidden":          false,
-			"respect_gitignore":       true,
-			"follow_symlinks":         false,
-			"enable_content_indexing": true,
-		}, true
 	case "apply_patch":
 		return map[string]any{
 			"allowed_roots":       []any{},

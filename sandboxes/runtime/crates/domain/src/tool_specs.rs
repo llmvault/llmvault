@@ -10,22 +10,12 @@ pub enum ToolSpec {
     ReadFile(ReadFileConfig),
     #[serde(rename = "builtin.write_file")]
     WriteFile(WriteFileConfig),
-    #[serde(rename = "builtin.file_search")]
-    FileSearch(SearchConfig),
-    #[serde(rename = "builtin.glob")]
-    Glob(SearchConfig),
-    #[serde(rename = "builtin.grep")]
-    Grep(SearchConfig),
-    #[serde(rename = "builtin.multi_grep")]
-    MultiGrep(SearchConfig),
     #[serde(rename = "builtin.apply_patch")]
     ApplyPatch(ApplyPatchConfig),
     #[serde(rename = "builtin.lsp")]
     Lsp(LspConfig),
     #[serde(rename = "builtin.subagent_task")]
     SubagentTask(#[serde(default)] SubagentTaskConfig),
-    #[serde(rename = "builtin.check_bash_status")]
-    CheckBashStatus,
     #[serde(rename = "builtin.search_sessions")]
     SearchSessions,
     #[serde(rename = "builtin.request_user_input")]
@@ -74,65 +64,6 @@ pub struct WriteFileConfig {
 
 fn default_atomic() -> bool {
     true
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct SearchConfig {
-    #[serde(default)]
-    pub allowed_roots: Vec<String>,
-    #[serde(default)]
-    pub deny_globs: Vec<String>,
-    #[serde(default = "default_search_max_results")]
-    pub max_results: u32,
-    #[serde(default = "default_search_max_output_bytes")]
-    pub max_output_bytes: u64,
-    #[serde(default = "default_search_timeout_seconds")]
-    pub timeout_seconds: u32,
-    #[serde(default)]
-    pub include_hidden: bool,
-    #[serde(default = "default_respect_gitignore")]
-    pub respect_gitignore: bool,
-    #[serde(default)]
-    pub follow_symlinks: bool,
-    #[serde(default = "default_content_indexing")]
-    pub enable_content_indexing: bool,
-}
-
-fn default_search_max_results() -> u32 {
-    100
-}
-
-fn default_search_max_output_bytes() -> u64 {
-    256 * 1024
-}
-
-fn default_search_timeout_seconds() -> u32 {
-    10
-}
-
-fn default_respect_gitignore() -> bool {
-    true
-}
-
-fn default_content_indexing() -> bool {
-    true
-}
-
-impl Default for SearchConfig {
-    fn default() -> Self {
-        Self {
-            allowed_roots: Vec::new(),
-            deny_globs: Vec::new(),
-            max_results: default_search_max_results(),
-            max_output_bytes: default_search_max_output_bytes(),
-            timeout_seconds: default_search_timeout_seconds(),
-            include_hidden: false,
-            respect_gitignore: true,
-            follow_symlinks: false,
-            enable_content_indexing: true,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,13 +200,8 @@ pub fn default_subagent_builtin_tool_specs() -> Vec<ToolSpec> {
             deny_globs: vec![],
             atomic: true,
         }),
-        ToolSpec::FileSearch(SearchConfig::default()),
-        ToolSpec::Glob(SearchConfig::default()),
-        ToolSpec::Grep(SearchConfig::default()),
-        ToolSpec::MultiGrep(SearchConfig::default()),
         ToolSpec::ApplyPatch(ApplyPatchConfig::default()),
         ToolSpec::Lsp(LspConfig::default()),
-        ToolSpec::CheckBashStatus,
         ToolSpec::SearchSessions,
         ToolSpec::UpdatePlan,
     ]

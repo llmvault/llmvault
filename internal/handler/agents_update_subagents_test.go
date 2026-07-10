@@ -45,7 +45,7 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 		"name": "Edited",
 		"mcp_tool_filter": { "deny": ["generate_vector_image", "web_search"] },
 		"sub_agents": [
-			{ "name": "NewA", "tools": { "grep": true } },
+			{ "name": "NewA", "tools": { "bash": true } },
 			{ "name": "NewB", "tools": { "write_file": true } }
 		]
 	}`)

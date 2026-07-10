@@ -21,7 +21,7 @@ Therefore a skill must either: (a) use only preinstalled tools, (b) ship what it
 
 ## Execution constraints
 
-- Shell commands time out at ~120 seconds by default. For anything longer, instruct running in the background and polling (`run_in_background` + `check_bash_status` in the agent harness).
+- Shell commands time out at ~120 seconds by default. Keep commands bounded; split longer workflows into independently verifiable steps.
 - Command output is truncated (last ~2000 lines / 50 KB). Pipe large outputs to files under `/workspace` and inspect selectively.
 - The sandbox sleeps after ~5 minutes idle and wakes on demand; long-running servers pause with it. For dev servers, `hivy-guardian` supervises and restarts a process on a port.
 - Only registered preview ports (defaults include 3000, 5173, 8000, 8080; org-configurable) are reachable from outside, at a URL of the form `https://{port}-{sandbox_id}.<preview-domain>`. Never hand-build this hostname — the actual preview URL is provided by the platform tooling (e.g. `make preview` or the preview-env endpoint). A server on an unregistered port works inside the sandbox but has no public URL. Port 7080 is reserved.

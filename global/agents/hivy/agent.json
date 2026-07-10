@@ -21,11 +21,6 @@
   "tools": {
     "bash": true,
     "read_file": true,
-    "file_search": true,
-    "glob": true,
-    "grep": true,
-    "multi_grep": true,
-    "check_bash_status": true,
     "search_sessions": true,
     "update_plan": true,
     "request_user_input": true

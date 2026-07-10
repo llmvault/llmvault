@@ -165,11 +165,11 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 }
 
 // buildSubAgentRuntimeTools compiles a sub-agent's runtime tools, defaulting an
-// EMPTY tool selection to a read-only set instead of zero tools. An empty
-// selection previously compiled to a tool-less, useless sub-agent (the runtime
-// AgentDefinition.tools has no omitempty); read-only (read_file, glob, grep,
-// file_search) is the safe default, and parents that want more grant it
-// explicitly. This applies to both DB and catalog sub-agents by design.
+// EMPTY tool selection to read_file instead of zero tools. An empty selection
+// previously compiled to a tool-less, useless sub-agent (the runtime
+// AgentDefinition.tools has no omitempty). Sub-agents that need shell-based
+// fd/rg discovery receive bash explicitly. This applies to both DB and catalog
+// sub-agents by design.
 func buildSubAgentRuntimeTools(selection model.JSON) ([]map[string]any, error) {
 	if len(selection) == 0 {
 		selection = defaultSubAgentToolSelection()
@@ -179,10 +179,7 @@ func buildSubAgentRuntimeTools(selection model.JSON) ([]map[string]any, error) {
 
 func defaultSubAgentToolSelection() model.JSON {
 	return model.JSON{
-		"read_file":   true,
-		"glob":        true,
-		"grep":        true,
-		"file_search": true,
+		"read_file": true,
 	}
 }
 

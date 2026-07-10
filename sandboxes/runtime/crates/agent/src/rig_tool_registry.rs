@@ -17,7 +17,7 @@ use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use serde_json::{json, Value};
 use storage::{EventRepo, SubagentTaskRepo};
-use tools::{JsonTool, ProcessRegistry, ToolDefinition};
+use tools::{JsonTool, ToolDefinition};
 
 use crate::{PlanUpdater, QuestionRequester};
 
@@ -58,7 +58,6 @@ impl JsonTool for DynamicTool {
 pub struct ToolContext {
     pub subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     pub event_repo: Option<Arc<dyn EventRepo>>,
-    pub process_registry: Option<Arc<ProcessRegistry>>,
     pub question_requester: Option<Arc<dyn QuestionRequester>>,
     pub plan_updater: Option<Arc<dyn PlanUpdater>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
@@ -77,11 +76,6 @@ pub fn build_agent_tools(
 
     for spec in specs {
         match spec {
-            ToolSpec::CheckBashStatus => {
-                if let Some(registry) = &ctx.process_registry {
-                    tools.push(check_bash_status_tool(registry.clone()));
-                }
-            }
             ToolSpec::SearchSessions => {
                 if let Some(repo) = &ctx.event_repo {
                     tools.push(search_sessions_tool(repo.clone()));
@@ -324,52 +318,6 @@ fn truncate_search_text(value: &str, max_chars: usize) -> String {
         out.push(ch);
     }
     out
-}
-
-fn check_bash_status_tool(registry: Arc<ProcessRegistry>) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "check_bash_status".into(),
-            description: "Check the status of a background bash process. Pass cursor from the previous response to receive only new output.".into(),
-            parameters: json!({
-                "type":"object",
-                "properties":{
-                    "process_id":{"type":"string"},
-                    "cursor":{"type":"integer","description":"Optional output cursor returned by the previous status response."}
-                },
-                "required":["process_id"]
-            }),
-        },
-        move |args| {
-            let registry = registry.clone();
-            Box::pin(async move {
-                let id = args
-                    .get("process_id")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow!("process_id required"))?;
-                let cursor = args.get("cursor").and_then(Value::as_u64).map(|value| value as usize);
-                let status = registry
-                    .status(id, cursor)
-                    .ok_or_else(|| anyhow!("process not found"))?;
-                let mut result = json!({
-                    "process_id": id,
-                    "running": status.running,
-                    "exit_code": status.exit_code,
-                    "output": status.output,
-                    "next_cursor": status.next_cursor,
-                    "truncated": status.truncated,
-                });
-                if status.running {
-                    result["_hint"] = serde_json::json!(format!(
-                        "This process is still running. Check again later with \
-                         check_bash_status and pass cursor={} so only new output is returned.",
-                        status.next_cursor
-                    ));
-                }
-                Ok(result)
-            })
-        },
-    ))
 }
 
 fn build_agent_list_description(

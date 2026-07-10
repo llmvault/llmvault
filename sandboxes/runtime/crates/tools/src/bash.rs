@@ -11,7 +11,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 
 use crate::operations::{BashExecOptions, BashOperations};
-use crate::process_registry::ProcessRegistry;
 use crate::truncate::{truncate_tail, TruncationReason};
 use crate::{schema_for, JsonTool, ToolDefinition};
 
@@ -24,20 +23,18 @@ const USER_ENV_PREFIX: &str = "__ENV__";
 const TOOL_DESCRIPTION: &str =
     "Run a shell command in the workspace and return its combined stdout/stderr. \
      Output is truncated to the last 2000 lines or 50KB, whichever comes first. \
-     Set run_in_background=true for commands that take a long time. Use \
-     check_bash_status with its cursor to poll progress. Use this for terminal \
-     operations such as tests, package managers, git, and servers. Do not use \
-     bash for reading, writing, editing, finding, globbing, or grepping files; \
-     use the specialized tools. Commands matching a denied pattern are rejected \
+     Use this for terminal operations such as tests, package managers, git, and \
+     servers. Use Bash with \
+     fd for file discovery and rg for content search. Use the dedicated file tools \
+     for reading and editing. Commands matching a denied pattern are rejected \
      before execution.";
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct BashArgs {
     pub command: String,
     #[serde(default, deserialize_with = "deserialize_timeout_seconds")]
     pub timeout_seconds: Option<u32>,
-    #[serde(default)]
-    pub run_in_background: bool,
 }
 
 pub struct BashTool {
@@ -45,8 +42,6 @@ pub struct BashTool {
     workspace_root: PathBuf,
     operations: Arc<dyn BashOperations>,
     runtime_env: Arc<HashMap<String, String>>,
-    process_registry: Option<Arc<ProcessRegistry>>,
-    session_id: Option<String>,
 }
 
 impl BashTool {
@@ -61,19 +56,7 @@ impl BashTool {
             workspace_root,
             operations,
             runtime_env,
-            process_registry: None,
-            session_id: None,
         }
-    }
-
-    pub fn with_process_registry(mut self, registry: Arc<ProcessRegistry>) -> Self {
-        self.process_registry = Some(registry);
-        self
-    }
-
-    pub fn with_session_id(mut self, session_id: impl Into<String>) -> Self {
-        self.session_id = Some(session_id.into());
-        self
     }
 
     pub fn into_tool(self) -> Arc<dyn JsonTool> {
@@ -133,28 +116,6 @@ impl BashTool {
             .or_insert_with(|| std::env::var("HOME").unwrap_or_default());
         env.entry("PATH".into())
             .or_insert_with(|| std::env::var("PATH").unwrap_or_default());
-
-        if parsed.run_in_background {
-            let registry = self
-                .process_registry
-                .as_ref()
-                .ok_or_else(|| anyhow!("background processes not available"))?;
-            let process_id = registry
-                .spawn(
-                    command,
-                    workdir,
-                    env,
-                    timeout as u64,
-                    self.config.max_output_bytes,
-                    self.session_id.clone(),
-                )
-                .map_err(|error| anyhow!("background spawn failed: {error}"))?;
-            return Ok(json!({
-                "background": true,
-                "process_id": process_id,
-                "command": command,
-            }));
-        }
 
         let options = BashExecOptions {
             workdir,
@@ -367,6 +328,20 @@ mod tests {
         );
     }
 
+    #[test]
+    fn rejects_removed_background_argument() {
+        let err = serde_json::from_value::<BashArgs>(serde_json::json!({
+            "command": "echo ok",
+            "run_in_background": true,
+        }))
+        .expect_err("removed background argument should be rejected");
+
+        assert!(
+            err.to_string().contains("run_in_background"),
+            "unexpected error: {err}"
+        );
+    }
+
     #[tokio::test]
     async fn destructive_deny_patterns_still_reject_commands() {
         let tool = super::BashTool::new(
@@ -425,7 +400,6 @@ mod tests {
             .execute(serde_json::json!({
                 "command": "printf \"$RUNTIME_ENV_OVERLAY\"",
                 "timeout_seconds": 1,
-                "run_in_background": false,
             }))
             .await
             .expect("command should succeed");
@@ -462,7 +436,6 @@ mod tests {
             .execute(serde_json::json!({
                 "command": "printf \"$RUNTIME_ENV_FALLBACK\"",
                 "timeout_seconds": 1,
-                "run_in_background": false,
             }))
             .await
             .expect("command should succeed");
@@ -506,7 +479,6 @@ mod tests {
             .execute(serde_json::json!({
                 "command": "printf \"$HIVY_VERCEL_API_URL\"",
                 "timeout_seconds": 1,
-                "run_in_background": false,
             }))
             .await
             .expect("command should succeed");
@@ -559,7 +531,6 @@ mod tests {
             .execute(serde_json::json!({
                 "command": "irrelevant",
                 "timeout_seconds": 1,
-                "run_in_background": false,
             }))
             .await
             .expect("command should succeed");
@@ -607,7 +578,6 @@ mod tests {
             .execute(serde_json::json!({
                 "command": "printf \"$DATABASE_URL\"",
                 "timeout_seconds": 1,
-                "run_in_background": false,
             }))
             .await
             .expect("command should succeed");
@@ -645,7 +615,6 @@ mod tests {
             .execute(serde_json::json!({
                 "command": "irrelevant",
                 "timeout_seconds": 1,
-                "run_in_background": false,
             }))
             .await
             .expect("command should succeed");

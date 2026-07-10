@@ -29,10 +29,6 @@ const TOOL_GROUPS: ToolGroup[] = [
       { id: "read_file", label: "Read file", kind: "runtime" },
       { id: "write_file", label: "Write file", kind: "runtime" },
       { id: "apply_patch", label: "Apply patch", kind: "runtime" },
-      { id: "file_search", label: "File search", kind: "runtime" },
-      { id: "glob", label: "Glob", kind: "runtime" },
-      { id: "grep", label: "Grep", kind: "runtime" },
-      { id: "multi_grep", label: "Multi-grep", kind: "runtime" },
       { id: "lsp", label: "LSP", kind: "runtime" },
     ],
   },
@@ -40,7 +36,6 @@ const TOOL_GROUPS: ToolGroup[] = [
     title: "Shell",
     tools: [
       { id: "bash", label: "Bash", kind: "runtime" },
-      { id: "check_bash_status", label: "Bash status", kind: "runtime" },
     ],
   },
   {

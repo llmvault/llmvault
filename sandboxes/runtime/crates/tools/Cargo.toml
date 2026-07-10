@@ -23,8 +23,6 @@ globset = "0.4"
 dashmap = "6"
 similar = "2"
 unicode-normalization = "0.1"
-fff-search = "=0.9.6-nightly.797c045"
-uuid = { version = "1", features = ["v4"] }
 url = "2"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 

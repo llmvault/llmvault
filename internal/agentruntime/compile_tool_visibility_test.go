@@ -36,9 +36,9 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 	org := createOrg(t, db)
 	team := seedCompileTeam(t, db, org.ID)
 
-	// Parent: only bash, read_file, grep enabled; deny the web_search MCP tool.
+	// Parent: only bash and read_file enabled; deny the web_search MCP tool.
 	parent := userAgentRow(org.ID, team.ID, "RestrictedParent")
-	parent.Tools = model.JSON{"bash": true, "read_file": true, "grep": true}
+	parent.Tools = model.JSON{"bash": true, "read_file": true}
 	parent.McpToolFilter = &model.ToolFilter{Deny: []string{"web_search"}}
 	if err := db.Create(&parent).Error; err != nil {
 		t.Fatalf("create parent: %v", err)
@@ -46,7 +46,7 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 
 	// Sub-agent: a DIFFERENT set (read_file, write_file) and the OPPOSITE MCP
 	// filter (allow web_search). write_file is enabled here but not on the
-	// parent; grep is enabled on the parent but not here.
+	// parent; bash is enabled on the parent but not here.
 	sub := userAgentRow(org.ID, team.ID, "RestrictedSub")
 	sub.Type = model.AgentTypeSubAgent
 	sub.ParentAgentID = &parent.ID
@@ -63,12 +63,12 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 
 	// --- Layer 1: parent builtin tools ---
 	parentTools := compiledRuntimeToolTypes(def.Tools)
-	for _, want := range []string{"builtin.bash", "builtin.read_file", "builtin.grep"} {
+	for _, want := range []string{"builtin.bash", "builtin.read_file"} {
 		if !containsString(parentTools, want) {
 			t.Fatalf("parent tools %v missing enabled tool %q", parentTools, want)
 		}
 	}
-	for _, denied := range []string{"builtin.write_file", "builtin.glob", "builtin.lsp", "builtin.multi_grep"} {
+	for _, denied := range []string{"builtin.write_file", "builtin.lsp"} {
 		if containsString(parentTools, denied) {
 			t.Fatalf("parent tools %v leaked disabled tool %q", parentTools, denied)
 		}
@@ -93,11 +93,9 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 			t.Fatalf("sub-agent tools %v missing enabled tool %q", subTools, want)
 		}
 	}
-	// Parent-only tools must NOT be visible to the sub-agent.
-	for _, notInSub := range []string{"builtin.bash", "builtin.grep"} {
-		if containsString(subTools, notInSub) {
-			t.Fatalf("sub-agent tools %v leaked parent-only tool %q", subTools, notInSub)
-		}
+	// Parent-only Bash must NOT be visible to the sub-agent.
+	if containsString(subTools, "builtin.bash") {
+		t.Fatalf("sub-agent tools %v leaked parent-only tool builtin.bash", subTools)
 	}
 	// Sub-agent-only tools must NOT be visible to the parent.
 	if containsString(parentTools, "builtin.write_file") {

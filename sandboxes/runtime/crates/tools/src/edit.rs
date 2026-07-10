@@ -13,7 +13,6 @@ use crate::lsp::LspService;
 use crate::mutation_queue::with_file_lock;
 use crate::operations::EditOperations;
 use crate::path::{build_glob_set, enforce_deny_globs, resolve_writable_path, PathPolicyError};
-use crate::search::SearchService;
 use crate::{file_read_snapshot, schema_for, FileReadRegistry, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "edit_file";
@@ -46,7 +45,6 @@ pub struct EditTool {
     workspace_root: PathBuf,
     operations: Arc<dyn EditOperations>,
     files_read: Option<FileReadRegistry>,
-    search: Option<SearchService>,
     lsp: Option<LspService>,
 }
 
@@ -61,18 +59,12 @@ impl EditTool {
             workspace_root,
             operations,
             files_read: None,
-            search: None,
             lsp: None,
         }
     }
 
     pub fn with_files_read(mut self, files_read: FileReadRegistry) -> Self {
         self.files_read = Some(files_read);
-        self
-    }
-
-    pub fn with_search_service(mut self, search: SearchService) -> Self {
-        self.search = Some(search);
         self
     }
 
@@ -181,9 +173,6 @@ impl EditTool {
             if let Ok(mut guard) = files_read.lock() {
                 guard.insert(resolved.clone(), file_read_snapshot(final_bytes));
             }
-        }
-        if let Some(search) = &self.search {
-            search.notify_files_changed();
         }
         if let Some(lsp) = &self.lsp {
             lsp.touch_file(&resolved).await;

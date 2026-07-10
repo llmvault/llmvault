@@ -29,7 +29,7 @@ func parentToolsArraySchema() map[string]any {
 func subAgentToolsArraySchema() map[string]any {
 	return map[string]any{
 		"type":        "array",
-		"description": "Tools the sub-agent may use. A sub-agent gets ONLY what is listed here — e.g. a read-only sub-agent lists just read_file, glob, grep, file_search. An empty list defaults to that read-only set. Each value must be one of the listed runtime or MCP tools.",
+		"description": "Tools the sub-agent may use. A sub-agent gets ONLY what is listed here. An empty list defaults to read_file. Grant bash when the sub-agent needs shell-based file discovery with fd or content search with rg. Each value must be one of the listed runtime or MCP tools.",
 		"items": map[string]any{
 			"type": "string",
 			"enum": toolEnumValues(),

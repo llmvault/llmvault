@@ -229,7 +229,7 @@ func assertFixtureProjectCompleted(t *testing.T, trace *agentRuntimeE2ETrace, wo
 		t.Fatalf("read TOOLING_E2E.md: %v", err)
 	}
 	trace.Body("assert-files", filepath.Join(workspaceRoot, "TOOLING_E2E.md"), tooling)
-	for _, want := range []string{agentRuntimeE2EToken, "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"} {
+	for _, want := range []string{agentRuntimeE2EToken, "REAL_REPOS_CONFIRMED", "BASH_SEARCH_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"} {
 		if !strings.Contains(string(tooling), want) {
 			t.Fatalf("TOOLING_E2E.md missing %q:\n%s", want, tooling)
 		}

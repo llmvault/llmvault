@@ -12,7 +12,6 @@ use crate::lsp::LspService;
 use crate::mutation_queue::with_file_lock;
 use crate::operations::WriteOperations;
 use crate::path::{build_glob_set, enforce_deny_globs, resolve_writable_path, PathPolicyError};
-use crate::search::SearchService;
 use crate::{schema_for, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "write_file";
@@ -34,7 +33,6 @@ pub struct WriteTool {
     config: WriteFileConfig,
     workspace_root: PathBuf,
     operations: Arc<dyn WriteOperations>,
-    search: Option<SearchService>,
     lsp: Option<LspService>,
 }
 
@@ -48,14 +46,8 @@ impl WriteTool {
             config,
             workspace_root,
             operations,
-            search: None,
             lsp: None,
         }
-    }
-
-    pub fn with_search_service(mut self, search: SearchService) -> Self {
-        self.search = Some(search);
-        self
     }
 
     pub fn with_lsp_service(mut self, lsp: LspService) -> Self {
@@ -109,9 +101,6 @@ impl WriteTool {
         })
         .await;
         outcome.map_err(|e| anyhow!("write failed for {}: {e}", parsed.path))?;
-        if let Some(search) = &self.search {
-            search.notify_files_changed();
-        }
         if let Some(lsp) = &self.lsp {
             lsp.touch_file(&resolved).await;
         }

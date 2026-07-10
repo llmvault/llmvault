@@ -133,7 +133,7 @@ func TestCompile_UsesAgentModelWithDefaultFallback(t *testing.T) {
 	}
 }
 
-func TestCompile_EmitsConfiguredRuntimeTools(t *testing.T) {
+func TestCompile_EmitsConfiguredRuntimeToolsAndIgnoresRetiredTools(t *testing.T) {
 	orgID := uuid.New()
 	agent := &model.Agent{
 		ID:    uuid.New(),
@@ -141,10 +141,15 @@ func TestCompile_EmitsConfiguredRuntimeTools(t *testing.T) {
 		Name:  "Hakaree",
 		Model: DefaultAgentModel,
 		Tools: model.JSON{
-			"read_file": true,
-			"grep":      map[string]any{"max_results": 25},
-			"lsp":       false,
-			"web_fetch": true,
+			"bash":              map[string]any{"timeout_seconds": 25},
+			"read_file":         true,
+			"file_search":       true,
+			"glob":              true,
+			"grep":              map[string]any{"max_results": 25},
+			"multi_grep":        true,
+			"check_bash_status": true,
+			"lsp":               false,
+			"web_fetch":         true,
 		},
 	}
 
@@ -152,15 +157,12 @@ func TestCompile_EmitsConfiguredRuntimeTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.read_file", "builtin.grep"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime tool types = %#v, want %#v", got, want)
 	}
-	grep := def.Tools[1]["config"].(map[string]any)
-	if grep["max_results"] != 25 {
-		t.Fatalf("grep max_results = %#v", grep["max_results"])
-	}
-	if grep["respect_gitignore"] != true {
-		t.Fatalf("grep respect_gitignore = %#v", grep["respect_gitignore"])
+	bash := def.Tools[0]["config"].(map[string]any)
+	if bash["timeout_seconds"] != 25 {
+		t.Fatalf("bash timeout_seconds = %#v", bash["timeout_seconds"])
 	}
 }
 
@@ -171,7 +173,7 @@ func TestCompile_EmitsCatalogAndSubAgentRuntimeTools(t *testing.T) {
 			Name:         "Codebase Explorer",
 			Description:  "Maps code paths.",
 			Model:        "qwen3.7-plus",
-			Tools:        model.JSON{"read_file": true, "multi_grep": true, "lsp": true},
+			Tools:        model.JSON{"bash": true, "read_file": true, "lsp": true},
 			Instructions: "Trace code paths with evidence.",
 		},
 	})
@@ -184,7 +186,7 @@ func TestCompile_EmitsCatalogAndSubAgentRuntimeTools(t *testing.T) {
 		Name:  "Hakaree",
 		Model: "deepseek-v4-pro",
 		AgentCatalog: &model.AgentCatalog{
-			Tools:     model.JSON{"read_file": true, "grep": true},
+			Tools:     model.JSON{"bash": true, "read_file": true},
 			SubAgents: model.RawJSON(rawSubAgents),
 		},
 	}
@@ -193,14 +195,14 @@ func TestCompile_EmitsCatalogAndSubAgentRuntimeTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.read_file", "builtin.grep"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("parent runtime tools = %#v, want %#v", got, want)
 	}
 	subAgent := def.SubAgents["codebase-explorer"]
 	if subAgent == nil {
 		t.Fatalf("missing codebase-explorer subagent: %#v", def.SubAgents)
 	}
-	if got, want := runtimeToolTypes(subAgent.Tools), []string{"builtin.read_file", "builtin.multi_grep", "builtin.lsp"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(subAgent.Tools), []string{"builtin.bash", "builtin.read_file", "builtin.lsp"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("subagent runtime tools = %#v, want %#v", got, want)
 	}
 }
@@ -215,7 +217,7 @@ func TestCompile_LoadsCatalogRuntimeToolsByID(t *testing.T) {
 		ID:        uuid.New(),
 		Slug:      "runtime-tools-" + uuid.NewString(),
 		Name:      "Runtime Tools",
-		Tools:     model.JSON{"read_file": true, "multi_grep": true},
+		Tools:     model.JSON{"bash": true, "read_file": true},
 		SubAgents: model.RawJSON("{}"),
 		Manifest:  model.RawJSON("{}"),
 		Status:    model.AgentCatalogStatusActive,
@@ -252,7 +254,7 @@ func TestCompile_LoadsCatalogRuntimeToolsByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.read_file", "builtin.multi_grep"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime tools = %#v, want %#v", got, want)
 	}
 }
@@ -305,9 +307,9 @@ func TestCompile_IncludesCatalogSubAgents(t *testing.T) {
 	if def.Tools == nil || len(def.Tools) != 0 {
 		t.Fatalf("parent tools should be explicit empty tools: %#v", def.Tools)
 	}
-	// A sub-agent with no configured tools defaults to the read-only sandbox
-	// set instead of compiling tool-less (see buildSubAgentRuntimeTools).
-	wantDefault := []string{"builtin.read_file", "builtin.file_search", "builtin.glob", "builtin.grep"}
+	// A sub-agent with no configured tools defaults to read_file instead of
+	// compiling tool-less (see buildSubAgentRuntimeTools).
+	wantDefault := []string{"builtin.read_file"}
 	gotDefault := runtimeToolTypes(subAgent.Tools)
 	if len(gotDefault) != len(wantDefault) {
 		t.Fatalf("subagent default tools = %#v, want %#v", gotDefault, wantDefault)

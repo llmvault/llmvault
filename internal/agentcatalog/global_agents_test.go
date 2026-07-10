@@ -52,6 +52,6 @@ func TestGlobalKaraManifestRequiresDesignPlugin(t *testing.T) {
 		t.Fatalf("codebase brand extractor instructions should include the brand payload template")
 	}
 	assertManifestToolEnabled(t, extractor.Tools, "read_file")
-	assertManifestToolEnabled(t, extractor.Tools, "grep")
+	assertManifestToolEnabled(t, extractor.Tools, "bash")
 	assertManifestToolDisabled(t, extractor.Tools, "write_file")
 }

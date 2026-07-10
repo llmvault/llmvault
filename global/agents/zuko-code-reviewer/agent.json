@@ -20,13 +20,8 @@
   },
   "tools": {
     "bash": true,
-    "check_bash_status": true,
     "read_file": true,
     "write_file": true,
-    "file_search": true,
-    "glob": true,
-    "grep": true,
-    "multi_grep": true,
     "search_sessions": true,
     "update_plan": true,
     "subagent_task": true
@@ -38,13 +33,8 @@
       "model": "glm-5.2",
       "tools": {
         "bash": true,
-        "check_bash_status": true,
         "read_file": true,
         "write_file": true,
-        "file_search": true,
-        "glob": true,
-        "grep": true,
-        "multi_grep": true,
         "lsp": true,
         "search_sessions": true,
         "update_plan": true
@@ -62,13 +52,8 @@
       "model": "glm-5.2",
       "tools": {
         "bash": true,
-        "check_bash_status": true,
         "read_file": true,
         "write_file": true,
-        "file_search": true,
-        "glob": true,
-        "grep": true,
-        "multi_grep": true,
         "lsp": true,
         "search_sessions": true,
         "update_plan": true
@@ -86,13 +71,8 @@
       "model": "glm-5.2",
       "tools": {
         "bash": true,
-        "check_bash_status": true,
         "read_file": true,
         "write_file": true,
-        "file_search": true,
-        "glob": true,
-        "grep": true,
-        "multi_grep": true,
         "lsp": true,
         "search_sessions": true,
         "update_plan": true
@@ -110,13 +90,8 @@
       "model": "glm-5.2",
       "tools": {
         "bash": true,
-        "check_bash_status": true,
         "read_file": true,
         "write_file": true,
-        "file_search": true,
-        "glob": true,
-        "grep": true,
-        "multi_grep": true,
         "lsp": true,
         "search_sessions": true,
         "update_plan": true
@@ -134,13 +109,8 @@
       "model": "glm-5.2",
       "tools": {
         "bash": true,
-        "check_bash_status": true,
         "read_file": true,
         "write_file": true,
-        "file_search": true,
-        "glob": true,
-        "grep": true,
-        "multi_grep": true,
         "search_sessions": true,
         "update_plan": true
       },

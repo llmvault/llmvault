@@ -7,9 +7,7 @@ mod lsp;
 mod mutation_queue;
 mod operations;
 mod path;
-mod process_registry;
 mod read;
-mod search;
 mod truncate;
 mod write;
 
@@ -27,9 +25,7 @@ pub use apply_patch::ApplyPatchTool;
 pub use bash::BashTool;
 pub use edit::EditTool;
 pub use lsp::{LspService, LspTool};
-pub use process_registry::ProcessRegistry;
 pub use read::ReadTool;
-pub use search::{FileSearchTool, GlobTool, GrepTool, MultiGrepTool, SearchService};
 pub use write::WriteTool;
 
 #[async_trait::async_trait]
@@ -83,8 +79,6 @@ pub struct ToolBuildContext {
     pub fs: Arc<LocalFsOperations>,
     pub bash: Arc<LocalBashOperations>,
     pub runtime_env: Arc<HashMap<String, String>>,
-    pub process_registry: Arc<ProcessRegistry>,
-    pub search: SearchService,
     pub lsp: LspService,
     pub files_read: FileReadRegistry,
 }
@@ -96,8 +90,6 @@ impl ToolBuildContext {
             fs: Arc::new(LocalFsOperations),
             bash: Arc::new(LocalBashOperations),
             runtime_env: Arc::new(HashMap::new()),
-            process_registry: Arc::new(ProcessRegistry::new()),
-            search: SearchService::new(workspace_root.clone()),
             lsp: LspService::new(workspace_root.clone()),
             files_read: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -120,8 +112,6 @@ pub fn build_builtin_tools(
                         context.bash.clone(),
                         context.runtime_env.clone(),
                     )
-                    .with_process_registry(context.process_registry.clone())
-                    .with_session_id(session_id.as_str())
                     .into_tool(),
                 );
             }
@@ -134,7 +124,6 @@ pub fn build_builtin_tools(
                     )
                     .with_runtime_env(context.runtime_env.clone())
                     .with_files_read(context.files_read.clone())
-                    .with_search_service(context.search.clone())
                     .with_lsp_service(context.lsp.clone())
                     .with_session_id(session_id.as_str())
                     .into_tool(),
@@ -147,7 +136,6 @@ pub fn build_builtin_tools(
                         context.workspace_root.clone(),
                         context.fs.clone(),
                     )
-                    .with_search_service(context.search.clone())
                     .with_lsp_service(context.lsp.clone())
                     .into_tool(),
                 );
@@ -158,27 +146,13 @@ pub fn build_builtin_tools(
                         context.fs.clone(),
                     )
                     .with_files_read(context.files_read.clone())
-                    .with_search_service(context.search.clone())
                     .with_lsp_service(context.lsp.clone())
                     .into_tool(),
                 );
             }
-            ToolSpec::FileSearch(config) => {
-                tools.push(FileSearchTool::new(config.clone(), context.search.clone()).into_tool());
-            }
-            ToolSpec::Glob(config) => {
-                tools.push(GlobTool::new(config.clone(), context.search.clone()).into_tool());
-            }
-            ToolSpec::Grep(config) => {
-                tools.push(GrepTool::new(config.clone(), context.search.clone()).into_tool());
-            }
-            ToolSpec::MultiGrep(config) => {
-                tools.push(MultiGrepTool::new(config.clone(), context.search.clone()).into_tool());
-            }
             ToolSpec::ApplyPatch(config) => {
                 tools.push(
                     ApplyPatchTool::new(config.clone(), context.workspace_root.clone())
-                        .with_search_service(context.search.clone())
                         .with_lsp_service(context.lsp.clone())
                         .into_tool(),
                 );
@@ -194,7 +168,6 @@ pub fn build_builtin_tools(
                 );
             }
             ToolSpec::SubagentTask(_)
-            | ToolSpec::CheckBashStatus
             | ToolSpec::SearchSessions
             | ToolSpec::RequestUserInput
             | ToolSpec::UpdatePlan => {}

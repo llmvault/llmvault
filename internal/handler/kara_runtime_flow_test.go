@@ -109,9 +109,9 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	}
 	assertToolFilter(t, "image-generator", imageGenerator.McpToolFilter, imageToolsWithFloor, nil)
 	// image-generator configures no runtime tools; empty sub-agent selections
-	// now default to the read-only sandbox set instead of compiling tool-less.
-	if got := len(imageGenerator.Tools); got != 4 {
-		t.Fatalf("image-generator tools = %#v, want the 4-tool read-only default", imageGenerator.Tools)
+	// default to read_file instead of compiling tool-less.
+	if got := len(imageGenerator.Tools); got != 1 || imageGenerator.Tools[0]["type"] != "builtin.read_file" {
+		t.Fatalf("image-generator tools = %#v, want default read_file", imageGenerator.Tools)
 	}
 
 	designWorker := def.SubAgents["design-worker"]
