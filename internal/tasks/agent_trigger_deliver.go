@@ -70,12 +70,23 @@ func (h *AgentTriggerDispatchHandler) deliverToSession(ctx context.Context, payl
 			return err
 		}
 		h.enqueueStoreDelivery(ctx, payload, trigger, session, compiled, nil)
+		logging.FromContext(ctx).InfoContext(ctx, "agent trigger delivered to session",
+			"trigger_id", trigger.ID,
+			"agent_id", trigger.AgentID,
+			"session_id", session.ID,
+			"delivery_id", payload.DeliveryID,
+			"event_key", eventKey(payload.EventType, payload.EventAction),
+			"event_id", triggerSessionEventID(payload),
+			"trigger_keys", trigger.TriggerKeys,
+			"resource_key", compiled.ResourceKey)
 	} else {
 		logging.FromContext(ctx).InfoContext(ctx, "agent trigger already queued, re-triggering delivery",
 			"trigger_id", trigger.ID,
 			"agent_id", trigger.AgentID,
 			"delivery_id", payload.DeliveryID,
-			"event_key", eventKey(payload.EventType, payload.EventAction))
+			"event_key", eventKey(payload.EventType, payload.EventAction),
+			"event_id", triggerSessionEventID(payload),
+			"trigger_keys", trigger.TriggerKeys)
 	}
 
 	// Fire-and-forget: hand the message to the generic session delivery machinery,

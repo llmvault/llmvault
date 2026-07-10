@@ -129,7 +129,8 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 		}
 		if !proceed {
 			log.InfoContext(ctx, "github check suite not settled, waiting",
-				"repo", event.Repo, "head_sha", event.HeadSHA)
+				"repo", event.Repo, "head_sha", event.HeadSHA, "conclusion", event.Conclusion,
+				"stable_id", event.StableID)
 			return nil, nil
 		}
 		if event.HeadSHA != "" {
@@ -146,7 +147,8 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 		session, ok := h.lookupPRSession(ctx, payload.OrgID, event.Repo, prNumber)
 		if !ok {
 			log.InfoContext(ctx, "github pr event has no routable session",
-				"repo", event.Repo, "pr_number", prNumber, "event_key", key)
+				"repo", event.Repo, "pr_number", prNumber, "event_key", key,
+				"head_sha", event.HeadSHA, "event_id", eventID)
 			continue
 		}
 		compiled := compilePRRouteMessage(payload, event, prNumber)
@@ -169,7 +171,9 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 		}
 		routed[session.ID] = eventID
 		log.InfoContext(ctx, "github pr event routed to originating session",
-			"repo", event.Repo, "pr_number", prNumber, "event_key", key, "session_id", session.ID)
+			"repo", event.Repo, "pr_number", prNumber, "event_key", key, "session_id", session.ID,
+			"event_id", eventID, "head_sha", event.HeadSHA, "conclusion", event.Conclusion,
+			"author", event.Author, "guard_author", event.guardAuthor)
 	}
 	if len(routed) == 0 {
 		return nil, nil
