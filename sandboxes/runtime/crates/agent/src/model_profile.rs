@@ -249,12 +249,6 @@ pub fn sanitize_schema(value: Value, strict: bool) -> Value {
 fn sanitize_schema_inner(value: Value, root: &Value, strict: bool) -> Value {
     match value {
         Value::Object(mut map) => {
-            if let Some(reference) = map.get("$ref").and_then(Value::as_str) {
-                if let Some(resolved) = resolve_local_ref(root, reference) {
-                    return sanitize_schema_inner(resolved.clone(), root, strict);
-                }
-            }
-
             for key in [
                 "$schema",
                 "$id",
@@ -282,6 +276,14 @@ fn sanitize_schema_inner(value: Value, root: &Value, strict: bool) -> Value {
                             }
                         }
                     }
+                }
+            }
+
+            // A nullable schema can flatten from `anyOf: [$ref, null]` into a
+            // direct `$ref`, so resolve references only after that rewrite.
+            if let Some(reference) = map.get("$ref").and_then(Value::as_str) {
+                if let Some(resolved) = resolve_local_ref(root, reference) {
+                    return sanitize_schema_inner(resolved.clone(), root, strict);
                 }
             }
 
@@ -372,7 +374,7 @@ mod tests {
     }
 
     #[test]
-    fn sanitizes_nullable_and_ref_tool_schema() {
+    fn inlines_nullable_ref_tool_schema_after_flattening() {
         let schema = json!({
             "type": "object",
             "$defs": {
@@ -382,12 +384,24 @@ mod tests {
                     "examples": ["x"]
                 }
             },
+            "definitions": {
+                "grep_search_mode": {
+                    "type": "string",
+                    "enum": ["plain", "regex", "fuzzy", "auto"]
+                }
+            },
             "properties": {
                 "name": { "$ref": "#/$defs/item" },
                 "choice": {
                     "anyOf": [
                         {"type": "null"},
                         {"type": "string", "enum": ["a", "b"]}
+                    ]
+                },
+                "mode": {
+                    "anyOf": [
+                        {"$ref": "#/definitions/grep_search_mode"},
+                        {"type": "null"}
                     ]
                 }
             },
@@ -400,6 +414,12 @@ mod tests {
         assert_eq!(sanitized["properties"]["name"]["type"], "string");
         assert!(sanitized["properties"]["name"].get("default").is_none());
         assert_eq!(sanitized["properties"]["choice"]["type"], "string");
+        assert_eq!(sanitized["properties"]["mode"]["type"], "string");
+        assert_eq!(
+            sanitized["properties"]["mode"]["enum"],
+            json!(["plain", "regex", "fuzzy", "auto"])
+        );
+        assert!(sanitized["properties"]["mode"].get("$ref").is_none());
         assert_eq!(sanitized["additionalProperties"], false);
         assert_eq!(sanitized["required"][0], "name");
     }

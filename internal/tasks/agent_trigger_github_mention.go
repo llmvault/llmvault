@@ -23,11 +23,12 @@ const (
 var githubHandlePattern = regexp.MustCompile(`@([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)`)
 
 // githubReplyDirective is prepended to every message compiled from a GitHub
-// event. Replying on GitHub is a hard requirement — the agent must not end its
-// turn without responding on the issue/PR — and it must load the GitHub skill
-// if it is not already available to have the tools to do so.
+// event. The dispatch path has already acknowledged the mention with an eyes
+// reaction, so a comment needs a substantive reason rather than being a
+// compulsory receipt. Agents load the GitHub skill only when a GitHub write is
+// genuinely required.
 const githubReplyDirective = `<system_message>
-This event came from GitHub. You are required to respond on GitHub itself before ending your turn: either post a reply comment on the issue or pull request, or add an emoji reaction to the relevant comment. This is not optional. If the GitHub skill is not already loaded, load it first (the git-github skill) so you have the tools to reply.
+This event came from GitHub. An eyes reaction already acknowledges it. Do not post a GitHub comment for receipt, progress, CI status, repetition, or when you have nothing useful to add. Comment only to answer a direct human question, deliver an actionable finding, or state a necessary blocker or outcome. When a comment is necessary, write at most two short plain-language sentences; include technical detail only when it is needed to act. Load the git-github skill only when a GitHub write is required.
 </system_message>`
 
 func isGitHubMentionTrigger(provider string, trigger model.AgentTrigger) bool {

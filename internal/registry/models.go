@@ -18,6 +18,29 @@ var curatedProviders = []Provider{
 		Name: "Anthropic",
 		Doc:  "https://docs.anthropic.com/en/docs/about-claude/models",
 		Models: map[string]Model{
+			"claude-sonnet-5": {
+				ID:               "claude-sonnet-5",
+				Name:             "Claude Sonnet 5",
+				Family:           "claude-sonnet",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				ReleaseDate:      "2026-06-30",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image", "pdf"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:      2,
+					Output:     10,
+					CacheRead:  0.2,
+					CacheWrite: 2.5,
+				},
+				Limit: &Limit{
+					Context: 1000000,
+					Output:  128000,
+				},
+			},
 			"claude-opus-4-7": {
 				ID:          "claude-opus-4-7",
 				Name:        "Claude Opus 4.7",
@@ -2325,6 +2348,31 @@ var curatedProviders = []Provider{
 				Cost: &Cost{
 					Input:  3,
 					Output: 15,
+				},
+				Limit: &Limit{
+					Context: 1000000,
+					Output:  128000,
+				},
+			},
+			"anthropic/claude-sonnet-5": {
+				ID:               "anthropic/claude-sonnet-5",
+				Name:             "Claude Sonnet 5",
+				Family:           "claude-sonnet",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				Hidden:           true,
+				ReleaseDate:      "2026-06-30",
+				Description:      "Top-tier coding and agentic-workflow model.",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image", "pdf"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:      2,
+					Output:     10,
+					CacheRead:  0.2,
+					CacheWrite: 2.5,
 				},
 				Limit: &Limit{
 					Context: 1000000,

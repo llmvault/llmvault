@@ -5,6 +5,24 @@ import "testing"
 func TestResolveModel_ExplicitProviderRoutes(t *testing.T) {
 	reg := Global()
 
+	sonnet5Anthropic, ok := reg.ResolveModel("anthropic", "claude-sonnet-5")
+	if !ok {
+		t.Fatal("anthropic Sonnet 5 route not found")
+	}
+	if sonnet5Anthropic.UpstreamID != "claude-sonnet-5" {
+		t.Fatalf("anthropic Sonnet 5 upstream = %q, want claude-sonnet-5", sonnet5Anthropic.UpstreamID)
+	}
+	if sonnet5Anthropic.Model.ID != "claude-sonnet-5" {
+		t.Fatalf("Sonnet 5 canonical model id = %q", sonnet5Anthropic.Model.ID)
+	}
+	sonnet5OpenRouter, ok := reg.ResolveModel("openrouter", "claude-sonnet-5")
+	if !ok {
+		t.Fatal("OpenRouter Sonnet 5 route not found")
+	}
+	if sonnet5OpenRouter.UpstreamID != "anthropic/claude-sonnet-5" {
+		t.Fatalf("OpenRouter Sonnet 5 upstream = %q, want anthropic/claude-sonnet-5", sonnet5OpenRouter.UpstreamID)
+	}
+
 	anthropic, ok := reg.ResolveModel("anthropic", "claude-sonnet-4.6")
 	if !ok {
 		t.Fatal("anthropic route not found")

@@ -128,7 +128,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 		trace.Logf("assert", "fixture tool calls=%d", got)
 	}
 	proxy.assertUsed(t)
-	proxy.assertOpenWeightPayloads(t)
+	proxy.assertModelPayloads(t, agentRuntimeE2EModelProfile(agentRuntimeE2EModelID()))
 	controlPlane.waitForActivity(t)
 	controlPlane.assertAgentActivity(t)
 	controlPlane.waitForBatchActivity(t)

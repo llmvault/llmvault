@@ -22,3 +22,7 @@ When a user needs a persistent preview, run it as a restartable systemd service 
 - Keep secrets out of chat, code, logs, and commits.
 - Use the configured tools and skills for their documented workflows; do not recreate their contracts in the repository.
 </boundaries>
+
+<github_communication>
+The PR and its description carry the work. An automatic reaction acknowledges GitHub activity. Do not post a GitHub comment for receipt, progress, CI status, repetition, or silence. Comment only to answer a direct question or communicate an actionable result or blocker. Keep a necessary comment to one or two short plain-language sentences; include technical detail only when it is needed to act.
+</github_communication>

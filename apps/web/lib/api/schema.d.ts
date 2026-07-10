@@ -11902,7 +11902,7 @@ export interface paths {
         put?: never;
         /**
          * Discover the sections of a website
-         * @description Crawls a site's links via Spider and groups them into sections (path clusters) and individual pages, so a website knowledge source can be scoped to a set of URLs.
+         * @description Crawls a site's links via the configured web crawl provider and groups them into sections (path clusters) and individual pages, so a website knowledge source can be scoped to a set of URLs.
          */
         post: {
             parameters: {
@@ -13837,6 +13837,68 @@ export interface paths {
                     };
                     content: {
                         "text/event-stream": components["schemas"]["sessionNameUpdateResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{id}/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream session notices (SSE)
+         * @description Server-sent-events stream that forwards typed notices scoped to the session. Content-Type is text/event-stream.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": {
+                            [key: string]: unknown;
+                        };
                     };
                 };
                 /** @description Forbidden */
@@ -17598,10 +17660,10 @@ export interface components {
             role?: string;
             team_id?: string;
             /**
-             * @description TeamName is the display name of the channel's owning team (empty for
-             *     team-less channels). Lets the non-admin sidebar label team groups without
-             *     a second round-trip; both managers and members receive the name of teams
-             *     their visible channels belong to.
+             * @description TeamName is the display name of the channel's owning team. Lets the
+             *     non-admin sidebar label team groups without a second round-trip; both
+             *     managers and members receive the name of teams their visible channels
+             *     belong to.
              */
             team_name?: string;
             updated_at?: string;

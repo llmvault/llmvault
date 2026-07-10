@@ -9,6 +9,10 @@ Hivy supplies short-lived GitHub App authentication for `gh` and git. Never run 
 
 GitHub comments, reviews, and check events are delivered to this session. Act on the event and end the turn; do not poll for later activity unless the user explicitly asks.
 
+## GitHub communication
+
+An automatic reaction is enough acknowledgement. Do not add a comment for receipt, progress, CI status, repetition, or silence. Comment only to answer a direct question or communicate an actionable result or blocker. Keep a necessary comment to one or two short plain-language sentences; include technical detail only when it is needed to act.
+
 ## Before changing a repository
 
 Read `AGENTS.md`, contribution guidance, the PR template, existing tests, and recent commits/branches. Match the repository's branch, commit, PR, and label conventions rather than inventing one. Stage intended paths and inspect the diff before committing; never bypass a failed hook without user approval or force-push a shared/default branch.
@@ -19,7 +23,7 @@ Read `AGENTS.md`, contribution guidance, the PR template, existing tests, and re
 2. Make and verify the requested change.
 3. Commit and push the intended files.
 4. Read the PR template and create the PR non-interactively with its required sections, summary, and verification evidence.
-5. Respond to delivered feedback on GitHub, then end the turn.
+5. Answer delivered feedback only when it needs a substantive response, then end the turn.
 
 ```bash
 git fetch origin

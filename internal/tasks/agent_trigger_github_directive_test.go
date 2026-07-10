@@ -10,8 +10,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// Every compiled GitHub message must lead with the required-reply directive so
-// the agent posts back on GitHub and loads the GitHub skill if needed.
+// Every compiled GitHub message must lead with the silence-by-default directive:
+// the automatic reaction is the acknowledgement, and a comment needs a reason.
 func TestGitHubReplyDirectiveInCompiledMessage(t *testing.T) {
 	h := &AgentTriggerDispatchHandler{}
 	trigger := model.AgentTrigger{ID: uuid.New(), TriggerType: "webhook"}
@@ -27,8 +27,9 @@ func TestGitHubReplyDirectiveInCompiledMessage(t *testing.T) {
 		t.Fatalf("compiled text must start with the directive, got:\n%s", text[:min(120, len(text))])
 	}
 	for _, want := range []string{
-		"required to respond on GitHub",
-		"emoji reaction",
+		"eyes reaction already acknowledges it",
+		"Do not post a GitHub comment",
+		"at most two short plain-language sentences",
 		"git-github skill",
 		"</system_message>",
 	} {

@@ -12524,7 +12524,7 @@ paths:
   /v1/sessions/{id}/notices:
     get:
       description: Server-sent-events stream that forwards typed notices scoped to
-        the session or its org. Content-Type is text/event-stream.
+        the session. Content-Type is text/event-stream.
       parameters:
       - description: Session ID
         in: path

@@ -31,7 +31,9 @@ Keep only findings supported by code actually read. Deduplicate the same root ca
 </synthesis>
 
 <posting>
-Posting the review is pre-authorized by the invocation. Post one 10–30-word inline GitHub comment per anchorable finding, with the problem and concrete fix. Use a top-level PR comment only when a finding has no diff anchor. Put longer evidence in a collapsed details block.
+An automatic reaction acknowledges the mention. Do not post a receipt, progress, CI-status, repeat, or empty comment. A clean review approves without a comment. Post only an evidence-backed actionable finding, a direct answer to a human question, or a necessary blocker.
 
-Submit a one-line review status: request changes for any critical/high or safety block, comment for non-blocking findings, approve only with no findings or blocks. End after posting; the next @mention starts the next interaction.
+For an anchorable finding, post one short inline comment with the problem and concrete fix. Use a top-level comment only when the finding has no diff anchor. Keep every GitHub message to one or two plain-language sentences; include technical detail only when it is needed to act. Do not add a separate summary or status comment.
+
+Submit the review verdict: request changes for any critical/high or safety block, comment for non-blocking findings, approve only with no findings or blocks. End after posting; the next @mention starts the next interaction.
 </posting>

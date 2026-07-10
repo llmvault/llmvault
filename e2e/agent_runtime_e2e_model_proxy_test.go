@@ -85,18 +85,20 @@ func (p *agentRuntimeModelProxy) assertUsed(t *testing.T) {
 	p.trace.Logf("assert", "model proxy calls=%d", calls)
 }
 
-func (p *agentRuntimeModelProxy) assertOpenWeightPayloads(t *testing.T) {
+func (p *agentRuntimeModelProxy) assertModelPayloads(t *testing.T, modelProfile string) {
 	t.Helper()
 	bodies := p.capturedBodies()
 	if len(bodies) == 0 {
 		t.Fatal("no model proxy payloads captured")
 	}
 	for i, body := range bodies {
-		if _, ok := body["reasoning_effort"]; ok {
-			t.Fatalf("payload %d forwarded generic reasoning_effort: %#v", i, body["reasoning_effort"])
-		}
-		if _, ok := body["parallel_tool_calls"]; ok {
-			t.Fatalf("payload %d forwarded parallel_tool_calls for open-weight profile: %#v", i, body["parallel_tool_calls"])
+		if modelProfile != "openrouter_compatible" {
+			if _, ok := body["reasoning_effort"]; ok {
+				t.Fatalf("payload %d forwarded generic reasoning_effort: %#v", i, body["reasoning_effort"])
+			}
+			if _, ok := body["parallel_tool_calls"]; ok {
+				t.Fatalf("payload %d forwarded parallel_tool_calls for %s profile: %#v", i, modelProfile, body["parallel_tool_calls"])
+			}
 		}
 		assertNoUnsupportedToolSchemaKeywords(t, body, i)
 	}

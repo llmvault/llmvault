@@ -29,6 +29,13 @@ var coreHivyModels = []HivyModel{
 		},
 	},
 	{
+		ID: "claude-sonnet-5",
+		Routes: []ModelRoute{
+			{ProviderID: "anthropic", ModelID: "claude-sonnet-5"},
+			{ProviderID: "openrouter", ModelID: "anthropic/claude-sonnet-5"},
+		},
+	},
+	{
 		ID: "claude-sonnet-4.6",
 		Routes: []ModelRoute{
 			{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},

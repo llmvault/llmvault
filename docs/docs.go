@@ -11578,7 +11578,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Server-sent-events stream that forwards typed notices scoped to the session or its org. Content-Type is text/event-stream.",
+                "description": "Server-sent-events stream that forwards typed notices scoped to the session. Content-Type is text/event-stream.",
                 "produces": [
                     "text/event-stream"
                 ],

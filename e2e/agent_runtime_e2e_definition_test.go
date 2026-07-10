@@ -23,22 +23,8 @@ type agentRuntimeE2ESubagentManifest struct {
 func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtureURL, proxyURL, controlPlaneURL, sandboxID string) map[string]any {
 	t.Helper()
 	hakaree := loadAgentRuntimeE2EHakareeManifest(t)
-	modelID := strings.TrimSpace(os.Getenv("HIVY_AGENT_RUNTIME_E2E_MODEL"))
-	if modelID == "" {
-		modelID = "deepseek/deepseek-v4-flash"
-	}
-	modelProfile := "deepseek"
-	if strings.Contains(modelID, "glm") || strings.Contains(modelID, "z-ai") {
-		modelProfile = "glm"
-	} else if strings.Contains(modelID, "kimi") || strings.Contains(modelID, "moonshot") {
-		modelProfile = "kimi"
-	} else if strings.Contains(modelID, "minimax") {
-		modelProfile = "minimax"
-	} else if strings.Contains(modelID, "mimo") {
-		modelProfile = "mimo"
-	} else if strings.Contains(modelID, "qwen") {
-		modelProfile = "qwen"
-	}
+	modelID := agentRuntimeE2EModelID()
+	modelProfile := agentRuntimeE2EModelProfile(modelID)
 	var canonicalModelID string
 	if idx := strings.LastIndex(modelID, "/"); idx >= 0 && idx+1 < len(modelID) {
 		canonicalModelID = modelID[idx+1:]
@@ -62,6 +48,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 		"api_key_env":       "HIVY_PROXY_API_KEY",
 		"temperature":       0,
 		"max_output_tokens": 4096,
+		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
 			"HTTP-Referer": "https://usehivy.test",
 			"X-Title":      "Hivy",
@@ -120,6 +107,53 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 	}
 	trace.Logf("definition", "agent=%s tools=%d sub_agents=%d outbound_channels=%d", hakaree.Name, len(agentRuntimeE2ETools()), len(agentRuntimeE2EHakareeSubagents), 1)
 	return definition
+}
+
+func agentRuntimeE2EModelProfile(modelID string) string {
+	modelID = strings.ToLower(modelID)
+	switch {
+	case strings.Contains(modelID, "deepseek"):
+		return "deepseek"
+	case strings.Contains(modelID, "glm"), strings.Contains(modelID, "z-ai"):
+		return "glm"
+	case strings.Contains(modelID, "kimi"), strings.Contains(modelID, "moonshot"):
+		return "kimi"
+	case strings.Contains(modelID, "minimax"):
+		return "minimax"
+	case strings.Contains(modelID, "mimo"):
+		return "mimo"
+	case strings.Contains(modelID, "qwen"):
+		return "qwen"
+	default:
+		return "openrouter_compatible"
+	}
+}
+
+func agentRuntimeE2EModelID() string {
+	modelID := strings.TrimSpace(os.Getenv("HIVY_AGENT_RUNTIME_E2E_MODEL"))
+	if modelID == "" {
+		return "deepseek/deepseek-v4-flash"
+	}
+	return modelID
+}
+
+func TestAgentRuntimeE2EModelProfile(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		modelID string
+		want    string
+	}{
+		{modelID: "deepseek/deepseek-v4-flash", want: "deepseek"},
+		{modelID: "z-ai/glm-5", want: "glm"},
+		{modelID: "anthropic/claude-sonnet-5", want: "openrouter_compatible"},
+		{modelID: "x-ai/grok-4.5", want: "openrouter_compatible"},
+	} {
+		t.Run(test.modelID, func(t *testing.T) {
+			if got := agentRuntimeE2EModelProfile(test.modelID); got != test.want {
+				t.Fatalf("agentRuntimeE2EModelProfile(%q) = %q, want %q", test.modelID, got, test.want)
+			}
+		})
+	}
 }
 
 func loadAgentRuntimeE2EHakareeManifest(t *testing.T) agentRuntimeE2EAgentManifest {
