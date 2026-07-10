@@ -89,6 +89,82 @@ async fn fff_search_tools_cover_paths_content_and_multi_pattern_search() {
 }
 
 #[tokio::test]
+async fn glob_anchors_pattern_to_path_scope() {
+    // Repo nested under the workspace root — the prod scenario where a `path`
+    // scope plus a repo-relative pattern returned zero matches.
+    let dir = temp_dir("hivy-glob-scope");
+    std::fs::create_dir_all(dir.join("repos/hivy/internal/rag/embedclient")).unwrap();
+    std::fs::write(dir.join("repos/hivy/AGENTS.md"), "x\n").unwrap();
+    std::fs::write(
+        dir.join("repos/hivy/internal/rag/embedclient/embedder.go"),
+        "package embedclient\n",
+    )
+    .unwrap();
+    // Canonicalize so the workspace root matches how the picker reports paths
+    // (macOS /var -> /private/var); mirrors a real sandbox workspace path.
+    let dir = std::fs::canonicalize(&dir).unwrap();
+
+    let service = SearchService::new(dir.clone());
+    let config = SearchConfig {
+        max_results: 20,
+        timeout_seconds: 5,
+        ..Default::default()
+    };
+    // Warm the FFF picker before globbing, matching the other search test.
+    let file_search = FileSearchTool::new(config.clone(), service.clone());
+    file_search
+        .call(json!({"query": "embedder.go"}))
+        .await
+        .expect("file_search should succeed");
+    let glob = GlobTool::new(config, service);
+
+    // Repo-relative pattern under a `path` scope now resolves.
+    let scoped_rel = glob
+        .call(json!({"path": "repos/hivy", "pattern": "internal/rag/embedclient/*.go"}))
+        .await
+        .expect("glob should succeed");
+    assert!(
+        contains_relative_path(&scoped_rel, "repos/hivy/internal/rag/embedclient/embedder.go"),
+        "{scoped_rel}"
+    );
+
+    // Absolute `path` scope, top-level pattern (the exact prod call shape).
+    let scoped_abs = glob
+        .call(
+            json!({"path": dir.join("repos/hivy").display().to_string(), "pattern": "AGENTS.md"}),
+        )
+        .await
+        .expect("glob should succeed");
+    assert!(
+        contains_relative_path(&scoped_abs, "repos/hivy/AGENTS.md"),
+        "{scoped_abs}"
+    );
+
+    // A weaker model that already prefixes the pattern with the scope must not be
+    // double-anchored.
+    let already_prefixed = glob
+        .call(json!({"path": "repos/hivy", "pattern": "repos/hivy/AGENTS.md"}))
+        .await
+        .expect("glob should succeed");
+    assert!(
+        contains_relative_path(&already_prefixed, "repos/hivy/AGENTS.md"),
+        "{already_prefixed}"
+    );
+
+    // No scope: the pattern stays workspace-relative (unchanged behavior).
+    let no_scope = glob
+        .call(json!({"pattern": "repos/hivy/internal/rag/embedclient/*.go"}))
+        .await
+        .expect("glob should succeed");
+    assert!(
+        contains_relative_path(&no_scope, "repos/hivy/internal/rag/embedclient/embedder.go"),
+        "{no_scope}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
 async fn apply_patch_updates_adds_and_deletes_files() {
     let dir = temp_dir("hivy-apply-patch");
     std::fs::create_dir_all(&dir).unwrap();

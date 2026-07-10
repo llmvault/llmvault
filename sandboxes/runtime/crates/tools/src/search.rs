@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -416,12 +417,31 @@ impl GlobTool {
             resolve_optional_scope(&state.workspace_root, parsed.path.as_deref(), &self.config)?;
         let deny_globs = build_glob_set(&self.config.deny_globs);
 
+        // The picker matches the pattern against full workspace-relative paths.
+        // When a `path` scope is given, models write the pattern relative to that
+        // scope, so anchor it to the scope prefix; otherwise a repo-relative
+        // pattern never matches when the repo is nested under the workspace (e.g.
+        // repos/<name>/). Left as-is when the model already prefixed the pattern
+        // with the scope, so anchoring never double-prefixes.
+        let effective_pattern = match scoped_prefix.as_deref() {
+            Some(prefix) if !prefix.is_empty() => {
+                let prefix = prefix.trim_end_matches('/');
+                let relative = pattern.trim_start_matches("./");
+                if relative == prefix || relative.starts_with(&format!("{prefix}/")) {
+                    Cow::Borrowed(pattern)
+                } else {
+                    Cow::Owned(format!("{prefix}/{relative}"))
+                }
+            }
+            _ => Cow::Borrowed(pattern),
+        };
+
         let guard = state.shared_picker.read()?;
         let picker = guard
             .as_ref()
             .ok_or_else(|| anyhow!("fff picker is not initialized"))?;
         let result = picker.glob(
-            pattern,
+            &effective_pattern,
             FuzzySearchOptions {
                 max_threads: 0,
                 current_file: None,
