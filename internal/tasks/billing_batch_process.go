@@ -52,6 +52,7 @@ type unbilledRow struct {
 	CachedTokens    int64
 	ReasoningTokens int64
 	Cost            float64
+	CostSource      string
 	BillingAttempts int
 }
 
@@ -142,6 +143,7 @@ func selectUnbilledBatch(tx *gorm.DB, limit int) ([]unbilledRow, error) {
 		       a.model AS agent_model,
 		       g.input_tokens, g.output_tokens,
 		       g.cached_tokens, g.reasoning_tokens, g.cost,
+		       g.billing_cost_source AS cost_source,
 		       g.billing_attempts
 		FROM generations AS g
 		LEFT JOIN tokens AS t ON t.jti = g.token_jti
@@ -196,7 +198,11 @@ func computeRows(rows []unbilledRow) map[string]rowBillingResult {
 
 func rowCostUSD(r unbilledRow) (float64, string, error) {
 	if r.Cost > 0 {
-		return r.Cost, billing.CostSourceProvider, nil
+		source := r.CostSource
+		if source == "" {
+			source = billing.CostSourceRegistry
+		}
+		return r.Cost, source, nil
 	}
 	modelName := r.Model
 	if modelName == "" && r.AgentModel != nil {

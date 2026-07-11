@@ -13,10 +13,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// snapshotCatalogInstructions freezes a catalog's template prompt for storage on
-// a cloned agent's InstructionsSnapshot. Empty/whitespace-only
-// instructions snapshot as nil so effectiveAgentInstructions falls through to
-// the live catalog rather than pinning a blank prompt.
+// snapshotCatalogInstructions stores a fallback copy of the current catalog
+// prompt. Clones with nil Instructions still prefer the live catalog prompt.
 func snapshotCatalogInstructions(instructions string) *string {
 	trimmed := strings.TrimSpace(instructions)
 	if trimmed == "" {

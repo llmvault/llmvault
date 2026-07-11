@@ -131,6 +131,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	if deps.Enqueuer != nil {
 		mux.HandleFunc(TypeSessionReflectionScan, NewSessionReflectionScanHandler(deps.DB, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeMemoryConsolidationSweep, NewMemoryConsolidationSweepHandler(deps.DB, deps.Enqueuer).Handle)
+		mux.HandleFunc(TypeSessionReviewBatchFlush, NewSessionReviewBatchFlushHandler(deps.DB, deps.Enqueuer).Handle)
 	}
 
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {

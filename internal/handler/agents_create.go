@@ -162,8 +162,8 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID, teamID uuid.UUID
 		Permissions:            model.JSON{},
 	}
 	if hasCatalog {
-		// Freeze the catalog template prompt at creation so a later
-		// catalog edit/archive cannot silently rewrite or blank this Hivy clone.
+		// Seed a fallback snapshot; nil Instructions keeps the live catalog prompt
+		// authoritative until the user provides a prompt override.
 		agent.InstructionsSnapshot = snapshotCatalogInstructions(catalog.Instructions)
 	}
 	agent.Name = name

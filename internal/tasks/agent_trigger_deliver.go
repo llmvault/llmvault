@@ -61,6 +61,22 @@ func (h *AgentTriggerDispatchHandler) deliverToSession(ctx context.Context, payl
 		captureTriggerDispatchBoundary(ctx, "claim_trigger_delivery", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
 		return err
 	}
+	if eventKey(payload.EventType, payload.EventAction) == "pull_request_review.submitted" {
+		if !claimed {
+			logging.FromContext(ctx).InfoContext(ctx, "agent trigger review already batched",
+				"trigger_id", trigger.ID,
+				"agent_id", trigger.AgentID,
+				"delivery_id", payload.DeliveryID)
+			return nil
+		}
+		queueID, err := h.enqueueGitHubReviewBatch(ctx, session, compiled, triggerSessionEventID(payload), "github:pull_request_review.submitted:"+compiled.ResourceKey)
+		if err != nil {
+			h.releaseTriggerDeliveryClaim(ctx, trigger.ID, payload.DeliveryID)
+			return err
+		}
+		h.enqueueStoreDelivery(ctx, payload, trigger, session, compiled, nil)
+		return EnqueueSessionReviewBatchFlush(ctx, h.enqueuer, queueID)
+	}
 	if claimed {
 		if _, err := h.enqueueTriggerSessionMessage(ctx, session, compiled, triggerSessionEventID(payload), triggerConversationSource); err != nil {
 			// The message row was not created, so roll back the claim and let the
@@ -202,6 +218,11 @@ func (h *AgentTriggerDispatchHandler) enqueueTriggerSessionMessage(ctx context.C
 // of user.message.received, so no duplicate can appear. On conflict with
 // idx_session_events_idem the existing row is returned.
 func ensureAutomatedSessionEvent(tx *gorm.DB, session model.Session, eventID, source string, payload model.JSON) (model.SessionEvent, error) {
+	event, _, err := ensureAutomatedSessionEventCreated(tx, session, eventID, source, payload)
+	return event, err
+}
+
+func ensureAutomatedSessionEventCreated(tx *gorm.DB, session model.Session, eventID, source string, payload model.JSON) (model.SessionEvent, bool, error) {
 	event := model.SessionEvent{
 		OrgID:            session.OrgID,
 		SessionID:        session.ID,
@@ -218,15 +239,15 @@ func ensureAutomatedSessionEvent(tx *gorm.DB, session model.Session, eventID, so
 	}
 	result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&event)
 	if result.Error != nil {
-		return model.SessionEvent{}, fmt.Errorf("create automated session event: %w", result.Error)
+		return model.SessionEvent{}, false, fmt.Errorf("create automated session event: %w", result.Error)
 	}
 	if result.RowsAffected == 1 {
-		return event, nil
+		return event, true, nil
 	}
 	if err := tx.Where("session_id = ? AND event_id = ?", session.ID, eventID).First(&event).Error; err != nil {
-		return model.SessionEvent{}, fmt.Errorf("load automated session event: %w", err)
+		return model.SessionEvent{}, false, fmt.Errorf("load automated session event: %w", err)
 	}
-	return event, nil
+	return event, false, nil
 }
 
 // claimTriggerDelivery inserts the (trigger_id, delivery_id) row before posting

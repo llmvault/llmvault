@@ -123,11 +123,8 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	desc := catalog.Description
 	avatarURL := catalog.AvatarURL
 	catalogID := catalog.ID
-	// Instructions is intentionally left nil on the clone (a later user edit that
-	// sets it forks the clone). InstructionsSnapshot freezes the catalog template
-	// prompt at install: an un-forked clone resolves its prompt
-	// from this snapshot, so a subsequent catalog rename/edit/archive cannot
-	// silently rewrite or blank it.
+	// Instructions is intentionally nil so the clone inherits the live catalog
+	// prompt. InstructionsSnapshot is only a fallback if the catalog disappears.
 	promptSnapshot := snapshotCatalogInstructions(catalog.Instructions)
 	agent := model.Agent{
 		OrgID:                  &orgID,

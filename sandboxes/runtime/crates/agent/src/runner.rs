@@ -185,7 +185,8 @@ impl AgentRunner for RigAgentRunner {
         let event_repo_for_tools = self.event_repo.clone();
         let mcp_registry = self.mcp_registry.clone();
 
-        let tool_specs = effective_tool_specs(&snapshot, is_subagent_definition);
+        let tool_specs =
+            effective_tool_specs(&snapshot, is_subagent_definition, actor_user_id.is_some());
         let mut available_tools = build_all_tools(
             &tool_specs,
             session_id,
@@ -1329,7 +1330,7 @@ mod tests {
         let mut definition = test_definition();
         definition.tools = None;
 
-        let specs = effective_tool_specs(&definition, false);
+        let specs = effective_tool_specs(&definition, false, true);
 
         for kind in [
             "bash",
@@ -1349,7 +1350,7 @@ mod tests {
         let mut definition = test_definition();
         definition.tools = None;
 
-        let specs = effective_tool_specs(&definition, true);
+        let specs = effective_tool_specs(&definition, true, false);
 
         for kind in [
             "bash",
@@ -1375,7 +1376,7 @@ mod tests {
             ToolSpec::UpdatePlan,
         ]);
 
-        let specs = effective_tool_specs(&definition, true);
+        let specs = effective_tool_specs(&definition, true, false);
 
         assert!(has_tool(&specs, "search_sessions"));
         assert!(has_tool(&specs, "update_plan"));
@@ -1388,9 +1389,25 @@ mod tests {
     fn explicit_empty_tools_remain_empty() {
         let definition = test_definition();
 
-        let specs = effective_tool_specs(&definition, false);
+        let specs = effective_tool_specs(&definition, false, true);
 
         assert!(specs.is_empty());
+    }
+
+    #[test]
+    fn automated_parent_turns_cannot_request_user_input() {
+        let mut definition = test_definition();
+        definition.tools = Some(vec![
+            ToolSpec::RequestUserInput,
+            ToolSpec::SearchSessions,
+            ToolSpec::UpdatePlan,
+        ]);
+
+        let specs = effective_tool_specs(&definition, false, false);
+
+        assert!(!has_tool(&specs, "request_user_input"));
+        assert!(has_tool(&specs, "search_sessions"));
+        assert!(has_tool(&specs, "update_plan"));
     }
 
     #[test]
@@ -2463,7 +2480,11 @@ fn build_all_tools(
     tools
 }
 
-fn effective_tool_specs(snapshot: &AgentDefinition, is_subagent_definition: bool) -> Vec<ToolSpec> {
+fn effective_tool_specs(
+    snapshot: &AgentDefinition,
+    is_subagent_definition: bool,
+    has_human_actor: bool,
+) -> Vec<ToolSpec> {
     let specs = match snapshot.tools.as_ref() {
         Some(tools) => tools.clone(),
         None if is_subagent_definition => default_subagent_builtin_tool_specs(),
@@ -2474,6 +2495,13 @@ fn effective_tool_specs(snapshot: &AgentDefinition, is_subagent_definition: bool
         return specs
             .into_iter()
             .filter(|spec| !matches!(spec, ToolSpec::SubagentTask(_) | ToolSpec::RequestUserInput))
+            .collect();
+    }
+
+    if !has_human_actor {
+        return specs
+            .into_iter()
+            .filter(|spec| !matches!(spec, ToolSpec::RequestUserInput))
             .collect();
     }
 

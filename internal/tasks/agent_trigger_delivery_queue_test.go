@@ -183,3 +183,38 @@ func TestTriggerDeliveryQueuesWhileTurnActive(t *testing.T) {
 		t.Fatalf("queued = %d, want 1", queued)
 	}
 }
+
+func TestTriggerDeliveryBatchesSubmittedReviews(t *testing.T) {
+	db := connectTestDB(t)
+	org, agent, _ := seedTriggerSessionFixture(t, db)
+	queueChannel := seedTriggerChannel(t, db, org.ID, agent.ID, "review-batch")
+	trigger := seedTriggerForSession(t, db, org.ID, agent.ID, &queueChannel.ID)
+	enq := &fakeTaskEnqueuer{}
+	handler := &AgentTriggerDispatchHandler{db: db, enqueuer: enq}
+	ctx := context.Background()
+	resourceKey := "github/acme/repo/pull/42"
+
+	for _, deliveryID := range []string{"conn:github:pull_request_review.submitted:1", "conn:github:pull_request_review.submitted:2"} {
+		payload := triggerDispatchPayload(deliveryID)
+		payload.OrgID = org.ID
+		payload.EventType = "pull_request_review"
+		payload.EventAction = "submitted"
+		if err := handler.deliverCompiled(ctx, payload, trigger, agent, compiledMessage(resourceKey, "review "+deliveryID)); err != nil {
+			t.Fatalf("deliver review %s: %v", deliveryID, err)
+		}
+	}
+
+	var queued []model.SessionMessageQueue
+	if err := db.Where("org_id = ?", org.ID).Find(&queued).Error; err != nil {
+		t.Fatalf("load review queue: %v", err)
+	}
+	if len(queued) != 1 || queued[0].Status != reviewBatchBufferingStatus {
+		t.Fatalf("review queue = %#v, want one buffering row", queued)
+	}
+	if n := countTasksOfType(enq, TypeSessionMessageDeliver); n != 0 {
+		t.Fatalf("review delivered before debounce: %d", n)
+	}
+	if n := countTasksOfType(enq, TypeSessionReviewBatchFlush); n != 2 {
+		t.Fatalf("review flush tasks = %d, want 2 idempotent timers", n)
+	}
+}

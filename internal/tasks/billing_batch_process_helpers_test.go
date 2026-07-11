@@ -41,6 +41,7 @@ type genOpts struct {
 	OutputTokens int
 	CachedTokens int
 	Cost         float64
+	CostSource   string
 	TokenJTI     string
 }
 
@@ -52,6 +53,7 @@ func defaultGenOpts() genOpts {
 		InputTokens:  testInputTokens,
 		OutputTokens: testOutputTokens,
 		Cost:         testCostPerGen,
+		CostSource:   billing.CostSourceProvider,
 	}
 }
 
@@ -66,18 +68,19 @@ func insertGeneration(t *testing.T, db *gorm.DB, orgID uuid.UUID, credID uuid.UU
 		opts.TokenJTI = uuid.NewString()
 	}
 	if err := db.Create(&model.Generation{
-		ID:           id,
-		OrgID:        orgID,
-		CredentialID: credID,
-		TokenJTI:     opts.TokenJTI,
-		ProviderID:   opts.ProviderID,
-		Model:        opts.Model,
-		IsSystem:     opts.IsSystem,
-		InputTokens:  opts.InputTokens,
-		OutputTokens: opts.OutputTokens,
-		CachedTokens: opts.CachedTokens,
-		Cost:         opts.Cost,
-		CreatedAt:    time.Now().UTC(),
+		ID:                id,
+		OrgID:             orgID,
+		CredentialID:      credID,
+		TokenJTI:          opts.TokenJTI,
+		ProviderID:        opts.ProviderID,
+		Model:             opts.Model,
+		IsSystem:          opts.IsSystem,
+		InputTokens:       opts.InputTokens,
+		OutputTokens:      opts.OutputTokens,
+		CachedTokens:      opts.CachedTokens,
+		Cost:              opts.Cost,
+		BillingCostSource: opts.CostSource,
+		CreatedAt:         time.Now().UTC(),
 	}).Error; err != nil {
 		t.Fatalf("insert generation: %v", err)
 	}

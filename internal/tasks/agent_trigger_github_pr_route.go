@@ -152,12 +152,24 @@ func (h *AgentTriggerDispatchHandler) maybeRoutePREvent(ctx context.Context, pay
 			continue
 		}
 		compiled := compilePRRouteMessage(payload, event, prNumber)
-		created, err := h.enqueueTriggerSessionMessage(ctx, session, compiled, eventID, triggerConversationSource)
-		if err != nil {
-			return routed, err
-		}
-		if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, session.ID); err != nil {
-			return routed, err
+		created := false
+		if key == "pull_request_review.submitted" {
+			queueID, err := h.enqueueGitHubReviewBatch(ctx, session, compiled, eventID, githubReviewBatchKey(event.Repo, prNumber))
+			if err != nil {
+				return routed, err
+			}
+			if err := EnqueueSessionReviewBatchFlush(ctx, h.enqueuer, queueID); err != nil {
+				return routed, err
+			}
+		} else {
+			var err error
+			created, err = h.enqueueTriggerSessionMessage(ctx, session, compiled, eventID, triggerConversationSource)
+			if err != nil {
+				return routed, err
+			}
+			if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, session.ID); err != nil {
+				return routed, err
+			}
 		}
 		// Acknowledge with an eyes reaction only when this dispatch task actually
 		// enqueued the message. The same event arrives via both installed GitHub

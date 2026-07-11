@@ -35,11 +35,8 @@ type Agent struct {
 	SandboxTemplate   *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 
 	Instructions *string `gorm:"type:text"`
-	// InstructionsSnapshot is the catalog template prompt frozen at clone/install
-	// time. An un-forked clone resolves its system prompt from this
-	// snapshot, NOT the live catalog, so a later catalog rename/edit/archive can
-	// no longer silently rewrite or blank a live clone's prompt. Nil only for
-	// non-catalog agents and legacy rows the 000089 backfill could not fill.
+	// InstructionsSnapshot is a fallback copy of the catalog prompt. An unedited
+	// clone prefers the live catalog; a user-authored Instructions value wins.
 	InstructionsSnapshot *string `gorm:"column:instructions_snapshot;type:text"`
 	Model                string  `gorm:"not null"`
 	// DefaultReasoningEffort seeds new sessions (low|medium|high) when the caller

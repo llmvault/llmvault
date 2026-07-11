@@ -35,9 +35,8 @@ func TestEffectiveAgentInstructions_ClonesTrackCatalogUntilForked(t *testing.T) 
 	catalogID := catalog.ID
 	// Unedited clone: Instructions is nil, AgentCatalog association not preloaded,
 	// so it must fall back to loading the catalog's live instructions from the DB.
-	clone := &model.Agent{
-		AgentCatalogID: &catalogID,
-	}
+	oldSnapshot := "Old catalog instructions."
+	clone := &model.Agent{AgentCatalogID: &catalogID, InstructionsSnapshot: &oldSnapshot}
 	if got := effectiveAgentInstructions(ctx, db, clone); got != "Catalog live instructions." {
 		t.Fatalf("unedited clone instructions = %q, want catalog live", got)
 	}
@@ -51,10 +50,9 @@ func TestEffectiveAgentInstructions_ClonesTrackCatalogUntilForked(t *testing.T) 
 	}
 }
 
-// TestEffectiveAgentInstructions_SnapshotPinnedOverLiveCatalog verifies that a
-// clone with an InstructionsSnapshot resolves to the snapshot, NOT the live
-// catalog, so a catalog edit/rename/archive cannot rewrite or blank it.
-func TestEffectiveAgentInstructions_SnapshotPinnedOverLiveCatalog(t *testing.T) {
+// TestEffectiveAgentInstructions_UserOverrideWinsOverLiveCatalog verifies that
+// a non-nil Instructions field is the per-field prompt override.
+func TestEffectiveAgentInstructions_UserOverrideWinsOverLiveCatalog(t *testing.T) {
 	db := connectCompileTestDB(t)
 	ctx := context.Background()
 
@@ -74,23 +72,12 @@ func TestEffectiveAgentInstructions_SnapshotPinnedOverLiveCatalog(t *testing.T) 
 	t.Cleanup(func() { db.Where("id = ?", catalog.ID).Delete(&model.AgentCatalog{}) })
 
 	catalogID := catalog.ID
-	snapshot := "Frozen template prompt from install time."
+	override := "My own instructions."
 	clone := &model.Agent{
-		AgentCatalogID:       &catalogID,
-		InstructionsSnapshot: &snapshot,
+		AgentCatalogID: &catalogID,
+		Instructions:   &override,
 	}
-	// The snapshot wins over the (now-different) live catalog.
-	if got := effectiveAgentInstructions(ctx, db, clone); got != snapshot {
-		t.Fatalf("snapshotted clone instructions = %q, want the frozen snapshot", got)
-	}
-
-	// A blanked catalog (empty live instructions) still resolves to the snapshot,
-	// never to an empty prompt.
-	if err := db.Model(&model.AgentCatalog{}).Where("id = ?", catalogID).
-		Update("instructions", "").Error; err != nil {
-		t.Fatalf("blank catalog: %v", err)
-	}
-	if got := effectiveAgentInstructions(ctx, db, clone); got != snapshot {
-		t.Fatalf("after catalog blanked, instructions = %q, want the frozen snapshot", got)
+	if got := effectiveAgentInstructions(ctx, db, clone); got != override {
+		t.Fatalf("overridden clone instructions = %q, want %q", got, override)
 	}
 }

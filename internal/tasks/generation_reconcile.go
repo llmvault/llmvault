@@ -175,6 +175,7 @@ func (h *GenerationReconcileHandler) reconcileRow(ctx context.Context, r reconci
 	}
 	if cost > 0 {
 		updates["cost"] = cost
+		updates["billing_cost_source"] = billing.CostSourceRegistry
 	}
 	if err := h.db.WithContext(ctx).Model(&model.Generation{}).
 		Where("id = ? AND billed_at IS NULL", r.ID).

@@ -13,6 +13,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
@@ -250,6 +251,9 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 	}
 
 	gen.Cost = calculateCost(reg, providerID, captured.Model, captured.Usage)
+	if gen.Cost > 0 {
+		gen.BillingCostSource = billing.CostSourceRegistry
+	}
 
 	if captured.GenerationID != "" && providerheaders.IsOpenRouter(providerID, "") {
 		id := captured.GenerationID
