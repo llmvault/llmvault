@@ -1,6 +1,6 @@
 import { HelpSquareIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { SVGProps } from "react"
+import type { ComponentType, SVGProps } from "react"
 import { iconRegistry, type RegisteredIcon } from "@/lib/icons/registry"
 
 /**
@@ -53,6 +53,15 @@ interface AppIconProps extends Omit<SVGProps<SVGSVGElement>, "ref" | "strokeWidt
   strokeWidth?: number
 }
 
+function RegisteredBrandIcon({
+  component: Component,
+  ...props
+}: SVGProps<SVGSVGElement> & {
+  component: ComponentType<SVGProps<SVGSVGElement>>
+}) {
+  return <Component {...props} />
+}
+
 export function AppIcon({ icon, className, size = "1em", strokeWidth = 1.5, ...rest }: AppIconProps) {
   const resolved = getAppIcon(icon)
 
@@ -65,8 +74,15 @@ export function AppIcon({ icon, className, size = "1em", strokeWidth = 1.5, ...r
 
   if (typeof resolved === "function") {
     // Custom brand component (plain SVG, fill="currentColor").
-    const BrandIcon = resolved
-    return <BrandIcon className={className} width={size} height={size} {...rest} />
+    return (
+      <RegisteredBrandIcon
+        component={resolved}
+        className={className}
+        width={size}
+        height={size}
+        {...rest}
+      />
+    )
   }
 
   // Hugeicons IconSvgElement (readonly tuple array).

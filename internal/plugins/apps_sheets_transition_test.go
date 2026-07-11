@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,6 +24,13 @@ func TestAppsSheetsTransitionProvisionsExistingRequiredCatalogTeam(t *testing.T)
 		t.Fatalf("begin migration transaction: %v", tx.Error)
 	}
 	t.Cleanup(func() { tx.Rollback() })
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	if _, err := SyncLocal(context.Background(), tx, filepath.Join(filepath.Dir(file), "..", "..", "global", "plugins")); err != nil {
+		t.Fatalf("sync global plugin fixtures: %v", err)
+	}
 
 	var plugins []model.Plugin
 	if err := tx.Where("org_id IS NULL AND slug IN ? AND status = ?", []string{"apps", "sheets"}, model.PluginStatusActive).Find(&plugins).Error; err != nil {
@@ -53,10 +61,6 @@ func TestAppsSheetsTransitionProvisionsExistingRequiredCatalogTeam(t *testing.T)
 		}
 	}
 
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
 	migration, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "migrations", "sql", "000089_provision_required_apps_and_sheets.sql"))
 	if err != nil {
 		t.Fatalf("read transition migration: %v", err)

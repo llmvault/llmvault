@@ -23,15 +23,13 @@ const SEARCH_DEBOUNCE_MS = 300
  * Search input that owns its own text state and debounces the committed value
  * up to the workbench. Isolating it here means every keystroke re-renders only
  * this leaf — not the whole toolbar (and its always-mounted Selects). `onSearch`
- * must be referentially stable; `resetSignal` clears the field imperatively
- * (e.g. the "Clear filters" empty state).
+ * must be referentially stable. The parent changes this component's key to
+ * reset it after "Clear filters".
  */
 const SearchBox = memo(function SearchBox({
   onSearch,
-  resetSignal,
 }: {
   onSearch: (value: string) => void
-  resetSignal: number
 }) {
   const [value, setValue] = useState("")
   const onSearchRef = useRef(onSearch)
@@ -43,16 +41,6 @@ const SearchBox = memo(function SearchBox({
     const timer = setTimeout(() => onSearchRef.current(value), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [value])
-
-  const firstReset = useRef(true)
-  useEffect(() => {
-    if (firstReset.current) {
-      firstReset.current = false
-      return
-    }
-    setValue("")
-    onSearchRef.current("")
-  }, [resetSignal])
 
   return (
     <SearchField
@@ -124,7 +112,7 @@ export const SheetToolbar = memo(function SheetToolbar({
       aria-label="Sheet tools"
       className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border px-2 py-1.5"
     >
-      <SearchBox onSearch={onSearchChange} resetSignal={searchResetSignal} />
+      <SearchBox key={searchResetSignal} onSearch={onSearchChange} />
 
       <FilterPopover
         fields={fields}

@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -42,7 +43,12 @@ func TestAgentBuilderToolsRequireTeamPlugin(t *testing.T) {
 	}
 	t.Cleanup(func() { tx.Rollback() })
 	var plugin model.Plugin
-	if err := tx.Where("org_id IS NULL AND slug = ?", AgentBuilderPluginSlug).First(&plugin).Error; err != nil {
+	if err := tx.Where("org_id IS NULL AND slug = ?", AgentBuilderPluginSlug).First(&plugin).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		plugin = model.Plugin{ID: uuid.New(), Slug: AgentBuilderPluginSlug, Name: "Agent Builder", Status: model.PluginStatusActive, Manifest: model.RawJSON(`{}`)}
+		if err := tx.Create(&plugin).Error; err != nil {
+			t.Fatalf("seed agent-builder plugin: %v", err)
+		}
+	} else if err != nil {
 		t.Fatalf("load agent-builder plugin: %v", err)
 	}
 	if err := tx.Model(&plugin).Update("manifest", model.RawJSON(`{}`)).Error; err != nil {

@@ -1,7 +1,7 @@
 import { test as base, type Page } from '@playwright/test';
 
 export const test = base.extend<{ authenticatedPage: Page }>({
-  authenticatedPage: async ({ page }, use) => {
+  authenticatedPage: async ({ page }, provide) => {
     await page.goto('/auth/login');
 
     const email = process.env.QA_EMAIL_LOGIN_PROD;
@@ -16,6 +16,6 @@ export const test = base.extend<{ authenticatedPage: Page }>({
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL(/\/w/);
 
-    await use(page);
+    await provide(page);
   },
 });

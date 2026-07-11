@@ -218,10 +218,7 @@ export function SessionThreadView({
   const activeTurnID = turnActive
     ? activeBackendTurnID || latestTurnID(renderedLiveEvents)
     : undefined
-  const externalContinuation = useMemo(
-    () => externalSessionContinuation(session),
-    [session.source, session.sourceResourceKey]
-  )
+  const externalContinuation = externalSessionContinuation(session)
   const visibleBlocks = useMemo(
     () =>
       sessionEventsToConversationBlocks(visibleConversationEvents, {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   Button,
@@ -56,16 +56,29 @@ const SheetWorkbench = dynamic(
 )
 
 export function SheetsView({ channelId }: { channelId?: string }) {
-  const queryClient = useQueryClient()
-  const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null)
-
-  // When there is no session channel (e.g. opened from the /w/sheets
-  // dashboard), fall back to the launched sheet's channel + id.
   const target = usePanelSheetTargetStore((state) => state.target)
   const effectiveChannelId = channelId ?? target?.channelId
-  useEffect(() => {
-    if (!channelId && target?.sheetId) setSelectedSheetId(target.sheetId)
-  }, [channelId, target?.sheetId])
+  const initialSheetId = channelId ? null : (target?.sheetId ?? null)
+  return (
+    <SheetsViewContent
+      key={`${effectiveChannelId ?? ""}:${initialSheetId ?? ""}`}
+      effectiveChannelId={effectiveChannelId}
+      initialSheetId={initialSheetId}
+    />
+  )
+}
+
+function SheetsViewContent({
+  effectiveChannelId,
+  initialSheetId,
+}: {
+  effectiveChannelId?: string
+  initialSheetId: string | null
+}) {
+  const queryClient = useQueryClient()
+  const [selectedSheetId, setSelectedSheetId] = useState<string | null>(
+    initialSheetId
+  )
 
   const sheetsQuery = useQuery({
     enabled: Boolean(effectiveChannelId),

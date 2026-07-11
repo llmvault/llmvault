@@ -2,6 +2,7 @@ package skills
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -48,7 +49,12 @@ func TestSkillManagerToolsRequireTeamPlugin(t *testing.T) {
 	}
 	t.Cleanup(func() { tx.Rollback() })
 	var plugin model.Plugin
-	if err := tx.Where("org_id IS NULL AND slug = ?", skillManagerPluginSlug).First(&plugin).Error; err != nil {
+	if err := tx.Where("org_id IS NULL AND slug = ?", skillManagerPluginSlug).First(&plugin).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		plugin = model.Plugin{ID: uuid.New(), Slug: skillManagerPluginSlug, Name: "Skill Manager", Status: model.PluginStatusActive, Manifest: model.RawJSON(`{}`)}
+		if err := tx.Create(&plugin).Error; err != nil {
+			t.Fatalf("seed skill-manager plugin: %v", err)
+		}
+	} else if err != nil {
 		t.Fatalf("load skill-manager plugin: %v", err)
 	}
 	if err := tx.Model(&plugin).Update("manifest", model.RawJSON(`{}`)).Error; err != nil {

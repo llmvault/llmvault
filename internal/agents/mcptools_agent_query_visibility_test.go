@@ -57,8 +57,8 @@ func seedAgentVisibility(t *testing.T, db *gorm.DB) agentVisibilityScenario {
 	}
 	t.Cleanup(func() {
 		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
 		db.Where("id IN ?", []uuid.UUID{admin.ID, member.ID}).Delete(&model.User{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
