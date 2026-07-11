@@ -3,7 +3,8 @@ import { expect } from '@playwright/test';
 
 test.describe('New chat session', () => {
   // Live model streaming can take longer than the default 30s suite timeout.
-  test.setTimeout(120_000);
+  // Keep headroom above the longest individual wait (90s stream completion).
+  test.setTimeout(210_000);
 
   test('creates a session, redirects, and streams an agent response', async ({
     authenticatedPage: page,
@@ -32,7 +33,9 @@ test.describe('New chat session', () => {
     const modelSearch = page.getByLabel('Search models');
     await expect(modelSearch).toBeVisible();
     await modelSearch.fill('DeepSeek V4 Flash');
-    await page.getByRole('button', { name: 'DeepSeek V4 Flash' }).click();
+    await page
+      .getByRole('button', { name: 'DeepSeek V4 Flash', exact: true })
+      .click();
     await page.getByRole('button', { name: 'Low', exact: true }).click();
     await expect(modelSearch).toBeHidden();
 
@@ -43,9 +46,10 @@ test.describe('New chat session', () => {
     await page.getByRole('button', { name: 'Send' }).click();
 
     // Session creation redirects to /w/channels/{channel}/{sessionId}.
-    await page.waitForURL(/\/w\/channels\/[^/]+\/[0-9a-f-]{36}/, {
-      timeout: 30_000,
-    });
+    await page.waitForURL(
+      /\/w\/channels\/[^/]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+      { timeout: 30_000 },
+    );
 
     // User message is visible on the session page.
     // The prompt also becomes the sidebar session title, so take the last match
