@@ -94,14 +94,13 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 		t.Fatalf("compile kara runtime definition: %v", err)
 	}
 
-	imageTools := []string{"generate_image", "generate_vector_image", "remix_image"}
-	// Non-empty allow lists gain the read-only MCP floor at compile time so
-	// allow-listed (sub-)agents keep skill/channel access.
+	// Every compiled MCP filter gets skill_view so an allow-listed sub-agent can
+	// load the skills named in its system prompt.
 	imageToolsWithFloor := []string{
-		"generate_image", "generate_vector_image", "list_channels", "remix_image", "skill_view", "skills_list",
+		"generate_image", "generate_vector_image", "remix_image", "skill_view",
 	}
 
-	assertToolFilter(t, "kara", def.McpToolFilter, nil, imageTools)
+	assertToolFilter(t, "kara", def.McpToolFilter, []string{"skill_view"}, nil)
 
 	imageGenerator := def.SubAgents["image-generator"]
 	if imageGenerator == nil {
@@ -118,7 +117,7 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	if designWorker == nil {
 		t.Fatalf("missing design-worker subagent; got %s", strings.Join(sortedSubAgentKeys(def.SubAgents), ", "))
 	}
-	assertToolFilter(t, "design-worker", designWorker.McpToolFilter, nil, imageTools)
+	assertToolFilter(t, "design-worker", designWorker.McpToolFilter, []string{"skill_view"}, nil)
 
 	body, err := json.Marshal(def)
 	if err != nil {
@@ -128,7 +127,7 @@ func TestGlobalKaraCatalogInstallCompilesRuntimeFilters(t *testing.T) {
 	if err := json.Unmarshal(body, &runtimeDef); err != nil {
 		t.Fatalf("compiled definition does not match runtime API shape: %v", err)
 	}
-	assertRuntimeAPIFilter(t, "runtime kara mcp", runtimeDef.McpToolFilter, nil, imageTools)
+	assertRuntimeAPIFilter(t, "runtime kara mcp", runtimeDef.McpToolFilter, []string{"skill_view"}, nil)
 	if runtimeDef.SubAgents == nil {
 		t.Fatal("runtime payload missing subagents")
 	}

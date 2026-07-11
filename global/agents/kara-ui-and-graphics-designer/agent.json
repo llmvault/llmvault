@@ -27,11 +27,7 @@
     "request_user_input": true
   },
   "mcp_tool_filter": {
-    "deny": [
-      "generate_image",
-      "generate_vector_image",
-      "remix_image"
-    ]
+    "allow": []
   },
   "sub_agents": {
     "codebase-brand-extractor": {
@@ -45,11 +41,7 @@
         "update_plan": true
       },
       "mcp_tool_filter": {
-        "deny": [
-          "generate_image",
-          "generate_vector_image",
-          "remix_image"
-        ]
+        "allow": []
       },
       "prompt": {
         "instructions": "./sub_agents/codebase-brand-extractor/instructions.md"
@@ -82,11 +74,7 @@
         "update_plan": true
       },
       "mcp_tool_filter": {
-        "deny": [
-          "generate_image",
-          "generate_vector_image",
-          "remix_image"
-        ]
+        "allow": []
       },
       "prompt": {
         "instructions": "./sub_agents/design-worker/instructions.md"

@@ -131,10 +131,10 @@ For `sub_agents`, replacement means **delete-and-recreate the whole set.** To ke
 
 **Every agent automatically gets** (do not list these; they are not in the enum):
 - Baseline sandbox tools: `bash`, `read_file`, `write_file`, `apply_patch`, `update_plan`, `search_sessions`, `request_user_input`. Use Bash with `fd` to discover files and `rg` to search file contents; use repeated `-e` flags for several patterns.
-- The read-only MCP floor: `skills_list`, `skill_view` (how it reads its skills — granting `skills` alone is enough) and `list_channels`.
+- The universal MCP capability: `skill_view` (the system prompt already lists the agent's available skills).
 - `subagent_task`, added automatically whenever the agent has `sub_agents`.
 
-**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `generate_image`, `generate_vector_image`, `remix_image`, `search_knowledge_base`, `cron`, `create_http_trigger`. The schema's `tools` enum is authoritative. Grant only what the job needs. Durable memory is auto-injected into future session context; writes happen automatically via background reflection.
+**Optional capabilities — the only valid values for a parent's `tools`:** `lsp`, `web_search`, `web_fetch`, `web_crawl`, `generate_image`, `generate_vector_image`, `remix_image`, `vectorize_image`, `search_knowledge_base`, the Sheets tools (`sheet_create`, `sheet_list`, `sheet_describe`, `sheet_manage`, `rows_query`, `rows_write`, `sheet_import_csv`, `sheet_operations`), and the Apps tools (`app_create`, `app_publish`, `app_status`, `app_logs`, `app_rollback`). The schema's `tools` enum is authoritative. Grant only what the job needs; a Sheets or Apps plugin alone does not grant its MCP tools. Durable memory is auto-injected into future session context; writes happen automatically via background reflection.
 
 Sub-agents' `tools` accept the full set (baseline included), so a deliberately narrow read-only sub-agent is expressible; a sub-agent with no `tools` defaults to `read_file`. Grant `bash` explicitly when it needs `fd` or `rg`.
 

@@ -168,9 +168,9 @@ func staticPromptSegment(title, content string) SystemPromptSegment {
 }
 
 // renderSkillHint builds a static "Available skills" prompt hint from the
-// agent's DB-backed skills. Skills themselves live behind the skills_list /
-// skill_view MCP tools; this hint just tells the model what is available and
-// how to load one. Returns "" when the agent has no skills.
+// agent's DB-backed skills. skill_view loads a selected skill; this hint is the
+// complete skill inventory, so no skills_list MCP tool is needed. Returns ""
+// when the agent has no skills.
 func renderSkillHint(ctx context.Context, db *gorm.DB, agent *model.Agent) string {
 	summaries, err := skills.AgentSkillSummaries(ctx, db, agent)
 	if err != nil || len(summaries) == 0 {

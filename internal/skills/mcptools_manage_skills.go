@@ -51,9 +51,9 @@ func createSkillSchema() map[string]any {
 		"properties": map[string]any{
 			"plugin_slug":                    map[string]any{"type": "string", "description": "Slug of the org-owned plugin this skill belongs to. Must be a plugin created with create_org_plugin, not a global catalog plugin."},
 			"name":                           map[string]any{"type": "string", "description": "Skill display name. The slug is generated from it."},
-			"description":                    map[string]any{"type": "string", "description": "Agent-facing trigger text: when should an agent load this skill? Start with \"Use when...\". This is what agents see in skills_list, so make the triggering conditions concrete."},
+			"description":                    map[string]any{"type": "string", "description": "Agent-facing trigger text: when should an agent load this skill? Start with \"Use when...\". This appears in the agent's Available skills system-prompt section, so make the triggering conditions concrete."},
 			"human_description":              map[string]any{"type": "string", "description": "Optional user-facing display copy for the UI."},
-			"category":                       map[string]any{"type": "string", "description": "Optional category shown in skills_list."},
+			"category":                       map[string]any{"type": "string", "description": "Optional category for organizing skills in the Available skills prompt section."},
 			"tags":                           map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Optional lowercase kebab-case tags."},
 			"required_environment_variables": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Env var names the skill's instructions read at runtime, as injected into the sandbox (org variables are injected as HIVY_ORG_<NAME>). Declaring them here surfaces them in skill_view so agents and users know what to set."},
 			"content":                        map[string]any{"type": "string", "description": "The SKILL.md body in markdown, WITHOUT YAML frontmatter (it is generated from name/description/category/tags)."},
@@ -172,7 +172,7 @@ func registerUpdateSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token
 func updateSkillSchema() map[string]any {
 	schema := createSkillSchema()
 	props := schema["properties"].(map[string]any)
-	props["skill"] = map[string]any{"type": "string", "description": "Slug of the skill to update (see skills_list or list_org_plugins)."}
+	props["skill"] = map[string]any{"type": "string", "description": "Slug of the skill to update (see the Available skills prompt section or list_org_plugins)."}
 	props["name"] = map[string]any{"type": "string", "description": "New display name. The slug is NOT regenerated."}
 	delete(props, "plugin_slug")
 	props["plugin_slug"] = map[string]any{"type": "string", "description": "Slug of the org-owned plugin the skill lives in."}

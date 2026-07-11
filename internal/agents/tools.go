@@ -16,24 +16,33 @@ import (
 // route into the agent's McpToolFilter.Allow list rather than the runtime
 // Tools map.
 //
-// IMPORTANT: this list must stay in sync with the MCP tools actually registered
-// on the "hivy" MCP server (see internal/webcrawl, internal/skills,
-// internal/rag, internal/mcpserver/cron_tool.go, internal/mcpserver/http_trigger_tool.go,
-// internal/mcpserver/list_channels_tool.go, internal/handler/images_mcp.go).
-// The privileged agent-builder tools (create_agent, update_agent) and the
-// read-only list_org_plugins are intentionally NOT assignable.
+// IMPORTANT: this list must stay in sync with the optional MCP tools actually
+// registered on the "hivy" MCP server (see internal/webcrawl, internal/rag,
+// internal/sheets, internal/apps, and internal/handler/images_mcp.go). The
+// default-Hivy management and automation tools are intentionally NOT
+// assignable; skill_view is universal and therefore not an optional grant.
 var AssignableMCPTools = []string{
 	"web_search",
 	"web_fetch",
+	"web_crawl",
 	"generate_image",
 	"generate_vector_image",
 	"remix_image",
-	"skills_list",
-	"skill_view",
+	"vectorize_image",
 	"search_knowledge_base",
-	"cron",
-	"create_http_trigger",
-	"list_channels",
+	"sheet_create",
+	"sheet_list",
+	"sheet_describe",
+	"sheet_manage",
+	"rows_query",
+	"rows_write",
+	"sheet_import_csv",
+	"sheet_operations",
+	"app_create",
+	"app_publish",
+	"app_status",
+	"app_logs",
+	"app_rollback",
 }
 
 var assignableMCPToolSet = func() map[string]bool {
@@ -74,9 +83,8 @@ func optionalRuntimeToolIDs() []string {
 
 var optionalRuntimeToolSet = stringSet(optionalRuntimeToolIDs())
 
-// parentAssignableMCPTools are the MCP tools a parent agent may opt into: all
-// AssignableMCPTools minus the read-only floor (which is always usable and must
-// never be listed by the builder).
+// parentAssignableMCPTools are the MCP tools a parent agent may opt into. The
+// universal skill_view tool is intentionally absent from AssignableMCPTools.
 func parentAssignableMCPTools() []string {
 	out := make([]string, 0, len(AssignableMCPTools))
 	for _, id := range AssignableMCPTools {
@@ -92,12 +100,9 @@ var parentAssignableMCPToolSet = stringSet(parentAssignableMCPTools())
 
 // ParentAssignableToolIDs is the set of tools a top-level (parent) agent may be
 // granted via the agent-builder `tools` array: the optional runtime tools plus
-// the parent-assignable MCP tools. Baseline sandbox tools and the read-only
-// skill/channel floor are always granted and are intentionally excluded, so they
-// never appear in the parent schema enum. Derived from the source lists by set
-// subtraction. In practice: lsp, web_search, web_fetch, generate_image,
-// generate_vector_image, remix_image, search_knowledge_base,
-// cron, create_http_trigger.
+// the explicitly selectable MCP tools. Baseline sandbox tools and universal
+// skill_view are intentionally excluded, so they never appear in the parent
+// schema enum.
 func ParentAssignableToolIDs() []string {
 	runtime := optionalRuntimeToolIDs()
 	mcp := parentAssignableMCPTools()

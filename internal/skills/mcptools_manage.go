@@ -40,10 +40,10 @@ const (
 var envVarNamePattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
 // skillManagerEnabled reports whether the calling agent may use the privileged
-// skill-manager tools. The default Hivy agent gets them automatically. Any
-// other agent must explicitly allow-list one of them in McpToolFilter.Allow.
-// Mirrors agentBuilderEnabled / orgMemoriesEnabled: these tools are never
-// granted implicitly.
+// skill-manager tools once its team has enabled the Skill Manager plugin. The
+// default Hivy agent is eligible for them; any other agent must explicitly
+// allow-list one of them in McpToolFilter.Allow. Mirrors agentBuilderEnabled /
+// orgMemoriesEnabled: these tools are never granted implicitly.
 func skillManagerEnabled(agent *model.Agent) bool {
 	if agent == nil {
 		return false

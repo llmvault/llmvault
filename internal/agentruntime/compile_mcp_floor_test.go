@@ -10,8 +10,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// The read-only floor unions skill/channel tools into any non-empty allow list,
-// unless a tool is explicitly denied, and leaves nil / pure deny filters alone.
+// The universal floor adds skill_view to every compiled filter. A deny-only
+// legacy filter grants no optional capability, and an explicit deny removes a
+// matching explicit grant.
 func TestNormalizeToolFilter_AppliesReadOnlyFloor(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -21,38 +22,32 @@ func TestNormalizeToolFilter_AppliesReadOnlyFloor(t *testing.T) {
 		wantNil   bool
 	}{
 		{
-			name:      "allow list gains full floor",
-			in:        &model.ToolFilter{Allow: []string{"skills_list"}},
-			wantAllow: []string{"list_channels", "skill_view", "skills_list"},
+			name:      "allow list gains universal skill view",
+			in:        &model.ToolFilter{Allow: []string{"web_search"}},
+			wantAllow: []string{"skill_view", "web_search"},
 			wantDeny:  nil,
 		},
 		{
-			name:      "explicit deny wins over floor",
-			in:        &model.ToolFilter{Allow: []string{"web_search"}, Deny: []string{"list_channels"}},
-			wantAllow: []string{"skill_view", "skills_list", "web_search"},
-			wantDeny:  []string{"list_channels"},
+			name:      "explicit deny removes explicit grant",
+			in:        &model.ToolFilter{Allow: []string{"web_search"}, Deny: []string{"web_search"}},
+			wantAllow: []string{"skill_view"},
+			wantDeny:  nil,
 		},
 		{
-			name:      "pure deny list is unchanged",
+			name:      "pure deny list grants no optional capability",
 			in:        &model.ToolFilter{Deny: []string{"generate_image"}},
-			wantAllow: nil,
-			wantDeny:  []string{"generate_image"},
+			wantAllow: []string{"skill_view"},
+			wantDeny:  nil,
 		},
 		{
-			name:    "nil filter stays nil",
-			in:      nil,
-			wantNil: true,
+			name:      "nil filter grants only universal tool",
+			in:        nil,
+			wantAllow: []string{"skill_view"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := normalizeToolFilter(tc.in)
-			if tc.wantNil {
-				if got != nil {
-					t.Fatalf("filter = %#v, want nil", got)
-				}
-				return
-			}
 			if got == nil {
 				t.Fatalf("filter = nil, want %#v/%#v", tc.wantAllow, tc.wantDeny)
 			}
@@ -75,7 +70,7 @@ func TestResolveAgentMCPToolFilter_AppliesFloorForUserAgent(t *testing.T) {
 		OrgID:         &orgID,
 		Name:          "Allow-listed",
 		Model:         DefaultAgentModel,
-		McpToolFilter: &model.ToolFilter{Allow: []string{"cron"}},
+		McpToolFilter: &model.ToolFilter{Allow: []string{"web_search"}},
 	}
 	filter := resolveAgentMCPToolFilter(context.Background(), nil, agent)
 	if filter == nil {
@@ -86,7 +81,7 @@ func TestResolveAgentMCPToolFilter_AppliesFloorForUserAgent(t *testing.T) {
 			t.Fatalf("allow = %#v, want floor id %q", filter.Allow, id)
 		}
 	}
-	if !containsString(filter.Allow, "cron") {
-		t.Fatalf("allow = %#v, want original cron entry", filter.Allow)
+	if !containsString(filter.Allow, "web_search") {
+		t.Fatalf("allow = %#v, want original web_search entry", filter.Allow)
 	}
 }

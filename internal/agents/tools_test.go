@@ -33,7 +33,7 @@ func TestSplitTools_UnknownToolReturnsHelpfulError(t *testing.T) {
 		t.Fatalf("error should name the offending tool: %q", msg)
 	}
 	// Must enumerate the full allowed set for the model to self-correct.
-	for _, want := range []string{"bash", "read_file", "web_search", "generate_image", "cron"} {
+	for _, want := range []string{"bash", "read_file", "web_search", "web_crawl", "generate_image", "sheet_list", "app_create"} {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("error should list allowed tool %q; got %q", want, msg)
 		}

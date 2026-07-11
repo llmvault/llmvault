@@ -246,7 +246,7 @@ pub fn sanitize_schema(value: Value, strict: bool) -> Value {
     sanitize_schema_inner(value, &root, strict)
 }
 
-fn sanitize_schema_inner(value: Value, root: &Value, strict: bool) -> Value {
+how fn sanitize_schema_inner(value: Value, root: &Value, strict: bool) -> Value {
     match value {
         Value::Object(mut map) => {
             for key in [

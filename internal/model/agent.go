@@ -52,7 +52,8 @@ type Agent struct {
 	VectorImageModel string         `gorm:"type:text;not null;default:''"`
 	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	McpServers       RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
-	// McpToolFilter gates MCP tools (allow/deny). NULL = all MCP tools allowed.
+	// McpToolFilter records requested MCP grants. The runtime compiler always
+	// converts it to a non-nil explicit allow-list (plus universal skill_view).
 	McpToolFilter *ToolFilter `gorm:"type:jsonb;serializer:json"`
 	Skills        JSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	Integrations  JSON        `gorm:"-"`
@@ -134,12 +135,11 @@ type BuiltInToolDefinition struct {
 //     sandboxes/runtime/crates/domain/src/tool_specs.rs (serde `builtin.<id>`),
 //     mirrored Go-side by RuntimeBuiltInToolIDs. The runtime's openapi.json also
 //     enumerates the same `builtin.*` ids.
-//   - MCP tools ("mcp.*" categories below): the curated grantable set
+//   - MCP tools ("mcp.*" categories below): the curated explicit-grant set
 //     AssignableMCPTools in internal/agents/tools.go, registered on the "hivy"
 //     MCP server (internal/mcpserver/builder.go and the per-package mcptools.go
-//     files). Runtime-surfaced-but-not-independently-grantable MCP tools
-//     (web_crawl, manage_memories) and plugin-gated tools (sheets/apps/agent-
-//     builder/skill-manager) are intentionally excluded.
+//     files). Default-Hivy management and automation tools remain intentionally
+//     excluded because only the team's default Hivy agent may use them.
 //
 // TestValidBuiltInToolsMatchesRuntimeAndMCP pins this to those sources so drift
 // surfaces as a deliberate test edit.
@@ -158,15 +158,25 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	// Hivy MCP tools surfaced to the agent runtime (AssignableMCPTools).
 	{ID: "web_search", Name: "Web search", Description: "Search the web and return results with titles, descriptions, and URLs.", Category: "mcp.web"},
 	{ID: "web_fetch", Name: "Fetch URL", Description: "Fetch a URL and return its content as markdown, text, or HTML.", Category: "mcp.web"},
+	{ID: "web_crawl", Name: "Crawl website", Description: "Crawl a website and return content from multiple pages.", Category: "mcp.web"},
 	{ID: "generate_image", Name: "Generate image", Description: "Generate a raster image from a text prompt.", Category: "mcp.image"},
 	{ID: "generate_vector_image", Name: "Generate vector image", Description: "Generate an SVG vector image from a text prompt.", Category: "mcp.image"},
 	{ID: "remix_image", Name: "Remix image", Description: "Generate a new image from a text prompt and one or more reference images.", Category: "mcp.image"},
-	{ID: "skills_list", Name: "List skills", Description: "List the skills available to the agent.", Category: "mcp.skills"},
-	{ID: "skill_view", Name: "View skill", Description: "View the full contents of a skill.", Category: "mcp.skills"},
+	{ID: "vectorize_image", Name: "Vectorize image", Description: "Convert an organization image asset into SVG.", Category: "mcp.image"},
 	{ID: "search_knowledge_base", Name: "Search knowledge base", Description: "Search the organization's synced knowledge base (Slack, GitHub, Linear, Notion, websites, and uploaded files).", Category: "mcp.knowledge"},
-	{ID: "cron", Name: "Cron jobs", Description: "Create, list, update, pause, resume, and cancel recurring cron jobs.", Category: "mcp.automation"},
-	{ID: "create_http_trigger", Name: "Create HTTP trigger", Description: "Create an HTTP trigger URL that runs an agent when POSTed to.", Category: "mcp.automation"},
-	{ID: "list_channels", Name: "List channels", Description: "List the organization's channels and their HIVY channel UUIDs.", Category: "mcp.channels"},
+	{ID: "sheet_create", Name: "Create sheet", Description: "Create a typed sheet.", Category: "mcp.sheets"},
+	{ID: "sheet_list", Name: "List sheets", Description: "List sheets available in the current channel.", Category: "mcp.sheets"},
+	{ID: "sheet_describe", Name: "Describe sheet", Description: "Inspect a sheet's pages and fields.", Category: "mcp.sheets"},
+	{ID: "sheet_manage", Name: "Manage sheet", Description: "Manage sheet pages and fields.", Category: "mcp.sheets"},
+	{ID: "rows_query", Name: "Query rows", Description: "Query rows in a sheet page.", Category: "mcp.sheets"},
+	{ID: "rows_write", Name: "Write rows", Description: "Create, update, or delete sheet rows.", Category: "mcp.sheets"},
+	{ID: "sheet_import_csv", Name: "Import CSV", Description: "Import CSV data into a sheet.", Category: "mcp.sheets"},
+	{ID: "sheet_operations", Name: "Sheet operations", Description: "Run bulk operations on a sheet.", Category: "mcp.sheets"},
+	{ID: "app_create", Name: "Create app", Description: "Create an app workspace.", Category: "mcp.apps"},
+	{ID: "app_publish", Name: "Publish app", Description: "Publish an app.", Category: "mcp.apps"},
+	{ID: "app_status", Name: "App status", Description: "Inspect an app's status.", Category: "mcp.apps"},
+	{ID: "app_logs", Name: "App logs", Description: "Read app logs.", Category: "mcp.apps"},
+	{ID: "app_rollback", Name: "Rollback app", Description: "Roll an app back to a prior version.", Category: "mcp.apps"},
 }
 
 // validBuiltInToolIDs is a set for fast validation lookups.
@@ -233,14 +243,12 @@ var BaselineRuntimeToolIDs = []string{
 	"request_user_input",
 }
 
-// ReadOnlyMCPToolFloor lists read-only MCP tools that an MCP tool filter allow
-// list must never lock out: skills are unusable without the skill tools, and
-// the cron / create_http_trigger tools are unusable without list_channels to
-// resolve Hivy channel UUIDs. An explicit deny still wins.
+// ReadOnlyMCPToolFloor lists the universal MCP tools. Every compiled agent
+// filter includes these tools; all other MCP tools require an explicit allow.
+// Skill availability is rendered into the system prompt, so skill_view alone is
+// sufficient to load a selected skill.
 var ReadOnlyMCPToolFloor = []string{
-	"skills_list",
 	"skill_view",
-	"list_channels",
 }
 
 var validRuntimeBuiltInToolIDs = func() map[string]bool {

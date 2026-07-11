@@ -1,14 +1,18 @@
 package handler
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
@@ -122,7 +126,8 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools)
+		toolFilter := h.agentProxyMCPToolFilter(ctx, &token)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools, toolFilter)
 		if err != nil {
 			return nil, time.Time{}, err
 		}
@@ -135,6 +140,35 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 	}
 
 	return srv
+}
+
+// agentProxyMCPToolFilter resolves the exact compiler policy before the server
+// is cached for a token JTI. That means tools outside the allow-list are absent
+// from the MCP tools/list response and never enter the runtime's registry.
+// Failed agent resolution is fail-closed for agent proxy tokens.
+func (h *MCPHandler) agentProxyMCPToolFilter(ctx context.Context, token *model.Token) *model.ToolFilter {
+	if token == nil || token.Meta == nil {
+		return nil
+	}
+	tokenType, _ := token.Meta[model.TokenMetaType].(string)
+	if tokenType != model.TokenTypeAgentProxy {
+		return nil
+	}
+	if h == nil || h.db == nil {
+		return agentruntime.ResolveAgentMCPToolFilter(ctx, nil, nil)
+	}
+	rawAgentID, _ := token.Meta[model.TokenMetaAgentID].(string)
+	agentID, err := uuid.Parse(strings.TrimSpace(rawAgentID))
+	if err != nil || agentID == uuid.Nil {
+		return agentruntime.ResolveAgentMCPToolFilter(ctx, nil, nil)
+	}
+	var agent model.Agent
+	if err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND status <> ?", agentID, token.OrgID, "archived").
+		First(&agent).Error; err != nil {
+		return agentruntime.ResolveAgentMCPToolFilter(ctx, nil, nil)
+	}
+	return agentruntime.ResolveAgentMCPToolFilter(ctx, h.db, &agent)
 }
 
 // ValidateJTIMatch is middleware ensuring the URL {jti} matches the JWT's JTI claim.

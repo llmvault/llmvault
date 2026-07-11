@@ -107,35 +107,19 @@ func parentToolIDs(agent *model.Agent) []string {
 }
 
 // parentGrantedMCPTools derives the parent-assignable MCP tools a parent agent
-// currently has, from its filter: nil filter → all parent-assignable MCP tools;
-// a deny-list → parent-assignable MCP minus the denied ids; a legacy allow-list
-// → the allow ids that are parent-assignable.
+// currently has from its explicit allow-list. A missing or deny-only legacy
+// filter grants nothing: the compiler is deny-by-default.
 func parentGrantedMCPTools(filter *model.ToolFilter) []string {
-	assignable := parentAssignableMCPTools()
-	if filter == nil {
-		return assignable
+	if filter == nil || len(filter.Allow) == 0 {
+		return []string{}
 	}
-	if len(filter.Deny) > 0 {
-		denied := stringSet(filter.Deny)
-		out := make([]string, 0, len(assignable))
-		for _, id := range assignable {
-			if !denied[id] {
-				out = append(out, id)
-			}
+	out := make([]string, 0, len(filter.Allow))
+	for _, id := range filter.Allow {
+		if parentAssignableMCPToolSet[id] {
+			out = append(out, id)
 		}
-		return out
 	}
-	if len(filter.Allow) > 0 {
-		out := make([]string, 0, len(filter.Allow))
-		for _, id := range filter.Allow {
-			if parentAssignableMCPToolSet[id] {
-				out = append(out, id)
-			}
-		}
-		return out
-	}
-	// Empty filter (no allow, no deny) grants all MCP tools.
-	return assignable
+	return out
 }
 
 func agentSubAgents(ctx context.Context, db *gorm.DB, parentID uuid.UUID) ([]map[string]any, error) {
@@ -190,10 +174,7 @@ func agentURL(frontendURL string, agentID uuid.UUID) string {
 // --- helpers -----------------------------------------------------------------
 
 func allowFilter(allow []string) *model.ToolFilter {
-	if len(allow) == 0 {
-		return nil
-	}
-	return &model.ToolFilter{Allow: allow}
+	return &model.ToolFilter{Allow: append([]string{}, allow...)}
 }
 
 // mergeBaselineRuntime unions the always-granted baseline sandbox tools into a
@@ -206,32 +187,15 @@ func mergeBaselineRuntime(runtime model.JSON) {
 	}
 }
 
-// parentDenyFilter builds the MCP filter for a parent agent as a DENY list: the
-// parent-assignable MCP tools the builder did NOT grant. A deny-list keeps
-// plugin-gated MCP tools (sheets etc.) and the read-only floor
-// (skills_list/skill_view/list_channels) usable while still restricting the
-// optional capabilities the builder chose to withhold; an allow-list would
-// silently lock out tools that are not even in the parent enum (the incident).
-// Returns nil when nothing needs denying (every parent-assignable MCP tool was
-// granted), which means "all MCP tools allowed".
-func parentDenyFilter(mcpAllow []string) *model.ToolFilter {
-	picked := stringSet(mcpAllow)
-	deny := make([]string, 0)
-	for _, id := range parentAssignableMCPTools() {
-		if !picked[id] {
-			deny = append(deny, id)
-		}
-	}
-	if len(deny) == 0 {
-		return nil
-	}
-	sort.Strings(deny)
-	return &model.ToolFilter{Deny: deny}
+// parentAllowFilter builds the MCP filter for a parent agent as an explicit
+// allow-list. Plugin installation controls availability, never implicit tool
+// authorization; a Sheets or Apps plugin only exposes a tool the parent chose.
+func parentAllowFilter(mcpAllow []string) *model.ToolFilter {
+	return allowFilter(mcpAllow)
 }
 
-// unionReadOnlyFloor adds the read-only MCP floor to a non-empty sub-agent allow
-// list so an allow-listed sub-agent never loses access to the skill/channel
-// tools. The result is deduped and sorted.
+// unionReadOnlyFloor adds the universal MCP floor to a sub-agent allow list so
+// it can still load the skills listed in its system prompt.
 func unionReadOnlyFloor(allow []string) []string {
 	seen := stringSet(allow)
 	out := append([]string(nil), allow...)

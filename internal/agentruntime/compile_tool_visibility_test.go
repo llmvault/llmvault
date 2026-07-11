@@ -27,7 +27,7 @@ func compiledRuntimeToolTypes(tools []map[string]any) []string {
 //  1. Agent builtin-tool selection: only enabled tools reach the compiled
 //     config; disabled tools are absent (the runtime only builds what is in the
 //     Tools array, so absence == not visible to the agent).
-//  2. MCP tool filter (allow/deny) rides on the parent definition.
+//  2. The MCP allow-list rides on the parent definition.
 //  3. A sub-agent's tools and MCP filter are its own: a tool enabled on the
 //     parent is NOT visible to the sub-agent unless the sub-agent enables it,
 //     and vice versa; the sub-agent's MCP filter is independent of the parent's.
@@ -36,10 +36,10 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 	org := createOrg(t, db)
 	team := seedCompileTeam(t, db, org.ID)
 
-	// Parent: only bash and read_file enabled; deny the web_search MCP tool.
+	// Parent: only bash and read_file enabled; grant web_fetch but not web_search.
 	parent := userAgentRow(org.ID, team.ID, "RestrictedParent")
 	parent.Tools = model.JSON{"bash": true, "read_file": true}
-	parent.McpToolFilter = &model.ToolFilter{Deny: []string{"web_search"}}
+	parent.McpToolFilter = &model.ToolFilter{Allow: []string{"web_fetch"}}
 	if err := db.Create(&parent).Error; err != nil {
 		t.Fatalf("create parent: %v", err)
 	}
@@ -75,11 +75,11 @@ func TestCompile_ToolAndSubAgentVisibilityFiltersEndToEnd(t *testing.T) {
 	}
 
 	// --- Layer 2: parent MCP filter ---
-	if def.McpToolFilter == nil || !containsString(def.McpToolFilter.Deny, "web_search") {
-		t.Fatalf("parent mcp filter = %#v, want deny web_search", def.McpToolFilter)
+	if def.McpToolFilter == nil || !containsString(def.McpToolFilter.Allow, "web_fetch") {
+		t.Fatalf("parent mcp filter = %#v, want allow web_fetch", def.McpToolFilter)
 	}
-	if len(def.McpToolFilter.Allow) != 0 {
-		t.Fatalf("parent mcp filter should not have an allow list: %#v", def.McpToolFilter)
+	if containsString(def.McpToolFilter.Allow, "web_search") {
+		t.Fatalf("parent mcp filter leaked ungranted web_search: %#v", def.McpToolFilter)
 	}
 
 	// --- Layer 3: sub-agent independence ---

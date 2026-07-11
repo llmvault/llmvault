@@ -27,6 +27,9 @@
     "subagent_task": true,
     "request_user_input": true
   },
+  "mcp_tool_filter": {
+    "allow": []
+  },
   "plugins": {
     "required": [
       "playwright"
@@ -45,9 +48,7 @@
         "read_file": true
       },
       "mcp_tool_filter": {
-        "allow": [
-          "skills_list"
-        ]
+        "allow": []
       },
       "prompt": {
         "instructions": "./sub_agents/codebase-explorer/instructions.md"

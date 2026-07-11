@@ -26,6 +26,18 @@
     "search_sessions": true,
     "request_user_input": true
   },
+  "mcp_tool_filter": {
+    "allow": [
+      "sheet_create",
+      "sheet_list",
+      "sheet_describe",
+      "sheet_manage",
+      "rows_query",
+      "rows_write",
+      "sheet_import_csv",
+      "sheet_operations"
+    ]
+  },
   "plugins": {
     "required": [
       "apify",

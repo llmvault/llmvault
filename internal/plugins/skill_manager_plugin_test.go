@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// The bundled skill-manager plugin must load through the same path boot sync
-// uses: auto_install so it lands on every team's agents (a system plugin),
-// one skill-creator skill, and all three reference files present.
+// The bundled skill-manager plugin is optional, but still must load its
+// skill-creator bundle correctly when a team enables it.
 func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	root, err := resolveDir("global/plugins")
 	if err != nil {
@@ -35,12 +34,13 @@ func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	var flags struct {
 		DefaultAgentInstall bool `json:"default_agent_install"`
 		AutoInstall         bool `json:"auto_install"`
+		Locked              bool `json:"locked"`
 	}
 	if err := json.Unmarshal(manifest.raw, &flags); err != nil {
 		t.Fatalf("decode manifest: %v", err)
 	}
-	if !flags.AutoInstall {
-		t.Fatal("skill-manager must set auto_install: true (system plugin)")
+	if flags.AutoInstall || flags.DefaultAgentInstall || flags.Locked {
+		t.Fatalf("skill-manager must be team-managed: %#v", flags)
 	}
 
 	skills, err := loadSkills(context.Background(), *manifest)

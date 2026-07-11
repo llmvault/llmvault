@@ -15,18 +15,31 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 		"lsp",
 		"web_search",
 		"web_fetch",
+		"web_crawl",
 		"generate_image",
 		"generate_vector_image",
 		"remix_image",
+		"vectorize_image",
 		"search_knowledge_base",
-		"cron",
-		"create_http_trigger",
+		"sheet_create",
+		"sheet_list",
+		"sheet_describe",
+		"sheet_manage",
+		"rows_query",
+		"rows_write",
+		"sheet_import_csv",
+		"sheet_operations",
+		"app_create",
+		"app_publish",
+		"app_status",
+		"app_logs",
+		"app_rollback",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ParentAssignableToolIDs() = %v, want %v", got, want)
 	}
-	if len(got) != 9 {
-		t.Fatalf("parent enum length = %d, want 9", len(got))
+	if len(got) != 22 {
+		t.Fatalf("parent enum length = %d, want 22", len(got))
 	}
 	// No baseline or read-only floor id may appear in the parent enum.
 	for _, id := range got {
@@ -105,14 +118,11 @@ func TestValidBuiltInToolsMatchesRuntimeAndMCP(t *testing.T) {
 }
 
 func TestSharedConstantSubsets(t *testing.T) {
-	// ReadOnlyMCPToolFloor must be a subset of AssignableMCPTools so every floor
-	// tool is a real, assignable MCP tool.
-	if !readOnlyMCPFloorSet["list_channels"] {
-		t.Fatalf("sanity: floor set missing list_channels")
-	}
+	// Universal MCP tools are deliberately absent from the optional assignment
+	// enum: every compiled agent gets them automatically.
 	for _, floor := range model.ReadOnlyMCPToolFloor {
-		if !assignableMCPToolSet[floor] {
-			t.Fatalf("read-only floor tool %q must be in AssignableMCPTools", floor)
+		if assignableMCPToolSet[floor] {
+			t.Fatalf("universal floor tool %q must not be assignable", floor)
 		}
 	}
 	// BaselineRuntimeToolIDs must be a subset of RuntimeBuiltInToolIDs.

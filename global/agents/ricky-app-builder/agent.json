@@ -25,6 +25,23 @@
     "update_plan": true,
     "request_user_input": true
   },
+  "mcp_tool_filter": {
+    "allow": [
+      "app_create",
+      "app_publish",
+      "app_status",
+      "app_logs",
+      "app_rollback",
+      "sheet_create",
+      "sheet_list",
+      "sheet_describe",
+      "sheet_manage",
+      "rows_query",
+      "rows_write",
+      "sheet_import_csv",
+      "sheet_operations"
+    ]
+  },
   "plugins": {
     "required": [
       "apps",

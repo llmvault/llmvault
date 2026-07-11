@@ -9,8 +9,6 @@
   "developer": "Hivy",
   "official": true,
   "featured": false,
-  "auto_install": true,
-  "locked": true,
   "capabilities": ["Read", "Recommend plugins"],
   "examples": [
     "Discover all my Railway projects and services and remember them",
@@ -21,6 +19,5 @@
   "links": { "website": "https://www.usehivy.com/" },
   "long_description": "Service Discovery teaches an agent to enumerate the infrastructure behind your connected integrations — Railway projects, services, environments and domains; Vercel projects and domains; Notion data sources; Slack channels — and persist the durable identifiers to its permanent memory with disciplined hygiene: compact facts, consistent tags, refresh-by-replacement, and never any secrets. Discovery runs once; every future session starts already knowing your stack. It can also seed another agent's memory with the discovered IDs, so a coordinator can hand a deploy agent exactly the identifiers it needs.",
   "plugin_version": "1",
-  "enabled": true,
-  "default_agent_install": true
+  "enabled": true
 }

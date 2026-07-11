@@ -59,8 +59,8 @@ func loadAgentPublishedSkills(ctx context.Context, db *gorm.DB, agentID uuid.UUI
 }
 
 // SkillSummary is a lightweight name/description/category view of a skill,
-// used by both the skills_list MCP tool and the compile-time prompt hint so
-// they always agree.
+// used by skill_view resolution and the compile-time prompt hint so they
+// always agree.
 type SkillSummary struct {
 	Name        string
 	Description string
@@ -68,8 +68,7 @@ type SkillSummary struct {
 }
 
 // AgentSkillSummaries returns the agent's allowed skills as summaries. It is
-// the single source of truth shared by the MCP skills_list tool and the
-// runtime prompt hint.
+// the single source of truth shared by skill_view and the runtime prompt hint.
 func AgentSkillSummaries(ctx context.Context, db *gorm.DB, agent *model.Agent) ([]SkillSummary, error) {
 	if agent == nil {
 		return nil, nil

@@ -82,7 +82,7 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, teamI
 		Instructions:  args.Instructions,
 		Model:         strings.TrimSpace(args.Model),
 		Tools:         runtime,
-		McpToolFilter: parentDenyFilter(mcpAllow),
+		McpToolFilter: parentAllowFilter(mcpAllow),
 		Skills:        skillsJSON(skillSlugs),
 		TeamID:        teamID,
 		SubAgents:     subAgents,
@@ -194,7 +194,7 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 			runtime["subagent_task"] = true
 		}
 		in.Tools = &runtime
-		in.McpToolFilter = parentDenyFilter(mcpAllow)
+		in.McpToolFilter = parentAllowFilter(mcpAllow)
 		in.SetMcpFilter = true
 	}
 	if args.Skills != nil {

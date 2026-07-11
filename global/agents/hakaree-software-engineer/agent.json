@@ -28,6 +28,9 @@
     "subagent_task": true,
     "request_user_input": true
   },
+  "mcp_tool_filter": {
+    "allow": []
+  },
   "sub_agents": {
     "codebase-explorer": {
       "name": "Codebase Explorer",
@@ -41,7 +44,7 @@
         "update_plan": true
       },
       "mcp_tool_filter": {
-        "allow": ["skills_list"]
+        "allow": []
       },
       "prompt": {
         "instructions": "./sub_agents/codebase-explorer/instructions.md"
@@ -58,7 +61,7 @@
         "update_plan": true
       },
       "mcp_tool_filter": {
-        "allow": ["skills_list"]
+        "allow": []
       },
       "prompt": {
         "instructions": "./sub_agents/librarian/instructions.md"
@@ -75,7 +78,7 @@
         "search_sessions": true
       },
       "mcp_tool_filter": {
-        "allow": ["skills_list"]
+        "allow": []
       },
       "prompt": {
         "instructions": "./sub_agents/oracle/instructions.md"

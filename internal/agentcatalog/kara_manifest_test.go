@@ -36,7 +36,7 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 	}
 
 	imageTools := []string{"generate_image", "generate_vector_image", "remix_image"}
-	if kara.McpToolFilter == nil || !reflect.DeepEqual(kara.McpToolFilter.Deny, imageTools) {
+	if kara.McpToolFilter == nil || !reflect.DeepEqual(kara.McpToolFilter.Allow, []string{}) {
 		t.Fatalf("kara mcp tool filter = %#v", kara.McpToolFilter)
 	}
 
@@ -54,7 +54,7 @@ func TestGlobalKaraManifestRoutesImageGenerationThroughImageGenerator(t *testing
 	assertManifestToolDisabled(t, imageGenerator.Tools, "read_file")
 
 	designWorker := kara.SubAgents["design-worker"]
-	if designWorker.McpToolFilter == nil || !reflect.DeepEqual(designWorker.McpToolFilter.Deny, imageTools) {
+	if designWorker.McpToolFilter == nil || !reflect.DeepEqual(designWorker.McpToolFilter.Allow, []string{}) {
 		t.Fatalf("design-worker mcp tool filter = %#v", designWorker.McpToolFilter)
 	}
 

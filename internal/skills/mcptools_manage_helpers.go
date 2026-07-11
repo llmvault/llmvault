@@ -270,5 +270,5 @@ func environmentSettingsURL(frontendURL string) string {
 }
 
 func skillPublishHint(pluginSlug string) string {
-	return "Published. Agents on a team that has the \"" + pluginSlug + "\" plugin enabled see it in skills_list immediately (their static prompt hint refreshes next session). Plugins are team-managed: grant the plugin to a team in team settings to reach more agents."
+	return "Published. Agents on a team that has the \"" + pluginSlug + "\" plugin enabled see it in their Available skills prompt section on the next session. Plugins are team-managed: grant the plugin to a team in team settings to reach more agents."
 }

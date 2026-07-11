@@ -89,8 +89,8 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	}
 	tools := agentToolStrings(t, agentObj, "tools")
 	// The parent tools array echoes only parent-assignable grants: the two picked
-	// MCP capabilities. Baseline sandbox tools, the read-only floor
-	// (skills_list/skill_view), and the auto-granted subagent_task are all applied
+	// MCP capabilities. Baseline sandbox tools, universal skill_view, and the
+	// auto-granted subagent_task are all applied
 	// to the stored agent but intentionally omitted from the echo so the list
 	// round-trips through the parent tools schema.
 	for _, want := range []string{"web_search", "web_fetch"} {
@@ -98,14 +98,14 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 			t.Fatalf("created agent tools missing picked capability %q: %v", want, tools)
 		}
 	}
-	for _, forbidden := range []string{"skills_list", "skill_view", "subagent_task", "bash", "read_file"} {
+	for _, forbidden := range []string{"skill_view", "subagent_task", "bash", "read_file"} {
 		if containsString(tools, forbidden) {
 			t.Fatalf("parent tools echo must omit auto-granted %q: %v", forbidden, tools)
 		}
 	}
 	// The stored agent must still have the baseline sandbox tools and subagent_task
-	// (auto-added because it has a sub-agent), and its MCP filter must be a
-	// deny-list that does NOT deny the read-only floor.
+	// (auto-added because it has a sub-agent), and its MCP filter must be the
+	// exact explicit list the caller selected.
 	{
 		var stored model.Agent
 		if err := db.Where("id = ?", agentID).First(&stored).Error; err != nil {
@@ -119,25 +119,20 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 		if stored.Tools["subagent_task"] != true {
 			t.Fatalf("stored agent missing auto-granted subagent_task: %#v", stored.Tools)
 		}
-		if stored.McpToolFilter == nil || len(stored.McpToolFilter.Allow) != 0 {
-			t.Fatalf("parent MCP filter must be a deny-list, got: %#v", stored.McpToolFilter)
+		if stored.McpToolFilter == nil || len(stored.McpToolFilter.Deny) != 0 {
+			t.Fatalf("parent MCP filter must be an allow-list, got: %#v", stored.McpToolFilter)
 		}
-		denied := map[string]bool{}
-		for _, d := range stored.McpToolFilter.Deny {
-			denied[d] = true
-		}
-		for _, floor := range model.ReadOnlyMCPToolFloor {
-			if denied[floor] {
-				t.Fatalf("deny-list must not deny read-only floor %q: %v", floor, stored.McpToolFilter.Deny)
-			}
+		allowed := map[string]bool{}
+		for _, id := range stored.McpToolFilter.Allow {
+			allowed[id] = true
 		}
 		for _, picked := range []string{"web_search", "web_fetch"} {
-			if denied[picked] {
-				t.Fatalf("deny-list must not deny picked capability %q: %v", picked, stored.McpToolFilter.Deny)
+			if !allowed[picked] {
+				t.Fatalf("allow-list must grant picked capability %q: %v", picked, stored.McpToolFilter.Allow)
 			}
 		}
-		if !denied["cron"] || !denied["generate_image"] {
-			t.Fatalf("deny-list must deny unpicked capabilities cron/generate_image: %v", stored.McpToolFilter.Deny)
+		if allowed["web_crawl"] || allowed["generate_image"] || allowed["sheet_list"] {
+			t.Fatalf("allow-list leaked an unpicked capability: %v", stored.McpToolFilter.Allow)
 		}
 	}
 	if subs := agentObj["sub_agents"].([]any); len(subs) != 1 || subs[0].(map[string]any)["name"] != "Responder" {

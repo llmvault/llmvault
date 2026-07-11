@@ -44,7 +44,7 @@ func addListChannelsTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 		return
 	}
 	agent := callingProxyAgent(token, db)
-	if agent == nil {
+	if agent == nil || !agent.IsDefault {
 		return
 	}
 	server.AddTool(&mcp.Tool{

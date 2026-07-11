@@ -40,7 +40,7 @@ func seedChannelToolFixture(t *testing.T, db *gorm.DB) channelToolFixture {
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "channel-tool-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
-	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Channel Agent " + uuid.NewString(), Model: "test", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Hivy", IsDefault: true, Model: "test", Status: "active"}
 	// The agent's team #general: team-scoped and IsDefault, mirroring
 	// provisionTeamDefaults. An empty channel_id resolves here.
 	general := model.Channel{
@@ -176,6 +176,15 @@ func TestListChannelsToolGatedToAgentProxyTokens(t *testing.T) {
 	addListChannelsTool(proxyServer, agentProxyToken(fx), db)
 	if names := listServerToolNames(t, proxyServer); !names["list_channels"] {
 		t.Fatal("list_channels not registered for agent-proxy token")
+	}
+
+	if err := db.Model(&model.Agent{}).Where("id = ?", fx.agent.ID).Update("is_default", false).Error; err != nil {
+		t.Fatalf("make agent non-default: %v", err)
+	}
+	nonDefaultServer := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "v1"}, nil)
+	addListChannelsTool(nonDefaultServer, agentProxyToken(fx), db)
+	if names := listServerToolNames(t, nonDefaultServer); names["list_channels"] {
+		t.Fatal("list_channels registered for a non-default agent")
 	}
 }
 

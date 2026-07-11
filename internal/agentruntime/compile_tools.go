@@ -164,7 +164,7 @@ func expandRuntimeToolID(raw string) ([]string, bool) {
 	case "todowrite", "todoread":
 		return []string{"update_plan"}, true
 	case "skill":
-		// Skills moved to the MCP layer (skills_list / skill_view are served by
+		// Skills moved to the MCP layer (skill_view is served by
 		// Hivy's MCP server). A legacy "skill" permission on an existing agent is
 		// still accepted but no longer maps to any runtime builtin tool.
 		return nil, true

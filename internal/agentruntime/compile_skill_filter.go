@@ -16,9 +16,13 @@ type toolFilterJSON struct {
 	Deny  *[]string `json:"deny"`
 }
 
-func resolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.ToolFilter {
+// ResolveAgentMCPToolFilter is the single policy path for both runtime config
+// compilation and the JTI-scoped Hivy MCP server. It always returns an
+// allow-list: every MCP capability other than the universal skill_view tool
+// must be explicitly granted by the catalog or agent configuration.
+func ResolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.ToolFilter {
 	if agent == nil {
-		return nil
+		return compileMCPToolFilter(nil)
 	}
 	if agent.AgentCatalog != nil {
 		if filter := mcpToolFilterFromCatalogManifest(agent.AgentCatalog.Manifest); filter != nil {
@@ -36,8 +40,21 @@ func resolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Ag
 			}
 		}
 	}
-	// User-created agents carry their own MCP tool filter.
-	return normalizeToolFilter(agent.McpToolFilter)
+	// User-created agents carry their own MCP tool filter. A nil filter has
+	// allow-all semantics in the runtime, so the compiler must never emit nil
+	// for an agent that has not explicitly granted MCP capabilities.
+	return compileMCPToolFilter(agent.McpToolFilter)
+}
+
+func resolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.ToolFilter {
+	return ResolveAgentMCPToolFilter(ctx, db, agent)
+}
+
+// compileMCPToolFilter applies the platform's deny-by-default policy. The
+// runtime treats nil as unrestricted, so the compiler never emits nil; an
+// otherwise empty capability set receives only universal skill_view below.
+func compileMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
+	return normalizeToolFilter(filter)
 }
 
 func mcpToolFilterFromCatalogManifest(raw model.RawJSON) *model.ToolFilter {
@@ -58,8 +75,8 @@ func toolFilterFromPayload(payload *toolFilterJSON) *model.ToolFilter {
 		return nil
 	}
 	// Route catalog manifest filters through the same normalization choke point
-	// (normalizeToolFilter) as user-created and sub-agent filters so the
-	// read-only floor is applied once, everywhere.
+	// as user-created and sub-agent filters so the explicit allow-list policy is
+	// identical at every entry point.
 	return normalizeToolFilter(&model.ToolFilter{
 		Allow: normalizeOptionalStrings(payload.Allow),
 		Deny:  normalizeOptionalStrings(payload.Deny),
@@ -67,37 +84,37 @@ func toolFilterFromPayload(payload *toolFilterJSON) *model.ToolFilter {
 }
 
 // normalizeToolFilter is the single choke point every compiled MCP tool filter
-// flows through: user-created agent filters (resolveAgentMCPToolFilter), catalog
-// manifest filters (toolFilterFromPayload), and sub-agent filters
-// (compile_subagents.go). It sorts/dedupes the allow and deny lists and applies
-// the read-only floor.
+// flows through: user-created agent filters, catalog manifest filters, and
+// sub-agent filters. It deliberately compiles every input to an allow-list. A
+// legacy deny-only filter therefore grants no optional MCP capability: deny
+// rules can only subtract from capabilities that were explicitly allowed.
 func normalizeToolFilter(filter *model.ToolFilter) *model.ToolFilter {
-	if filter == nil || (filter.Allow == nil && filter.Deny == nil) {
-		return nil
+	allow := []string{}
+	deny := []string{}
+	if filter != nil {
+		allow = normalizeStringsPreservingNil(filter.Allow)
+		deny = normalizeStringsPreservingNil(filter.Deny)
 	}
-	return applyReadOnlyMCPToolFloor(&model.ToolFilter{
-		Allow: normalizeStringsPreservingNil(filter.Allow),
-		Deny:  normalizeStringsPreservingNil(filter.Deny),
-	})
+	denied := make(map[string]bool, len(deny))
+	for _, id := range deny {
+		denied[id] = true
+	}
+	filtered := make([]string, 0, len(allow))
+	for _, id := range allow {
+		if !denied[id] {
+			filtered = append(filtered, id)
+		}
+	}
+	return applyReadOnlyMCPToolFloor(&model.ToolFilter{Allow: filtered})
 }
 
-// applyReadOnlyMCPToolFloor keeps allow-list MCP tool filters from locking an
-// agent out of read-only skill/channel tools. Allow-list agents built by the old
-// agent-builder flow (before this floor existed) would otherwise be denied every
-// MCP tool not named in their allow list — including list_channels (needed to
-// resolve Hivy channel UUIDs for cron / create_http_trigger) and the skill tools
-// (skills are unusable without them). For any filter with a NON-empty allow list
-// we union in each model.ReadOnlyMCPToolFloor id that is not already explicitly
-// denied; an explicit deny is respected as deliberate and still wins. Nil filters
-// and pure deny-list filters (a deny list already permits every unnamed tool) are
-// left untouched. Output stays sorted and deduped.
+// applyReadOnlyMCPToolFloor adds the small universal MCP surface to every
+// compiled filter. Today that surface is only skill_view: the available-skill
+// inventory is already rendered into the system prompt, so skills_list is not
+// needed, and channel/automation tools stay explicit Hivy-default grants.
 func applyReadOnlyMCPToolFloor(filter *model.ToolFilter) *model.ToolFilter {
-	if filter == nil || len(filter.Allow) == 0 {
+	if filter == nil {
 		return filter
-	}
-	denied := make(map[string]bool, len(filter.Deny))
-	for _, id := range filter.Deny {
-		denied[id] = true
 	}
 	present := make(map[string]bool, len(filter.Allow))
 	for _, id := range filter.Allow {
@@ -105,7 +122,7 @@ func applyReadOnlyMCPToolFloor(filter *model.ToolFilter) *model.ToolFilter {
 	}
 	changed := false
 	for _, id := range model.ReadOnlyMCPToolFloor {
-		if denied[id] || present[id] {
+		if present[id] {
 			continue
 		}
 		filter.Allow = append(filter.Allow, id)

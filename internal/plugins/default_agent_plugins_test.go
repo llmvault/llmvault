@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// Bundled plugins that must reach every agent load through the same path boot
-// sync uses and carry the auto_install flag. If the flag is dropped the plugin
-// silently stops reaching its agents.
-func TestBundledDefaultAgentPluginsCarryFlag(t *testing.T) {
+// Runtime is the only bundled plugin that is universal. Management and
+// discovery plugins are team-managed so an agent can be kept free of their
+// skills and MCP tools until its team opts in.
+func TestOnlyRuntimeIsAlwaysOn(t *testing.T) {
 	root, err := resolveDir("global/plugins")
 	if err != nil {
 		t.Fatalf("resolve global/plugins: %v", err)
@@ -29,6 +29,7 @@ func TestBundledDefaultAgentPluginsCarryFlag(t *testing.T) {
 	decode := func(t *testing.T, slug string) struct {
 		DefaultAgentInstall bool `json:"default_agent_install"`
 		AutoInstall         bool `json:"auto_install"`
+		Locked              bool `json:"locked"`
 	} {
 		t.Helper()
 		manifest, ok := bySlug[slug]
@@ -38,6 +39,7 @@ func TestBundledDefaultAgentPluginsCarryFlag(t *testing.T) {
 		var flags struct {
 			DefaultAgentInstall bool `json:"default_agent_install"`
 			AutoInstall         bool `json:"auto_install"`
+			Locked              bool `json:"locked"`
 		}
 		if err := json.Unmarshal(manifest.raw, &flags); err != nil {
 			t.Fatalf("decode %q manifest: %v", slug, err)
@@ -45,12 +47,16 @@ func TestBundledDefaultAgentPluginsCarryFlag(t *testing.T) {
 		return flags
 	}
 
-	// System plugins: auto_install so they reach every team's agents.
+	runtimeFlags := decode(t, "runtime")
+	if !runtimeFlags.AutoInstall || !runtimeFlags.Locked {
+		t.Fatalf("runtime must remain the locked auto-install plugin: %#v", runtimeFlags)
+	}
+
 	for _, slug := range []string{"agent-builder", "skill-manager", "service-discovery"} {
 		t.Run(slug, func(t *testing.T) {
 			flags := decode(t, slug)
-			if !flags.AutoInstall {
-				t.Fatalf("%q must set auto_install: true (system plugin)", slug)
+			if flags.AutoInstall || flags.DefaultAgentInstall || flags.Locked {
+				t.Fatalf("%q must be a team-managed optional plugin: %#v", slug, flags)
 			}
 		})
 	}

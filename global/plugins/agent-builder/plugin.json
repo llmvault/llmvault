@@ -9,8 +9,6 @@
   "developer": "Hivy",
   "official": true,
   "featured": false,
-  "auto_install": true,
-  "locked": true,
   "capabilities": ["Create agents", "Edit agents", "Recommend plugins"],
   "examples": [
     "Build me an agent that triages incoming support emails",
@@ -18,7 +16,7 @@
     "Update my sales agent to use a smarter model and add the Slack plugin"
   ],
   "links": { "website": "https://www.usehivy.com/" },
-  "long_description": "Agent Builder lets an agent help you design and manage the other agents in your Hivy organization: it interviews you about what you need, writes clear instructions, picks the right model and capabilities, and creates or updates agents on your behalf. It is installed automatically for every agent in every organization.",
+  "long_description": "Agent Builder lets an agent help you design and manage the other agents in your Hivy organization: it interviews you about what you need, writes clear instructions, picks the right model and capabilities, and creates or updates agents on your behalf. Enable it for the teams that should manage agents.",
   "plugin_version": "1",
   "enabled": true
 }

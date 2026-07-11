@@ -24,7 +24,7 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 		return
 	}
 	callingAgent := callingProxyAgent(token, db)
-	if callingAgent == nil {
+	if callingAgent == nil || !callingAgent.IsDefault {
 		return
 	}
 	server.AddTool(&mcp.Tool{

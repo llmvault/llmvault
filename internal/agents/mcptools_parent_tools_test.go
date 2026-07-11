@@ -21,17 +21,17 @@ func loadAgentByID(t *testing.T, db *gorm.DB, id uuid.UUID) model.Agent {
 	return a
 }
 
-func denySet(t *testing.T, f *model.ToolFilter) map[string]bool {
+func allowSet(t *testing.T, f *model.ToolFilter) map[string]bool {
 	t.Helper()
 	if f == nil {
-		t.Fatalf("expected a deny-list filter, got nil")
+		t.Fatalf("expected an allow-list filter, got nil")
 	}
-	if len(f.Allow) != 0 {
-		t.Fatalf("parent filter must not use an allow-list, got Allow=%v", f.Allow)
+	if len(f.Deny) != 0 {
+		t.Fatalf("parent filter must not use deny rules, got Deny=%v", f.Deny)
 	}
 	out := map[string]bool{}
-	for _, d := range f.Deny {
-		out[d] = true
+	for _, allowed := range f.Allow {
+		out[allowed] = true
 	}
 	return out
 }
@@ -46,10 +46,9 @@ func assertBaselineGranted(t *testing.T, tools model.JSON) {
 }
 
 // TestCreateAgent_SkillOnlyPick_GrantsBaseline is the direct regression for the
-// incident: an agent that picks only the read-only skill tools must still get
-// every baseline runtime tool, and its MCP deny-list must NOT lock out the
-// read-only floor (skills_list/skill_view/list_channels).
-func TestCreateAgent_SkillOnlyPick_GrantsBaseline(t *testing.T) {
+// incident: an agent with no optional MCP picks must still get every baseline
+// runtime tool and only the universal skill_view MCP capability.
+func TestCreateAgent_NoMCPPicks_GrantsBaseline(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
 	team := testTeam(t, db, org.ID)
@@ -57,30 +56,27 @@ func TestCreateAgent_SkillOnlyPick_GrantsBaseline(t *testing.T) {
 	token := &model.Token{OrgID: org.ID}
 
 	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
-		Name:  "Skill Only",
-		Tools: []string{"skills_list", "skill_view"},
+		Name: "No MCP tools",
 	})
 	obj := builderResultJSON(t, res)["agent"].(map[string]any)
 	stored := loadAgentByID(t, db, uuid.MustParse(obj["id"].(string)))
 
 	assertBaselineGranted(t, stored.Tools)
 
-	deny := denySet(t, stored.McpToolFilter)
+	allow := allowSet(t, stored.McpToolFilter)
 	for _, floor := range model.ReadOnlyMCPToolFloor {
-		if deny[floor] {
-			t.Fatalf("deny-list must not deny read-only floor %q: %v", floor, stored.McpToolFilter.Deny)
+		if allow[floor] {
+			t.Fatalf("stored parent filter must not persist universal tool %q: %v", floor, stored.McpToolFilter.Allow)
 		}
 	}
-	for _, want := range []string{"web_search", "cron", "generate_image"} {
-		if !deny[want] {
-			t.Fatalf("deny-list must deny unpicked capability %q: %v", want, stored.McpToolFilter.Deny)
-		}
+	if len(allow) != 0 {
+		t.Fatalf("allow list = %v, want no optional MCP tools", stored.McpToolFilter.Allow)
 	}
 }
 
-// TestCreateAgent_PicksTwoMCP_DenyRest checks the deny-list excludes the picked
-// capabilities and includes the rest.
-func TestCreateAgent_PicksTwoMCP_DenyRest(t *testing.T) {
+// TestCreateAgent_PicksTwoMCP_AllowListsOnlyThoseCapabilities verifies that
+// plugin and future MCP tools cannot leak through an unbounded deny-list.
+func TestCreateAgent_PicksTwoMCP_AllowListsOnlyThoseCapabilities(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
 	team := testTeam(t, db, org.ID)
@@ -89,30 +85,32 @@ func TestCreateAgent_PicksTwoMCP_DenyRest(t *testing.T) {
 
 	res, _ := handleCreateAgent(context.Background(), deps, token, team.ID, "https://app.test", createAgentArgs{
 		Name:  "Two MCP",
-		Tools: []string{"cron", "web_search"},
+		Tools: []string{"web_crawl", "web_search"},
 	})
 	obj := builderResultJSON(t, res)["agent"].(map[string]any)
 	stored := loadAgentByID(t, db, uuid.MustParse(obj["id"].(string)))
 
 	assertBaselineGranted(t, stored.Tools)
-	deny := denySet(t, stored.McpToolFilter)
-	if deny["cron"] || deny["web_search"] {
-		t.Fatalf("deny-list must not deny picked cron/web_search: %v", stored.McpToolFilter.Deny)
+	allow := allowSet(t, stored.McpToolFilter)
+	for _, id := range []string{"web_crawl", "web_search"} {
+		if !allow[id] {
+			t.Fatalf("allow list must grant picked %q: %v", id, stored.McpToolFilter.Allow)
+		}
 	}
-	if !deny["generate_image"] || !deny["create_http_trigger"] {
-		t.Fatalf("deny-list must deny unpicked generate_image/create_http_trigger: %v", stored.McpToolFilter.Deny)
+	if allow["generate_image"] || allow["sheet_list"] {
+		t.Fatalf("allow list leaked an unpicked capability: %v", stored.McpToolFilter.Allow)
 	}
 	// The echo reports only the picked parent-assignable capabilities.
 	echo := agentToolStrings(t, obj, "tools")
 	sort.Strings(echo)
-	if !reflect.DeepEqual(echo, []string{"cron", "web_search"}) {
-		t.Fatalf("parent echo = %v, want [cron web_search]", echo)
+	if !reflect.DeepEqual(echo, []string{"web_crawl", "web_search"}) {
+		t.Fatalf("parent echo = %v, want [web_crawl web_search]", echo)
 	}
 }
 
-// TestCreateAgent_AllMCPPicked_NilFilter checks that when every
-// parent-assignable MCP tool is picked, the filter is nil (nothing to deny).
-func TestCreateAgent_AllMCPPicked_NilFilter(t *testing.T) {
+// TestCreateAgent_AllMCPPicked_StillStoresAnAllowList proves that even a full
+// optional selection cannot turn into the runtime's nil/allow-all semantics.
+func TestCreateAgent_AllMCPPicked_StillStoresAnAllowList(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
 	team := testTeam(t, db, org.ID)
@@ -127,8 +125,11 @@ func TestCreateAgent_AllMCPPicked_NilFilter(t *testing.T) {
 	stored := loadAgentByID(t, db, uuid.MustParse(obj["id"].(string)))
 
 	assertBaselineGranted(t, stored.Tools)
-	if stored.McpToolFilter != nil {
-		t.Fatalf("filter must be nil when all parent-assignable MCP tools are picked, got: %#v", stored.McpToolFilter)
+	allow := allowSet(t, stored.McpToolFilter)
+	for _, id := range parentAssignableMCPTools() {
+		if !allow[id] {
+			t.Fatalf("allow list missing picked tool %q: %#v", id, stored.McpToolFilter)
+		}
 	}
 	if stored.Tools["lsp"] != true {
 		t.Fatalf("optional runtime tool lsp not granted: %#v", stored.Tools)
@@ -169,14 +170,14 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	}
 
 	// Explicit runtime picks stored verbatim; MCP tools are floored to the
-	// read-only set rather than inheriting the parent's full grant.
+	// universal skill_view tool rather than inheriting the parent's grants.
 	explicit := byName["Explicit"]
 	if len(explicit.Tools) != 2 || explicit.Tools["read_file"] != true || explicit.Tools["bash"] != true {
 		t.Fatalf("Explicit sub tools = %#v, want exactly read_file+bash", explicit.Tools)
 	}
 	assertReadOnlyMCPFloor(t, "Explicit", explicit.McpToolFilter)
 
-	// Empty picks default to read_file plus the read-only MCP floor.
+	// Empty picks default to read_file plus the universal MCP floor.
 	empty := byName["Empty"]
 	wantReadOnly := map[string]bool{"read_file": true}
 	if len(empty.Tools) != len(wantReadOnly) {
@@ -189,14 +190,14 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	}
 	assertReadOnlyMCPFloor(t, "Empty", empty.McpToolFilter)
 
-	// A single MCP pick keeps allow-list semantics and unions the read-only floor.
+	// A single MCP pick keeps allow-list semantics and unions the universal floor.
 	web := byName["WebPick"]
 	if web.McpToolFilter == nil {
 		t.Fatalf("WebPick sub must have an allow-list filter")
 	}
 	allow := append([]string(nil), web.McpToolFilter.Allow...)
 	sort.Strings(allow)
-	want := []string{"list_channels", "skill_view", "skills_list", "web_search"}
+	want := []string{"skill_view", "web_search"}
 	if !reflect.DeepEqual(allow, want) {
 		t.Fatalf("WebPick allow = %v, want %v", allow, want)
 	}
@@ -223,7 +224,7 @@ func assertReadOnlyMCPFloor(t *testing.T, name string, f *model.ToolFilter) {
 }
 
 // TestUpdateAgent_ToolsReplacementKeepsBaselineAndSubagentTask verifies a
-// tools-only patch re-grants baseline, recomputes the deny-list, and keeps
+// tools-only patch re-grants baseline, replaces the allow-list, and keeps
 // subagent_task while active sub-agent rows exist.
 func TestUpdateAgent_ToolsReplacementKeepsBaselineAndSubagentTask(t *testing.T) {
 	db := testDB(t)
@@ -254,12 +255,9 @@ func TestUpdateAgent_ToolsReplacementKeepsBaselineAndSubagentTask(t *testing.T) 
 	if stored.Tools["subagent_task"] != true {
 		t.Fatalf("tools-only update must keep subagent_task (sub-agent still present): %#v", stored.Tools)
 	}
-	deny := denySet(t, stored.McpToolFilter)
-	if deny["generate_image"] {
-		t.Fatalf("deny-list must not deny the newly picked generate_image: %v", stored.McpToolFilter.Deny)
-	}
-	if !deny["web_search"] {
-		t.Fatalf("replaced tools must now deny web_search (no longer picked): %v", stored.McpToolFilter.Deny)
+	allow := allowSet(t, stored.McpToolFilter)
+	if !allow["generate_image"] || allow["web_search"] {
+		t.Fatalf("replaced MCP allow list = %v, want only generate_image", stored.McpToolFilter.Allow)
 	}
 }
 
@@ -280,7 +278,7 @@ func TestUpdateAgent_ToolsWithoutSubAgents_DropsSubagentTask(t *testing.T) {
 	})
 	agentID := uuid.MustParse(builderResultJSON(t, createRes)["agent"].(map[string]any)["id"].(string))
 
-	newTools := []string{"cron"}
+	newTools := []string{"web_crawl"}
 	updRes, _ := handleUpdateAgent(ctx, deps, token, "https://app.test", updateAgentArgs{
 		AgentID: agentID.String(),
 		Tools:   &newTools,

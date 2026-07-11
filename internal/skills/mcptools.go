@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -12,22 +11,25 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
-const skillsListDescription = "List available skills (name + description). Call skill_view(name) to load a skill's full instructions; loading also materializes its files (references, scripts) into .skills/<name> in your workspace."
+const (
+	skillViewDescription   = "Load a skill's full content and materialize its bundle (SKILL.md plus references/, templates/, scripts/, assets/) into .skills/<name> in your workspace so linked files and scripts are usable. Pass file_path to read a single linked file instead."
+	skillManagerPluginSlug = "skill-manager"
+)
 
-const skillViewDescription = "Load a skill's full content and materialize its bundle (SKILL.md plus references/, templates/, scripts/, assets/) into .skills/<name> in your workspace so linked files and scripts are usable. Pass file_path to read a single linked file instead."
-
-// NewToolsFunc registers the read-only skill tools (skills_list, skill_view)
-// for agent proxy MCP servers. Skills are DB-backed and scoped to the token's
-// agent/org; skill_view returns a materialize payload the runtime writes to
-// the sandbox workspace.
+// NewToolsFunc registers skill_view for agent proxy MCP servers. The static
+// system prompt already lists every available skill, so a separate skills_list
+// tool would only repeat that inventory in each MCP tool catalog. Skills are
+// DB-backed and scoped to the token's agent/org; skill_view returns a
+// materialize payload the runtime writes to the sandbox workspace.
 //
 // It also registers the privileged skill-manager tools (create_org_plugin,
 // create_skill, update_skill, archive_skill) ONLY when the calling agent is
-// permitted: the org's default Hivy agent, or an agent whose
-// McpToolFilter.Allow explicitly names one of them. frontendURL builds the
-// environment-settings link in manager tool responses.
+// permitted and its team has enabled Skill Manager: the org's default Hivy
+// agent, or an agent whose McpToolFilter.Allow explicitly names one of them.
+// frontendURL builds the environment-settings link in manager tool responses.
 func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || db == nil || !skillToolAgentProxy(token) {
@@ -37,48 +39,23 @@ func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, toke
 		if err != nil {
 			return
 		}
-		registerSkillsListTool(server, db, token, agentID)
 		registerSkillViewTool(server, db, token, agentID)
 
 		agent, err := loadActiveAgent(context.Background(), db, token.OrgID, agentID)
 		if err != nil || !skillManagerEnabled(agent) {
 			return
 		}
+		hasPlugin, err := pluginresolve.AgentHasPluginSlug(context.Background(), db, *agent, skillManagerPluginSlug)
+		if err != nil || !hasPlugin {
+			return
+		}
 		registerSkillManagerTools(server, db, token, frontendURL)
 	}
-}
-
-type skillsListArgs struct {
-	Category string `json:"category"`
 }
 
 type skillViewArgs struct {
 	Name     string `json:"name"`
 	FilePath string `json:"file_path"`
-}
-
-func registerSkillsListTool(server *mcp.Server, db *gorm.DB, token *model.Token, agentID uuid.UUID) {
-	server.AddTool(&mcp.Tool{
-		Name:        "skills_list",
-		Description: skillsListDescription,
-		InputSchema: map[string]any{
-			"type":                 "object",
-			"additionalProperties": false,
-			"properties": map[string]any{
-				"category": map[string]any{
-					"type":        "string",
-					"description": "Optional category filter to narrow results.",
-				},
-			},
-			"required": []string{},
-		},
-	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var args skillsListArgs
-		if err := decodeSkillToolArgs(req, &args); err != nil {
-			return skillToolError(err.Error()), nil
-		}
-		return handleSkillsList(ctx, db, token, agentID, args)
-	})
 }
 
 func registerSkillViewTool(server *mcp.Server, db *gorm.DB, token *model.Token, agentID uuid.UUID) {
@@ -91,7 +68,7 @@ func registerSkillViewTool(server *mcp.Server, db *gorm.DB, token *model.Token, 
 			"properties": map[string]any{
 				"name": map[string]any{
 					"type":        "string",
-					"description": "The skill name (use skills_list to see available skills).",
+					"description": "The skill name from your Available skills system-prompt section.",
 				},
 				"file_path": map[string]any{
 					"type":        "string",
@@ -106,42 +83,6 @@ func registerSkillViewTool(server *mcp.Server, db *gorm.DB, token *model.Token, 
 			return skillToolError(err.Error()), nil
 		}
 		return handleSkillView(ctx, db, token, agentID, args)
-	})
-}
-
-func handleSkillsList(ctx context.Context, db *gorm.DB, token *model.Token, agentID uuid.UUID, args skillsListArgs) (*mcp.CallToolResult, error) {
-	agent, err := loadActiveAgent(ctx, db, token.OrgID, agentID)
-	if err != nil {
-		return skillToolError(err.Error()), nil
-	}
-	summaries, err := AgentSkillSummaries(ctx, db, agent)
-	if err != nil {
-		return skillToolError("failed to load skills: " + err.Error()), nil
-	}
-	category := strings.TrimSpace(args.Category)
-
-	items := make([]map[string]any, 0, len(summaries))
-	categories := map[string]bool{}
-	for _, summary := range summaries {
-		if summary.Category != "" {
-			categories[summary.Category] = true
-		}
-		if category != "" && summary.Category != category {
-			continue
-		}
-		items = append(items, map[string]any{
-			"name":        summary.Name,
-			"description": summary.Description,
-			"category":    nullableString(summary.Category),
-		})
-	}
-
-	return skillToolJSON(map[string]any{
-		"success":    true,
-		"skills":     items,
-		"categories": sortedKeys(categories),
-		"count":      len(items),
-		"hint":       "Call skill_view(name) to load a skill and materialize its files into .skills/<name>.",
 	})
 }
 
@@ -267,13 +208,4 @@ func nullableString(value string) any {
 		return nil
 	}
 	return value
-}
-
-func sortedKeys(set map[string]bool) []string {
-	out := make([]string, 0, len(set))
-	for key := range set {
-		out = append(out, key)
-	}
-	sort.Strings(out)
-	return out
 }
