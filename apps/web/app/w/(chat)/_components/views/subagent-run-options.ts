@@ -1,6 +1,6 @@
 import type { SessionSubagentRun } from "@/app/w/(chat)/_lib/session-subagent-runs"
 
-export interface SubagentRunOption {
+interface SubagentRunOption {
   id: string
   label: string
   identifier: string
