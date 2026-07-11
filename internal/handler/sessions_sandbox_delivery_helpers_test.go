@@ -64,6 +64,7 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionRuntimeStub, createE
 		r.Post("/sessions/{id}/input-responses", h.RespondToInput)
 		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)
+		r.Get("/sessions/{id}/subagents/{childSessionID}/events", h.ListSubagentEvents)
 		r.Post("/sessions/{id}/sandbox-access", h.SandboxAccess)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)

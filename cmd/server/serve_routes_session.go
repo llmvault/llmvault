@@ -23,6 +23,7 @@ func mountSessionRoutes(r chi.Router, sessionHandler *handler.SessionHandler) {
 		r.Post("/sessions/{id}/transcriptions", sessionHandler.TranscribeAudio)
 		r.Post("/sessions/{id}/interrupt", sessionHandler.Interrupt)
 		r.Get("/sessions/{id}/events", sessionHandler.ListEvents)
+		r.Get("/sessions/{id}/subagents/{childSessionID}/events", sessionHandler.ListSubagentEvents)
 		r.Post("/sessions/{id}/sandbox-access", sessionHandler.SandboxAccess)
 		r.Post("/sessions/{id}/participants", sessionHandler.AddParticipants)
 		r.Put("/sessions/{id}/participants/{userID}", sessionHandler.PutParticipant)

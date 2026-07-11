@@ -4,6 +4,7 @@ use std::time::Duration;
 use tools::{JsonTool, ToolDefinition};
 
 use crate::primitives::ToolCall;
+use crate::rig_tool_registry::SUBAGENT_TOOL_CALL_ID_ARG;
 
 const SUBAGENT_TASK_TIMEOUT: Duration = Duration::from_secs(16 * 60);
 
@@ -78,7 +79,16 @@ impl ToolExecutor {
             return Err(ToolExecutionError::MissingRequired(message));
         }
         let errors_are_safe = tool.errors_are_safe();
-        let execution = tool.call(call.arguments.clone());
+        let mut arguments = call.arguments.clone();
+        if call.name == "subagent_task" {
+            if let Some(object) = arguments.as_object_mut() {
+                object.insert(
+                    SUBAGENT_TOOL_CALL_ID_ARG.to_string(),
+                    serde_json::Value::String(call.id.clone()),
+                );
+            }
+        }
+        let execution = tool.call(arguments);
         let Some(timeout) = tool_timeout(&call.name, self.timeout) else {
             return execution
                 .await
@@ -184,6 +194,35 @@ mod tests {
             name: name.to_string(),
             arguments: json!({}),
         }
+    }
+
+    struct EchoArgumentsTool;
+
+    #[async_trait::async_trait]
+    impl JsonTool for EchoArgumentsTool {
+        fn definition(&self) -> ToolDefinition {
+            ToolDefinition {
+                name: "subagent_task".to_string(),
+                description: "Returns its arguments.".to_string(),
+                parameters: json!({"type": "object"}),
+            }
+        }
+
+        async fn call(&self, args: Value) -> anyhow::Result<Value> {
+            Ok(args)
+        }
+    }
+
+    #[tokio::test]
+    async fn subagent_task_receives_its_unique_tool_call_id() {
+        let executor = ToolExecutor::new(vec![Arc::new(EchoArgumentsTool)], 1);
+
+        let result = executor
+            .execute(&tool_call("subagent_task"))
+            .await
+            .expect("subagent tool should receive its call id");
+
+        assert_eq!(result[SUBAGENT_TOOL_CALL_ID_ARG], "call-1");
     }
 
     #[tokio::test]

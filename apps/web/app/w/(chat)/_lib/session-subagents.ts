@@ -37,9 +37,8 @@ export function subagentFrameMetadata(
   const jobId = subagentIdentityJobId({
     jobId: stringValue(subagent, "job_id") || stringValue(data, "job_id"),
     childSessionId,
-    agentName,
-    parentSessionId,
   })
+  if (!jobId) return null
 
   return {
     jobId,

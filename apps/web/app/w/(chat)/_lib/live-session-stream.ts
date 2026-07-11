@@ -19,12 +19,18 @@ export function appendLiveSessionStreamFrame(
   events: SessionEventResponse[],
   frame: GoSessionStreamFrame
 ): SessionEventResponse[] {
-  const sourceEvents = clearModelRequestThinking(events)
-  if (!displayableEvents.has(frame.event)) return sourceEvents
-  if (frame.event === "model_request_completed") return sourceEvents
+  if (!displayableEvents.has(frame.event)) {
+    return clearModelRequestThinking(events)
+  }
+  if (frame.event === "model_request_completed") {
+    return clearModelRequestThinking(events)
+  }
 
   const next = streamFrameToSessionEvent(frame)
-  if (!next) return sourceEvents
+  if (!next) return clearModelRequestThinking(events)
+  if (isRepeatedLiveEvent(events, next)) return events
+
+  const sourceEvents = clearModelRequestThinking(events)
 
   if (next.event_type === "model_request_started") {
     return [...sourceEvents, modelRequestThinkingEvent(next)]
@@ -41,6 +47,29 @@ export function appendLiveSessionStreamFrame(
   }
 
   return [...sourceEvents, next]
+}
+
+function isRepeatedLiveEvent(
+  events: SessionEventResponse[],
+  next: SessionEventResponse
+) {
+  const eventID = next.event_id
+  if (eventID && events.some((event) => event.event_id === eventID)) {
+    return true
+  }
+
+  if (next.event_type !== "tool_call" && next.event_type !== "tool_result") {
+    return false
+  }
+  const toolID = stringValue(payloadRecord(next), "id")
+  return Boolean(
+    toolID &&
+      events.some(
+        (event) =>
+          event.event_type === next.event_type &&
+          stringValue(payloadRecord(event), "id") === toolID
+      )
+  )
 }
 
 export function isTerminalStreamFrame(frame: GoSessionStreamFrame) {

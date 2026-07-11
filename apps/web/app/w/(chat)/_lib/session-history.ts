@@ -7,6 +7,7 @@ import {
 import {
   isSubagentToolBlock,
   mergeSubagentBlocks,
+  preserveSubagentToolIdentity,
   subagentBlockFromTool,
   type SessionSubagentBlockOptions,
 } from "@/app/w/(chat)/_lib/session-subagent-blocks"
@@ -39,7 +40,6 @@ import {
 
 export type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history-event-utils"
 export { sessionHistoryPagesToEvents } from "@/app/w/(chat)/_lib/session-history-pages"
-
 type SessionBlocksMode = "history" | "live"
 
 type SessionBlocksOptions = {
@@ -187,22 +187,24 @@ function appendToolItem(
   options: SessionBlocksOptions
 ) {
   const toolID = toolEventID(event)
+  const existingIndex = toolID ? toolItemIndexByID.get(toolID) : undefined
+  const current =
+    existingIndex === undefined ? undefined : items[existingIndex]?.block
+  const identityPreservingEvent = preserveSubagentToolIdentity(event, current)
   const nextTool: ToolConversationBlock = {
-    ...toolBlock(event),
+    ...toolBlock(identityPreservingEvent),
     key: toolID ? `tool:${toolID}` : eventBlockKey(event, "tool"),
   }
   const next = isSubagentToolBlock(nextTool)
     ? subagentBlockFromTool(nextTool, options)
     : nextTool
 
-  if (toolID && toolItemIndexByID.has(toolID)) {
-    const index = toolItemIndexByID.get(toolID)
-    if (index === undefined) return
-    const current = items[index]
-    if (!current) return
-    current.block = mergeToolTimelineBlocks(current.block, next, options)
-    current.turnID ||= eventTurnID(event)
-    current.at = eventTime(event)
+  if (existingIndex !== undefined) {
+    const currentItem = items[existingIndex]
+    if (!currentItem) return
+    currentItem.block = mergeToolTimelineBlocks(currentItem.block, next, options)
+    currentItem.turnID ||= eventTurnID(event)
+    currentItem.at = eventTime(event)
     return
   }
 

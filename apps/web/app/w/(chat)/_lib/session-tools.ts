@@ -289,10 +289,12 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
     : ""
   const subagentGoal = subagentTask ? query : ""
   const subagentJobId = subagentTask
-    ? firstSummaryString(result, ["job_id"])
+    ? firstSummaryString(result, ["job_id"]) ||
+      firstSummaryString(args, ["job_id"])
     : ""
   const subagentChildSessionId = subagentTask
-    ? firstSummaryString(result, ["child_session_id", "session_id"])
+    ? firstSummaryString(result, ["child_session_id", "session_id"]) ||
+      firstSummaryString(args, ["child_session_id", "session_id"])
     : ""
   const bytesWritten = summaryNumber(result, "bytes_written")
   const editsApplied = summaryNumber(result, "edits_applied")

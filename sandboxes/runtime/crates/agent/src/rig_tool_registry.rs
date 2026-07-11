@@ -24,6 +24,7 @@ use crate::{PlanUpdater, QuestionRequester};
 pub type ToolFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
 
 static SUBAGENT_TASK_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+pub(crate) const SUBAGENT_TOOL_CALL_ID_ARG: &str = "__hivy_tool_call_id";
 const SUBAGENT_TASK_WAIT_INTERVAL: Duration = Duration::from_millis(250);
 const SUBAGENT_TASK_FOREGROUND_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
@@ -407,8 +408,15 @@ fn subagent_task_tool(
                 }
 
                 let now = Utc::now();
-                let id = next_subagent_task_id(now);
-                let child_session_id = SessionId::from(format!("subagent-{}", id));
+                let tool_call_id = args
+                    .get(SUBAGENT_TOOL_CALL_ID_ARG)
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty());
+                let id = tool_call_id
+                    .map(|call_id| subagent_task_id(&session_id, call_id))
+                    .unwrap_or_else(|| next_subagent_task_id(now));
+                let child_session_id = subagent_child_session_id(&id);
 
                 let task = SubagentTask {
                     id: id.clone(),
@@ -447,6 +455,18 @@ fn subagent_task_tool(
 fn next_subagent_task_id(now: DateTime<Utc>) -> String {
     let sequence = SUBAGENT_TASK_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     format!("subagent-task-{}-{}", now.timestamp_millis(), sequence)
+}
+
+pub(crate) fn subagent_task_id(parent_session_id: &SessionId, tool_call_id: &str) -> String {
+    format!(
+        "subagent-task-{}-{}",
+        parent_session_id.as_str(),
+        tool_call_id.trim()
+    )
+}
+
+pub(crate) fn subagent_child_session_id(job_id: &str) -> SessionId {
+    SessionId::from(format!("subagent-{job_id}"))
 }
 
 async fn wait_for_subagent_task_completion(

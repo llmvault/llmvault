@@ -38,20 +38,26 @@ export function SubagentBlock({
             {block.agentName}
           </span>
         </div>
+        {block.jobId || block.childSessionId ? (
+          <div
+            className="mt-0.5 truncate font-mono text-[11px] text-muted"
+            title={block.jobId || block.childSessionId}
+          >
+            {block.jobId || block.childSessionId}
+          </div>
+        ) : null}
         <div className="mt-0.5 truncate text-xs text-muted">
           {block.error || block.preview || block.goal || block.childSessionId}
         </div>
       </div>
-      {block.status === "running" ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="shrink-0"
-          onPress={() => onOpenRun?.(block)}
-        >
-          Open
-        </Button>
-      ) : null}
+      <Button
+        size="sm"
+        variant="secondary"
+        className="shrink-0"
+        onPress={() => onOpenRun?.(block)}
+      >
+        {block.status === "running" ? "Open" : "View"}
+      </Button>
     </div>
   )
 }

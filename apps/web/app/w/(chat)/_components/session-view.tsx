@@ -415,7 +415,6 @@ export function SessionThreadView({
   )
   const handleOpenSubagentRun = useCallback(
     (block: SubagentConversationBlock) => {
-      if (block.status !== "running") return
       const { activeJobId } = subagentOpenTarget(block, subagentRuns)
       if (!activeJobId) return
 

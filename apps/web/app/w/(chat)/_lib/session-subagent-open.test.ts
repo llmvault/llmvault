@@ -77,7 +77,7 @@ describe("subagentOpenTarget", () => {
     expect(target.activeJobId).not.toBe("tool:tool-xyz")
   })
 
-  it("resolves a unique agentName match as a last resort", () => {
+  it("never uses an agent name as a run identity", () => {
     const runs = [
       run({ jobId: "job-1", agentName: "explorer", childSessionId: "child-1" }),
       run({ jobId: "job-2", agentName: "writer", childSessionId: "child-2" }),
@@ -88,7 +88,7 @@ describe("subagentOpenTarget", () => {
       runs
     )
 
-    expect(target.run?.jobId).toBe("job-2")
-    expect(target.activeJobId).toBe("job-2")
+    expect(target.run).toBeUndefined()
+    expect(target.activeJobId).toBeUndefined()
   })
 })

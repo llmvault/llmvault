@@ -31,13 +31,7 @@ function subagentRunForBlock(
     )
     if (match) return match
   }
-  // Name-only matching is a last resort and is only safe when it is
-  // unambiguous. When two subagents share an agentName we cannot tell them
-  // apart by name, so we refuse to guess (and never fall back to block.key).
-  const agentName = block.agentName.trim()
-  if (!agentName) return undefined
-  const matches = runs.filter((run) => run.agentName === agentName)
-  return matches.length === 1 ? matches[0] : undefined
+  return undefined
 }
 
 function subagentRunFromBlock(
@@ -47,7 +41,6 @@ function subagentRunFromBlock(
   const jobId = subagentIdentityJobId({
     jobId: block.jobId,
     childSessionId: block.childSessionId,
-    agentName: block.agentName,
   })
   return {
     jobId,

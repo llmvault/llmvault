@@ -4,6 +4,7 @@ import type {
   ToolConversationBlock,
 } from "@/app/w/(chat)/_lib/static-data"
 import type { SessionSubagentRun } from "@/app/w/(chat)/_lib/session-subagent-runs"
+import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
 export interface SessionSubagentBlockOptions {
   subagentRuns?: SessionSubagentRun[]
@@ -12,6 +13,25 @@ export interface SessionSubagentBlockOptions {
 
 export function isSubagentToolBlock(block: ToolConversationBlock) {
   return block.detail?.tool === "subagent_task"
+}
+
+export function preserveSubagentToolIdentity(
+  event: SessionEventResponse,
+  current: ConversationBlock | undefined
+): SessionEventResponse {
+  if (current?.type !== "subagent" || event.event_type !== "tool_result") {
+    return event
+  }
+  const payload = eventPayload(event)
+  const tool = typeof payload.tool === "string" ? payload.tool.trim() : ""
+  if (tool && tool !== "tool") return event
+  return {
+    ...event,
+    payload: {
+      ...payload,
+      tool: "subagent_task",
+    },
+  }
 }
 
 export function subagentBlockFromTool(
@@ -81,10 +101,7 @@ function subagentRunForTool(
     const match = runs.find((run) => run.childSessionId === childSessionId)
     if (match) return match
   }
-  const agentName = (detail?.agentName || detail?.input || "").trim()
-  if (!agentName) return undefined
-  const matches = runs.filter((run) => run.agentName === agentName)
-  return matches.length === 1 ? matches[0] : undefined
+  return undefined
 }
 
 function subagentRunForJob(
@@ -111,4 +128,12 @@ function subagentStatusRanked(
   if (next === "failed" || current === "failed") return "failed"
   if (next === "completed" || current === "completed") return "completed"
   return "running"
+}
+
+function eventPayload(event: SessionEventResponse): Record<string, unknown> {
+  return event.payload &&
+    typeof event.payload === "object" &&
+    !Array.isArray(event.payload)
+    ? (event.payload as Record<string, unknown>)
+    : {}
 }

@@ -340,12 +340,17 @@ async fn subagent_task_tool_returns_completed_foreground_result() {
             .await
     });
     let created = task_tool
-        .call(json!({"agent": "helper", "goal": "Return HELPER_OK"}))
+        .call(json!({
+            "agent": "helper",
+            "goal": "Return HELPER_OK",
+            (SUBAGENT_TOOL_CALL_ID_ARG): "call-1"
+        }))
         .await
         .expect("create subagent task");
     let job_id = created["job_id"].as_str().expect("job id");
     let completed_job_id = completion.await.expect("completion task");
     assert_eq!(completed_job_id, job_id);
+    assert_eq!(job_id, "subagent-task-parent-session-call-1");
     assert_eq!(created["state"], "completed");
     assert_eq!(created["session_id"], format!("subagent-{job_id}").as_str());
     assert_eq!(created["agent"], "helper");
@@ -380,6 +385,20 @@ fn subagent_task_ids_are_unique_with_same_timestamp() {
     assert_ne!(first, second);
     assert!(first.starts_with("subagent-task-1781913600000-"));
     assert!(second.starts_with("subagent-task-1781913600000-"));
+}
+
+#[test]
+fn subagent_task_id_is_derived_from_parent_and_tool_call() {
+    let parent = SessionId::from("parent-session");
+
+    assert_eq!(
+        subagent_task_id(&parent, "call-1"),
+        "subagent-task-parent-session-call-1"
+    );
+    assert_ne!(
+        subagent_task_id(&parent, "call-1"),
+        subagent_task_id(&parent, "call-2")
+    );
 }
 
 #[tokio::test]

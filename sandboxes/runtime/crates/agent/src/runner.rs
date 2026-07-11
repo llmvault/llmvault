@@ -28,7 +28,8 @@ use crate::history::{append_model_history_redaction, append_model_message};
 use crate::model_client::{ChatModelClient, ModelClientConfig};
 use crate::primitives::{AgentMessage, FinishReason, ModelRequest, ModelStreamEvent, ToolCall};
 use crate::rig_tool_registry::{
-    build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext,
+    build_agent_tools, emit_tool_error, emit_tool_invoked, subagent_child_session_id,
+    subagent_task_id, DynamicTool, ToolContext,
 };
 use crate::tool_executor::ToolExecutor;
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
@@ -737,7 +738,12 @@ impl AgentRunner for RigAgentRunner {
                         };
                         break;
                     }
-                    yield AgentEvent::ToolCall { id: call.id.clone(), tool: call.name.clone(), args: call.arguments.clone() };
+                    let args = if call.name == "subagent_task" {
+                        subagent_stream_args(&session_id, call)
+                    } else {
+                        call.arguments.clone()
+                    };
+                    yield AgentEvent::ToolCall { id: call.id.clone(), tool: call.name.clone(), args };
                     emitted_tool_calls.push(call.clone());
                 }
 
@@ -1056,6 +1062,21 @@ fn is_billing_model_error(error: &crate::AgentError) -> bool {
         || message.contains("payment required")
 }
 
+fn subagent_stream_args(session_id: &SessionId, call: &ToolCall) -> serde_json::Value {
+    let job_id = subagent_task_id(session_id, &call.id);
+    let child_session_id = subagent_child_session_id(&job_id);
+    let mut args = call.arguments.clone();
+    if let Some(object) = args.as_object_mut() {
+        object.insert("job_id".to_string(), serde_json::json!(job_id));
+        object.insert(
+            "child_session_id".to_string(),
+            serde_json::json!(child_session_id.as_str()),
+        );
+        object.insert("tool_call_id".to_string(), serde_json::json!(call.id));
+    }
+    args
+}
+
 fn tool_call_fingerprint(tool_name: &str, args: &serde_json::Value) -> String {
     format!("{tool_name}\n{}", args)
 }
@@ -1220,6 +1241,28 @@ mod tests {
             step: step.to_string(),
             status,
         }
+    }
+
+    #[test]
+    fn subagent_tool_call_streams_authoritative_run_ids() {
+        let session_id = SessionId::from("parent-session");
+        let call = ToolCall {
+            id: "call-1".to_string(),
+            name: "subagent_task".to_string(),
+            arguments: serde_json::json!({
+                "agent": "codebase-explorer",
+                "goal": "Inspect auth"
+            }),
+        };
+
+        let args = subagent_stream_args(&session_id, &call);
+
+        assert_eq!(args["job_id"], "subagent-task-parent-session-call-1");
+        assert_eq!(
+            args["child_session_id"],
+            "subagent-subagent-task-parent-session-call-1"
+        );
+        assert_eq!(args["tool_call_id"], "call-1");
     }
 
     #[test]

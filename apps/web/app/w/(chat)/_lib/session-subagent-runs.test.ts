@@ -154,10 +154,7 @@ describe("session subagent runs", () => {
     expect(merged[0]).toMatchObject({ jobId: "child-1", status: "completed" })
   })
 
-  it("keeps a single deterministic run across many frames with no job_id or child_session_id", () => {
-    // Neither job_id nor child_session_id present: the identity helper must fall
-    // back to a DETERMINISTIC synthetic (never Date.now()), so every frame maps
-    // to the SAME run instead of minting a phantom run per frame.
+  it("ignores malformed subagent events without a unique run id", () => {
     const runs = runsFromFrames([
       frame("subagent_started", {
         event_id: "f1",
@@ -178,10 +175,8 @@ describe("session subagent runs", () => {
       }),
     ])
 
-    expect(runs).toHaveLength(1)
-    expect(runs[0]?.jobId).toBe("subagent:session-1:explorer")
+    expect(runs).toEqual([])
 
-    // The live synthetic must agree with the history synthetic so reload dedupes.
     const historyRuns = sessionSubagentRunsFromEvents([
       event("token", {
         event_id: "h1",
@@ -191,8 +186,7 @@ describe("session subagent runs", () => {
         subagent: { agent_name: "explorer" },
       }),
     ])
-    expect(historyRuns[0]?.jobId).toBe("subagent:session-1:explorer")
-    expect(mergeSubagentRuns(runs, historyRuns)).toHaveLength(1)
+    expect(historyRuns).toEqual([])
   })
 
   it("never assigns a clock/Date.now()-based run id", () => {

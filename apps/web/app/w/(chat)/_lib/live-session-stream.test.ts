@@ -98,6 +98,39 @@ describe("live session stream", () => {
     })
   })
 
+  it("deduplicates replayed tool frames by tool call identity", () => {
+    const initial = appendLiveSessionStreamFrame(
+      [],
+      frame(
+        "tool_call",
+        {
+          id: "subagent-call-1",
+          tool: "subagent_task",
+          args: { agent: "codebase-explorer", goal: "Inspect auth" },
+          turn_id: "turn_1",
+        },
+        "stream-frame-1"
+      )
+    )
+
+    const replayed = appendLiveSessionStreamFrame(
+      initial,
+      frame(
+        "tool_call",
+        {
+          id: "subagent-call-1",
+          tool: "subagent_task",
+          args: { agent: "codebase-explorer", goal: "Inspect auth" },
+          turn_id: "turn_1",
+        },
+        "reconnected-stream-frame-1"
+      )
+    )
+
+    expect(replayed).toBe(initial)
+    expect(replayed).toHaveLength(1)
+  })
+
   it("treats error frames as terminal", () => {
     expect(isTerminalStreamFrame(frame("error", { message: "failed" }))).toBe(
       true

@@ -214,9 +214,8 @@ function subagentEventMetadata(
   const jobId = subagentIdentityJobId({
     jobId: stringValue(subagent, "job_id") || stringValue(payload, "job_id"),
     childSessionId,
-    agentName,
-    parentSessionId,
   })
+  if (!jobId) return null
 
   return {
     jobId,
