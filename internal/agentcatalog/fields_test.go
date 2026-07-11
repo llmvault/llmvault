@@ -113,6 +113,43 @@ func TestGlobalHakareeManifestIncludesPortedSubAgents(t *testing.T) {
 	}
 }
 
+func TestGlobalZukoManifestUsesGrok45AndSonnet5Reviewers(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	manifests, err := loadManifests(filepath.Join(filepath.Dir(file), "..", "..", "global", "agents"))
+	if err != nil {
+		t.Fatalf("load global agents: %v", err)
+	}
+
+	for _, manifest := range manifests {
+		if manifest.Slug != "zuko-code-reviewer" {
+			continue
+		}
+		if manifest.Runtime.Model != "grok-4.5" {
+			t.Fatalf("Zuko model = %q, want grok-4.5", manifest.Runtime.Model)
+		}
+		for _, key := range []string{
+			"generalist-reviewer",
+			"bug-reviewer",
+			"security-reviewer",
+			"performance-reviewer",
+			"business-logic-validator",
+		} {
+			subAgent, ok := manifest.SubAgents[key]
+			if !ok {
+				t.Fatalf("Zuko missing %q reviewer", key)
+			}
+			if subAgent.Model != "claude-sonnet-5" {
+				t.Fatalf("Zuko %s model = %q, want claude-sonnet-5", key, subAgent.Model)
+			}
+		}
+		return
+	}
+	t.Fatal("missing Zuko global agent manifest")
+}
+
 func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "sub_agents", "codebase-explorer"), 0o755); err != nil {
