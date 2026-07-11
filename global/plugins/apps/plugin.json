@@ -9,8 +9,6 @@
   "developer": "Hivy",
   "official": true,
   "featured": false,
-  "auto_install": true,
-  "locked": true,
   "capabilities": ["Sheets", "Drive"],
   "examples": [
     "Build me an app to manage the leads sheet",

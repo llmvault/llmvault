@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// Runtime is the only bundled plugin that is universal. Management and
-// discovery plugins are team-managed so an agent can be kept free of their
-// skills and MCP tools until its team opts in.
+// Runtime is the only bundled plugin that is universal. Every other bundled
+// capability is team-managed, so an agent only receives its skills and MCP
+// tools when its team opts in (or when the catalog explicitly requires it).
 func TestOnlyRuntimeIsAlwaysOn(t *testing.T) {
 	root, err := resolveDir("global/plugins")
 	if err != nil {
@@ -52,7 +52,7 @@ func TestOnlyRuntimeIsAlwaysOn(t *testing.T) {
 		t.Fatalf("runtime must remain the locked auto-install plugin: %#v", runtimeFlags)
 	}
 
-	for _, slug := range []string{"agent-builder", "skill-manager", "service-discovery"} {
+	for _, slug := range []string{"agent-builder", "apps", "service-discovery", "sheets", "skill-manager"} {
 		t.Run(slug, func(t *testing.T) {
 			flags := decode(t, slug)
 			if flags.AutoInstall || flags.DefaultAgentInstall || flags.Locked {

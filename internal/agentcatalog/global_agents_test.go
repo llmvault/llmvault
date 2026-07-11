@@ -55,3 +55,35 @@ func TestGlobalKaraManifestRequiresDesignPlugin(t *testing.T) {
 	assertManifestToolEnabled(t, extractor.Tools, "bash")
 	assertManifestToolDisabled(t, extractor.Tools, "write_file")
 }
+
+// Apps and Sheets are team-managed, rather than universal. Pin the catalog
+// requirements that grant them to the specialist agents that actually need
+// them, so changing a plugin's entitlement cannot silently weaken their
+// install-time dependency check.
+func TestGlobalAgentManifestPluginRequirements(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	manifests, err := loadManifests(filepath.Join(filepath.Dir(file), "..", "..", "global", "agents"))
+	if err != nil {
+		t.Fatalf("load global agents: %v", err)
+	}
+	if err := validateManifests(manifests); err != nil {
+		t.Fatalf("validate global agents: %v", err)
+	}
+
+	want := map[string][]string{
+		"pedro-lead-gen":    {"apify", "sheets"},
+		"ricky-app-builder": {"apps", "sheets"},
+	}
+	for _, manifest := range manifests {
+		expected, tracked := want[manifest.Slug]
+		if !tracked {
+			continue
+		}
+		if got := normalizeStrings(manifest.Plugins.Required); !reflect.DeepEqual(got, expected) {
+			t.Fatalf("%s required plugins = %#v, want %#v", manifest.Slug, got, expected)
+		}
+	}
+}

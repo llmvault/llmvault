@@ -8,8 +8,6 @@
   "icon_color": "#10B981",
   "developer": "Hivy",
   "official": true,
-  "auto_install": true,
-  "locked": true,
   "capabilities": ["Read", "Write"],
   "examples": [
     "Build me a lead sheet of 50 SaaS founders",
