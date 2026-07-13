@@ -13,7 +13,7 @@ An app is bound permanently to one sheet. It reads that sheet's structure and CR
 - Edit `api/` and `web/` only. Never alter `hivycore/` or `template_version` in `app.json`.
 - Handlers access data only through `app.Sheets()` with request context. The SPA calls same-origin `/api/*` only. Do not place secrets, login/session logic, or third-party browser calls in `web/`.
 - `app_publish` is a production deployment. It requires explicit authorization for every publish or republish.
-- Never read, print, or paste the preview environment or channel-secret values.
+- Never read, print, or paste the preview environment or team-secret values.
 
 ## Build workflow
 

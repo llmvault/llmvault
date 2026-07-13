@@ -22,6 +22,7 @@ type Request struct {
 	OrgID            uuid.UUID
 	AgentID          uuid.UUID
 	ChannelID        uuid.UUID
+	TeamID           uuid.UUID
 	CurrentSessionID uuid.UUID
 	Text             string
 	UserID           string
@@ -47,7 +48,7 @@ type MemoryLister interface {
 	TopObservations(ctx context.Context, orgID uuid.UUID, scope memory.ChannelScope, limit int) ([]model.AgentObservation, error)
 }
 
-// EnvVarDoc is the awareness-only projection of a channel environment
+// EnvVarDoc is the awareness-only projection of a team environment
 // variable: name and description, never the value. The value is structurally
 // unrepresentable here, so it can never reach the rendered precontext even
 // through a later bug in this package.
@@ -57,11 +58,11 @@ type EnvVarDoc struct {
 }
 
 // EnvVarLister loads the docs (names + descriptions, never values) of the
-// environment variables configured for a channel. Env vars are strictly
-// channel-scoped — there are no org-level vars — orgID only narrows the query
+// environment variables configured for a team. Env vars are strictly
+// team-scoped — there are no org-level vars — orgID only narrows the query
 // for tenancy. Implementations must never select or decrypt the value column.
 type EnvVarLister interface {
-	ChannelEnvVars(ctx context.Context, orgID, channelID uuid.UUID) ([]EnvVarDoc, error)
+	TeamEnvVars(ctx context.Context, orgID, teamID uuid.UUID) ([]EnvVarDoc, error)
 }
 
 type Cache interface {

@@ -22,6 +22,7 @@ import {
 } from "../_components/team-settings"
 import { TeamMembersSection } from "./team-sections"
 import { TeamProvisioningSection } from "./team-provisioning"
+import { TeamEnvironmentVariablesPanel } from "./team-environment-variables"
 
 export default function TeamDetailPage({
   params,
@@ -159,6 +160,8 @@ export default function TeamDetailPage({
         onChanged={refreshTeam}
         readOnly={!isAdmin}
       />
+
+      <TeamEnvironmentVariablesPanel teamId={teamId} />
 
       <TeamProvisioningSection teamId={teamId} />
 

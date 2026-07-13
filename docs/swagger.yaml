@@ -1342,20 +1342,6 @@ definitions:
           $ref: '#/definitions/channelMemberResponse'
         type: array
     type: object
-  channelEnvironmentVariableResponse:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-    type: object
-  channelEnvironmentVariablesResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/channelEnvironmentVariableResponse'
-        type: array
-    type: object
   channelMemberRequest:
     properties:
       role:
@@ -1655,15 +1641,6 @@ definitions:
           type: integer
         type: array
     type: object
-  createChannelEnvironmentVariableRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      value:
-        type: string
-    type: object
   createCheckoutRequest:
     properties:
       cancel_url:
@@ -1856,6 +1833,15 @@ definitions:
           $ref: '#/definitions/sheetPageSpecRequest'
         type: array
       slug:
+        type: string
+    type: object
+  createTeamEnvironmentVariableRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      value:
         type: string
     type: object
   createTriggerRequest:
@@ -4365,6 +4351,20 @@ definitions:
       team:
         $ref: '#/definitions/teamResponse'
     type: object
+  teamEnvironmentVariableResponse:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  teamEnvironmentVariablesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/teamEnvironmentVariableResponse'
+        type: array
+    type: object
   teamMemberRequest:
     properties:
       role:
@@ -4687,15 +4687,6 @@ definitions:
       agent:
         $ref: '#/definitions/agentResponse'
     type: object
-  updateChannelEnvironmentVariableRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      value:
-        type: string
-    type: object
   updateConnectionResourcesRequest:
     properties:
       resources:
@@ -4851,6 +4842,15 @@ definitions:
       icon:
         type: string
       name:
+        type: string
+    type: object
+  updateTeamEnvironmentVariableRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      value:
         type: string
     type: object
   updateTriggerRequest:
@@ -7719,185 +7719,6 @@ paths:
       summary: Update a channel
       tags:
       - channels
-  /v1/channels/{id}/environment-variables:
-    get:
-      description: Lists environment variables scoped to a channel. Values are not
-        returned.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelEnvironmentVariablesResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List channel environment variables
-      tags:
-      - channels
-    post:
-      consumes:
-      - application/json
-      description: Stores an environment variable scoped to a channel. It is injected
-        into sessions on that channel as __ENV__<NAME> and exposed to the workload
-        as <NAME>.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Environment variable
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/createChannelEnvironmentVariableRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/channelEnvironmentVariableResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a channel environment variable
-      tags:
-      - channels
-  /v1/channels/{id}/environment-variables/{name}:
-    delete:
-      description: Removes an environment variable scoped to a channel.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Environment variable name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/statusResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete a channel environment variable
-      tags:
-      - channels
-    patch:
-      consumes:
-      - application/json
-      description: Renames and/or updates the value of a channel environment variable.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Environment variable name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: Fields to patch
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateChannelEnvironmentVariableRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelEnvironmentVariableResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a channel environment variable
-      tags:
-      - channels
   /v1/channels/{id}/join:
     post:
       description: Adds the authenticated user to a public channel.
@@ -10525,6 +10346,183 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a team
+      tags:
+      - teams
+  /v1/orgs/current/teams/{id}/environment-variables:
+    get:
+      description: Lists environment variables shared by all channels in a team. Values
+        are not returned.
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamEnvironmentVariablesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List team environment variables
+      tags:
+      - teams
+    post:
+      consumes:
+      - application/json
+      description: Stores an environment variable shared by all channels in a team.
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createTeamEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/teamEnvironmentVariableResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a team environment variable
+      tags:
+      - teams
+  /v1/orgs/current/teams/{id}/environment-variables/{name}:
+    delete:
+      description: Removes an environment variable shared by a team.
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a team environment variable
+      tags:
+      - teams
+    patch:
+      consumes:
+      - application/json
+      description: Renames and/or updates a team environment variable.
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Fields to patch
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateTeamEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamEnvironmentVariableResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a team environment variable
       tags:
       - teams
   /v1/orgs/current/teams/{id}/members/{userID}:

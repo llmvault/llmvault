@@ -22,7 +22,6 @@ import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { CHANNEL_CATEGORIES, channelMemorySettings } from "@/lib/api/memory"
 import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
-import { ChannelEnvironmentVariablesPanel } from "@/app/w/(chat)/_components/channel-environment-variables"
 import { DefaultAgentTab } from "./_default-agent-tab"
 
 type ChannelMember = {
@@ -32,9 +31,9 @@ type ChannelMember = {
   role?: string
 }
 
-type ChannelTab = "channel" | "agents" | "members" | "env"
+type ChannelTab = "channel" | "agents" | "members"
 
-const CHANNEL_TABS: ChannelTab[] = ["channel", "agents", "members", "env"]
+const CHANNEL_TABS: ChannelTab[] = ["channel", "agents", "members"]
 
 function toChannelTab(raw: string | null): ChannelTab {
   return CHANNEL_TABS.includes(raw as ChannelTab)
@@ -234,11 +233,6 @@ export default function ChannelDetailPage({
           label={members.length ? `Members ${members.length}` : "Members"}
           onClick={() => setTab("members")}
         />
-        <TabButton
-          active={tab === "env"}
-          label="Environment variables"
-          onClick={() => setTab("env")}
-        />
       </nav>
 
       {tab === "channel" ? (
@@ -271,10 +265,8 @@ export default function ChannelDetailPage({
           teamId={channel.team_id ?? ""}
           defaultAgentId={channel.default_agent_id ?? ""}
         />
-      ) : tab === "members" ? (
-        <MembersTab members={members} />
       ) : (
-        <ChannelEnvironmentVariablesPanel channelId={id} />
+        <MembersTab members={members} />
       )}
 
       <ConfirmDialog

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -48,6 +49,14 @@ func (e *ChannelExternalProvisionError) Unwrap() error {
 func WithChannelExternalProvisioner(p ChannelExternalProvisioner) ChannelHandlerOption {
 	return func(h *ChannelHandler) {
 		h.externalProvisioner = p
+	}
+}
+
+// WithChannelEnqueuer wires the async task enqueuer used to schedule
+// post-delete cleanup (channel memory deletion).
+func WithChannelEnqueuer(enq enqueue.TaskEnqueuer) ChannelHandlerOption {
+	return func(h *ChannelHandler) {
+		h.enqueuer = enq
 	}
 }
 

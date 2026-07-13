@@ -78,7 +78,7 @@ func TestAppPreviewEnvForeignOrgAppIs404(t *testing.T) {
 
 // TestAppPreviewEnvForeignAgentSameOrgIs404 proves preview-env is bound to the
 // app's creating agent: a builder agent cannot fetch another team's app secret +
-// channel env by passing that app's id, even within the same org (H2 IDOR).
+// team env by passing that app's id, even within the same org (H2 IDOR).
 func TestAppPreviewEnvForeignAgentSameOrgIs404(t *testing.T) {
 	h := newPreviewEnvHarness(t, previewHarnessOpts{})
 	h.installAppsPlugin(t)
@@ -120,16 +120,16 @@ func TestAppPreviewEnvHappyPathMicrosandbox(t *testing.T) {
 	h := newPreviewEnvHarness(t, previewHarnessOpts{})
 	h.installAppsPlugin(t)
 
-	// A channel env var must ride along, decrypted.
+	// A team env var must ride along, decrypted.
 	encValue, err := h.encKey.EncryptString("sk_live_preview")
 	if err != nil {
 		t.Fatalf("encrypt env var: %v", err)
 	}
-	envVar := model.ChannelEnvVar{OrgID: h.org.ID, ChannelID: h.channel.ID, Name: "STRIPE_KEY", EncryptedValue: encValue}
+	envVar := model.TeamEnvVar{OrgID: h.org.ID, TeamID: h.channel.TeamID, Name: "STRIPE_KEY", EncryptedValue: encValue}
 	if err := h.db.Create(&envVar).Error; err != nil {
-		t.Fatalf("create channel env var: %v", err)
+		t.Fatalf("create team env var: %v", err)
 	}
-	t.Cleanup(func() { h.db.Delete(&model.ChannelEnvVar{}, "id = ?", envVar.ID) })
+	t.Cleanup(func() { h.db.Delete(&model.TeamEnvVar{}, "id = ?", envVar.ID) })
 
 	rr := h.fetch(t, h.secret, h.app.ID.String(), "3000")
 	if rr.Code != 200 {

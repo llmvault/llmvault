@@ -248,8 +248,8 @@ export function EnvironmentVariableRow({
                   <div className="flex flex-col gap-1">
                     <AlertDialog.Heading>Delete “{name}”</AlertDialog.Heading>
                     <p className="text-sm text-muted">
-                      Sessions started in this channel will no longer receive
-                      this variable. This can&apos;t be undone.
+                      Sessions started in this team&apos;s channels will no
+                      longer receive this variable. This can&apos;t be undone.
                     </p>
                   </div>
                 </AlertDialog.Header>
@@ -298,7 +298,7 @@ function EnvVarActionsMenu({
       <Popover.Trigger
         aria-label={`${name} options`}
         data-open={open ? "true" : undefined}
-        className="hover:bg-default data-[open=true]:bg-default -mr-1 flex shrink-0 items-center rounded-md p-1 text-muted-foreground transition-colors"
+        className="text-muted-foreground -mr-1 flex shrink-0 items-center rounded-md p-1 transition-colors hover:bg-default data-[open=true]:bg-default"
       >
         <AppIcon icon="ellipsis" className="h-4 w-4" />
       </Popover.Trigger>
@@ -315,7 +315,7 @@ function EnvVarActionsMenu({
                 onEdit()
                 setOpen(false)
               }}
-              className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
             >
               <AppIcon icon="pencil" className="h-4 w-4 shrink-0" />
               Edit

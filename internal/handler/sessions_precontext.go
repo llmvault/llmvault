@@ -19,7 +19,8 @@ func (h *SessionHandler) buildInitialSessionContext(ctx context.Context, session
 	req := initialSessionContextRequest(session, actor, text, payload)
 	req.ChannelID = session.ChannelID
 	var ch model.Channel
-	if err := h.db.WithContext(ctx).Select("expose_org_memories").First(&ch, "id = ?", session.ChannelID).Error; err == nil {
+	if err := h.db.WithContext(ctx).Select("team_id", "expose_org_memories").First(&ch, "id = ? AND org_id = ?", session.ChannelID, session.OrgID).Error; err == nil {
+		req.TeamID = ch.TeamID
 		req.IncludeOrgMemories = ch.ExposeOrgMemories
 	}
 	sections, err := h.preContext.Build(ctx, req)

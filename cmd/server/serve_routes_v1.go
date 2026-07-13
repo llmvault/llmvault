@@ -79,6 +79,13 @@ func setupV1Routes(
 			if teamHandler != nil {
 				r.Get("/orgs/current/teams", teamHandler.List)
 				r.Get("/orgs/current/teams/{id}", teamHandler.Get)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireAPIKeyScopeOrJWT("teams"))
+					r.Get("/orgs/current/teams/{id}/environment-variables", teamHandler.ListEnvironmentVariables)
+					r.Post("/orgs/current/teams/{id}/environment-variables", teamHandler.CreateEnvironmentVariable)
+					r.Patch("/orgs/current/teams/{id}/environment-variables/{name}", teamHandler.UpdateEnvironmentVariable)
+					r.Delete("/orgs/current/teams/{id}/environment-variables/{name}", teamHandler.DeleteEnvironmentVariable)
+				})
 			}
 
 			// Admin-only org invite management.
@@ -178,10 +185,6 @@ func setupV1Routes(
 					r.Post("/channels/{id}/join", channelHandler.Join)
 					r.Put("/channels/{id}/members/{userID}", channelHandler.PutMember)
 					r.Delete("/channels/{id}/members/{userID}", channelHandler.DeleteMember)
-					r.Get("/channels/{id}/environment-variables", channelHandler.ListChannelEnvironmentVariables)
-					r.Post("/channels/{id}/environment-variables", channelHandler.CreateChannelEnvironmentVariable)
-					r.Patch("/channels/{id}/environment-variables/{name}", channelHandler.UpdateChannelEnvironmentVariable)
-					r.Delete("/channels/{id}/environment-variables/{name}", channelHandler.DeleteChannelEnvironmentVariable)
 					if sessionHandler != nil {
 						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
 					}

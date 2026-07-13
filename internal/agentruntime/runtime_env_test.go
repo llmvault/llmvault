@@ -122,10 +122,10 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	}
 }
 
-// Channel env vars are injected as __ENV__<NAME>, both when the channel is
-// passed explicitly (session-create path) and when it must be resolved from the
-// sandbox's session (lifecycle / token-refresh paths). Reserved keys stay intact.
-func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
+// Team env vars are injected as __ENV__<NAME>, both when the team is passed
+// explicitly (session-create path) and when it must be resolved from the
+// sandbox session's channel (lifecycle / token-refresh paths).
+func TestBuildRuntimeEnvWithProxyToken_InjectsTeamEnvVars(t *testing.T) {
 	db := connectCompileTestDB(t)
 	encKey := testSymmetricKey(t)
 
@@ -163,13 +163,13 @@ func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encrypt: %v", err)
 	}
-	if err := db.Create(&model.ChannelEnvVar{
-		OrgID: orgID, ChannelID: channel.ID, Name: "DATABASE_URL", EncryptedValue: encValue,
+	if err := db.Create(&model.TeamEnvVar{
+		OrgID: orgID, TeamID: team.ID, Name: "DATABASE_URL", EncryptedValue: encValue,
 	}).Error; err != nil {
-		t.Fatalf("create channel env var: %v", err)
+		t.Fatalf("create team env var: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Where("channel_id = ?", channel.ID).Delete(&model.ChannelEnvVar{})
+		db.Where("team_id = ?", team.ID).Delete(&model.TeamEnvVar{})
 		db.Where("org_id = ?", orgID).Delete(&model.Session{})
 		db.Where("id = ?", sbID).Delete(&model.Sandbox{})
 		db.Where("org_id = ?", orgID).Delete(&model.Channel{})
@@ -181,10 +181,10 @@ func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
 	sb := &model.Sandbox{ID: sbID, OrgID: &orgID, AgentID: &agent.ID}
 	token := &ProxyTokenResult{Token: "ptok_test", JTI: "jti_test"}
 
-	// Explicit channel (session-create path).
-	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, "runtime-secret", token, channel.ID)
+	// Explicit team (session-create path).
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, "runtime-secret", token, team.ID)
 	if err != nil {
-		t.Fatalf("build env (explicit channel): %v", err)
+		t.Fatalf("build env (explicit team): %v", err)
 	}
 	if got := env["__ENV__DATABASE_URL"]; got != "postgres://secret" {
 		t.Fatalf("__ENV__DATABASE_URL = %q, want postgres://secret", got)
@@ -193,17 +193,17 @@ func TestBuildRuntimeEnvWithProxyToken_InjectsChannelEnvVars(t *testing.T) {
 		t.Fatalf("reserved key clobbered: %s = %q", AgentEnvRuntimeSecret, env[AgentEnvRuntimeSecret])
 	}
 
-	// Nil channel resolves from the sandbox's session (lifecycle / token refresh).
+	// Nil team resolves from the sandbox session's channel.
 	env, err = BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, "runtime-secret", token, uuid.Nil)
 	if err != nil {
-		t.Fatalf("build env (resolved channel): %v", err)
+		t.Fatalf("build env (resolved team): %v", err)
 	}
 	if got := env["__ENV__DATABASE_URL"]; got != "postgres://secret" {
 		t.Fatalf("resolved __ENV__DATABASE_URL = %q, want postgres://secret", got)
 	}
 }
 
-// A nil channel injects no user env, and the reserved HIVY_ control-plane keys
+// A nil team injects no user env, and the reserved HIVY_ control-plane keys
 // are always populated with the authoritative values.
 func TestBuildRuntimeEnvWithProxyToken_ReservedKeysPopulated(t *testing.T) {
 	encKey := testSymmetricKey(t)
@@ -229,7 +229,7 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysPopulated(t *testing.T) {
 		},
 	}
 
-	// Nil channel and nil DB: mergeChannelEnvVars is a no-op.
+	// Nil team and nil DB: mergeTeamEnvVars is a no-op.
 	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, runtimeSecret, proxyToken, uuid.Nil)
 	if err != nil {
 		t.Fatalf("BuildRuntimeEnvWithProxyToken: %v", err)

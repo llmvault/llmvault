@@ -37,11 +37,11 @@ func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent 
 type RuntimeConfigOptions struct {
 	ModelID         string
 	ReasoningEffort string
-	// ChannelID scopes which per-channel env vars are injected. When Nil, the
-	// builder resolves it from the sandbox's session. Session creation sets it
+	// TeamID scopes which team env vars are injected. When Nil, the builder
+	// resolves it from the sandbox's session channel. Session creation sets it
 	// explicitly because the session↔sandbox link is not yet persisted at the
 	// first push.
-	ChannelID uuid.UUID
+	TeamID uuid.UUID
 }
 
 func BuildAgentRuntimeConfigUpdateWithOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, opts RuntimeConfigOptions) (ConfigUpdateRequest, *ProxyTokenResult, error) {
@@ -70,7 +70,11 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 		modelID = strings.TrimSpace(runtimeAgent.Model)
 	}
 	phaseLog.log("start", "model", modelID, "has_reasoning_effort", strings.TrimSpace(opts.ReasoningEffort) != "")
-	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token, opts.ChannelID)
+	teamID := opts.TeamID
+	if teamID == uuid.Nil {
+		teamID = resolveTeamIDForSandbox(ctx, deps, runtimeAgent, sb)
+	}
+	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token, teamID)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
@@ -79,7 +83,11 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
-	if err := appendChannelEnvVarPromptDoc(ctx, deps, def, opts.ChannelID); err != nil {
+	orgID := uuid.Nil
+	if runtimeAgent != nil && runtimeAgent.OrgID != nil {
+		orgID = *runtimeAgent.OrgID
+	}
+	if err := appendTeamEnvVarPromptDoc(ctx, deps, def, orgID, teamID); err != nil {
 		return ConfigUpdateRequest{}, err
 	}
 	phaseLog.log("compile definition",
@@ -109,7 +117,7 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	}, nil
 }
 
-func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult, channelID uuid.UUID) (map[string]string, error) {
+func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult, teamID uuid.UUID) (map[string]string, error) {
 	env := make(map[string]string)
 	if agent == nil {
 		return env, nil
@@ -119,10 +127,14 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	}
 
 	// Merge user env first so the reserved HIVY_ keys written below always win.
-	if channelID == uuid.Nil {
-		channelID = resolveChannelIDForSandbox(ctx, deps, agent, sb)
+	if teamID == uuid.Nil {
+		teamID = resolveTeamIDForSandbox(ctx, deps, agent, sb)
 	}
-	if err := mergeChannelEnvVars(ctx, deps, env, channelID); err != nil {
+	orgID := uuid.Nil
+	if agent.OrgID != nil {
+		orgID = *agent.OrgID
+	}
+	if err := mergeTeamEnvVars(ctx, deps, env, orgID, teamID); err != nil {
 		return nil, err
 	}
 
@@ -159,12 +171,12 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	return env, nil
 }
 
-// mergeChannelEnvVars decrypts and merges the channel's user-supplied env vars
+// mergeTeamEnvVars decrypts and merges the team's user-supplied env vars
 // into env, each injected as __ENV__<NAME>. The sandbox runtime strips the
 // prefix before exposing the clean name to the workload. It must run before the
 // reserved control-plane keys are written so those keys stay authoritative.
-func mergeChannelEnvVars(ctx context.Context, deps CompileDeps, env map[string]string, channelID uuid.UUID) error {
-	if channelID == uuid.Nil {
+func mergeTeamEnvVars(ctx context.Context, deps CompileDeps, env map[string]string, orgID, teamID uuid.UUID) error {
+	if orgID == uuid.Nil || teamID == uuid.Nil {
 		return nil
 	}
 	if deps.DB == nil {
@@ -173,42 +185,46 @@ func mergeChannelEnvVars(ctx context.Context, deps CompileDeps, env map[string]s
 	if deps.EncKey == nil {
 		return fmt.Errorf("runtime env decrypt: encryption key is required")
 	}
-	var vars []model.ChannelEnvVar
+	var vars []model.TeamEnvVar
 	if err := deps.DB.WithContext(ctx).
-		Where("channel_id = ?", channelID).
+		Where("org_id = ? AND team_id = ?", orgID, teamID).
 		Find(&vars).Error; err != nil {
-		return fmt.Errorf("load channel env vars: %w", err)
+		return fmt.Errorf("load team env vars: %w", err)
 	}
 	for _, v := range vars {
 		value, err := deps.EncKey.DecryptString(v.EncryptedValue)
 		if err != nil {
-			return fmt.Errorf("decrypt channel env var %q: %w", v.Name, err)
+			return fmt.Errorf("decrypt team env var %q: %w", v.Name, err)
 		}
-		env[channelEnvInjectPrefix+v.Name] = value
+		env[teamEnvInjectPrefix+v.Name] = value
 	}
 	return nil
 }
 
-// channelEnvInjectPrefix marks user-supplied env vars in the runtime env. The
+// teamEnvInjectPrefix marks user-supplied env vars in the runtime env. The
 // sandbox runtime strips it so the workload sees the clean name.
-const channelEnvInjectPrefix = "__ENV__"
+const teamEnvInjectPrefix = "__ENV__"
 
-// resolveChannelIDForSandbox recovers the channel of the sandbox's session.
+// resolveTeamIDForSandbox recovers the team of the sandbox session's channel.
 // Used by every push path except session creation, where the session↔sandbox
-// link is not yet persisted and the channel is passed explicitly.
-func resolveChannelIDForSandbox(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox) uuid.UUID {
+// link is not yet persisted and the team is passed explicitly.
+func resolveTeamIDForSandbox(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox) uuid.UUID {
 	if deps.DB == nil || sb == nil || agent == nil || agent.OrgID == nil {
 		return uuid.Nil
 	}
-	var session model.Session
+	var teamID uuid.UUID
 	err := deps.DB.WithContext(ctx).
-		Where("sandbox_id = ? AND org_id = ? AND agent_id = ? AND status <> ?", sb.ID, *agent.OrgID, agent.ID, "archived").
-		Order("created_at DESC").
-		First(&session).Error
+		Table("sessions").
+		Select("channels.team_id").
+		Joins("JOIN channels ON channels.id = sessions.channel_id AND channels.org_id = sessions.org_id").
+		Where("sessions.sandbox_id = ? AND sessions.org_id = ? AND sessions.agent_id = ? AND sessions.status <> ?", sb.ID, *agent.OrgID, agent.ID, "archived").
+		Order("sessions.created_at DESC").
+		Limit(1).
+		Scan(&teamID).Error
 	if err != nil {
 		return uuid.Nil
 	}
-	return session.ChannelID
+	return teamID
 }
 
 func RuntimeEventWebSocketURL(cfg *config.Config, sandboxID uuid.UUID) string {

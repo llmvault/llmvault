@@ -17,18 +17,18 @@ type fakeEnvVarLister struct {
 	docs []EnvVarDoc
 	err  error
 
-	orgIDs     []uuid.UUID
-	channelIDs []uuid.UUID
+	orgIDs  []uuid.UUID
+	teamIDs []uuid.UUID
 }
 
-func (f *fakeEnvVarLister) ChannelEnvVars(_ context.Context, orgID, channelID uuid.UUID) ([]EnvVarDoc, error) {
+func (f *fakeEnvVarLister) TeamEnvVars(_ context.Context, orgID, teamID uuid.UUID) ([]EnvVarDoc, error) {
 	f.orgIDs = append(f.orgIDs, orgID)
-	f.channelIDs = append(f.channelIDs, channelID)
+	f.teamIDs = append(f.teamIDs, teamID)
 	return f.docs, f.err
 }
 
 func envVarsRequest() Request {
-	return Request{OrgID: uuid.New(), ChannelID: uuid.New()}
+	return Request{OrgID: uuid.New(), TeamID: uuid.New()}
 }
 
 func fetchEnvVars(t *testing.T, lister EnvVarLister, req Request) string {
@@ -65,8 +65,8 @@ func TestEnvVarsSectionRendersNamesAndDescriptions(t *testing.T) {
 		t.Fatalf("preamble must render before the variable lines: %q", out)
 	}
 	if len(lister.orgIDs) != 1 || lister.orgIDs[0] != req.OrgID ||
-		len(lister.channelIDs) != 1 || lister.channelIDs[0] != req.ChannelID {
-		t.Fatalf("lister scope orgs=%v channels=%v, want [%s]/[%s]", lister.orgIDs, lister.channelIDs, req.OrgID, req.ChannelID)
+		len(lister.teamIDs) != 1 || lister.teamIDs[0] != req.TeamID {
+		t.Fatalf("lister scope orgs=%v teams=%v, want [%s]/[%s]", lister.orgIDs, lister.teamIDs, req.OrgID, req.TeamID)
 	}
 }
 
@@ -88,8 +88,8 @@ func TestEnvVarsSectionGuardsNilConfig(t *testing.T) {
 	}
 	lister := &fakeEnvVarLister{docs: []EnvVarDoc{{Name: "TOKEN_A"}}}
 	for name, req := range map[string]Request{
-		"missing org":     {ChannelID: uuid.New()},
-		"missing channel": {OrgID: uuid.New()},
+		"missing org":  {TeamID: uuid.New()},
+		"missing team": {OrgID: uuid.New()},
 	} {
 		if out := fetchEnvVars(t, lister, req); out != "" {
 			t.Fatalf("%s must omit the section, got %q", name, out)
@@ -171,7 +171,7 @@ func TestEnvVarsSectionIsNeverTrimmed(t *testing.T) {
 
 // TestEnvVarValuesAreUnrepresentable pins the defense-in-depth contract: the
 // lister interface exchanges EnvVarDoc, which structurally cannot carry a
-// value. Even a model.ChannelEnvVar with a populated encrypted value can only
+// value. Even a model.TeamEnvVar with a populated encrypted value can only
 // cross into precontext as name + description, so the rendered section can
 // never contain a value.
 func TestEnvVarValuesAreUnrepresentable(t *testing.T) {
@@ -187,7 +187,7 @@ func TestEnvVarValuesAreUnrepresentable(t *testing.T) {
 	}
 
 	const secret = "sk_live_SUPER_SECRET_VALUE_9f8e7d" //nolint:gosec // fake fixture value, not a real credential
-	row := model.ChannelEnvVar{
+	row := model.TeamEnvVar{
 		Name:           "STRIPE_API_KEY",
 		Description:    "Stripe secret key for the billing sandbox",
 		EncryptedValue: []byte(secret),

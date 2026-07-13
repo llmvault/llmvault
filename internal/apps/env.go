@@ -68,22 +68,29 @@ func EncodeAuthPublicKeyPEM(pub *rsa.PublicKey) (string, error) {
 }
 
 // buildAppEnv assembles the full environment for the app process: the
-// channel's user env vars first (decrypted, PLAIN names — app sandboxes have
+// channel team's user env vars first (decrypted, PLAIN names — app sandboxes have
 // no Rust runtime stripping an __ENV__ prefix), then the reserved HIVY_ keys,
-// which always win (channel env var names may not start with HIVY_ anyway).
+// which always win (team env var names may not start with HIVY_ anyway).
 func (s *Service) buildAppEnv(ctx context.Context, app *model.App, secret string) (map[string]string, error) {
 	env := map[string]string{}
 
-	var vars []model.ChannelEnvVar
+	var channel model.Channel
 	if err := s.db.WithContext(ctx).
-		Where("channel_id = ?", app.ChannelID).
+		Select("team_id").
+		Where("id = ? AND org_id = ?", app.ChannelID, app.OrgID).
+		First(&channel).Error; err != nil {
+		return nil, fmt.Errorf("load app channel team: %w", err)
+	}
+	var vars []model.TeamEnvVar
+	if err := s.db.WithContext(ctx).
+		Where("org_id = ? AND team_id = ?", app.OrgID, channel.TeamID).
 		Find(&vars).Error; err != nil {
-		return nil, fmt.Errorf("load channel env vars: %w", err)
+		return nil, fmt.Errorf("load team env vars: %w", err)
 	}
 	for _, v := range vars {
 		value, err := s.encKey.DecryptString(v.EncryptedValue)
 		if err != nil {
-			return nil, fmt.Errorf("decrypt channel env var %q: %w", v.Name, err)
+			return nil, fmt.Errorf("decrypt team env var %q: %w", v.Name, err)
 		}
 		env[v.Name] = value
 	}
@@ -117,7 +124,7 @@ func (s *Service) appActivityURL(app *model.App) string {
 }
 
 // BuildPreviewEnv assembles the exact env the deploy path injects into an app
-// sandbox (buildAppEnv: channel env vars + reserved HIVY_ keys) plus PORT, for
+// sandbox (buildAppEnv: team env vars + reserved HIVY_ keys) plus PORT, for
 // a preview run of the app inside the BUILDER agent's own sandbox. Every value
 // is secret material — callers must never log or echo it; the values may only
 // travel in the preview-env HTTP response body.

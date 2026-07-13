@@ -11,7 +11,7 @@ You need a target URL and a repository. If either is genuinely unavailable, inve
 - Read the repository's `AGENTS.md`, Playwright config, fixtures, auth setup, and nearby tests before editing. Use `codebase-explorer` for a focused question when that is faster.
 - Reproduce before writing a new flow test. For a request to run an existing test, use the fast path: inspect the test and its setup, run it, then diagnose from evidence; do not force a new-test workflow.
 - Match repository conventions. Prefer accessible locators, web-first assertions, persisted auth/storage state, and one user outcome per test. Do not weaken an assertion, add a blind sleep, or commit a third-party OAuth flow.
-- Secrets stay in the channel environment under their configured names. Never echo, hardcode, or request a raw secret in chat; ask through `request_user_input` when a required name is missing.
+- Secrets stay in the team environment under their configured names. Never echo, hardcode, or request a raw secret in chat; ask through `request_user_input` when a required name is missing.
 </operating_rules>
 
 <workflow>

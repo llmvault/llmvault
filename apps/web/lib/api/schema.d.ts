@@ -5152,309 +5152,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/v1/channels/{id}/environment-variables": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List channel environment variables
-         * @description Lists environment variables scoped to a channel. Values are not returned.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelEnvironmentVariablesResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create a channel environment variable
-         * @description Stores an environment variable scoped to a channel. It is injected into sessions on that channel as __ENV__<NAME> and exposed to the workload as <NAME>.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Environment variable */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["createChannelEnvironmentVariableRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelEnvironmentVariableResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/channels/{id}/environment-variables/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete a channel environment variable
-         * @description Removes an environment variable scoped to a channel.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                    /** @description Environment variable name */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Update a channel environment variable
-         * @description Renames and/or updates the value of a channel environment variable.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                    /** @description Environment variable name */
-                    name: string;
-                };
-                cookie?: never;
-            };
-            /** @description Fields to patch */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["updateChannelEnvironmentVariableRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelEnvironmentVariableResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
     "/v1/channels/{id}/join": {
         parameters: {
             query?: never;
@@ -10279,6 +9976,309 @@ export interface paths {
                 };
                 /** @description Conflict */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{id}/environment-variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List team environment variables
+         * @description Lists environment variables shared by all channels in a team. Values are not returned.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamEnvironmentVariablesResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a team environment variable
+         * @description Stores an environment variable shared by all channels in a team.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Environment variable */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createTeamEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamEnvironmentVariableResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{id}/environment-variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a team environment variable
+         * @description Removes an environment variable shared by a team.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a team environment variable
+         * @description Renames and/or updates a team environment variable.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to patch */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateTeamEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamEnvironmentVariableResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -17855,13 +17855,6 @@ export interface components {
             channel?: components["schemas"]["channelResponse"];
             members?: components["schemas"]["channelMemberResponse"][];
         };
-        channelEnvironmentVariableResponse: {
-            description?: string;
-            name?: string;
-        };
-        channelEnvironmentVariablesResponse: {
-            data?: components["schemas"]["channelEnvironmentVariableResponse"][];
-        };
         channelMemberRequest: {
             role?: string;
         };
@@ -18015,11 +18008,6 @@ export interface components {
             typography?: number[];
             voice?: number[];
         };
-        createChannelEnvironmentVariableRequest: {
-            description?: string;
-            name?: string;
-            value?: string;
-        };
         createCheckoutRequest: {
             cancel_url?: string;
             /** @description e.g. "USD", "NGN" */
@@ -18123,6 +18111,11 @@ export interface components {
             name?: string;
             pages?: components["schemas"]["sheetPageSpecRequest"][];
             slug?: string;
+        };
+        createTeamEnvironmentVariableRequest: {
+            description?: string;
+            name?: string;
+            value?: string;
         };
         createTriggerRequest: {
             agent_id?: string;
@@ -19410,6 +19403,13 @@ export interface components {
             members?: components["schemas"]["teamMemberResponse"][];
             team?: components["schemas"]["teamResponse"];
         };
+        teamEnvironmentVariableResponse: {
+            description?: string;
+            name?: string;
+        };
+        teamEnvironmentVariablesResponse: {
+            data?: components["schemas"]["teamEnvironmentVariableResponse"][];
+        };
         teamMemberRequest: {
             role?: string;
         };
@@ -19586,11 +19586,6 @@ export interface components {
         updateAgentModelResponse: {
             agent?: components["schemas"]["agentResponse"];
         };
-        updateChannelEnvironmentVariableRequest: {
-            description?: string;
-            name?: string;
-            value?: string;
-        };
         updateConnectionResourcesRequest: {
             resources?: {
                 [key: string]: components["schemas"]["agentConnectionResourceSelection"][];
@@ -19675,6 +19670,11 @@ export interface components {
             description?: string;
             icon?: string;
             name?: string;
+        };
+        updateTeamEnvironmentVariableRequest: {
+            description?: string;
+            name?: string;
+            value?: string;
         };
         updateTriggerRequest: {
             agent_id?: string;

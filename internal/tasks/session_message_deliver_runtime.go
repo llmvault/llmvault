@@ -48,6 +48,11 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 			return nil, nil, ErrSessionRuntimeNotReady
 		}
 		runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, session)
+		teamID, teamErr := sessionChannelTeamID(ctx, h.db, session)
+		if teamErr != nil {
+			return nil, nil, fmt.Errorf("load session channel team: %w", teamErr)
+		}
+		runtimeOptions.TeamID = teamID
 		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
 		if prepErr != nil {
 			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
@@ -85,8 +90,21 @@ func sessionRuntimeAgent(agent *model.Agent, session model.Session) (*model.Agen
 		opts.ModelID = modelID
 	}
 	opts.ReasoningEffort = strings.TrimSpace(session.ReasoningEffort)
-	opts.ChannelID = session.ChannelID
 	return &runtimeAgent, opts
+}
+
+func sessionChannelTeamID(ctx context.Context, db *gorm.DB, session model.Session) (uuid.UUID, error) {
+	if db == nil || session.OrgID == uuid.Nil || session.ChannelID == uuid.Nil {
+		return uuid.Nil, nil
+	}
+	var channel model.Channel
+	if err := db.WithContext(ctx).
+		Select("team_id").
+		Where("id = ? AND org_id = ?", session.ChannelID, session.OrgID).
+		First(&channel).Error; err != nil {
+		return uuid.Nil, err
+	}
+	return channel.TeamID, nil
 }
 
 func sessionRuntimeDraining(ctx context.Context, db *gorm.DB, session model.Session) (bool, error) {

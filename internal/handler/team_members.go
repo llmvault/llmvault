@@ -11,15 +11,25 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type TeamHandler struct {
-	db *gorm.DB
+	db        *gorm.DB
+	envEncKey *crypto.SymmetricKey
 }
 
-func NewTeamHandler(db *gorm.DB) *TeamHandler {
-	return &TeamHandler{db: db}
+type TeamHandlerOption func(*TeamHandler)
+
+func NewTeamHandler(db *gorm.DB, opts ...TeamHandlerOption) *TeamHandler {
+	h := &TeamHandler{db: db}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(h)
+		}
+	}
+	return h
 }
 
 type teamMemberRequest struct {

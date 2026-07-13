@@ -188,10 +188,9 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
 	channelHandler := handler.NewChannelHandler(database,
 		handler.WithChannelExternalProvisioner(slackChannelHandler),
-		handler.WithChannelEnvEncryptionKey(sandboxEncKey),
 		handler.WithChannelEnqueuer(enqueuer),
 	)
-	teamHandler := handler.NewTeamHandler(database)
+	teamHandler := handler.NewTeamHandler(database, handler.WithTeamEnvEncryptionKey(sandboxEncKey))
 	runtimeStreamStore := core.runtimeStreamStore
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).
 		WithRuntimeStreamKey(sandboxEncKey).

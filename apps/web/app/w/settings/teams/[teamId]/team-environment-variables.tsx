@@ -6,46 +6,37 @@ import { Button, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import { queryKeys } from "@/lib/api/query-keys"
 import {
   AddVariableForm,
   EnvironmentVariableRow,
   EnvVarsSkeleton,
-} from "./channel-env-var-forms"
-
-const ENV_VARS_QUERY_KEY = [
-  "get",
-  "/v1/channels/{id}/environment-variables",
-] as const
+} from "./_environment-variable-forms"
 
 /**
- * Environment variables tab for the channel settings page. Values are
+ * Team environment-variable settings. Values are
  * write-only: the API never returns them once saved, so the list only shows
- * masked placeholders. Create/rename/update/delete all rely on the server
- * for authorization (403 surfaces as a toast).
+ * masked placeholders. The server remains the source of truth for team access.
  */
-export function ChannelEnvironmentVariablesPanel({
-  channelId,
-}: {
-  channelId: string
-}) {
+export function TeamEnvironmentVariablesPanel({ teamId }: { teamId: string }) {
   const queryClient = useQueryClient()
   const varsQuery = $api.useQuery(
     "get",
-    "/v1/channels/{id}/environment-variables",
-    { params: { path: { id: channelId } } },
-    { enabled: Boolean(channelId), retry: false }
+    "/v1/orgs/current/teams/{id}/environment-variables",
+    { params: { path: { id: teamId } } },
+    { enabled: Boolean(teamId), retry: false }
   )
   const createVar = $api.useMutation(
     "post",
-    "/v1/channels/{id}/environment-variables"
+    "/v1/orgs/current/teams/{id}/environment-variables"
   )
   const updateVar = $api.useMutation(
     "patch",
-    "/v1/channels/{id}/environment-variables/{name}"
+    "/v1/orgs/current/teams/{id}/environment-variables/{name}"
   )
   const deleteVar = $api.useMutation(
     "delete",
-    "/v1/channels/{id}/environment-variables/{name}"
+    "/v1/orgs/current/teams/{id}/environment-variables/{name}"
   )
 
   const [adding, setAdding] = useState(false)
@@ -55,7 +46,9 @@ export function ChannelEnvironmentVariablesPanel({
   const vars = varsQuery.data?.data ?? []
 
   function invalidateList() {
-    queryClient.invalidateQueries({ queryKey: ENV_VARS_QUERY_KEY })
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.teamEnvironmentVariables(),
+    })
   }
 
   return (
@@ -66,8 +59,8 @@ export function ChannelEnvironmentVariablesPanel({
             Environment variables
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Injected into sessions started in this channel. Values are encrypted
-            and hidden once saved.
+            Available to sessions started in this team&apos;s channels. Values
+            are encrypted and hidden once saved.
           </p>
         </div>
         {!adding ? (
@@ -75,7 +68,7 @@ export function ChannelEnvironmentVariablesPanel({
             variant="tertiary"
             size="sm"
             className="shrink-0"
-            isDisabled={!channelId}
+            isDisabled={!teamId}
             onPress={() => {
               setEditingName(null)
               setAdding(true)
@@ -105,7 +98,7 @@ export function ChannelEnvironmentVariablesPanel({
           onSubmit={(name, value, description) => {
             createVar.mutate(
               {
-                params: { path: { id: channelId } },
+                params: { path: { id: teamId } },
                 body: { name, value, description },
               },
               {
@@ -138,7 +131,7 @@ export function ChannelEnvironmentVariablesPanel({
             No environment variables yet
           </p>
           <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-            Add variables to inject into every session started in this channel.
+            Add variables for sessions started in this team&apos;s channels.
           </p>
         </div>
       ) : null}
@@ -191,7 +184,7 @@ export function ChannelEnvironmentVariablesPanel({
                   }
                   updateVar.mutate(
                     {
-                      params: { path: { id: channelId, name } },
+                      params: { path: { id: teamId, name } },
                       body,
                     },
                     {
@@ -207,7 +200,7 @@ export function ChannelEnvironmentVariablesPanel({
                 onCancelDelete={() => setDeletingName(null)}
                 onConfirmDelete={() => {
                   deleteVar.mutate(
-                    { params: { path: { id: channelId, name } } },
+                    { params: { path: { id: teamId, name } } },
                     {
                       onSuccess: () => {
                         invalidateList()
@@ -232,6 +225,3 @@ export function ChannelEnvironmentVariablesPanel({
     </div>
   )
 }
-
-// SecretValueInput is a password-style input with a show/hide toggle. Hidden
-// mode uses larger, wider-tracked text so the masking dots read clearly.

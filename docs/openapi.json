@@ -5171,360 +5171,6 @@
         }
       }
     },
-    "/v1/channels/{id}/environment-variables": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists environment variables scoped to a channel. Values are not returned.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "List channel environment variables",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelEnvironmentVariablesResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Stores an environment variable scoped to a channel. It is injected into sessions on that channel as __ENV__<NAME> and exposed to the workload as <NAME>.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Create a channel environment variable",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/createChannelEnvironmentVariableRequest"
-              }
-            }
-          },
-          "description": "Environment variable",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelEnvironmentVariableResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}/environment-variables/{name}": {
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Removes an environment variable scoped to a channel.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Delete a channel environment variable",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Environment variable name",
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Renames and/or updates the value of a channel environment variable.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Update a channel environment variable",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Environment variable name",
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/updateChannelEnvironmentVariableRequest"
-              }
-            }
-          },
-          "description": "Fields to patch",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelEnvironmentVariableResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/channels/{id}/join": {
       "post": {
         "security": [
@@ -10558,6 +10204,360 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/teams/{id}/environment-variables": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists environment variables shared by all channels in a team. Values are not returned.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "List team environment variables",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamEnvironmentVariablesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Stores an environment variable shared by all channels in a team.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Create a team environment variable",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createTeamEnvironmentVariableRequest"
+              }
+            }
+          },
+          "description": "Environment variable",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamEnvironmentVariableResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/teams/{id}/environment-variables/{name}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Removes an environment variable shared by a team.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Delete a team environment variable",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Environment variable name",
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Renames and/or updates a team environment variable.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Update a team environment variable",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Environment variable name",
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateTeamEnvironmentVariableRequest"
+              }
+            }
+          },
+          "description": "Fields to patch",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamEnvironmentVariableResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -20216,28 +20216,6 @@
           }
         }
       },
-      "channelEnvironmentVariableResponse": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "channelEnvironmentVariablesResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/channelEnvironmentVariableResponse"
-            }
-          }
-        }
-      },
       "channelMemberRequest": {
         "type": "object",
         "properties": {
@@ -20682,20 +20660,6 @@
           }
         }
       },
-      "createChannelEnvironmentVariableRequest": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
       "createCheckoutRequest": {
         "type": "object",
         "properties": {
@@ -20988,6 +20952,20 @@
             }
           },
           "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "createTeamEnvironmentVariableRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
             "type": "string"
           }
         }
@@ -24822,6 +24800,28 @@
           }
         }
       },
+      "teamEnvironmentVariableResponse": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "teamEnvironmentVariablesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/teamEnvironmentVariableResponse"
+            }
+          }
+        }
+      },
       "teamMemberRequest": {
         "type": "object",
         "properties": {
@@ -25312,20 +25312,6 @@
           }
         }
       },
-      "updateChannelEnvironmentVariableRequest": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
       "updateConnectionResourcesRequest": {
         "type": "object",
         "properties": {
@@ -25563,6 +25549,20 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          }
+        }
+      },
+      "updateTeamEnvironmentVariableRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
             "type": "string"
           }
         }

@@ -59,6 +59,7 @@ var ValidAPIKeyScopes = map[string]bool{
 	"integrations": true,
 	"agents":       true,
 	"channels":     true,
+	"teams":        true,
 	"sessions":     true,
 	"sheets":       true,
 	"brands":       true,

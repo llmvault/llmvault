@@ -17,7 +17,7 @@ func TestPublishFlow(t *testing.T) {
 	appd := newFakeAppd(t)
 	h.provider.endpoints[appdPort] = appd.server.URL
 	h.provider.endpoints[appPort] = "http://127.0.0.1:45678"
-	seedChannelEnvVar(t, h, "STRIPE_API_KEY", "sk_test_123")
+	seedTeamEnvVar(t, h, "STRIPE_API_KEY", "sk_test_123")
 
 	app := h.createApp(t, "Publish Flow")
 	source := []byte("source-zip-bytes")

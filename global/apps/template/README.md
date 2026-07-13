@@ -198,7 +198,7 @@ Rules for the preview loop:
 - Read **only** that final line (the `?app=` URL) and share it with the
   user — never the raw `preview_url` line. Never print, read, or paste the
   env file, the endpoint response, or the process environment — they contain
-  the app secret and the channel's secrets.
+  the app secret and the team's secrets.
 - Iterate: edit code → `make web` (if the SPA changed) → `make preview …`
   again → share the URL. Reruns replace the previous preview.
 - **Deploy only after the user explicitly approves.** The preview URL is for

@@ -110,14 +110,14 @@ func (f *fakeAppd) recorded(path string) []appdRecord {
 	return out
 }
 
-func seedChannelEnvVar(t *testing.T, h *appsTestHarness, name, value string) {
+func seedTeamEnvVar(t *testing.T, h *appsTestHarness, name, value string) {
 	t.Helper()
 	encrypted, err := h.encKey.EncryptString(value)
 	if err != nil {
-		t.Fatalf("encrypt channel env var: %v", err)
+		t.Fatalf("encrypt team env var: %v", err)
 	}
-	envVar := model.ChannelEnvVar{OrgID: h.org.ID, ChannelID: h.channel.ID, Name: name, EncryptedValue: encrypted}
+	envVar := model.TeamEnvVar{OrgID: h.org.ID, TeamID: h.team.ID, Name: name, EncryptedValue: encrypted}
 	if err := h.db.Create(&envVar).Error; err != nil {
-		t.Fatalf("create channel env var: %v", err)
+		t.Fatalf("create team env var: %v", err)
 	}
 }

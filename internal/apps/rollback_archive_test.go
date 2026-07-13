@@ -11,7 +11,7 @@ func TestRollbackAndEnvSync(t *testing.T) {
 	ctx := context.Background()
 	appd := newFakeAppd(t)
 	h.provider.endpoints[appdPort] = appd.server.URL
-	seedChannelEnvVar(t, h, "FLAG", "on")
+	seedTeamEnvVar(t, h, "FLAG", "on")
 
 	app := h.createApp(t, "Rollback Target")
 	sourceKey, bundleKey, sourceSHA, bundleSHA := h.seedDriveObjects(t, []byte("s1"), []byte("b1"))

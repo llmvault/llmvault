@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -20,7 +19,6 @@ import (
 type ChannelHandler struct {
 	db                  *gorm.DB
 	externalProvisioner ChannelExternalProvisioner
-	envEncKey           *crypto.SymmetricKey
 	enqueuer            enqueue.TaskEnqueuer
 }
 

@@ -198,7 +198,6 @@ var migratedTables = []string{
 	"canvas_artifact_files",
 	"canvas_artifacts",
 	"canvas_projects",
-	"channel_env_vars",
 	"channel_members",
 	"channel_memory_digests",
 	"channels",
@@ -252,6 +251,7 @@ var migratedTables = []string{
 	"subscription_change_quotes",
 	"subscriptions",
 	"team_members",
+	"team_env_vars",
 	"team_plugins",
 	"team_rag_sources",
 	"teams",
@@ -261,4 +261,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 93
+const latestMigrationVersion = 94
