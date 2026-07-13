@@ -146,6 +146,37 @@ func TestIntegrationHandler_ListAvailable_Success(t *testing.T) {
 	}
 }
 
+func TestIntegrationHandler_ListSupported_IncludesUnconfiguredDefinitions(t *testing.T) {
+	h := newIntegrationHarness(t, nil)
+
+	rr := h.doRequest(t, http.MethodGet, "/v1/integrations/supported", nil, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Data []struct {
+			DefinitionID string `json:"definition_id"`
+			Configured   bool   `json:"configured"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode supported integrations: %v", err)
+	}
+	if len(resp.Data) == 0 {
+		t.Fatal("expected supported integration definitions")
+	}
+	for _, item := range resp.Data {
+		if item.DefinitionID == "slack" {
+			if item.Configured {
+				t.Fatal("unconfigured Slack definition reported as configured")
+			}
+			return
+		}
+	}
+	t.Fatal("supported integrations missing Slack")
+}
+
 func TestIntegrationHandler_ListAvailable_ReturnsSanitizedNangoConfig(t *testing.T) {
 	h := newIntegrationHarness(t, nil)
 	bugsink := createTestIntegration(t, h.db, "bugsink")

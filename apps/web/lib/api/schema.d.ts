@@ -7462,6 +7462,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integrations/supported": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List supported platform integrations
+         * @description Returns every enabled platform integration definition and whether it is configured for connection.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["supportedIntegrationsResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/integrations/{id}/connect-session": {
         parameters: {
             query?: never;
@@ -19342,6 +19390,19 @@ export interface components {
             plan_slug?: string;
             provider?: string;
             status?: string;
+        };
+        supportedIntegrationResponse: {
+            configured?: boolean;
+            created_at?: string;
+            definition_id?: string;
+            display_name?: string;
+            id?: string;
+            meta?: components["schemas"]["JSON"];
+            nango_config?: components["schemas"]["NangoConfig"];
+            provider?: string;
+        };
+        supportedIntegrationsResponse: {
+            data?: components["schemas"]["supportedIntegrationResponse"][];
         };
         syncTriggerRequest: {
             from_beginning?: boolean;

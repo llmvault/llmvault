@@ -253,6 +253,7 @@ func newIntegrationHarness(t *testing.T, mockCfg *nangoMockConfig) *integrationT
 	r.Put("/v1/integrations/{id}", h.Update)
 	r.Delete("/v1/integrations/{id}", h.Delete)
 	r.Get("/v1/integrations/available", h.ListAvailable)
+	r.Get("/v1/integrations/supported", h.ListSupported)
 
 	return &integrationTestHarness{
 		db:      db,

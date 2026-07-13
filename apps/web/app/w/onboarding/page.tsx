@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Modal, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
+import { LogoMark } from "@/components/logo"
 import { TutorialVideo } from "@/components/tutorial-video"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
@@ -24,13 +25,39 @@ import {
 } from "@/app/w/(chat)/plugins/use-connect-integration"
 
 type OnboardingStep = "team" | "connections" | "welcome" | "complete"
+type VisibleStep = Exclude<OnboardingStep, "complete">
+type ProgressStep = Exclude<VisibleStep, "welcome">
 type Connection = components["schemas"]["connectionResponse"]
 
-const STEPS: { id: Exclude<OnboardingStep, "complete">; label: string }[] = [
-  { id: "team", label: "Create your team" },
-  { id: "connections", label: "Connect your tools" },
-  { id: "welcome", label: "Meet Hivy" },
+const PROGRESS_STEPS: {
+  id: ProgressStep
+  label: string
+  description: string
+}[] = [
+  {
+    id: "team",
+    label: "Create your team",
+    description: "Control agent and teammate access.",
+  },
+  {
+    id: "connections",
+    label: "Install plugins",
+    description: "Give your agents restricted access to the tools your team uses",
+  },
 ]
+
+const CONNECTION_DESCRIPTIONS: Record<string, string> = {
+  slack: "Work with channels, messages, and your team in Slack.",
+  "github-app": "Read repositories, issues, and pull requests.",
+  "github-app-code-reviews": "Review pull requests and respond to code changes.",
+  notion: "Use pages and databases as company context.",
+  linear: "Create, update, and track product work.",
+  railway: "Inspect and manage Railway projects and deployments.",
+  vercel: "Work with projects, deployments, and domains.",
+  apify: "Run actors and use web data in your workflows.",
+  bugsink: "Investigate errors and application issues.",
+  glitchtip: "Inspect errors, events, and performance data.",
+}
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -56,30 +83,39 @@ export default function OnboardingPage() {
     }
   }
 
-  if (isLoading || serverStep === "complete") return null
+  if (isLoading || serverStep === "complete" || step === "complete") return null
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-8 sm:px-8 sm:py-10">
-        <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">
-              <AppIcon icon="bot" className="h-4.5 w-4.5" />
-            </div>
-            <span className="text-sm font-semibold">Hivy</span>
-          </div>
-          <span className="text-xs text-muted">About 2 minutes</span>
-        </header>
+    <main className="min-h-dvh bg-surface-secondary p-0 text-foreground md:p-5">
+      <div className="mx-auto grid min-h-dvh w-full max-w-7xl overflow-hidden border-border bg-background shadow-sm md:h-[calc(100dvh-2.5rem)] md:min-h-0 md:rounded-3xl md:border lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <SetupSidebar step={step} />
 
-        <div className="grid flex-1 items-start gap-10 py-12 md:grid-cols-[14rem_minmax(0,1fr)] md:py-20">
-          <OnboardingProgress step={step} />
-          <section className="min-w-0 md:max-w-2xl">
-            {step === "team" ? <CreateTeamStep onCreated={() => setOptimisticStep("connections")} /> : null}
+        <div className="flex min-h-0 min-w-0 flex-col">
+          <MobileSetupHeader step={step} />
+          <header className="hidden h-16 shrink-0 items-center justify-between border-b border-border px-8 lg:flex">
+            <p className="text-sm font-medium">Set up Hivy</p>
+            <p className="text-xs text-muted">
+              {step === "welcome"
+                ? "Setup complete"
+                : `Step ${progressIndex(step) + 1} of ${PROGRESS_STEPS.length}`}
+            </p>
+          </header>
+
+          <section key={step} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-7 sm:px-8 sm:py-12 lg:px-12">
+            {step === "team" ? (
+              <CreateTeamStep onCreated={() => setOptimisticStep("connections")} />
+            ) : null}
             {step === "connections" ? (
-              <ConnectionsStep onContinue={() => void advanceTo("welcome")} advancing={advance.isPending} />
+              <ConnectionsStep
+                onContinue={() => void advanceTo("welcome")}
+                advancing={advance.isPending}
+              />
             ) : null}
             {step === "welcome" ? (
-              <WelcomeStep onFinish={() => void advanceTo("complete")} finishing={advance.isPending} />
+              <WelcomeStep
+                onFinish={() => void advanceTo("complete")}
+                finishing={advance.isPending}
+              />
             ) : null}
           </section>
         </div>
@@ -88,34 +124,93 @@ export default function OnboardingPage() {
   )
 }
 
-function OnboardingProgress({ step }: { step: OnboardingStep }) {
-  const activeIndex = Math.max(0, STEPS.findIndex((item) => item.id === step))
+function progressIndex(step: VisibleStep) {
+  if (step === "welcome") return PROGRESS_STEPS.length
+  return Math.max(0, PROGRESS_STEPS.findIndex((item) => item.id === step))
+}
+
+function SetupSidebar({ step }: { step: VisibleStep }) {
+  const activeIndex = progressIndex(step)
   return (
-    <ol className="flex gap-2 md:flex-col" aria-label="Onboarding progress">
-      {STEPS.map((item, index) => {
-        const current = index === activeIndex
-        const complete = index < activeIndex
-        return (
-          <li key={item.id} className="flex min-w-0 flex-1 items-center gap-2.5 md:flex-none">
-            <span
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                current
-                  ? "bg-foreground text-background"
-                  : complete
-                    ? "bg-default text-foreground"
-                    : "border border-border text-muted"
+    <aside className="hidden flex-col border-r border-border bg-surface px-6 py-7 lg:flex">
+      <div className="flex items-center gap-2.5">
+        <LogoMark className="h-9 w-9 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold">Hivy</p>
+          <p className="text-xs text-muted">Workspace setup</p>
+        </div>
+      </div>
+
+      <ol className="mt-14 space-y-1" aria-label="Onboarding progress">
+        {PROGRESS_STEPS.map((item, index) => {
+          const current = index === activeIndex
+          const complete = index < activeIndex
+          return (
+            <li
+              key={item.id}
+              className={`relative flex gap-3 rounded-xl px-3 py-3.5 ${
+                current ? "bg-default" : ""
               }`}
               aria-current={current ? "step" : undefined}
             >
-              {complete ? <AppIcon icon="check" className="h-3.5 w-3.5" /> : index + 1}
-            </span>
-            <span className={`hidden truncate text-sm md:block ${current ? "text-foreground" : "text-muted"}`}>
-              {item.label}
-            </span>
-          </li>
-        )
-      })}
-    </ol>
+              <span
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                  current
+                    ? "bg-primary text-primary-foreground"
+                    : complete
+                      ? "bg-foreground text-background"
+                      : "border border-border text-muted"
+                }`}
+              >
+                {complete ? <AppIcon icon="check" className="h-3.5 w-3.5" /> : index + 1}
+              </span>
+              <span className="min-w-0">
+                <span className={`block text-sm font-medium ${current ? "text-foreground" : "text-muted"}`}>
+                  {item.label}
+                </span>
+                <span className="mt-1 block text-xs leading-4 text-muted">
+                  {item.description}
+                </span>
+              </span>
+            </li>
+          )
+        })}
+      </ol>
+
+      <div className="mt-auto border-t border-border pt-5">
+        <div className="flex items-start gap-2.5 text-xs leading-5 text-muted">
+          <AppIcon icon="clock" className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>Usually takes less than two minutes. You can change everything later.</p>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+function MobileSetupHeader({ step }: { step: VisibleStep }) {
+  const activeIndex = progressIndex(step)
+  return (
+    <header className="border-b border-border bg-surface px-5 py-4 lg:hidden">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <LogoMark className="h-8 w-8 shrink-0" />
+          <span className="text-sm font-semibold">Set up Hivy</span>
+        </div>
+        <span className="text-xs text-muted">
+          {step === "welcome"
+            ? "Complete"
+            : `${activeIndex + 1} of ${PROGRESS_STEPS.length}`}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-1.5" aria-label="Onboarding progress">
+        {PROGRESS_STEPS.map((item, index) => (
+          <span
+            key={item.id}
+            className={`h-1 rounded-full ${index <= activeIndex ? "bg-primary" : "bg-default"}`}
+          />
+        ))}
+      </div>
+    </header>
   )
 }
 
@@ -145,29 +240,28 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-2">
       <div>
-        <p className="text-sm font-medium text-primary">First, set your scope</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Create your first team</h1>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
-          Teams keep agents, channels, and permissions together. You can invite people and add more teams later.
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Create your first team</h1>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+          Teams control which agents and teammates can access plugins and knowledge sources.
         </p>
       </div>
-      <form onSubmit={submit} className="flex max-w-lg flex-col gap-4">
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Team name</span>
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Engineering"
-            autoComplete="organization"
-            autoFocus
-            disabled={createTeam.isPending}
-          />
-        </label>
-        <div className="flex items-center justify-between gap-4 pt-2">
-          <p className="text-xs text-muted">This step is required.</p>
-          <Button type="submit" variant="primary" isDisabled={!name.trim() || createTeam.isPending}>
+
+      <form onSubmit={submit} className="mt-8 w-full">
+        <Input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Team name"
+          aria-label="Team name"
+          autoComplete="organization"
+          autoFocus
+          disabled={createTeam.isPending}
+          className="w-full"
+        />
+
+        <div className="mt-4 flex justify-end">
+          <Button className="w-full sm:w-auto" type="submit" variant="primary" isDisabled={!name.trim() || createTeam.isPending}>
             {createTeam.isPending ? <Spinner color="current" size="sm" /> : null}
             Create team
             <AppIcon icon="arrow-right" className="h-4 w-4" />
@@ -179,11 +273,15 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
 }
 
 function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; advancing: boolean }) {
-  const integrationsQuery = $api.useQuery("get", "/v1/integrations/available")
+  const integrationsQuery = $api.useQuery("get", "/v1/integrations/supported")
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
-  const integrations = integrationsQuery.data ?? []
+  const [search, setSearch] = useState("")
+  const integrations = useMemo(
+    () => integrationsQuery.data?.data ?? [],
+    [integrationsQuery.data?.data]
+  )
   const connections = useMemo(
     () => connectionsQuery.data?.data ?? [],
     [connectionsQuery.data?.data]
@@ -192,6 +290,13 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
     () => new Set(connections.flatMap((connection: Connection) => connection.provider ? [connection.provider] : [])),
     [connections]
   )
+  const filteredIntegrations = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return integrations
+    return integrations.filter((integration) =>
+      `${integration.display_name ?? ""} ${integration.provider ?? ""}`.toLowerCase().includes(query)
+    )
+  }, [integrations, search])
   const { connectIntegration, connectingId, isConnecting } = useConnectIntegration()
   const [formIntegration, setFormIntegration] = useState<AvailableIntegration | null>(null)
 
@@ -202,7 +307,7 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
       installPlugins: true,
       onSuccess: () => {
         setFormIntegration(null)
-        toast.success(`${integration.display_name ?? "Connection"} connected and plugin installed`)
+        toast.success(`${integration.display_name ?? "Connection"} is ready to use`)
         void connectionsQuery.refetch()
       },
     })
@@ -214,59 +319,118 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
   }
 
   return (
-    <div className="flex flex-col gap-7">
-      <div>
-        <p className="text-sm font-medium text-primary">Bring your tools</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Connect where work happens</h1>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
-          Add any connections you want Hivy to use. Each connection automatically installs its matching plugin.
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        {integrationsQuery.isLoading ? (
-          <div className="flex items-center gap-3 px-4 py-5 text-sm text-muted">
-            <Spinner size="sm" /> Loading connections
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-sm font-semibold text-primary">Your tools</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Bring Hivy into your work</h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+            Connect only what you need. Hivy installs the matching capability automatically, and you stay in control of access.
+          </p>
+        </div>
+        {connections.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-2 text-sm font-medium text-foreground">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success/15 text-success">
+              <AppIcon icon="check" className="h-3.5 w-3.5" />
+            </span>
+            {connections.length} connected
           </div>
-        ) : integrations.length === 0 ? (
-          <p className="px-4 py-5 text-sm text-muted">No connections are available yet.</p>
-        ) : (
-          integrations.map((integration, index) => {
-            const provider = integration.provider ?? ""
-            const connected = connectedProviders.has(provider)
-            const connecting = connectingId === integration.id
-            return (
-              <div
-                key={integration.id ?? provider}
-                className={`flex items-center gap-3 px-4 py-3.5 ${index ? "border-t border-border" : ""}`}
-              >
-                <IntegrationLogo provider={provider} size={36} className="rounded-lg" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{integration.display_name || provider}</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {connected ? "Connected, plugin installed" : "Connect and install the matching plugin"}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant={connected ? "tertiary" : "primary"}
-                  isDisabled={connected || isConnecting}
-                  onPress={() => requestConnect(integration)}
-                >
-                  {connecting ? <Spinner color="current" size="sm" /> : connected ? <AppIcon icon="check" className="h-4 w-4" /> : null}
-                  {connected ? "Connected" : "Connect"}
-                </Button>
-              </div>
-            )
-          })
-        )}
+        ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-xs text-muted">You can add or remove connections later.</p>
+      <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="border-b border-border p-3">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search connections"
+            aria-label="Search connections"
+          />
+        </div>
+
+        <div className="max-h-80 min-h-64 overflow-y-auto">
+          {integrationsQuery.isLoading ? (
+            <ConnectionSkeletons />
+          ) : integrationsQuery.isError ? (
+            <ConnectionState
+              icon="circle-alert"
+              title="Connections could not be loaded"
+              description="Check your network and try again. You can also finish setup without connecting a tool."
+              action={<Button size="sm" variant="secondary" onPress={() => integrationsQuery.refetch()}>Try again</Button>}
+            />
+          ) : integrations.length === 0 ? (
+            <ConnectionState
+              icon="plug"
+              title="No connections are ready yet"
+              description="Your workspace administrator still needs to configure the connection catalog. You can continue and add tools later."
+            />
+          ) : filteredIntegrations.length === 0 ? (
+            <ConnectionState
+              icon="search"
+              title="No matching connections"
+              description={`Nothing matches “${search.trim()}”. Try another name.`}
+            />
+          ) : (
+            filteredIntegrations.map((integration, index) => {
+              const provider = integration.provider ?? ""
+              const connected = connectedProviders.has(provider)
+              const connecting = connectingId === integration.id
+              const configured = integration.configured ?? false
+              return (
+                <div
+                  key={integration.id ?? provider}
+                  className={`grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 px-4 py-4 transition-colors hover:bg-default/60 sm:flex ${
+                    index ? "border-t border-border" : ""
+                  }`}
+                >
+                  <IntegrationLogo provider={provider} size={40} className="shrink-0 rounded-xl" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{integration.display_name || provider}</p>
+                    <p className="mt-1 line-clamp-1 text-xs text-muted">
+                      {connected
+                        ? "Connected and ready for your team"
+                        : configured
+                          ? CONNECTION_DESCRIPTIONS[provider] ?? "Connect this tool to use it with Hivy."
+                          : "Supported by Hivy, awaiting workspace configuration"}
+                    </p>
+                  </div>
+                  <Button
+                    className="col-start-2 justify-self-start sm:col-auto sm:justify-self-auto"
+                    size="sm"
+                    variant={connected ? "tertiary" : "secondary"}
+                    isDisabled={connected || isConnecting || !configured}
+                    onPress={() => requestConnect(integration)}
+                  >
+                    {connecting ? <Spinner color="current" size="sm" /> : null}
+                    {connected ? (
+                      <>
+                        <AppIcon icon="check" className="h-4 w-4" /> Ready
+                      </>
+                    ) : configured ? (
+                      "Connect"
+                    ) : (
+                      "Unavailable"
+                    )}
+                  </Button>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          className="px-2 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          onClick={onContinue}
+          disabled={advancing || isConnecting}
+        >
+          Skip for now
+        </button>
         <Button variant="primary" onPress={onContinue} isDisabled={advancing || isConnecting}>
           {advancing ? <Spinner color="current" size="sm" /> : null}
-          {connections.length ? "Continue" : "Skip for now"}
+          Continue
           <AppIcon icon="arrow-right" className="h-4 w-4" />
         </Button>
       </div>
@@ -291,37 +455,126 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
   )
 }
 
+function ConnectionSkeletons() {
+  return (
+    <div aria-label="Loading connections">
+      {[0, 1, 2, 3].map((item) => (
+        <div key={item} className="grid animate-pulse grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 border-b border-border px-4 py-4 last:border-b-0 sm:flex">
+          <div className="h-10 w-10 rounded-xl bg-default" />
+          <div className="min-w-0 flex-1">
+            <div className="h-3 w-28 rounded-full bg-default" />
+            <div className="mt-2 h-2.5 w-64 max-w-full rounded-full bg-default" />
+          </div>
+          <div className="col-start-2 h-8 w-20 rounded-lg bg-default sm:col-auto" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ConnectionState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: string
+  title: string
+  description: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex min-h-64 flex-col items-center justify-center px-6 py-10 text-center">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-default text-muted">
+        <AppIcon icon={icon} className="h-5 w-5" />
+      </div>
+      <p className="mt-4 text-sm font-semibold">{title}</p>
+      <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  )
+}
+
 function WelcomeStep({ onFinish, finishing }: { onFinish: () => void; finishing: boolean }) {
   const videoURL = clientConfig().tutorialVideos.welcome ?? ""
   return (
-    <div className="flex flex-col gap-7">
-      <div>
-        <p className="text-sm font-medium text-primary">You are ready</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">See Hivy in action</h1>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
-          This 30-second tour shows how to start a conversation, choose a team, and put your new connections to work.
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-2">
+      <div className="text-center">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-success/15 text-success">
+          <AppIcon icon="check" className="h-5 w-5" />
+        </div>
+        <p className="mt-5 text-sm font-semibold text-primary">Setup complete</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Your team is ready to work</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted">
+          Take a 30-second look at the product, or jump straight into your first conversation.
         </p>
       </div>
 
-      {videoURL ? (
-        <TutorialVideo url={videoURL} title="Welcome to Hivy" />
-      ) : (
-        <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-surface-secondary">
-          <div className="text-center">
-            <AppIcon icon="video" className="mx-auto h-7 w-7 text-muted" />
-            <p className="mt-2 text-sm font-medium">Welcome video coming soon</p>
-            <p className="mt-1 text-xs text-muted">Set HIVY_WELCOME_VIDEO_URL to publish it.</p>
-          </div>
+      <div className="mt-8 grid overflow-hidden rounded-2xl border border-border bg-surface xl:grid-cols-[minmax(0,1.55fr)_minmax(15rem,0.75fr)]">
+        <div className="min-w-0 bg-surface-secondary p-3">
+          {videoURL ? <TutorialVideo url={videoURL} title="Welcome to Hivy" /> : <ProductPreview />}
         </div>
-      )}
+        <div className="flex flex-col border-t border-border p-5 xl:border-t-0 xl:border-l">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">You can start with</p>
+          <ul className="mt-4 space-y-4">
+            <WelcomeAction icon="message-square" text="Ask Hivy to plan or complete a task" />
+            <WelcomeAction icon="plug" text="Use the tools you connected" />
+            <WelcomeAction icon="user-plus" text="Invite teammates when you are ready" />
+          </ul>
+          <p className="mt-auto pt-6 text-xs leading-5 text-muted">
+            Tutorials stay available inside each feature, so there is nothing to memorize now.
+          </p>
+        </div>
+      </div>
 
-      <div className="flex justify-end">
+      <div className="mt-7 flex justify-center">
         <Button variant="primary" onPress={onFinish} isDisabled={finishing}>
           {finishing ? <Spinner color="current" size="sm" /> : null}
-          Go to Hivy
+          Start your first chat
           <AppIcon icon="arrow-right" className="h-4 w-4" />
         </Button>
       </div>
     </div>
+  )
+}
+
+function ProductPreview() {
+  return (
+    <div className="flex aspect-video min-h-56 w-full flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm sm:min-h-64">
+      <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border px-4">
+        <span className="h-2 w-2 rounded-full bg-muted/40" />
+        <span className="h-2 w-2 rounded-full bg-muted/25" />
+        <span className="h-2 w-2 rounded-full bg-muted/15" />
+        <span className="ml-3 text-[10px] font-medium text-muted">Your first conversation</span>
+      </div>
+      <div className="flex flex-1 flex-col justify-center gap-4 p-5 sm:p-7">
+        <div className="ml-auto max-w-[78%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-xs leading-5 text-primary-foreground">
+          Help me plan the launch for next Friday.
+        </div>
+        <div className="flex max-w-[88%] items-start gap-2.5">
+          <LogoMark className="h-7 w-7 shrink-0" />
+          <div className="rounded-2xl rounded-tl-md bg-default px-4 py-3 text-xs leading-5 text-foreground">
+            I’ll turn that into a clear plan, then we can assign the work and track progress together.
+          </div>
+        </div>
+      </div>
+      <div className="m-3 flex h-10 items-center rounded-xl border border-border bg-surface px-3 text-[10px] text-muted">
+        Ask Hivy anything...
+        <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-lg bg-foreground text-background">
+          <AppIcon icon="arrow-right" className="h-3 w-3" />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function WelcomeAction({ icon, text }: { icon: string; text: string }) {
+  return (
+    <li className="flex min-w-0 items-start gap-3 text-sm leading-5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-default text-muted">
+        <AppIcon icon={icon} className="h-3.5 w-3.5" />
+      </span>
+      <span className="min-w-0 pt-1">{text}</span>
+    </li>
   )
 }

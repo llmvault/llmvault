@@ -51,6 +51,7 @@ func setupPublicRoutes(
 
 	// Integration discovery (no auth)
 	r.Get("/v1/integrations/available", integrationHandler.ListAvailable)
+	r.Get("/v1/integrations/supported", integrationHandler.ListSupported)
 
 	// Integration catalog discovery (no auth)
 	actionsHandler := handler.NewActionsHandler(actionsCatalog)

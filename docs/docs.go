@@ -6115,6 +6115,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/integrations/supported": {
+            "get": {
+                "description": "Returns every enabled platform integration definition and whether it is configured for connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "summary": "List supported platform integrations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/supportedIntegrationsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/integrations/{id}/connect-session": {
             "post": {
                 "security": [
@@ -21086,6 +21112,46 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "supportedIntegrationResponse": {
+            "type": "object",
+            "properties": {
+                "configured": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "definition_id": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "meta": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "nango_config": {
+                    "$ref": "#/definitions/NangoConfig"
+                },
+                "provider": {
+                    "type": "string"
+                }
+            }
+        },
+        "supportedIntegrationsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/supportedIntegrationResponse"
+                    }
                 }
             }
         },

@@ -4327,6 +4327,32 @@ definitions:
       status:
         type: string
     type: object
+  supportedIntegrationResponse:
+    properties:
+      configured:
+        type: boolean
+      created_at:
+        type: string
+      definition_id:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: string
+      meta:
+        $ref: '#/definitions/JSON'
+      nango_config:
+        $ref: '#/definitions/NangoConfig'
+      provider:
+        type: string
+    type: object
+  supportedIntegrationsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/supportedIntegrationResponse'
+        type: array
+    type: object
   syncTriggerRequest:
     properties:
       from_beginning:
@@ -9049,6 +9075,24 @@ paths:
       security:
       - BearerAuth: []
       summary: List available platform integrations
+      tags:
+      - integrations
+  /v1/integrations/supported:
+    get:
+      description: Returns every enabled platform integration definition and whether
+        it is configured for connection.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/supportedIntegrationsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: List supported platform integrations
       tags:
       - integrations
   /v1/invites/{token}:

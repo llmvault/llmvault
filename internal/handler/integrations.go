@@ -56,6 +56,21 @@ type integrationAvailableResponse struct {
 	CreatedAt   string             `json:"created_at"`
 }
 
+type supportedIntegrationResponse struct {
+	DefinitionID string             `json:"definition_id"`
+	ID           string             `json:"id"`
+	Provider     string             `json:"provider"`
+	DisplayName  string             `json:"display_name"`
+	Meta         model.JSON         `json:"meta,omitempty"`
+	NangoConfig  *model.NangoConfig `json:"nango_config,omitempty"`
+	CreatedAt    string             `json:"created_at"`
+	Configured   bool               `json:"configured"`
+}
+
+type supportedIntegrationsResponse struct {
+	Data []supportedIntegrationResponse `json:"data"`
+}
+
 func parseNangoConfig(raw model.JSON) *model.NangoConfig {
 	if len(raw) == 0 {
 		return nil
