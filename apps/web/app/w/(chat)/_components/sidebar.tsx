@@ -18,7 +18,7 @@ import {
   type SidebarChannelResponse,
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
-import { AccountMenu } from "./sidebar-account-menu"
+import { AccountMenu, SidebarThemeToggle } from "./sidebar-account-menu"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
@@ -245,8 +245,9 @@ export const Sidebar = memo(function Sidebar({
       </div>
 
       <div className="shrink-0 border-t border-border px-3 py-2">
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
           <AccountMenu />
+          <SidebarThemeToggle />
         </div>
       </div>
     </div>
