@@ -14,6 +14,10 @@ type PublicConfig = {
   connectionsHost: string
   /** Wildcard preview host suffix ({port}-{id}.<domain>) for sandbox previews. */
   previewDomain: string
+  /** Documentation root used by contextual in-product help. */
+  docsUrl: string
+  /** Optional YouTube URLs for onboarding and contextual tutorials. */
+  tutorialVideos: Record<string, string>
 }
 
 /** Global key under which the server injects the config for the client to read. */
@@ -31,6 +35,16 @@ function readServerPublicConfig(): PublicConfig {
   const apiUrl = (process.env.HIVY_PUBLIC_API_URL || process.env.HIVY_API_URL || "").trim()
   const connectionsHost = (process.env.HIVY_CONNECTIONS_HOST || "").trim()
   const previewDomain = (process.env.HIVY_PREVIEW_BASE_DOMAIN || "").trim()
+  const docsUrl = (process.env.HIVY_DOCS_URL || "").trim().replace(/\/$/, "")
+  const tutorialVideos = {
+    welcome: (process.env.HIVY_WELCOME_VIDEO_URL || "").trim(),
+    automations: (process.env.HIVY_TUTORIAL_AUTOMATIONS_VIDEO_URL || "").trim(),
+    schedules: (process.env.HIVY_TUTORIAL_SCHEDULES_VIDEO_URL || "").trim(),
+    webhooks: (process.env.HIVY_TUTORIAL_WEBHOOKS_VIDEO_URL || "").trim(),
+    plugins: (process.env.HIVY_TUTORIAL_PLUGINS_VIDEO_URL || "").trim(),
+    knowledge: (process.env.HIVY_TUTORIAL_KNOWLEDGE_VIDEO_URL || "").trim(),
+    teams: (process.env.HIVY_TUTORIAL_TEAMS_VIDEO_URL || "").trim(),
+  }
 
   const missing: string[] = []
   if (!apiUrl) missing.push("HIVY_PUBLIC_API_URL (or HIVY_API_URL)")
@@ -47,6 +61,8 @@ function readServerPublicConfig(): PublicConfig {
     apiUrl,
     connectionsHost,
     previewDomain,
+    docsUrl,
+    tutorialVideos,
   }
 }
 
@@ -86,6 +102,8 @@ export function setPublicConfigForTests(overrides: Partial<PublicConfig> = {}): 
     apiUrl: "https://api.usehivy.test",
     connectionsHost: "connections.usehivy.test",
     previewDomain: "preview.usehivy.test",
+    docsUrl: "https://docs.usehivy.test",
+    tutorialVideos: {},
   }
   ;(globalThis as unknown as Record<string, unknown>).window ??= {}
   ;(window as unknown as Record<string, PublicConfig>)[PUBLIC_CONFIG_KEY] = { ...base, ...overrides }

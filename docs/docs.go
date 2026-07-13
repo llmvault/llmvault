@@ -6178,7 +6178,7 @@ const docTemplate = `{
                 "tags": [
                     "connections"
                 ],
-                "summary": "Create an connection",
+                "summary": "Create a connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -6210,8 +6210,32 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -7981,6 +8005,75 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/orgMemberResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/onboarding": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Advances the current organization through optional onboarding steps. The mandatory team step advances only when a team is created.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "onboarding"
+                ],
+                "summary": "Advance onboarding",
+                "parameters": [
+                    {
+                        "description": "Next onboarding step",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/advanceOnboardingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/onboardingResponse"
                         }
                     },
                     "400": {
@@ -15337,6 +15430,14 @@ const docTemplate = `{
                 }
             }
         },
+        "advanceOnboardingRequest": {
+            "type": "object",
+            "properties": {
+                "step": {
+                    "type": "string"
+                }
+            }
+        },
         "agentCatalogInstallRequest": {
             "type": "object",
             "properties": {
@@ -16964,6 +17065,9 @@ const docTemplate = `{
         "createConnectionRequest": {
             "type": "object",
             "properties": {
+                "install_plugins": {
+                    "type": "boolean"
+                },
                 "meta": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -18289,6 +18393,14 @@ const docTemplate = `{
                 }
             }
         },
+        "onboardingResponse": {
+            "type": "object",
+            "properties": {
+                "step": {
+                    "type": "string"
+                }
+            }
+        },
         "orgInviteAcceptResponse": {
             "type": "object",
             "properties": {
@@ -18388,6 +18500,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "onboarding_step": {
+                    "type": "string"
+                },
                 "plan": {
                     "$ref": "#/definitions/planDTO"
                 },
@@ -18432,6 +18547,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "onboarding_step": {
                     "type": "string"
                 },
                 "plan": {
@@ -19654,9 +19772,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
-                },
-                "team_name": {
                     "type": "string"
                 }
             }

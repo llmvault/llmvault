@@ -13,6 +13,7 @@ import {
   automationFromSchedule,
   automationFromWebhookTrigger,
 } from "@/app/w/(chat)/automations/_data"
+import { TutorialBanner } from "@/components/tutorial-banner"
 
 export default function AutomationsPage() {
   return (
@@ -67,6 +68,7 @@ function AutomationsPageInner() {
         description="Run agents on a recurring schedule"
         searchLabel="schedules"
         emptyTab="Schedules"
+        tutorial={<AutomationTutorial kind="schedules" />}
       />
     )
   }
@@ -87,6 +89,7 @@ function AutomationsPageInner() {
         description="Trigger agents from inbound HTTP requests"
         searchLabel="webhooks"
         emptyTab="Webhooks"
+        tutorial={<AutomationTutorial kind="webhooks" />}
       />
     )
   }
@@ -106,6 +109,39 @@ function AutomationsPageInner() {
       description="Run agents when events happen in your connected apps"
       searchLabel="triggers"
       emptyTab="Triggers"
+      tutorial={<AutomationTutorial kind="automations" />}
+    />
+  )
+}
+
+function AutomationTutorial({
+  kind,
+}: {
+  kind: "automations" | "schedules" | "webhooks"
+}) {
+  const content = {
+    automations: {
+      title: "Build your first connection automation",
+      description: "See how an event in a connected app can start agent work.",
+      path: "automations/connections",
+    },
+    schedules: {
+      title: "Schedule recurring agent work",
+      description: "Learn how to choose an agent, set a cadence, and write the task.",
+      path: "automations/schedules",
+    },
+    webhooks: {
+      title: "Trigger an agent with a webhook",
+      description: "Follow a request from its unique URL through to an agent run.",
+      path: "automations/webhooks",
+    },
+  }[kind]
+  return (
+    <TutorialBanner
+      tutorial={kind}
+      title={content.title}
+      description={content.description}
+      docsPath={content.path}
     />
   )
 }

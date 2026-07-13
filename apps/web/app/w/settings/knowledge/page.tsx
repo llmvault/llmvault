@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { cn } from "@/lib/utils"
 import { ProviderIcon } from "./_provider-icon"
+import { TutorialBanner } from "@/components/tutorial-banner"
 import {
   deriveProgress,
   deriveProvider,
@@ -132,6 +133,13 @@ export default function KnowledgeSettingsPage() {
           </Button>
         ) : null}
       </div>
+
+      <TutorialBanner
+        tutorial="knowledge"
+        title="Give agents trusted company context"
+        description="See how to connect a source, choose its scope, and grant team access."
+        docsPath="knowledge"
+      />
 
       {sourcesQuery.isLoading ? (
         <SourcesSkeleton />

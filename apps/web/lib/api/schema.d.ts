@@ -7532,7 +7532,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create an connection
+         * Create a connection
          * @description Stores a connection after the OAuth flow completes via Nango.
          */
         post: {
@@ -7570,8 +7570,44 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
                 /** @description Not Found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9713,6 +9749,95 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["orgMemberResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Advance onboarding
+         * @description Advances the current organization through optional onboarding steps. The mandatory team step advances only when a team is created.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Next onboarding step */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["advanceOnboardingRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["onboardingResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -17320,6 +17445,9 @@ export interface components {
             model_ids?: string[];
             name?: string;
         };
+        advanceOnboardingRequest: {
+            step?: string;
+        };
         agentCatalogInstallRequest: {
             team_id?: string;
         };
@@ -17861,6 +17989,7 @@ export interface components {
             reference?: string;
         };
         createConnectionRequest: {
+            install_plugins?: boolean;
             meta?: components["schemas"]["JSON"];
             nango_connection_id?: string;
         };
@@ -18324,6 +18453,9 @@ export interface components {
             metadata?: components["schemas"]["JSON"];
             proof_count?: number;
         };
+        onboardingResponse: {
+            step?: string;
+        };
         orgInviteAcceptResponse: {
             org_id?: string;
             org_name?: string;
@@ -18357,6 +18489,7 @@ export interface components {
             id?: string;
             logo_url?: string;
             name?: string;
+            onboarding_step?: string;
             plan?: components["schemas"]["planDTO"];
             role?: string;
         };
@@ -18373,6 +18506,7 @@ export interface components {
             id?: string;
             logo_url?: string;
             name?: string;
+            onboarding_step?: string;
             plan?: components["schemas"]["planDTO"];
             prompt_company?: string;
             rate_limit?: number;
@@ -18758,7 +18892,6 @@ export interface components {
             email?: string;
             name?: string;
             password?: string;
-            team_name?: string;
         };
         reportRow: {
             avg_ttfb_ms?: number;

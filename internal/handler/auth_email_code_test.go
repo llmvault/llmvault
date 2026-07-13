@@ -113,19 +113,16 @@ func TestEmailPasswordSignup_SendsAndConfirmsSixDigitCode(t *testing.T) {
 	h.cleanupEmail(t, testEmail)
 
 	rr := h.doRequest(t, http.MethodPost, "/auth/register", map[string]string{
-		"email":     testEmail,
-		"password":  "password123",
-		"name":      "Confirm Code",
-		"team_name": "Confirm Team",
+		"email":    testEmail,
+		"password": "password123",
+		"name":     "Confirm Code",
 	})
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("register: got %d body=%s, want 201", rr.Code, rr.Body.String())
 	}
-	orgID := assertOrgProvisionTaskEnqueued(t, h.enq)
-	t.Cleanup(func() {
-		h.db.Where("org_id = ?", orgID).Delete(&model.Channel{})
-		h.db.Where("org_id = ?", orgID).Delete(&model.Agent{})
-	})
+	if got := len(h.enq.Tasks()); got != 0 {
+		t.Fatalf("signup enqueued %d tasks before mandatory team onboarding, want 0", got)
+	}
 
 	if len(h.sender.messages) != 1 {
 		t.Fatalf("sent emails: got %d, want 1", len(h.sender.messages))

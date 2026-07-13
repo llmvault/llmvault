@@ -13,6 +13,7 @@ export interface ConnectOptions {
   credentials?: Record<string, string>
   params?: Record<string, string>
   installation?: "outbound"
+  installPlugins?: boolean
 }
 
 interface ConnectIntegrationOptions extends ConnectOptions {
@@ -69,6 +70,7 @@ export function useConnectIntegration() {
           options?.params && Object.keys(options.params).length > 0
             ? { connection_config: options.params }
             : undefined,
+        install_plugins: options?.installPlugins,
       },
     })
 

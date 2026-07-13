@@ -76,9 +76,9 @@ func teamIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool)
 	return teamID, true
 }
 
-// defaultTeamName is the fallback first-team name for non-interactive org
-// creation (OTP/OAuth signup, additional orgs via /v1/orgs) where the user did
-// not supply one. Interactive password signup forces a user-provided name.
+// defaultTeamName is the fallback for system provisioning and additional org
+// creation. Initial signup leaves the org teamless until onboarding collects a
+// user-provided name.
 const defaultTeamName = "General"
 
 func normalizeTeamName(raw string) string {

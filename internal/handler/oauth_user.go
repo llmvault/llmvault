@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 
@@ -49,9 +48,10 @@ func (h *OAuthHandler) issueTokensAndRespond(ctx context.Context, w http.Respons
 	orgs := make([]orgMemberDTO, 0, len(memberships))
 	for _, m := range memberships {
 		orgs = append(orgs, orgMemberDTO{
-			ID:   m.OrgID.String(),
-			Name: m.Org.Name,
-			Role: m.Role,
+			ID:             m.OrgID.String(),
+			Name:           m.Org.Name,
+			Role:           m.Role,
+			OnboardingStep: m.Org.OnboardingStep,
 		})
 	}
 
@@ -116,7 +116,6 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 		emailConfirmedAt = &now
 	}
 
-	var createdOrgID uuid.UUID
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		user = model.User{
 			Email:            email,
@@ -127,11 +126,10 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 			return fmt.Errorf("creating user: %w", err)
 		}
 
-		org, err := createUserDefaultOrg(ctx, tx, h.credits, &user, firstTeamNameForUser(&user))
+		_, err := createUserDefaultOrg(ctx, tx, h.credits, &user)
 		if err != nil {
 			return err
 		}
-		createdOrgID = org.ID
 
 		oauthAcct := model.OAuthAccount{
 			UserID:         user.ID,
@@ -147,8 +145,6 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 	if err != nil {
 		return nil, err
 	}
-	enqueueOrgHivyAgentProvision(ctx, h.enqueuer, createdOrgID, "oauth_signup")
-
 	return &user, nil
 }
 

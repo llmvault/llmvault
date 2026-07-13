@@ -22,6 +22,7 @@ import {
   FormSection,
   InlineNotice,
 } from "@/app/w/(chat)/automations/_trigger-form-sections"
+import { TutorialBanner } from "@/components/tutorial-banner"
 
 const DEFAULT_TASK_PROMPT =
   "Describe the recurring task the agent should run each time this schedule fires."
@@ -133,6 +134,13 @@ export default function NewSchedulePage() {
               </p>
             </div>
           </header>
+
+          <TutorialBanner
+            tutorial="schedules"
+            title="Create a dependable schedule"
+            description="Watch how to choose the right team, cadence, and task instructions."
+            docsPath="automations/schedules"
+          />
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <FormSection

@@ -54,6 +54,7 @@ func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
 		SandboxExposedPorts: sandboxExposedPorts,
 		Plan:                h.planFor(org.PlanSlug),
 		CreatedAt:           org.CreatedAt.Format(time.RFC3339),
+		OnboardingStep:      org.OnboardingStep,
 	}
 }
 
@@ -80,6 +81,7 @@ type orgResponse struct {
 	SandboxExposedPorts []int    `json:"sandbox_exposed_ports"`
 	Plan                *planDTO `json:"plan,omitempty"`
 	CreatedAt           string   `json:"created_at"`
+	OnboardingStep      string   `json:"onboarding_step"`
 }
 
 // Create handles POST /v1/orgs.

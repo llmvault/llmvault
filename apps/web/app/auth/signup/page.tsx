@@ -42,7 +42,6 @@ function SignupPageContent() {
     signup({
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
-      teamName: String(formData.get("team_name") ?? ""),
     } satisfies PasswordSignupInput)
   }
 
@@ -84,18 +83,6 @@ function SignupPageContent() {
               <OAuthButtons nextPath={nextPath} />
               <AuthDivider />
               <form onSubmit={onSignupSubmit} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="team_name">Team name</Label>
-                  <Input
-                    id="team_name"
-                    name="team_name"
-                    type="text"
-                    autoComplete="organization"
-                    required
-                    placeholder="Acme Engineering"
-                    disabled={isPending}
-                  />
-                </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="email">Work email</Label>
                   <Input

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,38 +30,39 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Name = strings.TrimSpace(req.Name)
-	req.TeamName = normalizeTeamName(req.TeamName)
 
 	if req.Email == "" || req.Password == "" || req.Name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email, password, and name are required"})
-		return
-	}
-	if req.TeamName == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team_name is required"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "email, password, and name are required"})
 		return
 	}
 	if len(req.Password) < 8 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "password must be at least 8 characters"})
 		return
 	}
 
 	// Check if email is taken.
 	var existing model.User
-	if err := h.db.Where("email = ?", req.Email).First(&existing).Error; err == nil {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "email already registered"})
+	err := h.db.WithContext(ctx).Where("email = ?", req.Email).First(&existing).Error
+	if err == nil {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "email already registered"})
+		return
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		logging.FromContext(ctx).ErrorContext(ctx, "check registration email", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create account"})
 		return
 	}
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to hash password", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "internal error"})
 		return
 	}
 
@@ -80,20 +82,31 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var orgErr error
-		org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user, req.TeamName)
+		org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user)
 		return orgErr
 	})
 	if err != nil {
+		if isDuplicateKeyError(err) {
+			writeJSON(w, http.StatusConflict, errorResponse{Error: "email already registered"})
+			return
+		}
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to register user", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create account"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create account"})
 		return
 	}
-	enqueueOrgHivyAgentProvision(r.Context(), h.enqueuer, org.ID, "auth_register")
-
 	if h.autoConfirmEmail {
 
 		now := time.Now()
-		h.db.Model(&user).Update("email_confirmed_at", &now)
+		result := h.db.WithContext(ctx).Model(&model.User{}).
+			Where("id = ? AND email_confirmed_at IS NULL", user.ID).
+			Update("email_confirmed_at", &now)
+		if result.Error != nil || result.RowsAffected != 1 {
+			if result.Error != nil {
+				logging.FromContext(ctx).ErrorContext(ctx, "auto-confirm registered email", "error", result.Error, "user_id", user.ID)
+			}
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create account"})
+			return
+		}
 		user.EmailConfirmedAt = &now
 	} else {
 

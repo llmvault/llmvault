@@ -599,6 +599,11 @@ definitions:
       name:
         type: string
     type: object
+  advanceOnboardingRequest:
+    properties:
+      step:
+        type: string
+    type: object
   agentCatalogInstallRequest:
     properties:
       team_id:
@@ -1688,6 +1693,8 @@ definitions:
     type: object
   createConnectionRequest:
     properties:
+      install_plugins:
+        type: boolean
       meta:
         $ref: '#/definitions/JSON'
       nango_connection_id:
@@ -2558,6 +2565,11 @@ definitions:
       proof_count:
         type: integer
     type: object
+  onboardingResponse:
+    properties:
+      step:
+        type: string
+    type: object
   orgInviteAcceptResponse:
     properties:
       org_id:
@@ -2623,6 +2635,8 @@ definitions:
         type: string
       name:
         type: string
+      onboarding_step:
+        type: string
       plan:
         $ref: '#/definitions/planDTO'
       role:
@@ -2652,6 +2666,8 @@ definitions:
       logo_url:
         type: string
       name:
+        type: string
+      onboarding_step:
         type: string
       plan:
         $ref: '#/definitions/planDTO'
@@ -3450,8 +3466,6 @@ definitions:
       name:
         type: string
       password:
-        type: string
-      team_name:
         type: string
     type: object
   reportRow:
@@ -8994,13 +9008,29 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Create an connection
+      summary: Create a connection
       tags:
       - connections
   /v1/integrations/available:
@@ -10202,6 +10232,51 @@ paths:
       summary: Change a member's organization role
       tags:
       - org-members
+  /v1/orgs/current/onboarding:
+    patch:
+      consumes:
+      - application/json
+      description: Advances the current organization through optional onboarding steps.
+        The mandatory team step advances only when a team is created.
+      parameters:
+      - description: Next onboarding step
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/advanceOnboardingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/onboardingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Advance onboarding
+      tags:
+      - onboarding
   /v1/orgs/current/teams:
     get:
       description: |-

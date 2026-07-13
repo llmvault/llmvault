@@ -39,6 +39,7 @@ func TestConnectionHandler_Create_Success(t *testing.T) {
 
 	user := createTestUser(t, db, fmt.Sprintf("conn-%s@test.com", uuid.New().String()[:8]))
 	org := createTestOrg(t, db)
+	addTestOrgOwner(t, db, org.ID, user.ID)
 	integ := createTestIntegration(t, db, "notion")
 
 	body, _ := json.Marshal(map[string]any{
@@ -76,6 +77,72 @@ func TestConnectionHandler_Create_Success(t *testing.T) {
 	}
 }
 
+func TestConnectionHandler_Create_InstallsMatchingPluginWhenRequested(t *testing.T) {
+	db := connectTestDB(t)
+	nangoSrv := httptest.NewServer(newNangoConnMock(&nangoConnMockConfig{}))
+	t.Cleanup(nangoSrv.Close)
+	nangoClient := nango.NewClient(nangoSrv.URL, "test-secret-key")
+	_ = nangoClient.FetchProviders(context.Background())
+
+	h := handler.NewConnectionHandler(db, nangoClient, catalog.Global(), nil)
+	r := chi.NewRouter()
+	r.Post("/v1/integrations/{id}/connections", h.Create)
+
+	user := createTestUser(t, db, fmt.Sprintf("onboarding-conn-%s@test.com", uuid.NewString()[:8]))
+	org := createTestOrg(t, db)
+	addTestOrgOwner(t, db, org.ID, user.ID)
+	integ := createTestIntegration(t, db, "github-app-code-reviews")
+	plugin := model.Plugin{
+		ID:       uuid.New(),
+		Slug:     "onboarding-code-review-" + uuid.NewString()[:8],
+		Name:     "Code Reviews",
+		Status:   model.PluginStatusActive,
+		Manifest: model.RawJSON(`{}`),
+	}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
+	requirement := model.PluginIntegration{
+		PluginID: plugin.ID,
+		Provider: integ.Provider,
+		Kind:     model.PluginIntegrationKindIntegration,
+		Required: true,
+	}
+	if err := db.Create(&requirement).Error; err != nil {
+		t.Fatalf("create plugin integration: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("org_id = ? AND plugin_id = ?", org.ID, plugin.ID).Delete(&model.OrgPluginInstall{})
+		db.Where("plugin_id = ?", plugin.ID).Delete(&model.PluginIntegration{})
+		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Connection{})
+	})
+
+	body, _ := json.Marshal(map[string]any{
+		"nango_connection_id": "onboarding-code-review-connection",
+		"install_plugins":     true,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithUser(req, &user)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var count int64
+	if err := db.Model(&model.OrgPluginInstall{}).
+		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count plugin installs: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("plugin install count = %d, want 1", count)
+	}
+}
+
 func TestConnectionHandler_CreateSlackDoesNotCreateAgentSideEffects(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
@@ -94,6 +161,7 @@ func TestConnectionHandler_CreateSlackDoesNotCreateAgentSideEffects(t *testing.T
 
 	user := createTestUser(t, db, fmt.Sprintf("slack-conn-%s@test.com", uuid.New().String()[:8]))
 	org := createTestOrg(t, db)
+	addTestOrgOwner(t, db, org.ID, user.ID)
 	integ := createTestIntegration(t, db, "slack")
 
 	body, _ := json.Marshal(map[string]any{"nango_connection_id": "slack-conn-123"})
@@ -143,6 +211,7 @@ func TestConnectionHandler_Create_DuplicateUserIntegration(t *testing.T) {
 
 	user := createTestUser(t, db, fmt.Sprintf("conn-%s@test.com", uuid.New().String()[:8]))
 	org := createTestOrg(t, db)
+	addTestOrgOwner(t, db, org.ID, user.ID)
 	integ := createTestIntegration(t, db, "notion")
 
 	db.Create(&model.Connection{
@@ -190,6 +259,7 @@ func TestConnectionHandler_Create_WithMeta(t *testing.T) {
 
 	user := createTestUser(t, db, fmt.Sprintf("conn-%s@test.com", uuid.New().String()[:8]))
 	org := createTestOrg(t, db)
+	addTestOrgOwner(t, db, org.ID, user.ID)
 	integ := createTestIntegration(t, db, "notion")
 
 	body, _ := json.Marshal(map[string]any{
@@ -241,6 +311,7 @@ func TestConnectionHandler_CreateGlitchTipStoresConnectionConfig(t *testing.T) {
 
 	user := createTestUser(t, db, fmt.Sprintf("glitchtip-conn-%s@test.com", uuid.New().String()[:8]))
 	org := createTestOrg(t, db)
+	addTestOrgOwner(t, db, org.ID, user.ID)
 	integ := createTestIntegration(t, db, "glitchtip")
 
 	body, _ := json.Marshal(map[string]any{

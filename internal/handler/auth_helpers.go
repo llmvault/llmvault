@@ -185,12 +185,13 @@ func (h *AuthHandler) buildAuthResponse(ctx context.Context, user model.User, ac
 	orgs := make([]orgMemberDTO, 0, len(memberships))
 	for _, m := range memberships {
 		orgs = append(orgs, orgMemberDTO{
-			ID:      m.OrgID.String(),
-			Name:    m.Org.Name,
-			Role:    m.Role,
-			BYOK:    m.Org.BYOK,
-			LogoURL: m.Org.LogoURL,
-			Plan:    plans[m.Org.PlanSlug],
+			ID:             m.OrgID.String(),
+			Name:           m.Org.Name,
+			Role:           m.Role,
+			BYOK:           m.Org.BYOK,
+			LogoURL:        m.Org.LogoURL,
+			Plan:           plans[m.Org.PlanSlug],
+			OnboardingStep: m.Org.OnboardingStep,
 		})
 	}
 

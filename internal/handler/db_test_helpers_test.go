@@ -60,3 +60,14 @@ func createTestOrg(t *testing.T, db *gorm.DB) model.Org {
 	t.Cleanup(func() { cleanupOrg(t, db, org.ID) })
 	return org
 }
+
+func addTestOrgOwner(t *testing.T, db *gorm.DB, orgID, userID uuid.UUID) {
+	t.Helper()
+	membership := model.OrgMembership{OrgID: orgID, UserID: userID, Role: "owner"}
+	if err := db.Create(&membership).Error; err != nil {
+		t.Fatalf("create org owner membership: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("org_id = ? AND user_id = ?", orgID, userID).Delete(&model.OrgMembership{})
+	})
+}

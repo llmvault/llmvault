@@ -7,11 +7,19 @@ import (
 	"github.com/lib/pq"
 )
 
+const (
+	OnboardingStepTeam        = "team"
+	OnboardingStepConnections = "connections"
+	OnboardingStepWelcome     = "welcome"
+	OnboardingStepComplete    = "complete"
+)
+
 type Org struct {
 	ID             uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	Name           string         `gorm:"not null;uniqueIndex"`
 	RateLimit      int            `gorm:"not null;default:1000"`
 	Active         bool           `gorm:"not null;default:true"`
+	OnboardingStep string         `gorm:"not null;default:'complete';size:32"`
 	AllowedOrigins pq.StringArray `gorm:"type:text[]"`
 
 	// Denormalised slug of the org's active plan ("free" when no active sub).

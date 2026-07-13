@@ -18,28 +18,24 @@ type ResendConfirmationRequest =
 export type PasswordAuthInput = Required<
   Pick<LoginRequest, "email" | "password">
 >
-export type PasswordSignupInput = PasswordAuthInput & { teamName: string }
+export type PasswordSignupInput = PasswordAuthInput
 type ConfirmEmailInput = Required<
   Pick<ConfirmEmailRequest, "email" | "code">
 >
 
 /**
- * Builds the /auth/register body from the signup form fields. Extracted as a
- * pure function so the required team-name plumbing is unit-testable without
- * mounting the hook. `team_name` is required by the backend (empty → 400); we
- * trim it and let the server reject a blank value inline.
+ * Builds the /auth/register body from the signup form fields. Team creation is
+ * intentionally deferred to the mandatory first onboarding step.
  */
 export function buildRegisterBody(
   email: string,
-  password: string,
-  teamName: string
+  password: string
 ): RegisterRequest {
   const normalizedEmail = normalizeEmail(email)
   return {
     email: normalizedEmail,
     password,
     name: deriveNameFromEmail(normalizedEmail),
-    team_name: teamName.trim(),
   }
 }
 
@@ -186,11 +182,11 @@ export function usePasswordSignup(nextPath = "/w") {
   const resendMutation = $api.useMutation("post", "/auth/resend-confirmation")
 
   const signup = useCallback(
-    ({ email, password, teamName }: PasswordSignupInput) => {
+    ({ email, password }: PasswordSignupInput) => {
       const normalizedEmail = normalizeEmail(email)
       if (!normalizedEmail || !password) return
 
-      const body = buildRegisterBody(email, password, teamName)
+      const body = buildRegisterBody(email, password)
 
       registerMutation.mutate(
         { body },
@@ -263,8 +259,6 @@ export function usePasswordSignup(nextPath = "/w") {
     setEmailToConfirm(null)
   }, [])
 
-  // Surfaced inline on the signup form (not a toast) so the required-team_name
-  // 400 lands next to the fields the user must fix.
   const signupError = registerMutation.error
     ? extractErrorMessage(registerMutation.error, "Could not create account")
     : null

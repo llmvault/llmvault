@@ -8,10 +8,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
@@ -74,14 +72,14 @@ func cleanupOrgAndLedger(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	})
 }
 
-func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
+func TestCreateUserDefaultOrg_StartsMandatoryTeamOnboarding(t *testing.T) {
 	db := connectInternalTestDB(t)
 	user := seedSignupUser(t, db)
 
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, nil, user, "Signup Team")
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
 		return e
 	})
 	if err != nil {
@@ -89,77 +87,24 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	}
 	cleanupOrgAndLedger(t, db, org.ID)
 
-	var agent model.Agent
-	if err := db.Where("org_id = ?", org.ID).First(&agent).Error; err != nil {
-		t.Fatalf("load Hivy agent: %v", err)
+	if org.OnboardingStep != model.OnboardingStepTeam {
+		t.Fatalf("onboarding step = %q, want team", org.OnboardingStep)
 	}
-	resp := toAgentResponse(agent)
-	if resp.Name != "Hivy" {
-		t.Fatalf("agent name = %q, want Hivy", resp.Name)
-	}
-	if resp.Model != agentruntime.DefaultAgentModel {
-		t.Fatalf("agent model = %q, want %q", resp.Model, agentruntime.DefaultAgentModel)
-	}
-	if resp.SandboxImage != model.SandboxImageDefault {
-		t.Fatalf("agent sandbox_image = %q, want %q", resp.SandboxImage, model.SandboxImageDefault)
-	}
-	if resp.SandboxSize != model.DefaultHivyAgentSandboxSize {
-		t.Fatalf("agent sandbox_size = %q, want %q", resp.SandboxSize, model.DefaultHivyAgentSandboxSize)
-	}
-}
-
-func TestCreateUserDefaultOrg_AutoInstallsGlobalRuntimePluginOnHivy(t *testing.T) {
-	db := connectInternalTestDB(t)
-	user := seedSignupUser(t, db)
-	plugin := model.Plugin{
-		ID:       uuid.New(),
-		Slug:     "runtime-default-" + uuid.NewString()[:8],
-		Name:     "Runtime",
-		Status:   model.PluginStatusActive,
-		Manifest: model.RawJSON(`{"auto_install":true,"locked":true}`),
-	}
-	if err := db.Create(&plugin).Error; err != nil {
-		t.Fatalf("create runtime plugin: %v", err)
-	}
-	t.Cleanup(func() { db.Where("id = ?", plugin.ID).Delete(&model.Plugin{}) })
-
-	var org model.Org
-	err := db.Transaction(func(tx *gorm.DB) error {
-		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, nil, user, "Signup Team")
-		return e
-	})
-	if err != nil {
-		t.Fatalf("createUserDefaultOrg: %v", err)
-	}
-	cleanupOrgAndLedger(t, db, org.ID)
-
-	var agent model.Agent
-	if err := db.Where("org_id = ?", org.ID).First(&agent).Error; err != nil {
-		t.Fatalf("load Hivy agent: %v", err)
-	}
-	effective, err := pluginresolve.EffectivePluginIDs(context.Background(), db, agent)
-	if err != nil {
-		t.Fatalf("resolve Hivy effective plugins: %v", err)
-	}
-	found := false
-	for _, id := range effective {
-		if id == plugin.ID {
-			found = true
-			break
+	for _, value := range []struct {
+		name  string
+		model any
+	}{
+		{name: "teams", model: &model.Team{}},
+		{name: "agents", model: &model.Agent{}},
+		{name: "channels", model: &model.Channel{}},
+	} {
+		var count int64
+		if err := db.Model(value.model).Where("org_id = ?", org.ID).Count(&count).Error; err != nil {
+			t.Fatalf("count %s: %v", value.name, err)
 		}
-	}
-	if !found {
-		t.Fatalf("Hivy effective set missing auto-install runtime plugin %s", plugin.ID)
-	}
-	var orgInstallCount int64
-	if err := db.Model(&model.OrgPluginInstall{}).
-		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
-		Count(&orgInstallCount).Error; err != nil {
-		t.Fatalf("count org runtime install: %v", err)
-	}
-	if orgInstallCount != 1 {
-		t.Fatalf("org runtime install count = %d, want 1", orgInstallCount)
+		if count != 0 {
+			t.Fatalf("%s count = %d, want 0 before onboarding", value.name, count)
+		}
 	}
 }
 
@@ -172,7 +117,7 @@ func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user, "Signup Team")
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
 		return e
 	})
 	if err != nil {
@@ -212,7 +157,7 @@ func TestCreateUserDefaultOrg_ZeroWelcomeCreditsSkipsGrant(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user, "Signup Team")
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
 		return e
 	})
 	if err != nil {
@@ -244,7 +189,7 @@ func TestCreateUserDefaultOrg_NoFreePlanRowSucceeds(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user, "Signup Team")
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
 		return e
 	})
 	if err != nil {

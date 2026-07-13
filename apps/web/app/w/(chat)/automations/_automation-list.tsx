@@ -27,6 +27,7 @@ export function AutomationsListView({
   description = "Start agent work from events or recurring schedules",
   searchLabel = "triggers",
   emptyTab = "Triggers",
+  tutorial,
 }: {
   automations: AutomationItem[]
   isLoading: boolean
@@ -38,6 +39,7 @@ export function AutomationsListView({
   description?: string
   searchLabel?: string
   emptyTab?: AutomationTab
+  tutorial?: React.ReactNode
 }) {
   const router = useRouter()
   const [query, setQuery] = useState("")
@@ -103,6 +105,8 @@ export function AutomationsListView({
               </Button>
             ) : null}
           </div>
+
+          {tutorial}
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">

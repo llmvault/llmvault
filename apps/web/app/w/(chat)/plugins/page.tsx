@@ -23,6 +23,7 @@ import {
   pluginSlug,
   type PluginCategory,
 } from "@/app/w/(chat)/plugins/_lib"
+import { TutorialBanner } from "@/components/tutorial-banner"
 
 export default function PluginsPage() {
   const [query, setQuery] = useState("")
@@ -91,6 +92,13 @@ export default function PluginsPage() {
               Work with Hivy across your favorite tools
             </p>
           </div>
+
+          <TutorialBanner
+            tutorial="plugins"
+            title="Put plugins to work"
+            description="Learn the difference between a connection, a plugin install, and team access."
+            docsPath="plugins"
+          />
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">

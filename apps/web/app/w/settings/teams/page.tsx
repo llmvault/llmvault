@@ -7,6 +7,7 @@ import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { ownerCount } from "./_components/member-actions"
+import { TutorialBanner } from "@/components/tutorial-banner"
 import { OrgMemberRow } from "./_components/member-lifecycle"
 import {
   EmptyRow,
@@ -82,6 +83,13 @@ export default function TeamsSettingsPage() {
           </div>
         ) : null}
       </div>
+
+      <TutorialBanner
+        tutorial="teams"
+        title="Understand team permissions"
+        description="See how teams scope members, channels, agents, plugins, and knowledge access."
+        docsPath="teams-and-permissions"
+      />
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">

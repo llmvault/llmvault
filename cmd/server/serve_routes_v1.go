@@ -85,6 +85,7 @@ func setupV1Routes(
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdmin(database))
 				r.Patch("/orgs/current", orgHandler.Update)
+				r.Patch("/orgs/current/onboarding", orgHandler.AdvanceOnboarding)
 				r.Post("/orgs/current/invites", orgInviteHandler.Create)
 				r.Get("/orgs/current/invites", orgInviteHandler.List)
 				r.Delete("/orgs/current/invites/{id}", orgInviteHandler.Revoke)

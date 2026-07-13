@@ -7729,7 +7729,7 @@
         "tags": [
           "connections"
         ],
-        "summary": "Create an connection",
+        "summary": "Create a connection",
         "parameters": [
           {
             "description": "Integration ID",
@@ -7773,8 +7773,48 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -9963,6 +10003,93 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/orgMemberResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/onboarding": {
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Advances the current organization through optional onboarding steps. The mandatory team step advances only when a team is created.",
+        "tags": [
+          "onboarding"
+        ],
+        "summary": "Advance onboarding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/advanceOnboardingRequest"
+              }
+            }
+          },
+          "description": "Next onboarding step",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/onboardingResponse"
                 }
               }
             }
@@ -18946,6 +19073,14 @@
           }
         }
       },
+      "advanceOnboardingRequest": {
+        "type": "object",
+        "properties": {
+          "step": {
+            "type": "string"
+          }
+        }
+      },
       "agentCatalogInstallRequest": {
         "type": "object",
         "properties": {
@@ -20573,6 +20708,9 @@
       "createConnectionRequest": {
         "type": "object",
         "properties": {
+          "install_plugins": {
+            "type": "boolean"
+          },
           "meta": {
             "$ref": "#/components/schemas/JSON"
           },
@@ -21898,6 +22036,14 @@
           }
         }
       },
+      "onboardingResponse": {
+        "type": "object",
+        "properties": {
+          "step": {
+            "type": "string"
+          }
+        }
+      },
       "orgInviteAcceptResponse": {
         "type": "object",
         "properties": {
@@ -21997,6 +22143,9 @@
           "name": {
             "type": "string"
           },
+          "onboarding_step": {
+            "type": "string"
+          },
           "plan": {
             "$ref": "#/components/schemas/planDTO"
           },
@@ -22041,6 +22190,9 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "onboarding_step": {
             "type": "string"
           },
           "plan": {
@@ -23263,9 +23415,6 @@
             "type": "string"
           },
           "password": {
-            "type": "string"
-          },
-          "team_name": {
             "type": "string"
           }
         }

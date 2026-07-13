@@ -2,14 +2,18 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/onboarding"
 )
 
 type teamMutationRequest struct {
@@ -133,6 +137,16 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
 		return
 	}
+	actor, err := access.Resolve(r.Context(), h.db, org.ID, middleware.UserID(r.Context()))
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "resolve team creation actor", "error", err, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to resolve access"})
+		return
+	}
+	if !actor.IsOrgManager() {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "not permitted"})
+		return
+	}
 	userID, _ := currentRequestUserID(r.Context())
 	team := model.Team{
 		OrgID:       org.ID,
@@ -144,7 +158,7 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// team row, the creator as an owner team member, then the team's default
 	// Hivy agent and #general channel.
 	ctx := r.Context()
-	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&team).Error; err != nil {
 			return err
 		}
@@ -165,6 +179,9 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, _, err := provisionTeamDefaults(ctx, tx, org.ID, team.ID, createdBy); err != nil {
 			return err
+		}
+		if err := onboarding.New(tx).TeamCreated(ctx, org.ID); err != nil && !errors.Is(err, onboarding.ErrInvalidTransition) {
+			return fmt.Errorf("advance onboarding after team creation: %w", err)
 		}
 		return nil
 	})

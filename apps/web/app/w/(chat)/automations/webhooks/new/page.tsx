@@ -18,6 +18,7 @@ import {
   FormSection,
   InlineNotice,
 } from "@/app/w/(chat)/automations/_trigger-form-sections"
+import { TutorialBanner } from "@/components/tutorial-banner"
 
 const DEFAULT_INSTRUCTIONS =
   "You were triggered by an inbound webhook request. Read the request payload, decide what action it calls for, and carry it out. If there isn't enough context to act confidently, summarise what you received instead of guessing."
@@ -125,6 +126,13 @@ export default function NewWebhookTriggerPage() {
               </p>
             </div>
           </header>
+
+          <TutorialBanner
+            tutorial="webhooks"
+            title="Create a secure webhook trigger"
+            description="See how to send a request, protect it with a secret, and inspect the agent run."
+            docsPath="automations/webhooks"
+          />
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <FormSection

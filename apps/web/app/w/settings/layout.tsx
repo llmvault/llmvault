@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 import { AuthProvider } from "@/lib/auth/auth-context"
+import { OnboardingGate } from "@/lib/auth/onboarding-gate"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { NAV_SECTIONS, settingsHref } from "./_components/nav"
 
@@ -16,7 +17,9 @@ export default function SettingsLayout({
 }) {
   return (
     <AuthProvider>
-      <SettingsChrome>{children}</SettingsChrome>
+      <OnboardingGate>
+        <SettingsChrome>{children}</SettingsChrome>
+      </OnboardingGate>
     </AuthProvider>
   )
 }

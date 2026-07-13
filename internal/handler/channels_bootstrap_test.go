@@ -9,14 +9,18 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestCreateUserDefaultOrg_ProvisionsFirstTeamHivyAndGeneral(t *testing.T) {
+func TestProvisionFirstTeam_CreatesHivyAndGeneral(t *testing.T) {
 	db := connectInternalTestDB(t)
 	user := seedSignupUser(t, db)
 
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, nil, user, "Platform")
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
+		if e != nil {
+			return e
+		}
+		_, e = provisionFirstTeam(context.Background(), tx, org.ID, user.ID, "Platform")
 		return e
 	})
 	if err != nil {
@@ -71,15 +75,30 @@ func TestCreateUserDefaultOrg_ProvisionsFirstTeamHivyAndGeneral(t *testing.T) {
 	}
 }
 
-func TestCreateUserDefaultOrg_RequiresTeamName(t *testing.T) {
+func TestProvisionFirstTeam_DefaultsBlankName(t *testing.T) {
 	db := connectInternalTestDB(t)
 	user := seedSignupUser(t, db)
 
+	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
-		_, e := createUserDefaultOrg(context.Background(), tx, nil, user, "   ")
+		var e error
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
+		if e != nil {
+			return e
+		}
+		_, e = provisionFirstTeam(context.Background(), tx, org.ID, user.ID, "   ")
 		return e
 	})
-	if err == nil {
-		t.Fatalf("expected error for empty team name")
+	if err != nil {
+		t.Fatalf("provision first team: %v", err)
+	}
+	cleanupOrgAndLedger(t, db, org.ID)
+
+	var team model.Team
+	if err := db.Where("org_id = ?", org.ID).First(&team).Error; err != nil {
+		t.Fatalf("load first team: %v", err)
+	}
+	if team.Name != defaultTeamName {
+		t.Fatalf("team name = %q, want %q", team.Name, defaultTeamName)
 	}
 }

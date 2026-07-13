@@ -149,7 +149,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var orgErr error
-			org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user, firstTeamNameForUser(&user))
+			org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user)
 			return orgErr
 		})
 		if txErr != nil {
@@ -159,7 +159,6 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logging.FromContext(r.Context()).InfoContext(r.Context(), "user created via OTP", "user_id", user.ID, "email", user.Email)
-		enqueueOrgHivyAgentProvision(r.Context(), h.enqueuer, org.ID, "auth_otp")
 		h.issueTokensAndRespond(r.Context(), w, http.StatusCreated, user, org.ID.String(), "owner")
 		return
 	}
