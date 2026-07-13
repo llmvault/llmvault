@@ -67,11 +67,11 @@ func handleCreateAgent(ctx context.Context, deps Deps, token *model.Token, teamI
 	if len(args.SubAgents) > 0 {
 		runtime["subagent_task"] = true
 	}
-	skillSlugs, err := validateSkillSlugs(ctx, deps.DB, token.OrgID, args.Skills)
+	skillSlugs, err := validateSkillSlugs(ctx, deps.DB, token.OrgID, teamID, args.Skills)
 	if err != nil {
 		return toolError(err.Error()), nil
 	}
-	subAgents, errResult := buildSubAgentToolInputs(ctx, deps, token.OrgID, args.SubAgents)
+	subAgents, errResult := buildSubAgentToolInputs(ctx, deps, token.OrgID, teamID, args.SubAgents)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -111,7 +111,7 @@ type updateAgentArgs struct {
 func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateAgent,
-		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Plugins are enabled at the team level and inherited by default; users may disable optional inherited plugins for one agent in Agent details, but this tool cannot manage those overrides. Use list_org_plugins to discover valid skills.",
+		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Core sandbox and skill tools are granted automatically; only pass optional capabilities in `tools`. Plugins are enabled at the team level and inherited by default; users may disable optional inherited plugins for one agent in Agent details, but this tool cannot manage those overrides. Use list_team_plugins to discover valid skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args updateAgentArgs
@@ -149,6 +149,10 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 	agentID, err := uuid.Parse(strings.TrimSpace(args.AgentID))
 	if err != nil || agentID == uuid.Nil {
 		return toolError("agent_id must be a valid UUID"), nil
+	}
+	target, err := loadOrgAgent(ctx, deps.DB, token.OrgID, agentID)
+	if err != nil {
+		return toolError(ErrAgentNotFound.Error()), nil
 	}
 
 	if args.Model != nil {
@@ -198,7 +202,7 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		in.SetMcpFilter = true
 	}
 	if args.Skills != nil {
-		skillSlugs, err = validateSkillSlugs(ctx, deps.DB, token.OrgID, *args.Skills)
+		skillSlugs, err = validateSkillSlugs(ctx, deps.DB, token.OrgID, target.TeamID, *args.Skills)
 		if err != nil {
 			return toolError(err.Error()), nil
 		}
@@ -206,7 +210,7 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 		in.Skills = &s
 	}
 	if args.SubAgents != nil {
-		subAgents, errResult := buildSubAgentToolInputs(ctx, deps, token.OrgID, *args.SubAgents)
+		subAgents, errResult := buildSubAgentToolInputs(ctx, deps, token.OrgID, target.TeamID, *args.SubAgents)
 		if errResult != nil {
 			return errResult, nil
 		}
@@ -223,7 +227,7 @@ func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, front
 // buildSubAgentToolInputs routes each sub-agent's tools/skills through the same
 // strict validation and returns SubAgentInput rows. Errors are returned as MCP
 // error results so the agent sees the guidance.
-func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID uuid.UUID, args []subAgentToolArgs) ([]SubAgentInput, *mcp.CallToolResult) {
+func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID, teamID uuid.UUID, args []subAgentToolArgs) ([]SubAgentInput, *mcp.CallToolResult) {
 	out := make([]SubAgentInput, 0, len(args))
 	for _, sub := range args {
 		if strings.TrimSpace(sub.Name) == "" {
@@ -243,7 +247,7 @@ func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID uuid.UUID, ar
 		if len(mcpAllow) > 0 {
 			mcpAllow = unionReadOnlyFloor(mcpAllow)
 		}
-		skillSlugs, err := validateSkillSlugs(ctx, deps.DB, orgID, sub.Skills)
+		skillSlugs, err := validateSkillSlugs(ctx, deps.DB, orgID, teamID, sub.Skills)
 		if err != nil {
 			return nil, toolError(fmt.Sprintf("sub-agent %q: %s", sub.Name, err.Error()))
 		}

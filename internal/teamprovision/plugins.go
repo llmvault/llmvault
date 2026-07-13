@@ -14,9 +14,9 @@ import (
 
 // EnablePlugin adds pluginID to teamID's plugin allowlist. It is idempotent:
 // enabling an already-enabled plugin is a no-op success. It validates that the
-// team belongs to orgID, that the plugin is visible to the org (global or
-// org-owned), and that the org has installed the plugin. enabledBy records the
-// acting user (nil for API-key callers).
+// team belongs to orgID, that the plugin is visible to the team (global or
+// owned by that exact team), and that the org has installed the plugin.
+// enabledBy records the acting user (nil for API-key callers).
 //
 // Errors: ErrTeamNotFound, ErrPluginNotFound, ErrPluginNotInstalled.
 func EnablePlugin(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uuid.UUID, enabledBy *uuid.UUID) error {
@@ -27,7 +27,7 @@ func EnablePlugin(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uuid
 	if !ok {
 		return ErrTeamNotFound
 	}
-	if err := validatePluginForOrg(ctx, db, orgID, pluginID); err != nil {
+	if err := validatePluginForTeam(ctx, db, orgID, teamID, pluginID); err != nil {
 		return err
 	}
 	// Auto-install system plugins are always enabled for every team, so there is
@@ -125,12 +125,13 @@ func pluginAlwaysEnabled(ctx context.Context, db *gorm.DB, pluginID uuid.UUID) (
 	return plugins.PluginAutoInstall(plugin), nil
 }
 
-// validatePluginForOrg checks the plugin is visible to the org (global or
-// org-owned) and installed by the org.
-func validatePluginForOrg(ctx context.Context, db *gorm.DB, orgID, pluginID uuid.UUID) error {
+// validatePluginForTeam checks the plugin is visible to the team (global or
+// owned by that exact team) and installed by the org. A plugin owned by another
+// team is indistinguishable from a nonexistent plugin.
+func validatePluginForTeam(ctx context.Context, db *gorm.DB, orgID, teamID, pluginID uuid.UUID) error {
 	var visible int64
 	if err := db.WithContext(ctx).Model(&model.Plugin{}).
-		Where("id = ? AND (org_id IS NULL OR org_id = ?)", pluginID, orgID).
+		Where("id = ? AND (org_id IS NULL OR (org_id = ? AND team_id = ?))", pluginID, orgID, teamID).
 		Count(&visible).Error; err != nil {
 		return err
 	}

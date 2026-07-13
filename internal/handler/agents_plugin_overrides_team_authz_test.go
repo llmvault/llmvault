@@ -17,6 +17,7 @@ func TestAgentUpdate_MemberDisablesInheritedPluginForOnlyThatAgent(t *testing.T)
 	plugin := model.Plugin{
 		ID:          uuid.New(),
 		OrgID:       &fx.org.ID,
+		TeamID:      &fx.teamA.ID,
 		Slug:        "agent-override-" + uuid.NewString()[:8],
 		Name:        "Agent Override",
 		Status:      model.PluginStatusActive,
@@ -82,6 +83,7 @@ func TestAgentUpdate_CannotDisableCatalogRequiredPlugin(t *testing.T) {
 	plugin := model.Plugin{
 		ID:          uuid.New(),
 		OrgID:       &fx.org.ID,
+		TeamID:      &fx.teamA.ID,
 		Slug:        "required-override-" + uuid.NewString()[:8],
 		Name:        "Required Override",
 		Status:      model.PluginStatusActive,

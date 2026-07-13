@@ -55,6 +55,34 @@ func decodeToolResult(t *testing.T, res *mcp.CallToolResult) map[string]any {
 	return out
 }
 
+func manageTestAgent(orgID, teamID uuid.UUID) model.Agent {
+	return model.Agent{
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		TeamID:        teamID,
+		Name:          "manage-test-agent-" + uuid.NewString()[:8],
+		SandboxSize:   model.DefaultAgentSandboxSize,
+		Model:         "test-model",
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+	}
+}
+
+func manageTestToken(orgID, agentID uuid.UUID) *model.Token {
+	return &model.Token{
+		OrgID: orgID,
+		Meta: model.JSON{
+			model.TokenMetaType:    model.TokenTypeAgentProxy,
+			model.TokenMetaAgentID: agentID.String(),
+		},
+	}
+}
+
 func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	db := connectManageTestDB(t)
 	ctx := context.Background()
@@ -64,13 +92,27 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
-	token := &model.Token{OrgID: org.ID}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "manage-test-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	agent := manageTestAgent(org.ID, team.ID)
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	token := manageTestToken(org.ID, agent.ID)
 	ownerID := seedActor(t, db, org.ID, "owner")
+	t.Cleanup(func() {
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
+		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
+	})
 
-	// Create the org plugin group.
-	res, err := handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Engineering", Description: "Engineering skills", HivyActorUserID: ownerID})
+	// Create the team plugin group; it is installed and granted atomically.
+	res, err := handleCreateTeamPlugin(ctx, db, token, createTeamPluginArgs{Name: "Engineering", Description: "Engineering skills", HivyActorUserID: ownerID})
 	if err != nil {
-		t.Fatalf("create org plugin: %v", err)
+		t.Fatalf("create team plugin: %v", err)
 	}
 	created := decodeToolResult(t, res)
 	pluginObj := created["plugin"].(map[string]any)
@@ -78,15 +120,29 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	if pluginSlug != "engineering" {
 		t.Fatalf("plugin slug = %q, want engineering", pluginSlug)
 	}
+	if pluginObj["team_id"] != team.ID.String() {
+		t.Fatalf("plugin team_id = %v, want %s", pluginObj["team_id"], team.ID)
+	}
+	var storedPlugin model.Plugin
+	if err := db.First(&storedPlugin, "id = ?", pluginObj["id"]).Error; err != nil {
+		t.Fatalf("load team plugin: %v", err)
+	}
+	if storedPlugin.TeamID == nil || *storedPlugin.TeamID != team.ID {
+		t.Fatalf("stored plugin team_id = %v, want %s", storedPlugin.TeamID, team.ID)
+	}
 	var install model.OrgPluginInstall
 	if err := db.Where("org_id = ? AND revoked_at IS NULL", org.ID).First(&install).Error; err != nil {
-		t.Fatalf("org plugin should be installed on the org: %v", err)
+		t.Fatalf("team plugin should be installed on the org: %v", err)
+	}
+	var grant model.TeamPlugin
+	if err := db.Where("org_id = ? AND team_id = ? AND plugin_id = ?", org.ID, team.ID, install.PluginID).First(&grant).Error; err != nil {
+		t.Fatalf("team plugin should be enabled for its team: %v", err)
 	}
 
 	// Duplicate name must be rejected.
-	res, _ = handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Engineering", HivyActorUserID: ownerID})
+	res, _ = handleCreateTeamPlugin(ctx, db, token, createTeamPluginArgs{Name: "Engineering", HivyActorUserID: ownerID})
 	if res == nil || !res.IsError {
-		t.Fatal("duplicate org plugin slug must be rejected")
+		t.Fatal("duplicate team plugin slug must be rejected")
 	}
 
 	// create_skill rejects global plugins.
@@ -103,7 +159,7 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 	res, _ = handleCreateSkill(ctx, db, token, "http://localhost:3000", createSkillArgs{
 		PluginSlug: globalPlugin.Slug, Name: "X", Description: "Use when testing.", Content: "# X", HivyActorUserID: ownerID,
 	})
-	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "global catalog plugin") {
+	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "catalog plugin") {
 		t.Fatalf("create_skill against a global plugin must be rejected, got: %s", toolResultText(res))
 	}
 
@@ -141,30 +197,7 @@ func TestSkillManagerCreateUpdateArchiveFlow(t *testing.T) {
 		t.Fatalf("bundle files not persisted: %#v", bundle)
 	}
 
-	// The skill resolves through the team-plugin entitlement chain.
-	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "manage-test-team-" + uuid.NewString()[:8]}
-	if err := db.Create(&team).Error; err != nil {
-		t.Fatalf("create team: %v", err)
-	}
-	agent := model.Agent{
-		ID:          uuid.New(),
-		OrgID:       &org.ID,
-		TeamID:      team.ID,
-		Name:        "manage-test-agent",
-		SandboxSize: model.DefaultAgentSandboxSize,
-		Model:       "test-model",
-		Status:      "active",
-		Tools:       model.JSON{},
-		McpServers:  model.RawJSON("[]"),
-		Skills:      model.JSON{},
-	}
-	if err := db.Create(&agent).Error; err != nil {
-		t.Fatalf("create agent: %v", err)
-	}
-	pluginID, _ := uuid.Parse(pluginObj["id"].(string))
-	if err := db.Create(&model.TeamPlugin{OrgID: org.ID, TeamID: team.ID, PluginID: pluginID}).Error; err != nil {
-		t.Fatalf("grant plugin to team: %v", err)
-	}
+	// The skill resolves immediately through the team-plugin entitlement chain.
 	resolved, err := loadAgentPublishedSkills(ctx, db, agent.ID)
 	if err != nil {
 		t.Fatalf("load agent skills: %v", err)

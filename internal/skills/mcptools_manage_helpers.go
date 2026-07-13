@@ -27,12 +27,12 @@ type archiveSkillArgs struct {
 func registerArchiveSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolArchiveSkill,
-		Description: "Archive a skill in an org-owned plugin, removing it from every agent whose plugins include it. Destructive: requires user_approved=true, which you may only set after showing the user exactly which skill will be removed and getting their explicit confirmation in this conversation.",
+		Description: "Archive a skill in a plugin owned by the calling agent's team, removing it from that team's agents. Catalog plugins and plugins owned by another team are rejected. Destructive: requires user_approved=true, which you may only set after showing the user exactly which skill will be removed and getting their explicit confirmation in this conversation.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 			"properties": map[string]any{
-				"plugin_slug":   map[string]any{"type": "string", "description": "Slug of the org-owned plugin the skill lives in."},
+				"plugin_slug":   map[string]any{"type": "string", "description": "Slug of the calling team's custom plugin that contains the skill."},
 				"skill":         map[string]any{"type": "string", "description": "Slug of the skill to archive."},
 				"user_approved": map[string]any{"type": "boolean", "description": "Set true only after the user explicitly confirmed archiving this exact skill in this conversation."},
 			},
@@ -48,14 +48,15 @@ func registerArchiveSkillTool(server *mcp.Server, db *gorm.DB, token *model.Toke
 }
 
 func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, args archiveSkillArgs) (*mcp.CallToolResult, error) {
-	if errResult := requireOrgManagerActor(ctx, db, token.OrgID, args.HivyActorUserID); errResult != nil {
-		return errResult, nil
-	}
-	plugin, errResult := loadOrgOwnedPlugin(ctx, db, token.OrgID, args.PluginSlug)
+	agent, _, errResult := resolveSkillManagerTeam(ctx, db, token, args.HivyActorUserID, "archiving a skill")
 	if errResult != nil {
 		return errResult, nil
 	}
-	skill, errResult := loadOrgOwnedSkill(ctx, db, token.OrgID, plugin, args.Skill)
+	plugin, errResult := loadTeamOwnedPlugin(ctx, db, token.OrgID, agent.TeamID, args.PluginSlug)
+	if errResult != nil {
+		return errResult, nil
+	}
+	skill, errResult := loadTeamOwnedSkill(ctx, db, token.OrgID, plugin, args.Skill)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -85,27 +86,29 @@ func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, ar
 
 // --- shared helpers ------------------------------------------------------------
 
-// loadOrgOwnedPlugin resolves an ACTIVE plugin owned by this org. Global
-// catalog plugins are deliberately rejected: agent-authored skills only ever
-// live in org-owned plugins.
-func loadOrgOwnedPlugin(ctx context.Context, db *gorm.DB, orgID uuid.UUID, slug string) (*model.Plugin, *mcp.CallToolResult) {
+// loadTeamOwnedPlugin resolves an active plugin owned by the calling team.
+// Catalog and cross-team plugins are deliberately rejected: agent-authored
+// skills only ever live in team-owned plugins.
+func loadTeamOwnedPlugin(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, slug string) (*model.Plugin, *mcp.CallToolResult) {
 	slug = strings.TrimSpace(slug)
 	if slug == "" {
 		return nil, skillToolError("plugin_slug is required")
 	}
 	var plugin model.Plugin
 	err := db.WithContext(ctx).
-		Where("slug = ? AND org_id = ? AND status = ?", slug, orgID, model.PluginStatusActive).
+		Where("slug = ? AND org_id = ? AND team_id = ? AND status = ?", slug, orgID, teamID, model.PluginStatusActive).
 		First(&plugin).Error
 	if err == gorm.ErrRecordNotFound {
 		var globalCount int64
-		db.WithContext(ctx).Model(&model.Plugin{}).
+		if checkErr := db.WithContext(ctx).Model(&model.Plugin{}).
 			Where("slug = ? AND org_id IS NULL AND status = ?", slug, model.PluginStatusActive).
-			Count(&globalCount)
-		if globalCount > 0 {
-			return nil, skillToolError(fmt.Sprintf("plugin %q is a global catalog plugin; custom skills can only live in org-owned plugins — create one with create_org_plugin", slug))
+			Count(&globalCount).Error; checkErr != nil {
+			return nil, skillToolError("failed to check catalog plugin")
 		}
-		return nil, skillToolError(fmt.Sprintf("org plugin %q not found; create it with create_org_plugin or check list_org_plugins", slug))
+		if globalCount > 0 {
+			return nil, skillToolError(fmt.Sprintf("plugin %q is a catalog plugin; custom skills can only be added to plugins created by this team with create_team_plugin", slug))
+		}
+		return nil, skillToolError(fmt.Sprintf("team plugin %q not found; create it with create_team_plugin or check list_team_plugins", slug))
 	}
 	if err != nil {
 		return nil, skillToolError("failed to load plugin: " + err.Error())
@@ -113,7 +116,7 @@ func loadOrgOwnedPlugin(ctx context.Context, db *gorm.DB, orgID uuid.UUID, slug 
 	return &plugin, nil
 }
 
-func loadOrgOwnedSkill(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin *model.Plugin, slug string) (*model.Skill, *mcp.CallToolResult) {
+func loadTeamOwnedSkill(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin *model.Plugin, slug string) (*model.Skill, *mcp.CallToolResult) {
 	slug = strings.TrimSpace(slug)
 	if slug == "" {
 		return nil, skillToolError("skill is required")
@@ -270,5 +273,5 @@ func environmentSettingsURL(frontendURL string) string {
 }
 
 func skillPublishHint(pluginSlug string) string {
-	return "Published. Agents on a team that has the \"" + pluginSlug + "\" plugin enabled see it in their Available skills prompt section on the next session. Plugins are team-managed: grant the plugin to a team in team settings to reach more agents."
+	return "Published. The \"" + pluginSlug + "\" plugin belongs to this team, so its agents see the skill in their Available skills prompt section on the next session."
 }

@@ -26,8 +26,8 @@ func TestGlobalAgentManifestsUseLeastPrivilegeMCPAllowLists(t *testing.T) {
 		"hakaree-software-engineer":   {},
 		"hivy": {
 			"search_knowledge_base", "manage_memories",
-			"list_org_plugins", "list_agents", "get_agent", "create_agent", "update_agent",
-			"create_org_plugin", "create_skill", "update_skill", "archive_skill",
+			"list_team_plugins", "list_agents", "get_agent", "create_agent", "update_agent",
+			"create_team_plugin", "create_skill", "update_skill", "archive_skill",
 			"cron", "create_http_trigger", "list_channels",
 		},
 		"kara-ui-and-graphics-designer": {},

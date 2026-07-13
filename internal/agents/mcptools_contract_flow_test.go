@@ -51,7 +51,30 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	plugin := seedInstalledPlugin(t, db, org.ID, "github", skillSlug)
 	grantTeamPlugin(t, db, org.ID, team.ID, plugin.ID)
 	deps := Deps{DB: db, DefaultModel: "deepseek-v4-flash", Models: []string{"deepseek-v4-flash", "test-model-alt"}}
-	token := &model.Token{OrgID: org.ID}
+	callingAgent := model.Agent{
+		ID:            uuid.New(),
+		OrgID:         &org.ID,
+		TeamID:        team.ID,
+		Name:          "Hivy",
+		IsDefault:     true,
+		SandboxImage:  model.SandboxImageDefault,
+		SandboxSize:   model.DefaultHivyAgentSandboxSize,
+		Model:         "deepseek-v4-flash",
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+	}
+	if err := db.Create(&callingAgent).Error; err != nil {
+		t.Fatalf("create calling Hivy: %v", err)
+	}
+	token := &model.Token{OrgID: org.ID, Meta: model.JSON{
+		model.TokenMetaType:    model.TokenTypeAgentProxy,
+		model.TokenMetaAgentID: callingAgent.ID.String(),
+	}}
 	const frontend = "https://app.test"
 
 	replace := strings.NewReplacer(
@@ -65,13 +88,13 @@ func TestAgentBuilderSkillPayloadContract(t *testing.T) {
 	}
 	var pluginsOut map[string]any
 	{
-		res, _ := handleListOrgPlugins(ctx, db, token, frontend)
+		res, _ := handleListTeamPlugins(ctx, db, token, frontend)
 		pluginsOut = builderResultJSON(t, res)
 	}
 	installedText, _ := json.Marshal(pluginsOut["installed"])
 	for _, want := range []string{plugin.Slug, skillSlug, "install_url"} {
 		if !strings.Contains(string(installedText), want) {
-			t.Fatalf("list_org_plugins installed list missing %q: %s", want, installedText)
+			t.Fatalf("list_team_plugins installed list missing %q: %s", want, installedText)
 		}
 	}
 

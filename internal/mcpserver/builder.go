@@ -26,7 +26,7 @@ type ImageGenerationToolsFunc func(server *mcp.Server, token *model.Token)
 // SkillToolsFunc registers skill_view and any eligible skill-manager tools.
 type SkillToolsFunc func(server *mcp.Server, token *model.Token)
 
-// AgentBuilderToolsFunc registers the agent-builder tools (list_org_plugins,
+// AgentBuilderToolsFunc registers the agent-builder tools (list_team_plugins,
 // create_agent, update_agent). The func itself gates create_agent/update_agent
 // per calling agent, so it may always be invoked.
 type AgentBuilderToolsFunc func(server *mcp.Server, token *model.Token)
@@ -52,8 +52,8 @@ var hivyMCPToolNames = []string{
 	"search_knowledge_base", "manage_memories",
 	"generate_image", "generate_vector_image", "remix_image", "vectorize_image",
 	"skill_view",
-	"list_org_plugins", "list_agents", "get_agent", "create_agent", "update_agent",
-	"create_org_plugin", "create_skill", "update_skill", "archive_skill",
+	"list_team_plugins", "list_agents", "get_agent", "create_agent", "update_agent",
+	"create_team_plugin", "create_skill", "update_skill", "archive_skill",
 	"sheet_create", "sheet_list", "sheet_describe", "sheet_manage", "rows_query", "rows_write", "sheet_import_csv", "sheet_operations",
 	"app_create", "app_publish", "app_status", "app_logs", "app_rollback",
 	"cron", "create_http_trigger", "list_channels",
@@ -154,7 +154,7 @@ func BuildServer(
 		addSkillTools(server, token)
 	}
 
-	if addAgentBuilderTools != nil && hasAllowedHivyMCPTool(toolFilter, "list_org_plugins", "list_agents", "get_agent", "create_agent", "update_agent") {
+	if addAgentBuilderTools != nil && hasAllowedHivyMCPTool(toolFilter, "list_team_plugins", "list_agents", "get_agent", "create_agent", "update_agent") {
 		addAgentBuilderTools(server, token)
 	}
 

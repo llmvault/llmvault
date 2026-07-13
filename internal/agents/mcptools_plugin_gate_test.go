@@ -73,7 +73,7 @@ func TestAgentBuilderToolsRequireTeamPlugin(t *testing.T) {
 
 	grantTeamPlugin(t, tx, org.ID, team.ID, plugin.ID)
 	withPlugin := agentBuilderMCPToolNames(t, tx, token)
-	for _, want := range []string{toolListOrgPlugins, toolListAgents, toolGetAgent, toolCreateAgent, toolUpdateAgent} {
+	for _, want := range []string{toolListTeamPlugins, toolListAgents, toolGetAgent, toolCreateAgent, toolUpdateAgent} {
 		if !withPlugin[want] {
 			t.Fatalf("agent-builder tool %q missing after team enablement: %v", want, withPlugin)
 		}

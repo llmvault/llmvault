@@ -18,7 +18,7 @@ the result to Slack) must be written into the task.**
 - The **agent must already exist** — build it first (agent-builder skill).
 - The agent must have the **tools/plugins its task needs**. To read or post in
   Slack it needs the **Slack plugin installed and connected**. Check with
-  `list_org_plugins`; if it's missing (or shows `missing_requirements`), share
+  `list_team_plugins`; if it's missing (or shows `missing_requirements`), share
   the plugin's `install_url` and ask the user to install/connect it before you
   set up the automation.
 - **Confirm the plan with the user** before creating anything.

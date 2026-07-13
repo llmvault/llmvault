@@ -110,9 +110,11 @@ func noopDeps(db *gorm.DB) Deps {
 func TestResolvePluginSlugs_ValidAndUnknown(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
+	team := testTeam(t, db, org.ID)
 	plugin := seedInstalledPlugin(t, db, org.ID, "crm", "")
+	grantTeamPlugin(t, db, org.ID, team.ID, plugin.ID)
 
-	got, err := resolvePluginSlugs(context.Background(), db, org.ID, []string{plugin.Slug})
+	got, err := resolvePluginSlugs(context.Background(), db, org.ID, team.ID, []string{plugin.Slug})
 	if err != nil {
 		t.Fatalf("valid slug rejected: %v", err)
 	}
@@ -120,12 +122,12 @@ func TestResolvePluginSlugs_ValidAndUnknown(t *testing.T) {
 		t.Fatalf("resolved = %#v, want the seeded plugin", got)
 	}
 
-	_, err = resolvePluginSlugs(context.Background(), db, org.ID, []string{"does-not-exist"})
+	_, err = resolvePluginSlugs(context.Background(), db, org.ID, team.ID, []string{"does-not-exist"})
 	if err == nil {
 		t.Fatal("expected error for unknown plugin slug")
 	}
-	if !strings.Contains(err.Error(), "does-not-exist") || !strings.Contains(err.Error(), "installed plugins") {
-		t.Fatalf("error should name the slug and list installed plugins: %q", err.Error())
+	if !strings.Contains(err.Error(), "does-not-exist") || !strings.Contains(err.Error(), "team plugins") {
+		t.Fatalf("error should name the slug and list team plugins: %q", err.Error())
 	}
 	// The installed slug must appear in the guidance.
 	if !strings.Contains(err.Error(), plugin.Slug) {
@@ -135,12 +137,14 @@ func TestResolvePluginSlugs_ValidAndUnknown(t *testing.T) {
 
 // --- skills validation --------------------------------------------------------
 
-func TestValidateSkillSlugs_AgainstOrgAvailable(t *testing.T) {
+func TestValidateSkillSlugs_AgainstTeamAvailable(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
-	seedInstalledPlugin(t, db, org.ID, "docs", "summarize-doc")
+	team := testTeam(t, db, org.ID)
+	plugin := seedInstalledPlugin(t, db, org.ID, "docs", "summarize-doc")
+	grantTeamPlugin(t, db, org.ID, team.ID, plugin.ID)
 
-	got, err := validateSkillSlugs(context.Background(), db, org.ID, []string{"summarize-doc"})
+	got, err := validateSkillSlugs(context.Background(), db, org.ID, team.ID, []string{"summarize-doc"})
 	if err != nil {
 		t.Fatalf("valid skill rejected: %v", err)
 	}
@@ -148,7 +152,7 @@ func TestValidateSkillSlugs_AgainstOrgAvailable(t *testing.T) {
 		t.Fatalf("validated skills = %#v, want [summarize-doc]", got)
 	}
 
-	_, err = validateSkillSlugs(context.Background(), db, org.ID, []string{"no-such-skill"})
+	_, err = validateSkillSlugs(context.Background(), db, org.ID, team.ID, []string{"no-such-skill"})
 	if err == nil {
 		t.Fatal("expected error for unknown skill")
 	}
@@ -163,9 +167,10 @@ func TestValidateSkillSlugs_AgainstOrgAvailable(t *testing.T) {
 func TestValidateSkillSlugs_NoSkillsAvailable(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)
-	_, err := validateSkillSlugs(context.Background(), db, org.ID, []string{"anything"})
-	if err == nil || !strings.Contains(err.Error(), "list_org_plugins") {
-		t.Fatalf("error should direct caller to list_org_plugins: %v", err)
+	team := testTeam(t, db, org.ID)
+	_, err := validateSkillSlugs(context.Background(), db, org.ID, team.ID, []string{"anything"})
+	if err == nil || !strings.Contains(err.Error(), "list_team_plugins") {
+		t.Fatalf("error should direct caller to list_team_plugins: %v", err)
 	}
 }
 

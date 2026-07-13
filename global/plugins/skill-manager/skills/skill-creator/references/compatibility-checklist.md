@@ -16,7 +16,7 @@ Run every item against the source skill (or your draft). Each finding is **works
 
 ## 3. Secrets & configuration
 
-- Hardcoded API keys, tokens, `.env` files shipped in the repo → **adapt**: strip the values; declare injected names in `required_environment_variables`; instruct reading `$HIVY_ORG_<NAME>`; tell the user which variables to add in workspace settings (share the `environment_settings_url` from the tool response).
+- Hardcoded API keys, tokens, `.env` files shipped in the repo → **adapt**: strip the values; declare the required environment-variable names when publishing; instruct reading `$HIVY_ORG_<NAME>`; tell the user which variables to add in workspace settings.
 - Instructions to paste a secret into a config file or chat → **adapt** to org env vars. Never reproduce a secret value anywhere.
 - OAuth flows requiring a localhost callback and human browser login → usually **incompatible**; prefer API-key auth via env vars, or the org's existing platform connections (GitHub, Slack, etc.).
 

@@ -73,14 +73,14 @@ func TestSkillManagerToolsRequireTeamPlugin(t *testing.T) {
 	if !withoutPlugin["skill_view"] {
 		t.Fatal("skill_view must remain universally available")
 	}
-	if withoutPlugin[toolCreateSkill] || withoutPlugin[toolCreateOrgPlugin] {
+	if withoutPlugin[toolCreateSkill] || withoutPlugin[toolCreateTeamPlugin] {
 		t.Fatalf("skill-manager tools must not register until the team enables the plugin: %v", withoutPlugin)
 	}
 	if err := tx.Create(&model.TeamPlugin{OrgID: org.ID, TeamID: team.ID, PluginID: plugin.ID}).Error; err != nil {
 		t.Fatalf("enable skill-manager plugin for team: %v", err)
 	}
 	withPlugin := skillManagerMCPToolNames(t, tx, token)
-	for _, want := range []string{toolCreateOrgPlugin, toolCreateSkill, toolUpdateSkill, toolArchiveSkill} {
+	for _, want := range []string{toolCreateTeamPlugin, toolCreateSkill, toolUpdateSkill, toolArchiveSkill} {
 		if !withPlugin[want] {
 			t.Fatalf("skill-manager tool %q missing after team enablement: %v", want, withPlugin)
 		}

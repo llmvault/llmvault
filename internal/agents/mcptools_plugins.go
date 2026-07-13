@@ -10,34 +10,54 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
-// --- list_org_plugins --------------------------------------------------------
+// --- list_team_plugins -------------------------------------------------------
 
-func registerListOrgPlugins(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
+func registerListTeamPlugins(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
-		Name:        toolListOrgPlugins,
-		Description: "List the plugins available to this organization, split into installed and available. Each plugin lists its skills, required connections, and an install_url (the page to send the user to install/connect it); available plugins also list missing_requirements. Plugins are enabled at the team level and inherited by default; a user may disable an optional inherited plugin for one agent in Agent details. Use this to discover which skills you can pass to create_agent / update_agent.",
+		Name:        toolListTeamPlugins,
+		Description: "List plugins available to the calling agent's team, split into installed and available. Team-created plugins from other teams are never returned. Each plugin lists its skills, required connections, and an install_url; available catalog plugins also list missing_requirements. Use this to discover which skills can be passed to create_agent / update_agent.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 			"properties":           map[string]any{},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleListOrgPlugins(ctx, db, token, frontendURL)
+		return handleListTeamPlugins(ctx, db, token, frontendURL)
 	})
 }
 
-func handleListOrgPlugins(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string) (*mcp.CallToolResult, error) {
+func handleListTeamPlugins(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string) (*mcp.CallToolResult, error) {
+	if token == nil {
+		return toolError("missing agent token"), nil
+	}
+	agentID, err := tokenAgentID(token)
+	if err != nil {
+		return toolError(err.Error()), nil
+	}
+	agent, err := loadOrgAgent(ctx, db, token.OrgID, agentID)
+	if err != nil {
+		return toolError("calling agent not found"), nil
+	}
 	var plugins []model.Plugin
 	if err := db.WithContext(ctx).
-		Where("status = ? AND (org_id IS NULL OR org_id = ?)", model.PluginStatusActive, token.OrgID).
+		Where("status = ? AND (org_id IS NULL OR (org_id = ? AND team_id = ?))", model.PluginStatusActive, token.OrgID, agent.TeamID).
 		Order("name ASC").Find(&plugins).Error; err != nil {
 		return toolError("failed to list plugins: " + err.Error()), nil
 	}
-	installedIDs, err := installedPluginIDSet(ctx, db, token.OrgID)
+	// Resolve the team's baseline rather than the calling Hivy agent's special
+	// default-agent grants. The result describes what every agent on this team
+	// inherits through auto-install and team grants.
+	teamAgent := model.Agent{OrgID: &token.OrgID, TeamID: agent.TeamID}
+	effectiveIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, teamAgent)
 	if err != nil {
 		return toolError(err.Error()), nil
+	}
+	installedIDs := make(map[uuid.UUID]bool, len(effectiveIDs))
+	for _, pluginID := range effectiveIDs {
+		installedIDs[pluginID] = true
 	}
 	installed := make([]map[string]any, 0)
 	available := make([]map[string]any, 0)
@@ -56,21 +76,6 @@ func handleListOrgPlugins(ctx context.Context, db *gorm.DB, token *model.Token, 
 		"installed": installed,
 		"available": available,
 	})
-}
-
-func installedPluginIDSet(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (map[uuid.UUID]bool, error) {
-	var pluginIDs []uuid.UUID
-	if err := db.WithContext(ctx).Model(&model.OrgPluginInstall{}).
-		Where("org_id = ? AND revoked_at IS NULL", orgID).
-		Distinct("plugin_id").
-		Pluck("plugin_id", &pluginIDs).Error; err != nil {
-		return nil, fmt.Errorf("load org plugin installs: %w", err)
-	}
-	out := make(map[uuid.UUID]bool, len(pluginIDs))
-	for _, id := range pluginIDs {
-		out[id] = true
-	}
-	return out, nil
 }
 
 func pluginObject(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin model.Plugin, includeMissing bool, frontendURL string) (map[string]any, error) {

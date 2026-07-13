@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// Runtime is the only bundled plugin that is universal. Every other bundled
-// capability is team-managed, so an agent only receives its skills and MCP
-// tools when its team opts in (or when the catalog explicitly requires it).
-func TestOnlyRuntimeIsAlwaysOn(t *testing.T) {
+// Runtime is universal across all agents. Builder plugins are installed only
+// on each team's default Hivy agent; the remaining bundled capabilities stay
+// team-managed.
+func TestBundledPluginInstallDefaults(t *testing.T) {
 	root, err := resolveDir("global/plugins")
 	if err != nil {
 		t.Fatalf("resolve global/plugins: %v", err)
@@ -52,7 +52,16 @@ func TestOnlyRuntimeIsAlwaysOn(t *testing.T) {
 		t.Fatalf("runtime must remain the locked auto-install plugin: %#v", runtimeFlags)
 	}
 
-	for _, slug := range []string{"agent-builder", "apps", "service-discovery", "sheets", "skill-manager"} {
+	for _, slug := range []string{"agent-builder", "skill-manager"} {
+		t.Run(slug, func(t *testing.T) {
+			flags := decode(t, slug)
+			if flags.AutoInstall || !flags.DefaultAgentInstall || flags.Locked {
+				t.Fatalf("%q must install on default Hivy agents only: %#v", slug, flags)
+			}
+		})
+	}
+
+	for _, slug := range []string{"apps", "service-discovery", "sheets"} {
 		t.Run(slug, func(t *testing.T) {
 			flags := decode(t, slug)
 			if flags.AutoInstall || flags.DefaultAgentInstall || flags.Locked {

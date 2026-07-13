@@ -36,7 +36,7 @@ const (
 	abPayloadUpdateDescription = `{ "agent_id": "7c9e6679-…", "description": "Triages support requests for the EU team." }`
 	abPayloadUpdateArchive     = `{ "agent_id": "7c9e6679-…", "status": "archived" }`
 	abPayloadUpdateAddTool     = `{ "agent_id": "7c9e6679-…", "tools": ["web_search", "web_fetch", "generate_image"] }`
-	abPayloadUpdateModel = `{ "agent_id": "7c9e6679-…", "model": "MODEL_ID_FROM_ENUM" }`
+	abPayloadUpdateModel       = `{ "agent_id": "7c9e6679-…", "model": "MODEL_ID_FROM_ENUM" }`
 )
 
 // assertBuilderStrictDecode pins skill↔schema key consistency: every key in the

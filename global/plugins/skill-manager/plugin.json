@@ -9,7 +9,8 @@
   "developer": "Hivy",
   "official": true,
   "featured": false,
-  "capabilities": ["Create skills", "Install skills from git and marketplaces", "Security-scan third-party skills", "Organize org plugins"],
+  "default_agent_install": true,
+  "capabilities": ["Create skills", "Install skills from git and marketplaces", "Security-scan third-party skills", "Organize team plugins"],
   "examples": [
     "Clone this skill repo and install it for my engineering agents",
     "Install this skill from the marketplace, but check it for anything malicious first",
@@ -18,7 +19,7 @@
     "Port this Claude skill from GitHub so it works on Hivy"
   ],
   "links": { "website": "https://www.usehivy.com/" },
-  "long_description": "Skill Manager lets your default Hivy agent author skills for your organization. Describe a workflow, or share a git repository or marketplace listing with an existing skill, and the agent installs it into its sandbox, runs a security review (prompt injection, malicious scripts, data exfiltration, suspicious dependencies), studies it, adapts anything that would not work on the Hivy platform (browser automation, persistence, secrets, ports), dry-runs the scripts, and shows you the final skill — including every security finding — for approval before publishing. Skills are grouped into org plugins you name — Sales, Engineering, Support — and those plugins attach to any agent, so each team's agents carry exactly the skills they need.",
+  "long_description": "Skill Manager lets your default Hivy agent author skills for its team. Describe a workflow, or share a git repository or marketplace listing with an existing skill, and the agent installs it into its sandbox, runs a security review (prompt injection, malicious scripts, data exfiltration, suspicious dependencies), studies it, adapts anything that would not work on the Hivy platform (browser automation, persistence, secrets, ports), dry-runs the scripts, and shows you the final skill — including every security finding — for approval before publishing. Skills are grouped into plugins owned by the calling agent's team — Sales, Engineering, Support — and are immediately available to that team's agents without leaking into other teams.",
   "plugin_version": "1",
   "enabled": true
 }

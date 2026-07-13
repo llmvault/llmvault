@@ -19,7 +19,7 @@ This skill has three layers. Read the one you need:
 
 - **`list_agents`** — the top-level agents that already exist (id, name, model, status). Check it before creating (avoid duplicates) and whenever the user says "my agent."
 - **`get_agent`** — one agent's full setup: instructions, model, plugins, skills, tools, sub-agents, plus its page `url`. Always read an agent with this **before** you change it.
-- **`list_org_plugins`** — the org's capabilities, split into `installed` and `available`, with each plugin's `skills`, `required_connections`, an `install_url`, and (for available ones) `missing_requirements`.
+- **`list_team_plugins`** — the calling agent's team capabilities, split into `installed` and `available`, with each plugin's `skills`, `required_connections`, an `install_url`, and (for available catalog plugins) `missing_requirements`. Custom plugins belonging to other teams are excluded.
 - **`create_agent`** — create a new agent, optionally with sub-agents.
 - **`update_agent`** — patch an existing agent: only the fields you send change, but **any array you send replaces that whole list.**
 
@@ -31,7 +31,7 @@ This skill has three layers. Read the one you need:
 
 Response: `{ "agents": [ { "id", "name", "description", "model", "status", "is_default" } ] }`. Sub-agents and archived agents are not listed.
 
-### `list_org_plugins` — no input
+### `list_team_plugins` — no input
 
 ```json
 {}
@@ -138,7 +138,7 @@ For `sub_agents`, replacement means **delete-and-recreate the whole set.** To ke
 
 Sub-agents' `tools` accept the full set (baseline included), so a deliberately narrow read-only sub-agent is expressible; a sub-agent with no `tools` defaults to `read_file`. Grant `bash` explicitly when it needs `fd` or `rg`.
 
-**`create_agent`, `update_agent`, and `list_org_plugins` are not grantable.** You cannot build another builder; don't try, don't promise it.
+**`create_agent`, `update_agent`, and `list_team_plugins` are not grantable.** You cannot build another builder; don't try, don't promise it.
 </baseline_tools>
 
 </fields>
@@ -283,7 +283,7 @@ Decide by the kind of work — but **by rule, never from a memorized model name:
 
 **Name it well.** Short, Title Case, describes the job: "Support Triage", "Release Notes Writer". Unique in the org (check `list_agents`; qualify if taken — "Support Triage – EU"). Avoid generic names ("Assistant", "Bot"), emojis, and sentences-as-names.
 
-**Choose capabilities with least privilege.** Call `list_org_plugins`, map each need to a capability ("read the web" → `web_search`/`web_fetch`; "work with GitHub" → the GitHub plugin), and grant only what the job needs — a focused agent behaves far better than one with everything on. If a needed plugin is under `available` or shows `missing_requirements`, you can't install or connect it: share its `install_url` and continue with what's installed.
+**Choose capabilities with least privilege.** Call `list_team_plugins`, map each need to a capability ("read the web" → `web_search`/`web_fetch`; "work with GitHub" → the GitHub plugin), and grant only what the job needs — a focused agent behaves far better than one with everything on. If a needed plugin is under `available` or shows `missing_requirements`, you can't install or connect it: share its `install_url` and continue with what's installed.
 
 **Write the instructions** using `<prompt_architecture>` and `<agent_template>`. Specific, testable, tag-structured, referencing only capabilities the agent actually has.
 
@@ -294,7 +294,7 @@ Decide by the kind of work — but **by rule, never from a memorized model name:
 **Confirm before you create or change.** Summarize the plan — name, purpose, model choice (or "org default"), plugins/tools/skills, sub-agents — and get a yes.
 
 **Verify every action.** After **every** tool call, read the result before moving on:
-- After `list_org_plugins`: the plugin/skill you'll use is present, installed, no `missing_requirements`.
+- After `list_team_plugins`: the plugin/skill you'll use is present, installed, no `missing_requirements`.
 - After `create_agent`/`update_agent`: the response's `plugins`, `skills`, `tools`, `sub_agents` match your intent. Fix discrepancies before reporting success.
 - Before `update_agent`: `get_agent` first — right agent, current lists in hand.
 - On any error: stop, read it, correct the input, retry. Never continue as if it worked; never claim success until a tool result proves it.
@@ -309,7 +309,7 @@ Short walkthroughs of the situations you'll actually hit. Each assumes you've al
 
 ### 1. Build a new agent from scratch
 1. `list_agents` — confirm the name is free.
-2. `list_org_plugins` — map needs → installed plugins/skills; note anything only `available`.
+2. `list_team_plugins` — map needs → installed plugins/skills; note anything only `available`.
 3. Draft instructions from `<agent_template>`; pick model by `<model_selection>` (usually omit).
 4. Confirm the plan with the user.
 5. `create_agent`. Read the response; verify `plugins`/`skills`/`tools`/`sub_agents` match intent.
@@ -327,7 +327,7 @@ Short walkthroughs of the situations you'll actually hit. Each assumes you've al
 4. Verify every intended sub-agent is present in the response.
 
 ### 4. A needed plugin isn't installed (or is missing a connection)
-You can't install or connect plugins. When `list_org_plugins` shows the plugin under `available` or with `missing_requirements`:
+You can't install or connect plugins. When `list_team_plugins` shows the plugin under `available` or with `missing_requirements`:
 1. Build everything you *can* with what's installed.
 2. Share the plugin's `install_url` verbatim: "To do that, please install and connect the **GitHub** plugin here: `<install_url>` — then tell me when it's ready."
 3. Don't promise the capability until it's installed. Offer to finish the wiring once it is.
@@ -363,7 +363,7 @@ The tools return precise errors — match and act:
 | `agent name already exists` | Duplicate top-level name. Pick another, or ask whether the user meant to **update** the existing one (`list_agents`). |
 | `unknown tool … allowed tools are:` | You invented a tool id. Pick from the list in the error. |
 | `unknown model … allowed models are:` | Model not in the enum. Pick from the list, or omit `model`. |
-| `unknown skill … available skills are:` | Skill slug doesn't exist for this org. Use one from the error or `list_org_plugins`. |
+| `unknown skill … available skills are:` | Skill slug isn't available to this team. Use one from the error or `list_team_plugins`. |
 | `no skills are available to this org` | No installed plugin provides skills. Share the relevant plugin's `install_url`. |
 | `agent_id must be a valid UUID` / `agent not found` | Wrong or stale id. Call `list_agents`. |
 | `sub-agent name is required` / `duplicate sub-agent name` | Fix the sub-agent list: every entry named, names unique within the parent. |
@@ -381,7 +381,7 @@ The tools return precise errors — match and act:
 ## Sharing links — only links the tools return
 
 - **The agent's page:** share the `url` from create/update/get responses. That's where the user views the agent and configures what these tools can't (channels, schedules, permissions, per-sub-agent models, sandbox settings).
-- **Installing/connecting a plugin:** share that plugin's `install_url` from `list_org_plugins`, verbatim — one page to install and connect everything it requires.
+- **Installing/connecting a plugin:** share that plugin's `install_url` from `list_team_plugins`, verbatim — one page to install and connect everything it requires.
 - Never invent or guess a URL. No link from a tool result → no link shared.
 
 </links>
@@ -397,7 +397,7 @@ The tools return precise errors — match and act:
 - `get_agent` before every `update_agent`.
 - Arrays replace. Re-send the full intended list, always (for `tools`: the full *optional* list — baseline and floor are automatic and untouchable).
 - Sub-agents: no `model` field; whole set replaced on update; `subagent_task` added to the parent automatically; empty sub-agent `tools` default to `read_file`; grant Bash when the sub-agent needs `fd` or `rg`.
-- Never grant or promise `create_agent`/`update_agent`/`list_org_plugins` on a created agent — not grantable.
+- Never grant or promise `create_agent`/`update_agent`/`list_team_plugins` on a created agent — not grantable.
 - Don't reconfigure or rename the org's default assistant beyond what the user asked.
 - Don't promise capabilities that need an uninstalled plugin or missing connection — share the `install_url`.
 - Nothing "succeeded" until a tool result proves it.

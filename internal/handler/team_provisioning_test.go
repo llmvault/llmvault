@@ -213,7 +213,7 @@ func TestTeamProvisioning_OrgScoping(t *testing.T) {
 	// Plugin owned+installed by org B cannot be enabled from org A's team.
 	teamA := tpSeedTeam(t, h.db, fx.org.ID)
 	pluginB := uuid.New()
-	if err := h.db.Create(&model.Plugin{ID: pluginB, OrgID: &other.org.ID, Slug: "b-" + uuid.NewString()[:8], Name: "b", Status: model.PluginStatusActive}).Error; err != nil {
+	if err := h.db.Create(&model.Plugin{ID: pluginB, OrgID: &other.org.ID, TeamID: &otherTeam.ID, Slug: "b-" + uuid.NewString()[:8], Name: "b", Status: model.PluginStatusActive}).Error; err != nil {
 		t.Fatalf("create org-B plugin: %v", err)
 	}
 	if err := h.db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: other.org.ID, PluginID: pluginB}).Error; err != nil {

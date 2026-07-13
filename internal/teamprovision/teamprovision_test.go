@@ -54,10 +54,10 @@ func seedFixture(t *testing.T, db *gorm.DB) fixture {
 
 // seedPlugin creates a plugin (global when orgID==nil) and, when installed,
 // an active org_plugin_installs row for installOrg.
-func seedPlugin(t *testing.T, db *gorm.DB, orgID *uuid.UUID, installOrg *uuid.UUID) uuid.UUID {
+func seedPlugin(t *testing.T, db *gorm.DB, orgID, teamID, installOrg *uuid.UUID) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	plugin := model.Plugin{ID: id, OrgID: orgID, Slug: "pl-" + uuid.NewString()[:8], Name: "pl", Status: model.PluginStatusActive}
+	plugin := model.Plugin{ID: id, OrgID: orgID, TeamID: teamID, Slug: "pl-" + uuid.NewString()[:8], Name: "pl", Status: model.PluginStatusActive}
 	if err := db.Create(&plugin).Error; err != nil {
 		t.Fatalf("seed plugin: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestEnablePlugin_IdempotentAndPredicate(t *testing.T) {
 	ctx := context.Background()
 	db := connectDB(t)
 	fx := seedFixture(t, db)
-	pluginID := seedPlugin(t, db, nil, &fx.org.ID) // global, installed
+	pluginID := seedPlugin(t, db, nil, nil, &fx.org.ID) // global, installed
 
 	if err := teamprovision.EnablePlugin(ctx, db, fx.org.ID, fx.team.ID, pluginID, nil); err != nil {
 		t.Fatalf("enable: %v", err)
@@ -131,9 +131,19 @@ func TestEnablePlugin_Errors(t *testing.T) {
 	db := connectDB(t)
 	fx := seedFixture(t, db)
 
-	installed := seedPlugin(t, db, nil, &fx.org.ID)
-	notInstalled := seedPlugin(t, db, nil, nil)
-	otherOrgPlugin := seedPlugin(t, db, &fx.otherOrg.ID, &fx.otherOrg.ID)
+	installed := seedPlugin(t, db, nil, nil, &fx.org.ID)
+	notInstalled := seedPlugin(t, db, nil, nil, nil)
+	otherTeam := model.Team{ID: uuid.New(), OrgID: fx.otherOrg.ID, Name: "other-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&otherTeam).Error; err != nil {
+		t.Fatalf("create other team: %v", err)
+	}
+	otherOrgPlugin := seedPlugin(t, db, &fx.otherOrg.ID, &otherTeam.ID, &fx.otherOrg.ID)
+	siblingTeam := model.Team{ID: uuid.New(), OrgID: fx.org.ID, Name: "sibling-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&siblingTeam).Error; err != nil {
+		t.Fatalf("create sibling team: %v", err)
+	}
+	t.Cleanup(func() { db.Where("id = ?", siblingTeam.ID).Delete(&model.Team{}) })
+	siblingPlugin := seedPlugin(t, db, &fx.org.ID, &siblingTeam.ID, &fx.org.ID)
 
 	// Team not in org (using otherOrg as the org for our team).
 	if err := teamprovision.EnablePlugin(ctx, db, fx.otherOrg.ID, fx.team.ID, installed, nil); !errors.Is(err, teamprovision.ErrTeamNotFound) {
@@ -142,6 +152,10 @@ func TestEnablePlugin_Errors(t *testing.T) {
 	// Plugin owned by another org is invisible.
 	if err := teamprovision.EnablePlugin(ctx, db, fx.org.ID, fx.team.ID, otherOrgPlugin, nil); !errors.Is(err, teamprovision.ErrPluginNotFound) {
 		t.Fatalf("cross-org plugin: err=%v, want ErrPluginNotFound", err)
+	}
+	// A team-owned plugin is invisible to sibling teams in the same org.
+	if err := teamprovision.EnablePlugin(ctx, db, fx.org.ID, fx.team.ID, siblingPlugin, nil); !errors.Is(err, teamprovision.ErrPluginNotFound) {
+		t.Fatalf("cross-team plugin: err=%v, want ErrPluginNotFound", err)
 	}
 	// Unknown plugin id.
 	if err := teamprovision.EnablePlugin(ctx, db, fx.org.ID, fx.team.ID, uuid.New(), nil); !errors.Is(err, teamprovision.ErrPluginNotFound) {

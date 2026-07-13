@@ -27,9 +27,9 @@ func seedActor(t *testing.T, db *gorm.DB, orgID uuid.UUID, role string) string {
 	return user.ID.String()
 }
 
-// The skill-manager tools are authorized on the invoking human's org role, not
-// merely on the calling agent's capability flag: a member is denied, an org
-// manager is allowed, and an absent actor (automated run) is denied.
+// Skill-manager mutations are available to every active member of the calling
+// agent's team. Members of another team and automated runs are denied; org
+// managers retain cross-team access.
 func TestSkillManagerActorScoping(t *testing.T) {
 	db := connectManageTestDB(t)
 	ctx := context.Background()
@@ -39,52 +39,58 @@ func TestSkillManagerActorScoping(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
-	token := &model.Token{OrgID: org.ID}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "skill-actor-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	agent := manageTestAgent(org.ID, team.ID)
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	token := manageTestToken(org.ID, agent.ID)
 
 	memberID := seedActor(t, db, org.ID, "member")
+	memberUUID := uuid.MustParse(memberID)
+	if err := db.Create(&model.TeamMember{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, UserID: memberUUID, Role: "member"}).Error; err != nil {
+		t.Fatalf("create team membership: %v", err)
+	}
+	outsiderID := seedActor(t, db, org.ID, "member")
 	ownerID := seedActor(t, db, org.ID, "owner")
+	t.Cleanup(func() {
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamPlugin{})
+		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Plugin{})
+		db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
+		db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
+	})
 
-	// A member is denied create_org_plugin.
-	res, _ := handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Sales", HivyActorUserID: memberID})
-	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "admin or owner") {
-		t.Fatalf("member must be denied create_org_plugin, got: %s", toolResultText(res))
+	// A member of the calling agent's team may create a team plugin.
+	res, _ := handleCreateTeamPlugin(ctx, db, token, createTeamPluginArgs{Name: "Sales", HivyActorUserID: memberID})
+	if res == nil || res.IsError {
+		t.Fatalf("team member must be allowed create_team_plugin, got: %s", toolResultText(res))
 	}
 
-	// A member is denied create_skill (the actor gate runs before plugin lookup).
+	// An org member outside the calling agent's team is denied.
 	res, _ = handleCreateSkill(ctx, db, token, "http://localhost:3000", createSkillArgs{
-		PluginSlug: "whatever", Name: "X", Description: "Use when testing.", Content: "# X", HivyActorUserID: memberID,
+		PluginSlug: "sales", Name: "X", Description: "Use when testing.", Content: "# X", HivyActorUserID: outsiderID,
 	})
-	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "admin or owner") {
-		t.Fatalf("member must be denied create_skill, got: %s", toolResultText(res))
-	}
-
-	// A member is denied archive_skill.
-	res, _ = handleArchiveSkill(ctx, db, token, archiveSkillArgs{
-		PluginSlug: "whatever", Skill: "x", UserApproved: true, HivyActorUserID: memberID,
-	})
-	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "admin or owner") {
-		t.Fatalf("member must be denied archive_skill, got: %s", toolResultText(res))
+	if res == nil || !res.IsError || !strings.Contains(toolResultText(res), "membership") {
+		t.Fatalf("member outside team must be denied create_skill, got: %s", toolResultText(res))
 	}
 
 	// An org manager (owner) is allowed and the plugin is created.
-	res, err := handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Sales", HivyActorUserID: ownerID})
+	res, err := handleCreateTeamPlugin(ctx, db, token, createTeamPluginArgs{Name: "Marketing", HivyActorUserID: ownerID})
 	if err != nil {
-		t.Fatalf("owner create_org_plugin: %v", err)
+		t.Fatalf("owner create_team_plugin: %v", err)
 	}
 	if res == nil || res.IsError {
-		t.Fatalf("owner must be allowed create_org_plugin, got: %s", toolResultText(res))
+		t.Fatalf("owner must be allowed create_team_plugin, got: %s", toolResultText(res))
 	}
-	t.Cleanup(func() {
-		db.Where("org_id = ?", org.ID).Delete(&model.OrgPluginInstall{})
-		db.Where("org_id = ?", org.ID).Delete(&model.Plugin{})
-	})
-
-	// No actor (empty id, e.g. an automated/cron/trigger run) is REJECTED:
-	// org-wide skill/plugin mutation requires a present human org-manager, so a
-	// possibly prompt-injected faceless run cannot author org plugins.
-	res, err = handleCreateOrgPlugin(ctx, db, token, createOrgPluginArgs{Name: "Marketing", HivyActorUserID: ""})
+	// No actor (empty id, e.g. an automated/cron/trigger run) is rejected.
+	res, err = handleCreateTeamPlugin(ctx, db, token, createTeamPluginArgs{Name: "Operations", HivyActorUserID: ""})
 	if err != nil {
-		t.Fatalf("no-actor create_org_plugin: %v", err)
+		t.Fatalf("no-actor create_team_plugin: %v", err)
 	}
 	if res == nil || !res.IsError {
 		t.Fatalf("no-actor run must be rejected, got: %s", toolResultText(res))

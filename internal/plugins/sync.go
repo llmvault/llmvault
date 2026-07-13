@@ -59,8 +59,9 @@ func SyncLocal(ctx context.Context, db *gorm.DB, dir string) (*SyncResult, error
 				return err
 			}
 		}
-		// Only global plugins are governed by the filesystem; org-owned plugins
-		// (org_id set) are created at runtime and must never be archived here.
+		// Only global plugins are governed by the filesystem; team-owned plugins
+		// (org_id and team_id set) are created at runtime and must never be
+		// archived here.
 		var existing []model.Plugin
 		if err := tx.Where("status = ? AND org_id IS NULL", model.PluginStatusActive).Find(&existing).Error; err != nil {
 			return fmt.Errorf("list active plugins for archive: %w", err)

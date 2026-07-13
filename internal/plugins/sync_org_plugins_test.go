@@ -10,10 +10,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// Org-owned plugins (and their skills) are created at runtime by the
+// Team-owned plugins (and their skills) are created at runtime by the
 // skill-manager tools and must be invisible to filesystem sync: never
 // archived, never hijacked by a global plugin sharing the slug.
-func TestSyncLocalIgnoresOrgOwnedPlugins(t *testing.T) {
+func TestSyncLocalIgnoresTeamOwnedPlugins(t *testing.T) {
 	db := connectAutoInstallTestDB(t)
 	tx := db.Begin()
 	if tx.Error != nil {
@@ -25,13 +25,18 @@ func TestSyncLocalIgnoresOrgOwnedPlugins(t *testing.T) {
 	if err := tx.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "sync-team-" + uuid.NewString()[:8]}
+	if err := tx.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 	orgPlugin := model.Plugin{
 		ID:       uuid.New(),
 		OrgID:    &org.ID,
+		TeamID:   &team.ID,
 		Slug:     "sync-org-demo",
 		Name:     "Sync Org Demo",
 		Status:   model.PluginStatusActive,
-		Manifest: model.RawJSON(`{"org_plugin":true}`),
+		Manifest: model.RawJSON(`{"team_plugin":true}`),
 	}
 	if err := tx.Create(&orgPlugin).Error; err != nil {
 		t.Fatalf("create org plugin: %v", err)
@@ -50,8 +55,8 @@ func TestSyncLocalIgnoresOrgOwnedPlugins(t *testing.T) {
 		t.Fatalf("create org skill: %v", err)
 	}
 
-	// A global plugin with the SAME slug as the org plugin must sync into its
-	// own row, not mutate the org's.
+	// A global plugin with the same slug as the team plugin must sync into its
+	// own row, not mutate the team's.
 	root := t.TempDir()
 	writePluginSyncFile(t, filepath.Join(root, "demo", "plugin.json"), `{
 		"version": 1,

@@ -3,11 +3,12 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
-// The bundled skill-manager plugin is optional, but still must load its
-// skill-creator bundle correctly when a team enables it.
+// The bundled skill-manager plugin is installed on default Hivy agents and must
+// load its skill-creator bundle correctly.
 func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	root, err := resolveDir("global/plugins")
 	if err != nil {
@@ -39,8 +40,8 @@ func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	if err := json.Unmarshal(manifest.raw, &flags); err != nil {
 		t.Fatalf("decode manifest: %v", err)
 	}
-	if flags.AutoInstall || flags.DefaultAgentInstall || flags.Locked {
-		t.Fatalf("skill-manager must be team-managed: %#v", flags)
+	if flags.AutoInstall || !flags.DefaultAgentInstall || flags.Locked {
+		t.Fatalf("skill-manager must install on default Hivy agents only: %#v", flags)
 	}
 
 	skills, err := loadSkills(context.Background(), *manifest)
@@ -56,12 +57,15 @@ func TestBundledSkillManagerPluginLoads(t *testing.T) {
 	}
 	for _, path := range []string{
 		"references/security-review.md",
-		"references/hivy-skill-format.md",
+		"references/skill-authoring-guide.md",
 		"references/sandbox-environment.md",
 		"references/compatibility-checklist.md",
 	} {
 		if skill.Files[path] == "" {
 			t.Fatalf("skill-creator missing bundled file %s", path)
 		}
+	}
+	if strings.Contains(skill.Content, "Your tools:") || strings.Contains(skill.Files["references/skill-authoring-guide.md"], "## create_skill fields") {
+		t.Fatal("skill-creator must guide tool use without duplicating MCP tool schemas")
 	}
 }

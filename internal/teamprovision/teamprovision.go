@@ -34,7 +34,7 @@ var (
 	// plugins the org has installed.
 	ErrPluginNotInstalled = errors.New("teamprovision: plugin not installed for org")
 	// ErrPluginAlwaysEnabled means the plugin is an auto-install system plugin
-	// (e.g. sheets, service-discovery, skill-manager, runtime). These are
+	// (for example runtime). These are
 	// implicitly enabled for every team and are not per-team toggleable, so
 	// enabling or disabling them via team provisioning is rejected. Callers map
 	// this to 422.

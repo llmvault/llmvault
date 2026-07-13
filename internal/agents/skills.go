@@ -10,20 +10,18 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
-// orgAvailableSkillSlugs returns the set of published skill slugs available to
-// the org: the skills owned by plugins the org has installed (revoked_at IS
-// NULL). These are the slugs an agent-builder caller may put in a `skills`
-// array, since a skill only resolves at runtime when its plugin is installed.
-func orgAvailableSkillSlugs(ctx context.Context, db *gorm.DB, orgID uuid.UUID) ([]string, error) {
-	if db == nil || orgID == uuid.Nil {
+// teamAvailableSkillSlugs returns the published skills effective for a regular
+// agent on the team: global auto-install plugins plus plugins actively granted
+// to that team. Custom plugins from other teams are therefore excluded.
+func teamAvailableSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID) ([]string, error) {
+	if db == nil || orgID == uuid.Nil || teamID == uuid.Nil {
 		return nil, nil
 	}
-	var pluginIDs []uuid.UUID
-	if err := db.WithContext(ctx).Model(&model.OrgPluginInstall{}).
-		Where("org_id = ? AND revoked_at IS NULL", orgID).
-		Pluck("plugin_id", &pluginIDs).Error; err != nil {
+	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, model.Agent{OrgID: &orgID, TeamID: teamID})
+	if err != nil {
 		return nil, err
 	}
 	if len(pluginIDs) == 0 {
@@ -40,16 +38,16 @@ func orgAvailableSkillSlugs(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (
 	return slugs, nil
 }
 
-// validateSkillSlugs checks every requested slug against the org-available set,
+// validateSkillSlugs checks every requested slug against the team-available set,
 // returning the de-duped sorted slugs. On an unknown slug it returns a helpful
-// error listing the valid slugs (or directing the caller to list_org_plugins
+// error listing the valid slugs (or directing the caller to list_team_plugins
 // when none are available).
-func validateSkillSlugs(ctx context.Context, db *gorm.DB, orgID uuid.UUID, requested []string) ([]string, error) {
+func validateSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, requested []string) ([]string, error) {
 	cleaned := dedupeNonEmpty(requested)
 	if len(cleaned) == 0 {
 		return nil, nil
 	}
-	available, err := orgAvailableSkillSlugs(ctx, db, orgID)
+	available, err := teamAvailableSkillSlugs(ctx, db, orgID, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load available skills: %w", err)
 	}
@@ -61,7 +59,7 @@ func validateSkillSlugs(ctx context.Context, db *gorm.DB, orgID uuid.UUID, reque
 		if !allowed[slug] {
 			if len(available) == 0 {
 				return nil, fmt.Errorf(
-					"unknown skill %q: no skills are available to this org; install a plugin that provides skills (call list_org_plugins to see options)",
+					"unknown skill %q: no skills are available to this team; enable a plugin that provides skills (call list_team_plugins to see options)",
 					slug,
 				)
 			}

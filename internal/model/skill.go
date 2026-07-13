@@ -7,8 +7,10 @@ import (
 	"github.com/lib/pq"
 )
 
-// Skill is a reusable prompt + references bundle that agents can invoke.
-// A skill with OrgID=nil is public; otherwise it is visible only to that org.
+// Skill is a reusable prompt + references bundle that agents can invoke. A
+// skill with OrgID=nil belongs to a global catalog plugin. A custom skill keeps
+// its org for tenant integrity and inherits its team visibility exclusively
+// from its team-owned Plugin.
 type Skill struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	PluginID    *uuid.UUID `gorm:"type:uuid;index"`

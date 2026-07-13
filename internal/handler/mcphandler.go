@@ -79,7 +79,7 @@ func (h *MCPHandler) SetSkillTools(fn mcpserver.SkillToolsFunc) {
 }
 
 // SetAgentBuilderTools sets the callback for registering the agent-builder
-// tools (list_org_plugins, create_agent, update_agent).
+// tools (list_team_plugins, create_agent, update_agent).
 func (h *MCPHandler) SetAgentBuilderTools(fn mcpserver.AgentBuilderToolsFunc) {
 	h.agentBuilderTools = fn
 }

@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // ConnectionRequirement mirrors a plugin's unmet connection requirement for
@@ -20,17 +21,17 @@ type ConnectionRequirement struct {
 	Required bool   `json:"required"`
 }
 
-// resolvePluginSlugs validates that every requested slug is an ACTIVE
-// org-installed plugin and returns the matching plugin rows. On an unknown or
+// resolvePluginSlugs validates that every requested slug is an active plugin
+// available to the target team and returns the matching plugin rows. On an unknown or
 // uninstalled slug it returns a helpful error listing the installed slugs and
 // noting any missing requirements for the offending plugin when it exists but
 // is not usable.
-func resolvePluginSlugs(ctx context.Context, db *gorm.DB, orgID uuid.UUID, requested []string) ([]model.Plugin, error) {
+func resolvePluginSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, requested []string) ([]model.Plugin, error) {
 	cleaned := dedupeNonEmpty(requested)
 	if len(cleaned) == 0 {
 		return nil, nil
 	}
-	installed, err := installedPluginsBySlug(ctx, db, orgID)
+	installed, err := installedPluginsBySlug(ctx, db, orgID, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -44,30 +45,30 @@ func resolvePluginSlugs(ctx context.Context, db *gorm.DB, orgID uuid.UUID, reque
 	for _, slug := range cleaned {
 		plugin, ok := installed[slug]
 		if !ok {
-			return nil, unknownPluginError(ctx, db, orgID, slug, installedSlugs)
+			return nil, unknownPluginError(ctx, db, orgID, teamID, slug, installedSlugs)
 		}
 		out = append(out, plugin)
 	}
 	return out, nil
 }
 
-func unknownPluginError(ctx context.Context, db *gorm.DB, orgID uuid.UUID, slug string, installedSlugs []string) error {
+func unknownPluginError(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, slug string, installedSlugs []string) error {
 	// Distinguish "exists but not installed" from "does not exist" so the caller
 	// gets actionable guidance, including missing connection requirements.
 	var plugin model.Plugin
 	err := db.WithContext(ctx).
-		Where("slug = ? AND status = ? AND (org_id IS NULL OR org_id = ?)", slug, model.PluginStatusActive, orgID).
+		Where("slug = ? AND status = ? AND (org_id IS NULL OR (org_id = ? AND team_id = ?))", slug, model.PluginStatusActive, orgID, teamID).
 		First(&plugin).Error
 	if err == nil {
 		missing, mErr := missingRequirements(ctx, db, orgID, plugin.ID)
 		if mErr == nil && len(missing) > 0 {
 			return fmt.Errorf(
-				"plugin %q is not installed for this org and has unmet requirements: %s (installed plugins: %s)",
+				"plugin %q is not enabled for this team and has unmet requirements: %s (team plugins: %s)",
 				slug, formatRequirements(missing), joinOrNone(installedSlugs),
 			)
 		}
 		return fmt.Errorf(
-			"plugin %q is not installed for this org (installed plugins: %s)",
+			"plugin %q is not enabled for this team (team plugins: %s)",
 			slug, joinOrNone(installedSlugs),
 		)
 	}
@@ -77,22 +78,25 @@ func unknownPluginError(ctx context.Context, db *gorm.DB, orgID uuid.UUID, slug 
 	)
 }
 
-// installedPluginsBySlug returns active plugins the org has installed
-// (org_plugin_installs.revoked_at IS NULL), keyed by slug.
-func installedPluginsBySlug(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (map[string]model.Plugin, error) {
-	var installs []model.OrgPluginInstall
-	if err := db.WithContext(ctx).
-		Preload("Plugin").
-		Where("org_id = ? AND revoked_at IS NULL", orgID).
-		Find(&installs).Error; err != nil {
-		return nil, fmt.Errorf("load org plugin installs: %w", err)
+// installedPluginsBySlug returns active plugins effective for a regular agent
+// on the team, keyed by slug.
+func installedPluginsBySlug(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID) (map[string]model.Plugin, error) {
+	ids, err := pluginresolve.EffectivePluginIDs(ctx, db, model.Agent{OrgID: &orgID, TeamID: teamID})
+	if err != nil {
+		return nil, err
 	}
-	out := make(map[string]model.Plugin, len(installs))
-	for _, install := range installs {
-		if install.Plugin.Status != model.PluginStatusActive {
-			continue
-		}
-		out[install.Plugin.Slug] = install.Plugin
+	if len(ids) == 0 {
+		return map[string]model.Plugin{}, nil
+	}
+	var plugins []model.Plugin
+	if err := db.WithContext(ctx).
+		Where("id IN ? AND status = ? AND (org_id IS NULL OR (org_id = ? AND team_id = ?))", ids, model.PluginStatusActive, orgID, teamID).
+		Find(&plugins).Error; err != nil {
+		return nil, fmt.Errorf("load team plugins: %w", err)
+	}
+	out := make(map[string]model.Plugin, len(plugins))
+	for _, plugin := range plugins {
+		out[plugin.Slug] = plugin
 	}
 	return out, nil
 }
