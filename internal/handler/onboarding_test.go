@@ -14,7 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestAdvanceOnboarding_EnforcesOrderAndAdvancesOptionalStep(t *testing.T) {
+func TestAdvanceOnboarding_EnforcesOrderAndConnectionRequirement(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:onboarding-handler?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open database: %v", err)
@@ -22,6 +22,7 @@ func TestAdvanceOnboarding_EnforcesOrderAndAdvancesOptionalStep(t *testing.T) {
 	for _, statement := range []string{
 		"CREATE TABLE orgs (id text PRIMARY KEY, onboarding_step text NOT NULL, updated_at datetime)",
 		"CREATE TABLE org_memberships (id text PRIMARY KEY, user_id text NOT NULL, org_id text NOT NULL, role text NOT NULL, deactivated_at datetime)",
+		"CREATE TABLE connections (id text PRIMARY KEY, org_id text NOT NULL, revoked_at datetime)",
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatalf("create test schema: %v", err)
@@ -51,6 +52,12 @@ func TestAdvanceOnboarding_EnforcesOrderAndAdvancesOptionalStep(t *testing.T) {
 	}
 	if err := db.Model(&model.Org{}).Where("id = ?", org.ID).Update("onboarding_step", model.OnboardingStepConnections).Error; err != nil {
 		t.Fatalf("seed connections step: %v", err)
+	}
+	if recorder := request(); recorder.Code != http.StatusBadRequest {
+		t.Fatalf("advance without connection status = %d, want 400: %s", recorder.Code, recorder.Body.String())
+	}
+	if err := db.Exec("INSERT INTO connections (id, org_id) VALUES (?, ?)", uuid.New(), org.ID).Error; err != nil {
+		t.Fatalf("seed connection: %v", err)
 	}
 	if recorder := request(); recorder.Code != http.StatusOK {
 		t.Fatalf("advance optional step status = %d, want 200: %s", recorder.Code, recorder.Body.String())

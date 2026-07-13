@@ -304,7 +304,6 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
     if (!integration.id) return
     connectIntegration(integration.id, {
       ...options,
-      installPlugins: true,
       onSuccess: () => {
         setFormIntegration(null)
         toast.success(`${integration.display_name ?? "Connection"} is ready to use`)
@@ -322,10 +321,9 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold text-primary">Your tools</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Bring Hivy into your work</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Install plugins</h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-            Connect only what you need. Hivy installs the matching capability automatically, and you stay in control of access.
+            Give your agents restricted access to the tools your team uses.
           </p>
         </div>
         {connections.length > 0 ? (
@@ -345,10 +343,11 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search connections"
             aria-label="Search connections"
+            className="w-full"
           />
         </div>
 
-        <div className="max-h-80 min-h-64 overflow-y-auto">
+        <div className="min-h-64 flex-1 overflow-y-auto">
           {integrationsQuery.isLoading ? (
             <ConnectionSkeletons />
           ) : integrationsQuery.isError ? (
@@ -419,16 +418,16 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          className="px-2 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          onClick={onContinue}
-          disabled={advancing || isConnecting}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {connections.length === 0 ? (
+          <p className="text-xs text-muted">Connect at least one plugin to continue.</p>
+        ) : null}
+        <Button
+          className="w-full sm:ml-auto sm:w-auto"
+          variant="primary"
+          onPress={onContinue}
+          isDisabled={connections.length === 0 || advancing || isConnecting}
         >
-          Skip for now
-        </button>
-        <Button variant="primary" onPress={onContinue} isDisabled={advancing || isConnecting}>
           {advancing ? <Spinner color="current" size="sm" /> : null}
           Continue
           <AppIcon icon="arrow-right" className="h-4 w-4" />

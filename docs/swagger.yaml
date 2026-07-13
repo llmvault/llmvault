@@ -1693,8 +1693,6 @@ definitions:
     type: object
   createConnectionRequest:
     properties:
-      install_plugins:
-        type: boolean
       meta:
         $ref: '#/definitions/JSON'
       nango_connection_id:
@@ -9010,7 +9008,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Stores a connection after the OAuth flow completes via Nango.
+      description: Stores a connection after the OAuth flow completes via Nango. During
+        onboarding, matching plugins are installed and enabled for the org's sole
+        active team.
       parameters:
       - description: Integration ID
         in: path
@@ -10280,8 +10280,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Advances the current organization through optional onboarding steps.
-        The mandatory team step advances only when a team is created.
+      description: Advances the current organization through onboarding. Team creation
+        and at least one active connection are required before their following steps.
       parameters:
       - description: Next onboarding step
         in: body

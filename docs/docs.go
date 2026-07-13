@@ -6194,7 +6194,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Stores a connection after the OAuth flow completes via Nango.",
+                "description": "Stores a connection after the OAuth flow completes via Nango. During onboarding, matching plugins are installed and enabled for the org's sole active team.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8073,7 +8073,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Advances the current organization through optional onboarding steps. The mandatory team step advances only when a team is created.",
+                "description": "Advances the current organization through onboarding. Team creation and at least one active connection are required before their following steps.",
                 "consumes": [
                     "application/json"
                 ],
@@ -17091,9 +17091,6 @@ const docTemplate = `{
         "createConnectionRequest": {
             "type": "object",
             "properties": {
-                "install_plugins": {
-                    "type": "boolean"
-                },
                 "meta": {
                     "$ref": "#/definitions/JSON"
                 },

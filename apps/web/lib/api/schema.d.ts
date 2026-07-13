@@ -7581,7 +7581,7 @@ export interface paths {
         put?: never;
         /**
          * Create a connection
-         * @description Stores a connection after the OAuth flow completes via Nango.
+         * @description Stores a connection after the OAuth flow completes via Nango. During onboarding, matching plugins are installed and enabled for the org's sole active team.
          */
         post: {
             parameters: {
@@ -9863,7 +9863,7 @@ export interface paths {
         head?: never;
         /**
          * Advance onboarding
-         * @description Advances the current organization through optional onboarding steps. The mandatory team step advances only when a team is created.
+         * @description Advances the current organization through onboarding. Team creation and at least one active connection are required before their following steps.
          */
         patch: {
             parameters: {
@@ -18037,7 +18037,6 @@ export interface components {
             reference?: string;
         };
         createConnectionRequest: {
-            install_plugins?: boolean;
             meta?: components["schemas"]["JSON"];
             nango_connection_id?: string;
         };

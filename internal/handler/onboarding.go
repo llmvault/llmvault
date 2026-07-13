@@ -21,7 +21,7 @@ type onboardingResponse struct {
 
 // AdvanceOnboarding handles PATCH /v1/orgs/current/onboarding.
 // @Summary Advance onboarding
-// @Description Advances the current organization through optional onboarding steps. The mandatory team step advances only when a team is created.
+// @Description Advances the current organization through onboarding. Team creation and at least one active connection are required before their following steps.
 // @Tags onboarding
 // @Accept json
 // @Produce json
@@ -58,7 +58,9 @@ func (h *OrgHandler) AdvanceOnboarding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := onboarding.New(h.db).Advance(ctx, org.ID, req.Step); err != nil {
-		if !errors.Is(err, onboarding.ErrInvalidTransition) && !errors.Is(err, onboarding.ErrNotFound) {
+		if !errors.Is(err, onboarding.ErrInvalidTransition) &&
+			!errors.Is(err, onboarding.ErrConnectionRequired) &&
+			!errors.Is(err, onboarding.ErrNotFound) {
 			logging.FromContext(ctx).ErrorContext(ctx, "advance onboarding", "error", err, "org_id", org.ID)
 		}
 		writeOnboardingError(w, err)
@@ -69,6 +71,8 @@ func (h *OrgHandler) AdvanceOnboarding(w http.ResponseWriter, r *http.Request) {
 
 func writeOnboardingError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, onboarding.ErrConnectionRequired):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "connect at least one plugin before continuing"})
 	case errors.Is(err, onboarding.ErrInvalidTransition):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "onboarding steps must be completed in order"})
 	case errors.Is(err, onboarding.ErrNotFound):

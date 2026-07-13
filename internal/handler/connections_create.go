@@ -14,11 +14,11 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
+	"github.com/usehivy/hivy/internal/onboarding"
 )
 
 // @Summary Create a connection
-// @Description Stores a connection after the OAuth flow completes via Nango.
+// @Description Stores a connection after the OAuth flow completes via Nango. During onboarding, matching plugins are installed and enabled for the org's sole active team.
 // @Tags connections
 // @Accept json
 // @Produce json
@@ -125,10 +125,8 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := tx.WithContext(ctx).Create(&conn).Error; err != nil {
 			return err
 		}
-		if req.InstallPlugins {
-			if err := pluginstore.InstallForConnection(ctx, tx, org.ID, user.ID, integ.Provider); err != nil {
-				return err
-			}
+		if err := onboarding.New(tx).ConnectionCreated(ctx, org.ID, user.ID, integ.Provider); err != nil {
+			return err
 		}
 		return nil
 	})
@@ -137,6 +135,10 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			// The (integration_id, nango_connection_id) active-uniqueness index
 			// rejected this: another live connection already owns this id.
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "connection already exists"})
+			return
+		}
+		if errors.Is(err, onboarding.ErrInvalidTeamState) {
+			writeJSON(w, http.StatusConflict, errorResponse{Error: "onboarding requires exactly one active team"})
 			return
 		}
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to create connection", "error", err, "org_id", org.ID, "user_id", user.ID, "integration_id", integ.ID)

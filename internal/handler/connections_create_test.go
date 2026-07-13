@@ -77,7 +77,7 @@ func TestConnectionHandler_Create_Success(t *testing.T) {
 	}
 }
 
-func TestConnectionHandler_Create_InstallsMatchingPluginWhenRequested(t *testing.T) {
+func TestConnectionHandler_Create_OnboardingInstallsAndEnablesMatchingPluginForSoleTeam(t *testing.T) {
 	db := connectTestDB(t)
 	nangoSrv := httptest.NewServer(newNangoConnMock(&nangoConnMockConfig{}))
 	t.Cleanup(nangoSrv.Close)
@@ -91,6 +91,13 @@ func TestConnectionHandler_Create_InstallsMatchingPluginWhenRequested(t *testing
 	user := createTestUser(t, db, fmt.Sprintf("onboarding-conn-%s@test.com", uuid.NewString()[:8]))
 	org := createTestOrg(t, db)
 	addTestOrgOwner(t, db, org.ID, user.ID)
+	if err := db.Model(&model.Org{}).Where("id = ?", org.ID).Update("onboarding_step", model.OnboardingStepConnections).Error; err != nil {
+		t.Fatalf("set onboarding step: %v", err)
+	}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "onboarding-team-" + uuid.NewString()[:8]}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create onboarding team: %v", err)
+	}
 	integ := createTestIntegration(t, db, "github-app-code-reviews")
 	plugin := model.Plugin{
 		ID:       uuid.New(),
@@ -112,7 +119,9 @@ func TestConnectionHandler_Create_InstallsMatchingPluginWhenRequested(t *testing
 		t.Fatalf("create plugin integration: %v", err)
 	}
 	t.Cleanup(func() {
+		db.Where("org_id = ? AND plugin_id = ?", org.ID, plugin.ID).Delete(&model.TeamPlugin{})
 		db.Where("org_id = ? AND plugin_id = ?", org.ID, plugin.ID).Delete(&model.OrgPluginInstall{})
+		db.Where("id = ?", team.ID).Delete(&model.Team{})
 		db.Where("plugin_id = ?", plugin.ID).Delete(&model.PluginIntegration{})
 		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
 		db.Where("org_id = ?", org.ID).Delete(&model.Connection{})
@@ -120,7 +129,6 @@ func TestConnectionHandler_Create_InstallsMatchingPluginWhenRequested(t *testing
 
 	body, _ := json.Marshal(map[string]any{
 		"nango_connection_id": "onboarding-code-review-connection",
-		"install_plugins":     true,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -140,6 +148,39 @@ func TestConnectionHandler_Create_InstallsMatchingPluginWhenRequested(t *testing
 	}
 	if count != 1 {
 		t.Fatalf("plugin install count = %d, want 1", count)
+	}
+	if err := db.Model(&model.TeamPlugin{}).
+		Where("org_id = ? AND team_id = ? AND plugin_id = ?", org.ID, team.ID, plugin.ID).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count team plugin grants: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("team plugin grant count = %d, want 1", count)
+	}
+
+	normalUser := createTestUser(t, db, fmt.Sprintf("normal-conn-%s@test.com", uuid.NewString()[:8]))
+	normalOrg := createTestOrg(t, db)
+	addTestOrgOwner(t, db, normalOrg.ID, normalUser.ID)
+	normalBody, _ := json.Marshal(map[string]any{
+		"nango_connection_id": "normal-code-review-connection",
+		"install_plugins":     true,
+	})
+	normalReq := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", bytes.NewReader(normalBody))
+	normalReq.Header.Set("Content-Type", "application/json")
+	normalReq = middleware.WithUser(normalReq, &normalUser)
+	normalReq = middleware.WithOrg(normalReq, &normalOrg)
+	normalRecorder := httptest.NewRecorder()
+	r.ServeHTTP(normalRecorder, normalReq)
+	if normalRecorder.Code != http.StatusCreated {
+		t.Fatalf("normal connection status = %d, want 201: %s", normalRecorder.Code, normalRecorder.Body.String())
+	}
+	if err := db.Model(&model.OrgPluginInstall{}).
+		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", normalOrg.ID, plugin.ID).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count normal-flow plugin installs: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("normal-flow plugin install count = %d, want 0", count)
 	}
 }
 

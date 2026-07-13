@@ -32,7 +32,6 @@ func NewConnectionHandler(db *gorm.DB, nangoClient *nango.Client, cat *catalog.C
 type createConnectionRequest struct {
 	NangoConnectionID string     `json:"nango_connection_id"`
 	Meta              model.JSON `json:"meta,omitempty"`
-	InstallPlugins    bool       `json:"install_plugins,omitempty"`
 }
 
 type connectionResponse struct {
