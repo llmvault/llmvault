@@ -24,6 +24,11 @@ export default defineConfig({
   webServer: {
     command: `pnpm next dev --turbopack -p ${port}`,
     url: baseURL,
+    env: {
+      HIVY_PUBLIC_API_URL: baseURL,
+      HIVY_CONNECTIONS_HOST: "connections.localhost",
+      HIVY_PREVIEW_BASE_DOMAIN: "preview.localhost",
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
