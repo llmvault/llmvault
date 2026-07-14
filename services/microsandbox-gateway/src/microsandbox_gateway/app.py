@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from collections import OrderedDict
@@ -11,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aiohttp import web
+from posthog import Posthog
 
 from .config import Config
 from .control import ControlClient
@@ -36,6 +38,17 @@ from .store import (
 LOGGER = logging.getLogger("microsandbox_gateway")
 
 _LOG_RECORD_BASE_FIELDS = set(logging.makeLogRecord({}).__dict__)
+
+
+def _init_posthog() -> Posthog | None:
+    token = os.getenv("POSTHOG_PROJECT_TOKEN")
+    if not token:
+        return None
+    return Posthog(
+        token,
+        host=os.getenv("POSTHOG_HOST", "https://us.i.posthog.com"),
+        enable_exception_autocapture=True,
+    )
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -79,6 +92,7 @@ class AppState:
     store: Store
     control: ControlClient
     metrics: Metrics = field(default_factory=Metrics)
+    posthog_client: Posthog | None = field(default=None)
     route_cache: LocalRouteCache = field(init=False)
 
     def __post_init__(self) -> None:
@@ -222,10 +236,22 @@ async def lookup(request: web.Request) -> web.Response:
     except TimeoutError as exc:
         state.metrics.inc("lookup_wake_timeout")
         LOGGER.warning("sandbox wake timed out", extra={"sandbox_id": sandbox_id, "port": port, "error": str(exc)})
+        if state.posthog_client is not None:
+            state.posthog_client.capture(
+                distinct_id=sandbox_id,
+                event="sandbox_wake_timed_out",
+                properties={"port": port, "wake_timeout_seconds": state.cfg.wake_timeout_seconds},
+            )
         return json_response(503, {"error": "sandbox wake timed out"}, {"Retry-After": "2"})
     except Exception as exc:
         state.metrics.inc("lookup_error")
         LOGGER.warning("sandbox lookup failed", extra={"sandbox_id": sandbox_id, "port": port, "error": str(exc)})
+        if state.posthog_client is not None:
+            state.posthog_client.capture(
+                distinct_id=sandbox_id,
+                event="sandbox_lookup_failed",
+                properties={"port": port},
+            )
         return json_response(503, {"error": "sandbox unavailable", "detail": str(exc)}, {"Retry-After": "2"})
 
     upstream = upstream_for(route, port)
@@ -322,6 +348,12 @@ async def ensure_ready(
             await store_route(state.store, route)
             state.route_cache.set(route)
             state.metrics.inc("ensure_ready_owner")
+            if state.posthog_client is not None:
+                state.posthog_client.capture(
+                    distinct_id=sandbox_id,
+                    event="sandbox_woken",
+                    properties={"port": port, "role": "owner"},
+                )
             return route
         finally:
             await state.store.delete(lock_key)
@@ -350,6 +382,12 @@ async def ensure_ready(
                 await store_route(state.store, route)
                 state.route_cache.set(route)
                 state.metrics.inc("ensure_ready_takeover")
+                if state.posthog_client is not None:
+                    state.posthog_client.capture(
+                        distinct_id=sandbox_id,
+                        event="sandbox_woken",
+                        properties={"port": port, "role": "takeover"},
+                    )
                 return route
             finally:
                 await state.store.delete(lock_key)
@@ -412,11 +450,23 @@ async def put_route(request: web.Request) -> web.Response:
         for route in routes:
             await store_route(state.store, route)
             state.route_cache.set(route)
+            if state.posthog_client is not None:
+                state.posthog_client.capture(
+                    distinct_id=str(route.get("sandbox_id", "")),
+                    event="sandbox_route_stored",
+                    properties={"bulk": True},
+                )
         return json_response(200, {"stored": len(routes)})
     route = normalize_route(body, sandbox_id)
     state = request.app[STATE_KEY]
     await store_route(state.store, route)
     state.route_cache.set(route)
+    if state.posthog_client is not None:
+        state.posthog_client.capture(
+            distinct_id=str(route.get("sandbox_id", "")),
+            event="sandbox_route_stored",
+            properties={"bulk": False},
+        )
     return json_response(200, route)
 
 
@@ -427,6 +477,12 @@ async def delete_route_handler(request: web.Request) -> web.Response:
     state = request.app[STATE_KEY]
     deleted = await delete_route(state.store, sandbox_id)
     state.route_cache.delete(sandbox_id)
+    if deleted and state.posthog_client is not None:
+        state.posthog_client.capture(
+            distinct_id=sandbox_id,
+            event="sandbox_route_deleted",
+            properties={},
+        )
     return json_response(200, {"deleted": deleted})
 
 
@@ -449,9 +505,21 @@ async def put_alias(request: web.Request) -> web.Response:
         mappings = [normalize_alias(item) for item in body.get("aliases", [])]
         for mapping in mappings:
             await store_alias(state.store, mapping)
+            if state.posthog_client is not None:
+                state.posthog_client.capture(
+                    distinct_id=str(mapping.get("sandbox_id", "")),
+                    event="sandbox_alias_created",
+                    properties={"bulk": True},
+                )
         return json_response(200, {"stored": len(mappings)})
     mapping = normalize_alias(body, request.match_info.get("alias"))
     await store_alias(state.store, mapping)
+    if state.posthog_client is not None:
+        state.posthog_client.capture(
+            distinct_id=str(mapping.get("sandbox_id", "")),
+            event="sandbox_alias_created",
+            properties={"bulk": False},
+        )
     return json_response(200, mapping)
 
 
@@ -459,7 +527,14 @@ async def delete_alias_handler(request: web.Request) -> web.Response:
     if not require_admin(request):
         return json_response(401, {"error": "unauthorized"})
     alias = request.match_info["alias"]
-    deleted = await delete_alias(request.app[STATE_KEY].store, alias)
+    state = request.app[STATE_KEY]
+    deleted = await delete_alias(state.store, alias)
+    if deleted and state.posthog_client is not None:
+        state.posthog_client.capture(
+            distinct_id=alias,
+            event="sandbox_alias_deleted",
+            properties={},
+        )
     return json_response(200, {"deleted": deleted})
 
 
@@ -471,6 +546,8 @@ async def cleanup_resources(app: web.Application) -> None:
     control_close = getattr(state.control, "close", None)
     if control_close is not None:
         await control_close()
+    if state.posthog_client is not None:
+        state.posthog_client.shutdown()
 
 
 def create_app(cfg: Config, store: Store | None = None, control: ControlClient | None = None) -> web.Application:
@@ -479,6 +556,7 @@ def create_app(cfg: Config, store: Store | None = None, control: ControlClient |
         cfg=cfg,
         store=store or RedisStore(cfg.redis_url),
         control=control or ControlClient(cfg.control_url, cfg.control_token),
+        posthog_client=_init_posthog(),
     )
     app.router.add_get("/health", health)
     app.router.add_get("/metrics", metrics)
