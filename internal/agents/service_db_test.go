@@ -126,8 +126,8 @@ func TestResolvePluginSlugs_ValidAndUnknown(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unknown plugin slug")
 	}
-	if !strings.Contains(err.Error(), "does-not-exist") || !strings.Contains(err.Error(), "team plugins") {
-		t.Fatalf("error should name the slug and list team plugins: %q", err.Error())
+	if !strings.Contains(err.Error(), "does-not-exist") || !strings.Contains(err.Error(), "installed plugins") {
+		t.Fatalf("error should name the slug and list installed plugins: %q", err.Error())
 	}
 	// The installed slug must appear in the guidance.
 	if !strings.Contains(err.Error(), plugin.Slug) {

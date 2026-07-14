@@ -212,7 +212,7 @@ func resolveTeamIDForSandbox(ctx context.Context, deps CompileDeps, agent *model
 	if deps.DB == nil || sb == nil || agent == nil || agent.OrgID == nil {
 		return uuid.Nil
 	}
-	var teamID uuid.UUID
+	var rawTeamID string
 	err := deps.DB.WithContext(ctx).
 		Table("sessions").
 		Select("channels.team_id").
@@ -220,7 +220,11 @@ func resolveTeamIDForSandbox(ctx context.Context, deps CompileDeps, agent *model
 		Where("sessions.sandbox_id = ? AND sessions.org_id = ? AND sessions.agent_id = ? AND sessions.status <> ?", sb.ID, *agent.OrgID, agent.ID, "archived").
 		Order("sessions.created_at DESC").
 		Limit(1).
-		Scan(&teamID).Error
+		Scan(&rawTeamID).Error
+	if err != nil {
+		return uuid.Nil
+	}
+	teamID, err := uuid.Parse(rawTeamID)
 	if err != nil {
 		return uuid.Nil
 	}

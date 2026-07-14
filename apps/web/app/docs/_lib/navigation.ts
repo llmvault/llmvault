@@ -4,7 +4,7 @@ export type DocPage = {
   description: string
 }
 
-export type DocSection = {
+type DocSection = {
   title: string
   pages: DocPage[]
 }

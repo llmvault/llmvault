@@ -87,6 +87,7 @@ func (f resolveFixture) seedPlugin(t *testing.T, global bool, slug, manifest, st
 	}
 	if !global {
 		plugin.OrgID = &f.org.ID
+		plugin.TeamID = &f.team.ID
 	}
 	if err := f.db.Create(&plugin).Error; err != nil {
 		t.Fatalf("create plugin %q: %v", slug, err)
