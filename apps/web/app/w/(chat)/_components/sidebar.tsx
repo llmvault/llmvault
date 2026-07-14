@@ -18,7 +18,8 @@ import {
   type SidebarChannelResponse,
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
-import { AccountMenu, SidebarThemeToggle } from "./sidebar-account-menu"
+import { ThemeModeToggle } from "@/components/theme-mode-toggle"
+import { AccountMenu } from "./sidebar-account-menu"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
@@ -180,11 +181,7 @@ export const Sidebar = memo(function Sidebar({
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 pb-4">
         <div className="flex flex-col gap-0.5">
-          <NavRow
-            icon="square-pen"
-            label="New chat"
-            onClick={startNewChat}
-          />
+          <NavRow icon="square-pen" label="New chat" onClick={startNewChat} />
           <NavRow
             icon="bot"
             label="Agents"
@@ -247,7 +244,7 @@ export const Sidebar = memo(function Sidebar({
       <div className="shrink-0 border-t border-border px-3 py-2">
         <div className="flex items-center gap-1">
           <AccountMenu />
-          <SidebarThemeToggle />
+          <ThemeModeToggle />
         </div>
       </div>
     </div>

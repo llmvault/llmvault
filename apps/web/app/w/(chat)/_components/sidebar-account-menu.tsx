@@ -3,20 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Popover } from "@heroui/react"
-import { useTheme } from "next-themes"
 import { AppIcon } from "@/components/icon"
 import { useAuth } from "@/lib/auth/auth-context"
-import {
-  nextSidebarTheme,
-  sidebarThemeMode,
-  type SidebarThemeMode,
-} from "../_lib/sidebar-theme"
-
-const THEME_ICONS: Record<SidebarThemeMode, string> = {
-  light: "sun",
-  dark: "moon",
-  system: "monitor",
-}
 
 export function AccountMenu() {
   const [open, setOpen] = useState(false)
@@ -106,26 +94,6 @@ export function AccountMenu() {
         </Popover.Dialog>
       </Popover.Content>
     </Popover>
-  )
-}
-
-export function SidebarThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const current = sidebarThemeMode(theme)
-  const next = nextSidebarTheme(theme)
-  const currentLabel = current[0].toUpperCase() + current.slice(1)
-  const nextLabel = next[0].toUpperCase() + next.slice(1)
-
-  return (
-    <button
-      type="button"
-      aria-label={`Theme: ${currentLabel}. Switch to ${nextLabel}`}
-      title={`Theme: ${currentLabel}`}
-      onClick={() => setTheme(next)}
-      className="focus-visible:ring-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-default focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
-    >
-      <AppIcon icon={THEME_ICONS[current]} className="h-4 w-4 text-muted" />
-    </button>
   )
 }
 

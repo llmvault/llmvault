@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest"
-import { nextSidebarTheme, sidebarThemeMode } from "./sidebar-theme"
+import { displayedThemeMode, nextThemeMode, themeMode } from "@/lib/theme/mode"
 
 describe("sidebar theme toggle", () => {
   it("cycles through light, dark, and system modes", () => {
-    expect(nextSidebarTheme("light")).toBe("dark")
-    expect(nextSidebarTheme("dark")).toBe("system")
-    expect(nextSidebarTheme("system")).toBe("light")
+    expect(nextThemeMode("light")).toBe("dark")
+    expect(nextThemeMode("dark")).toBe("system")
+    expect(nextThemeMode("system")).toBe("light")
   })
 
   it("uses system when the stored theme is unavailable", () => {
-    expect(sidebarThemeMode(undefined)).toBe("system")
+    expect(themeMode(undefined)).toBe("system")
+  })
+
+  it("keeps the server and first client render on system mode", () => {
+    const initial = displayedThemeMode("dark", false)
+    expect(initial).toBe("system")
+    expect(nextThemeMode(initial)).toBe("light")
+    expect(displayedThemeMode("dark", true)).toBe("dark")
   })
 })
