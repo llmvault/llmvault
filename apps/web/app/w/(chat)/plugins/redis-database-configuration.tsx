@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react"
 import { Button, Input, Label } from "@heroui/react"
 import {
-  ConfigureFrame,
-  EmptyPolicyState,
   type DatabaseConnection,
   type DatabasePolicy,
 } from "@/app/w/(chat)/plugins/database-policy-configuration"
+import {
+  ConfigureFrame,
+  EmptyPolicyState,
+} from "@/app/w/(chat)/plugins/database-policy-components"
 
 interface RedisKeyInfo {
   key: string
@@ -98,7 +100,7 @@ export function RedisDatabaseConfiguration({
             {keys.map((item) => (
               <label
                 key={item.key}
-                className="bg-default flex items-center gap-3 rounded-2xl px-3 py-3 text-sm"
+                className="flex items-center gap-3 rounded-2xl bg-default px-3 py-3 text-sm"
               >
                 <input
                   type="checkbox"
@@ -132,7 +134,7 @@ export function RedisDatabaseConfiguration({
                   onClick={() =>
                     setSelectedKeys((current) => toggleRedisKey(current, key))
                   }
-                  className="max-w-full truncate rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+                  className="bg-primary text-primary-foreground max-w-full truncate rounded-lg px-3 py-1.5 text-sm"
                 >
                   {key}
                 </button>

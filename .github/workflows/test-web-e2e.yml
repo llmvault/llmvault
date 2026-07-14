@@ -4,14 +4,20 @@ on:
   push:
     branches: [main]
     paths:
+      - "apps/web/app/**"
+      - "apps/web/components/**"
       - "apps/web/e2e/**"
+      - "apps/web/lib/**"
       - "apps/web/package.json"
       - "apps/web/pnpm-lock.yaml"
       - ".github/workflows/test-web-e2e.yml"
   pull_request:
     branches: [main]
     paths:
+      - "apps/web/app/**"
+      - "apps/web/components/**"
       - "apps/web/e2e/**"
+      - "apps/web/lib/**"
       - "apps/web/package.json"
       - "apps/web/pnpm-lock.yaml"
       - ".github/workflows/test-web-e2e.yml"
@@ -62,6 +68,11 @@ jobs:
         env:
           QA_EMAIL_LOGIN_PROD: ${{ secrets.QA_EMAIL_LOGIN_PROD }}
           QA_PASSWORD_LOGIN_PROD: ${{ secrets.QA_PASSWORD_LOGIN_PROD }}
+
+      - name: run mocked MCP settings e2e
+        run: pnpm run test:e2e:mcp
+        working-directory: apps/web
+        timeout-minutes: 3
 
       - name: upload test report
         if: always()

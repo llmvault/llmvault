@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "test:e2e:mcp": "playwright test --config e2e/playwright.local.config.ts",
     "generate": "openapi-typescript ../../docs/openapi.json -o lib/api/schema.d.ts",
     "knip": "knip"
   },
