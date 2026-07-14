@@ -68,6 +68,10 @@ export function SQLDatabaseConfiguration({
   const visibleTables = tables.filter((table) =>
     selectedSchemas.has(table.schema)
   )
+  const visibleTableKeys = visibleTables.map((table) => table.key)
+  const allVisibleTablesSelected =
+    visibleTableKeys.length > 0 &&
+    visibleTableKeys.every((table) => selectedTables.has(table))
   const canSave = canManage && selectedTables.size > 0 && !saving
 
   function toggleSchema(schema: string) {
@@ -120,8 +124,28 @@ export function SQLDatabaseConfiguration({
         </div>
 
         <div className="space-y-2">
-          <Label>Tables</Label>
-          {tables.length === 0 ? (
+          <div className="flex items-center justify-between gap-4">
+            <Label>Tables</Label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={allVisibleTablesSelected}
+                disabled={visibleTableKeys.length === 0}
+                onChange={() =>
+                  setSelectedTables((current) =>
+                    setAllValues(
+                      current,
+                      visibleTableKeys,
+                      !allVisibleTablesSelected
+                    )
+                  )
+                }
+                className="size-4 accent-current"
+              />
+              Select all
+            </label>
+          </div>
+          {visibleTables.length === 0 ? (
             <EmptyPolicyState text="Select a schema to show its tables." />
           ) : (
             <div className="space-y-2">
@@ -143,6 +167,7 @@ export function SQLDatabaseConfiguration({
                   }
                 >
                   <FieldMaskList
+                    threeColumns
                     fields={tableColumns(table).map((column) => ({
                       name: column,
                       detail:
@@ -411,11 +436,13 @@ function ExpandablePolicyRow({
 function FieldMaskList({
   fields,
   disabled,
+  threeColumns = false,
   maskedFields,
   onToggleMask,
 }: {
   fields: { name: string; detail: string }[]
   disabled: boolean
+  threeColumns?: boolean
   maskedFields: Set<string>
   onToggleMask: (field: string) => void
 }) {
@@ -424,7 +451,12 @@ function FieldMaskList({
   }
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div
+      className={cn(
+        "grid gap-2",
+        threeColumns ? "sm:grid-cols-3" : "sm:grid-cols-2"
+      )}
+    >
       {fields.map((field) => (
         <label
           key={field.name}
@@ -557,6 +589,22 @@ function toggleSetValue(values: Set<string>, value: string) {
     next.delete(value)
   } else {
     next.add(value)
+  }
+  return next
+}
+
+export function setAllValues(
+  values: Set<string>,
+  selectableValues: string[],
+  selected: boolean
+) {
+  const next = new Set(values)
+  for (const value of selectableValues) {
+    if (selected) {
+      next.add(value)
+    } else {
+      next.delete(value)
+    }
   }
   return next
 }

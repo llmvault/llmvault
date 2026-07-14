@@ -542,7 +542,11 @@ function RequiredConnectionModal({
     <Modal.Root state={state}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="relative w-full max-w-sm bg-background p-0 shadow-xl outline-none">
+          <Modal.Dialog
+            className={`relative w-full bg-background p-0 shadow-xl outline-none ${
+              modal?.view === "database" ? "max-w-3xl" : "max-w-sm"
+            }`}
+          >
             {modal?.view === "database" && isDatabaseProvider(provider) ? (
               <DatabaseConnectionModalContent
                 provider={provider}
