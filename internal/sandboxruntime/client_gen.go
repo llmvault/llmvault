@@ -86,11 +86,26 @@ func (e McpSpec1Transport) Valid() bool {
 
 // Defines values for McpSpec2Transport.
 const (
-	StreamableHttp McpSpec2Transport = "streamable_http"
+	Sse McpSpec2Transport = "sse"
 )
 
 // Valid indicates whether the value is a known member of the McpSpec2Transport enum.
 func (e McpSpec2Transport) Valid() bool {
+	switch e {
+	case Sse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for McpSpec3Transport.
+const (
+	StreamableHttp McpSpec3Transport = "streamable_http"
+)
+
+// Valid indicates whether the value is a known member of the McpSpec3Transport enum.
+func (e McpSpec3Transport) Valid() bool {
 	switch e {
 	case StreamableHttp:
 		return true
@@ -704,7 +719,9 @@ type McpSpec1 struct {
 // McpSpec1Transport defines model for McpSpec.1.Transport.
 type McpSpec1Transport string
 
-// McpSpec2 defines model for .
+// McpSpec2 Legacy MCP HTTP+SSE transport (protocol version 2024-11-05). The
+// configured URL is the long-lived GET event stream; the server announces
+// the per-session POST endpoint with an `event: endpoint` frame.
 type McpSpec2 struct {
 	Headers    *map[string]string `json:"headers,omitempty"`
 	Name       string             `json:"name"`
@@ -715,6 +732,18 @@ type McpSpec2 struct {
 
 // McpSpec2Transport defines model for McpSpec.2.Transport.
 type McpSpec2Transport string
+
+// McpSpec3 defines model for .
+type McpSpec3 struct {
+	Headers    *map[string]string `json:"headers,omitempty"`
+	Name       string             `json:"name"`
+	ToolFilter *ToolFilter        `json:"tool_filter,omitempty"`
+	Transport  McpSpec3Transport  `json:"transport"`
+	Url        string             `json:"url"`
+}
+
+// McpSpec3Transport defines model for McpSpec.3.Transport.
+type McpSpec3Transport string
 
 // ModelCapabilities defines model for ModelCapabilities.
 type ModelCapabilities struct {
@@ -1289,6 +1318,32 @@ func (t *McpSpec) FromMcpSpec2(v McpSpec2) error {
 
 // MergeMcpSpec2 performs a merge with any union data inside the McpSpec, using the provided McpSpec2
 func (t *McpSpec) MergeMcpSpec2(v McpSpec2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMcpSpec3 returns the union data inside the McpSpec as a McpSpec3
+func (t McpSpec) AsMcpSpec3() (McpSpec3, error) {
+	var body McpSpec3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMcpSpec3 overwrites any union data inside the McpSpec as the provided McpSpec3
+func (t *McpSpec) FromMcpSpec3(v McpSpec3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMcpSpec3 performs a merge with any union data inside the McpSpec, using the provided McpSpec3
+func (t *McpSpec) MergeMcpSpec3(v McpSpec3) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

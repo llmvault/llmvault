@@ -114,6 +114,7 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	schedule, err := agentschedule.Create(r.Context(), h.db, &agent, agentschedule.CreateInput{
 		Name:            strings.TrimSpace(req.Name),
+		CreatedByUserID: scheduleCreatorUserID(r),
 		Description:     req.Description,
 		TaskPrompt:      req.TaskPrompt,
 		ChannelID:       channelID.String(),
@@ -131,6 +132,18 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		loaded = schedule
 	}
 	writeJSON(w, http.StatusCreated, createScheduleResponse{Schedule: scheduleToResponse(*loaded)})
+}
+
+func scheduleCreatorUserID(r *http.Request) *uuid.UUID {
+	if r == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(middleware.UserID(r.Context()))
+	id, err := uuid.Parse(raw)
+	if err != nil || id == uuid.Nil {
+		return nil
+	}
+	return &id
 }
 
 // Update handles PATCH /v1/schedules/{id}.

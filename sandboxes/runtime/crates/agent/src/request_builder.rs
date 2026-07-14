@@ -5,13 +5,12 @@ use crate::primitives::{
 };
 
 pub fn build_openai_compatible_request(request: &ModelRequest) -> Value {
-    let mut tools = request
+    let tools = request
         .tools
         .clone()
         .into_iter()
         .map(|tool| request.profile.sanitize_tool_definition(tool))
         .collect::<Vec<_>>();
-    tools.sort_by(|a, b| a.name.cmp(&b.name));
     let messages = transform_messages_for_profile(&request.messages);
 
     let mut body = json!({
@@ -260,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn sorts_tools_by_name() {
+    fn preserves_tool_order_for_progressive_schema_appends() {
         let req = ModelRequest {
             model: "test".into(),
             messages: vec![AgentMessage::user("hi")],
@@ -284,8 +283,8 @@ mod tests {
             provider_options: HashMap::new(),
         };
         let body = build_openai_compatible_request(&req);
-        assert_eq!(body["tools"][0]["function"]["name"], "a");
-        assert_eq!(body["tools"][1]["function"]["name"], "z");
+        assert_eq!(body["tools"][0]["function"]["name"], "z");
+        assert_eq!(body["tools"][1]["function"]["name"], "a");
     }
 
     #[test]

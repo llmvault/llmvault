@@ -184,6 +184,7 @@ var migratedTables = []string{
 	"agent_observations",
 	"agent_plugin_overrides",
 	"agent_plugin_installs",
+	"agent_mcp_servers",
 	"agent_schedule_runs",
 	"agent_schedules",
 	"agent_trigger_deliveries",
@@ -211,6 +212,9 @@ var migratedTables = []string{
 	"github_pull_request_sessions",
 	"integrations",
 	"memory_suppressions",
+	"mcp_authorizations",
+	"mcp_oauth_states",
+	"mcp_servers",
 	"oauth_accounts",
 	"oauth_exchange_tokens",
 	"org_invite_teams",
@@ -251,6 +255,7 @@ var migratedTables = []string{
 	"subscription_change_quotes",
 	"subscriptions",
 	"team_members",
+	"team_mcp_servers",
 	"team_env_vars",
 	"team_plugins",
 	"team_rag_sources",
@@ -258,7 +263,8 @@ var migratedTables = []string{
 	"tokens",
 	"tool_usages",
 	"usage",
+	"user_agent_mcp_servers",
 	"users",
 }
 
-const latestMigrationVersion = 94
+const latestMigrationVersion = 97

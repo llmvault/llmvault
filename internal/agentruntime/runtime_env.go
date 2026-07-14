@@ -37,6 +37,7 @@ func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent 
 type RuntimeConfigOptions struct {
 	ModelID         string
 	ReasoningEffort string
+	MCPContext      MCPRuntimeContext
 	// TeamID scopes which team env vars are injected. When Nil, the builder
 	// resolves it from the sandbox's session channel. Session creation sets it
 	// explicitly because the session↔sandbox link is not yet persisted at the
@@ -79,7 +80,8 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 		return ConfigUpdateRequest{}, err
 	}
 	phaseLog.log("build runtime env", "env_key_count", len(env))
-	def, err := CompileWithProxyToken(ctx, deps, runtimeAgent, token)
+	opts.TeamID = teamID
+	def, err := CompileWithProxyTokenOptions(ctx, deps, runtimeAgent, token, opts)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}

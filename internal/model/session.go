@@ -28,6 +28,9 @@ type Session struct {
 	Sandbox                    *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:SET NULL"`
 	CreatedBy                  *uuid.UUID `gorm:"type:uuid"`
 	Creator                    *User      `gorm:"foreignKey:CreatedBy;constraint:OnDelete:SET NULL"`
+	RuntimeMCPActorUserID      *uuid.UUID `gorm:"type:uuid;index"`
+	RuntimeMCPActorUser        *User      `gorm:"foreignKey:RuntimeMCPActorUserID;constraint:OnDelete:SET NULL"`
+	RuntimeMCPConfigVersion    int64      `gorm:"not null;default:0"`
 	Model                      string     `gorm:"type:text"`
 	ImageModel                 string     `gorm:"type:text;not null;default:''"`
 	VectorImageModel           string     `gorm:"type:text;not null;default:''"`

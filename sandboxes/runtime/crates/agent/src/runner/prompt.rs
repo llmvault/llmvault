@@ -263,6 +263,20 @@ pub(super) async fn render_dynamic_system_prompt(
     if !renders_legacy_context_segment {
         append_rendered_segment(&mut prompt, render_session_context(session_context));
     }
+    if !mcp_tools.is_empty() {
+        append_rendered_segment(
+            &mut prompt,
+            Some(
+                "## MCP progressive discovery\nThe names in the MCP catalog are available capabilities, but their full schemas are intentionally hidden to preserve context. Use `search_tools` to find relevant names, then call `get_tool_details` with an exact name to inspect and activate that tool. The activated definition becomes directly callable on the next model request."
+                    .to_string(),
+            ),
+        );
+    }
+    let has_mcp_tool_segment = snapshot
+        .system_prompt
+        .dynamic_segments
+        .iter()
+        .any(|segment| matches!(segment, SystemPromptSegment::McpTools(_)));
     for segment in &snapshot.system_prompt.dynamic_segments {
         let rendered = match segment {
             SystemPromptSegment::StaticText(_) => render_static_segment(segment),
@@ -272,6 +286,19 @@ pub(super) async fn render_dynamic_system_prompt(
             SystemPromptSegment::McpTools(config) => render_tool_list_segment(config, &mcp_tools),
         };
         append_rendered_segment(&mut prompt, rendered);
+    }
+    if !has_mcp_tool_segment && !mcp_tools.is_empty() {
+        append_rendered_segment(
+            &mut prompt,
+            render_tool_list_segment(
+                &domain::ListPromptSegment {
+                    title: "Available MCP tool names".to_string(),
+                    preamble: "Complete exact-name catalog:".to_string(),
+                    item_template: "- {name}".to_string(),
+                },
+                &mcp_tools,
+            ),
+        );
     }
 
     prompt

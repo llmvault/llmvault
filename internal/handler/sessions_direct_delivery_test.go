@@ -124,6 +124,71 @@ func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *
 	assertSessionQueueCount(t, h, created.Session.ID, 0)
 }
 
+func TestIntegration_SessionsSend_RevokedMCPGrantReloadsRuntimeBeforeNextTurn(t *testing.T) {
+	runtime := newSessionRuntimeStub(t, http.StatusOK)
+	h, _ := newSessionRuntimeHarness(t, runtime, nil)
+	fx := h.seed(t)
+	server := model.MCPServer{
+		OrgID: fx.org.ID, Scope: model.MCPServerScopeOrg, Name: "Revocable MCP", Slug: "revocable-mcp",
+		URL: "https://revocable.example.test/mcp", Transport: model.MCPTransportStreamableHTTP,
+		AuthType: model.MCPAuthTypeNone, AuthorizationPolicy: model.MCPAuthorizationPolicyNone,
+		OAuthMetadata: model.JSON{}, Status: model.MCPServerStatusActive,
+	}
+	if err := h.db.Create(&server).Error; err != nil {
+		t.Fatalf("create MCP server: %v", err)
+	}
+	grant := model.TeamMCPServer{OrgID: fx.org.ID, TeamID: fx.channel.TeamID, MCPServerID: server.ID, GrantedBy: &fx.owner.ID}
+	if err := h.db.Create(&grant).Error; err != nil {
+		t.Fatalf("grant MCP server: %v", err)
+	}
+
+	created := h.createSession(t, fx, fx.owner, "Use the granted MCP")
+	if names := runtimeConfigMCPNames(t, runtime.lastConfigBody); !containsTestString(names, "revocable-mcp") {
+		t.Fatalf("initial runtime MCP names = %v, want revocable-mcp", names)
+	}
+	releaseSessionForNextUserTurn(t, h, created.Session.ID)
+	if err := h.db.Where("org_id = ? AND team_id = ? AND mcp_server_id = ?", fx.org.ID, fx.channel.TeamID, server.ID).
+		Delete(&model.TeamMCPServer{}).Error; err != nil {
+		t.Fatalf("revoke MCP server: %v", err)
+	}
+
+	message := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
+		"text": "Continue after revocation",
+	})
+	if message.Code != http.StatusAccepted {
+		t.Fatalf("message status=%d body=%s", message.Code, message.Body.String())
+	}
+	if runtime.configCalls != 2 {
+		t.Fatalf("runtime config calls=%d, want reload before post-revocation turn", runtime.configCalls)
+	}
+	if names := runtimeConfigMCPNames(t, runtime.lastConfigBody); containsTestString(names, "revocable-mcp") {
+		t.Fatalf("revoked MCP remained in runtime config: %v", names)
+	}
+}
+
+func runtimeConfigMCPNames(t *testing.T, body map[string]any) []string {
+	t.Helper()
+	definition, _ := body["definition"].(map[string]any)
+	servers, _ := definition["mcp_servers"].([]any)
+	names := make([]string, 0, len(servers))
+	for _, value := range servers {
+		server, _ := value.(map[string]any)
+		if name, _ := server["name"].(string); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func containsTestString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 type recordingPreContextBuilder struct {
 	calls    int
 	requests []precontext.Request

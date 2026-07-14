@@ -27,6 +27,7 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "channels", label: "Channels", icon: "hash" },
       { id: "memories", label: "Memories", icon: "brain" },
       { id: "knowledge", label: "Knowledge", icon: "folder-open", adminOnly: true },
+      { id: "mcp", label: "MCP servers", icon: "plug-zap" },
     ],
   },
   {

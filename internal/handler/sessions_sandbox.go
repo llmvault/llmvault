@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *model.Agent, teamID uuid.UUID, modelID string, reasoningEffort string) (*model.Sandbox, error) {
+func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *model.Agent, teamID uuid.UUID, modelID string, reasoningEffort string, mcpContext agentruntime.MCPRuntimeContext) (*model.Sandbox, error) {
 	if h == nil || h.orchestrator == nil {
 		return nil, fmt.Errorf("session sandbox provisioning is not configured")
 	}
@@ -45,6 +45,7 @@ func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *mod
 		ModelID:         runtimeAgent.Model,
 		ReasoningEffort: reasoningEffort,
 		TeamID:          teamID,
+		MCPContext:      mcpContext,
 	})
 	if err != nil {
 		h.revokeSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)

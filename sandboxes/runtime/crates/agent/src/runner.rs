@@ -2,7 +2,7 @@
 
 mod prompt;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -207,8 +207,7 @@ impl AgentRunner for RigAgentRunner {
             mcp_registry.clone(),
             mcp_tool_filter.as_ref(),
         );
-        available_tools.sort_by(|a, b| a.definition().name.cmp(&b.definition().name));
-        let tool_executor = ToolExecutor::new(
+        let mut tool_executor = ToolExecutor::new(
             available_tools.clone(),
             snapshot.limits.tool_call_timeout_seconds,
         );
@@ -962,6 +961,49 @@ impl AgentRunner for RigAgentRunner {
                         break;
                     }
                 }
+
+                // `get_tool_details` activates an MCP definition in the
+                // session-scoped registry. Append newly activated tools after
+                // the existing definitions so provider prompt-cache prefixes
+                // remain stable; never re-sort or remove earlier definitions.
+                if let Some(registry) = mcp_registry.as_ref() {
+                    let known_names: HashSet<String> = available_tools
+                        .iter()
+                        .map(|tool| tool.definition().name)
+                        .collect();
+                    let activated = build_mcp_tools(
+                        registry.clone(),
+                        &session_id,
+                        actor_user_id.clone(),
+                        mcp_tool_filter.as_ref(),
+                    );
+                    let mut appended = 0usize;
+                    for tool in activated {
+                        if !known_names.contains(&tool.definition().name)
+                            && !available_tools
+                                .iter()
+                                .any(|existing| existing.definition().name == tool.definition().name)
+                        {
+                            available_tools.push(tool);
+                            appended += 1;
+                        }
+                    }
+                    if appended > 0 {
+                        tool_executor = ToolExecutor::new(
+                            available_tools.clone(),
+                            snapshot.limits.tool_call_timeout_seconds,
+                        );
+                        yield AgentEvent::RunEvent {
+                            event: "mcp_tools_activated".to_string(),
+                            payload: serde_json::json!({
+                                "session_id": session_id.as_str(),
+                                "turn_id": turn_id,
+                                "activated_count": appended,
+                                "visible_tool_count": available_tools.len(),
+                            }),
+                        };
+                    }
+                }
                 if let Some(message) = stop_after_tool_calls {
                     final_text = message.clone();
                     completed_with_final = true;
@@ -1223,14 +1265,18 @@ fn truncate_for_prompt(text: &str, max_bytes: usize) -> String {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::path::PathBuf;
+    use std::process::Stdio;
 
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
-        AgentMeta, ContextConfig, Limits, ModelConfig, StaticPromptSegment, SystemPromptConfig,
-        SystemPromptSegment,
+        AgentMeta, ContextConfig, Limits, ListPromptSegment, McpSpec, ModelConfig,
+        StaticPromptSegment, SystemPromptConfig, SystemPromptSegment,
     };
     use futures::StreamExt;
+    use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::net::TcpListener;
+    use tokio::process::{Child, Command};
 
     use crate::tool_executor::{is_safe_tool_argument_error, missing_required_argument_message};
 
@@ -2443,6 +2489,209 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn mcp_schema_is_hidden_until_details_activate_it_for_next_model_request() {
+        struct FixtureProcess {
+            child: Child,
+            base_url: String,
+        }
+
+        impl FixtureProcess {
+            async fn start() -> Self {
+                let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../mcp/tests/fixtures/http_mcp_server.py");
+                let mut child = Command::new("python3")
+                    .arg(fixture)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::inherit())
+                    .kill_on_drop(true)
+                    .spawn()
+                    .expect("start MCP fixture");
+                let stdout = child.stdout.take().expect("fixture stdout");
+                let mut lines = BufReader::new(stdout).lines();
+                let port_line =
+                    tokio::time::timeout(std::time::Duration::from_secs(5), lines.next_line())
+                        .await
+                        .expect("fixture startup timeout")
+                        .expect("read fixture port")
+                        .expect("fixture exited before port");
+                let port = port_line
+                    .strip_prefix("PORT=")
+                    .expect("fixture port prefix")
+                    .parse::<u16>()
+                    .expect("fixture port");
+                Self {
+                    child,
+                    base_url: format!("http://127.0.0.1:{port}"),
+                }
+            }
+        }
+
+        let mut fixture = FixtureProcess::start().await;
+        let mcp_registry = Arc::new(
+            McpRegistry::from_specs_allowing_loopback_for_tests(
+                &[McpSpec::StreamableHttp {
+                    name: "oauth".to_string(),
+                    url: format!("{}/oauth", fixture.base_url),
+                    headers: HashMap::from([(
+                        "Authorization".to_string(),
+                        "Bearer ${USER_OAUTH_TOKEN}".to_string(),
+                    )]),
+                    tool_filter: None,
+                }],
+                &HashMap::from([(
+                    "USER_OAUTH_TOKEN".to_string(),
+                    "oauth-user-token".to_string(),
+                )]),
+                std::env::temp_dir(),
+            )
+            .await,
+        );
+        assert!(mcp_registry.connection_statuses()[0].connected);
+
+        let requests: Arc<tokio::sync::Mutex<Vec<serde_json::Value>>> =
+            Arc::new(tokio::sync::Mutex::new(Vec::new()));
+        let handler_requests = requests.clone();
+        async fn progressive_handler(
+            axum::extract::State(requests): axum::extract::State<
+                Arc<tokio::sync::Mutex<Vec<serde_json::Value>>>,
+            >,
+            Json(body): Json<serde_json::Value>,
+        ) -> impl IntoResponse {
+            let request_number = {
+                let mut requests = requests.lock().await;
+                let request_number = requests.len() + 1;
+                requests.push(body);
+                request_number
+            };
+            let payload = match request_number {
+                1 => {
+                    let arguments = serde_json::json!({"name":"oauth_echo"}).to_string();
+                    let chunk = serde_json::json!({
+                        "choices": [{"delta": {"tool_calls": [{
+                            "index": 0,
+                            "id": "details-1",
+                            "function": {"name": "get_tool_details", "arguments": arguments}
+                        }]}}]
+                    });
+                    format!(
+                        "data: {chunk}\n\ndata: {{\"choices\":[{{\"delta\":{{}},\"finish_reason\":\"tool_calls\"}}]}}\n\ndata: [DONE]\n\n"
+                    )
+                }
+                2 => {
+                    let arguments = serde_json::json!({"message":"runtime works"}).to_string();
+                    let chunk = serde_json::json!({
+                        "choices": [{"delta": {"tool_calls": [{
+                            "index": 0,
+                            "id": "echo-1",
+                            "function": {"name": "oauth_echo", "arguments": arguments}
+                        }]}}]
+                    });
+                    format!(
+                        "data: {chunk}\n\ndata: {{\"choices\":[{{\"delta\":{{}},\"finish_reason\":\"tool_calls\"}}]}}\n\ndata: [DONE]\n\n"
+                    )
+                }
+                _ => {
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"progressive MCP worked\"}}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n".to_string()
+                }
+            };
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                payload,
+            )
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new()
+            .route("/chat/completions", post(progressive_handler))
+            .with_state(handler_requests);
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        definition
+            .system_prompt
+            .dynamic_segments
+            .push(SystemPromptSegment::McpTools(ListPromptSegment {
+                title: "Additional MCP tools".to_string(),
+                preamble: "Exact names available for discovery:".to_string(),
+                item_template: "- {name}".to_string(),
+            }));
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir())
+            .with_mcp_registry(mcp_registry.clone());
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("progressive-mcp-session"),
+                TurnInput::text("echo through OAuth MCP"),
+                None,
+            )
+            .await
+            .expect("run turn");
+        let mut events = Vec::new();
+        while let Some(event) = stream.next().await {
+            events.push(event);
+        }
+
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::RunEvent { event, payload }
+                if event == "mcp_tools_activated" && payload["activated_count"] == 1
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::ToolResult { id, result }
+                if id == "echo-1"
+                    && result["structuredContent"]["authorization"] == "Bearer oauth-user-token"
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::FinalMessage { text } if text == "progressive MCP worked"
+        )));
+
+        let requests = requests.lock().await;
+        assert_eq!(requests.len(), 3);
+        let tool_names = |request: &serde_json::Value| -> Vec<String> {
+            request["tools"]
+                .as_array()
+                .expect("model tools")
+                .iter()
+                .map(|tool| {
+                    tool["function"]["name"]
+                        .as_str()
+                        .expect("tool name")
+                        .to_string()
+                })
+                .collect()
+        };
+        let first = tool_names(&requests[0]);
+        let second = tool_names(&requests[1]);
+        let third = tool_names(&requests[2]);
+        assert_eq!(first, vec!["search_tools", "get_tool_details"]);
+        assert_eq!(
+            second,
+            vec!["search_tools", "get_tool_details", "oauth_echo"]
+        );
+        assert_eq!(third, second, "activated definitions must remain stable");
+        assert!(requests[0]["messages"].to_string().contains("oauth_echo"));
+        assert!(requests[0]["messages"]
+            .to_string()
+            .contains("Exact names available"));
+        assert!(requests[0]["messages"]
+            .to_string()
+            .contains("full schemas are intentionally hidden"));
+
+        let _ = fixture.child.kill().await;
+        let _ = fixture.child.wait().await;
+    }
+
     fn test_system_prompt() -> SystemPromptConfig {
         SystemPromptConfig {
             cacheable_segments: vec![
@@ -2486,40 +2735,152 @@ fn build_all_tools(
     let mut tools = tools::build_builtin_tools(specs, context, session_id);
     tools.extend(build_agent_tools(specs, session_id, tool_context));
     if let Some(registry) = mcp_registry {
-        for def in registry.loaded_tools_filtered(mcp_tool_filter) {
-            let registry = registry.clone();
-            let prefixed = def.prefixed_name.clone();
-            let session_id = session_id.clone();
-            let actor_user_id = actor_user_id.clone();
-            let definition = tools::ToolDefinition {
-                name: prefixed.clone(),
-                description: def.description,
-                parameters: def.parameters,
-            };
-            tools.push(Arc::new(DynamicTool::new(definition, move |args| {
-                let registry = registry.clone();
-                let prefixed = prefixed.clone();
-                let session_id = session_id.clone();
-                let actor_user_id = actor_user_id.clone();
-                Box::pin(async move {
-                    registry
-                        .call_tool_for_session(
-                            session_id.as_str(),
-                            actor_user_id.as_deref(),
-                            &prefixed,
-                            args,
-                        )
-                        .await
-                })
-            })));
+        tools.extend(build_mcp_tools(
+            registry,
+            session_id,
+            actor_user_id,
+            mcp_tool_filter,
+        ));
+    }
+    let mut seen = HashSet::new();
+    let mut unique = Vec::with_capacity(tools.len());
+    for tool in tools {
+        if seen.insert(tool.definition().name) {
+            unique.push(tool);
         }
     }
-    let mut by_name: HashMap<String, Arc<dyn JsonTool>> = HashMap::new();
-    for tool in tools {
-        by_name.insert(tool.definition().name, tool);
+    unique
+}
+
+fn build_mcp_tools(
+    registry: Arc<McpRegistry>,
+    session_id: &SessionId,
+    actor_user_id: Option<String>,
+    mcp_tool_filter: Option<&domain::ToolFilter>,
+) -> Vec<Arc<dyn JsonTool>> {
+    if registry
+        .available_tool_names_filtered(mcp_tool_filter)
+        .is_empty()
+    {
+        return Vec::new();
     }
-    let mut tools: Vec<_> = by_name.into_values().collect();
-    tools.sort_by(|a, b| a.definition().name.cmp(&b.definition().name));
+
+    let mut tools: Vec<Arc<dyn JsonTool>> = Vec::new();
+    let search_registry = registry.clone();
+    let search_filter = mcp_tool_filter.cloned();
+    tools.push(Arc::new(DynamicTool::new(
+        tools::ToolDefinition {
+            name: "search_tools".to_string(),
+            description: "Search the complete MCP tool catalog by keyword. Results are grouped by server. Use name detail for a compact catalog, summary for one-line descriptions, or full only when schemas are genuinely needed. After choosing an exact name, call get_tool_details to activate it.".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural-language keywords, an exact tool name, or * to browse the catalog."
+                    },
+                    "detail_level": {
+                        "type": "string",
+                        "enum": ["name", "summary", "full"],
+                        "default": "summary"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 12
+                    }
+                },
+                "required": ["query"]
+            }),
+        },
+        move |args| {
+            let registry = search_registry.clone();
+            let filter = search_filter.clone();
+            Box::pin(async move {
+                let query = args
+                    .get("query")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("query required"))?;
+                let detail_level = args
+                    .get("detail_level")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("summary");
+                let limit = args
+                    .get("limit")
+                    .and_then(serde_json::Value::as_u64)
+                    .map(|value| value as usize);
+                Ok(registry.search_tools_filtered(
+                    query,
+                    detail_level,
+                    limit,
+                    filter.as_ref(),
+                ))
+            })
+        },
+    )));
+
+    let details_registry = registry.clone();
+    let details_filter = mcp_tool_filter.cloned();
+    let details_session_id = session_id.clone();
+    tools.push(Arc::new(DynamicTool::new(
+        tools::ToolDefinition {
+            name: "get_tool_details".to_string(),
+            description: "Inspect one MCP tool's full input/output schema and activate that exact definition. The activated tool becomes directly callable on the next model request and remains appended for this session.".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Exact prefixed tool name returned by search_tools or listed in the MCP catalog."
+                    }
+                },
+                "required": ["name"]
+            }),
+        },
+        move |args| {
+            let registry = details_registry.clone();
+            let filter = details_filter.clone();
+            let session_id = details_session_id.clone();
+            Box::pin(async move {
+                let name = args
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("name required"))?;
+                registry.activate_tool_filtered(session_id.as_str(), name, filter.as_ref())
+            })
+        },
+    )));
+
+    for definition in registry.activated_tools_filtered(session_id.as_str(), mcp_tool_filter) {
+        let tool_registry = registry.clone();
+        let prefixed = definition.prefixed_name.clone();
+        let tool_session_id = session_id.clone();
+        let tool_actor_user_id = actor_user_id.clone();
+        let tool_definition = tools::ToolDefinition {
+            name: prefixed.clone(),
+            description: definition.description,
+            parameters: definition.parameters,
+        };
+        tools.push(Arc::new(DynamicTool::new(tool_definition, move |args| {
+            let registry = tool_registry.clone();
+            let prefixed = prefixed.clone();
+            let session_id = tool_session_id.clone();
+            let actor_user_id = tool_actor_user_id.clone();
+            Box::pin(async move {
+                registry
+                    .call_tool_for_session(
+                        session_id.as_str(),
+                        actor_user_id.as_deref(),
+                        &prefixed,
+                        args,
+                    )
+                    .await
+            })
+        })));
+    }
     tools
 }
 

@@ -1772,14 +1772,20 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "async-trait",
+ "base64",
  "dashmap",
  "domain",
+ "futures",
  "http 1.4.0",
+ "reqwest 0.13.3",
  "rmcp",
  "serde_json",
+ "sha2",
+ "sse-stream",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]

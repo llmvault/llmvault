@@ -60,7 +60,7 @@ func waitForHTTPHealthCheck(ctx context.Context, sandboxID string, guestPort, ho
 			// clobbering the last observed status with a deadline string.
 			if probeCtx.Err() == nil {
 				last = doErr.Error()
-			} else {
+			} else if resp != nil {
 				last = fmt.Sprintf("status=%d (probe deadline)", lastStatusOrZero(resp))
 			}
 		} else {

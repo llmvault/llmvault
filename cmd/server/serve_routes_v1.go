@@ -51,6 +51,7 @@ func setupV1Routes(
 	sheetsHandler *handler.SheetsHandler,
 	appsHandler *handler.AppsHandler,
 	transcriptionHandler *handler.TranscriptionHandler,
+	mcpServerHandler *handler.MCPServerHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
 ) {
@@ -69,6 +70,9 @@ func setupV1Routes(
 			r.Use(middleware.Audit(auditWriter))
 
 			r.Get("/orgs/current", orgHandler.Current)
+			if mcpServerHandler != nil {
+				mcpServerHandler.Mount(r)
+			}
 			r.Get("/orgs/current/members", orgInviteHandler.ListMembers)
 			mountBrandRoutes(r, database, brandHandler)
 
@@ -290,7 +294,6 @@ func setupV1Routes(
 			})
 
 			mountRAGRoutes(r, database, ragSourceHandler, ragSearchHandler)
-
 			mountUploadRoutes(r, database, uploadsHandler, imageDescribeHandler, transcriptionHandler)
 		})
 	})

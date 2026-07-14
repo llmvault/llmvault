@@ -252,12 +252,8 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		agent.McpToolFilter = value
 	}
 	if req.McpServers != nil {
-		value, ok := normalizeMCPServersForRequest(w, req.McpServers)
-		if !ok {
-			return false
-		}
-		updates["mcp_servers"] = value
-		agent.McpServers = value
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "configure MCP servers through MCP settings"})
+		return false
 	}
 	if req.Skills != nil {
 		value := normalizeJSONPtr(req.Skills)

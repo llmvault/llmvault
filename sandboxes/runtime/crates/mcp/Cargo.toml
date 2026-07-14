@@ -12,9 +12,15 @@ async-trait.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tokio.workspace = true
+futures.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
 arc-swap.workspace = true
 rmcp.workspace = true
 http = "1"
 dashmap = "6"
+reqwest = { version = "0.13.3", default-features = false, features = ["rustls", "json", "stream"] }
+sse-stream = "0.2.2"
+url = "2.5"
+sha2 = "0.10"
+base64 = "0.22"

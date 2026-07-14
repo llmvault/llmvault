@@ -50,6 +50,7 @@ type serveHandlers struct {
 	runtimeStreamStore         *runtimestream.Store
 	sessionHandler             *handler.SessionHandler
 	transcriptionHandler       *handler.TranscriptionHandler
+	mcpServerHandler           *handler.MCPServerHandler
 	credHandler                *handler.CredentialHandler
 	databaseIntegrationHandler *handler.DatabaseIntegrationHandler
 	tokenHandler               *handler.TokenHandler
@@ -113,6 +114,7 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		runtimeStreamStore:         rest.runtimeStreamStore,
 		sessionHandler:             rest.sessionHandler,
 		transcriptionHandler:       rest.transcriptionHandler,
+		mcpServerHandler:           rest.mcpServerHandler,
 		credHandler:                core.credHandler,
 		databaseIntegrationHandler: core.databaseIntegrationHandler,
 		tokenHandler:               core.tokenHandler,

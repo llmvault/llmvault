@@ -13,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/mcpservers"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/token"
@@ -200,17 +201,24 @@ func attachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *mod
 }
 
 func Compile(ctx context.Context, deps CompileDeps, agent *model.Agent) (*AgentDefinition, error) {
-	return compile(ctx, deps, agent, nil)
+	return compile(ctx, deps, agent, nil, RuntimeConfigOptions{})
 }
 
 func CompileWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult) (*AgentDefinition, error) {
+	return CompileWithProxyTokenOptions(ctx, deps, agent, proxyToken, RuntimeConfigOptions{})
+}
+
+// CompileWithProxyTokenOptions compiles the effective MCP grants for this
+// invocation. Personal definitions and user authorizations are considered only
+// when MCPContext names a trusted, authenticated source and actor.
+func CompileWithProxyTokenOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult, opts RuntimeConfigOptions) (*AgentDefinition, error) {
 	if proxyToken == nil || proxyToken.JTI == "" || proxyToken.Token == "" {
 		return nil, fmt.Errorf("agent runtime compile: proxy token is required")
 	}
-	return compile(ctx, deps, agent, proxyToken)
+	return compile(ctx, deps, agent, proxyToken, opts)
 }
 
-func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult) (*AgentDefinition, error) {
+func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult, opts RuntimeConfigOptions) (*AgentDefinition, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent runtime compile: agent must have org_id")
 	}
@@ -226,7 +234,14 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		phaseStarted = time.Now()
 	}
 	logPhase("start", "has_proxy_token", proxyToken != nil, "model", strings.TrimSpace(agent.Model))
-	mcpServers := jsonArray(agent.McpServers)
+	// Remote MCP definitions are resolved exclusively through the first-class
+	// control plane. The legacy Agent.McpServers JSON column is intentionally not
+	// read here: accepting it would bypass encrypted authorization and team/agent
+	// access grants.
+	mcpServers, err := resolveRuntimeMCPServers(ctx, deps, agent, opts)
+	if err != nil {
+		return nil, err
+	}
 	ourMCP := buildHivyMCPServer(ctx, deps, agent)
 	if proxyToken != nil {
 		ourMCP = buildAgentMCPServerWithToken(deps, proxyToken)
@@ -275,6 +290,49 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		OutboundChannels: []any{},
 		SubAgents:        subAgents,
 	}, nil
+}
+
+func resolveRuntimeMCPServers(ctx context.Context, deps CompileDeps, agent *model.Agent, opts RuntimeConfigOptions) ([]any, error) {
+	if deps.DB == nil || agent == nil || agent.OrgID == nil {
+		return []any{}, nil
+	}
+	callbackURL := ""
+	if deps.Cfg != nil {
+		callbackURL = deps.Cfg.MCPOAuthCallbackURL
+	}
+	actorUserID := (*uuid.UUID)(nil)
+	includePersonal := opts.MCPContext.AllowsPersonalServers()
+	if includePersonal {
+		actorUserID = opts.MCPContext.ActorUserID
+	}
+	resolved, err := mcpservers.NewService(deps.DB, deps.EncKey, callbackURL).ResolveForRuntime(
+		ctx,
+		*agent.OrgID,
+		agent.ID,
+		opts.TeamID,
+		actorUserID,
+		includePersonal,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("resolve runtime MCP servers: %w", err)
+	}
+	servers := make([]any, 0, len(resolved))
+	for _, server := range resolved {
+		name := strings.TrimSpace(server.Name)
+		// "hivy" is a trusted runtime identity with privileged materialization
+		// behavior. Normalize legacy/corrupt rows defensively even though the
+		// control plane rejects this reserved slug on writes.
+		if name == "hivy" {
+			name = "external-hivy-" + server.ID.String()[:8]
+		}
+		servers = append(servers, map[string]any{
+			"name":      name,
+			"transport": server.Transport,
+			"url":       server.URL,
+			"headers":   server.Headers,
+		})
+	}
+	return servers, nil
 }
 
 func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any {

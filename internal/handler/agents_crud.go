@@ -32,7 +32,7 @@ type agentMutationRequest struct {
 	VectorImageModel       *string                `json:"vector_image_model,omitempty"`
 	Tools                  *model.JSON            `json:"tools,omitempty"`
 	McpToolFilter          *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
-	McpServers             *json.RawMessage       `json:"mcp_servers,omitempty"`
+	McpServers             *json.RawMessage       `json:"mcp_servers,omitempty" swaggerignore:"true"`
 	Skills                 *model.JSON            `json:"skills,omitempty"`
 	Permissions            *model.JSON            `json:"permissions,omitempty"`
 	Resources              *model.JSON            `json:"resources,omitempty"`
@@ -133,8 +133,8 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	mcpServers, ok := normalizeMCPServersForRequest(w, req.McpServers)
-	if !ok {
+	if req.McpServers != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "configure MCP servers through MCP settings"})
 		return
 	}
 	// Tool selection is caller-controlled: an explicit tools map restricts the
@@ -185,7 +185,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		VectorImageModel:       vectorImageModel,
 		Tools:                  tools,
 		McpToolFilter:          normalizeMcpToolFilter(req.McpToolFilter),
-		McpServers:             mcpServers,
+		McpServers:             model.RawJSON("[]"),
 		Skills:                 normalizeJSONPtr(req.Skills),
 		Permissions:            permissions,
 		Resources:              normalizeJSONPtr(req.Resources),

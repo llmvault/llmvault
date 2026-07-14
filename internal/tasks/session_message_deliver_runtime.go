@@ -53,6 +53,10 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 			return nil, nil, fmt.Errorf("load session channel team: %w", teamErr)
 		}
 		runtimeOptions.TeamID = teamID
+		mcpConfigVersion, versionErr := agentruntime.MCPConfigVersion(ctx, h.db, session.OrgID)
+		if versionErr != nil {
+			return nil, nil, versionErr
+		}
 		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
 		if prepErr != nil {
 			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
@@ -66,7 +70,11 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		}
 		if err := h.db.WithContext(ctx).Model(&model.Session{}).
 			Where("id = ? AND org_id = ?", session.ID, session.OrgID).
-			Update("sandbox_id", sb.ID).Error; err != nil {
+			Updates(map[string]any{
+				"sandbox_id":                 sb.ID,
+				"runtime_mcp_actor_user_id":  runtimeMCPActorID(runtimeOptions.MCPContext),
+				"runtime_mcp_config_version": mcpConfigVersion,
+			}).Error; err != nil {
 			return nil, nil, fmt.Errorf("attach session sandbox: %w", err)
 		}
 	} else if err != nil {
@@ -79,8 +87,15 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 	return sb, client, nil
 }
 
+func runtimeMCPActorID(mcpContext agentruntime.MCPRuntimeContext) *uuid.UUID {
+	if !mcpContext.AllowsPersonalServers() {
+		return nil
+	}
+	return mcpContext.ActorUserID
+}
+
 func sessionRuntimeAgent(agent *model.Agent, session model.Session) (*model.Agent, agentruntime.RuntimeConfigOptions) {
-	opts := agentruntime.RuntimeConfigOptions{}
+	opts := agentruntime.RuntimeConfigOptions{MCPContext: agentruntime.MCPRuntimeContextForSession(session, nil)}
 	if agent == nil {
 		return agent, opts
 	}

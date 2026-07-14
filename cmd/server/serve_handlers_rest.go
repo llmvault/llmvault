@@ -17,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
+	"github.com/usehivy/hivy/internal/mcpservers"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
@@ -51,6 +52,7 @@ type serveHandlersRest struct {
 	runtimeStreamStore     *runtimestream.Store
 	sessionHandler         *handler.SessionHandler
 	transcriptionHandler   *handler.TranscriptionHandler
+	mcpServerHandler       *handler.MCPServerHandler
 	ragRuntime             *ragRuntime
 }
 
@@ -78,7 +80,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	preContextCache := precontext.NewRedisCache(redisClient)
 	memorySearchService := buildMemorySearchService(cfg, database, cacheManager)
 	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
-	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
+	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))        //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	mcpHandler.SetSkillTools(skills.NewToolsFunc(database, cfg.FrontendURL)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	// Assignable agent models: the full text-output catalog minus the scribe
 	// transcription model. Used verbatim as the strict `model` enum in the
@@ -124,7 +126,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		},
 	}
 	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
-	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetsService)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
+	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetsService))                            //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,
@@ -191,6 +193,12 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		handler.WithChannelEnqueuer(enqueuer),
 	)
 	teamHandler := handler.NewTeamHandler(database, handler.WithTeamEnvEncryptionKey(sandboxEncKey))
+	mcpOAuthCallbackURL := strings.TrimSpace(cfg.MCPOAuthCallbackURL)
+	if mcpOAuthCallbackURL == "" {
+		mcpOAuthCallbackURL = strings.TrimRight(cfg.APIWebhookBaseURL, "/") + "/v1/mcp-servers/oauth/callback"
+	}
+	mcpServerService := mcpservers.NewService(database, sandboxEncKey, mcpOAuthCallbackURL)
+	mcpServerHandler := handler.NewMCPServerHandler(database, mcpServerService, cfg.FrontendURL)
 	runtimeStreamStore := core.runtimeStreamStore
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).
 		WithRuntimeStreamKey(sandboxEncKey).
@@ -245,6 +253,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		runtimeStreamStore:     runtimeStreamStore,
 		sessionHandler:         sessionHandler,
 		transcriptionHandler:   transcriptionHandler,
+		mcpServerHandler:       mcpServerHandler,
 		ragRuntime:             ragRuntime,
 	}, nil
 }

@@ -141,6 +141,7 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		}
 		input := agentschedule.CreateInput{
 			JobID:           args.JobID,
+			CreatedByUserID: cronScheduleCreator(actor),
 			Description:     args.Description,
 			TaskPrompt:      args.TaskPrompt,
 			ChannelID:       channelText,
@@ -213,6 +214,14 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 	default:
 		return cronToolError("action must be one of create, list, update, pause, resume, cancel"), nil
 	}
+}
+
+func cronScheduleCreator(actor *access.Actor) *uuid.UUID {
+	if actor == nil || actor.UserID == uuid.Nil {
+		return nil
+	}
+	id := actor.UserID
+	return &id
 }
 
 // resolveCronAgent returns the target agent for a cron action, validating it

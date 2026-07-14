@@ -15,6 +15,7 @@ import (
 
 type scheduleChannelFixture struct {
 	org      model.Org
+	creator  model.User
 	team     model.Team
 	agent    model.Agent
 	session  model.Session
@@ -40,14 +41,18 @@ func connectScheduleTestDB(t *testing.T) *gorm.DB {
 func seedScheduleChannelFixture(t *testing.T, db *gorm.DB) scheduleChannelFixture {
 	t.Helper()
 	org := model.Org{ID: uuid.New(), Name: "schedule-channel-" + uuid.NewString(), Active: true, RateLimit: 1000}
+	creator := model.User{ID: uuid.New(), Email: "schedule-" + uuid.NewString()[:8] + "@example.com", Name: "Schedule Creator"}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "team-" + uuid.NewString()}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Schedule Agent " + uuid.NewString(), Model: "test", Status: "active"}
 	channel := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "work-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	target := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "ops-" + uuid.NewString(), DefaultAgentID: agent.ID}
 	teamHome := model.Channel{ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, Name: "general", Kind: "standard", Visibility: "public", DefaultAgentID: agent.ID, IsDefault: true}
-	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, Status: "active"}
+	session := model.Session{ID: uuid.New(), OrgID: org.ID, ChannelID: channel.ID, AgentID: agent.ID, CreatedBy: &creator.ID, Status: "active"}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
+	}
+	if err := db.Create(&creator).Error; err != nil {
+		t.Fatalf("create creator: %v", err)
 	}
 	if err := db.Create(&team).Error; err != nil {
 		t.Fatalf("create team: %v", err)
@@ -67,8 +72,11 @@ func seedScheduleChannelFixture(t *testing.T, db *gorm.DB) scheduleChannelFixtur
 	if err := db.Create(&session).Error; err != nil {
 		t.Fatalf("create session: %v", err)
 	}
-	t.Cleanup(func() { cleanupScheduleChannelOrg(t, db, org.ID) })
-	return scheduleChannelFixture{org: org, team: team, agent: agent, session: session, channel: channel, target: target, teamHome: teamHome}
+	t.Cleanup(func() {
+		cleanupScheduleChannelOrg(t, db, org.ID)
+		db.Delete(&model.User{}, "id = ?", creator.ID)
+	})
+	return scheduleChannelFixture{org: org, creator: creator, team: team, agent: agent, session: session, channel: channel, target: target, teamHome: teamHome}
 }
 
 func cleanupScheduleChannelOrg(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
@@ -96,6 +104,9 @@ func TestCreateFromSessionDefaultsToTeamGeneral(t *testing.T) {
 	}
 	if schedule.Channel != fx.teamHome.ID.String() {
 		t.Fatalf("schedule channel = %s, want team #general %s", schedule.Channel, fx.teamHome.ID)
+	}
+	if schedule.CreatedByUserID == nil || *schedule.CreatedByUserID != fx.creator.ID {
+		t.Fatalf("created_by_user_id = %v, want %s", schedule.CreatedByUserID, fx.creator.ID)
 	}
 	// No system channel is ever created: the only channels remain the seeded ones.
 	var systemCount int64

@@ -70,9 +70,13 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r.Post("/internal/runtime-events/sandboxes/{sandboxID}/turn-state", runtimeIngressHandler.HandleTurnState)
 
 	r.Post("/incoming/triggers/{triggerID}", h.httpTriggerHandler.Handle)
+	if h.mcpServerHandler != nil {
+		r.Get("/v1/mcp-servers/oauth/callback", h.mcpServerHandler.OAuthCallback)
+		r.Get("/v1/mcp-servers/oauth/client-metadata", h.mcpServerHandler.OAuthClientMetadata)
+	}
 	setupAuthRoutes(r, ctx, cfg, rsaPub, h.authHandler, h.oauthHandler)
 	registerSheetLiveRoute(r, h.sheetsHandler)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.subscriptionHandler, h.dashboardHandler, h.slackChannelHandler, h.channelHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.pluginHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, orchestrator, h.auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.subscriptionHandler, h.dashboardHandler, h.slackChannelHandler, h.channelHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.pluginHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, h.mcpServerHandler, orchestrator, h.auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, h.integrationHandler, h.connectionHandler, h.credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, h.proxyHandler, h.auditWriter, h.generationWriter, h.attributionCache, ctr, enqueuer, h.runtimeCompileDeps)

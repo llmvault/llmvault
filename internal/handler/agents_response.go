@@ -117,10 +117,10 @@ func toAgentResponse(a model.Agent) agentResponse {
 		instructions = *a.Instructions
 	}
 	sandboxSize := model.NormalizeTemplateSize(a.SandboxSize)
-	mcpServers := json.RawMessage(a.McpServers)
-	if len(mcpServers) == 0 {
-		mcpServers = json.RawMessage("[]")
-	}
+	// Legacy raw MCP JSON is no longer a runtime input and may contain historic
+	// plaintext headers. Preserve the response field for compatibility but never
+	// return the retired contents; first-class MCP endpoints expose safe views.
+	mcpServers := json.RawMessage("[]")
 	resp := agentResponse{
 		ID:                     a.ID.String(),
 		Name:                   fallbackAgentName(a),

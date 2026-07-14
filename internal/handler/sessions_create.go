@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -91,6 +92,17 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	logPhase("validate runtime options", "org_id", org.ID, "agent_id", agent.ID)
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
+	mcpContext := agentruntime.MCPRuntimeContextForSession(session, userID)
+	if mcpContext.AllowsPersonalServers() {
+		session.RuntimeMCPActorUserID = mcpContext.ActorUserID
+	}
+	mcpConfigVersion, err := agentruntime.MCPConfigVersion(ctx, h.db, org.ID)
+	if err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "load MCP config version for session create", "org_id", org.ID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
+		return
+	}
+	session.RuntimeMCPConfigVersion = mcpConfigVersion
 	logPhase("build session record", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	if hasInitialMessage {
 		payload, ok = h.hydrateSessionMessageAttachmentsForRequest(w, r, session, payload)
@@ -99,7 +111,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		logPhase("hydrate initial message attachments", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
-	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, channel.TeamID, session.Model, session.ReasoningEffort)
+	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, channel.TeamID, session.Model, session.ReasoningEffort, mcpContext)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
 		logging.Capture(ctx, err)

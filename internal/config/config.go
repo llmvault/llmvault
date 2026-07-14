@@ -88,6 +88,10 @@ type Config struct {
 
 	MCPPort    int    `env:"HIVY_MCP_PORT" envDefault:"8081"`
 	MCPBaseURL string `env:"HIVY_MCP_BASE_URL" envDefault:"http://localhost:8081"`
+	// MCPOAuthCallbackURL is the public callback for arbitrary remote MCP OAuth
+	// servers. Empty falls back to HIVY_API_WEBHOOK_BASE_URL plus the standard
+	// callback path so self-hosted deployments never depend on a Hivy domain.
+	MCPOAuthCallbackURL string `env:"HIVY_MCP_OAUTH_CALLBACK_URL"`
 
 	// Sandbox provider (global — one provider for the whole platform)
 	SandboxEncryptionKey              string `env:"HIVY_SANDBOX_ENCRYPTION_KEY"` // base64-encoded 32-byte key for encrypting sandbox secrets

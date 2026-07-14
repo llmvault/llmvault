@@ -13,6 +13,7 @@ import (
 
 type scheduleRunFixture struct {
 	org       model.Org
+	creator   model.User
 	agent     model.Agent
 	channelID uuid.UUID
 	schedule  model.AgentSchedule
@@ -25,6 +26,10 @@ func seedScheduleRunFixture(t *testing.T, db *gorm.DB) scheduleRunFixture {
 	org := model.Org{Name: "schedule-org-" + uuid.NewString()[:8], Active: true}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
+	}
+	creator := model.User{Email: "schedule-" + uuid.NewString()[:8] + "@example.com", Name: "Schedule Creator"}
+	if err := db.Create(&creator).Error; err != nil {
+		t.Fatalf("create schedule creator: %v", err)
 	}
 
 	team := model.Team{OrgID: org.ID, Name: "schedule-team-" + uuid.NewString()[:8]}
@@ -63,14 +68,15 @@ func seedScheduleRunFixture(t *testing.T, db *gorm.DB) scheduleRunFixture {
 	}
 
 	schedule := model.AgentSchedule{
-		OrgID:        org.ID,
-		AgentID:      agent.ID,
-		RuntimeJobID: "cron-" + uuid.NewString()[:8],
-		ScheduleKind: agentschedule.KindCron,
-		Channel:      channel.ID.String(),
-		Description:  "Nightly digest",
-		TaskPrompt:   "ship the nightly digest",
-		Status:       "active",
+		OrgID:           org.ID,
+		AgentID:         agent.ID,
+		CreatedByUserID: &creator.ID,
+		RuntimeJobID:    "cron-" + uuid.NewString()[:8],
+		ScheduleKind:    agentschedule.KindCron,
+		Channel:         channel.ID.String(),
+		Description:     "Nightly digest",
+		TaskPrompt:      "ship the nightly digest",
+		Status:          "active",
 	}
 	if err := db.Create(&schedule).Error; err != nil {
 		t.Fatalf("create schedule: %v", err)
@@ -103,7 +109,8 @@ func seedScheduleRunFixture(t *testing.T, db *gorm.DB) scheduleRunFixture {
 		db.Where("id = ?", channel.ID).Delete(&model.Channel{})
 		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
+		db.Where("id = ?", creator.ID).Delete(&model.User{})
 	})
 
-	return scheduleRunFixture{org: org, agent: agent, channelID: channel.ID, schedule: schedule, run: run}
+	return scheduleRunFixture{org: org, creator: creator, agent: agent, channelID: channel.ID, schedule: schedule, run: run}
 }

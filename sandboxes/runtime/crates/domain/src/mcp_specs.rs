@@ -25,6 +25,17 @@ pub enum McpSpec {
         #[serde(default)]
         tool_filter: Option<ToolFilter>,
     },
+    /// Legacy MCP HTTP+SSE transport (protocol version 2024-11-05). The
+    /// configured URL is the long-lived GET event stream; the server announces
+    /// the per-session POST endpoint with an `event: endpoint` frame.
+    Sse {
+        name: String,
+        url: String,
+        #[serde(default)]
+        headers: HashMap<String, String>,
+        #[serde(default)]
+        tool_filter: Option<ToolFilter>,
+    },
     StreamableHttp {
         name: String,
         url: String,
@@ -40,6 +51,7 @@ impl McpSpec {
         match self {
             Self::Stdio { name, .. }
             | Self::Http { name, .. }
+            | Self::Sse { name, .. }
             | Self::StreamableHttp { name, .. } => name,
         }
     }
@@ -52,4 +64,22 @@ pub struct ToolFilter {
     pub allow: Option<Vec<String>>,
     #[serde(default)]
     pub deny: Option<Vec<String>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpSpec;
+
+    #[test]
+    fn deserializes_legacy_sse_transport_from_control_plane() {
+        let spec: McpSpec = serde_json::from_value(serde_json::json!({
+            "transport": "sse",
+            "name": "legacy",
+            "url": "http://127.0.0.1:3000/sse",
+            "headers": {"Authorization": "Bearer token"}
+        }))
+        .expect("deserialize legacy SSE spec");
+
+        assert!(matches!(spec, McpSpec::Sse { name, .. } if name == "legacy"));
+    }
 }

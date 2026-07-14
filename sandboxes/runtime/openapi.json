@@ -1874,6 +1874,48 @@
           },
           {
             "type": "object",
+            "description": "Legacy MCP HTTP+SSE transport (protocol version 2024-11-05). The\nconfigured URL is the long-lived GET event stream; the server announces\nthe per-session POST endpoint with an `event: endpoint` frame.",
+            "required": [
+              "name",
+              "url",
+              "transport"
+            ],
+            "properties": {
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "type": "string"
+              },
+              "tool_filter": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ToolFilter"
+                  }
+                ]
+              },
+              "transport": {
+                "type": "string",
+                "enum": [
+                  "sse"
+                ]
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
             "required": [
               "name",
               "url",

@@ -174,6 +174,7 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 			OrgID:             run.OrgID,
 			ChannelID:         channelID,
 			AgentID:           run.AgentID,
+			CreatedBy:         run.Schedule.CreatedByUserID,
 			Model:             agent.Model,
 			ReasoningEffort:   sessionReasoningEffort(agent),
 			Source:            scheduleSource,

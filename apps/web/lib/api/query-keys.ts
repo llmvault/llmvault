@@ -28,6 +28,27 @@ export const queryKeys = {
   plugins: () => ["get", "/v1/plugins"] as const,
   plugin: () => ["get", "/v1/plugins/{slug}"] as const,
   databaseIntegrations: () => ["get", "/v1/database-integrations"] as const,
+  mcpServers: () => ["get", "/v1/mcp-servers"] as const,
+  mcpServer: (id: string) =>
+    ["get", "/v1/mcp-servers/{id}", { params: { path: { id } } }] as const,
+  teamMcpServers: (teamID: string) =>
+    [
+      "get",
+      "/v1/orgs/current/teams/{teamID}/mcp-servers",
+      { params: { path: { teamID } } },
+    ] as const,
+  agentMcpServers: (agentID: string) =>
+    [
+      "get",
+      "/v1/agents/{agentID}/mcp-servers",
+      { params: { path: { agentID } } },
+    ] as const,
+  agentPersonalMcpServers: (agentID: string) =>
+    [
+      "get",
+      "/v1/agents/{agentID}/personal-mcp-servers",
+      { params: { path: { agentID } } },
+    ] as const,
   triggers: () => ["get", "/v1/triggers"] as const,
   trigger: () => ["get", "/v1/triggers/{id}"] as const,
   agents: () => ["get", "/v1/agents"] as const,

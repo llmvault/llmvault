@@ -34,6 +34,13 @@ func TestScheduleDeliverNewSessionPersistsEventAndEnqueuesNaming(t *testing.T) {
 		t.Fatal("expected run.session_id to be set")
 	}
 	sessionID := *run.SessionID
+	var session model.Session
+	if err := db.First(&session, "id = ?", sessionID).Error; err != nil {
+		t.Fatalf("load schedule session: %v", err)
+	}
+	if session.CreatedBy == nil || *session.CreatedBy != fx.creator.ID {
+		t.Fatalf("session.created_by = %v, want %s", session.CreatedBy, fx.creator.ID)
+	}
 
 	// The scheduled prompt is on the transcript as a user.message.received event.
 	wantEventID := "schedule:" + fx.run.RunKey

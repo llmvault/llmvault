@@ -204,6 +204,9 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 		}
 		session.SandboxID = &sb.ID
 	}
+	if err := h.syncRuntimeMCPConfig(ctx, &session, &agent, sb, command.ActorUserID); err != nil {
+		return nil, err
+	}
 	msg := runtimeMessageFromCommand(session, command)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {

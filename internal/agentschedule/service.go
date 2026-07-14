@@ -30,9 +30,13 @@ const (
 )
 
 type CreateInput struct {
-	JobID           string
-	Name            string
-	SourceSlug      string
+	JobID      string
+	Name       string
+	SourceSlug string
+	// CreatedByUserID identifies the human whose personal runtime resources may
+	// be used by schedule/cron runs. Nil means the schedule is actorless and
+	// therefore must not receive personal MCP servers.
+	CreatedByUserID *uuid.UUID
 	Description     string
 	TaskPrompt      string
 	ChannelID       string
@@ -69,6 +73,9 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 		Where("id = ? AND org_id = ? AND agent_id = ?", sessionUUID, *agent.OrgID, agent.ID).
 		First(&session).Error; err != nil {
 		return nil, fmt.Errorf("load current session: %w", err)
+	}
+	if input.CreatedByUserID == nil {
+		input.CreatedByUserID = session.CreatedBy
 	}
 	return create(ctx, db, agent, session.ID.String(), input)
 }
@@ -112,6 +119,7 @@ func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySessi
 		Name:             strings.TrimSpace(input.Name),
 		Status:           StatusActive,
 		SourceSlug:       strings.TrimSpace(input.SourceSlug),
+		CreatedByUserID:  input.CreatedByUserID,
 		ScheduleKind:     kind,
 		Channel:          channelID,
 		Description:      defaultDescription(input.Description, taskPrompt),
