@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "@heroui/react"
@@ -210,11 +211,26 @@ export function BillingPlansPage() {
     // success or popup cancel, so we don't touch busySlug here.
     if (!hasPaidSubscription) {
       if (planPrice(plan) <= 0) return
+      posthog.capture("plan_upgrade_initiated", {
+        plan_slug: plan.slug,
+        plan_name: plan.name,
+        price_cents: plan.price_cents,
+        currency: plan.currency,
+        is_new_subscription: true,
+      })
       paystack.subscribe(plan)
       return
     }
 
     // Existing subscriber: preview the prorated change, then confirm.
+    posthog.capture("plan_upgrade_initiated", {
+      plan_slug: plan.slug,
+      plan_name: plan.name,
+      price_cents: plan.price_cents,
+      currency: plan.currency,
+      is_new_subscription: false,
+      current_plan_slug: currentPlanSlug,
+    })
     setBusySlug(plan.slug)
     try {
       const preview = await previewChange.mutateAsync({
@@ -246,6 +262,15 @@ export function BillingPlansPage() {
         },
       })
       const isDowngrade = pendingPreview.kind === "downgrade"
+      posthog.capture("plan_changed", {
+        from_plan_slug: pendingPreview.from_plan_slug,
+        to_plan_slug: response.plan_slug ?? pendingPlan?.slug,
+        plan_name: pendingPlan?.name,
+        change_kind: pendingPreview.kind,
+        requires_payment: pendingPreview.requires_payment_now,
+        amount_minor: pendingPreview.amount_minor,
+        currency: pendingPreview.currency,
+      })
       toast.success(
         isDowngrade
           ? `Scheduled change to ${pendingPlan?.name ?? response.plan_slug ?? "the selected plan"}`

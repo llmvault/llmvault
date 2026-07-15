@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -42,14 +43,16 @@ const PROGRESS_STEPS: {
   {
     id: "connections",
     label: "Install plugins",
-    description: "Give your agents restricted access to the tools your team uses",
+    description:
+      "Give your agents restricted access to the tools your team uses",
   },
 ]
 
 const CONNECTION_DESCRIPTIONS: Record<string, string> = {
   slack: "Work with channels, messages, and your team in Slack.",
   "github-app": "Read repositories, issues, and pull requests.",
-  "github-app-code-reviews": "Review pull requests and respond to code changes.",
+  "github-app-code-reviews":
+    "Review pull requests and respond to code changes.",
   notion: "Use pages and databases as company context.",
   linear: "Create, update, and track product work.",
   railway: "Inspect and manage Railway projects and deployments.",
@@ -63,8 +66,11 @@ export default function OnboardingPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { activeOrg, isLoading } = useAuth()
-  const serverStep = (activeOrg?.onboarding_step ?? "complete") as OnboardingStep
-  const [optimisticStep, setOptimisticStep] = useState<OnboardingStep | null>(null)
+  const serverStep = (activeOrg?.onboarding_step ??
+    "complete") as OnboardingStep
+  const [optimisticStep, setOptimisticStep] = useState<OnboardingStep | null>(
+    null
+  )
   const step = optimisticStep ?? serverStep
   const advance = $api.useMutation("patch", "/v1/orgs/current/onboarding")
 
@@ -72,12 +78,21 @@ export default function OnboardingPage() {
     if (!isLoading && serverStep === "complete") router.replace("/w")
   }, [isLoading, router, serverStep])
 
+  useEffect(() => {
+    if (!isLoading && serverStep !== "complete") {
+      posthog.capture("onboarding_viewed", { step: serverStep })
+    }
+  }, [isLoading, serverStep])
+
   async function advanceTo(next: "welcome" | "complete") {
     try {
       await advance.mutateAsync({ body: { step: next } })
       setOptimisticStep(next)
       await queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
-      if (next === "complete") router.replace("/w")
+      if (next === "complete") {
+        posthog.capture("onboarding_completed")
+        router.replace("/w")
+      }
     } catch (error) {
       toast.danger(extractErrorMessage(error, "Could not continue onboarding"))
     }
@@ -101,9 +116,14 @@ export default function OnboardingPage() {
             </p>
           </header>
 
-          <section key={step} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-7 sm:px-8 sm:py-12 lg:px-12">
+          <section
+            key={step}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-7 sm:px-8 sm:py-12 lg:px-12"
+          >
             {step === "team" ? (
-              <CreateTeamStep onCreated={() => setOptimisticStep("connections")} />
+              <CreateTeamStep
+                onCreated={() => setOptimisticStep("connections")}
+              />
             ) : null}
             {step === "connections" ? (
               <ConnectionsStep
@@ -126,7 +146,10 @@ export default function OnboardingPage() {
 
 function progressIndex(step: VisibleStep) {
   if (step === "welcome") return PROGRESS_STEPS.length
-  return Math.max(0, PROGRESS_STEPS.findIndex((item) => item.id === step))
+  return Math.max(
+    0,
+    PROGRESS_STEPS.findIndex((item) => item.id === step)
+  )
 }
 
 function SetupSidebar({ step }: { step: VisibleStep }) {
@@ -162,10 +185,16 @@ function SetupSidebar({ step }: { step: VisibleStep }) {
                       : "border border-border text-muted"
                 }`}
               >
-                {complete ? <AppIcon icon="check" className="h-3.5 w-3.5" /> : index + 1}
+                {complete ? (
+                  <AppIcon icon="check" className="h-3.5 w-3.5" />
+                ) : (
+                  index + 1
+                )}
               </span>
               <span className="min-w-0">
-                <span className={`block text-sm font-medium ${current ? "text-foreground" : "text-muted"}`}>
+                <span
+                  className={`block text-sm font-medium ${current ? "text-foreground" : "text-muted"}`}
+                >
                   {item.label}
                 </span>
                 <span className="mt-1 block text-xs leading-4 text-muted">
@@ -180,7 +209,10 @@ function SetupSidebar({ step }: { step: VisibleStep }) {
       <div className="mt-auto border-t border-border pt-5">
         <div className="flex items-start gap-2.5 text-xs leading-5 text-muted">
           <AppIcon icon="clock" className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>Usually takes less than two minutes. You can change everything later.</p>
+          <p>
+            Usually takes less than two minutes. You can change everything
+            later.
+          </p>
         </div>
       </div>
     </aside>
@@ -202,7 +234,10 @@ function MobileSetupHeader({ step }: { step: VisibleStep }) {
             : `${activeIndex + 1} of ${PROGRESS_STEPS.length}`}
         </span>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-1.5" aria-label="Onboarding progress">
+      <div
+        className="mt-4 grid grid-cols-2 gap-1.5"
+        aria-label="Onboarding progress"
+      >
         {PROGRESS_STEPS.map((item, index) => (
           <span
             key={item.id}
@@ -227,6 +262,7 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
       { body: { name: normalized } },
       {
         onSuccess: async () => {
+          posthog.capture("onboarding_team_created")
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: queryKeys.teams() }),
             queryClient.invalidateQueries({ queryKey: queryKeys.authMe() }),
@@ -242,9 +278,12 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-2">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Create your first team</h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Create your first team
+        </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-          Teams control which agents and teammates can access plugins and knowledge sources.
+          Teams control which agents and teammates can access plugins and
+          knowledge sources.
         </p>
       </div>
 
@@ -261,8 +300,15 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
         />
 
         <div className="mt-4 flex justify-end">
-          <Button className="w-full sm:w-auto" type="submit" variant="primary" isDisabled={!name.trim() || createTeam.isPending}>
-            {createTeam.isPending ? <Spinner color="current" size="sm" /> : null}
+          <Button
+            className="w-full sm:w-auto"
+            type="submit"
+            variant="primary"
+            isDisabled={!name.trim() || createTeam.isPending}
+          >
+            {createTeam.isPending ? (
+              <Spinner color="current" size="sm" />
+            ) : null}
             Create team
             <AppIcon icon="arrow-right" className="h-4 w-4" />
           </Button>
@@ -272,7 +318,13 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; advancing: boolean }) {
+function ConnectionsStep({
+  onContinue,
+  advancing,
+}: {
+  onContinue: () => void
+  advancing: boolean
+}) {
   const integrationsQuery = $api.useQuery("get", "/v1/integrations/supported")
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
@@ -287,26 +339,44 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
     [connectionsQuery.data?.data]
   )
   const connectedProviders = useMemo(
-    () => new Set(connections.flatMap((connection: Connection) => connection.provider ? [connection.provider] : [])),
+    () =>
+      new Set(
+        connections.flatMap((connection: Connection) =>
+          connection.provider ? [connection.provider] : []
+        )
+      ),
     [connections]
   )
   const filteredIntegrations = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return integrations
     return integrations.filter((integration) =>
-      `${integration.display_name ?? ""} ${integration.provider ?? ""}`.toLowerCase().includes(query)
+      `${integration.display_name ?? ""} ${integration.provider ?? ""}`
+        .toLowerCase()
+        .includes(query)
     )
   }, [integrations, search])
-  const { connectIntegration, connectingId, isConnecting } = useConnectIntegration()
-  const [formIntegration, setFormIntegration] = useState<AvailableIntegration | null>(null)
+  const { connectIntegration, connectingId, isConnecting } =
+    useConnectIntegration()
+  const [formIntegration, setFormIntegration] =
+    useState<AvailableIntegration | null>(null)
 
-  function connect(integration: AvailableIntegration, options?: ConnectOptions) {
+  function connect(
+    integration: AvailableIntegration,
+    options?: ConnectOptions
+  ) {
     if (!integration.id) return
     connectIntegration(integration.id, {
       ...options,
       onSuccess: () => {
+        posthog.capture("onboarding_plugin_connected", {
+          provider: integration.provider,
+          integration_name: integration.display_name,
+        })
         setFormIntegration(null)
-        toast.success(`${integration.display_name ?? "Connection"} is ready to use`)
+        toast.success(
+          `${integration.display_name ?? "Connection"} is ready to use`
+        )
         void connectionsQuery.refetch()
       },
     })
@@ -321,7 +391,9 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Install plugins</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Install plugins
+          </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
             Give your agents restricted access to the tools your team uses.
           </p>
@@ -355,7 +427,15 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
               icon="circle-alert"
               title="Connections could not be loaded"
               description="Check your network and try again. You can also finish setup without connecting a tool."
-              action={<Button size="sm" variant="secondary" onPress={() => integrationsQuery.refetch()}>Try again</Button>}
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => integrationsQuery.refetch()}
+                >
+                  Try again
+                </Button>
+              }
             />
           ) : integrations.length === 0 ? (
             <ConnectionState
@@ -382,14 +462,21 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
                     index ? "border-t border-border" : ""
                   }`}
                 >
-                  <IntegrationLogo provider={provider} size={40} className="shrink-0 rounded-xl" />
+                  <IntegrationLogo
+                    provider={provider}
+                    size={40}
+                    className="shrink-0 rounded-xl"
+                  />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{integration.display_name || provider}</p>
+                    <p className="truncate text-sm font-semibold">
+                      {integration.display_name || provider}
+                    </p>
                     <p className="mt-1 line-clamp-1 text-xs text-muted">
                       {connected
                         ? "Connected and ready for your team"
                         : configured
-                          ? CONNECTION_DESCRIPTIONS[provider] ?? "Connect this tool to use it with Hivy."
+                          ? (CONNECTION_DESCRIPTIONS[provider] ??
+                            "Connect this tool to use it with Hivy.")
                           : "Supported by Hivy, awaiting workspace configuration"}
                     </p>
                   </div>
@@ -420,7 +507,9 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {connections.length === 0 ? (
-          <p className="text-xs text-muted">Connect at least one plugin to continue.</p>
+          <p className="text-xs text-muted">
+            Connect at least one plugin to continue.
+          </p>
         ) : null}
         <Button
           className="w-full sm:ml-auto sm:w-auto"
@@ -434,7 +523,10 @@ function ConnectionsStep({ onContinue, advancing }: { onContinue: () => void; ad
         </Button>
       </div>
 
-      <Modal isOpen={formIntegration !== null} onOpenChange={(open) => !open && setFormIntegration(null)}>
+      <Modal
+        isOpen={formIntegration !== null}
+        onOpenChange={(open) => !open && setFormIntegration(null)}
+      >
         <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
           <Modal.Container placement="center" className="p-4">
             <Modal.Dialog className="w-full max-w-sm bg-background p-0 shadow-xl outline-none">
@@ -458,7 +550,10 @@ function ConnectionSkeletons() {
   return (
     <div aria-label="Loading connections">
       {[0, 1, 2, 3].map((item) => (
-        <div key={item} className="grid animate-pulse grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 border-b border-border px-4 py-4 last:border-b-0 sm:flex">
+        <div
+          key={item}
+          className="grid animate-pulse grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 border-b border-border px-4 py-4 last:border-b-0 sm:flex"
+        >
           <div className="h-10 w-10 rounded-xl bg-default" />
           <div className="min-w-0 flex-1">
             <div className="h-3 w-28 rounded-full bg-default" />
@@ -488,13 +583,21 @@ function ConnectionState({
         <AppIcon icon={icon} className="h-5 w-5" />
       </div>
       <p className="mt-4 text-sm font-semibold">{title}</p>
-      <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted">{description}</p>
+      <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted">
+        {description}
+      </p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   )
 }
 
-function WelcomeStep({ onFinish, finishing }: { onFinish: () => void; finishing: boolean }) {
+function WelcomeStep({
+  onFinish,
+  finishing,
+}: {
+  onFinish: () => void
+  finishing: boolean
+}) {
   const videoURL = clientConfig().tutorialVideos.welcome ?? ""
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-2">
@@ -502,26 +605,44 @@ function WelcomeStep({ onFinish, finishing }: { onFinish: () => void; finishing:
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-success/15 text-success">
           <AppIcon icon="check" className="h-5 w-5" />
         </div>
-        <p className="mt-5 text-sm font-semibold text-primary">Setup complete</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Your team is ready to work</h1>
+        <p className="text-primary mt-5 text-sm font-semibold">
+          Setup complete
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          Your team is ready to work
+        </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted">
-          Take a 30-second look at the product, or jump straight into your first conversation.
+          Take a 30-second look at the product, or jump straight into your first
+          conversation.
         </p>
       </div>
 
       <div className="mt-8 grid overflow-hidden rounded-2xl border border-border bg-surface xl:grid-cols-[minmax(0,1.55fr)_minmax(15rem,0.75fr)]">
         <div className="min-w-0 bg-surface-secondary p-3">
-          {videoURL ? <TutorialVideo url={videoURL} title="Welcome to Hivy" /> : <ProductPreview />}
+          {videoURL ? (
+            <TutorialVideo url={videoURL} title="Welcome to Hivy" />
+          ) : (
+            <ProductPreview />
+          )}
         </div>
         <div className="flex flex-col border-t border-border p-5 xl:border-t-0 xl:border-l">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">You can start with</p>
+          <p className="text-xs font-semibold tracking-wider text-muted uppercase">
+            You can start with
+          </p>
           <ul className="mt-4 space-y-4">
-            <WelcomeAction icon="message-square" text="Ask Hivy to plan or complete a task" />
+            <WelcomeAction
+              icon="message-square"
+              text="Ask Hivy to plan or complete a task"
+            />
             <WelcomeAction icon="plug" text="Use the tools you connected" />
-            <WelcomeAction icon="user-plus" text="Invite teammates when you are ready" />
+            <WelcomeAction
+              icon="user-plus"
+              text="Invite teammates when you are ready"
+            />
           </ul>
           <p className="mt-auto pt-6 text-xs leading-5 text-muted">
-            Tutorials stay available inside each feature, so there is nothing to memorize now.
+            Tutorials stay available inside each feature, so there is nothing to
+            memorize now.
           </p>
         </div>
       </div>
@@ -544,16 +665,19 @@ function ProductPreview() {
         <span className="h-2 w-2 rounded-full bg-muted/40" />
         <span className="h-2 w-2 rounded-full bg-muted/25" />
         <span className="h-2 w-2 rounded-full bg-muted/15" />
-        <span className="ml-3 text-[10px] font-medium text-muted">Your first conversation</span>
+        <span className="ml-3 text-[10px] font-medium text-muted">
+          Your first conversation
+        </span>
       </div>
       <div className="flex flex-1 flex-col justify-center gap-4 p-5 sm:p-7">
-        <div className="ml-auto max-w-[78%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-xs leading-5 text-primary-foreground">
+        <div className="bg-primary text-primary-foreground ml-auto max-w-[78%] rounded-2xl rounded-br-md px-4 py-2.5 text-xs leading-5">
           Help me plan the launch for next Friday.
         </div>
         <div className="flex max-w-[88%] items-start gap-2.5">
           <LogoMark className="h-7 w-7 shrink-0" />
           <div className="rounded-2xl rounded-tl-md bg-default px-4 py-3 text-xs leading-5 text-foreground">
-            I’ll turn that into a clear plan, then we can assign the work and track progress together.
+            I’ll turn that into a clear plan, then we can assign the work and
+            track progress together.
           </div>
         </div>
       </div>

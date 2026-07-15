@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs';
+import { withSentryConfig } from "@sentry/nextjs"
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -9,17 +9,34 @@ const nextConfig = {
     // allowlist or a custom loader.
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/array/:path*",
+        destination: "https://us-assets.i.posthog.com/array/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
+      },
+    ]
+  },
   async redirects() {
     return [
       {
-        source: '/demo',
-        destination: 'https://hivy.zohobookings.com/#/discovery-call',
+        source: "/demo",
+        destination: "https://hivy.zohobookings.com/#/discovery-call",
         permanent: false,
       },
-    ];
+    ]
   },
-  reactStrictMode: false
-};
+  reactStrictMode: false,
+  skipTrailingSlashRedirect: true,
+}
 
 export default withSentryConfig(nextConfig, {
   // For all available options, see:
@@ -64,4 +81,4 @@ export default withSentryConfig(nextConfig, {
       removeDebugLogging: true,
     },
   },
-});
+})

@@ -11,7 +11,7 @@ describe("WelcomeToHivy", () => {
     expect(html).toContain("Start with a real task")
     expect(html).toContain("Give each team the agents it needs")
     expect(html).toContain("Record a 60-second overview")
-    expect(html).toContain("Capture the new-session composer at 100% zoom")
+    expect(html).toContain("/docs/captures/new-session-composer-light.png")
     expect(html).toContain("/docs/run-your-first-agent")
   })
 })

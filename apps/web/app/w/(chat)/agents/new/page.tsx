@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
@@ -19,6 +20,13 @@ export default function CreateAgentPage() {
     try {
       await createAgent.mutateAsync({ body: buildCreateBody(form) })
       queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
+      posthog.capture("agent_created", {
+        agent_model: form.model,
+        has_instructions: form.instructions.trim().length > 0,
+        sub_agent_count: form.subAgents.length,
+        sandbox_image: form.sandboxImage,
+        sandbox_size: form.sandboxSize,
+      })
       toast.success(`${form.name.trim()} created`)
       router.push("/w/agents")
     } catch (error) {

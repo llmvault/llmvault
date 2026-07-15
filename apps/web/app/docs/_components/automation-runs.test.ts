@@ -16,7 +16,7 @@ describe("AutomationRuns", () => {
     expect(html).toContain("404:")
     expect(html).toContain("413:")
     expect(html).toContain("Video placeholder")
-    expect(html).toContain("Image placeholder")
+    expect(html).toContain("/docs/captures/")
     expect(html).not.toContain("conversation")
     expect(html).not.toContain("—")
   })

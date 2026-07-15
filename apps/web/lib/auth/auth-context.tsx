@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import {
   createContext,
   useContext,
@@ -105,6 +106,12 @@ export function AuthProvider({
   }, [isError, router, signInPath])
 
   useEffect(() => {
+    if (user?.id) {
+      posthog.identify(user.id)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
     const nextOrgId = activeOrg?.id
     if (nextOrgId && nextOrgId !== activeOrgId) {
       queueMicrotask(() => setActiveOrgId(nextOrgId))
@@ -135,6 +142,7 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     await logoutMutation.mutateAsync({ body: {} })
+    posthog.reset()
     stopAllSessionStreams()
     stopAllSessionNotices()
     clearSessionSandboxAccess()

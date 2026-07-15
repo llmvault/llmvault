@@ -14,7 +14,7 @@ describe("HttpWebhooks", () => {
     expect(html).toContain("Treat the response as acceptance")
     expect(html).toContain("Hivy redacts JSON fields")
     expect(html).toContain("Video placeholder")
-    expect(html).toContain("Image placeholder")
+    expect(html).toContain("/docs/captures/")
     expect(html).not.toContain("conversation")
     expect(html).not.toContain("—")
   })

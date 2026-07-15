@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import Nango, { AuthError } from "@nangohq/frontend"
@@ -118,6 +119,9 @@ export function useConnectIntegration() {
     setConnectingId(integrationId)
     runConnect(integrationId, normalizedOptions)
       .then(() => {
+        posthog.capture("plugin_connected", {
+          integration_id: integrationId,
+        })
         onSuccess?.()
       })
       .catch((error) => {

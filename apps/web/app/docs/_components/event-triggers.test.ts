@@ -13,7 +13,7 @@ describe("EventTriggers", () => {
     expect(html).toContain("Write instructions for the event")
     expect(html).toContain("Disable a trigger")
     expect(html).toContain("Video placeholder")
-    expect(html).toContain("Image placeholder")
+    expect(html).toContain("/docs/captures/")
     expect(html).not.toContain("conversation")
     expect(html).not.toContain("—")
   })

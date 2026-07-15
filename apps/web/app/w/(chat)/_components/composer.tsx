@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import { useCallback, useRef } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
@@ -42,10 +43,7 @@ import {
 } from "./use-composer-attachments"
 import { ComposerChannelPicker } from "./composer-channel-picker"
 import { ComposerModelPicker } from "./composer-model-picker"
-import {
-  ComposerTeamPicker,
-  type ComposerTeam,
-} from "./composer-team-picker"
+import { ComposerTeamPicker, type ComposerTeam } from "./composer-team-picker"
 
 export function Composer({
   sessionId,
@@ -253,6 +251,12 @@ export function Composer({
           restoreDraft()
           return false
         }
+        posthog.capture("message_sent", {
+          has_attachments: sendingAttachments.length > 0,
+          attachment_count: sendingAttachments.length,
+          has_line_comments: sendingCodeLineComments.length > 0,
+          effort,
+        })
         discardDraftUploads(sendingUploads)
         const node = textareaRef.current
         if (node) {

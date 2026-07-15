@@ -10,7 +10,7 @@ describe("HowHivyOrganizesWork", () => {
     expect(html).toContain("Where a session lives")
     expect(html).toContain("Agents belong to teams")
     expect(html).toContain("See where work lives")
-    expect(html).toContain("Capture the workspace at 100% zoom")
+    expect(html).toContain("/docs/captures/workspace-hierarchy-light.png")
     expect(html).toContain(">Session<")
     expect(html).not.toContain("workspace-overview-light.jpg")
     expect(html).not.toContain("DocsImage")

@@ -45,6 +45,7 @@
     "openapi-react-query": "^0.5.4",
     "papaparse": "^5.5.3",
     "pino": "^10.3.1",
+    "posthog-js": "^1.400.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-dropzone": "^15.0.0",

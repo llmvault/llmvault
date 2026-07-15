@@ -1,7 +1,15 @@
 "use client"
 
+import posthog from "posthog-js"
 import * as React from "react"
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Chip, Spinner, toast } from "@heroui/react"
@@ -46,7 +54,10 @@ function AcceptInviteContents() {
   const me = meQuery.data
 
   const acceptMutation = $api.useMutation("post", "/v1/invites/{token}/accept")
-  const declineMutation = $api.useMutation("post", "/v1/invites/{token}/decline")
+  const declineMutation = $api.useMutation(
+    "post",
+    "/v1/invites/{token}/decline"
+  )
   const logoutMutation = $api.useMutation("post", "/auth/logout")
 
   const [accepted, setAccepted] = useState<{ orgName: string } | null>(null)
@@ -78,11 +89,16 @@ function AcceptInviteContents() {
       { params: { path: { token } } },
       {
         onSuccess: (resp) => {
+          posthog.capture("invite_accepted", {
+            org_name: resp?.org_name,
+          })
           setAccepted({ orgName: resp?.org_name ?? "" })
           void setActiveOrgAndRedirect(resp?.org_id)
         },
         onError: (error) => {
-          toast.danger(extractErrorMessage(error, "Failed to accept invitation"))
+          toast.danger(
+            extractErrorMessage(error, "Failed to accept invitation")
+          )
         },
       }
     )
@@ -96,7 +112,9 @@ function AcceptInviteContents() {
           setDeclined(true)
         },
         onError: (error) => {
-          toast.danger(extractErrorMessage(error, "Failed to decline invitation"))
+          toast.danger(
+            extractErrorMessage(error, "Failed to decline invitation")
+          )
         },
       }
     )
@@ -133,7 +151,9 @@ function AcceptInviteContents() {
         },
         onError: (error) => {
           autoAcceptStarted.current = false
-          toast.danger(extractErrorMessage(error, "Failed to accept invitation"))
+          toast.danger(
+            extractErrorMessage(error, "Failed to accept invitation")
+          )
         },
       }
     )

@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -96,6 +97,10 @@ export function usePasswordLogin(nextPath = "/w") {
               toast.success("Check your email for a 6-digit confirmation code")
               return
             }
+            if (response?.user?.id) {
+              posthog.identify(response.user.id)
+            }
+            posthog.capture("user_logged_in", { method: "password" })
             router.replace(redirectTo)
           },
           onError: (error) => {
@@ -193,6 +198,10 @@ export function usePasswordSignup(nextPath = "/w") {
         {
           onSuccess: (response) => {
             queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
+            if (response?.user?.id) {
+              posthog.identify(response.user.id)
+            }
+            posthog.capture("user_signed_up", { method: "password" })
             if (response?.user?.email_confirmed) {
               router.replace(redirectTo)
               return
