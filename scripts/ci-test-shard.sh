@@ -100,7 +100,7 @@ internal_core_shard_packages() {
     4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp slackworkflow providerheaders ;;
     5) select_internal_core_packages agentruntime agentprompts sandboxruntime runtimestream ;;
     6) select_internal_core_packages sandbox sandbox/daytona sandbox/docker ;;
-    7) select_internal_core_packages mcp mcp/catalog mcpserver mcpservers skills resources providergroups ;;
+    7) select_internal_core_packages connectionname mcp mcp/catalog mcpserver mcpservers skills resources providergroups ;;
     8) select_internal_core_packages agents agentsandbox apps ;;
     9) select_internal_core_packages model registry db migrations testdb counter memory ;;
     10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider firecrawl serper webcrawl enqueue email ;;
