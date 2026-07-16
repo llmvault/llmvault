@@ -14,43 +14,21 @@ import (
 	"github.com/usehivy/hivy/internal/billing"
 )
 
-type customerPayload struct {
-	CustomerCode string `json:"customer_code"`
-	Email        string `json:"email"`
-}
-
-type authorizationBlock struct {
-	AuthorizationCode string `json:"authorization_code"`
-	Last4             string `json:"last4"`
-	Brand             string `json:"brand"`
-	CardType          string `json:"card_type"`
-	Bank              string `json:"bank"`
-	AccountName       string `json:"account_name"`
-	ExpMonth          string `json:"exp_month"`
-	ExpYear           string `json:"exp_year"`
-	Channel           string `json:"channel"`
-	Reusable          bool   `json:"reusable"`
-}
-
 type verifyTransactionResponse struct {
-	Reference     string             `json:"reference"`
-	Status        string             `json:"status"`
-	Amount        int64              `json:"amount"`
-	Currency      string             `json:"currency"`
-	Channel       string             `json:"channel"`
-	PaidAt        *time.Time         `json:"paid_at"`
-	Customer      customerPayload    `json:"customer"`
-	Authorization authorizationBlock `json:"authorization"`
+	Reference string     `json:"reference"`
+	Status    string     `json:"status"`
+	Amount    int64      `json:"amount"`
+	Currency  string     `json:"currency"`
+	PaidAt    *time.Time `json:"paid_at"`
 	// Paystack returns metadata in one of three shapes — null, the
 	// number 0 (their placeholder), or a JSON object — so we keep it
 	// raw and decode by inspection.
 	Metadata json.RawMessage `json:"metadata"`
 }
 
-// ResolveCheckout calls /transaction/verify/:reference and returns the
-// normalized result. Callers verify the paid amount against the plan
-// price themselves — this method is purely a transport.
-func (p *Provider) ResolveCheckout(ctx context.Context, req billing.ResolveCheckoutRequest) (*billing.ResolveCheckoutResult, error) {
+// ResolveDeposit calls /transaction/verify/:reference and returns the
+// normalized result. The purchase service verifies amount and currency.
+func (p *Provider) ResolveDeposit(ctx context.Context, req billing.ResolveDepositRequest) (*billing.DepositResult, error) {
 	if req.Reference == "" {
 		return nil, fmt.Errorf("paystack resolve: empty reference")
 	}
@@ -63,23 +41,24 @@ func (p *Provider) ResolveCheckout(ctx context.Context, req billing.ResolveCheck
 	metadata := parseMetadata(tx.Metadata)
 
 	// Defense-in-depth: reject a reference whose transaction was initialised for
-	// a different org. Without this a member could reuse any valid paid Paystack
-	// reference (from any org, same plan) to flip their own org's plan_slug.
+	// a different org. Without this a member could reuse another org's valid
+	// paid reference to credit a purchase they did not fund.
 	if req.ExpectedOrgID != uuid.Nil {
 		if metadata["org_id"] != req.ExpectedOrgID.String() {
 			return nil, fmt.Errorf("%w: reference %q", billing.ErrOrgMismatch, req.Reference)
 		}
 	}
+	if req.ExpectedPurchaseID != uuid.Nil && metadata["purchase_id"] != req.ExpectedPurchaseID.String() {
+		return nil, fmt.Errorf("%w: reference %q", billing.ErrPurchaseMismatch, req.Reference)
+	}
 
-	return &billing.ResolveCheckoutResult{
-		Status:             mapTransactionStatus(tx.Status),
-		ExternalCustomerID: tx.Customer.CustomerCode,
-		PaidAt:             tx.PaidAt,
-		PaidAmountMinor:    tx.Amount,
-		Currency:           tx.Currency,
-		Reference:          tx.Reference,
-		PaymentMethod:      paymentMethodFrom(tx.Authorization, tx.Channel),
-		Metadata:           metadata,
+	return &billing.DepositResult{
+		Status:          mapTransactionStatus(tx.Status),
+		PaidAt:          tx.PaidAt,
+		PaidAmountMinor: tx.Amount,
+		Currency:        billing.Currency(tx.Currency),
+		Reference:       tx.Reference,
+		Metadata:        metadata,
 	}, nil
 }
 
@@ -99,29 +78,14 @@ func parseMetadata(raw json.RawMessage) map[string]string {
 	return m
 }
 
-func paymentMethodFrom(auth authorizationBlock, txChannel string) billing.PaymentMethod {
-	channel := billing.PaymentChannel(auth.Channel)
-	if channel == "" {
-		channel = billing.PaymentChannel(txChannel)
-	}
-	return billing.PaymentMethod{
-		AuthorizationCode: auth.AuthorizationCode,
-		Channel:           channel,
-		CardLast4:         auth.Last4,
-		CardBrand:         auth.Brand,
-		CardExpMonth:      auth.ExpMonth,
-		CardExpYear:       auth.ExpYear,
-		BankName:          auth.Bank,
-		AccountName:       auth.AccountName,
-	}
-}
-
-func mapTransactionStatus(s string) billing.SubscriptionStatus {
+func mapTransactionStatus(s string) billing.PaymentStatus {
 	switch s {
 	case "success":
-		return billing.StatusActive
-	case "failed", "abandoned", "reversed":
-		return billing.StatusRevoked
+		return billing.PaymentPaid
+	case "failed", "abandoned":
+		return billing.PaymentFailed
+	case "reversed":
+		return billing.PaymentReversed
 	}
-	return billing.StatusPastDue
+	return billing.PaymentPending
 }

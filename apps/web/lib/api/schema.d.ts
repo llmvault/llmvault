@@ -3819,88 +3819,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/billing/checkout": {
+    "/v1/billing/account": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /**
-         * Create checkout session
-         * @description Creates a checkout session for subscribing to a plan. The client chooses the provider.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Checkout request */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["createCheckoutRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["createCheckoutResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/subscription": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get subscription status
-         * @description Returns the org's active plan, provider, payment-method snapshot, and any pending plan change.
-         */
+        /** Get billing account */
         get: {
             parameters: {
                 query?: never;
@@ -3916,7 +3842,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["subscriptionResponse"];
+                        "application/json": components["schemas"]["billingAccountResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -3947,7 +3873,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/billing/subscription/apply-change": {
+    "/v1/billing/account/currency": {
         parameters: {
             query?: never;
             header?: never;
@@ -3955,19 +3881,18 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        /** Apply a subscription plan change */
-        post: {
+        /** Select billing currency */
+        put: {
             parameters: {
                 query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
-            /** @description Quote and (for upgrades) Paystack reference */
+            /** @description Billing currency */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["applyChangeRequest"];
+                    "application/json": components["schemas"]["selectBillingCurrencyRequest"];
                 };
             };
             responses: {
@@ -3977,202 +3902,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["applyChangeResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Payment Required */
-                402: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Gone */
-                410: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/subscription/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cancel a subscription */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Cancellation options */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["cancelRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["cancelResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/subscription/init-upgrade": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Initialise a Paystack transaction for an upgrade quote */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Upgrade quote id */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["initUpgradeRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["initUpgradeResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Gone */
-                410: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/subscription/preview-change": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Preview a subscription plan change */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Target plan */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["previewChangeRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["previewChangeResponse"];
+                        "application/json": components["schemas"]["statusResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -4204,25 +3934,27 @@ export interface paths {
                 };
             };
         };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/billing/subscription/resume": {
+    "/v1/billing/purchases": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** Resume a subscription */
-        post: {
+        /** List credit purchases */
+        get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Maximum purchases */
+                    limit?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -4235,30 +3967,13 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["cancelResponse"];
+                        "application/json": components["schemas"]["creditPurchasesResponse"];
                     };
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
         put?: never;
-        /**
-         * Verify checkout completed
-         * @description Resolves a Paystack transaction reference, asserts the paid amount matches the plan's price, and provisions the Subscription row.
-         */
+        /** Create credit purchase */
         post: {
             parameters: {
                 query?: never;
@@ -4266,20 +3981,20 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Reference returned from /v1/billing/checkout */
+            /** @description Credit purchase */
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["verifyRequest"];
+                    "application/json": components["schemas"]["createCreditPurchaseRequest"];
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description Created */
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["verifyResponse"];
+                        "application/json": components["schemas"]["creditPurchaseResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -4300,8 +4015,8 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Payment Required */
-                402: {
+                /** @description Internal Server Error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -4309,8 +4024,65 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
-                /** @description Bad Gateway */
-                502: {
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/purchases/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify credit purchase */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Purchase ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["creditPurchaseResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12355,55 +12127,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all public active plans
-         * @description Returns the public catalog of billing plans, ordered by price
-         *     ascending (free first). Public — no authentication required.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["planDTO"][];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/providers": {
         parameters: {
             query?: never;
@@ -18909,14 +18632,6 @@ export interface components {
             template_version?: string;
             updated_at?: string;
         };
-        applyChangeRequest: {
-            paystack_reference?: string;
-            quote_id?: string;
-        };
-        applyChangeResponse: {
-            plan_slug?: string;
-            status?: string;
-        };
         assetListItem: {
             agent_id?: string;
             asset_url?: string;
@@ -18954,6 +18669,13 @@ export interface components {
         };
         automationCatalogResponse: {
             data?: components["schemas"]["CatalogItem"][];
+        };
+        billingAccountResponse: {
+            balance?: number;
+            currency?: string;
+            fee_basis_points?: number;
+            ngn_minor_per_usd?: number;
+            supported_currencies?: string[];
         };
         brandAssetMutationResponse: {
             asset?: components["schemas"]["brandAssetResponse"];
@@ -18996,14 +18718,6 @@ export interface components {
             typography?: number[];
             updated_at?: string;
             voice?: number[];
-        };
-        cancelRequest: {
-            at_period_end?: boolean;
-        };
-        cancelResponse: {
-            cancel_at_period_end?: boolean;
-            canceled_at?: string;
-            status?: string;
         };
         canvasArtifactPreviewRequest: {
             session_id?: string;
@@ -19178,22 +18892,6 @@ export interface components {
             typography?: number[];
             voice?: number[];
         };
-        createCheckoutRequest: {
-            cancel_url?: string;
-            /** @description e.g. "USD", "NGN" */
-            currency?: string;
-            /** @description "monthly" | "annual" */
-            cycle?: string;
-            plan_slug?: string;
-            provider?: string;
-            success_url?: string;
-        };
-        createCheckoutResponse: {
-            /** @description popup flow: hand to PaystackPop().resumeTransaction() */
-            access_code?: string;
-            checkout_url?: string;
-            reference?: string;
-        };
         createConnectionRequest: {
             meta?: components["schemas"]["JSON"];
             nango_connection_id?: string;
@@ -19209,6 +18907,10 @@ export interface components {
             refill_amount?: number;
             refill_interval?: string;
             remaining?: number;
+        };
+        createCreditPurchaseRequest: {
+            callback_url?: string;
+            subtotal_minor?: number;
         };
         createFieldRequest: {
             mutation_id?: string;
@@ -19357,6 +19059,26 @@ export interface components {
             revoked?: number;
             total?: number;
         };
+        creditPurchaseResponse: {
+            access_code?: string;
+            checkout_url?: string;
+            created_at?: string;
+            credited_at?: string;
+            credits?: number;
+            currency?: string;
+            fee_basis_points?: number;
+            fee_minor?: number;
+            fx_minor_per_usd?: number;
+            id?: string;
+            paid_at?: string;
+            provider_reference?: string;
+            status?: string;
+            subtotal_minor?: number;
+            total_minor?: number;
+        };
+        creditPurchasesResponse: {
+            purchases?: components["schemas"]["creditPurchaseResponse"][];
+        };
         dailyRequests: {
             count?: number;
             date?: string;
@@ -19498,15 +19220,6 @@ export interface components {
             drive_asset_id?: string;
             filename?: string;
             rendered_description?: string;
-        };
-        initUpgradeRequest: {
-            quote_id?: string;
-        };
-        initUpgradeResponse: {
-            access_code?: string;
-            amount_minor?: number;
-            currency?: string;
-            reference?: string;
         };
         insertRowRequest: {
             data?: {
@@ -19783,13 +19496,13 @@ export interface components {
             team_ids?: string[];
         };
         orgMemberDTO: {
+            billing_currency?: string;
             byok?: boolean;
             credits?: number;
             id?: string;
             logo_url?: string;
             name?: string;
             onboarding_step?: string;
-            plan?: components["schemas"]["planDTO"];
             role?: string;
         };
         orgMemberResponse: {
@@ -19801,12 +19514,12 @@ export interface components {
         };
         orgResponse: {
             active?: boolean;
+            billing_currency?: string;
             created_at?: string;
             id?: string;
             logo_url?: string;
             name?: string;
             onboarding_step?: string;
-            plan?: components["schemas"]["planDTO"];
             prompt_company?: string;
             rate_limit?: number;
             sandbox_exposed_ports?: number[];
@@ -19911,31 +19624,6 @@ export interface components {
         };
         patchMemberRoleRequest: {
             role?: string;
-        };
-        planDTO: {
-            currency?: string;
-            features?: string[];
-            monthly_credits?: number;
-            name?: string;
-            price_cents?: number;
-            provider?: string;
-            slug?: string;
-            welcome_credits?: number;
-        };
-        previewChangeRequest: {
-            plan_slug?: string;
-        };
-        previewChangeResponse: {
-            amount_minor?: number;
-            credit_grant_minor?: number;
-            currency?: string;
-            effective_at?: string;
-            expires_at?: string;
-            from_plan_slug?: string;
-            kind?: string;
-            quote_id?: string;
-            requires_payment_now?: boolean;
-            to_plan_slug?: string;
         };
         providerDetail: {
             api?: string;
@@ -20252,6 +19940,9 @@ export interface components {
             refs?: {
                 [key: string]: string;
             };
+        };
+        selectBillingCurrencyRequest: {
+            currency?: string;
         };
         sendSessionMessageRequest: {
             artifact_comments?: components["schemas"]["JSON"][];
@@ -20594,25 +20285,6 @@ export interface components {
             tools?: components["schemas"]["JSON"];
             updated_at?: string;
         };
-        subscriptionResponse: {
-            cancel_at_period_end?: boolean;
-            card_brand?: string;
-            card_exp_month?: string;
-            card_exp_year?: string;
-            card_last4?: string;
-            credits_balance?: number;
-            current_period_end?: string;
-            payment_account_name?: string;
-            payment_bank_name?: string;
-            /** @description Payment-method snapshot from the most recent successful charge. */
-            payment_channel?: string;
-            pending_change_at?: string;
-            /** @description Pending plan change scheduled at PendingChangeAt (downgrade flow). */
-            pending_plan_slug?: string;
-            plan_slug?: string;
-            provider?: string;
-            status?: string;
-        };
         syncTriggerRequest: {
             from_beginning?: boolean;
         };
@@ -20950,14 +20622,6 @@ export interface components {
             email_confirmed?: boolean;
             id?: string;
             name?: string;
-        };
-        verifyRequest: {
-            provider?: string;
-            reference?: string;
-        };
-        verifyResponse: {
-            plan_slug?: string;
-            status?: string;
         };
     };
     responses: never;

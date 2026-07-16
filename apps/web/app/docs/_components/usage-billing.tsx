@@ -12,9 +12,9 @@ const USAGE_VIEWS = [
   },
   {
     icon: "calendar" as const,
-    title: "Next reset",
+    title: "This month's usage",
     description:
-      "Paid plans follow their subscription period. Free workspaces use the current calendar month.",
+      "Usage is grouped by calendar month. Purchased credits stay in the workspace until they are spent.",
   },
   {
     icon: "messages-square" as const,
@@ -64,8 +64,8 @@ export function UsageBilling() {
 
       <DocsMediaPlaceholder
         type="video"
-        title="Read the bill before changing plans"
-        description="Use a demo admin account to open Settings > Usage & billing, read the plan and balance, check the period total, then open View plans and stop at the confirmation screen. Keep saved payment details out of frame and finish within 60 to 90 seconds."
+        title="Buy credits through Paystack"
+        description="Use a demo owner account to open Settings > Usage & billing, review the balance, enter a purchase amount, and show the fee and total before opening Paystack. Keep payment details out of frame and finish within 60 to 90 seconds."
         className="mt-12"
       />
 
@@ -74,8 +74,8 @@ export function UsageBilling() {
           <p>
             Go to <strong className="text-foreground">Settings</strong> and open{" "}
             <strong className="text-foreground">Usage &amp; billing</strong>.
-            You&apos;ll find the current plan, remaining credits, period spend,
-            and next reset date on one page.
+            You&apos;ll find the remaining credits, this month&apos;s spend, and
+            recent purchases on one page.
           </p>
           <p className="mt-3">
             That balance belongs to the whole workspace, not one team. Check it
@@ -108,49 +108,27 @@ export function UsageBilling() {
           bleed={false}
         />
 
-        <DocSection title="Size the plan from real work">
+        <DocSection title="Buy the credits you need">
           <p>
-            Free gives each new workspace welcome credits once. Business plans
-            add their included credits each month; choose{" "}
-            <strong className="text-foreground">View plans</strong> to compare
-            today&apos;s prices and allowances.
+            New workspaces receive welcome credits once. When you need more, the
+            owner enters a purchase amount and Hivy shows the credits, 10%
+            deposit fee, and final Paystack charge before checkout.
           </p>
           <p className="mt-3">
-            Don&apos;t size the plan from one unusually large job. Run the tasks
-            your team repeats, compare their session totals, and move simple
-            work to a cheaper model before paying for more credits.
+            Run the tasks your team repeats, compare their session totals, and
+            move simple work to a cheaper model before buying more credits.
           </p>
         </DocSection>
 
-        <DocSection title="Plan changes use different clocks">
-          <div className="overflow-hidden rounded-xl border border-border bg-surface">
-            <PlanChange
-              title="First paid plan"
-              description="Choose a paid plan and finish checkout. Hivy activates it after the payment provider confirms the charge."
-            />
-            <PlanChange
-              title="Upgrade"
-              description="The confirmation shows the prorated amount for the days left in the period. Payment switches the plan now and adds the matching share of credits."
-            />
-            <PlanChange
-              title="Downgrade"
-              description="Hivy takes no payment now. The lower plan starts when the current billing period ends."
-            />
-          </div>
-        </DocSection>
-
-        <DocSection title="Cancel at the period end">
+        <DocSection title="Choose the currency once">
           <p>
-            <strong className="text-foreground">Cancel plan</strong>{" "}
-            doesn&apos;t cut the paid period short. The owner can cancel from
-            Usage &amp; billing, and Hivy keeps the plan active through the date
-            shown before moving the workspace to Free.
+            Before the first purchase, the owner chooses USD or NGN. That choice
+            is permanent for the workspace so every deposit and reconciliation
+            stays in one currency.
           </p>
           <p className="mt-3">
-            Changed your mind? Choose{" "}
-            <strong className="text-foreground">Resume plan</strong> before that
-            date. After cancellation finishes, the owner must check out again to
-            return to a paid plan.
+            Purchases are one-time deposits, not recurring charges. Credits are
+            added only after Paystack confirms the exact amount and currency.
           </p>
         </DocSection>
 
@@ -166,11 +144,12 @@ export function UsageBilling() {
           </h2>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-muted">
             <AccessItem>
-              Owners and admins can read the workspace plan, balance, and usage.
+              Owners and admins can read the workspace balance, purchases, and
+              usage.
             </AccessItem>
             <AccessItem>
-              Money stays with the owner: only that person can subscribe, change
-              plans, cancel, resume, or see saved payment details.
+              Money stays with the owner: only that person can select the
+              billing currency or buy credits.
             </AccessItem>
             <AccessItem>
               Members see costs inside the sessions they can already open.
@@ -178,21 +157,6 @@ export function UsageBilling() {
           </ul>
         </section>
       </div>
-    </div>
-  )
-}
-
-function PlanChange({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <div className="grid gap-2 border-b border-border p-5 last:border-b-0 sm:grid-cols-[9rem_1fr] sm:gap-7">
-      <h3 className="font-semibold text-foreground">{title}</h3>
-      <p className="text-sm leading-6 text-muted">{description}</p>
     </div>
   )
 }

@@ -39,9 +39,7 @@ const (
 	TypeTokenCleanup          = "periodic:token_cleanup"
 	TypeSandboxResourceCheck  = "periodic:sandbox_resource_check"
 	TypeSandboxReap           = "periodic:sandbox_reap"
-	TypeCreditsExpire         = "periodic:credits_expire"
 	TypeBillingBatchProcess   = "periodic:billing_batch_process"
-	TypeBillingRenewSweep     = "periodic:billing_renew_sweep"
 	TypeAgentScheduleScan     = "periodic:agent_schedule_scan"
 	TypeSessionReflectionScan = "periodic:session_reflection_scan"
 	TypeSandboxAutoSleep      = "periodic:sandbox_auto_sleep"
@@ -55,9 +53,6 @@ const (
 	// Backfills token usage on zero-usage OpenRouter system generations from the
 	// authoritative /api/v1/generation endpoint so they can be billed.
 	TypeGenerationReconcile = "periodic:generation_reconcile"
-
-	// On-demand task enqueued by the sweep for each due subscription.
-	TypeBillingRenewSubscription = "billing:renew_subscription"
 )
 
 // Queue names with priority weights.

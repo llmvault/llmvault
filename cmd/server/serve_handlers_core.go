@@ -33,7 +33,6 @@ type serveHandlersCore struct {
 	connectionHandler          *handler.ConnectionHandler
 	orgHandler                 *handler.OrgHandler
 	brandHandler               *handler.BrandHandler
-	plansHandler               *handler.PlansHandler
 	orgInviteHandler           *handler.OrgInviteHandler
 	authHandler                *handler.AuthHandler
 	oauthHandler               *handler.OAuthHandler
@@ -131,7 +130,6 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
 	brandHandler := handler.NewBrandHandler(database)
-	plansHandler := handler.NewPlansHandler(database)
 	// Handlers enqueue emails for async delivery when a queue is available;
 	// without one (degraded/dev), send through the transport directly.
 	var emailSender email.Sender
@@ -169,7 +167,6 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		connectionHandler:          connectionHandler,
 		orgHandler:                 orgHandler,
 		brandHandler:               brandHandler,
-		plansHandler:               plansHandler,
 		orgInviteHandler:           orgInviteHandler,
 		authHandler:                authHandler,
 		oauthHandler:               oauthHandler,

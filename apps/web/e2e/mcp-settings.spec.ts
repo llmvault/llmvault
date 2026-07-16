@@ -95,7 +95,6 @@ async function openMcpSettings(page: Page, baseURL: string, role: MockRole) {
         ],
       })
     }
-    if (method === "GET" && path === "/v1/plans") return json([])
     if (method === "GET" && path === "/v1/orgs/current/teams") {
       return json({
         data: [

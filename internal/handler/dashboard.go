@@ -119,15 +119,8 @@ func (h *DashboardHandler) creditBalance(orgID uuid.UUID) (int64, error) {
 }
 
 func (h *DashboardHandler) currentCreditPeriod(ctx context.Context, orgID uuid.UUID) (time.Time, time.Time, error) {
-	var sub model.Subscription
-	if err := h.db.WithContext(ctx).
-		Where("org_id = ? AND status = ?", orgID, string(billing.StatusActive)).
-		Order("created_at DESC").
-		First(&sub).Error; err == nil && !sub.CurrentPeriodStart.IsZero() && !sub.CurrentPeriodEnd.IsZero() {
-		return sub.CurrentPeriodStart.UTC(), sub.CurrentPeriodEnd.UTC(), nil
-	} else if err != nil && err != gorm.ErrRecordNotFound {
-		return time.Time{}, time.Time{}, err
-	}
+	_ = ctx
+	_ = orgID
 	now := time.Now().UTC()
 	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	return start, start.AddDate(0, 1, 0), nil

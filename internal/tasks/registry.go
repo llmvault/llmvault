@@ -6,7 +6,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/billing"
-	"github.com/usehivy/hivy/internal/billing/subscription"
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -31,7 +30,6 @@ type WorkerDeps struct {
 	NangoClient         *nango.Client           // nil disables deterministic enrichment
 	CacheManager        *cache.Manager          // nil disables tasks that need credential decryption
 	Credits             *billing.CreditsService // required for billing-token-spend deduction
-	Subscriptions       *subscription.Service   // required for renewal worker
 	Enqueuer            enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
 	PreContextCache     precontext.Cache        // nil disables agent pre-context cache invalidation
 	PreContextBuilder   precontext.Builder      // nil disables runtime pre-context injection
@@ -95,19 +93,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 
 	if deps.Credits != nil {
 		mux.HandleFunc(TypeBillingBatchProcess, NewBillingBatchProcessHandler(deps.DB, deps.Credits).Handle)
-		mux.HandleFunc(TypeCreditsExpire, NewCreditsExpireHandler(deps.Credits).Handle)
 	}
 
 	if deps.CacheManager != nil {
 		mux.HandleFunc(TypeGenerationReconcile, NewGenerationReconcileHandler(deps.DB, deps.CacheManager).Handle)
-	}
-
-	// Subscription renewal worker. Sweep runs hourly, finds due subs, and
-	// enqueues per-sub renewal tasks; per-sub tasks call ChargeAuthorization
-	// against the saved payment method.
-	if deps.Subscriptions != nil && deps.Enqueuer != nil {
-		mux.HandleFunc(TypeBillingRenewSweep, NewBillingRenewSweepHandler(deps.DB, deps.Enqueuer).Handle)
-		mux.HandleFunc(TypeBillingRenewSubscription, NewBillingRenewSubscriptionHandler(deps.Subscriptions).Handle)
 	}
 
 	// Conversation naming (async title generation from the first message).

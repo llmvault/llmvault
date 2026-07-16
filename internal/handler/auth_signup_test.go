@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/billing/purchase"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/testdb"
 )
@@ -24,25 +25,6 @@ func connectInternalTestDB(t *testing.T) *gorm.DB {
 	testdb.ApplyMigrations(t, db)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	return db
-}
-
-func seedFreePlan(t *testing.T, db *gorm.DB, welcome int64) {
-	t.Helper()
-
-	if err := db.Unscoped().Where("slug = ?", billing.FreePlanSlug).Delete(&model.Plan{}).Error; err != nil {
-		t.Fatalf("clear existing free plan: %v", err)
-	}
-	plan := model.Plan{
-		ID:             uuid.New(),
-		Slug:           billing.FreePlanSlug,
-		Name:           "Free",
-		WelcomeCredits: welcome,
-		Active:         true,
-	}
-	if err := db.Create(&plan).Error; err != nil {
-		t.Fatalf("seed free plan: %v", err)
-	}
-	t.Cleanup(func() { db.Unscoped().Delete(&plan) })
 }
 
 func seedSignupUser(t *testing.T, db *gorm.DB) *model.User {
@@ -111,7 +93,6 @@ func TestCreateUserDefaultOrg_StartsMandatoryTeamOnboarding(t *testing.T) {
 func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {
 	db := connectInternalTestDB(t)
 	credits := billing.NewCreditsService(db)
-	seedFreePlan(t, db, 5000)
 	user := seedSignupUser(t, db)
 
 	var org model.Org
@@ -129,8 +110,8 @@ func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("balance: %v", err)
 	}
-	if bal != 5000 {
-		t.Errorf("balance = %d, want 5000", bal)
+	if bal != purchase.WelcomeCredits {
+		t.Errorf("balance = %d, want %d", bal, purchase.WelcomeCredits)
 	}
 
 	var entries []model.CreditLedgerEntry
@@ -142,63 +123,5 @@ func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {
 	}
 	if entries[0].RefType != billing.RefTypeSignup || entries[0].RefID != user.ID.String() {
 		t.Errorf("unexpected ref tagging: type=%q id=%q", entries[0].RefType, entries[0].RefID)
-	}
-	if entries[0].ExpiresAt != nil {
-		t.Errorf("welcome credits must be permanent, got expires_at=%v", entries[0].ExpiresAt)
-	}
-}
-
-func TestCreateUserDefaultOrg_ZeroWelcomeCreditsSkipsGrant(t *testing.T) {
-	db := connectInternalTestDB(t)
-	credits := billing.NewCreditsService(db)
-	seedFreePlan(t, db, 0)
-	user := seedSignupUser(t, db)
-
-	var org model.Org
-	err := db.Transaction(func(tx *gorm.DB) error {
-		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
-		return e
-	})
-	if err != nil {
-		t.Fatalf("createUserDefaultOrg: %v", err)
-	}
-	cleanupOrgAndLedger(t, db, org.ID)
-
-	bal, _ := credits.Balance(org.ID)
-	if bal != 0 {
-		t.Errorf("balance = %d, want 0 (no welcome grant configured)", bal)
-	}
-
-	var count int64
-	db.Model(&model.CreditLedgerEntry{}).Where("org_id = ?", org.ID).Count(&count)
-	if count != 0 {
-		t.Errorf("ledger should be empty, got %d entries", count)
-	}
-}
-
-func TestCreateUserDefaultOrg_NoFreePlanRowSucceeds(t *testing.T) {
-
-	db := connectInternalTestDB(t)
-	credits := billing.NewCreditsService(db)
-
-	db.Unscoped().Where("slug = ?", billing.FreePlanSlug).Delete(&model.Plan{})
-
-	user := seedSignupUser(t, db)
-
-	var org model.Org
-	err := db.Transaction(func(tx *gorm.DB) error {
-		var e error
-		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
-		return e
-	})
-	if err != nil {
-		t.Fatalf("createUserDefaultOrg should not fail when free plan is missing: %v", err)
-	}
-	cleanupOrgAndLedger(t, db, org.ID)
-
-	bal, _ := credits.Balance(org.ID)
-	if bal != 0 {
-		t.Errorf("balance = %d, want 0 (no plan, no grant)", bal)
 	}
 }

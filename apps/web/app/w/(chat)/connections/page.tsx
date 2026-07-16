@@ -1,99 +1,162 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Input, Modal, Skeleton, Spinner, toast } from "@heroui/react"
+import { useRouter } from "next/navigation"
+import { Button, Input, Skeleton, toast } from "@heroui/react"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { AppIcon } from "@/components/icon"
-import { IntegrationLogo } from "@/components/integration-logo"
+import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
+import { useIsAdmin } from "@/lib/auth/use-role"
 import {
-  type AvailableIntegration,
-  integrationNeedsForm,
-} from "./integration-auth"
-import { IntegrationCredentialsForm } from "./integration-credentials-form"
-import {
-  type ConnectOptions,
-  useConnectIntegration,
-} from "./use-connect-integration"
+  ConnectionNameModal,
+  type ConnectionNameTarget,
+} from "./connection-name-modal"
+import { ConnectionInventoryRow } from "./connection-inventory-row"
+import { DatabasePolicyModal } from "./database-policy-modal"
+import { useConnectIntegration } from "./use-connect-integration"
 
 type Connection = components["schemas"]["connectionResponse"]
+type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
+type DisconnectTarget =
+  | { kind: "integration"; connection: Connection }
+  | { kind: "database"; connection: DatabaseConnection }
 
 const EMPTY_CONNECTIONS: Connection[] = []
-const EMPTY_INTEGRATIONS: AvailableIntegration[] = []
+const EMPTY_DATABASES: DatabaseConnection[] = []
 
-const CONNECTION_DESCRIPTIONS: Record<string, string> = {
-  slack: "Work with channels, messages, and your team in Slack.",
-  "github-app": "Read repositories, issues, and pull requests.",
-  "github-app-code-reviews":
-    "Review pull requests and respond to code changes.",
-  notion: "Use pages and databases as company context.",
-  linear: "Create, update, and track product work.",
-  railway: "Inspect and manage Railway projects and deployments.",
-  vercel: "Work with projects, deployments, and domains.",
-  apify: "Run actors and use web data in your workflows.",
-  bugsink: "Investigate errors and application issues.",
-  glitchtip: "Inspect errors, events, and performance data.",
+const PROVIDER_NAMES: Record<string, string> = {
+  postgres: "PostgreSQL",
+  mysql: "MySQL",
+  mongodb: "MongoDB",
+  redis: "Redis",
+  slack: "Slack",
+  "github-app": "GitHub",
+  "github-app-code-reviews": "GitHub Code Reviews",
+  notion: "Notion",
+  linear: "Linear",
+  railway: "Railway",
+  vercel: "Vercel",
+  apify: "Apify",
+  bugsink: "Bugsink",
+  glitchtip: "GlitchTip",
 }
 
 export default function ConnectionsPage() {
+  const router = useRouter()
+  const isAdmin = useIsAdmin()
   const [query, setQuery] = useState("")
-  const [formIntegration, setFormIntegration] =
-    useState<AvailableIntegration | null>(null)
-  const integrationsQuery = $api.useQuery("get", "/v1/integrations/available")
+  const [nameTarget, setNameTarget] = useState<ConnectionNameTarget | null>(
+    null
+  )
+  const [policyTarget, setPolicyTarget] = useState<DatabaseConnection | null>(
+    null
+  )
+  const [disconnectTarget, setDisconnectTarget] =
+    useState<DisconnectTarget | null>(null)
+
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
-  const integrations = integrationsQuery.data?.data ?? EMPTY_INTEGRATIONS
+  const databasesQuery = $api.useQuery("get", "/v1/database-integrations")
+  const disconnectIntegration = $api.useMutation(
+    "delete",
+    "/v1/connections/{id}"
+  )
+  const disconnectDatabase = $api.useMutation(
+    "delete",
+    "/v1/database-integrations/{id}"
+  )
+  const { reconnectIntegration, connectingId } = useConnectIntegration()
+
   const connections = connectionsQuery.data?.data ?? EMPTY_CONNECTIONS
-  const filteredIntegrations = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-    if (!normalizedQuery) return integrations
+  const databases = databasesQuery.data ?? EMPTY_DATABASES
+  const filteredConnections = useMemo(
+    () => filterConnections(connections, query),
+    [connections, query]
+  )
+  const filteredDatabases = useMemo(
+    () => filterConnections(databases, query),
+    [databases, query]
+  )
+  const loading = connectionsQuery.isLoading || databasesQuery.isLoading
+  const hasError = connectionsQuery.isError || databasesQuery.isError
+  const disconnectPending =
+    disconnectIntegration.isPending || disconnectDatabase.isPending
 
-    return integrations.filter((integration) => {
-      const provider = integration.provider ?? ""
-      const description = CONNECTION_DESCRIPTIONS[provider] ?? ""
-      return `${integration.display_name ?? ""} ${provider} ${description}`
-        .toLowerCase()
-        .includes(normalizedQuery)
-    })
-  }, [integrations, query])
-  const { connectIntegration, connectingId, isConnecting } =
-    useConnectIntegration()
+  function refresh() {
+    void connectionsQuery.refetch()
+    void databasesQuery.refetch()
+  }
 
-  function connect(
-    integration: AvailableIntegration,
-    options?: ConnectOptions
+  function rename(
+    kind: "integration" | "database",
+    connection: Connection | DatabaseConnection
   ) {
-    if (!integration.id) return
+    if (!connection.id) return
+    setNameTarget({
+      id: connection.id,
+      kind,
+      name: connection.name ?? connection.slug ?? "",
+      needsName: connection.needs_name === true,
+    })
+  }
 
-    connectIntegration(integration.id, {
-      ...options,
+  function reconnect(connection: Connection) {
+    if (!connection.id) return
+    reconnectIntegration(connection.id, {
       onSuccess: () => {
-        setFormIntegration(null)
-        toast.success(
-          `${integration.display_name ?? "Connection"} is ready to use`
-        )
-        void connectionsQuery.refetch()
+        toast.success(`${providerName(connection.provider)} reconnected`)
+        refresh()
       },
     })
   }
 
-  function requestConnect(integration: AvailableIntegration) {
-    if (integrationNeedsForm(integration)) {
-      setFormIntegration(integration)
-      return
-    }
+  async function disconnect() {
+    const target = disconnectTarget
+    if (!target?.connection.id || disconnectPending) return
 
-    connect(integration)
+    try {
+      if (target.kind === "database") {
+        await disconnectDatabase.mutateAsync({
+          params: { path: { id: target.connection.id } },
+        })
+      } else {
+        await disconnectIntegration.mutateAsync({
+          params: { path: { id: target.connection.id } },
+        })
+      }
+      toast.success(`${providerName(target.connection.provider)} disconnected`)
+      setDisconnectTarget(null)
+      refresh()
+    } catch (error) {
+      toast.danger(
+        extractErrorMessage(error, "Could not disconnect connection")
+      )
+    }
   }
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Connections</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Connect the tools your teams and agents use.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Connections</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage the tools your teams and agents can use.
+          </p>
+        </div>
+        {isAdmin ? (
+          <Button
+            variant="primary"
+            size="sm"
+            className="shrink-0"
+            onPress={() => router.push("/w/connections/new")}
+          >
+            <AppIcon icon="plus" className="h-4 w-4" />
+            Add connection
+          </Button>
+        ) : null}
       </div>
 
       <div className="relative min-w-0 flex-1">
@@ -110,160 +173,200 @@ export default function ConnectionsPage() {
         />
       </div>
 
-      <ConnectedConnectionsSection
-        connections={connections}
-        isLoading={connectionsQuery.isLoading}
-      />
-
-      {integrationsQuery.isLoading ? (
-        <CatalogSkeleton />
-      ) : integrationsQuery.isError ? (
+      {loading ? (
+        <InventorySkeleton />
+      ) : hasError ? (
         <ErrorState />
-      ) : filteredIntegrations.length === 0 ? (
-        <EmptyState query={query} hasIntegrations={integrations.length > 0} />
       ) : (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-foreground">
-            Available connections
-          </h2>
-          <div className="bg-card flex flex-col">
-            {filteredIntegrations.map((integration, index) => (
-              <ConnectionRow
-                key={integration.id ?? integration.provider ?? index}
-                integration={integration}
-                isConnecting={connectingId === integration.id}
-                isDisabled={isConnecting}
-                onConnect={() => requestConnect(integration)}
-              />
-            ))}
-          </div>
-        </section>
+        <>
+          <ConnectionSection
+            title="Connected"
+            connections={filteredConnections}
+            canManage={isAdmin}
+            connectingId={connectingId}
+            onRename={(connection) => rename("integration", connection)}
+            onReconnect={reconnect}
+            onDisconnect={(connection) =>
+              setDisconnectTarget({ kind: "integration", connection })
+            }
+          />
+          <DatabaseSection
+            databases={filteredDatabases}
+            canManage={isAdmin}
+            onConfigure={setPolicyTarget}
+            onRename={(connection) => rename("database", connection)}
+            onDisconnect={(connection) =>
+              setDisconnectTarget({ kind: "database", connection })
+            }
+          />
+          {filteredConnections.length === 0 &&
+          filteredDatabases.length === 0 ? (
+            <EmptyState
+              hasConnections={connections.length + databases.length > 0}
+            />
+          ) : null}
+        </>
       )}
 
-      <Modal
-        isOpen={formIntegration !== null}
-        onOpenChange={(open) => !open && setFormIntegration(null)}
-      >
-        <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
-          <Modal.Container placement="center" className="p-4">
-            <Modal.Dialog className="w-full max-w-sm bg-background p-0 shadow-xl outline-none">
-              {formIntegration ? (
-                <IntegrationCredentialsForm
-                  integration={formIntegration}
-                  isSubmitting={isConnecting}
-                  onBack={() => setFormIntegration(null)}
-                  onSubmit={(options) => connect(formIntegration, options)}
-                />
-              ) : null}
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
+      {nameTarget ? (
+        <ConnectionNameModal
+          key={`${nameTarget.kind}:${nameTarget.id}:${nameTarget.name}`}
+          target={nameTarget}
+          onClose={() => setNameTarget(null)}
+          onSaved={refresh}
+        />
+      ) : null}
+
+      {policyTarget ? (
+        <DatabasePolicyModal
+          key={policyTarget.id}
+          connection={policyTarget}
+          onClose={() => setPolicyTarget(null)}
+          onSaved={refresh}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        open={disconnectTarget !== null}
+        pending={disconnectPending}
+        heading={`Disconnect ${providerName(disconnectTarget?.connection.provider)}`}
+        description={
+          disconnectTarget?.kind === "database"
+            ? "This revokes the stored database credentials and access policy. Agents will lose access until it is connected again."
+            : "This revokes the integration connection and removes provider access. Agents will lose access until it is connected again."
+        }
+        confirmLabel="Disconnect"
+        icon="unlink"
+        onOpenChange={(open) => !open && setDisconnectTarget(null)}
+        onConfirm={disconnect}
+      />
     </div>
   )
 }
 
-function ConnectedConnectionsSection({
+function ConnectionSection({
+  title,
   connections,
-  isLoading,
+  canManage,
+  connectingId,
+  onRename,
+  onReconnect,
+  onDisconnect,
 }: {
+  title: string
   connections: Connection[]
-  isLoading: boolean
+  canManage: boolean
+  connectingId: string | null
+  onRename: (connection: Connection) => void
+  onReconnect: (connection: Connection) => void
+  onDisconnect: (connection: Connection) => void
 }) {
-  if (isLoading) {
-    return (
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-foreground">Connected</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-8 w-8" />
-          ))}
-        </div>
-      </section>
-    )
-  }
-
   if (connections.length === 0) return null
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-foreground">Connected</h2>
-      <div className="flex flex-wrap items-center gap-2">
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
+      <div className="bg-card flex flex-col">
         {connections.map((connection, index) => (
-          <div
+          <ConnectionInventoryRow
             key={
               connection.id ?? `${connection.provider ?? "connection"}-${index}`
             }
-            className="bg-card flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/40"
-            title={
-              connection.name ?? connection.display_name ?? connection.provider
+            provider={connection.provider ?? ""}
+            name={
+              connection.name ||
+              connection.slug ||
+              providerName(connection.provider)
             }
-          >
-            <IntegrationLogo provider={connection.provider ?? ""} size={24} />
-          </div>
+            description={
+              connection.display_name ||
+              `${providerName(connection.provider)} connection`
+            }
+            needsName={connection.needs_name === true}
+            canManage={canManage && connectingId !== connection.id}
+            onRename={() => onRename(connection)}
+            onReconnect={() => onReconnect(connection)}
+            onDisconnect={() => onDisconnect(connection)}
+          />
         ))}
       </div>
     </section>
   )
 }
 
-function ConnectionRow({
-  integration,
-  isConnecting,
-  isDisabled,
-  onConnect,
+function DatabaseSection({
+  databases,
+  canManage,
+  onConfigure,
+  onRename,
+  onDisconnect,
 }: {
-  integration: AvailableIntegration
-  isConnecting: boolean
-  isDisabled: boolean
-  onConnect: () => void
+  databases: DatabaseConnection[]
+  canManage: boolean
+  onConfigure: (connection: DatabaseConnection) => void
+  onRename: (connection: DatabaseConnection) => void
+  onDisconnect: (connection: DatabaseConnection) => void
 }) {
-  const provider = integration.provider ?? ""
+  if (databases.length === 0) return null
 
   return (
-    <button
-      type="button"
-      className="group -mx-3 block py-1.5 text-left disabled:cursor-wait disabled:opacity-60"
-      disabled={isDisabled}
-      onClick={onConnect}
-    >
-      <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default group-focus-visible:bg-default">
-        <div className="flex items-center gap-3">
-          <IntegrationLogo provider={provider} size={36} />
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-medium text-foreground">
-              {integration.display_name || provider}
-            </h3>
-            <p className="text-muted-foreground truncate text-sm">
-              {CONNECTION_DESCRIPTIONS[provider] ??
-                "Connect this tool to use it with Hivy."}
-            </p>
-          </div>
-          {isConnecting ? (
-            <Spinner color="current" size="sm" />
-          ) : (
-            <AppIcon
-              icon="chevron-right"
-              className="text-muted-foreground h-4 w-4 shrink-0 transition-colors group-hover:text-foreground"
-            />
-          )}
-        </div>
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium text-foreground">Databases</h2>
+      <div className="bg-card flex flex-col">
+        {databases.map((connection, index) => (
+          <ConnectionInventoryRow
+            key={
+              connection.id ?? `${connection.provider ?? "database"}-${index}`
+            }
+            provider={connection.provider ?? ""}
+            name={
+              connection.name ||
+              connection.slug ||
+              providerName(connection.provider)
+            }
+            description={`${providerName(connection.provider)} database`}
+            needsName={connection.needs_name === true}
+            canManage={canManage}
+            onConfigure={() => onConfigure(connection)}
+            onRename={() => onRename(connection)}
+            onDisconnect={() => onDisconnect(connection)}
+          />
+        ))}
       </div>
-    </button>
+    </section>
   )
 }
 
-function CatalogSkeleton() {
+function filterConnections<T extends Connection | DatabaseConnection>(
+  values: T[],
+  query: string
+): T[] {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return values
+
+  return values.filter((connection) =>
+    `${connection.name ?? ""} ${connection.slug ?? ""} ${connection.display_name ?? ""} ${connection.provider ?? ""} ${providerName(connection.provider)}`
+      .toLowerCase()
+      .includes(normalized)
+  )
+}
+
+function providerName(provider: string | null | undefined): string {
+  if (!provider) return "connection"
+  return PROVIDER_NAMES[provider] ?? provider
+}
+
+function InventorySkeleton() {
   return (
     <section className="flex flex-col gap-3">
-      <Skeleton className="h-4 w-36 rounded" />
+      <Skeleton className="h-4 w-24 rounded" />
       <div className="bg-card flex flex-col gap-3">
-        {Array.from({ length: 5 }).map((_, row) => (
-          <div key={row} className="flex items-center gap-3 py-1.5">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="flex items-center gap-3 py-1.5">
             <Skeleton className="h-9 w-9" />
             <div className="min-w-0 flex-1">
               <Skeleton className="h-4 w-40 rounded" />
-              <Skeleton className="mt-2 h-4 w-full max-w-sm rounded" />
+              <Skeleton className="mt-2 h-4 w-28 rounded" />
             </div>
           </div>
         ))}
@@ -282,32 +385,24 @@ function ErrorState() {
       <p className="mt-3 text-sm font-medium text-foreground">
         Could not load connections
       </p>
-      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
+      <p className="text-muted-foreground mt-1 text-sm">
         Refresh the page to try again.
       </p>
     </div>
   )
 }
 
-function EmptyState({
-  query,
-  hasIntegrations,
-}: {
-  query: string
-  hasIntegrations: boolean
-}) {
+function EmptyState({ hasConnections }: { hasConnections: boolean }) {
   return (
     <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
       <AppIcon icon="plug" className="text-muted-foreground h-7 w-7" />
       <p className="mt-3 text-sm font-medium text-foreground">
-        {query && hasIntegrations
-          ? "No matching connections"
-          : "No connections available"}
+        {hasConnections ? "No matching connections" : "No connections yet"}
       </p>
-      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-        {query && hasIntegrations
+      <p className="text-muted-foreground mt-1 text-sm">
+        {hasConnections
           ? "Try a different search."
-          : "Configure an integration in Nango to add it to the catalog."}
+          : "Add a connection to give agents access to your tools."}
       </p>
     </div>
   )

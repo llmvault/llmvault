@@ -63,7 +63,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, h.providerHandler, h.integrationHandler, actionsCatalog, h.orgInviteHandler, h.plansHandler, h.nangoWebhookHandler, h.incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, h.uploadsHandler, h.imageDescribeHandler, h.canvasHandler, h.appsInternalHandler, orchestrator, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, h.providerHandler, h.integrationHandler, actionsCatalog, h.orgInviteHandler, h.nangoWebhookHandler, h.incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, h.uploadsHandler, h.imageDescribeHandler, h.canvasHandler, h.appsInternalHandler, orchestrator, orchestratorMissing)
 	runtimeIngressHandler := handler.NewRuntimeStreamIngressHandler(database, sandboxEncKey, h.runtimeStreamStore, enqueuer)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/sessions/{sessionID}/ws", runtimeIngressHandler.HandleSessionWS)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/ws", runtimeIngressHandler.HandleWS)
@@ -76,7 +76,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	}
 	setupAuthRoutes(r, ctx, cfg, rsaPub, h.authHandler, h.oauthHandler)
 	registerSheetLiveRoute(r, h.sheetsHandler)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.subscriptionHandler, h.dashboardHandler, h.slackChannelHandler, h.channelHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, h.mcpServerHandler, orchestrator, h.auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.dashboardHandler, h.slackChannelHandler, h.channelHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, h.mcpServerHandler, orchestrator, h.auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, h.integrationHandler, h.connectionHandler, h.credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, h.proxyHandler, h.auditWriter, h.generationWriter, h.attributionCache, ctr, enqueuer, h.runtimeCompileDeps)

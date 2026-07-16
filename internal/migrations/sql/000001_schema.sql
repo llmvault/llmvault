@@ -531,8 +531,33 @@ CREATE TABLE public.credit_ledger_entries (
     reason character varying(64) NOT NULL,
     ref_type character varying(64),
     ref_id character varying(64),
-    expires_at timestamp with time zone,
     created_at timestamp with time zone
+);
+
+CREATE TABLE public.credit_purchases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    created_by_user_id uuid,
+    provider character varying(32) NOT NULL,
+    provider_reference character varying(128) DEFAULT ''::character varying NOT NULL,
+    status character varying(32) DEFAULT 'pending'::character varying NOT NULL,
+    currency character varying(3) NOT NULL,
+    subtotal_minor bigint NOT NULL,
+    fee_basis_points bigint NOT NULL,
+    fee_minor bigint NOT NULL,
+    total_minor bigint NOT NULL,
+    credits bigint NOT NULL,
+    fx_minor_per_usd bigint,
+    provider_paid_minor bigint DEFAULT 0 NOT NULL,
+    provider_paid_currency character varying(3) DEFAULT ''::character varying NOT NULL,
+    paid_at timestamp with time zone,
+    credited_at timestamp with time zone,
+    failed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT credit_purchases_currency_check CHECK (((currency)::text = ANY ((ARRAY['USD'::character varying, 'NGN'::character varying])::text[]))),
+    CONSTRAINT credit_purchases_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'paid'::character varying, 'credited'::character varying, 'failed'::character varying, 'reversed'::character varying, 'refunded'::character varying])::text[]))),
+    CONSTRAINT credit_purchases_amounts_check CHECK (((subtotal_minor > 0) AND (fee_minor >= 0) AND (total_minor = (subtotal_minor + fee_minor)) AND (credits > 0)))
 );
 
 CREATE TABLE public.database_connections (
@@ -761,7 +786,7 @@ CREATE TABLE public.orgs (
     rate_limit bigint DEFAULT 1000 NOT NULL,
     active boolean DEFAULT true NOT NULL,
     allowed_origins text[],
-    plan_slug character varying(64) DEFAULT 'free'::character varying NOT NULL,
+    billing_currency character varying(3) DEFAULT ''::character varying NOT NULL,
     byok boolean DEFAULT false NOT NULL,
     logo_url text DEFAULT ''::text NOT NULL,
     website character varying(500) DEFAULT ''::character varying NOT NULL,
@@ -772,7 +797,8 @@ CREATE TABLE public.orgs (
     sandbox_exposed_ports integer[] DEFAULT '{3000,5173,8000,8080}'::integer[] NOT NULL,
     onboarding_step text DEFAULT 'complete'::text NOT NULL,
     mcp_config_version bigint DEFAULT 0 NOT NULL,
-    CONSTRAINT orgs_onboarding_step_check CHECK ((onboarding_step = ANY (ARRAY['team'::text, 'connections'::text, 'welcome'::text, 'complete'::text])))
+    CONSTRAINT orgs_onboarding_step_check CHECK ((onboarding_step = ANY (ARRAY['team'::text, 'connections'::text, 'welcome'::text, 'complete'::text]))),
+    CONSTRAINT orgs_billing_currency_check CHECK (((billing_currency)::text = ANY ((ARRAY[''::character varying, 'USD'::character varying, 'NGN'::character varying])::text[])))
 );
 
 CREATE TABLE public.otp_codes (
@@ -791,22 +817,6 @@ CREATE TABLE public.password_resets (
     expires_at timestamp with time zone NOT NULL,
     used_at timestamp with time zone,
     created_at timestamp with time zone
-);
-
-CREATE TABLE public.plans (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    slug character varying(64) NOT NULL,
-    name character varying(128) NOT NULL,
-    provider character varying(32) DEFAULT ''::character varying NOT NULL,
-    features jsonb,
-    monthly_credits bigint DEFAULT 0 NOT NULL,
-    welcome_credits bigint DEFAULT 0 NOT NULL,
-    price_cents bigint DEFAULT 0 NOT NULL,
-    currency character varying(8) DEFAULT 'USD'::character varying NOT NULL,
-    active boolean DEFAULT true NOT NULL,
-    visible boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
 );
 
 CREATE TABLE public.rag_embedding_models (
@@ -1301,54 +1311,6 @@ CREATE TABLE public.slack_thread_events (
     trigger_id uuid
 );
 
-CREATE TABLE public.subscription_change_quotes (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    subscription_id uuid NOT NULL,
-    from_plan_id uuid NOT NULL,
-    to_plan_id uuid NOT NULL,
-    kind character varying(16) NOT NULL,
-    amount_minor bigint NOT NULL,
-    currency character varying(8) NOT NULL,
-    proration_credit_minor bigint DEFAULT 0 NOT NULL,
-    effective_at timestamp with time zone NOT NULL,
-    paystack_reference character varying(128),
-    expires_at timestamp with time zone NOT NULL,
-    consumed_at timestamp with time zone,
-    created_at timestamp with time zone
-);
-
-CREATE TABLE public.subscriptions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    plan_id uuid NOT NULL,
-    provider character varying(32) NOT NULL,
-    external_customer_id character varying(128) NOT NULL,
-    status character varying(32) DEFAULT 'active'::character varying NOT NULL,
-    current_period_start timestamp with time zone,
-    current_period_end timestamp with time zone,
-    canceled_at timestamp with time zone,
-    cancel_at_period_end boolean DEFAULT false NOT NULL,
-    pending_plan_id uuid,
-    pending_change_at timestamp with time zone,
-    renewal_attempts bigint DEFAULT 0 NOT NULL,
-    last_renewal_attempt_at timestamp with time zone,
-    last_renewal_error character varying(512) DEFAULT ''::character varying NOT NULL,
-    payment_channel character varying(16) DEFAULT ''::character varying NOT NULL,
-    payment_bank_name character varying(64) DEFAULT ''::character varying NOT NULL,
-    payment_account_name character varying(128) DEFAULT ''::character varying NOT NULL,
-    last_charge_reference character varying(128) DEFAULT ''::character varying NOT NULL,
-    last_charge_amount bigint DEFAULT 0 NOT NULL,
-    last_charged_at timestamp with time zone,
-    card_last4 character varying(4) DEFAULT ''::character varying NOT NULL,
-    card_brand character varying(32) DEFAULT ''::character varying NOT NULL,
-    card_exp_month character varying(2) DEFAULT ''::character varying NOT NULL,
-    card_exp_year character varying(4) DEFAULT ''::character varying NOT NULL,
-    authorization_code character varying(128) DEFAULT ''::character varying NOT NULL,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
 CREATE TABLE public.team_connection_grants (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -1574,6 +1536,9 @@ ALTER TABLE ONLY public.credentials
 ALTER TABLE ONLY public.credit_ledger_entries
     ADD CONSTRAINT credit_ledger_entries_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT credit_purchases_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.database_connections
     ADD CONSTRAINT database_connections_pkey PRIMARY KEY (id);
 
@@ -1633,9 +1598,6 @@ ALTER TABLE ONLY public.otp_codes
 
 ALTER TABLE ONLY public.password_resets
     ADD CONSTRAINT password_resets_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.plans
-    ADD CONSTRAINT plans_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.rag_embedding_models
     ADD CONSTRAINT rag_embedding_models_pkey PRIMARY KEY (id);
@@ -1711,12 +1673,6 @@ ALTER TABLE ONLY public.skills
 
 ALTER TABLE ONLY public.slack_thread_events
     ADD CONSTRAINT slack_thread_events_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.subscription_change_quotes
-    ADD CONSTRAINT subscription_change_quotes_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.team_connection_grants
     ADD CONSTRAINT team_connection_grants_pkey PRIMARY KEY (id);
@@ -1983,13 +1939,17 @@ CREATE INDEX idx_connections_user_id ON public.connections USING btree (user_id)
 
 CREATE INDEX idx_credentials_org_id ON public.credentials USING btree (org_id);
 
-CREATE INDEX idx_credit_ledger_entries_expires_at ON public.credit_ledger_entries USING btree (expires_at);
-
 CREATE UNIQUE INDEX idx_credit_ledger_entries_idem ON public.credit_ledger_entries USING btree (org_id, reason, ref_type, ref_id) WHERE ((ref_id)::text <> ''::text);
 
 CREATE INDEX idx_credit_ledger_entries_org_id ON public.credit_ledger_entries USING btree (org_id);
 
 CREATE INDEX idx_credit_ledger_entries_ref_id ON public.credit_ledger_entries USING btree (ref_id);
+
+CREATE INDEX idx_credit_purchases_created_by_user_id ON public.credit_purchases USING btree (created_by_user_id);
+
+CREATE INDEX idx_credit_purchases_org_id ON public.credit_purchases USING btree (org_id);
+
+CREATE UNIQUE INDEX idx_credit_purchases_provider_reference ON public.credit_purchases USING btree (provider, provider_reference) WHERE ((provider_reference)::text <> ''::text);
 
 CREATE INDEX idx_database_connections_active ON public.database_connections USING btree (org_id, provider) WHERE (revoked_at IS NULL);
 
@@ -2090,12 +2050,6 @@ CREATE UNIQUE INDEX idx_otp_codes_token_hash ON public.otp_codes USING btree (to
 CREATE UNIQUE INDEX idx_password_resets_token_hash ON public.password_resets USING btree (token_hash);
 
 CREATE INDEX idx_password_resets_user_id ON public.password_resets USING btree (user_id);
-
-CREATE INDEX idx_plans_provider ON public.plans USING btree (provider);
-
-CREATE UNIQUE INDEX idx_plans_slug ON public.plans USING btree (slug);
-
-CREATE INDEX idx_plans_visible ON public.plans USING btree (visible);
 
 CREATE INDEX idx_rag_index_attempt_errors_index_attempt_id ON public.rag_index_attempt_errors USING btree (index_attempt_id);
 
@@ -2238,20 +2192,6 @@ CREATE INDEX idx_slack_thread_events_session ON public.slack_thread_events USING
 CREATE INDEX idx_slack_thread_events_thread_direction ON public.slack_thread_events USING btree (org_id, connection_id, slack_channel_id, thread_ts, direction, message_at DESC);
 
 CREATE INDEX idx_slack_thread_events_trigger_id ON public.slack_thread_events USING btree (trigger_id);
-
-CREATE INDEX idx_subscription_change_quotes_expires_at ON public.subscription_change_quotes USING btree (expires_at);
-
-CREATE INDEX idx_subscription_change_quotes_org_id ON public.subscription_change_quotes USING btree (org_id);
-
-CREATE UNIQUE INDEX idx_subscription_change_quotes_paystack_reference ON public.subscription_change_quotes USING btree (paystack_reference);
-
-CREATE INDEX idx_subscription_change_quotes_subscription_id ON public.subscription_change_quotes USING btree (subscription_id);
-
-CREATE INDEX idx_subscriptions_external_customer_id ON public.subscriptions USING btree (external_customer_id);
-
-CREATE INDEX idx_subscriptions_org_id ON public.subscriptions USING btree (org_id);
-
-CREATE INDEX idx_subscriptions_plan_id ON public.subscriptions USING btree (plan_id);
 
 CREATE INDEX idx_team_connection_grants_org_team ON public.team_connection_grants USING btree (org_id, team_id);
 
@@ -2593,6 +2533,12 @@ ALTER TABLE ONLY public.connections
 ALTER TABLE ONLY public.credentials
     ADD CONSTRAINT fk_credentials_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT fk_credit_purchases_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT fk_credit_purchases_created_by_user FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
 ALTER TABLE ONLY public.database_connections
     ADD CONSTRAINT fk_database_connections_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
 
@@ -2748,18 +2694,6 @@ ALTER TABLE ONLY public.slack_thread_events
 
 ALTER TABLE ONLY public.slack_thread_events
     ADD CONSTRAINT fk_slack_thread_events_trigger FOREIGN KEY (trigger_id) REFERENCES public.agent_triggers(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.subscription_change_quotes
-    ADD CONSTRAINT fk_subscription_change_quotes_subscription FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT fk_subscriptions_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT fk_subscriptions_pending_plan FOREIGN KEY (pending_plan_id) REFERENCES public.plans(id);
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES public.plans(id);
 
 ALTER TABLE ONLY public.team_members
     ADD CONSTRAINT fk_team_members_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
@@ -2967,4 +2901,3 @@ ALTER TABLE ONLY public.user_agent_mcp_servers
 
 ALTER TABLE ONLY public.user_agent_mcp_servers
     ADD CONSTRAINT user_agent_mcp_servers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-

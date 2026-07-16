@@ -23,7 +23,6 @@ import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-
 
 type User = components["schemas"]["userResponse"]
 type Org = components["schemas"]["orgMemberDTO"]
-type Plan = components["schemas"]["planDTO"]
 
 const ACTIVE_ORG_COOKIE = "hivy_active_org"
 
@@ -60,7 +59,6 @@ interface AuthContextValue {
   user: User | null
   orgs: Org[]
   activeOrg: Org | null
-  plans: Plan[]
   setActiveOrg: (org: Org) => void
   addOrg: (org: Org) => void
   logout: () => Promise<void>
@@ -79,17 +77,15 @@ export function AuthProvider({
   const router = useRouter()
   const queryClient = useQueryClient()
   const meQuery = $api.useQuery("get", "/auth/me", {}, { retry: false })
-  const plansQuery = $api.useQuery("get", "/v1/plans", {}, { retry: false })
   const logoutMutation = $api.useMutation("post", "/auth/logout")
   const hasRedirected = useRef(false)
 
   const data = meQuery.data
   const isError = meQuery.isError
-  const isLoading = meQuery.isLoading || plansQuery.isLoading
+  const isLoading = meQuery.isLoading
 
   const user = (data?.user as User) ?? null
   const orgs = (data?.orgs as Org[]) ?? []
-  const plans = (plansQuery.data as Plan[] | undefined) ?? []
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(() =>
     getOrgIdFromCookie()
@@ -157,7 +153,6 @@ export function AuthProvider({
         user,
         orgs,
         activeOrg,
-        plans,
         setActiveOrg,
         addOrg,
         logout,

@@ -1075,20 +1075,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  applyChangeRequest:
-    properties:
-      paystack_reference:
-        type: string
-      quote_id:
-        type: string
-    type: object
-  applyChangeResponse:
-    properties:
-      plan_slug:
-        type: string
-      status:
-        type: string
-    type: object
   assetListItem:
     properties:
       agent_id:
@@ -1165,6 +1151,21 @@ definitions:
       data:
         items:
           $ref: '#/definitions/CatalogItem'
+        type: array
+    type: object
+  billingAccountResponse:
+    properties:
+      balance:
+        type: integer
+      currency:
+        type: string
+      fee_basis_points:
+        type: integer
+      ngn_minor_per_usd:
+        type: integer
+      supported_currencies:
+        items:
+          type: string
         type: array
     type: object
   brandAssetMutationResponse:
@@ -1258,20 +1259,6 @@ definitions:
         items:
           type: integer
         type: array
-    type: object
-  cancelRequest:
-    properties:
-      at_period_end:
-        type: boolean
-    type: object
-  cancelResponse:
-    properties:
-      cancel_at_period_end:
-        type: boolean
-      canceled_at:
-        type: string
-      status:
-        type: string
     type: object
   canvasArtifactPreviewRequest:
     properties:
@@ -1610,33 +1597,6 @@ definitions:
           type: integer
         type: array
     type: object
-  createCheckoutRequest:
-    properties:
-      cancel_url:
-        type: string
-      currency:
-        description: e.g. "USD", "NGN"
-        type: string
-      cycle:
-        description: '"monthly" | "annual"'
-        type: string
-      plan_slug:
-        type: string
-      provider:
-        type: string
-      success_url:
-        type: string
-    type: object
-  createCheckoutResponse:
-    properties:
-      access_code:
-        description: 'popup flow: hand to PaystackPop().resumeTransaction()'
-        type: string
-      checkout_url:
-        type: string
-      reference:
-        type: string
-    type: object
   createConnectionRequest:
     properties:
       meta:
@@ -1665,6 +1625,13 @@ definitions:
       refill_interval:
         type: string
       remaining:
+        type: integer
+    type: object
+  createCreditPurchaseRequest:
+    properties:
+      callback_url:
+        type: string
+      subtotal_minor:
         type: integer
     type: object
   createFieldRequest:
@@ -1927,6 +1894,46 @@ definitions:
         type: integer
       total:
         type: integer
+    type: object
+  creditPurchaseResponse:
+    properties:
+      access_code:
+        type: string
+      checkout_url:
+        type: string
+      created_at:
+        type: string
+      credited_at:
+        type: string
+      credits:
+        type: integer
+      currency:
+        type: string
+      fee_basis_points:
+        type: integer
+      fee_minor:
+        type: integer
+      fx_minor_per_usd:
+        type: integer
+      id:
+        type: string
+      paid_at:
+        type: string
+      provider_reference:
+        type: string
+      status:
+        type: string
+      subtotal_minor:
+        type: integer
+      total_minor:
+        type: integer
+    type: object
+  creditPurchasesResponse:
+    properties:
+      purchases:
+        items:
+          $ref: '#/definitions/creditPurchaseResponse'
+        type: array
     type: object
   dailyRequests:
     properties:
@@ -2192,22 +2199,6 @@ definitions:
       filename:
         type: string
       rendered_description:
-        type: string
-    type: object
-  initUpgradeRequest:
-    properties:
-      quote_id:
-        type: string
-    type: object
-  initUpgradeResponse:
-    properties:
-      access_code:
-        type: string
-      amount_minor:
-        type: integer
-      currency:
-        type: string
-      reference:
         type: string
     type: object
   insertRowRequest:
@@ -2751,6 +2742,8 @@ definitions:
     type: object
   orgMemberDTO:
     properties:
+      billing_currency:
+        type: string
       byok:
         type: boolean
       credits:
@@ -2763,8 +2756,6 @@ definitions:
         type: string
       onboarding_step:
         type: string
-      plan:
-        $ref: '#/definitions/planDTO'
       role:
         type: string
     type: object
@@ -2785,6 +2776,8 @@ definitions:
     properties:
       active:
         type: boolean
+      billing_currency:
+        type: string
       created_at:
         type: string
       id:
@@ -2795,8 +2788,6 @@ definitions:
         type: string
       onboarding_step:
         type: string
-      plan:
-        $ref: '#/definitions/planDTO'
       prompt_company:
         type: string
       rate_limit:
@@ -3021,55 +3012,6 @@ definitions:
   patchMemberRoleRequest:
     properties:
       role:
-        type: string
-    type: object
-  planDTO:
-    properties:
-      currency:
-        type: string
-      features:
-        items:
-          type: string
-        type: array
-      monthly_credits:
-        type: integer
-      name:
-        type: string
-      price_cents:
-        type: integer
-      provider:
-        type: string
-      slug:
-        type: string
-      welcome_credits:
-        type: integer
-    type: object
-  previewChangeRequest:
-    properties:
-      plan_slug:
-        type: string
-    type: object
-  previewChangeResponse:
-    properties:
-      amount_minor:
-        type: integer
-      credit_grant_minor:
-        type: integer
-      currency:
-        type: string
-      effective_at:
-        type: string
-      expires_at:
-        type: string
-      from_plan_slug:
-        type: string
-      kind:
-        type: string
-      quote_id:
-        type: string
-      requires_payment_now:
-        type: boolean
-      to_plan_slug:
         type: string
     type: object
   providerDetail:
@@ -3690,6 +3632,11 @@ definitions:
         additionalProperties:
           type: string
         type: object
+    type: object
+  selectBillingCurrencyRequest:
+    properties:
+      currency:
+        type: string
     type: object
   sendSessionMessageRequest:
     properties:
@@ -4348,41 +4295,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  subscriptionResponse:
-    properties:
-      cancel_at_period_end:
-        type: boolean
-      card_brand:
-        type: string
-      card_exp_month:
-        type: string
-      card_exp_year:
-        type: string
-      card_last4:
-        type: string
-      credits_balance:
-        type: integer
-      current_period_end:
-        type: string
-      payment_account_name:
-        type: string
-      payment_bank_name:
-        type: string
-      payment_channel:
-        description: Payment-method snapshot from the most recent successful charge.
-        type: string
-      pending_change_at:
-        type: string
-      pending_plan_slug:
-        description: Pending plan change scheduled at PendingChangeAt (downgrade flow).
-        type: string
-      plan_slug:
-        type: string
-      provider:
-        type: string
-      status:
-        type: string
-    type: object
   syncTriggerRequest:
     properties:
       from_beginning:
@@ -5024,20 +4936,6 @@ definitions:
       id:
         type: string
       name:
-        type: string
-    type: object
-  verifyRequest:
-    properties:
-      provider:
-        type: string
-      reference:
-        type: string
-    type: object
-  verifyResponse:
-    properties:
-      plan_slug:
-        type: string
-      status:
         type: string
     type: object
 host: api.example.com
@@ -7106,54 +7004,15 @@ paths:
       summary: List audit log entries
       tags:
       - audit
-  /v1/billing/checkout:
-    post:
-      consumes:
-      - application/json
-      description: Creates a checkout session for subscribing to a plan. The client
-        chooses the provider.
-      parameters:
-      - description: Checkout request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/createCheckoutRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/createCheckoutResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create checkout session
-      tags:
-      - billing
-  /v1/billing/subscription:
+  /v1/billing/account:
     get:
-      description: Returns the org's active plan, provider, payment-method snapshot,
-        and any pending plan change.
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/subscriptionResponse'
+            $ref: '#/definitions/billingAccountResponse'
         "401":
           description: Unauthorized
           schema:
@@ -7164,127 +7023,27 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Get subscription status
+      summary: Get billing account
       tags:
       - billing
-  /v1/billing/subscription/apply-change:
-    post:
+  /v1/billing/account/currency:
+    put:
       consumes:
       - application/json
       parameters:
-      - description: Quote and (for upgrades) Paystack reference
+      - description: Billing currency
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/applyChangeRequest'
+          $ref: '#/definitions/selectBillingCurrencyRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/applyChangeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "402":
-          description: Payment Required
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "410":
-          description: Gone
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Apply a subscription plan change
-      tags:
-      - billing
-  /v1/billing/subscription/cancel:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Cancellation options
-        in: body
-        name: body
-        schema:
-          $ref: '#/definitions/cancelRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/cancelResponse'
-      security:
-      - BearerAuth: []
-      summary: Cancel a subscription
-      tags:
-      - billing
-  /v1/billing/subscription/init-upgrade:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Upgrade quote id
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/initUpgradeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/initUpgradeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "410":
-          description: Gone
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Initialise a Paystack transaction for an upgrade quote
-      tags:
-      - billing
-  /v1/billing/subscription/preview-change:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Target plan
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/previewChangeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/previewChangeResponse'
+            $ref: '#/definitions/statusResponse'
         "400":
           description: Bad Request
           schema:
@@ -7299,43 +7058,45 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Preview a subscription plan change
+      summary: Select billing currency
       tags:
       - billing
-  /v1/billing/subscription/resume:
-    post:
+  /v1/billing/purchases:
+    get:
+      parameters:
+      - description: Maximum purchases
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cancelResponse'
+            $ref: '#/definitions/creditPurchasesResponse'
       security:
       - BearerAuth: []
-      summary: Resume a subscription
+      summary: List credit purchases
       tags:
       - billing
-  /v1/billing/verify:
     post:
       consumes:
       - application/json
-      description: Resolves a Paystack transaction reference, asserts the paid amount
-        matches the plan's price, and provisions the Subscription row.
       parameters:
-      - description: Reference returned from /v1/billing/checkout
+      - description: Credit purchase
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/verifyRequest'
+          $ref: '#/definitions/createCreditPurchaseRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
-            $ref: '#/definitions/verifyResponse'
+            $ref: '#/definitions/creditPurchaseResponse'
         "400":
           description: Bad Request
           schema:
@@ -7344,17 +7105,45 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/errorResponse'
-        "402":
-          description: Payment Required
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "502":
-          description: Bad Gateway
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Verify checkout completed
+      summary: Create credit purchase
+      tags:
+      - billing
+  /v1/billing/purchases/{id}/verify:
+    post:
+      parameters:
+      - description: Purchase ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/creditPurchaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify credit purchase
       tags:
       - billing
   /v1/canvas/artifacts:
@@ -11721,27 +11510,6 @@ paths:
       summary: Transfer organization ownership
       tags:
       - org-members
-  /v1/plans:
-    get:
-      description: |-
-        Returns the public catalog of billing plans, ordered by price
-        ascending (free first). Public — no authentication required.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/planDTO'
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      summary: List all public active plans
-      tags:
-      - plans
   /v1/providers:
     get:
       description: Returns every provider in the catalog with a model count.

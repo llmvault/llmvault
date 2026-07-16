@@ -22,10 +22,9 @@ type Org struct {
 	OnboardingStep string         `gorm:"not null;default:'complete';size:32"`
 	AllowedOrigins pq.StringArray `gorm:"type:text[]"`
 
-	// Denormalised slug of the org's active plan ("free" when no active sub).
-	// Source of truth lives in the subscriptions table; this is cached on
-	// the org row so request-path checks don't need a join.
-	PlanSlug string `gorm:"not null;default:'free';size:64"`
+	// BillingCurrency is selected once by the org owner before the first credit
+	// purchase. Empty means the org has not selected USD or NGN yet.
+	BillingCurrency string `gorm:"not null;default:'';size:3"`
 
 	// BYOK reports whether the org runs agents on its own LLM credentials.
 	// When false, agents fall back to platform-owned system credentials.

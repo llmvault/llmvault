@@ -60,6 +60,9 @@ func resolveAgentDatabaseConnection(ctx context.Context, db *gorm.DB, orgID, age
 	if err := db.WithContext(ctx).Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").First(&agent).Error; err != nil {
 		return model.DatabaseConnection{}, err
 	}
+	if agent.ConnectionMCPToolDeny.DisablesConnection(connectionID) {
+		return model.DatabaseConnection{}, gorm.ErrRecordNotFound
+	}
 	var connection model.DatabaseConnection
 	err := db.WithContext(ctx).
 		Joins("JOIN team_connection_grants tcg ON tcg.database_connection_id = database_connections.id AND tcg.org_id = database_connections.org_id").

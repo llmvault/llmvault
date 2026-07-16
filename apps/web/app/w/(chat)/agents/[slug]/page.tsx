@@ -5,7 +5,6 @@ import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Skeleton, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { IntegrationLogo } from "@/components/integration-logo"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
@@ -30,6 +29,7 @@ import {
   SandboxSizeSection,
 } from "./_agent-settings-section"
 import { AgentTeamsSection } from "./_agent-teams-section"
+import { AgentConnectionsField } from "../new/_connections-field"
 
 export default function AgentDetailPage({
   params,
@@ -83,6 +83,9 @@ export default function AgentDetailPage({
   if (agentQuery.isLoading) return <DetailSkeleton />
   if (!agent) return <NotFoundState />
   const required = agent.required_connections ?? []
+  const requiredProviders = required
+    .map((connection) => connection.provider)
+    .filter((provider): provider is string => Boolean(provider))
   return (
     <div className="flex flex-col gap-8">
       <NextLink
@@ -139,25 +142,34 @@ export default function AgentDetailPage({
               mutate({ sandbox_size: value }, "Sandbox size updated")
             }
           />
+          <AgentConnectionsField
+            teamId={installed.team_id ?? ""}
+            value={installed.connection_mcp_tool_deny ?? {}}
+            disabled={update.isPending}
+            lockedProviders={requiredProviders}
+            onChange={(connectionMCPToolDeny) =>
+              update.mutate(
+                {
+                  params: { path: { id: installedID } },
+                  body: {
+                    connection_mcp_tool_deny: connectionMCPToolDeny,
+                  },
+                },
+                {
+                  onSuccess: () => {
+                    toast.success("Agent connections updated")
+                    refresh()
+                  },
+                  onError: (error) =>
+                    toast.danger(
+                      extractErrorMessage(error, "Could not update agent")
+                    ),
+                }
+              )
+            }
+          />
         </div>
       ) : null}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Required connections</h2>
-        <div className="bg-card divide-y divide-border overflow-hidden rounded-xl border border-border">
-          {required.length ? (
-            required.map((item) => (
-              <div key={item.provider} className="flex items-center gap-3 p-3">
-                <IntegrationLogo provider={item.provider ?? ""} size={32} />
-                <span className="text-sm font-medium">{item.provider}</span>
-              </div>
-            ))
-          ) : (
-            <div className="p-4 text-sm text-muted">
-              No required connections.
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   )
 }

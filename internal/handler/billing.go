@@ -4,148 +4,277 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/billing/purchase"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type BillingHandler struct {
-	db       *gorm.DB
-	registry *billing.Registry
-	credits  *billing.CreditsService
+	db        *gorm.DB
+	purchases *purchase.Service
+	credits   *billing.CreditsService
 }
 
-// NewBillingHandler creates a provider-agnostic billing handler.
-func NewBillingHandler(db *gorm.DB, registry *billing.Registry, credits *billing.CreditsService) *BillingHandler {
-	return &BillingHandler{db: db, registry: registry, credits: credits}
+func NewBillingHandler(db *gorm.DB, purchases *purchase.Service, credits *billing.CreditsService) *BillingHandler {
+	return &BillingHandler{db: db, purchases: purchases, credits: credits}
 }
 
-type createCheckoutRequest struct {
-	Provider   string `json:"provider"`
-	PlanSlug   string `json:"plan_slug"`
-	Currency   string `json:"currency"` // e.g. "USD", "NGN"
-	Cycle      string `json:"cycle"`    // "monthly" | "annual"
-	SuccessURL string `json:"success_url"`
-	CancelURL  string `json:"cancel_url"`
+type billingAccountResponse struct {
+	Currency            string   `json:"currency,omitempty"`
+	Balance             int64    `json:"balance"`
+	FeeBasisPoints      int64    `json:"fee_basis_points"`
+	NGNMinorPerUSD      int64    `json:"ngn_minor_per_usd"`
+	SupportedCurrencies []string `json:"supported_currencies"`
 }
 
-type createCheckoutResponse struct {
-	CheckoutURL string `json:"checkout_url"`
-	AccessCode  string `json:"access_code,omitempty"` // popup flow: hand to PaystackPop().resumeTransaction()
-	Reference   string `json:"reference,omitempty"`
+// GetAccount returns the org's permanent credit balance and deposit settings.
+// @Summary Get billing account
+// @Tags billing
+// @Produce json
+// @Success 200 {object} billingAccountResponse
+// @Failure 401 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/billing/account [get]
+func (h *BillingHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	balance, err := h.credits.Balance(org.ID)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load billing balance", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load billing account"})
+		return
+	}
+	writeJSON(w, http.StatusOK, billingAccountResponse{
+		Currency:            org.BillingCurrency,
+		Balance:             balance,
+		FeeBasisPoints:      purchase.DepositFeeBasisPoints,
+		NGNMinorPerUSD:      h.purchases.NGNMinorPerUSD(),
+		SupportedCurrencies: []string{string(billing.CurrencyUSD), string(billing.CurrencyNGN)},
+	})
 }
 
-// CreateCheckout creates a checkout session with the requested provider.
-// @Summary Create checkout session
-// @Description Creates a checkout session for subscribing to a plan. The client chooses the provider.
+type selectBillingCurrencyRequest struct {
+	Currency string `json:"currency"`
+}
+
+// SelectCurrency permanently selects the org's deposit currency.
+// @Summary Select billing currency
 // @Tags billing
 // @Accept json
 // @Produce json
-// @Param body body createCheckoutRequest true "Checkout request"
-// @Success 200 {object} createCheckoutResponse
+// @Param body body selectBillingCurrencyRequest true "Billing currency"
+// @Success 200 {object} statusResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/billing/account/currency [put]
+func (h *BillingHandler) SelectCurrency(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	var body selectBillingCurrencyRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+		return
+	}
+	if err := h.purchases.SelectCurrency(r.Context(), org.ID, billing.Currency(body.Currency)); err != nil {
+		h.writePurchaseError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, statusResponse{Status: "selected"})
+}
+
+type createCreditPurchaseRequest struct {
+	SubtotalMinor int64  `json:"subtotal_minor"`
+	CallbackURL   string `json:"callback_url"`
+}
+
+type creditPurchaseResponse struct {
+	ID                string `json:"id"`
+	Status            string `json:"status"`
+	Currency          string `json:"currency"`
+	SubtotalMinor     int64  `json:"subtotal_minor"`
+	FeeBasisPoints    int64  `json:"fee_basis_points"`
+	FeeMinor          int64  `json:"fee_minor"`
+	TotalMinor        int64  `json:"total_minor"`
+	Credits           int64  `json:"credits"`
+	FXMinorPerUSD     *int64 `json:"fx_minor_per_usd,omitempty"`
+	ProviderReference string `json:"provider_reference,omitempty"`
+	AccessCode        string `json:"access_code,omitempty"`
+	CheckoutURL       string `json:"checkout_url,omitempty"`
+	PaidAt            string `json:"paid_at,omitempty"`
+	CreditedAt        string `json:"credited_at,omitempty"`
+	CreatedAt         string `json:"created_at"`
+}
+
+// CreatePurchase creates a pending Paystack deposit and returns popup details.
+// @Summary Create credit purchase
+// @Tags billing
+// @Accept json
+// @Produce json
+// @Param body body createCreditPurchaseRequest true "Credit purchase"
+// @Success 201 {object} creditPurchaseResponse
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
-// @Router /v1/billing/checkout [post]
-func (h *BillingHandler) CreateCheckout(w http.ResponseWriter, r *http.Request) {
+// @Router /v1/billing/purchases [post]
+func (h *BillingHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
-
-	var body createCheckoutRequest
+	var body createCreditPurchaseRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-
-	provider, err := h.registry.Get(body.Provider)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown provider"})
+	userID, ok := currentRequestUserID(r.Context())
+	if !ok || userID == nil {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing user context"})
 		return
-	}
-
-	cycle := billing.Cycle(body.Cycle)
-	if !cycle.IsValid() {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "cycle must be 'monthly' or 'annual'"})
-		return
-	}
-	if body.Currency == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "currency is required"})
-		return
-	}
-
-	var plan model.Plan
-	if err := h.db.Where("slug = ? AND active = true AND visible = true", body.PlanSlug).First(&plan).Error; err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown plan"})
-		return
-	}
-
-	email, err := h.lookupOrgOwnerEmail(org.ID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve org owner"})
-		return
-	}
-
-	customerID, err := provider.EnsureCustomer(r.Context(), org.ID, email, org.Name)
-	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "billing: failed to ensure customer", "provider", provider.Name(), "org_id", org.ID, "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create billing customer"})
-		return
-	}
-
-	session, err := provider.CreateCheckout(r.Context(), customerID, billing.CheckoutIntent{
-		OrgID:         org.ID,
-		OrgName:       org.Name,
-		CustomerEmail: email,
-		PlanSlug:      plan.Slug,
-		AmountMinor:   plan.PriceCents,
-		Currency:      body.Currency,
-		Cycle:         cycle,
-		SuccessURL:    body.SuccessURL,
-		CancelURL:     body.CancelURL,
-		Metadata: map[string]string{
-			"org_id":    org.ID.String(),
-			"plan_slug": plan.Slug,
-		},
-	})
-	if err != nil {
-		switch {
-		case errors.Is(err, billing.ErrUnsupportedCurrency):
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "currency not supported by this provider"})
-			return
-		case errors.Is(err, billing.ErrUnknownPlan):
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plan not available on this provider"})
-			return
-		}
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "billing: failed to create checkout", "provider", provider.Name(), "org_id", org.ID, "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create checkout session"})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, createCheckoutResponse{
-		CheckoutURL: session.URL,
-		AccessCode:  session.AccessCode,
-		Reference:   session.ExternalID,
-	})
-}
-
-// lookupOrgOwnerEmail returns the email of the earliest-joined member of the
-// org. Used as the customer record email when provisioning a billing account.
-func (h *BillingHandler) lookupOrgOwnerEmail(orgID any) (string, error) {
-	var membership model.OrgMembership
-	if err := h.db.Where("org_id = ?", orgID).Order("created_at ASC").First(&membership).Error; err != nil {
-		return "", err
 	}
 	var user model.User
-	if err := h.db.Where("id = ?", membership.UserID).First(&user).Error; err != nil {
-		return "", err
+	if err := h.db.WithContext(r.Context()).Where("id = ?", *userID).First(&user).Error; err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load billing user", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create credit purchase"})
+		return
 	}
-	return user.Email, nil
+	result, err := h.purchases.Create(r.Context(), purchase.CreateInput{
+		OrgID:         org.ID,
+		UserID:        *userID,
+		Email:         user.Email,
+		SubtotalMinor: body.SubtotalMinor,
+		CallbackURL:   body.CallbackURL,
+	})
+	if err != nil {
+		h.writePurchaseError(w, r, err)
+		return
+	}
+	resp := purchaseDTO(*result.Purchase)
+	resp.AccessCode = result.Session.AccessCode
+	resp.CheckoutURL = result.Session.URL
+	writeJSON(w, http.StatusCreated, resp)
+}
+
+// VerifyPurchase resolves Paystack payment and atomically grants credits.
+// @Summary Verify credit purchase
+// @Tags billing
+// @Produce json
+// @Param id path string true "Purchase ID"
+// @Success 200 {object} creditPurchaseResponse
+// @Failure 400 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/billing/purchases/{id}/verify [post]
+func (h *BillingHandler) VerifyPurchase(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	purchaseID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid purchase id"})
+		return
+	}
+	row, err := h.purchases.Verify(r.Context(), org.ID, purchaseID)
+	if err != nil {
+		h.writePurchaseError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, purchaseDTO(*row))
+}
+
+type creditPurchasesResponse struct {
+	Purchases []creditPurchaseResponse `json:"purchases"`
+}
+
+// ListPurchases returns the org's most recent deposits.
+// @Summary List credit purchases
+// @Tags billing
+// @Produce json
+// @Param limit query int false "Maximum purchases"
+// @Success 200 {object} creditPurchasesResponse
+// @Security BearerAuth
+// @Router /v1/billing/purchases [get]
+func (h *BillingHandler) ListPurchases(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	rows, err := h.purchases.List(r.Context(), org.ID, limit)
+	if err != nil {
+		h.writePurchaseError(w, r, err)
+		return
+	}
+	out := make([]creditPurchaseResponse, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, purchaseDTO(row))
+	}
+	writeJSON(w, http.StatusOK, creditPurchasesResponse{Purchases: out})
+}
+
+func purchaseDTO(row model.CreditPurchase) creditPurchaseResponse {
+	resp := creditPurchaseResponse{
+		ID:                row.ID.String(),
+		Status:            row.Status,
+		Currency:          row.Currency,
+		SubtotalMinor:     row.SubtotalMinor,
+		FeeBasisPoints:    row.FeeBasisPoints,
+		FeeMinor:          row.FeeMinor,
+		TotalMinor:        row.TotalMinor,
+		Credits:           row.Credits,
+		FXMinorPerUSD:     row.FXMinorPerUSD,
+		ProviderReference: row.ProviderRef,
+		CreatedAt:         row.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if row.PaidAt != nil {
+		resp.PaidAt = row.PaidAt.Format("2006-01-02T15:04:05Z07:00")
+	}
+	if row.CreditedAt != nil {
+		resp.CreditedAt = row.CreditedAt.Format("2006-01-02T15:04:05Z07:00")
+	}
+	return resp
+}
+
+func (h *BillingHandler) writePurchaseError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, purchase.ErrInvalidAmount):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid deposit amount"})
+	case errors.Is(err, purchase.ErrInvalidCurrency):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "unsupported billing currency"})
+	case errors.Is(err, purchase.ErrCurrencyRequired):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "select a billing currency before buying credits"})
+	case errors.Is(err, purchase.ErrCurrencyLocked):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "billing currency cannot be changed"})
+	case errors.Is(err, purchase.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "credit purchase not found"})
+	case errors.Is(err, purchase.ErrPaymentPending):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "payment is not complete"})
+	case errors.Is(err, purchase.ErrPaymentMismatch):
+		writeJSON(w, http.StatusPaymentRequired, errorResponse{Error: "paid amount or currency does not match purchase"})
+	default:
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "credit purchase failed", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "credit purchase failed"})
+	}
 }

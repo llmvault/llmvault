@@ -109,7 +109,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		NangoClient:        deps.NangoClient,
 		CacheManager:       deps.CacheManager,
 		Credits:            deps.Credits,
-		Subscriptions:      deps.Subscriptions,
 		Enqueuer:           enqueuer,
 		PreContextCache:    preContextCache,
 		PreContextBuilder:  preContextBuilder,

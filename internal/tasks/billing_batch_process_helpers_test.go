@@ -142,7 +142,7 @@ func seedOrgWithCredentialAndCredits(t *testing.T, db *gorm.DB, granted int64) (
 
 	if granted > 0 {
 		credits := billing.NewCreditsService(db)
-		if err := credits.Grant(orgID, granted, billing.ReasonPlanGrant, "plan", "test", nil); err != nil {
+		if err := credits.Grant(orgID, granted, billing.ReasonTopup, "credit_purchase", "test"); err != nil {
 			t.Fatalf("grant: %v", err)
 		}
 	}

@@ -1,6 +1,5 @@
-// Package billing is the provider-agnostic billing layer. We manage
-// subscription lifecycle ourselves and use providers purely to charge a
-// saved payment method.
+// Package billing contains the provider-agnostic credit ledger and one-time
+// deposit contracts.
 package billing
 
 import (
@@ -11,132 +10,64 @@ import (
 	"github.com/google/uuid"
 )
 
-type Cycle string
+type Currency string
 
 const (
-	CycleMonthly Cycle = "monthly"
-	CycleAnnual  Cycle = "annual"
+	CurrencyUSD Currency = "USD"
+	CurrencyNGN Currency = "NGN"
 )
 
-func (c Cycle) IsValid() bool { return c == CycleMonthly || c == CycleAnnual }
+func (c Currency) IsValid() bool { return c == CurrencyUSD || c == CurrencyNGN }
 
-const (
-	CurrencyUSD = "USD"
-	CurrencyNGN = "NGN"
-)
-
-// Adapters wrap these with %w so callers can errors.Is regardless of provider.
 var (
-	ErrUnsupportedCurrency  = errors.New("billing: currency not supported by this provider")
-	ErrUnknownPlan          = errors.New("billing: plan slug not configured for this provider")
-	ErrAuthorizationRefused = errors.New("billing: provider declined the saved authorization")
-	// ErrOrgMismatch is returned by ResolveCheckout when the transaction's
-	// metadata org_id does not match the ExpectedOrgID of the caller. It stops
-	// a member replaying a valid cross-org payment reference to flip their own
-	// org's plan.
-	ErrOrgMismatch = errors.New("billing: transaction org does not match expected org")
+	ErrUnsupportedCurrency = errors.New("billing: currency not supported by this provider")
+	ErrOrgMismatch         = errors.New("billing: transaction org does not match expected org")
+	ErrPurchaseMismatch    = errors.New("billing: transaction purchase does not match expected purchase")
 )
 
-// PaymentChannel restricts subscriptions to channels that issue a reusable
-// AuthorizationCode. USSD, mobile money, QR are one-shot and rejected.
-type PaymentChannel string
-
-const (
-	ChannelCard PaymentChannel = "card"
-	ChannelBank PaymentChannel = "bank"
-)
-
-func (c PaymentChannel) IsReusable() bool {
-	return c == ChannelCard || c == ChannelBank
-}
-
-type CheckoutIntent struct {
+type DepositIntent struct {
+	PurchaseID    uuid.UUID
 	OrgID         uuid.UUID
-	OrgName       string
 	CustomerEmail string
-	PlanSlug      string
 	AmountMinor   int64
-	Currency      string
-	Cycle         Cycle
-	SuccessURL    string
-	CancelURL     string
+	Currency      Currency
+	CallbackURL   string
 	Metadata      map[string]string
 }
 
-// CheckoutSession.AccessCode is set when the provider supports a popup
-// flow (Paystack: resumeTransaction(access_code)).
-type CheckoutSession struct {
+type DepositSession struct {
 	URL        string
-	ExternalID string
 	AccessCode string
 	Reference  string
 }
 
-type ResolveCheckoutRequest struct {
-	Reference     string
-	ExpectedOrgID uuid.UUID
-}
-
-// PaymentMethod is the reusable payment instrument; AuthorizationCode is
-// what we re-charge against, the rest is for "Visa ending 4242" UI.
-type PaymentMethod struct {
-	AuthorizationCode string
-	Channel           PaymentChannel
-	CardLast4         string
-	CardBrand         string
-	CardExpMonth      string
-	CardExpYear       string
-	BankName          string
-	AccountName       string
-}
-
-// Metadata is the string-keyed map we passed when initialising the
-// transaction, echoed back. Carries plan_slug for fresh-checkout verify.
-type ResolveCheckoutResult struct {
-	Status             SubscriptionStatus
-	ExternalCustomerID string
-	PaidAt             *time.Time
-	PaidAmountMinor    int64
-	Currency           string
+type ResolveDepositRequest struct {
 	Reference          string
-	PaymentMethod      PaymentMethod
-	Metadata           map[string]string
+	ExpectedOrgID      uuid.UUID
+	ExpectedPurchaseID uuid.UUID
 }
 
-type ChargeAuthorizationRequest struct {
-	Email             string
-	AuthorizationCode string
-	AmountMinor       int64
-	Currency          string
-	Reference         string
-	Metadata          map[string]string
-}
+type PaymentStatus string
 
-type ChargeAuthorizationResult struct {
-	Status          SubscriptionStatus
+const (
+	PaymentPending  PaymentStatus = "pending"
+	PaymentPaid     PaymentStatus = "paid"
+	PaymentFailed   PaymentStatus = "failed"
+	PaymentReversed PaymentStatus = "reversed"
+)
+
+type DepositResult struct {
+	Status          PaymentStatus
 	Reference       string
 	PaidAt          *time.Time
 	PaidAmountMinor int64
-	Currency        string
-	PaymentMethod   PaymentMethod
+	Currency        Currency
+	Metadata        map[string]string
 }
 
-type SubscriptionStatus string
-
-const (
-	StatusActive   SubscriptionStatus = "active"
-	StatusCanceled SubscriptionStatus = "canceled"
-	StatusPastDue  SubscriptionStatus = "past_due"
-	StatusRevoked  SubscriptionStatus = "revoked"
-)
-
-// Provider methods run inside HTTP request handlers; must be safe for
-// concurrent use. EnsureCustomer must be idempotent on email/org id.
-// ChargeAuthorization returns ErrAuthorizationRefused on a declined charge.
+// Provider initializes and verifies one-time credit deposits.
 type Provider interface {
 	Name() string
-	EnsureCustomer(ctx context.Context, orgID uuid.UUID, email, orgName string) (string, error)
-	CreateCheckout(ctx context.Context, customerID string, intent CheckoutIntent) (*CheckoutSession, error)
-	ResolveCheckout(ctx context.Context, req ResolveCheckoutRequest) (*ResolveCheckoutResult, error)
-	ChargeAuthorization(ctx context.Context, req ChargeAuthorizationRequest) (*ChargeAuthorizationResult, error)
+	CreateDeposit(ctx context.Context, intent DepositIntent) (*DepositSession, error)
+	ResolveDeposit(ctx context.Context, req ResolveDepositRequest) (*DepositResult, error)
 }

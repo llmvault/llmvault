@@ -40,4 +40,16 @@ func TestBuildConnectionServerListsOnlyConnectionProviderActions(t *testing.T) {
 	if names["issues_create"] {
 		t.Fatalf("connection server leaked another provider's tool: %v", names)
 	}
+
+	deny := model.ConnectionMCPToolDeny{
+		connection.ID.String(): {model.ConnectionMCPToolDenyAll},
+	}
+	if err := db.Model(&model.Agent{}).
+		Where("id = ? AND org_id = ?", fx.agent.ID, fx.org.ID).
+		Update("connection_mcp_tool_deny", deny).Error; err != nil {
+		t.Fatalf("disable inherited connection for agent: %v", err)
+	}
+	if _, err := BuildConnectionServer(t.Context(), db, nango.NewClient("http://nango.invalid", "test"), catalog.Global(), agentProxyToken(fx), connection.ID); err == nil {
+		t.Fatal("expected disabled inherited connection to be unavailable to the agent MCP server")
+	}
 }

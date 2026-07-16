@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	dbi "github.com/usehivy/hivy/internal/databaseintegration"
@@ -21,6 +22,48 @@ func TestDatabaseServerListsRunQueryTool(t *testing.T) {
 	names := listServerToolNames(t, server)
 	if !names["run_query"] || names["query"] {
 		t.Fatalf("database tools = %v, want only renamed run_query", names)
+	}
+}
+
+func TestResolveAgentDatabaseConnectionHonorsAgentOptOut(t *testing.T) {
+	db := connectChannelToolTestDB(t)
+	fx := seedChannelToolFixture(t, db)
+	connection := model.DatabaseConnection{
+		ID:           uuid.New(),
+		OrgID:        fx.org.ID,
+		Provider:     "postgres",
+		DisplayName:  "Reporting",
+		Name:         "reporting",
+		Slug:         "reporting",
+		EncryptedDSN: []byte("encrypted"),
+		WrappedDEK:   []byte("wrapped"),
+		AccessPolicy: model.JSON{},
+	}
+	grant := model.TeamConnectionGrant{
+		ID:                   uuid.New(),
+		OrgID:                fx.org.ID,
+		TeamID:               fx.team.ID,
+		DatabaseConnectionID: &connection.ID,
+	}
+	for _, row := range []any{&connection, &grant} {
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("seed database MCP row %T: %v", row, err)
+		}
+	}
+
+	if _, err := resolveAgentDatabaseConnection(t.Context(), db, fx.org.ID, fx.agent.ID, connection.ID); err != nil {
+		t.Fatalf("resolve inherited database connection: %v", err)
+	}
+	deny := model.ConnectionMCPToolDeny{
+		connection.ID.String(): {model.ConnectionMCPToolDenyAll},
+	}
+	if err := db.Model(&model.Agent{}).
+		Where("id = ? AND org_id = ?", fx.agent.ID, fx.org.ID).
+		Update("connection_mcp_tool_deny", deny).Error; err != nil {
+		t.Fatalf("disable inherited database connection for agent: %v", err)
+	}
+	if _, err := resolveAgentDatabaseConnection(t.Context(), db, fx.org.ID, fx.agent.ID, connection.ID); err == nil {
+		t.Fatal("expected disabled inherited database connection to be unavailable")
 	}
 }
 

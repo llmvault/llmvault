@@ -208,9 +208,9 @@ type Config struct {
 
 	RagBatchSize int `env:"HIVY_RAG_BATCH_SIZE" envDefault:"100"`
 
-	// Paystack (billing provider). Empty PaystackSecretKey disables it; checkout
-	// then fails with ErrUnknownProvider. Plan prices live in the plan catalog.
-	PaystackSecretKey string `env:"HIVY_PAYSTACK_SECRET_KEY"`
+	// Paystack (billing provider). Empty PaystackSecretKey disables deposits.
+	PaystackSecretKey     string `env:"HIVY_PAYSTACK_SECRET_KEY"`
+	BillingNGNMinorPerUSD int64  `env:"HIVY_BILLING_NGN_MINOR_PER_USD" envDefault:"160000"`
 }
 
 func Load() (*Config, error) {

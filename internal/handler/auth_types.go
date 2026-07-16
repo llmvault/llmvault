@@ -44,27 +44,14 @@ type updateProfileRequest struct {
 }
 
 type orgMemberDTO struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Role           string   `json:"role"`
-	Plan           *planDTO `json:"plan,omitempty"`
-	Credits        *int64   `json:"credits,omitempty"`
-	BYOK           bool     `json:"byok"`
-	LogoURL        string   `json:"logo_url,omitempty"`
-	OnboardingStep string   `json:"onboarding_step"`
-}
-
-// planDTO is the customer-facing shape of a billing plan. Returned both as a
-// nested field on org DTOs and as the element type of GET /v1/plans.
-type planDTO struct {
-	Slug           string   `json:"slug"`
-	Name           string   `json:"name"`
-	Provider       string   `json:"provider,omitempty"`
-	Features       []string `json:"features,omitempty"`
-	MonthlyCredits int64    `json:"monthly_credits"`
-	WelcomeCredits int64    `json:"welcome_credits"`
-	PriceCents     int64    `json:"price_cents"`
-	Currency       string   `json:"currency"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Role            string `json:"role"`
+	BillingCurrency string `json:"billing_currency,omitempty"`
+	Credits         *int64 `json:"credits,omitempty"`
+	BYOK            bool   `json:"byok"`
+	LogoURL         string `json:"logo_url,omitempty"`
+	OnboardingStep  string `json:"onboarding_step"`
 }
 
 type meResponse struct {

@@ -35,18 +35,16 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	var memberships []model.OrgMembership
 	h.db.Preload("Org").Where("user_id = ? AND deactivated_at IS NULL", user.ID).Find(&memberships)
 
-	plans := loadPlans(r.Context(), h.db, memberships)
-
 	orgs := make([]orgMemberDTO, 0, len(memberships))
 	for _, m := range memberships {
 		dto := orgMemberDTO{
-			ID:             m.OrgID.String(),
-			Name:           m.Org.Name,
-			Role:           m.Role,
-			BYOK:           m.Org.BYOK,
-			LogoURL:        m.Org.LogoURL,
-			Plan:           plans[m.Org.PlanSlug],
-			OnboardingStep: m.Org.OnboardingStep,
+			ID:              m.OrgID.String(),
+			Name:            m.Org.Name,
+			Role:            m.Role,
+			BYOK:            m.Org.BYOK,
+			LogoURL:         m.Org.LogoURL,
+			BillingCurrency: m.Org.BillingCurrency,
+			OnboardingStep:  m.Org.OnboardingStep,
 		}
 		if m.Role == "owner" || m.Role == "admin" {
 			balance, err := h.credits.Balance(m.OrgID)

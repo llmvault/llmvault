@@ -2,13 +2,13 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/billing/purchase"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -19,10 +19,10 @@ import (
 // and stay consistent.
 //
 // Side effects, all atomic with the caller's transaction:
-//  1. Create the org named "<user.Name>'s Workspace" (PlanSlug defaults to "free").
+//  1. Create the org named "<user.Name>'s Workspace".
 //  2. Insert an owner OrgMembership for user → org.
 //  3. Mark the org as requiring onboarding, beginning with first-team creation.
-//  4. If a free plan row exists with WelcomeCredits > 0, grant that amount to
+//  4. Grant the configured welcome credits to
 //     the new org as a permanent (non-expiring) credit, refType="signup",
 //     refID=user.ID. The unique credit-ledger index keys off (org, reason,
 //     ref_type, ref_id), so the grant is naturally idempotent if signup is
@@ -93,38 +93,19 @@ func provisionFirstTeam(ctx context.Context, tx *gorm.DB, orgID, createdByUserID
 	return team, nil
 }
 
-// grantWelcomeCredits looks up the free plan and, if its WelcomeCredits is
-// configured (> 0), writes the grant entry on the supplied transaction.
-//
-// A missing free plan row is treated as "welcome grants are not configured"
-// and is not an error — self-hosted deployments without a seeded plan catalog
-// still complete signup successfully.
+// grantWelcomeCredits writes the product's permanent signup grant.
 func grantWelcomeCredits(tx *gorm.DB, credits *billing.CreditsService, orgID, userID uuid.UUID) error {
 	if credits == nil {
-		return nil
-	}
-
-	var freePlan model.Plan
-	err := tx.Where("slug = ?", billing.FreePlanSlug).First(&freePlan).Error
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		return nil
-	case err != nil:
-		return fmt.Errorf("loading free plan: %w", err)
-	}
-
-	if freePlan.WelcomeCredits <= 0 {
 		return nil
 	}
 
 	if err := billing.GrantWithTx(
 		tx,
 		orgID,
-		freePlan.WelcomeCredits,
+		purchase.WelcomeCredits,
 		billing.ReasonWelcomeGrant,
 		billing.RefTypeSignup,
 		userID.String(),
-		nil, // permanent — welcome credits do not expire
 	); err != nil {
 		return fmt.Errorf("granting welcome credits: %w", err)
 	}

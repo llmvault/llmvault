@@ -50,7 +50,7 @@ func TestIntegration_Credits_SpendThenBalance(t *testing.T) {
 	svc := billing.NewCreditsService(db)
 	orgID := seedOrg(t, db)
 
-	if err := svc.Grant(orgID, 1000, billing.ReasonPlanGrant, "plan", "starter", nil); err != nil {
+	if err := svc.Grant(orgID, 1000, billing.ReasonTopup, "credit_purchase", "starter"); err != nil {
 		t.Fatalf("grant: %v", err)
 	}
 	if err := svc.Spend(orgID, 150, billing.ReasonLLMTokens, "generation", "gen-1"); err != nil {
@@ -71,7 +71,7 @@ func TestIntegration_Credits_IdempotentSpend(t *testing.T) {
 	svc := billing.NewCreditsService(db)
 	orgID := seedOrg(t, db)
 
-	if err := svc.Grant(orgID, 500, billing.ReasonPlanGrant, "plan", "starter", nil); err != nil {
+	if err := svc.Grant(orgID, 500, billing.ReasonTopup, "credit_purchase", "starter"); err != nil {
 		t.Fatalf("grant: %v", err)
 	}
 
@@ -100,7 +100,7 @@ func TestIntegration_Credits_SpendRejectedWhenInsufficient(t *testing.T) {
 	svc := billing.NewCreditsService(db)
 	orgID := seedOrg(t, db)
 
-	if err := svc.Grant(orgID, 50, billing.ReasonPlanGrant, "plan", "starter", nil); err != nil {
+	if err := svc.Grant(orgID, 50, billing.ReasonTopup, "credit_purchase", "starter"); err != nil {
 		t.Fatalf("grant: %v", err)
 	}
 
@@ -124,7 +124,7 @@ func TestIntegration_Credits_SameRefIDDifferentReasonAllowed(t *testing.T) {
 	svc := billing.NewCreditsService(db)
 	orgID := seedOrg(t, db)
 
-	if err := svc.Grant(orgID, 1000, billing.ReasonPlanGrant, "plan", "starter", nil); err != nil {
+	if err := svc.Grant(orgID, 1000, billing.ReasonTopup, "credit_purchase", "starter"); err != nil {
 		t.Fatalf("grant: %v", err)
 	}
 	if err := svc.Spend(orgID, 10, billing.ReasonAgentRun, "conversation", "conv-1"); err != nil {
@@ -148,7 +148,7 @@ func TestIntegration_Credits_EmptyRefIDNotIdempotencyScoped(t *testing.T) {
 	svc := billing.NewCreditsService(db)
 	orgID := seedOrg(t, db)
 
-	if err := svc.Grant(orgID, 200, billing.ReasonPlanGrant, "plan", "starter", nil); err != nil {
+	if err := svc.Grant(orgID, 200, billing.ReasonTopup, "credit_purchase", "starter"); err != nil {
 		t.Fatalf("grant: %v", err)
 	}
 	if err := svc.Spend(orgID, 10, billing.ReasonAdjustment, "", ""); err != nil {

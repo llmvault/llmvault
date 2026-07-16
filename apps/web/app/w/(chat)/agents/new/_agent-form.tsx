@@ -16,6 +16,7 @@ import { ModelSelect } from "@/components/model-select"
 import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
 import { TeamSelect } from "./_team-select"
+import { AgentConnectionsField } from "./_connections-field"
 import {
   DEFAULT_AGENT_MODEL,
   SUBAGENT_TASK_TOOL,
@@ -180,10 +181,19 @@ export function AgentFormView({
       >
         <TeamSelect
           value={form.teamId}
-          onValueChange={(teamId) => update({ teamId })}
+          onValueChange={(teamId) =>
+            update({ teamId, connectionMCPToolDeny: {} })
+          }
           disabled={saving}
         />
       </Section>
+
+      <AgentConnectionsField
+        teamId={form.teamId}
+        value={form.connectionMCPToolDeny}
+        disabled={saving}
+        onChange={(connectionMCPToolDeny) => update({ connectionMCPToolDeny })}
+      />
 
       <Section
         title={`Sub-agents${hasSubAgents ? ` (${form.subAgents.length})` : ""}`}

@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { Button, Skeleton, Tooltip } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { useIsOwner } from "@/lib/auth/use-role"
@@ -10,7 +9,6 @@ import { formatCreditsWithUsage } from "./credit-value"
 type DashboardResponse = components["schemas"]["dashboardResponse"]
 
 export function CreditsBalanceSection() {
-  const router = useRouter()
   const isOwner = useIsOwner()
   const dashboardQuery = $api.useQuery("get", "/v1/dashboard")
   const credits = (dashboardQuery.data as DashboardResponse | undefined)
@@ -26,7 +24,7 @@ export function CreditsBalanceSection() {
           or sandbox usage.
         </p>
       </div>
-      <div className="bg-surface flex items-center gap-4 rounded-2xl border border-border px-4 py-4">
+      <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-4">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {dashboardQuery.isLoading ? (
             <>
@@ -47,7 +45,11 @@ export function CreditsBalanceSection() {
         <BuyCreditsButton
           isLoading={dashboardQuery.isLoading}
           isOwner={isOwner}
-          onPress={() => router.push("/w/billing/plans")}
+          onPress={() =>
+            document
+              .getElementById("credit-purchases")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
         />
       </div>
     </section>

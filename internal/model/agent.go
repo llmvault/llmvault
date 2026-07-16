@@ -55,7 +55,7 @@ type Agent struct {
 	McpToolFilter *ToolFilter `gorm:"type:jsonb;serializer:json"`
 	// ConnectionMCPToolDeny is keyed by concrete connection UUID. Users can opt
 	// individual generated MCP tools out without affecting another instance of
-	// the same provider.
+	// the same provider; "*" opts the agent out of the inherited connection.
 	ConnectionMCPToolDeny ConnectionMCPToolDeny `gorm:"column:connection_mcp_tool_deny;type:jsonb;not null;default:'{}';serializer:json"`
 	Skills                JSON                  `gorm:"type:jsonb;not null;default:'{}'"`
 	Integrations          JSON                  `gorm:"-"`

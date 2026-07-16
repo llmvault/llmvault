@@ -20,7 +20,6 @@ type serveHandlers struct {
 	connectionHandler          *handler.ConnectionHandler
 	orgHandler                 *handler.OrgHandler
 	brandHandler               *handler.BrandHandler
-	plansHandler               *handler.PlansHandler
 	orgInviteHandler           *handler.OrgInviteHandler
 	authHandler                *handler.AuthHandler
 	oauthHandler               *handler.OAuthHandler
@@ -41,7 +40,6 @@ type serveHandlers struct {
 	uploadsHandler             *handler.UploadsHandler
 	imageDescribeHandler       *handler.ImageDescribeHandler
 	billingHandler             *handler.BillingHandler
-	subscriptionHandler        *handler.SubscriptionHandler
 	dashboardHandler           *handler.DashboardHandler
 	slackChannelHandler        *handler.SlackChannelHandler
 	channelHandler             *handler.ChannelHandler
@@ -83,7 +81,6 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		connectionHandler:          core.connectionHandler,
 		orgHandler:                 core.orgHandler,
 		brandHandler:               core.brandHandler,
-		plansHandler:               core.plansHandler,
 		orgInviteHandler:           core.orgInviteHandler,
 		authHandler:                core.authHandler,
 		oauthHandler:               core.oauthHandler,
@@ -104,7 +101,6 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		uploadsHandler:             rest.uploadsHandler,
 		imageDescribeHandler:       rest.imageDescribeHandler,
 		billingHandler:             rest.billingHandler,
-		subscriptionHandler:        rest.subscriptionHandler,
 		dashboardHandler:           rest.dashboardHandler,
 		slackChannelHandler:        rest.slackChannelHandler,
 		channelHandler:             rest.channelHandler,

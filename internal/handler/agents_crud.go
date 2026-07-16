@@ -31,7 +31,8 @@ type agentMutationRequest struct {
 	VectorImageModel       *string                `json:"vector_image_model,omitempty"`
 	Tools                  *model.JSON            `json:"tools,omitempty"`
 	McpToolFilter          *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
-	// ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection.
+	// ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection;
+	// "*" disables an inherited connection for this agent.
 	ConnectionMCPToolDeny *model.ConnectionMCPToolDeny `json:"connection_mcp_tool_deny,omitempty"`
 	McpServers            *json.RawMessage             `json:"mcp_servers,omitempty" swaggerignore:"true"`
 	Skills                *model.JSON                  `json:"skills,omitempty"`

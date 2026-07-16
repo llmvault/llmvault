@@ -25,19 +25,6 @@ func NewOrgHandler(db *gorm.DB, enq enqueue.TaskEnqueuer) *OrgHandler {
 	return &OrgHandler{db: db, enq: enq}
 }
 
-// planFor looks up the full plan by slug. Returns nil if the slug has no
-// row in the plans table — caller surfaces that as `plan: null`.
-func (h *OrgHandler) planFor(slug string) *planDTO {
-	if slug == "" {
-		return nil
-	}
-	var plan model.Plan
-	if err := h.db.Where("slug = ?", slug).First(&plan).Error; err != nil {
-		return nil
-	}
-	return planFromModel(plan)
-}
-
 func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
 	sandboxExposedPorts, err := model.NormalizeSandboxExposedPorts(model.SandboxExposedPortsFromInt64Array(org.SandboxExposedPorts))
 	if err != nil {
@@ -52,7 +39,7 @@ func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
 		Website:             org.Website,
 		PromptCompany:       org.PromptCompany,
 		SandboxExposedPorts: sandboxExposedPorts,
-		Plan:                h.planFor(org.PlanSlug),
+		BillingCurrency:     org.BillingCurrency,
 		CreatedAt:           org.CreatedAt.Format(time.RFC3339),
 		OnboardingStep:      org.OnboardingStep,
 	}
@@ -71,17 +58,17 @@ type updateOrgRequest struct {
 }
 
 type orgResponse struct {
-	ID                  string   `json:"id"`
-	Name                string   `json:"name"`
-	RateLimit           int      `json:"rate_limit"`
-	Active              bool     `json:"active"`
-	LogoURL             string   `json:"logo_url,omitempty"`
-	Website             string   `json:"website,omitempty"`
-	PromptCompany       string   `json:"prompt_company,omitempty"`
-	SandboxExposedPorts []int    `json:"sandbox_exposed_ports"`
-	Plan                *planDTO `json:"plan,omitempty"`
-	CreatedAt           string   `json:"created_at"`
-	OnboardingStep      string   `json:"onboarding_step"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	RateLimit           int    `json:"rate_limit"`
+	Active              bool   `json:"active"`
+	LogoURL             string `json:"logo_url,omitempty"`
+	Website             string `json:"website,omitempty"`
+	PromptCompany       string `json:"prompt_company,omitempty"`
+	SandboxExposedPorts []int  `json:"sandbox_exposed_ports"`
+	BillingCurrency     string `json:"billing_currency,omitempty"`
+	CreatedAt           string `json:"created_at"`
+	OnboardingStep      string `json:"onboarding_step"`
 }
 
 // Create handles POST /v1/orgs.

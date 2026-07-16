@@ -30,7 +30,7 @@ func TestIntegration_Credits_ConcurrentGrantSameRef_NoDoubleGrant(t *testing.T) 
 		go func(idx int) {
 			defer wg.Done()
 			<-start
-			results[idx] = svc.Grant(orgID, amount, billing.ReasonPlanGrant, "subscription_renewal", "ref-race-1", nil)
+			results[idx] = svc.Grant(orgID, amount, billing.ReasonTopup, "credit_purchase", "ref-race-1")
 		}(i)
 	}
 	close(start)

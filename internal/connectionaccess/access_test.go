@@ -85,6 +85,85 @@ func TestResolveAgentProviderRequiresTeamConnectionGrant(t *testing.T) {
 	}
 }
 
+func TestAgentConnectionDenyOverridesInheritedTeamGrant(t *testing.T) {
+	db := newResolverTestDB(t)
+	fixture := insertResolverFixture(t, db)
+	insertConnectionGrant(t, db, fixture.orgID, fixture.teamID, fixture.connectionID)
+	databaseID := uuid.New()
+	if err := db.Create(&model.DatabaseConnection{
+		ID:           databaseID,
+		OrgID:        fixture.orgID,
+		Provider:     "postgres",
+		DisplayName:  "Reporting",
+		Name:         "reporting",
+		Slug:         "reporting",
+		EncryptedDSN: []byte("encrypted"),
+		WrappedDEK:   []byte("wrapped"),
+		AccessPolicy: model.JSON{},
+	}).Error; err != nil {
+		t.Fatalf("insert database connection: %v", err)
+	}
+	if err := db.Create(&model.TeamConnectionGrant{
+		ID:                   uuid.New(),
+		OrgID:                fixture.orgID,
+		TeamID:               fixture.teamID,
+		DatabaseConnectionID: &databaseID,
+	}).Error; err != nil {
+		t.Fatalf("insert team database connection grant: %v", err)
+	}
+
+	before, err := ResolveAgentProvider(context.Background(), db, fixture.orgID, fixture.agentID, "linear")
+	if err != nil {
+		t.Fatalf("resolve inherited provider: %v", err)
+	}
+	if before.Connection.ID != fixture.connectionID {
+		t.Fatalf("inherited connection id = %s, want %s", before.Connection.ID, fixture.connectionID)
+	}
+	var agent model.Agent
+	if err := db.Where("id = ? AND org_id = ?", fixture.agentID, fixture.orgID).First(&agent).Error; err != nil {
+		t.Fatalf("load agent: %v", err)
+	}
+	databases, err := DatabaseConnections(context.Background(), db, agent)
+	if err != nil {
+		t.Fatalf("list inherited database connections: %v", err)
+	}
+	if len(databases) != 1 || databases[0].ID != databaseID {
+		t.Fatalf("inherited database connections = %#v, want %s", databases, databaseID)
+	}
+
+	deny := model.ConnectionMCPToolDeny{
+		fixture.connectionID.String(): {model.ConnectionMCPToolDenyAll},
+		databaseID.String():           {model.ConnectionMCPToolDenyAll},
+	}
+	if err := db.Model(&model.Agent{}).
+		Where("id = ? AND org_id = ?", fixture.agentID, fixture.orgID).
+		Update("connection_mcp_tool_deny", deny).Error; err != nil {
+		t.Fatalf("disable inherited connection for agent: %v", err)
+	}
+
+	if _, err := ResolveAgentProvider(context.Background(), db, fixture.orgID, fixture.agentID, "linear"); err == nil {
+		t.Fatal("expected agent override to deny the inherited connection")
+	}
+
+	if err := db.Where("id = ? AND org_id = ?", fixture.agentID, fixture.orgID).First(&agent).Error; err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	connections, err := IntegrationConnections(context.Background(), db, agent)
+	if err != nil {
+		t.Fatalf("list agent integration connections: %v", err)
+	}
+	if len(connections) != 0 {
+		t.Fatalf("integration connections = %#v, want disabled connection omitted", connections)
+	}
+	databases, err = DatabaseConnections(context.Background(), db, agent)
+	if err != nil {
+		t.Fatalf("list agent database connections: %v", err)
+	}
+	if len(databases) != 0 {
+		t.Fatalf("database connections = %#v, want disabled connection omitted", databases)
+	}
+}
+
 func TestResolveAgentProviderUsesEffectiveResources(t *testing.T) {
 	db := newResolverTestDB(t)
 	fixture := insertResolverFixture(t, db)

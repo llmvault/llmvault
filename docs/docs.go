@@ -3127,83 +3127,25 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/billing/checkout": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates a checkout session for subscribing to a plan. The client chooses the provider.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "billing"
-                ],
-                "summary": "Create checkout session",
-                "parameters": [
-                    {
-                        "description": "Checkout request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/createCheckoutRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/createCheckoutResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/billing/subscription": {
+        "/v1/billing/account": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the org's active plan, provider, payment-method snapshot, and any pending plan change.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "billing"
                 ],
-                "summary": "Get subscription status",
+                "summary": "Get billing account",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/subscriptionResponse"
+                            "$ref": "#/definitions/billingAccountResponse"
                         }
                     },
                     "401": {
@@ -3221,8 +3163,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/billing/subscription/apply-change": {
-            "post": {
+        "/v1/billing/account/currency": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3237,15 +3179,15 @@ const docTemplate = `{
                 "tags": [
                     "billing"
                 ],
-                "summary": "Apply a subscription plan change",
+                "summary": "Select billing currency",
                 "parameters": [
                     {
-                        "description": "Quote and (for upgrades) Paystack reference",
+                        "description": "Billing currency",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/applyChangeRequest"
+                            "$ref": "#/definitions/selectBillingCurrencyRequest"
                         }
                     }
                 ],
@@ -3253,168 +3195,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/applyChangeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "402": {
-                        "description": "Payment Required",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "410": {
-                        "description": "Gone",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/billing/subscription/cancel": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "billing"
-                ],
-                "summary": "Cancel a subscription",
-                "parameters": [
-                    {
-                        "description": "Cancellation options",
-                        "name": "body",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/cancelRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/cancelResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/billing/subscription/init-upgrade": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "billing"
-                ],
-                "summary": "Initialise a Paystack transaction for an upgrade quote",
-                "parameters": [
-                    {
-                        "description": "Upgrade quote id",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/initUpgradeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/initUpgradeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "410": {
-                        "description": "Gone",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/billing/subscription/preview-change": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "billing"
-                ],
-                "summary": "Preview a subscription plan change",
-                "parameters": [
-                    {
-                        "description": "Target plan",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/previewChangeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/previewChangeResponse"
+                            "$ref": "#/definitions/statusResponse"
                         }
                     },
                     "400": {
@@ -3438,8 +3219,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/billing/subscription/resume": {
-            "post": {
+        "/v1/billing/purchases": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3451,25 +3232,30 @@ const docTemplate = `{
                 "tags": [
                     "billing"
                 ],
-                "summary": "Resume a subscription",
+                "summary": "List credit purchases",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum purchases",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cancelResponse"
+                            "$ref": "#/definitions/creditPurchasesResponse"
                         }
                     }
                 }
-            }
-        },
-        "/v1/billing/verify": {
+            },
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Resolves a Paystack transaction reference, asserts the paid amount matches the plan's price, and provisions the Subscription row.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3479,23 +3265,23 @@ const docTemplate = `{
                 "tags": [
                     "billing"
                 ],
-                "summary": "Verify checkout completed",
+                "summary": "Create credit purchase",
                 "parameters": [
                     {
-                        "description": "Reference returned from /v1/billing/checkout",
+                        "description": "Credit purchase",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/verifyRequest"
+                            "$ref": "#/definitions/createCreditPurchaseRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/verifyResponse"
+                            "$ref": "#/definitions/creditPurchaseResponse"
                         }
                     },
                     "400": {
@@ -3510,14 +3296,59 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
-                    "402": {
-                        "description": "Payment Required",
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/billing/purchases/{id}/verify": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "billing"
+                ],
+                "summary": "Verify credit purchase",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Purchase ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/creditPurchaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
-                    "502": {
-                        "description": "Bad Gateway",
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -10198,35 +10029,6 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/plans": {
-            "get": {
-                "description": "Returns the public catalog of billing plans, ordered by price\nascending (free first). Public — no authentication required.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plans"
-                ],
-                "summary": "List all public active plans",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/planDTO"
-                            }
                         }
                     },
                     "500": {
@@ -17210,28 +17012,6 @@ const docTemplate = `{
                 }
             }
         },
-        "applyChangeRequest": {
-            "type": "object",
-            "properties": {
-                "paystack_reference": {
-                    "type": "string"
-                },
-                "quote_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "applyChangeResponse": {
-            "type": "object",
-            "properties": {
-                "plan_slug": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
         "assetListItem": {
             "type": "object",
             "properties": {
@@ -17347,6 +17127,29 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/CatalogItem"
+                    }
+                }
+            }
+        },
+        "billingAccountResponse": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "integer"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "fee_basis_points": {
+                    "type": "integer"
+                },
+                "ngn_minor_per_usd": {
+                    "type": "integer"
+                },
+                "supported_currencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }
@@ -17488,28 +17291,6 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
-                }
-            }
-        },
-        "cancelRequest": {
-            "type": "object",
-            "properties": {
-                "at_period_end": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "cancelResponse": {
-            "type": "object",
-            "properties": {
-                "cancel_at_period_end": {
-                    "type": "boolean"
-                },
-                "canceled_at": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
                 }
             }
         },
@@ -18016,46 +17797,6 @@ const docTemplate = `{
                 }
             }
         },
-        "createCheckoutRequest": {
-            "type": "object",
-            "properties": {
-                "cancel_url": {
-                    "type": "string"
-                },
-                "currency": {
-                    "description": "e.g. \"USD\", \"NGN\"",
-                    "type": "string"
-                },
-                "cycle": {
-                    "description": "\"monthly\" | \"annual\"",
-                    "type": "string"
-                },
-                "plan_slug": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "success_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "createCheckoutResponse": {
-            "type": "object",
-            "properties": {
-                "access_code": {
-                    "description": "popup flow: hand to PaystackPop().resumeTransaction()",
-                    "type": "string"
-                },
-                "checkout_url": {
-                    "type": "string"
-                },
-                "reference": {
-                    "type": "string"
-                }
-            }
-        },
         "createConnectionRequest": {
             "type": "object",
             "properties": {
@@ -18098,6 +17839,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "remaining": {
+                    "type": "integer"
+                }
+            }
+        },
+        "createCreditPurchaseRequest": {
+            "type": "object",
+            "properties": {
+                "callback_url": {
+                    "type": "string"
+                },
+                "subtotal_minor": {
                     "type": "integer"
                 }
             }
@@ -18487,6 +18239,67 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "creditPurchaseResponse": {
+            "type": "object",
+            "properties": {
+                "access_code": {
+                    "type": "string"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "credited_at": {
+                    "type": "string"
+                },
+                "credits": {
+                    "type": "integer"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "fee_basis_points": {
+                    "type": "integer"
+                },
+                "fee_minor": {
+                    "type": "integer"
+                },
+                "fx_minor_per_usd": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "paid_at": {
+                    "type": "string"
+                },
+                "provider_reference": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subtotal_minor": {
+                    "type": "integer"
+                },
+                "total_minor": {
+                    "type": "integer"
+                }
+            }
+        },
+        "creditPurchasesResponse": {
+            "type": "object",
+            "properties": {
+                "purchases": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/creditPurchaseResponse"
+                    }
                 }
             }
         },
@@ -18896,31 +18709,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "rendered_description": {
-                    "type": "string"
-                }
-            }
-        },
-        "initUpgradeRequest": {
-            "type": "object",
-            "properties": {
-                "quote_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "initUpgradeResponse": {
-            "type": "object",
-            "properties": {
-                "access_code": {
-                    "type": "string"
-                },
-                "amount_minor": {
-                    "type": "integer"
-                },
-                "currency": {
-                    "type": "string"
-                },
-                "reference": {
                     "type": "string"
                 }
             }
@@ -19756,6 +19544,9 @@ const docTemplate = `{
         "orgMemberDTO": {
             "type": "object",
             "properties": {
+                "billing_currency": {
+                    "type": "string"
+                },
                 "byok": {
                     "type": "boolean"
                 },
@@ -19773,9 +19564,6 @@ const docTemplate = `{
                 },
                 "onboarding_step": {
                     "type": "string"
-                },
-                "plan": {
-                    "$ref": "#/definitions/planDTO"
                 },
                 "role": {
                     "type": "string"
@@ -19808,6 +19596,9 @@ const docTemplate = `{
                 "active": {
                     "type": "boolean"
                 },
+                "billing_currency": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -19822,9 +19613,6 @@ const docTemplate = `{
                 },
                 "onboarding_step": {
                     "type": "string"
-                },
-                "plan": {
-                    "$ref": "#/definitions/planDTO"
                 },
                 "prompt_company": {
                     "type": "string"
@@ -20172,81 +19960,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "planDTO": {
-            "type": "object",
-            "properties": {
-                "currency": {
-                    "type": "string"
-                },
-                "features": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "monthly_credits": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "price_cents": {
-                    "type": "integer"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "welcome_credits": {
-                    "type": "integer"
-                }
-            }
-        },
-        "previewChangeRequest": {
-            "type": "object",
-            "properties": {
-                "plan_slug": {
-                    "type": "string"
-                }
-            }
-        },
-        "previewChangeResponse": {
-            "type": "object",
-            "properties": {
-                "amount_minor": {
-                    "type": "integer"
-                },
-                "credit_grant_minor": {
-                    "type": "integer"
-                },
-                "currency": {
-                    "type": "string"
-                },
-                "effective_at": {
-                    "type": "string"
-                },
-                "expires_at": {
-                    "type": "string"
-                },
-                "from_plan_slug": {
-                    "type": "string"
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "quote_id": {
-                    "type": "string"
-                },
-                "requires_payment_now": {
-                    "type": "boolean"
-                },
-                "to_plan_slug": {
                     "type": "string"
                 }
             }
@@ -21192,6 +20905,14 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "selectBillingCurrencyRequest": {
+            "type": "object",
+            "properties": {
+                "currency": {
+                    "type": "string"
                 }
             }
         },
@@ -22203,58 +21924,6 @@ const docTemplate = `{
                 }
             }
         },
-        "subscriptionResponse": {
-            "type": "object",
-            "properties": {
-                "cancel_at_period_end": {
-                    "type": "boolean"
-                },
-                "card_brand": {
-                    "type": "string"
-                },
-                "card_exp_month": {
-                    "type": "string"
-                },
-                "card_exp_year": {
-                    "type": "string"
-                },
-                "card_last4": {
-                    "type": "string"
-                },
-                "credits_balance": {
-                    "type": "integer"
-                },
-                "current_period_end": {
-                    "type": "string"
-                },
-                "payment_account_name": {
-                    "type": "string"
-                },
-                "payment_bank_name": {
-                    "type": "string"
-                },
-                "payment_channel": {
-                    "description": "Payment-method snapshot from the most recent successful charge.",
-                    "type": "string"
-                },
-                "pending_change_at": {
-                    "type": "string"
-                },
-                "pending_plan_slug": {
-                    "description": "Pending plan change scheduled at PendingChangeAt (downgrade flow).",
-                    "type": "string"
-                },
-                "plan_slug": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
         "syncTriggerRequest": {
             "type": "object",
             "properties": {
@@ -23234,28 +22903,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "verifyRequest": {
-            "type": "object",
-            "properties": {
-                "provider": {
-                    "type": "string"
-                },
-                "reference": {
-                    "type": "string"
-                }
-            }
-        },
-        "verifyResponse": {
-            "type": "object",
-            "properties": {
-                "plan_slug": {
-                    "type": "string"
-                },
-                "status": {
                     "type": "string"
                 }
             }

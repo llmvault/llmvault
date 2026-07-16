@@ -1,5 +1,3 @@
-// Package fake provides an in-memory billing.Provider for tests. It adheres
-// to the billing.Provider contract — production code never imports it.
 package fake
 
 import (
@@ -11,111 +9,53 @@ import (
 	"github.com/usehivy/hivy/internal/billing"
 )
 
-// Provider is an in-memory billing.Provider. Tests configure canned responses
-// via the public fields and inspect observed calls via the accessor methods.
 type Provider struct {
-	mu        sync.Mutex
-	name      string
-	customers map[uuid.UUID]string
-	checkouts []billing.CheckoutIntent
-	charges   []billing.ChargeAuthorizationRequest
+	mu sync.Mutex
 
-	NextCheckoutURL   string
-	NextResolveResult *billing.ResolveCheckoutResult
+	ProviderName      string
+	NextCreateError   error
 	NextResolveError  error
-
-	NextChargeResult *billing.ChargeAuthorizationResult
-	NextChargeError  error
+	NextResolveResult *billing.DepositResult
+	deposits          []billing.DepositIntent
 }
 
-// New returns a fake provider registered under the given name.
-func New(name string) *Provider {
-	return &Provider{
-		name:      name,
-		customers: map[uuid.UUID]string{},
+func New(name string) *Provider { return &Provider{ProviderName: name} }
+
+func (p *Provider) Name() string {
+	if p.ProviderName == "" {
+		return "fake"
 	}
+	return p.ProviderName
 }
 
-// Name implements billing.Provider.
-func (p *Provider) Name() string { return p.name }
-
-// EnsureCustomer implements billing.Provider with a stable id.
-func (p *Provider) EnsureCustomer(_ context.Context, orgID uuid.UUID, _, _ string) (string, error) {
+func (p *Provider) CreateDeposit(_ context.Context, intent billing.DepositIntent) (*billing.DepositSession, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if id, ok := p.customers[orgID]; ok {
-		return id, nil
+	p.deposits = append(p.deposits, intent)
+	if p.NextCreateError != nil {
+		return nil, p.NextCreateError
 	}
-	id := "cus_fake_" + orgID.String()
-	p.customers[orgID] = id
-	return id, nil
+	ref := "ref_" + uuid.NewString()
+	return &billing.DepositSession{URL: "https://example.test/pay/" + ref, AccessCode: "access_" + ref, Reference: ref}, nil
 }
 
-// CreateCheckout implements billing.Provider and records the intent.
-func (p *Provider) CreateCheckout(_ context.Context, customerID string, intent billing.CheckoutIntent) (*billing.CheckoutSession, error) {
+func (p *Provider) ResolveDeposit(_ context.Context, req billing.ResolveDepositRequest) (*billing.DepositResult, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.checkouts = append(p.checkouts, intent)
-	url := p.NextCheckoutURL
-	if url == "" {
-		url = "https://fake-checkout.example/" + customerID
-	}
-	ref := "ref_fake_" + uuid.NewString()
-	return &billing.CheckoutSession{URL: url, ExternalID: ref, Reference: ref}, nil
-}
-
-// ResolveCheckout implements billing.Provider. It mirrors the real provider's
-// org-mismatch guard: when the caller supplies an ExpectedOrgID, the resolved
-// transaction's metadata org_id must match, otherwise the reference is rejected.
-func (p *Provider) ResolveCheckout(_ context.Context, req billing.ResolveCheckoutRequest) (*billing.ResolveCheckoutResult, error) {
 	if p.NextResolveError != nil {
 		return nil, p.NextResolveError
 	}
-	res := p.NextResolveResult
-	if res == nil {
-		res = &billing.ResolveCheckoutResult{Status: billing.StatusActive}
+	if p.NextResolveResult != nil {
+		copy := *p.NextResolveResult
+		return &copy, nil
 	}
-	if req.ExpectedOrgID != uuid.Nil {
-		if res.Metadata["org_id"] != req.ExpectedOrgID.String() {
-			return nil, billing.ErrOrgMismatch
-		}
-	}
-	return res, nil
+	return &billing.DepositResult{Status: billing.PaymentPaid, Reference: req.Reference}, nil
 }
 
-// ChargeAuthorization implements billing.Provider and records the call.
-func (p *Provider) ChargeAuthorization(_ context.Context, req billing.ChargeAuthorizationRequest) (*billing.ChargeAuthorizationResult, error) {
-	p.mu.Lock()
-	p.charges = append(p.charges, req)
-	p.mu.Unlock()
-	if p.NextChargeError != nil {
-		return nil, p.NextChargeError
-	}
-	if p.NextChargeResult != nil {
-		return p.NextChargeResult, nil
-	}
-	return &billing.ChargeAuthorizationResult{
-		Status:          billing.StatusActive,
-		Reference:       "ref_charge_" + uuid.NewString(),
-		PaidAmountMinor: req.AmountMinor,
-		Currency:        req.Currency,
-	}, nil
-}
-
-// Checkouts returns a snapshot of intents CreateCheckout has been called with.
-func (p *Provider) Checkouts() []billing.CheckoutIntent {
+func (p *Provider) Deposits() []billing.DepositIntent {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	out := make([]billing.CheckoutIntent, len(p.checkouts))
-	copy(out, p.checkouts)
-	return out
-}
-
-// Charges returns a snapshot of charge-authorization requests.
-func (p *Provider) Charges() []billing.ChargeAuthorizationRequest {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	out := make([]billing.ChargeAuthorizationRequest, len(p.charges))
-	copy(out, p.charges)
+	out := make([]billing.DepositIntent, len(p.deposits))
+	copy(out, p.deposits)
 	return out
 }

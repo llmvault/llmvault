@@ -32,14 +32,18 @@ func ServiceProxyEnvSpecs() []ServiceProxyEnvSpec {
 }
 
 func AllowedServiceProxyProviders(ctx context.Context, db *gorm.DB, agent model.Agent) (map[string]bool, error) {
-	if db == nil || agent.ID == uuid.Nil {
+	if db == nil || agent.ID == uuid.Nil || agent.OrgID == nil {
 		return nil, nil
 	}
 	var providers []string
-	if err := db.WithContext(ctx).
+	query := db.WithContext(ctx).
 		Table("database_connections").
-		Joins("JOIN team_connection_grants ON team_connection_grants.database_connection_id = database_connections.id").
-		Where("team_connection_grants.team_id = ? AND database_connections.org_id = ? AND database_connections.revoked_at IS NULL", agent.TeamID, *agent.OrgID).
+		Joins("JOIN team_connection_grants ON team_connection_grants.database_connection_id = database_connections.id AND team_connection_grants.org_id = database_connections.org_id").
+		Where("team_connection_grants.team_id = ? AND database_connections.org_id = ? AND database_connections.revoked_at IS NULL", agent.TeamID, *agent.OrgID)
+	if disabled := agent.ConnectionMCPToolDeny.DisabledConnectionIDs(); len(disabled) > 0 {
+		query = query.Where("database_connections.id NOT IN ?", disabled)
+	}
+	if err := query.
 		Distinct("database_connections.provider").
 		Pluck("database_connections.provider", &providers).Error; err != nil {
 		return nil, err

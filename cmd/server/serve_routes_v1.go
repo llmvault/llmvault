@@ -31,7 +31,6 @@ func setupV1Routes(
 	generationHandler *handler.GenerationHandler,
 	apiKeyHandler *handler.APIKeyHandler,
 	billingHandler *handler.BillingHandler,
-	subscriptionHandler *handler.SubscriptionHandler,
 	dashboardHandler *handler.DashboardHandler,
 	slackChannelHandler *handler.SlackChannelHandler,
 	channelHandler *handler.ChannelHandler,
@@ -162,7 +161,7 @@ func setupV1Routes(
 				r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
 			})
 
-			mountBillingRoutes(r, database, billingHandler, subscriptionHandler)
+			mountBillingRoutes(r, database, billingHandler)
 			if slackChannelHandler != nil {
 				r.Get("/slack/channels", slackChannelHandler.ListChannels)
 				r.Post("/slack/channels/join", slackChannelHandler.JoinChannels)

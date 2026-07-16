@@ -10,7 +10,6 @@ const (
 	EventTurnInterrupted   = "turn_interrupted"
 	EventQuestionRequested = "question_requested"
 	EventQuestionAnswered  = "question_answered"
-	EventPlanUpdated       = "plan_updated"
 	EventSubagentStarted   = "subagent_started"
 	EventSubagentCompleted = "subagent_completed"
 	EventSubagentErrored   = "subagent_errored"

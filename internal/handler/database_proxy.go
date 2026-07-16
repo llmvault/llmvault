@@ -123,10 +123,14 @@ func (h *DatabaseProxyHandler) resolveAgent(ctx context.Context, agentID uuid.UU
 
 func (h *DatabaseProxyHandler) resolveConnection(ctx context.Context, agent model.Agent, provider string) (model.DatabaseConnection, error) {
 	var conn model.DatabaseConnection
-	return conn, h.db.WithContext(ctx).
+	query := h.db.WithContext(ctx).
 		Joins("JOIN team_connection_grants tcg ON tcg.database_connection_id = database_connections.id AND tcg.org_id = database_connections.org_id").
 		Where("tcg.team_id = ?", agent.TeamID).
-		Where("database_connections.org_id = ? AND database_connections.provider = ? AND database_connections.revoked_at IS NULL", *agent.OrgID, provider).
+		Where("database_connections.org_id = ? AND database_connections.provider = ? AND database_connections.revoked_at IS NULL", *agent.OrgID, provider)
+	if disabled := agent.ConnectionMCPToolDeny.DisabledConnectionIDs(); len(disabled) > 0 {
+		query = query.Where("database_connections.id NOT IN ?", disabled)
+	}
+	return conn, query.
 		Order("database_connections.created_at ASC").
 		First(&conn).Error
 }

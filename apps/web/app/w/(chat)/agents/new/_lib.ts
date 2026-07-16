@@ -6,6 +6,7 @@ type AgentCreateBody = components["schemas"]["agentMutationRequest"]
 export type AgentDetail = components["schemas"]["agentListItem"]
 type SubAgentDetail = components["schemas"]["subAgentResponse"]
 type ToolFilter = components["schemas"]["ToolFilter"]
+type ConnectionMCPToolDeny = components["schemas"]["ConnectionMCPToolDeny"]
 
 // Default model for a new agent.
 export const DEFAULT_AGENT_MODEL = "deepseek-v4-flash"
@@ -34,9 +35,7 @@ const TOOL_GROUPS: ToolGroup[] = [
   },
   {
     title: "Shell",
-    tools: [
-      { id: "bash", label: "Bash", kind: "runtime" },
-    ],
+    tools: [{ id: "bash", label: "Bash", kind: "runtime" }],
   },
   {
     title: "Image & web",
@@ -152,6 +151,7 @@ export type AgentForm = {
   sandboxSize: AgentSandboxSize
   subAgents: SubAgentForm[]
   teamId: string
+  connectionMCPToolDeny: ConnectionMCPToolDeny
 }
 
 let subAgentSeq = 0
@@ -180,6 +180,7 @@ export function emptyAgentForm(): AgentForm {
     sandboxSize: "small",
     subAgents: [],
     teamId: "",
+    connectionMCPToolDeny: {},
   }
 }
 
@@ -192,14 +193,6 @@ export function subAgentNameError(subAgents: SubAgentForm[]): string | null {
     seen.add(name)
   }
   return null
-}
-
-function canSubmitAgent(form: AgentForm): boolean {
-  return (
-    form.name.trim().length > 0 &&
-    form.model.trim().length > 0 &&
-    subAgentNameError(form.subAgents) === null
-  )
 }
 
 // Rebuilds the tool selection from a saved agent: runtime tools come from the
@@ -255,6 +248,7 @@ export function agentFormFromDetail(agent: AgentDetail): AgentForm {
       subAgentFormFromDetail(sub, model, index)
     ),
     teamId: agent.team_id ?? "",
+    connectionMCPToolDeny: agent.connection_mcp_tool_deny ?? {},
   }
 }
 
@@ -270,6 +264,7 @@ export function buildCreateBody(form: AgentForm): AgentCreateBody {
     sandbox_image: form.sandboxImage,
     sandbox_size: form.sandboxSize,
     team_id: form.teamId || undefined,
+    connection_mcp_tool_deny: form.connectionMCPToolDeny,
     sub_agents: form.subAgents.map((sub) => {
       const tools = runtimeToolsMap(sub.tools)
       return {

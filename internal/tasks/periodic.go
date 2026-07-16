@@ -29,16 +29,6 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
-			Cronspec: "@every 15m",
-			Task:     asynq.NewTask(TypeCreditsExpire, nil),
-			Opts: []asynq.Option{
-				asynq.Queue(QueuePeriodic),
-				asynq.MaxRetry(2),
-				asynq.Timeout(10 * time.Minute),
-				asynq.Unique(15 * time.Minute),
-			},
-		},
-		{
 			Cronspec: "@every 1m",
 			Task:     asynq.NewTask(TypeSessionReflectionScan, nil),
 			Opts: []asynq.Option{
@@ -96,18 +86,6 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 				asynq.MaxRetry(1),
 				asynq.Timeout(5 * time.Minute),
 				asynq.Unique(2 * time.Minute),
-			},
-		},
-		{
-			// Subscription renewal sweep: enqueues per-sub tasks that own the attempt
-			// counter. Filtering on last_renewal_attempt_at caps attempts per interval.
-			Cronspec: "@every 1h",
-			Task:     asynq.NewTask(TypeBillingRenewSweep, nil),
-			Opts: []asynq.Option{
-				asynq.Queue(QueuePeriodic),
-				asynq.MaxRetry(1),
-				asynq.Timeout(5 * time.Minute),
-				asynq.Unique(time.Hour),
 			},
 		},
 	}

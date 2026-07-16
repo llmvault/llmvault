@@ -4,71 +4,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
-
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// planFromModel projects an internal Plan row into the public DTO shape.
-func planFromModel(p model.Plan) *planDTO {
-	var features []string
-	if len(p.Features) > 0 && string(p.Features) != "null" {
-		_ = json.Unmarshal(p.Features, &features)
-	}
-	return &planDTO{
-		Slug:           p.Slug,
-		Name:           p.Name,
-		Provider:       p.Provider,
-		Features:       features,
-		MonthlyCredits: p.MonthlyCredits,
-		WelcomeCredits: p.WelcomeCredits,
-		PriceCents:     p.PriceCents,
-		Currency:       p.Currency,
-	}
-}
-
-// loadPlans returns a slug -> *planDTO map for every plan slug referenced by
-// the given memberships. One bulk query, no N+1. Slugs without a matching
-// plan row are absent from the map (callers fall back to nil).
-func loadPlans(ctx context.Context, db *gorm.DB, memberships []model.OrgMembership) map[string]*planDTO {
-	if len(memberships) == 0 {
-		return map[string]*planDTO{}
-	}
-	seen := make(map[string]struct{}, len(memberships))
-	slugs := make([]string, 0, len(memberships))
-	for _, m := range memberships {
-		slug := m.Org.PlanSlug
-		if slug == "" {
-			continue
-		}
-		if _, ok := seen[slug]; ok {
-			continue
-		}
-		seen[slug] = struct{}{}
-		slugs = append(slugs, slug)
-	}
-	if len(slugs) == 0 {
-		return map[string]*planDTO{}
-	}
-
-	var rows []model.Plan
-	if err := db.Where("slug IN ?", slugs).Find(&rows).Error; err != nil {
-		logging.FromContext(ctx).WarnContext(ctx, "loadPlans: failed to load plans", "error", err)
-		return map[string]*planDTO{}
-	}
-	out := make(map[string]*planDTO, len(rows))
-	for _, p := range rows {
-		out[p.Slug] = planFromModel(p)
-	}
-	return out
-}
 func (h *AuthHandler) isLoginLocked(email string) bool {
 	h.loginMu.Lock()
 	defer h.loginMu.Unlock()
@@ -181,17 +125,16 @@ func (h *AuthHandler) buildAuthResponse(ctx context.Context, user model.User, ac
 	var memberships []model.OrgMembership
 	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)
 
-	plans := loadPlans(ctx, h.db, memberships)
 	orgs := make([]orgMemberDTO, 0, len(memberships))
 	for _, m := range memberships {
 		orgs = append(orgs, orgMemberDTO{
-			ID:             m.OrgID.String(),
-			Name:           m.Org.Name,
-			Role:           m.Role,
-			BYOK:           m.Org.BYOK,
-			LogoURL:        m.Org.LogoURL,
-			Plan:           plans[m.Org.PlanSlug],
-			OnboardingStep: m.Org.OnboardingStep,
+			ID:              m.OrgID.String(),
+			Name:            m.Org.Name,
+			Role:            m.Role,
+			BYOK:            m.Org.BYOK,
+			LogoURL:         m.Org.LogoURL,
+			BillingCurrency: m.Org.BillingCurrency,
+			OnboardingStep:  m.Org.OnboardingStep,
 		})
 	}
 

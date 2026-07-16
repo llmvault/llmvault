@@ -47,7 +47,7 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 	patch := patchAgent(t, h, &org, id, `{
 		"name": "Edited",
 		"mcp_tool_filter": { "deny": ["generate_vector_image", "web_search"] },
-		"connection_mcp_tool_deny": { "`+connectionID.String()+`": [" chat_delete ", "chat_delete", "reactions_remove"] },
+		"connection_mcp_tool_deny": { "`+connectionID.String()+`": [" * ", "chat_delete", "chat_delete", "reactions_remove"] },
 		"sub_agents": [
 			{ "name": "NewA", "tools": { "bash": true } },
 			{ "name": "NewB", "tools": { "write_file": true } }
@@ -69,8 +69,9 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 		t.Fatalf("mcp_tool_filter = %#v, want deny vector+web_search", agent.McpToolFilter)
 	}
 	connectionDeny := agent.ConnectionMCPToolDeny[connectionID.String()]
-	if len(connectionDeny) != 2 || connectionDeny[0] != "chat_delete" || connectionDeny[1] != "reactions_remove" {
-		t.Fatalf("connection_mcp_tool_deny = %#v, want normalized Slack denies", agent.ConnectionMCPToolDeny)
+	if len(connectionDeny) != 3 || connectionDeny[0] != model.ConnectionMCPToolDenyAll ||
+		connectionDeny[1] != "chat_delete" || connectionDeny[2] != "reactions_remove" {
+		t.Fatalf("connection_mcp_tool_deny = %#v, want normalized connection and tool denies", agent.ConnectionMCPToolDeny)
 	}
 
 	var subs []model.Agent

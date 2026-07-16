@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/billing/paystack"
-	"github.com/usehivy/hivy/internal/billing/subscription"
+	"github.com/usehivy/hivy/internal/billing/purchase"
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/counter"
@@ -53,7 +53,7 @@ type Deps struct {
 	ToolUsageWriter *middleware.ToolUsageWriter // nil if no web provider configured
 	BillingRegistry *billing.Registry           // always non-nil; may have zero providers
 	Credits         *billing.CreditsService     // credit ledger service
-	Subscriptions   *subscription.Service       // wraps registry+credits with the renewal worker
+	Purchases       *purchase.Service           // one-time Paystack credit purchases
 	S3Client        *storage.S3Client           // nil if HIVY_AWS_S3_BUCKET_NAME not set
 }
 
@@ -84,9 +84,6 @@ func New(ctx context.Context) (*Deps, error) {
 		return nil, fmt.Errorf("installing sentry gorm plugin: %w", err)
 	}
 
-	if err := seedGlobalPlans(ctx, database); err != nil {
-		return nil, err
-	}
 	if err := syncGlobalAgents(ctx, database); err != nil {
 		return nil, err
 	}
@@ -238,7 +235,7 @@ func New(ctx context.Context) (*Deps, error) {
 		ToolUsageWriter: toolUsageWriter,
 		BillingRegistry: billingRegistry,
 		Credits:         credits,
-		Subscriptions:   subscription.NewService(database, billingRegistry, credits),
+		Purchases:       purchase.NewService(database, billingRegistry, credits, cfg.BillingNGNMinorPerUSD),
 		S3Client:        s3Client,
 	}, nil
 }

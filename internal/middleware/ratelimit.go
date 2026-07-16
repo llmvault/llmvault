@@ -20,14 +20,14 @@ const rateLimiterSweepInterval = time.Minute
 
 type orgLimiter struct {
 	limiter *rate.Limiter
-	// rpm is the RateLimit the limiter was last configured for, used to detect plan changes.
+	// rpm is the RateLimit the limiter was last configured for, used to detect configuration changes.
 	rpm      int
 	lastSeen time.Time
 }
 
 // RateLimit enforces per-org rate limiting from the org's RateLimit field (rpm,
 // set on the context by OrgAuth), returning 429 with Retry-After when exceeded.
-// Limiters are cached per org; a plan change is applied in place via
+// Limiters are cached per org; a limit change is applied in place via
 // SetLimit/SetBurst (keeping the in-flight bucket).
 func RateLimit() func(http.Handler) http.Handler {
 	var mu sync.Mutex

@@ -19,15 +19,10 @@ import (
 func TestDashboardHandler_Get_ReturnsOrgSummary(t *testing.T) {
 	db := connectFreshMigratedTestDB(t)
 	org := createTestOrg(t, db)
-	org.PlanSlug = "pro"
-	if err := db.Save(&org).Error; err != nil {
-		t.Fatalf("update org: %v", err)
-	}
-
-	periodStart := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
-	periodEnd := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
+	periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	periodEnd := periodStart.AddDate(0, 1, 0)
 	user := createTestUser(t, db, "dashboard-"+uuid.NewString()[:8]+"@test.com")
-	seedDashboardPlanAndSubscription(t, db, org.ID, "pro", periodStart, periodEnd)
 	seedDashboardConnection(t, db, org.ID, user.ID, "slack")
 	seedDashboardConnection(t, db, org.ID, user.ID, "github-app")
 	seedDashboardConnection(t, db, org.ID, user.ID, "linear")
@@ -79,7 +74,7 @@ func TestDashboardHandler_Get_ReturnsOrgSummary(t *testing.T) {
 	}
 }
 
-func TestDashboardHandler_Get_UsesCalendarMonthWithoutSubscription(t *testing.T) {
+func TestDashboardHandler_Get_UsesCalendarMonth(t *testing.T) {
 	db := connectFreshMigratedTestDB(t)
 	org := createTestOrg(t, db)
 	now := time.Now().UTC()
@@ -112,31 +107,6 @@ func TestDashboardHandler_Get_UsesCalendarMonthWithoutSubscription(t *testing.T)
 	}
 	if resp.Credits.PeriodStart != monthStart.Format(time.RFC3339) {
 		t.Fatalf("period_start = %s, want %s", resp.Credits.PeriodStart, monthStart.Format(time.RFC3339))
-	}
-}
-
-func seedDashboardPlanAndSubscription(t *testing.T, db *gorm.DB, orgID uuid.UUID, slug string, start, end time.Time) {
-	t.Helper()
-	plan := model.Plan{ID: uuid.New(), Slug: slug + "-" + uuid.NewString()[:8], Name: "Pro", Active: true, MonthlyCredits: 1000}
-	if err := db.Create(&plan).Error; err != nil {
-		t.Fatalf("create plan: %v", err)
-	}
-	if err := db.Model(&model.Org{}).Where("id = ?", orgID).Update("plan_slug", slug).Error; err != nil {
-		t.Fatalf("update plan slug: %v", err)
-	}
-	sub := model.Subscription{
-		ID:                  uuid.New(),
-		OrgID:               orgID,
-		PlanID:              plan.ID,
-		Provider:            "paystack",
-		ExternalCustomerID:  "cus-test",
-		Status:              string(billing.StatusActive),
-		CurrentPeriodStart:  start,
-		CurrentPeriodEnd:    end,
-		LastChargeReference: "ref-test",
-	}
-	if err := db.Create(&sub).Error; err != nil {
-		t.Fatalf("create subscription: %v", err)
 	}
 }
 

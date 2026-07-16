@@ -194,9 +194,9 @@ export const DOC_SECTIONS: DocSection[] = [
     pages: [
       {
         slug: "administration/usage-and-billing",
-        title: "Usage, plans, and billing",
+        title: "Usage and billing",
         description:
-          "See how much credit the workspace has and what each session spent. Compare plan changes before checkout.",
+          "See the workspace credit balance, buy more credits, and review what each session spent.",
       },
     ],
   },

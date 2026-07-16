@@ -9,7 +9,6 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -61,21 +60,6 @@ func NewSandboxResourceCheckHandler(orchestrator *sandbox.Orchestrator) *Sandbox
 func (h *SandboxResourceCheckHandler) Handle(ctx context.Context, _ *asynq.Task) error {
 	h.orchestrator.RunResourceCheck(ctx)
 	return nil
-}
-
-// CreditsExpireHandler runs the credit ledger sweep: forfeits the unused
-// portion of any plan-grant whose ExpiresAt is in the past, materialised as
-// a visible negative ledger entry (reason="expiry").
-type CreditsExpireHandler struct {
-	credits *billing.CreditsService
-}
-
-func NewCreditsExpireHandler(credits *billing.CreditsService) *CreditsExpireHandler {
-	return &CreditsExpireHandler{credits: credits}
-}
-
-func (h *CreditsExpireHandler) Handle(ctx context.Context, _ *asynq.Task) error {
-	return h.credits.SweepAllExpiredGrants(ctx)
 }
 
 // SandboxReapHandler releases leaked paid compute the inline cleanup missed

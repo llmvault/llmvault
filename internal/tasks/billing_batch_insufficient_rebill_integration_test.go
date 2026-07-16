@@ -34,7 +34,7 @@ func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 		t.Fatalf("balance should stay at the floor while insufficient: %d", balBefore)
 	}
 
-	if err := billing.NewCreditsService(db).Grant(orgID, 10_000, billing.ReasonTopup, "topup", "tx-1", nil); err != nil {
+	if err := billing.NewCreditsService(db).Grant(orgID, 10_000, billing.ReasonTopup, "topup", "tx-1"); err != nil {
 		t.Fatalf("topup grant: %v", err)
 	}
 

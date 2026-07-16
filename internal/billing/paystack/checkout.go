@@ -22,24 +22,15 @@ type initializeResponse struct {
 	Reference        string `json:"reference"`
 }
 
-// CreateCheckout initialises a Paystack transaction the browser will resume
-// via PaystackPop.resumeTransaction(access_code). We charge a flat amount
-// — no plan_code — because we manage the recurring lifecycle ourselves.
-//
-// Channels are restricted to card and bank: those are the only Paystack
-// channels that issue a reusable AuthorizationCode, which is required for
-// subscription renewals. Other channels (USSD, mobile money) are one-shot.
-//
-// The customerID argument is unused; Paystack derives the customer from the
-// email on the transaction. We keep it in the signature to satisfy
-// billing.Provider.
-func (p *Provider) CreateCheckout(ctx context.Context, _ string, intent billing.CheckoutIntent) (*billing.CheckoutSession, error) {
+// CreateDeposit initialises a Paystack transaction the browser will resume
+// via PaystackPop.resumeTransaction(access_code). Paystack chooses the
+// one-time payment channels available for the account and currency.
+func (p *Provider) CreateDeposit(ctx context.Context, intent billing.DepositIntent) (*billing.DepositSession, error) {
 	req := initializeRequest{
 		Email:       intent.CustomerEmail,
 		Amount:      intent.AmountMinor,
-		Currency:    intent.Currency,
-		Channels:    []string{string(billing.ChannelCard), string(billing.ChannelBank)},
-		CallbackURL: intent.SuccessURL,
+		Currency:    string(intent.Currency),
+		CallbackURL: intent.CallbackURL,
 		Metadata:    intent.Metadata,
 	}
 	var resp initializeResponse
@@ -49,9 +40,8 @@ func (p *Provider) CreateCheckout(ctx context.Context, _ string, intent billing.
 	if resp.AuthorizationURL == "" {
 		return nil, fmt.Errorf("paystack returned empty authorization_url")
 	}
-	return &billing.CheckoutSession{
+	return &billing.DepositSession{
 		URL:        resp.AuthorizationURL,
-		ExternalID: resp.Reference,
 		AccessCode: resp.AccessCode,
 		Reference:  resp.Reference,
 	}, nil

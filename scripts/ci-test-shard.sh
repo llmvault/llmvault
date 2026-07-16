@@ -94,7 +94,7 @@ internal_core_shard_packages() {
 
   case "$shard_index" in
     0) select_internal_core_packages auth middleware credentials crypto ;;
-    1) select_internal_core_packages billing billing/plancatalog billing/subscription ;;
+    1) select_internal_core_packages billing billing/purchase ;;
     2) select_internal_core_packages billing/fake billing/paystack ;;
     3) select_internal_core_packages bootstrap cache config goroutine system system/tasks logging onboarding ;;
     4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp slackworkflow providerheaders ;;

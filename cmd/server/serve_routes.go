@@ -26,7 +26,6 @@ func setupPublicRoutes(
 	integrationHandler *handler.IntegrationHandler,
 	actionsCatalog *catalog.Catalog,
 	orgInviteHandler *handler.OrgInviteHandler,
-	plansHandler *handler.PlansHandler,
 	nangoWebhookHandler *handler.NangoWebhookHandler,
 	incomingWebhookHandler *handler.IncomingWebhookHandler,
 	nangoClient *nango.Client,
@@ -65,8 +64,6 @@ func setupPublicRoutes(
 	// Org invite preview (public, token-based lookup)
 	r.Get("/v1/invites/{token}", orgInviteHandler.Preview)
 
-	// Billing plans catalog (no auth)
-	r.Get("/v1/plans", plansHandler.List)
 	if uploadsHandler != nil {
 		r.Get("/v1/assets/preview", uploadsHandler.PreviewAsset)
 	}

@@ -43,7 +43,6 @@ type serveHandlersRest struct {
 	uploadsHandler         *handler.UploadsHandler
 	imageDescribeHandler   *handler.ImageDescribeHandler
 	billingHandler         *handler.BillingHandler
-	subscriptionHandler    *handler.SubscriptionHandler
 	dashboardHandler       *handler.DashboardHandler
 	slackChannelHandler    *handler.SlackChannelHandler
 	channelHandler         *handler.ChannelHandler
@@ -182,8 +181,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		imageDescribeHandler.WithRuntimeSecretKey(sandboxEncKey)
 	}
 
-	billingHandler := handler.NewBillingHandler(database, deps.BillingRegistry, deps.Credits)
-	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
+	billingHandler := handler.NewBillingHandler(database, deps.Purchases, deps.Credits)
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
 	channelHandler := handler.NewChannelHandler(database,
@@ -242,7 +240,6 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		uploadsHandler:         uploadsHandler,
 		imageDescribeHandler:   imageDescribeHandler,
 		billingHandler:         billingHandler,
-		subscriptionHandler:    subscriptionHandler,
 		dashboardHandler:       dashboardHandler,
 		slackChannelHandler:    slackChannelHandler,
 		channelHandler:         channelHandler,
