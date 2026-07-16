@@ -2,7 +2,7 @@
 
 import { use, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Modal, toast, useOverlayState } from "@heroui/react"
+import { toast, useOverlayState } from "@heroui/react"
 import NextLink from "next/link"
 import { DetailSkeleton } from "./detail-skeleton"
 import { AppIcon } from "@/components/icon"
@@ -16,15 +16,10 @@ import {
   type ConnectOptions,
   useConnectIntegration,
 } from "@/app/w/(chat)/plugins/use-connect-integration"
-import { IntegrationCredentialsForm } from "@/app/w/(chat)/plugins/integration-credentials-form"
 import {
   type AvailableIntegration,
   integrationNeedsForm,
 } from "@/app/w/(chat)/plugins/integration-auth"
-import {
-  DatabaseConnectionModalContent,
-  isDatabaseProvider,
-} from "@/app/w/(chat)/plugins/database-connection-modal-content"
 import {
   PluginLogo,
   pluginLogoFrameClass,
@@ -55,6 +50,10 @@ import {
   type ConnectionNameTarget,
 } from "@/app/w/(chat)/plugins/[slug]/connection-name-modal"
 import {
+  type ConnectionModalState,
+  RequiredConnectionModal,
+} from "@/app/w/(chat)/plugins/[slug]/required-connection-modal"
+import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
   pluginCanInstall,
@@ -67,11 +66,6 @@ import {
 } from "@/app/w/(chat)/plugins/_lib"
 type Connection = components["schemas"]["connectionResponse"]
 type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
-
-type ConnectionModalState = {
-  view: "integration" | "database"
-  requirement: PluginRequirement
-}
 
 export default function PluginDetailPage({
   params,
@@ -561,57 +555,5 @@ function PluginDetailShell({ content }: { content: React.ReactNode }) {
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-6 py-12">{content}</div>
     </div>
-  )
-}
-
-function RequiredConnectionModal({
-  modal,
-  state,
-  integration,
-  isPending,
-  canManage,
-  onBack,
-  onIntegrationConnect,
-  onDatabaseConnected,
-}: {
-  modal: ConnectionModalState | null
-  state: ReturnType<typeof useOverlayState>
-  integration: AvailableIntegration | undefined
-  isPending: boolean
-  canManage: boolean
-  onBack: () => void
-  onIntegrationConnect: (options?: ConnectOptions) => void
-  onDatabaseConnected: (connection: DatabaseConnection) => void
-}) {
-  const requirement = modal?.requirement
-  const provider = requirement?.provider
-
-  return (
-    <Modal.Root state={state}>
-      <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
-        <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog
-            className={`relative w-full bg-background p-0 shadow-xl outline-none ${
-              modal?.view === "database" ? "max-w-3xl" : "max-w-sm"
-            }`}
-          >
-            {modal?.view === "database" && isDatabaseProvider(provider) ? (
-              <DatabaseConnectionModalContent
-                provider={provider}
-                canManage={canManage}
-                onConnected={onDatabaseConnected}
-              />
-            ) : modal?.view === "integration" && integration ? (
-              <IntegrationCredentialsForm
-                integration={integration}
-                isSubmitting={isPending}
-                onBack={onBack}
-                onSubmit={onIntegrationConnect}
-              />
-            ) : null}
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal.Root>
   )
 }
