@@ -14,8 +14,7 @@ import {
 type Connection =
   | components["schemas"]["connectionResponse"]
   | components["schemas"]["databaseConnectionResponse"]
-export type ConnectionMCPToolDeny =
-  components["schemas"]["ConnectionMCPToolDeny"]
+type ConnectionMCPToolDeny = components["schemas"]["ConnectionMCPToolDeny"]
 
 const DENY_ALL = "*"
 
