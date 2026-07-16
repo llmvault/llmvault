@@ -235,6 +235,7 @@ func setupV1Routes(
 						r.Post("/database-integrations", databaseIntegrationHandler.Create)
 						r.Post("/database-integrations/{id}/test", databaseIntegrationHandler.Test)
 						r.Post("/database-integrations/{id}/introspect", databaseIntegrationHandler.Introspect)
+						r.Patch("/database-integrations/{id}/name", databaseIntegrationHandler.Rename)
 						r.Put("/database-integrations/{id}/policy", databaseIntegrationHandler.UpdatePolicy)
 						r.Delete("/database-integrations/{id}", databaseIntegrationHandler.Revoke)
 					})

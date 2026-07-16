@@ -69,7 +69,7 @@ export function DatabaseConnectionModalContent({
   canManage = true,
 }: {
   provider: DatabaseProvider
-  onConnected: () => void
+  onConnected: (connection: DatabaseConnection) => void
   // canManage gates connecting/introspecting/saving a database connection to
   // org admins; the backend enforces this too (all database-integrations
   // mutations are admin-only).
@@ -164,7 +164,7 @@ export function DatabaseConnectionModalContent({
       })
       queryClient.invalidateQueries({ queryKey: queryKeys.plugins() })
       toast.success(`${config.label} connected`)
-      onConnected()
+      onConnected(connection)
     } catch (error) {
       toast.danger(
         extractErrorMessage(error, `Failed to save ${config.label} policy`)

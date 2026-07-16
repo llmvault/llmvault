@@ -1611,8 +1611,12 @@ definitions:
         type: string
       meta:
         $ref: '#/definitions/JSON'
+      name:
+        type: string
       nango_connection_id:
         type: string
+      needs_name:
+        type: boolean
       org_id:
         type: string
       provider:
@@ -1620,6 +1624,8 @@ definitions:
       provider_config:
         $ref: '#/definitions/JSON'
       revoked_at:
+        type: string
+      slug:
         type: string
       updated_at:
         type: string
@@ -2107,11 +2113,17 @@ definitions:
         type: string
       id:
         type: string
+      name:
+        type: string
+      needs_name:
+        type: boolean
       provider:
         type: string
       revoked_at:
         type: string
       schema_snapshot: {}
+      slug:
+        type: string
       updated_at:
         type: string
     type: object
@@ -3710,6 +3722,11 @@ definitions:
       password:
         type: string
     type: object
+  renameConnectionRequest:
+    properties:
+      name:
+        type: string
+    type: object
   reportRow:
     properties:
       avg_ttfb_ms:
@@ -4975,29 +4992,6 @@ definitions:
       position:
         type: number
       type:
-        type: string
-    type: object
-  updateMCPServerRequest:
-    properties:
-      auth_type:
-        type: string
-      authorization_policy:
-        type: string
-      description:
-        type: string
-      header_name:
-        type: string
-      name:
-        type: string
-      oauth_metadata:
-        $ref: '#/definitions/OAuthMetadata'
-      slug:
-        type: string
-      status:
-        type: string
-      transport:
-        type: string
-      url:
         type: string
     type: object
   updateOrgRequest:
@@ -8506,6 +8500,58 @@ paths:
       summary: Disconnect an connection
       tags:
       - connections
+  /v1/connections/{id}/name:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Connection name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/renameConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/connectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Rename a connection
+      tags:
+      - connections
   /v1/connections/{id}/reconnect-session:
     post:
       description: Creates a Nango connect session scoped to an existing connection,
@@ -8955,6 +9001,58 @@ paths:
       security:
       - BearerAuth: []
       summary: Introspect database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/name:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Connection name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/renameConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Rename a database integration
       tags:
       - database-integrations
   /v1/database-integrations/{id}/policy:
@@ -9686,61 +9784,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get an MCP server
-      tags:
-      - mcp-servers
-    patch:
-      consumes:
-      - application/json
-      parameters:
-      - description: MCP server ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: MCP server update
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateMCPServerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mcpServerEnvelope'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update an MCP server
       tags:
       - mcp-servers
   /v1/mcp-servers/{id}/authorization:

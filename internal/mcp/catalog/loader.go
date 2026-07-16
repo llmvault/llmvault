@@ -35,12 +35,14 @@ func mustParse() *Catalog {
 	c := &Catalog{
 		providers:          make(map[string]*ProviderActions),
 		triggers:           make(map[string]*ProviderTriggers),
+		nangoProviders:     make(map[string]*NangoProvider),
 		subscribableByType: make(map[string]subscribableEntry),
 		subscribableByProv: make(map[string]map[string]SubscribableResource),
 	}
 
 	c.parseProviders()
 	c.parseTriggers()
+	c.parseNangoCatalog()
 	c.parseSubscribableResources()
 	c.aliasGitHubAppCodeReviews()
 

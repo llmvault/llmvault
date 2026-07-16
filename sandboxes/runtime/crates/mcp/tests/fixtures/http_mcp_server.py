@@ -9,7 +9,10 @@ OAuth client credentials.
 
 import json
 import queue
+import threading
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
 
 
 EXPECTED_AUTH = {
@@ -20,7 +23,8 @@ EXPECTED_AUTH = {
     "/oauth": ("authorization", "Bearer oauth-user-token"),
     "/client-credentials": ("authorization", "Bearer machine-access-token"),
 }
-LEGACY_MESSAGES = queue.Queue()
+LEGACY_SESSIONS = {}
+LEGACY_SESSIONS_LOCK = threading.Lock()
 LEGACY_AUTH = "Bearer legacy-oauth-token"
 INTEROP_TOOL_NAMES = [
     "records.list",
@@ -54,14 +58,20 @@ class McpHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "keep-alive")
         self.end_headers()
+        session_id = uuid.uuid4().hex
+        messages = queue.Queue()
+        with LEGACY_SESSIONS_LOCK:
+            LEGACY_SESSIONS[session_id] = messages
         self.wfile.write(
-            b"event: endpoint\ndata: /legacy-messages?sessionId=fixture-session\n\n"
+            f"event: endpoint\ndata: /legacy-messages?sessionId={session_id}\n\n".encode(
+                "utf-8"
+            )
         )
         self.wfile.flush()
         try:
             while True:
                 try:
-                    response = LEGACY_MESSAGES.get(timeout=1)
+                    response = messages.get(timeout=1)
                     payload = json.dumps(response).encode("utf-8")
                     self.wfile.write(b"event: message\ndata: " + payload + b"\n\n")
                 except queue.Empty:
@@ -69,6 +79,9 @@ class McpHandler(BaseHTTPRequestHandler):
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
             return
+        finally:
+            with LEGACY_SESSIONS_LOCK:
+                LEGACY_SESSIONS.pop(session_id, None)
 
     def do_POST(self):
         if self.path == "/streamable-redirect":
@@ -84,7 +97,13 @@ class McpHandler(BaseHTTPRequestHandler):
             request = self._read_request()
             response = self._rpc_response(request, "/legacy-sse", "2024-11-05")
             if response is not None:
-                LEGACY_MESSAGES.put(response)
+                session_id = parse_qs(urlsplit(self.path).query).get("sessionId", [""])[0]
+                with LEGACY_SESSIONS_LOCK:
+                    messages = LEGACY_SESSIONS.get(session_id)
+                if messages is None:
+                    self._json(410, {"error": "legacy session expired"})
+                    return
+                messages.put(response)
             self.send_response(202)
             self.send_header("Content-Length", "0")
             self.end_headers()

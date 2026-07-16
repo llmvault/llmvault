@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/counter"
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/mcpserver"
@@ -29,6 +31,7 @@ type MCPHandler struct {
 	catalog           *catalog.Catalog
 	nango             *nango.Client
 	counter           *counter.Counter
+	kms               *crypto.KeyWrapper
 	webTools          mcpserver.WebToolsFunc
 	knowledgeTools    mcpserver.KnowledgeToolsFunc
 	memoryTools       mcpserver.MemoryToolsFunc
@@ -39,6 +42,9 @@ type MCPHandler struct {
 	appsTools         mcpserver.AppsToolsFunc
 	ServerCache       *mcpserver.ServerCache
 }
+
+// SetKMS enables connection-scoped database MCP servers.
+func (h *MCPHandler) SetKMS(kms *crypto.KeyWrapper) { h.kms = kms }
 
 // NewMCPHandler creates a new MCP handler.
 func NewMCPHandler(db *gorm.DB, signingKey []byte, cat *catalog.Catalog, nangoClient *nango.Client, ctr *counter.Counter) *MCPHandler {
@@ -119,11 +125,37 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 	}
 
 	ctx := r.Context()
-	srv, err := h.ServerCache.GetOrBuild(claims.JTI, func() (*mcp.Server, time.Time, error) {
+	kind, connectionID, targeted, targetErr := connectionServerTarget(r)
+	if targetErr != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "mcp: invalid connection server target", "error", targetErr, "jti", claims.JTI)
+		return nil
+	}
+	cacheKey := claims.JTI
+	if targeted {
+		cacheKey += ":" + kind + ":" + connectionID.String()
+	}
+	srv, err := h.ServerCache.GetOrBuild(cacheKey, func() (*mcp.Server, time.Time, error) {
 
 		var token model.Token
-		if err := h.db.WithContext(ctx).Where("jti = ?", claims.JTI).First(&token).Error; err != nil {
+		if err := h.db.WithContext(ctx).Where("jti = ? AND revoked_at IS NULL AND expires_at > ?", claims.JTI, time.Now()).First(&token).Error; err != nil {
 			return nil, time.Time{}, err
+		}
+		if targeted {
+			var server *mcp.Server
+			var err error
+			switch kind {
+			case "connection":
+				if h.nango == nil {
+					return nil, time.Time{}, fmt.Errorf("nango client is unavailable")
+				}
+				server, err = mcpserver.BuildConnectionServer(ctx, h.db, h.nango, h.catalog, &token, connectionID)
+			case "database":
+				if h.kms == nil {
+					return nil, time.Time{}, fmt.Errorf("database key service is unavailable")
+				}
+				server, err = mcpserver.BuildDatabaseServer(ctx, h.db, h.kms, &token, connectionID)
+			}
+			return server, token.ExpiresAt, err
 		}
 
 		toolFilter := h.agentProxyMCPToolFilter(ctx, &token)
@@ -140,6 +172,22 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 	}
 
 	return srv
+}
+
+func connectionServerTarget(r *http.Request) (string, uuid.UUID, bool, error) {
+	wildcard := strings.Trim(chi.URLParam(r, "*"), "/")
+	if wildcard == "" {
+		return "", uuid.Nil, false, nil
+	}
+	parts := strings.Split(wildcard, "/")
+	if len(parts) != 2 || (parts[0] != "connection" && parts[0] != "database") {
+		return "", uuid.Nil, false, fmt.Errorf("unknown MCP server path")
+	}
+	connectionID, err := uuid.Parse(parts[1])
+	if err != nil || connectionID == uuid.Nil {
+		return "", uuid.Nil, false, fmt.Errorf("invalid MCP connection id")
+	}
+	return parts[0], connectionID, true, nil
 }
 
 // agentProxyMCPToolFilter resolves the exact compiler policy before the server

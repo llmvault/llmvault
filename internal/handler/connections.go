@@ -40,6 +40,9 @@ type connectionResponse struct {
 	IntegrationID         string                                `json:"integration_id"`
 	Provider              string                                `json:"provider"`
 	DisplayName           string                                `json:"display_name"`
+	Name                  string                                `json:"name"`
+	Slug                  string                                `json:"slug"`
+	NeedsName             bool                                  `json:"needs_name"`
 	NangoConnectionID     string                                `json:"nango_connection_id"`
 	Meta                  model.JSON                            `json:"meta,omitempty"`
 	ProviderConfig        model.JSON                            `json:"provider_config,omitempty"`
@@ -63,6 +66,9 @@ func (h *ConnectionHandler) toConnectionResponse(conn model.Connection) connecti
 		IntegrationID:         conn.IntegrationID.String(),
 		Provider:              provider,
 		DisplayName:           conn.Integration.DisplayName,
+		Name:                  conn.Name,
+		Slug:                  conn.Slug,
+		NeedsName:             conn.NeedsName,
 		NangoConnectionID:     conn.NangoConnectionID,
 		Meta:                  safeConnectionMeta(conn.Meta),
 		ActionsCount:          len(h.catalog.ListActions(provider)),

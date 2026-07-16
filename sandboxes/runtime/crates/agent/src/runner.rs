@@ -2680,8 +2680,8 @@ mod tests {
             vec!["search_tools", "get_tool_details", "oauth_echo"]
         );
         assert_eq!(third, second, "activated definitions must remain stable");
-        assert!(requests[0]["messages"].to_string().contains("oauth_echo"));
-        assert!(requests[0]["messages"]
+        assert!(!requests[0]["messages"].to_string().contains("oauth_echo"));
+        assert!(!requests[0]["messages"]
             .to_string()
             .contains("Exact names available"));
         assert!(requests[0]["messages"]
@@ -2849,7 +2849,9 @@ fn build_mcp_tools(
                     .get("name")
                     .and_then(serde_json::Value::as_str)
                     .ok_or_else(|| anyhow::anyhow!("name required"))?;
-                registry.activate_tool_filtered(session_id.as_str(), name, filter.as_ref())
+                registry
+                    .activate_tool_filtered(session_id.as_str(), name, filter.as_ref())
+                    .await
             })
         },
     )));

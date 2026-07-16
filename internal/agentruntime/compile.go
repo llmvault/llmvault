@@ -242,6 +242,11 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if err != nil {
 		return nil, err
 	}
+	connectionServers, err := resolveConnectionMCPServers(ctx, deps, agent, proxyToken)
+	if err != nil {
+		return nil, err
+	}
+	mcpServers = append(mcpServers, connectionServers...)
 	ourMCP := buildHivyMCPServer(ctx, deps, agent)
 	if proxyToken != nil {
 		ourMCP = buildAgentMCPServerWithToken(deps, proxyToken)

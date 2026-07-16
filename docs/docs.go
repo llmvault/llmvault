@@ -4943,6 +4943,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/connections/{id}/name": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Rename a connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connection name",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/renameConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/connectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/connections/{id}/reconnect-session": {
             "post": {
                 "security": [
@@ -5637,6 +5718,87 @@ const docTemplate = `{
                     },
                     "502": {
                         "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/database-integrations/{id}/name": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "Rename a database integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connection name",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/renameConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/databaseConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -6817,91 +6979,6 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "mcp-servers"
-                ],
-                "summary": "Update an MCP server",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "MCP server ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "MCP server update",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/updateMCPServerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mcpServerEnvelope"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -18261,8 +18338,14 @@ const docTemplate = `{
                 "meta": {
                     "$ref": "#/definitions/JSON"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "nango_connection_id": {
                     "type": "string"
+                },
+                "needs_name": {
+                    "type": "boolean"
                 },
                 "org_id": {
                     "type": "string"
@@ -18274,6 +18357,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/JSON"
                 },
                 "revoked_at": {
+                    "type": "string"
+                },
+                "slug": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -19008,6 +19094,12 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
+                "needs_name": {
+                    "type": "boolean"
+                },
                 "provider": {
                     "type": "string"
                 },
@@ -19015,6 +19107,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "schema_snapshot": {},
+                "slug": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 }
@@ -21468,6 +21563,14 @@ const docTemplate = `{
                 }
             }
         },
+        "renameConnectionRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "reportRow": {
             "type": "object",
             "properties": {
@@ -23400,41 +23503,6 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "updateMCPServerRequest": {
-            "type": "object",
-            "properties": {
-                "auth_type": {
-                    "type": "string"
-                },
-                "authorization_policy": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "header_name": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "oauth_metadata": {
-                    "$ref": "#/definitions/OAuthMetadata"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "transport": {
-                    "type": "string"
-                },
-                "url": {
                     "type": "string"
                 }
             }

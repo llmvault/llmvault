@@ -6203,6 +6203,105 @@
         }
       }
     },
+    "/v1/connections/{id}/name": {
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "connections"
+        ],
+        "summary": "Rename a connection",
+        "parameters": [
+          {
+            "description": "Connection ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/renameConnectionRequest"
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/connections/{id}/reconnect-session": {
       "post": {
         "security": [
@@ -7075,6 +7174,105 @@
           },
           "502": {
             "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/name": {
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Rename a database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/renameConnectionRequest"
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -8570,121 +8768,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "tags": [
-          "mcp-servers"
-        ],
-        "summary": "Update an MCP server",
-        "parameters": [
-          {
-            "description": "MCP server ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/updateMCPServerRequest"
-              }
-            }
-          },
-          "description": "MCP server update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/mcpServerEnvelope"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -19908,6 +19991,17 @@
         },
         "description": "Team parameters",
         "required": true
+      },
+      "renameConnectionRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/renameConnectionRequest"
+            }
+          }
+        },
+        "description": "Connection name",
+        "required": true
       }
     },
     "securitySchemes": {
@@ -22336,8 +22430,14 @@
           "meta": {
             "$ref": "#/components/schemas/JSON"
           },
+          "name": {
+            "type": "string"
+          },
           "nango_connection_id": {
             "type": "string"
+          },
+          "needs_name": {
+            "type": "boolean"
           },
           "org_id": {
             "type": "string"
@@ -22349,6 +22449,9 @@
             "$ref": "#/components/schemas/JSON"
           },
           "revoked_at": {
+            "type": "string"
+          },
+          "slug": {
             "type": "string"
           },
           "updated_at": {
@@ -23083,6 +23186,12 @@
           "id": {
             "type": "string"
           },
+          "name": {
+            "type": "string"
+          },
+          "needs_name": {
+            "type": "boolean"
+          },
           "provider": {
             "type": "string"
           },
@@ -23090,6 +23199,9 @@
             "type": "string"
           },
           "schema_snapshot": {},
+          "slug": {
+            "type": "string"
+          },
           "updated_at": {
             "type": "string"
           }
@@ -25543,6 +25655,14 @@
           }
         }
       },
+      "renameConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "reportRow": {
         "type": "object",
         "properties": {
@@ -27475,41 +27595,6 @@
             "type": "number"
           },
           "type": {
-            "type": "string"
-          }
-        }
-      },
-      "updateMCPServerRequest": {
-        "type": "object",
-        "properties": {
-          "auth_type": {
-            "type": "string"
-          },
-          "authorization_policy": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "header_name": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "oauth_metadata": {
-            "$ref": "#/components/schemas/OAuthMetadata"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "transport": {
-            "type": "string"
-          },
-          "url": {
             "type": "string"
           }
         }

@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
+	"github.com/usehivy/hivy/internal/connectionname"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -121,15 +122,33 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.WithContext(ctx).Create(&conn).Error; err != nil {
-			return err
+	for attempt := 0; attempt < 5; attempt++ {
+		err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			identity, identityErr := connectionname.ForConnection(ctx, tx, org.ID, integ.Provider, integ.DisplayName)
+			if identityErr != nil {
+				return identityErr
+			}
+			conn.Name = identity.Name
+			conn.Slug = identity.Slug
+			conn.NeedsName = identity.NeedsName
+			if createErr := tx.WithContext(ctx).Create(&conn).Error; createErr != nil {
+				return createErr
+			}
+			if onboardingErr := onboarding.New(tx).ConnectionCreated(ctx, org.ID, user.ID, integ.Provider); onboardingErr != nil {
+				return onboardingErr
+			}
+			return nil
+		})
+		if err == nil || !isDuplicateKeyError(err) {
+			break
 		}
-		if err := onboarding.New(tx).ConnectionCreated(ctx, org.ID, user.ID, integ.Provider); err != nil {
-			return err
+		var existing int64
+		if countErr := h.db.WithContext(ctx).Model(&model.Connection{}).
+			Where("integration_id = ? AND nango_connection_id = ? AND revoked_at IS NULL", integ.ID, req.NangoConnectionID).
+			Count(&existing).Error; countErr == nil && existing > 0 {
+			break
 		}
-		return nil
-	})
+	}
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			// The (integration_id, nango_connection_id) active-uniqueness index

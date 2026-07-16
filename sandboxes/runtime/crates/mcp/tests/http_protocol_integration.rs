@@ -113,6 +113,10 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
     assert_eq!(statuses.len(), 5);
     assert!(statuses.iter().all(|status| status.connected));
     assert!(statuses.iter().all(|status| status.tool_count == 2));
+    assert!(
+        registry.live_connection_names().is_empty(),
+        "discovery must close every transport"
+    );
 
     let names = registry.available_tool_names();
     assert_eq!(names.len(), 10);
@@ -129,7 +133,9 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
         .is_empty());
     let details = registry
         .activate_tool_filtered("session-a", "oauth_echo", None)
+        .await
         .expect("activate OAuth tool");
+    assert_eq!(registry.live_connection_names(), vec!["oauth"]);
     assert_eq!(details["activated"], true);
     assert_eq!(details["input_schema"]["required"][0], "message");
     assert_eq!(
@@ -142,6 +148,7 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
 
     registry
         .activate_tool_filtered("session-a", "static_echo", None)
+        .await
         .expect("activate static tool");
     let activated = registry.activated_tools_filtered("session-a", None);
     assert_eq!(activated[0].prefixed_name, "oauth_echo");
@@ -236,6 +243,7 @@ async fn legacy_http_sse_connects_discovers_activates_and_calls_with_oauth_heade
     assert_eq!(search["servers"][0]["tools"][0]["name"], "legacy_echo");
     let details = registry
         .activate_tool_filtered("legacy-session", "legacy_echo", None)
+        .await
         .expect("activate legacy SSE tool");
     assert_eq!(details["activated"], true);
     assert_eq!(
@@ -316,6 +324,7 @@ async fn unsafe_and_long_mcp_names_get_exact_collision_safe_callable_names() {
 
         let details = registry
             .activate_tool_filtered("interop-session", &callable, None)
+            .await
             .expect("activate exact callable name");
         assert_eq!(details["name"], callable);
         assert_eq!(details["raw_name"], raw_name);

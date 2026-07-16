@@ -251,10 +251,16 @@ pub(super) async fn render_dynamic_system_prompt(
     session_context: &[String],
 ) -> String {
     let mut prompt = String::new();
-    let mcp_tools = match mcp_registry {
-        Some(registry) => registry.available_tool_names_filtered(mcp_tool_filter),
-        None => Vec::new(),
-    };
+    let has_mcp_tools = mcp_registry
+        .map(|registry| {
+            !registry
+                .available_tool_names_filtered(mcp_tool_filter)
+                .is_empty()
+        })
+        .unwrap_or(false);
+    // Exact names stay in the host-side search index. Listing the complete
+    // catalog here defeats progressive discovery even when schemas are hidden.
+    let mcp_tools = Vec::new();
     let renders_legacy_context_segment = snapshot
         .system_prompt
         .dynamic_segments
@@ -263,7 +269,7 @@ pub(super) async fn render_dynamic_system_prompt(
     if !renders_legacy_context_segment {
         append_rendered_segment(&mut prompt, render_session_context(session_context));
     }
-    if !mcp_tools.is_empty() {
+    if has_mcp_tools {
         append_rendered_segment(
             &mut prompt,
             Some(

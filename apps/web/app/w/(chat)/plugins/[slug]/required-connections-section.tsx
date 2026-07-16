@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Button, Popover, Spinner } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import type { components } from "@/lib/api/schema"
@@ -42,13 +42,14 @@ export function RequiredConnectionsSection({
   canManage = true,
   onConnect,
   onReconnect,
+  onRename,
   onDisconnect,
 }: {
   requirements: PluginRequirement[]
   missing: PluginRequirement[]
   integrationsLoading: boolean
-  connectionsByProvider: Map<string, Connection>
-  databaseConnectionsByProvider: Map<string, DatabaseConnection>
+  connectionsByProvider: Map<string, Connection[]>
+  databaseConnectionsByProvider: Map<string, DatabaseConnection[]>
   isBusy: boolean
   disconnectDisabled: boolean
   // canManage gates connecting/disconnecting to org admins. Non-admins still
@@ -56,6 +57,10 @@ export function RequiredConnectionsSection({
   canManage?: boolean
   onConnect: (requirement: PluginRequirement) => void
   onReconnect: (requirement: PluginRequirement, connection: Connection) => void
+  onRename: (
+    kind: "integration" | "database",
+    connection: Connection | DatabaseConnection
+  ) => void
   onDisconnect: (target: ConnectionDisconnectTarget) => void
 }) {
   return (
@@ -90,88 +95,111 @@ export function RequiredConnectionsSection({
           const provider = requirement.provider ?? ""
           const isMissing = isRequirementMissing(requirement, missing)
           const canConnect =
-            isMissing &&
-            (isDatabaseRequirement(requirement) ||
-              isIntegrationRequirement(requirement))
+            isDatabaseRequirement(requirement) ||
+            isIntegrationRequirement(requirement)
           const waitingForIntegrations =
             integrationsLoading && isIntegrationRequirement(requirement)
-          const connectedConnection =
-            !isMissing && isIntegrationRequirement(requirement)
-              ? connectionsByProvider.get(provider)
-              : undefined
-          const connectedDatabase =
-            !isMissing && isDatabaseRequirement(requirement)
-              ? databaseConnectionsByProvider.get(provider)
-              : undefined
-          const disconnectTarget: ConnectionDisconnectTarget | undefined =
-            connectedConnection
-              ? {
-                  kind: "integration",
-                  provider,
-                  requirement,
-                  connection: connectedConnection,
-                }
-              : connectedDatabase
-                ? {
-                    kind: "database",
-                    provider,
-                    requirement,
-                    connection: connectedDatabase,
-                  }
-                : undefined
+          const connectedConnections = isIntegrationRequirement(requirement)
+            ? (connectionsByProvider.get(provider) ?? [])
+            : []
+          const connectedDatabases = isDatabaseRequirement(requirement)
+            ? (databaseConnectionsByProvider.get(provider) ?? [])
+            : []
+          const connectionCount =
+            connectedConnections.length + connectedDatabases.length
 
           return (
             <div
               key={provider || index}
-              className="flex items-center justify-between gap-3 px-3 py-2.5"
+              className="flex flex-col gap-2.5 px-3 py-2.5"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <RequirementLogo requirement={requirement} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {provider ? providerLabel(provider) : "Connection"}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {connectionKindLabel(requirement)}
-                  </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <RequirementLogo requirement={requirement} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {provider ? providerLabel(provider) : "Connection"}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {connectionKindLabel(requirement)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              {isMissing ? (
                 <Button
                   size="sm"
-                  variant="primary"
+                  variant={isMissing ? "primary" : "secondary"}
                   className="shrink-0 rounded-full"
                   isDisabled={
-                    !canManage || !canConnect || isBusy || waitingForIntegrations
+                    !canManage ||
+                    !canConnect ||
+                    isBusy ||
+                    waitingForIntegrations
                   }
                   onPress={() => onConnect(requirement)}
                 >
                   {isBusy ? <Spinner color="current" size="sm" /> : null}
-                  Connect
+                  {connectionCount > 0 ? "Add connection" : "Connect"}
                 </Button>
-              ) : (
-                <div className="flex shrink-0 items-center gap-1">
-                  <span
-                    aria-label="Connected"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
-                  >
-                    <AppIcon icon="check" className="h-3.5 w-3.5" />
-                  </span>
-                  {disconnectTarget && canManage ? (
-                    <RequiredConnectionOptionsMenu
-                      provider={provider}
-                      isBusy={isBusy}
-                      disconnectDisabled={disconnectDisabled}
-                      onReconnect={
-                        connectedConnection
-                          ? () => onReconnect(requirement, connectedConnection)
-                          : undefined
-                      }
-                      onDisconnect={() => onDisconnect(disconnectTarget)}
-                    />
-                  ) : null}
-                </div>
-              )}
+              </div>
+              {connectedConnections.map((connection) => (
+                <ConnectionRow
+                  key={connection.id}
+                  name={
+                    connection.name ||
+                    connection.slug ||
+                    providerLabel(provider)
+                  }
+                  needsName={connection.needs_name === true}
+                  menu={
+                    canManage ? (
+                      <RequiredConnectionOptionsMenu
+                        provider={provider}
+                        isBusy={isBusy}
+                        disconnectDisabled={disconnectDisabled}
+                        onRename={() => onRename("integration", connection)}
+                        onReconnect={() => onReconnect(requirement, connection)}
+                        onDisconnect={() =>
+                          onDisconnect({
+                            kind: "integration",
+                            provider,
+                            requirement,
+                            connection,
+                          })
+                        }
+                      />
+                    ) : null
+                  }
+                />
+              ))}
+              {connectedDatabases.map((connection) => (
+                <ConnectionRow
+                  key={connection.id}
+                  name={
+                    connection.name ||
+                    connection.slug ||
+                    providerLabel(provider)
+                  }
+                  needsName={connection.needs_name === true}
+                  menu={
+                    canManage ? (
+                      <RequiredConnectionOptionsMenu
+                        provider={provider}
+                        isBusy={isBusy}
+                        disconnectDisabled={disconnectDisabled}
+                        onRename={() => onRename("database", connection)}
+                        onDisconnect={() =>
+                          onDisconnect({
+                            kind: "database",
+                            provider,
+                            requirement,
+                            connection,
+                          })
+                        }
+                      />
+                    ) : null
+                  }
+                />
+              ))}
             </div>
           )
         })}
@@ -180,17 +208,46 @@ export function RequiredConnectionsSection({
   )
 }
 
+function ConnectionRow({
+  name,
+  needsName,
+  menu,
+}: {
+  name: string
+  needsName: boolean
+  menu: ReactNode
+}) {
+  return (
+    <div className="ml-11 flex items-center justify-between rounded-lg bg-muted/20 px-2.5 py-1.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
+          <AppIcon icon="check" className="h-3.5 w-3.5" />
+        </span>
+        <span className="truncate text-sm text-foreground">{name}</span>
+        {needsName ? (
+          <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">
+            Rename
+          </span>
+        ) : null}
+      </div>
+      {menu}
+    </div>
+  )
+}
+
 function RequiredConnectionOptionsMenu({
   provider,
   isBusy,
   disconnectDisabled,
   onReconnect,
+  onRename,
   onDisconnect,
 }: {
   provider: string
   isBusy: boolean
   disconnectDisabled: boolean
   onReconnect?: () => void
+  onRename?: () => void
   onDisconnect?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -224,6 +281,20 @@ function RequiredConnectionOptionsMenu({
           className="w-44 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
+            {onRename ? (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  setOpen(false)
+                  onRename()
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
+              >
+                <AppIcon icon="pencil" className="h-4 w-4 shrink-0" />
+                Rename
+              </button>
+            ) : null}
             {onReconnect ? (
               <button
                 type="button"

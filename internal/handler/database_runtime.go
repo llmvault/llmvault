@@ -7,13 +7,7 @@ import (
 )
 
 func executeDatabaseQuery(ctx context.Context, provider, dsn string, body []byte, policy dbi.Policy) (any, error) {
-	if provider == dbi.ProviderMongoDB {
-		return dbi.ExecuteMongo(ctx, dsn, body, policy)
-	}
-	if provider == dbi.ProviderRedis {
-		return dbi.ExecuteRedis(ctx, dsn, body, policy)
-	}
-	return dbi.ExecuteSQL(ctx, provider, dsn, string(body), policy)
+	return dbi.Execute(ctx, provider, dsn, body, policy)
 }
 
 func testDatabaseConnection(ctx context.Context, provider, dsn string) error {

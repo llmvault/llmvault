@@ -1,9 +1,11 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Connection struct {
@@ -15,6 +17,9 @@ type Connection struct {
 	IntegrationID     uuid.UUID   `gorm:"type:uuid;not null;index"`
 	Integration       Integration `gorm:"foreignKey:IntegrationID;constraint:OnDelete:CASCADE"`
 	NangoConnectionID string      `gorm:"not null"`
+	Name              string      `gorm:"type:text;not null;default:''"`
+	Slug              string      `gorm:"type:text;not null;default:'';index"`
+	NeedsName         bool        `gorm:"not null;default:false"`
 	Meta              JSON        `gorm:"type:jsonb;default:'{}'"`
 	WebhookConfigured *bool       `gorm:"not null;default:true"`
 	RevokedAt         *time.Time
@@ -23,3 +28,20 @@ type Connection struct {
 }
 
 func (Connection) TableName() string { return "connections" }
+
+// BeforeCreate keeps non-handler writers (tests, imports, maintenance jobs)
+// from inserting an empty identity that would collide under the active slug
+// index. Product creation paths assign the provider-aware identity first.
+func (c *Connection) BeforeCreate(_ *gorm.DB) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	if c.Slug == "" {
+		c.Slug = strings.ReplaceAll(c.ID.String(), "-", "")[:6]
+		c.NeedsName = true
+	}
+	if c.Name == "" {
+		c.Name = c.Slug
+	}
+	return nil
+}

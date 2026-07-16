@@ -187,10 +187,13 @@ type ProviderSubscribableResources struct {
 
 // Catalog holds all providers and their actions/triggers, indexed for fast lookup.
 type Catalog struct {
-	providers          map[string]*ProviderActions
-	triggers           map[string]*ProviderTriggers
-	subscribableByType map[string]subscribableEntry // resource_type -> provider + def
-	subscribableByProv map[string]map[string]SubscribableResource
+	providers           map[string]*ProviderActions
+	triggers            map[string]*ProviderTriggers
+	nangoProviders      map[string]*NangoProvider
+	nangoSource         string
+	nangoSourceRevision string
+	subscribableByType  map[string]subscribableEntry // resource_type -> provider + def
+	subscribableByProv  map[string]map[string]SubscribableResource
 }
 
 // subscribableEntry holds a subscribable resource definition together with

@@ -62,6 +62,44 @@ func TestDatabaseIntegrationCreateStoresOrgScopedConnection(t *testing.T) {
 	}
 }
 
+func TestDatabaseIntegrationCreateAllowsSecondProviderConnectionAndRequiresName(t *testing.T) {
+	db := connectTestDB(t)
+	kms := newTestKMS(t)
+	h := handler.NewDatabaseIntegrationHandler(db, kms)
+	org := createDatabaseScopeTestOrg(t, db)
+
+	for index := 0; index < 2; index++ {
+		body, _ := json.Marshal(map[string]any{
+			"provider":       "postgres",
+			"display_name":   "Postgres",
+			"connection_url": testdb.DatabaseURL("DATABASE_URL", "HIVY_DATABASE_URL", "TEST_DATABASE_URL"),
+		})
+		req := httptest.NewRequest(http.MethodPost, "/v1/database-integrations", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req = middleware.WithOrg(req, &org)
+		recorder := httptest.NewRecorder()
+		h.Create(recorder, req)
+		if recorder.Code != http.StatusCreated {
+			t.Fatalf("create %d status = %d: %s", index+1, recorder.Code, recorder.Body.String())
+		}
+	}
+
+	var connections []model.DatabaseConnection
+	if err := db.Where("org_id = ? AND provider = ? AND revoked_at IS NULL", org.ID, "postgres").
+		Order("created_at ASC").Find(&connections).Error; err != nil {
+		t.Fatalf("load database connections: %v", err)
+	}
+	if len(connections) != 2 {
+		t.Fatalf("connections = %d, want 2", len(connections))
+	}
+	if connections[0].Slug != "postgres" || connections[0].NeedsName {
+		t.Fatalf("first identity = %#v", connections[0])
+	}
+	if len(connections[1].Name) != 6 || connections[1].Slug != connections[1].Name || !connections[1].NeedsName {
+		t.Fatalf("second identity = name %q slug %q needs_name %v", connections[1].Name, connections[1].Slug, connections[1].NeedsName)
+	}
+}
+
 func TestDatabaseProxyUsesPluginInstallForOrgScopedCredential(t *testing.T) {
 	db := connectTestDB(t)
 	kms := newTestKMS(t)

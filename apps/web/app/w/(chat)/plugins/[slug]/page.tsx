@@ -33,7 +33,6 @@ import {
 import {
   isDatabaseRequirement,
   isIntegrationRequirement,
-  isRequirementMissing,
   providerLabel,
 } from "@/app/w/(chat)/plugins/[slug]/plugin-detail-helpers"
 import {
@@ -47,7 +46,14 @@ import {
 } from "@/app/w/(chat)/plugins/[slug]/required-connections-section"
 import { PluginInstallAction } from "@/app/w/(chat)/plugins/[slug]/plugin-install-action"
 import { DisconnectConnectionConfirmDialog } from "@/app/w/(chat)/plugins/[slug]/disconnect-connection-confirm-dialog"
-import { SkillsSection, PluginListLogo } from "@/app/w/(chat)/plugins/[slug]/skills-section"
+import {
+  SkillsSection,
+  PluginListLogo,
+} from "@/app/w/(chat)/plugins/[slug]/skills-section"
+import {
+  ConnectionNameModal,
+  type ConnectionNameTarget,
+} from "@/app/w/(chat)/plugins/[slug]/connection-name-modal"
 import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
@@ -113,6 +119,9 @@ export default function PluginDetailPage({
   )
   const [disconnectTarget, setDisconnectTarget] =
     useState<ConnectionDisconnectTarget | null>(null)
+  const [nameTarget, setNameTarget] = useState<ConnectionNameTarget | null>(
+    null
+  )
   const connectionModalState = useOverlayState({
     isOpen: connectionModal !== null,
     onOpenChange: (next) => {
@@ -136,20 +145,20 @@ export default function PluginDetailPage({
     [databaseConnectionsQuery.data]
   )
   const connectionsByProvider = useMemo(() => {
-    const next = new Map<string, Connection>()
+    const next = new Map<string, Connection[]>()
     for (const connection of connections) {
       const provider = connection.provider ?? ""
-      if (!provider || connection.revoked_at || next.has(provider)) continue
-      next.set(provider, connection)
+      if (!provider || connection.revoked_at) continue
+      next.set(provider, [...(next.get(provider) ?? []), connection])
     }
     return next
   }, [connections])
   const databaseConnectionsByProvider = useMemo(() => {
-    const next = new Map<string, DatabaseConnection>()
+    const next = new Map<string, DatabaseConnection[]>()
     for (const connection of databaseConnections) {
       const provider = connection.provider ?? ""
-      if (!provider || connection.revoked_at || next.has(provider)) continue
-      next.set(provider, connection)
+      if (!provider || connection.revoked_at) continue
+      next.set(provider, [...(next.get(provider) ?? []), connection])
     }
     return next
   }, [databaseConnections])
@@ -247,8 +256,6 @@ export default function PluginDetailPage({
   }
 
   function handleConnectRequirement(requirement: PluginRequirement) {
-    if (!isRequirementMissing(requirement, plugin ? missing : [])) return
-
     if (isDatabaseRequirement(requirement)) {
       setConnectionModal({ view: "database", requirement })
       return
@@ -273,8 +280,16 @@ export default function PluginDetailPage({
     }
 
     connectIntegration(integration.id, {
-      onSuccess: () => {
+      onSuccess: (connection) => {
         toast.success(`${providerLabel(requirement.provider)} connected`)
+        if (connection.needs_name && connection.id) {
+          setNameTarget({
+            id: connection.id,
+            kind: "integration",
+            name: connection.name ?? connection.slug ?? "",
+            needsName: true,
+          })
+        }
         refresh()
       },
     })
@@ -294,9 +309,17 @@ export default function PluginDetailPage({
 
     connectIntegration(integration.id, {
       ...options,
-      onSuccess: () => {
+      onSuccess: (connection) => {
         closeConnectionModal()
         toast.success(`${providerLabel(requirement.provider)} connected`)
+        if (connection.needs_name && connection.id) {
+          setNameTarget({
+            id: connection.id,
+            kind: "integration",
+            name: connection.name ?? connection.slug ?? "",
+            needsName: true,
+          })
+        }
         refresh()
       },
     })
@@ -315,8 +338,16 @@ export default function PluginDetailPage({
     })
   }
 
-  function handleDatabaseConnected() {
+  function handleDatabaseConnected(connection: DatabaseConnection) {
     closeConnectionModal()
+    if (connection.needs_name && connection.id) {
+      setNameTarget({
+        id: connection.id,
+        kind: "database",
+        name: connection.name ?? connection.slug ?? "",
+        needsName: true,
+      })
+    }
     refresh()
   }
 
@@ -430,6 +461,15 @@ export default function PluginDetailPage({
                 canManage={isAdmin}
                 onConnect={handleConnectRequirement}
                 onReconnect={handleReconnectRequirement}
+                onRename={(kind, connection) => {
+                  if (!connection.id) return
+                  setNameTarget({
+                    id: connection.id,
+                    kind,
+                    name: connection.name ?? connection.slug ?? "",
+                    needsName: connection.needs_name === true,
+                  })
+                }}
                 onDisconnect={handleDisconnectRequest}
               />
             ) : null}
@@ -504,6 +544,14 @@ export default function PluginDetailPage({
         onOpenChange={closeDisconnectDialog}
         onConfirm={handleDisconnectConfirm}
       />
+      {nameTarget ? (
+        <ConnectionNameModal
+          key={`${nameTarget.kind}:${nameTarget.id}:${nameTarget.name}`}
+          target={nameTarget}
+          onClose={() => setNameTarget(null)}
+          onSaved={refresh}
+        />
+      ) : null}
     </>
   )
 }
@@ -533,7 +581,7 @@ function RequiredConnectionModal({
   canManage: boolean
   onBack: () => void
   onIntegrationConnect: (options?: ConnectOptions) => void
-  onDatabaseConnected: () => void
+  onDatabaseConnected: (connection: DatabaseConnection) => void
 }) {
   const requirement = modal?.requirement
   const provider = requirement?.provider

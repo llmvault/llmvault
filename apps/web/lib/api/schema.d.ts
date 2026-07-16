@@ -6067,6 +6067,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connections/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a connection */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["renameConnectionRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["connectionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/connections/{id}/reconnect-session": {
         parameters: {
             query?: never;
@@ -6927,6 +7020,99 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/database-integrations/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a database integration */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Database integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["renameConnectionRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["databaseConnectionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/v1/database-integrations/{id}/policy": {
@@ -8387,98 +8573,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Update an MCP server */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description MCP server ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description MCP server update */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["updateMCPServerRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["mcpServerEnvelope"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/v1/mcp-servers/{id}/authorization": {
@@ -19539,11 +19634,14 @@ export interface components {
             id?: string;
             integration_id?: string;
             meta?: components["schemas"]["JSON"];
+            name?: string;
             nango_connection_id?: string;
+            needs_name?: boolean;
             org_id?: string;
             provider?: string;
             provider_config?: components["schemas"]["JSON"];
             revoked_at?: string;
+            slug?: string;
             updated_at?: string;
             webhook_configured?: boolean;
         };
@@ -19805,9 +19903,12 @@ export interface components {
             created_at?: string;
             display_name?: string;
             id?: string;
+            name?: string;
+            needs_name?: boolean;
             provider?: string;
             revoked_at?: string;
             schema_snapshot?: unknown;
+            slug?: string;
             updated_at?: string;
         };
         deleteRowsRequest: {
@@ -20606,6 +20707,9 @@ export interface components {
             name?: string;
             password?: string;
         };
+        renameConnectionRequest: {
+            name?: string;
+        };
         reportRow: {
             avg_ttfb_ms?: number;
             cached_tokens?: number;
@@ -21278,18 +21382,6 @@ export interface components {
             position?: number;
             type?: string;
         };
-        updateMCPServerRequest: {
-            auth_type?: string;
-            authorization_policy?: string;
-            description?: string;
-            header_name?: string;
-            name?: string;
-            oauth_metadata?: components["schemas"]["OAuthMetadata"];
-            slug?: string;
-            status?: string;
-            transport?: string;
-            url?: string;
-        };
         updateOrgRequest: {
             logo_url?: string;
             name?: string;
@@ -21432,6 +21524,12 @@ export interface components {
         teamMutationRequest: {
             content: {
                 "application/json": components["schemas"]["teamMutationRequest"];
+            };
+        };
+        /** @description Connection name */
+        renameConnectionRequest: {
+            content: {
+                "application/json": components["schemas"]["renameConnectionRequest"];
             };
         };
     };

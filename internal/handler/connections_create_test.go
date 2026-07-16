@@ -74,6 +74,9 @@ func TestConnectionHandler_Create_Success(t *testing.T) {
 	if conn.UserID != user.ID {
 		t.Fatalf("expected user_id=%s, got %s", user.ID, conn.UserID)
 	}
+	if conn.Name != integ.DisplayName || conn.Slug != "notion" || conn.NeedsName {
+		t.Fatalf("first connection identity = name %q slug %q needs_name %v", conn.Name, conn.Slug, conn.NeedsName)
+	}
 }
 
 func TestConnectionHandler_Create_OnboardingInstallsAndEnablesMatchingPluginForSoleTeam(t *testing.T) {
@@ -278,5 +281,13 @@ func TestConnectionHandler_Create_DuplicateUserIntegration(t *testing.T) {
 	db.Model(&model.Connection{}).Where("user_id = ? AND integration_id = ?", user.ID, integ.ID).Count(&count)
 	if count != 2 {
 		t.Fatalf("expected 2 connections, got %d", count)
+	}
+	var connections []model.Connection
+	if err := db.Where("org_id = ? AND integration_id = ?", org.ID, integ.ID).
+		Order("created_at ASC").Find(&connections).Error; err != nil {
+		t.Fatalf("load connections: %v", err)
+	}
+	if connections[1].NeedsName != true || len(connections[1].Name) != 6 || connections[1].Slug != connections[1].Name {
+		t.Fatalf("second connection identity = name %q slug %q needs_name %v", connections[1].Name, connections[1].Slug, connections[1].NeedsName)
 	}
 }

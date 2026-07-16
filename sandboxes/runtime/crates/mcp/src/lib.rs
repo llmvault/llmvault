@@ -122,8 +122,34 @@ impl ClientHandler for RuntimeMcpClient {
 }
 
 struct McpEntry {
-    _service: RunningService<RoleClient, RuntimeMcpClient>,
+    service: RunningService<RoleClient, RuntimeMcpClient>,
     peer: Peer<RoleClient>,
+    state: Arc<McpServerState>,
+}
+
+impl McpEntry {
+    async fn close(mut self) {
+        if let Err(error) = self
+            .service
+            .close_with_timeout(Duration::from_secs(2))
+            .await
+        {
+            warn!(error = %error, server = %self.state.server_name, "failed to close MCP discovery transport");
+        }
+    }
+
+    fn cancel(&self) {
+        self.service.cancellation_token().cancel();
+    }
+
+    fn is_closed(&self) -> bool {
+        self.service.is_closed()
+    }
+}
+
+#[derive(Clone)]
+struct McpServerConfig {
+    spec: McpSpec,
     state: Arc<McpServerState>,
 }
 
@@ -154,7 +180,10 @@ pub struct McpConnectionStatus {
 /// demand. Activation order is retained so newly discovered definitions append
 /// to the model-visible array instead of invalidating earlier prompt prefixes.
 pub struct McpRegistry {
-    entries: ArcSwap<Vec<McpEntry>>,
+    servers: ArcSwap<Vec<McpServerConfig>>,
+    live_entries: DashMap<String, Arc<McpEntry>>,
+    connect_locks: DashMap<String, Arc<tokio::sync::Mutex<()>>>,
+    runtime_env: RwLock<HashMap<String, String>>,
     statuses: ArcSwap<Vec<McpConnectionStatus>>,
     activated_by_session: DashMap<String, Vec<McpToolDefinition>>,
     workspace_root: PathBuf,
@@ -202,9 +231,12 @@ impl McpRegistry {
         workspace_root: PathBuf,
         network_policy: OutboundNetworkPolicy,
     ) -> Self {
-        let (entries, statuses) = connect_specs(specs, runtime_env, network_policy).await;
+        let (servers, statuses) = discover_specs(specs, runtime_env, network_policy).await;
         Self {
-            entries: ArcSwap::from_pointee(entries),
+            servers: ArcSwap::from_pointee(servers),
+            live_entries: DashMap::new(),
+            connect_locks: DashMap::new(),
+            runtime_env: RwLock::new(runtime_env.clone()),
             statuses: ArcSwap::from_pointee(statuses),
             activated_by_session: DashMap::new(),
             workspace_root,
@@ -217,8 +249,16 @@ impl McpRegistry {
         specs: &[McpSpec],
         runtime_env: &HashMap<String, String>,
     ) {
-        let (entries, statuses) = connect_specs(specs, runtime_env, self.network_policy).await;
-        self.entries.store(Arc::new(entries));
+        let (servers, statuses) = discover_specs(specs, runtime_env, self.network_policy).await;
+        for entry in self.live_entries.iter() {
+            entry.value().cancel();
+        }
+        self.live_entries.clear();
+        self.connect_locks.clear();
+        if let Ok(mut current_env) = self.runtime_env.write() {
+            *current_env = runtime_env.clone();
+        }
+        self.servers.store(Arc::new(servers));
         self.statuses.store(Arc::new(statuses));
         // A reload can represent revoked org/team/agent access. Never retain
         // activated definitions from the previous authorization snapshot.
@@ -227,6 +267,18 @@ impl McpRegistry {
 
     pub fn connection_statuses(&self) -> Vec<McpConnectionStatus> {
         self.statuses.load().iter().cloned().collect()
+    }
+
+    /// Exposes live transports to integration tests without leaking peers.
+    #[doc(hidden)]
+    pub fn live_connection_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .live_entries
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
+        names.sort();
+        names
     }
 
     pub fn available_tool_names(&self) -> Vec<String> {
@@ -331,7 +383,7 @@ impl McpRegistry {
         })
     }
 
-    pub fn activate_tool_filtered(
+    pub async fn activate_tool_filtered(
         &self,
         session_id: &str,
         name: &str,
@@ -343,6 +395,8 @@ impl McpRegistry {
             .into_iter()
             .find(|tool| tool.prefixed_name == name)
             .ok_or_else(|| anyhow::anyhow!("MCP tool '{name}' not found or not permitted"))?;
+
+        self.ensure_connected(&tool.server_name).await?;
 
         let mut active = self
             .activated_by_session
@@ -384,61 +438,59 @@ impl McpRegistry {
         prefixed_name: &str,
         args: Value,
     ) -> anyhow::Result<Value> {
-        let entries = self.entries.load();
-        for entry in entries.iter() {
-            let tools = entry.state.tools.load();
-            if let Some(tool) = tools
-                .iter()
-                .find(|tool| tool.prefixed_name == prefixed_name)
-            {
-                let mut arguments = match args {
-                    Value::Object(map) => map,
-                    Value::Null => JsonObject::new(),
-                    other => {
-                        let mut map = JsonObject::new();
-                        map.insert("value".to_string(), other);
-                        map
+        let tool = self
+            .all_tools_filtered(None)
+            .into_iter()
+            .find(|tool| tool.prefixed_name == prefixed_name)
+            .ok_or_else(|| anyhow::anyhow!("MCP tool '{prefixed_name}' not found"))?;
+        let entry = self.ensure_connected(&tool.server_name).await?;
+        {
+            let mut arguments = match args {
+                Value::Object(map) => map,
+                Value::Null => JsonObject::new(),
+                other => {
+                    let mut map = JsonObject::new();
+                    map.insert("value".to_string(), other);
+                    map
+                }
+            };
+            if tool.server_name == "hivy" {
+                arguments.insert(
+                    "_hivy_session_id".to_string(),
+                    Value::String(session_id.to_string()),
+                );
+                match actor_user_id {
+                    Some(actor) if !actor.is_empty() => {
+                        arguments.insert(
+                            "_hivy_actor_user_id".to_string(),
+                            Value::String(actor.to_string()),
+                        );
                     }
-                };
-                if entry.state.server_name == "hivy" {
-                    arguments.insert(
-                        "_hivy_session_id".to_string(),
-                        Value::String(session_id.to_string()),
-                    );
-                    match actor_user_id {
-                        Some(actor) if !actor.is_empty() => {
-                            arguments.insert(
-                                "_hivy_actor_user_id".to_string(),
-                                Value::String(actor.to_string()),
-                            );
-                        }
-                        _ => {
-                            arguments.remove("_hivy_actor_user_id");
-                        }
+                    _ => {
+                        arguments.remove("_hivy_actor_user_id");
                     }
                 }
-                let result = entry
-                    .peer
-                    .call_tool(
-                        CallToolRequestParams::new(tool.raw_name.clone()).with_arguments(arguments),
-                    )
-                    .await?;
-                let mut value = serde_json::to_value(result)?;
-                if entry.state.server_name == "hivy" {
-                    materialize::apply_materialize(&self.workspace_root, &mut value);
-                }
-                return Ok(value);
             }
+            let result = entry
+                .peer
+                .call_tool(
+                    CallToolRequestParams::new(tool.raw_name.clone()).with_arguments(arguments),
+                )
+                .await?;
+            let mut value = serde_json::to_value(result)?;
+            if tool.server_name == "hivy" {
+                materialize::apply_materialize(&self.workspace_root, &mut value);
+            }
+            return Ok(value);
         }
-        anyhow::bail!("MCP tool '{prefixed_name}' not found")
     }
 
     fn all_tools_filtered(&self, tool_filter: Option<&ToolFilter>) -> Vec<McpToolDefinition> {
-        let entries = self.entries.load();
+        let servers = self.servers.load();
         let mut tools = Vec::new();
         let mut seen = HashSet::new();
-        for entry in entries.iter() {
-            for tool in entry.state.tools.load().iter() {
+        for server in servers.iter() {
+            for tool in server.state.tools.load().iter() {
                 if !mcp_tool_allowed(
                     &tool.prefixed_name,
                     &tool.raw_name,
@@ -454,19 +506,66 @@ impl McpRegistry {
         }
         tools
     }
+
+    async fn ensure_connected(&self, server_name: &str) -> anyhow::Result<Arc<McpEntry>> {
+        if let Some(entry) = self.live_entries.get(server_name) {
+            if !entry.is_closed() {
+                return Ok(entry.clone());
+            }
+            drop(entry);
+            self.live_entries.remove(server_name);
+        }
+        let connect_lock = self
+            .connect_locks
+            .entry(server_name.to_string())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone();
+        let _guard = connect_lock.lock().await;
+        if let Some(entry) = self.live_entries.get(server_name) {
+            if !entry.is_closed() {
+                return Ok(entry.clone());
+            }
+            drop(entry);
+            self.live_entries.remove(server_name);
+        }
+        let config = self
+            .servers
+            .load()
+            .iter()
+            .find(|config| config.state.server_name == server_name)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("MCP server '{server_name}' is not configured"))?;
+        let runtime_env = self
+            .runtime_env
+            .read()
+            .map_err(|_| anyhow::anyhow!("MCP runtime environment lock poisoned"))?
+            .clone();
+        let entry = Arc::new(
+            connect_and_discover_with_state(
+                &config.spec,
+                &runtime_env,
+                self.network_policy,
+                Some(config.state),
+            )
+            .await?,
+        );
+        self.live_entries
+            .insert(server_name.to_string(), entry.clone());
+        Ok(entry)
+    }
 }
 
 struct ConnectOutcome {
     index: usize,
-    entry: Option<McpEntry>,
+    server: Option<McpServerConfig>,
     status: McpConnectionStatus,
 }
 
-async fn connect_specs(
+async fn discover_specs(
     specs: &[McpSpec],
     runtime_env: &HashMap<String, String>,
     network_policy: OutboundNetworkPolicy,
-) -> (Vec<McpEntry>, Vec<McpConnectionStatus>) {
+) -> (Vec<McpServerConfig>, Vec<McpConnectionStatus>) {
     let runtime_env = Arc::new(runtime_env.clone());
     let mut outcomes: Vec<ConnectOutcome> = stream::iter(specs.iter().cloned().enumerate())
         .map(|(index, spec)| {
@@ -482,6 +581,8 @@ async fn connect_specs(
                 {
                     Ok(Ok(entry)) => {
                         let tool_count = entry.state.tools.load().len();
+                        let state = entry.state.clone();
+                        entry.close().await;
                         info!(
                             server = %server_name,
                             tool_count,
@@ -489,7 +590,10 @@ async fn connect_specs(
                         );
                         ConnectOutcome {
                             index,
-                            entry: Some(entry),
+                            server: Some(McpServerConfig {
+                                spec: spec.clone(),
+                                state,
+                            }),
                             status: McpConnectionStatus {
                                 server_name,
                                 connected: true,
@@ -507,7 +611,7 @@ async fn connect_specs(
                         );
                         ConnectOutcome {
                             index,
-                            entry: None,
+                            server: None,
                             status: McpConnectionStatus {
                                 server_name,
                                 connected: false,
@@ -524,7 +628,7 @@ async fn connect_specs(
                         error!(name = %server_name, error = %message, "failed to connect MCP server");
                         ConnectOutcome {
                             index,
-                            entry: None,
+                            server: None,
                             status: McpConnectionStatus {
                                 server_name,
                                 connected: false,
@@ -540,15 +644,17 @@ async fn connect_specs(
         .collect()
         .await;
     outcomes.sort_by_key(|outcome| outcome.index);
-    let mut entries = Vec::new();
+    let mut servers = Vec::new();
     let mut statuses = Vec::with_capacity(outcomes.len());
     for outcome in outcomes {
         statuses.push(outcome.status);
-        if let Some(entry) = outcome.entry {
-            entries.push(entry);
+        if let Some(server) = outcome.server {
+            servers.push(server);
         }
     }
-    (entries, statuses)
+    // The discovery entries are dropped here, closing every transport. Their
+    // catalog state remains cached in McpServerConfig until activation.
+    (servers, statuses)
 }
 
 fn startup_timeout(spec: &McpSpec) -> Duration {
@@ -566,11 +672,22 @@ async fn connect_and_discover(
     runtime_env: &HashMap<String, String>,
     network_policy: OutboundNetworkPolicy,
 ) -> anyhow::Result<McpEntry> {
+    connect_and_discover_with_state(spec, runtime_env, network_policy, None).await
+}
+
+async fn connect_and_discover_with_state(
+    spec: &McpSpec,
+    runtime_env: &HashMap<String, String>,
+    network_policy: OutboundNetworkPolicy,
+    existing_state: Option<Arc<McpServerState>>,
+) -> anyhow::Result<McpEntry> {
     let server_name = spec.name().to_string();
-    let state = Arc::new(McpServerState::new(
-        server_name.clone(),
-        spec_tool_filter(spec).clone(),
-    ));
+    let state = existing_state.unwrap_or_else(|| {
+        Arc::new(McpServerState::new(
+            server_name.clone(),
+            spec_tool_filter(spec).clone(),
+        ))
+    });
     let handler = RuntimeMcpClient {
         state: state.clone(),
         protocol_version: if matches!(spec, McpSpec::Sse { .. }) {
@@ -637,7 +754,7 @@ async fn connect_and_discover(
     let tools = discover_tools(&peer, &server_name, spec_tool_filter(spec)).await?;
     state.replace_tools(tools);
     Ok(McpEntry {
-        _service: service,
+        service,
         peer,
         state,
     })

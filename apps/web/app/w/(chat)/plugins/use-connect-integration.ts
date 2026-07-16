@@ -9,6 +9,9 @@ import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import { clientConfig } from "@/lib/config/public-config"
+import type { components } from "@/lib/api/schema"
+
+type Connection = components["schemas"]["connectionResponse"]
 
 export interface ConnectOptions {
   credentials?: Record<string, string>
@@ -17,6 +20,10 @@ export interface ConnectOptions {
 }
 
 interface ConnectIntegrationOptions extends ConnectOptions {
+  onSuccess?: (connection: Connection) => void
+}
+
+interface ReconnectIntegrationOptions extends ConnectOptions {
   onSuccess?: () => void
 }
 
@@ -62,7 +69,7 @@ export function useConnectIntegration() {
         ? await nango.auth(providerConfigKey, authOptions)
         : await nango.auth(providerConfigKey)
 
-    await createConnection.mutateAsync({
+    const connection = await createConnection.mutateAsync({
       params: { path: { id: integrationId } },
       body: {
         nango_connection_id: authResult.connectionId,
@@ -75,6 +82,7 @@ export function useConnectIntegration() {
 
     queryClient.invalidateQueries({ queryKey: queryKeys.connections() })
     queryClient.invalidateQueries({ queryKey: queryKeys.plugins() })
+    return connection
   }
 
   async function runReconnect(connectionId: string, options?: ConnectOptions) {
@@ -118,11 +126,11 @@ export function useConnectIntegration() {
 
     setConnectingId(integrationId)
     runConnect(integrationId, normalizedOptions)
-      .then(() => {
+      .then((connection) => {
         posthog.capture("plugin_connected", {
           integration_id: integrationId,
         })
-        onSuccess?.()
+        if (connection) onSuccess?.(connection)
       })
       .catch((error) => {
         if (error instanceof AuthError && error.type === "window_closed") return
@@ -135,7 +143,7 @@ export function useConnectIntegration() {
 
   function reconnectIntegration(
     connectionId: string,
-    options?: ConnectIntegrationOptions
+    options?: ReconnectIntegrationOptions
   ) {
     const { onSuccess, ...connectOptions } = options ?? {}
     const normalizedOptions =

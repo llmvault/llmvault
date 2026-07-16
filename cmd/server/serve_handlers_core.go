@@ -102,6 +102,7 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	}
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
+	mcpHandler.SetKMS(deps.KMS)
 	if deps.WebProvider != nil {
 		mcpHandler.SetWebTools(webcrawl.NewWebToolsFunc(deps.WebProvider))
 	}
