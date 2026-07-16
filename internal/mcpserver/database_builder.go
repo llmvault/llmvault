@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -48,7 +49,7 @@ func BuildDatabaseServer(ctx context.Context, db *gorm.DB, kms *crypto.KeyWrappe
 		result, err := dbi.Execute(callCtx, current.Provider, dsn, body, dbi.PolicyFromJSON(current.AccessPolicy))
 		if err != nil {
 			logging.FromContext(callCtx).ErrorContext(callCtx, "database MCP query failed", "error", err, "connection_id", connectionID)
-			return connectionToolError("database query failed"), nil
+			return connectionToolError(databaseQueryError(err)), nil
 		}
 		return connectionToolJSON(result)
 	})
@@ -121,6 +122,7 @@ func databaseQueryTool(connection model.DatabaseConnection) *mcp.Tool {
 			"Run a read-only SQL query against the **PostgreSQL** connection `%s`."+
 				"\n\n**How to use**\n\n"+
 				"- Set `query` to one `SELECT`, `WITH`, or `EXPLAIN` statement.\n"+
+				"- Always qualify every table as `<schema>.<table>` (for example, `public.users`). Never use a bare table name such as `users`.\n"+
 				"- Select only the columns you need, and add a small `LIMIT` while exploring data.\n"+
 				"- Results contain `columns`, `rows`, `row_count`, and `truncated`.\n"+
 				"- The connection policy limits accessible schemas, tables, fields, and result count; writes, DDL, privilege changes, and multiple statements are rejected.",
@@ -129,6 +131,13 @@ func databaseQueryTool(connection model.DatabaseConnection) *mcp.Tool {
 		tool.InputSchema = databaseSQLInputSchema()
 	}
 	return tool
+}
+
+func databaseQueryError(err error) string {
+	if errors.Is(err, dbi.ErrSchemaQualificationRequired) {
+		return err.Error()
+	}
+	return "database query failed"
 }
 
 func databaseSQLInputSchema() map[string]any {

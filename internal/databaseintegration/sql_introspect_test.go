@@ -1,6 +1,7 @@
 package databaseintegration
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -233,5 +234,48 @@ func TestPrepareSQL_AllowlistedTableWinsOverCatalogName(t *testing.T) {
 	}
 	if strings.Contains(out, "information_schema") {
 		t.Fatalf("expected user table treatment, got: %s", out)
+	}
+}
+
+func TestPrepareSQL_UnqualifiedTableUsesOnlyAllowedSchema(t *testing.T) {
+	query := `SELECT id FROM users`
+	out, err := PrepareSQL(ProviderPostgres, query, Policy{
+		AllowedSchemas: []string{"public"},
+		AllowedTables:  []string{"public.users"},
+	})
+	if err != nil {
+		t.Fatalf("expected the only allowed schema to be inferred: %v", err)
+	}
+	if out != query {
+		t.Fatalf("expected query to remain unchanged, got: %s", out)
+	}
+}
+
+func TestPrepareSQL_UnqualifiedTableRequiresSchemaWhenMultipleAllowed(t *testing.T) {
+	_, err := PrepareSQL(ProviderPostgres, `SELECT id FROM users`, Policy{
+		AllowedSchemas: []string{"public", "analytics"},
+		AllowedTables:  []string{"public.users", "analytics.events"},
+	})
+	if !errors.Is(err, ErrSchemaQualificationRequired) {
+		t.Fatalf("expected schema qualification error, got: %v", err)
+	}
+	for _, fragment := range []string{"multiple schemas (analytics, public)", "<schema>.<table>", "public.users"} {
+		if !strings.Contains(err.Error(), fragment) {
+			t.Errorf("error missing %q: %v", fragment, err)
+		}
+	}
+}
+
+func TestPrepareSQL_QualifiedTableAllowedWithMultipleSchemas(t *testing.T) {
+	query := `SELECT id FROM public.users`
+	out, err := PrepareSQL(ProviderPostgres, query, Policy{
+		AllowedSchemas: []string{"public", "analytics"},
+		AllowedTables:  []string{"public.users", "analytics.users"},
+	})
+	if err != nil {
+		t.Fatalf("expected qualified table to be allowed: %v", err)
+	}
+	if out != query {
+		t.Fatalf("expected query to remain unchanged, got: %s", out)
 	}
 }

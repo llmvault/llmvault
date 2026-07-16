@@ -2,11 +2,16 @@ package databaseintegration
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// ErrSchemaQualificationRequired is returned when an unqualified table name is
+// ambiguous under a policy that permits more than one schema.
+var ErrSchemaQualificationRequired = errors.New("schema qualification is required")
 
 const (
 	ProviderPostgres = "postgres"

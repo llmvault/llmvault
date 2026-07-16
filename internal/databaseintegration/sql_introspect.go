@@ -124,6 +124,27 @@ func checkUserTable(schema, name, raw string, allowedTables, allowedSchemas map[
 	ln := strings.ToLower(strings.TrimSpace(name))
 	full := ln
 	ls := strings.ToLower(strings.TrimSpace(schema))
+	schemas := sortedSetValues(allowedSchemas)
+	if ls == "" && len(schemas) > 1 {
+		exampleSchema := schemas[0]
+		for _, allowedSchema := range schemas {
+			if allowedTables[allowedSchema+"."+ln] {
+				exampleSchema = allowedSchema
+				break
+			}
+		}
+		return fmt.Errorf(
+			"%w: table %q does not include a schema, but this connection permits multiple schemas (%s); always use <schema>.<table>, for example %s.%s",
+			ErrSchemaQualificationRequired,
+			strings.TrimSpace(raw),
+			strings.Join(schemas, ", "),
+			exampleSchema,
+			ln,
+		)
+	}
+	if ls == "" && len(schemas) == 1 {
+		ls = schemas[0]
+	}
 	if ls != "" {
 		full = ls + "." + ln
 	}
@@ -134,6 +155,17 @@ func checkUserTable(schema, name, raw string, allowedTables, allowedSchemas map[
 		return fmt.Errorf("schema %q is outside the configured database access policy", ls)
 	}
 	return nil
+}
+
+func sortedSetValues(values map[string]bool) []string {
+	out := make([]string, 0, len(values))
+	for value, allowed := range values {
+		if allowed {
+			out = append(out, value)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func guardCatalogTokens(masked string, ranges [][2]int) error {

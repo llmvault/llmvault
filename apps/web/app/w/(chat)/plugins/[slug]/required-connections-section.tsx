@@ -43,6 +43,7 @@ export function RequiredConnectionsSection({
   onConnect,
   onReconnect,
   onRename,
+  onConfigureDatabase,
   onDisconnect,
 }: {
   requirements: PluginRequirement[]
@@ -61,6 +62,7 @@ export function RequiredConnectionsSection({
     kind: "integration" | "database",
     connection: Connection | DatabaseConnection
   ) => void
+  onConfigureDatabase: (connection: DatabaseConnection) => void
   onDisconnect: (target: ConnectionDisconnectTarget) => void
 }) {
   return (
@@ -186,6 +188,7 @@ export function RequiredConnectionsSection({
                         provider={provider}
                         isBusy={isBusy}
                         disconnectDisabled={disconnectDisabled}
+                        onConfigure={() => onConfigureDatabase(connection)}
                         onRename={() => onRename("database", connection)}
                         onDisconnect={() =>
                           onDisconnect({
@@ -240,6 +243,7 @@ function RequiredConnectionOptionsMenu({
   isBusy,
   disconnectDisabled,
   onReconnect,
+  onConfigure,
   onRename,
   onDisconnect,
 }: {
@@ -247,6 +251,7 @@ function RequiredConnectionOptionsMenu({
   isBusy: boolean
   disconnectDisabled: boolean
   onReconnect?: () => void
+  onConfigure?: () => void
   onRename?: () => void
   onDisconnect?: () => void
 }) {
@@ -281,6 +286,20 @@ function RequiredConnectionOptionsMenu({
           className="w-44 rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
+            {onConfigure ? (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  setOpen(false)
+                  onConfigure()
+                }}
+                className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:pointer-events-none disabled:opacity-45"
+              >
+                <AppIcon icon="shield-check" className="h-4 w-4 shrink-0" />
+                Configure access
+              </button>
+            ) : null}
             {onRename ? (
               <button
                 type="button"

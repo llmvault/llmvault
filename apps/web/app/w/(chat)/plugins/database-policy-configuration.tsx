@@ -405,3 +405,18 @@ export function setAllValues(
   }
   return next
 }
+
+export function policyForUpdate(
+  connection: DatabaseConnection,
+  next: DatabasePolicy
+): DatabasePolicy {
+  const current = isRecord(connection.access_policy)
+    ? connection.access_policy
+    : {}
+  return {
+    ...(typeof current.max_rows === "number"
+      ? { max_rows: current.max_rows }
+      : {}),
+    ...next,
+  }
+}

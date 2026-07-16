@@ -2,11 +2,13 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	dbi "github.com/usehivy/hivy/internal/databaseintegration"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -33,6 +35,8 @@ func TestDatabaseToolDescriptionsExplainHowToUseEachProvider(t *testing.T) {
 				"**PostgreSQL** connection `reporting`",
 				"**How to use**",
 				"`SELECT`, `WITH`, or `EXPLAIN`",
+				"Always qualify every table as `<schema>.<table>`",
+				"Never use a bare table name",
 				"`columns`, `rows`, `row_count`, and `truncated`",
 				"multiple statements are rejected",
 			},
@@ -86,5 +90,15 @@ func TestDatabaseToolDescriptionsExplainHowToUseEachProvider(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDatabaseQueryErrorExposesSchemaQualificationGuidance(t *testing.T) {
+	err := fmt.Errorf("%w: always use <schema>.<table>", dbi.ErrSchemaQualificationRequired)
+	if got := databaseQueryError(err); got != err.Error() {
+		t.Fatalf("databaseQueryError() = %q, want %q", got, err.Error())
+	}
+	if got := databaseQueryError(fmt.Errorf("driver failed")); got != "database query failed" {
+		t.Fatalf("databaseQueryError() leaked internal error: %q", got)
 	}
 }

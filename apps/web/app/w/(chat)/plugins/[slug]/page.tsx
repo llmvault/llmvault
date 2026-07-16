@@ -53,6 +53,7 @@ import {
   type ConnectionModalState,
   RequiredConnectionModal,
 } from "@/app/w/(chat)/plugins/[slug]/required-connection-modal"
+import { DatabasePolicyModal } from "@/app/w/(chat)/plugins/[slug]/database-policy-modal"
 import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
@@ -114,6 +115,9 @@ export default function PluginDetailPage({
   const [disconnectTarget, setDisconnectTarget] =
     useState<ConnectionDisconnectTarget | null>(null)
   const [nameTarget, setNameTarget] = useState<ConnectionNameTarget | null>(
+    null
+  )
+  const [policyTarget, setPolicyTarget] = useState<DatabaseConnection | null>(
     null
   )
   const connectionModalState = useOverlayState({
@@ -464,6 +468,7 @@ export default function PluginDetailPage({
                     needsName: connection.needs_name === true,
                   })
                 }}
+                onConfigureDatabase={setPolicyTarget}
                 onDisconnect={handleDisconnectRequest}
               />
             ) : null}
@@ -543,6 +548,14 @@ export default function PluginDetailPage({
           key={`${nameTarget.kind}:${nameTarget.id}:${nameTarget.name}`}
           target={nameTarget}
           onClose={() => setNameTarget(null)}
+          onSaved={refresh}
+        />
+      ) : null}
+      {policyTarget ? (
+        <DatabasePolicyModal
+          key={policyTarget.id}
+          connection={policyTarget}
+          onClose={() => setPolicyTarget(null)}
           onSaved={refresh}
         />
       ) : null}

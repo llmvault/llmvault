@@ -20,7 +20,7 @@ import {
   normalizeRedisSnapshot,
 } from "@/app/w/(chat)/plugins/redis-database-configuration"
 
-type DatabaseProvider = "postgres" | "mysql" | "mongodb" | "redis"
+export type DatabaseProvider = "postgres" | "mysql" | "mongodb" | "redis"
 
 interface ProviderConfig {
   label: string
