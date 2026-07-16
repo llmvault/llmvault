@@ -2,7 +2,7 @@ import type { components } from "@/lib/api/schema"
 import type { ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import { extractErrorMessage } from "@/lib/api/error"
 
-export type PluginMCPToolDeny = components["schemas"]["PluginMCPToolDeny"]
+type PluginMCPToolDeny = components["schemas"]["PluginMCPToolDeny"]
 
 export function withPluginMCPToolDenied(
   current: PluginMCPToolDeny,
