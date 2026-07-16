@@ -50,12 +50,3 @@ export function Field({
     </div>
   )
 }
-
-export function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-muted-foreground">{label}</p>
-      <p className="truncate font-medium text-foreground">{value}</p>
-    </div>
-  )
-}

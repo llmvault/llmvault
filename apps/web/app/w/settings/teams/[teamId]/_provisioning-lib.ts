@@ -21,17 +21,3 @@ export function isProvisioned(
   if (!id) return false
   return enabledIds.has(id)
 }
-
-// nextEnabledSet returns a new Set with `id` added (on) or removed (off),
-// leaving `current` untouched. Used to drive the optimistic toggle before the
-// mutation settles.
-export function nextEnabledSet(
-  current: Set<string>,
-  id: string,
-  on: boolean
-): Set<string> {
-  const next = new Set(current)
-  if (on) next.add(id)
-  else next.delete(id)
-  return next
-}

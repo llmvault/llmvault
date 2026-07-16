@@ -140,7 +140,7 @@ func TestHydrateFromGit(t *testing.T) {
 
 	repoURL := "https://github.com/usehivy/skill-greet"
 	skill := &model.Skill{
-		OrgID:      nil,
+		OrgID:      &orgID,
 		Slug:       "git-test-" + uuid.New().String()[:8],
 		Name:       "greet",
 		SourceType: model.SkillSourceGit,
@@ -151,8 +151,6 @@ func TestHydrateFromGit(t *testing.T) {
 	if err := db.Create(skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	_ = orgID
-
 	updated, err := skills.HydrateFromGit(context.Background(), db, fetcher, skill.ID)
 	if err != nil {
 		t.Fatalf("HydrateFromGit: %v", err)

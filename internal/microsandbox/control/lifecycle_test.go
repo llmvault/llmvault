@@ -79,8 +79,7 @@ func TestConcurrentStartCallsRunnerOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	if runner.ReservedCPU != 1 || runner.ReservedMemoryMB != 2048 || runner.ReservedDiskGB != 40 {
-		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 1 memory 2048 disk 40",
-			runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
+		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 1 memory 2048 disk 40", runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
 	}
 }
 

@@ -7,7 +7,7 @@ import {
   isGithubMentionProvider,
 } from "@/app/w/(chat)/automations/_trigger-install-form-shared"
 
-export type CatalogAutomation = components["schemas"]["CatalogItem"]
+type CatalogAutomation = components["schemas"]["CatalogItem"]
 export type InstalledTrigger =
   components["schemas"]["triggerAutomationResponse"]
 export type AutomationTab = "Triggers" | "Schedules" | "Webhooks"

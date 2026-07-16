@@ -86,9 +86,7 @@ export function agentIsInstalled(agent: CatalogAgent): boolean {
 
 // installed_team_ids lists the caller's visible teams that already have a
 // team-scoped clone of this catalog agent (one clone per team).
-export function agentInstalledTeamIDs(
-  agent: CatalogAgent | undefined
-): string[] {
+function agentInstalledTeamIDs(agent: CatalogAgent | undefined): string[] {
   return (agent?.installed_team_ids ?? []).filter(
     (id): id is string => typeof id === "string" && id.trim().length > 0
   )
@@ -103,22 +101,6 @@ export function teamHasAgent(
 
 export function teamNameByID(teams: Team[], id: string): string {
   return firstText(teams.find((team) => team.id === id)?.name, id, "your team")
-}
-
-// Teams (of the caller's visible teams) that already have a clone.
-export function installedTeamsFor(
-  teams: Team[],
-  agent: CatalogAgent | undefined
-): Team[] {
-  return teams.filter((team) => team.id && teamHasAgent(agent, team.id))
-}
-
-// Teams the caller could still install this agent into.
-export function availableTeamsFor(
-  teams: Team[],
-  agent: CatalogAgent | undefined
-): Team[] {
-  return teams.filter((team) => team.id && !teamHasAgent(agent, team.id))
 }
 
 // An installed agent is org-created when it has no catalog source (built via the
@@ -143,11 +125,7 @@ export function normalizeAgentSandboxImage(
     : "default"
 }
 
-export function agentCanInstall(agent: CatalogAgent | undefined): boolean {
-  return Boolean(agent && !agentIsInstalled(agent))
-}
-
-export function missingConnectionProvidersFromError(error: unknown): string[] {
+function missingConnectionProvidersFromError(error: unknown): string[] {
   if (!isErrorRecord(error)) return []
   const value = error.missing_connections
   if (!Array.isArray(value)) return []
@@ -158,7 +136,7 @@ export function missingConnectionProvidersFromError(error: unknown): string[] {
 
 // Non-generic copy for missing required connections, naming the target team and
 // each connection (friendly name when known, else the provider key).
-export function formatMissingConnectionsMessage(
+function formatMissingConnectionsMessage(
   teamLabel: string,
   slugs: string[],
   _agent: CatalogAgent | undefined
