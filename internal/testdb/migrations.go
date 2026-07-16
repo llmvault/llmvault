@@ -38,15 +38,7 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 		}
 		resetTestSchema(t, sqlDB)
 	}
-	if _, err := migrations.Up(t.Context(), sqlDB); err == nil {
-		return
-	} else if stampInitialSchema(t, sqlDB, err) {
-		if _, retryErr := migrations.Up(t.Context(), sqlDB); retryErr != nil {
-			t.Fatalf("apply migrations after baseline schema stamp: %v", retryErr)
-		} else {
-			return
-		}
-	} else {
+	if _, err := migrations.Up(t.Context(), sqlDB); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 }
@@ -105,43 +97,6 @@ func lockMigrationSetup(ctx context.Context, db *sql.DB) (func(context.Context),
 	}, nil
 }
 
-func stampInitialSchema(t testing.TB, db *sql.DB, migrationErr error) bool {
-	t.Helper()
-	if !strings.Contains(migrationErr.Error(), "already exists") && !strings.Contains(migrationErr.Error(), "SQLSTATE 42P07") {
-		return false
-	}
-
-	var version int64
-	if err := db.QueryRowContext(t.Context(), `SELECT COALESCE(MAX(version_id) FILTER (WHERE is_applied), 0) FROM goose_db_version`).Scan(&version); err != nil {
-		return false
-	}
-	if version != 1 {
-		return false
-	}
-
-	if missing, err := missingMigratedTables(t.Context(), db); err != nil || len(missing) > 0 {
-		if err != nil {
-			t.Logf("baseline schema check failed: %v", err)
-		} else {
-			t.Logf("baseline schema check failed; missing tables: %s", strings.Join(missing, ", "))
-		}
-		return false
-	}
-
-	for version := int64(2); version <= latestMigrationVersion; version++ {
-		if _, err := db.ExecContext(t.Context(), `
-				INSERT INTO goose_db_version (version_id, is_applied, tstamp)
-				SELECT $1, true, now()
-				WHERE NOT EXISTS (
-					SELECT 1 FROM goose_db_version WHERE version_id = $1 AND is_applied
-				)
-			`, version); err != nil {
-			t.Fatalf("stamp baseline migration version %d: %v", version, err)
-		}
-	}
-	return true
-}
-
 func missingMigratedTables(ctx context.Context, db *sql.DB) ([]string, error) {
 	const query = `
 SELECT table_name
@@ -182,8 +137,6 @@ var migratedTables = []string{
 	"agent_directives",
 	"agent_memories",
 	"agent_observations",
-	"agent_plugin_overrides",
-	"agent_plugin_installs",
 	"agent_mcp_servers",
 	"agent_schedule_runs",
 	"agent_schedules",
@@ -220,13 +173,10 @@ var migratedTables = []string{
 	"org_invite_teams",
 	"org_invites",
 	"org_memberships",
-	"org_plugin_installs",
 	"orgs",
 	"otp_codes",
 	"password_resets",
 	"plans",
-	"plugin_integrations",
-	"plugins",
 	"rag_embedding_models",
 	"rag_index_attempt_errors",
 	"rag_index_attempts",
@@ -257,7 +207,8 @@ var migratedTables = []string{
 	"team_members",
 	"team_mcp_servers",
 	"team_env_vars",
-	"team_plugins",
+	"team_connection_grants",
+	"team_skill_grants",
 	"team_rag_sources",
 	"teams",
 	"tokens",
@@ -267,4 +218,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 99
+const latestMigrationVersion = 1

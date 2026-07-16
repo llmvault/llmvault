@@ -159,7 +159,7 @@ export function KnowledgeAccessControl() {
           <p className="mt-4">
             Connected sources refresh on a schedule. If indexing still runs or
             the latest sync failed, search may use an incomplete or older index.
-            For current provider data, use its live plugin.
+            For current provider data, use its live connection.
           </p>
         </DocSection>
 

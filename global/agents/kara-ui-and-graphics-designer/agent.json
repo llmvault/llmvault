@@ -81,10 +81,5 @@
       }
     }
   },
-  "plugins": {
-    "required": [
-      "design"
-    ],
-    "recommended": []
-  }
+  "required_connections": []
 }

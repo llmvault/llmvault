@@ -131,7 +131,7 @@ func newGitCredsHarness(t *testing.T, nangoHandler http.Handler) *gitCredsHarnes
 		t.Fatalf("create test in_connection: %v", err)
 	}
 
-	installTestPluginAccess(t, database, orgID, agentID, "github-app")
+	grantManagedConnectionToAgentTeam(t, database, orgID, agentID, "github-app")
 
 	t.Cleanup(func() {
 		database.Where("org_id = ?", orgID).Delete(&model.Connection{})

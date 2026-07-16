@@ -19,6 +19,7 @@ import (
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/db"
+	"github.com/usehivy/hivy/internal/integrations"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -84,9 +85,6 @@ func New(ctx context.Context) (*Deps, error) {
 	}
 
 	if err := seedGlobalPlans(ctx, database); err != nil {
-		return nil, err
-	}
-	if err := syncGlobalPlugins(ctx, database); err != nil {
 		return nil, err
 	}
 	if err := syncGlobalAgents(ctx, database); err != nil {
@@ -178,6 +176,17 @@ func New(ctx context.Context) (*Deps, error) {
 
 	actionsCatalog := catalog.Global()
 	logging.FromContext(ctx).InfoContext(ctx, "actions catalog ready", "providers", len(actionsCatalog.ListProviders()))
+	integrationSync, err := integrations.SyncConfigured(ctx, database, nangoClient, actionsCatalog)
+	if err != nil {
+		return nil, fmt.Errorf("syncing configured Nango integrations: %w", err)
+	}
+	logging.FromContext(ctx).InfoContext(ctx, "configured Nango integrations synced",
+		"discovered", integrationSync.Discovered,
+		"created", integrationSync.Created,
+		"updated", integrationSync.Updated,
+		"unchanged", integrationSync.Unchanged,
+		"unavailable", integrationSync.Unavailable,
+	)
 
 	webProvider := buildWebProvider(cfg)
 	var toolUsageWriter *middleware.ToolUsageWriter

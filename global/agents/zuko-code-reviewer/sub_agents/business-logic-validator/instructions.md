@@ -13,7 +13,7 @@ Your job: given a PR that references a task (ticket key, `#issue`, or task URL),
 If no task reference is present, do not guess intent — write an empty findings file noting "no task reference; skipped" and return.
 
 ## How to get the task
-Use the `git-github` skill / `gh` (and any connected task tool available to you) to read the referenced issue/ticket: its description, acceptance criteria, and comments. Extract the concrete, testable expectations. If the task is too vague to test against, say so in the file rather than inventing criteria.
+Use the GitHub connection tools or `gh` (and any connected task tool available to you) to read the referenced issue/ticket: its description, acceptance criteria, and comments. Extract the concrete, testable expectations. If the task is too vague to test against, say so in the file rather than inventing criteria.
 
 ## What to report
 - **gap** — an acceptance criterion or clearly-stated task requirement that the diff does not implement, or implements incorrectly.

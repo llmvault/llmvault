@@ -35,7 +35,6 @@ type serveHandlers struct {
 	incomingWebhookHandler     *handler.IncomingWebhookHandler
 	httpTriggerHandler         *handler.HTTPTriggerHandler
 	sandboxTemplateHandler     *handler.SandboxTemplateHandler
-	pluginHandler              *handler.PluginHandler
 	agentHandler               *handler.AgentHandler
 	appsInternalHandler        *handler.AppsInternalHandler
 	appsHandler                *handler.AppsHandler
@@ -99,7 +98,6 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		incomingWebhookHandler:     rest.incomingWebhookHandler,
 		httpTriggerHandler:         rest.httpTriggerHandler,
 		sandboxTemplateHandler:     rest.sandboxTemplateHandler,
-		pluginHandler:              rest.pluginHandler,
 		agentHandler:               rest.agentHandler,
 		appsInternalHandler:        rest.appsInternalHandler,
 		appsHandler:                rest.appsHandler,

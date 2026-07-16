@@ -45,3 +45,22 @@ func (c *Connection) BeforeCreate(_ *gorm.DB) error {
 	}
 	return nil
 }
+
+// TeamConnectionGrant gives a team access to one concrete connection instance.
+// Exactly one of ConnectionID and DatabaseConnectionID is set.
+type TeamConnectionGrant struct {
+	ID                   uuid.UUID           `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID                uuid.UUID           `gorm:"type:uuid;not null;index"`
+	Org                  Org                 `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	TeamID               uuid.UUID           `gorm:"type:uuid;not null;index"`
+	Team                 Team                `gorm:"foreignKey:TeamID;constraint:OnDelete:CASCADE"`
+	ConnectionID         *uuid.UUID          `gorm:"type:uuid;index"`
+	Connection           *Connection         `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
+	DatabaseConnectionID *uuid.UUID          `gorm:"type:uuid;index"`
+	DatabaseConnection   *DatabaseConnection `gorm:"foreignKey:DatabaseConnectionID;constraint:OnDelete:CASCADE"`
+	GrantedBy            *uuid.UUID          `gorm:"type:uuid"`
+	User                 *User               `gorm:"foreignKey:GrantedBy;constraint:OnDelete:SET NULL"`
+	CreatedAt            time.Time
+}
+
+func (TeamConnectionGrant) TableName() string { return "team_connection_grants" }

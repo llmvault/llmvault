@@ -13,7 +13,7 @@ import {
   automationEventLabel,
   automationFromCatalog,
   automationInstructions,
-  automationRequiredPlugins,
+  automationRequiredConnections,
   automationSourceLabel,
   automationTimezoneLabel,
   type AutomationItem,
@@ -224,11 +224,11 @@ function configurationRows(automation: AutomationItem) {
 }
 
 function workflowSteps(automation: AutomationItem): string[] {
-  const plugins = automationRequiredPlugins(automation)
+  const connections = automationRequiredConnections(automation)
   if (automation.type === "Triggers") {
     return [
       `Watch for ${automationEventLabel(automation)} events from ${automationSourceLabel(automation)}.`,
-      `Install ${plugins.length > 0 ? plugins.join(", ") : automationSourceLabel(automation)} access for the selected agent.`,
+      `Grant ${connections.length > 0 ? connections.join(", ") : automationSourceLabel(automation)} access to the selected agent's team.`,
       "Start an agent run with the event context and saved instructions.",
       "Post the result back to a workspace thread for review.",
     ]

@@ -11,17 +11,15 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
+	"github.com/usehivy/hivy/internal/skillaccess"
 )
 
 // allowedSkillFileDirs are the top-level directories a skill bundle may ship
 // linked files under. Mirrors the runtime materialize allow-list.
 var allowedSkillFileDirs = []string{"references", "templates", "scripts", "assets"}
 
-// loadAgentPublishedSkills returns the published skills owned by the plugins in
-// the agent's effective set (team grants ∪ auto-install ∪ default-agent). This
-// mirrors agentruntime.buildSkills so the MCP tools surface exactly the skills
-// the agent is entitled to.
+// loadAgentPublishedSkills returns the published skills available through the
+// agent's team ownership, direct grants, and granted connections.
 func loadAgentPublishedSkills(ctx context.Context, db *gorm.DB, agentID uuid.UUID) ([]model.Skill, error) {
 	if db == nil {
 		return nil, nil
@@ -36,25 +34,14 @@ func loadAgentPublishedSkills(ctx context.Context, db *gorm.DB, agentID uuid.UUI
 		}
 		return nil, err
 	}
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, agent)
+	effective, err := skillaccess.ResolveAgent(ctx, db, agent)
 	if err != nil {
 		return nil, err
 	}
-	if len(pluginIDs) == 0 {
-		return nil, nil
+	skills := make([]model.Skill, 0, len(effective))
+	for _, entry := range effective {
+		skills = append(skills, entry.Skill)
 	}
-	var skills []model.Skill
-	if err := db.WithContext(ctx).
-		Where("plugin_id IN ? AND status = ?", pluginIDs, model.SkillStatusPublished).
-		Find(&skills).Error; err != nil {
-		return nil, err
-	}
-	sort.SliceStable(skills, func(i, j int) bool {
-		if skills[i].Slug == skills[j].Slug {
-			return skills[i].ID.String() < skills[j].ID.String()
-		}
-		return skills[i].Slug < skills[j].Slug
-	})
 	return skills, nil
 }
 
@@ -77,12 +64,8 @@ func AgentSkillSummaries(ctx context.Context, db *gorm.DB, agent *model.Agent) (
 	if err != nil {
 		return nil, err
 	}
-	filter := resolveSkillFilter(agent)
 	out := make([]SkillSummary, 0, len(all))
 	for _, skill := range all {
-		if !skillAllowed(skill.Slug, filter) {
-			continue
-		}
 		description := ""
 		if bundle, bundleErr := decodeSkillBundle(skill); bundleErr == nil {
 			description = skillDescription(skill, bundle)

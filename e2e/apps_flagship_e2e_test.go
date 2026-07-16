@@ -65,11 +65,7 @@ func TestAgentSessionsAppBuilderFlagshipE2E(t *testing.T) {
 	orgID := ownerAuth.Orgs[0].ID
 	token := ownerAuth.AccessToken
 
-	// --- Org plugins the catalog agent requires, then the agent itself.
-	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "sheets")
-	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "apps")
-	t.Log("installed sheets + apps org plugins")
-
+	// --- Install the catalog agent.
 	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "ricky-app-builder")
 	assertAgentSessionsAgentSandboxImage(t, "app-builder", agent, model.SandboxImageDeveloper)
 	t.Logf("installed catalog agent id=%s name=%s model=%s sandbox_image=%s", agent.ID, agent.Name, agent.Model, agent.SandboxImage)

@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/handler"
-	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
@@ -43,7 +42,7 @@ func createTestUser(t *testing.T, db *gorm.DB, email string) model.User {
 func createTestIntegration(t *testing.T, db *gorm.DB, provider string) model.Integration {
 	t.Helper()
 	var found model.Integration
-	if err := db.Where("provider = ? AND custom_app = false AND deleted_at IS NULL", provider).First(&found).Error; err == nil {
+	if err := db.Where("provider = ? AND deleted_at IS NULL", provider).First(&found).Error; err == nil {
 		return found
 	}
 	integ := model.Integration{
@@ -59,30 +58,6 @@ func createTestIntegration(t *testing.T, db *gorm.DB, provider string) model.Int
 		t.Fatalf("load integration: %v", err)
 	}
 	return found
-}
-
-func createTestIntegrationManagedSkill(t *testing.T, db *gorm.DB, name string, integrationIDs []string) model.Skill {
-	t.Helper()
-	description := name + " skill"
-	skill := model.Skill{
-		ID:             uuid.New(),
-		Slug:           model.GenerateSlug(name),
-		Name:           name,
-		Description:    &description,
-		SourceType:     model.SkillSourceInline,
-		RepoRef:        "main",
-		Bundle:         model.RawJSON(`{"id":"test","title":"test","description":"test","content":"# Test"}`),
-		Tags:           []string{"test"},
-		IntegrationIDs: integrationIDs,
-		Status:         model.SkillStatusPublished,
-	}
-	if err := db.Create(&skill).Error; err != nil {
-		t.Fatalf("create integration-managed skill: %v", err)
-	}
-	t.Cleanup(func() {
-		db.Where("id = ?", skill.ID).Delete(&model.Skill{})
-	})
-	return skill
 }
 
 func cleanupIntegrations(t *testing.T, db *gorm.DB) {
@@ -243,17 +218,12 @@ func newIntegrationHarness(t *testing.T, mockCfg *nangoMockConfig) *integrationT
 		t.Fatalf("fetch nango providers: %v", err)
 	}
 
-	cat := catalog.Global()
-	h := handler.NewIntegrationHandler(db, nangoClient, cat)
+	h := handler.NewIntegrationHandler(db, nangoClient)
 
 	r := chi.NewRouter()
-	r.Post("/v1/integrations", h.Create)
 	r.Get("/v1/integrations", h.List)
 	r.Get("/v1/integrations/{id}", h.Get)
-	r.Put("/v1/integrations/{id}", h.Update)
-	r.Delete("/v1/integrations/{id}", h.Delete)
 	r.Get("/v1/integrations/available", h.ListAvailable)
-	r.Get("/v1/integrations/supported", h.ListSupported)
 
 	return &integrationTestHarness{
 		db:      db,

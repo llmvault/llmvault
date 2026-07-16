@@ -71,7 +71,7 @@ function providerBrand(provider: string): BrandConfig | undefined {
   return BRANDS[PROVIDER_BRAND_ALIASES[provider] ?? provider]
 }
 
-/** Brand config for an icon-registry name (e.g. a plugin's `icon`), if one exists. */
+/** Brand config for an integration icon-registry name, if one exists. */
 export function brandForIcon(icon: string): BrandConfig | undefined {
   return BRANDS[icon]
 }

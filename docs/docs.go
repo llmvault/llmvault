@@ -932,201 +932,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/admin/integrations": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Lists supported global integration definitions and existing synced records.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "List admin integration definitions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Admin secret",
-                        "name": "X-Hivy-Admin-Secret",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AdminDefinition"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/admin/integrations/{id}": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates or updates the supported global integration in Nango and the Hivy database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "Sync an admin integration",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Admin secret",
-                        "name": "X-Hivy-Admin-Secret",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Integration definition ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Integration credentials",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/upsertAdminIntegrationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/upsertAdminIntegrationResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Removes a supported global integration when it has no active connections.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "Delete an admin integration",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Admin secret",
-                        "name": "X-Hivy-Admin-Secret",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Integration definition ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/AdminDefinition"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/admin/llm-providers": {
             "get": {
                 "security": [
@@ -1517,7 +1322,7 @@ const docTemplate = `{
         },
         "/v1/agents/catalog": {
             "get": {
-                "description": "Returns active agent catalog entries for the current organization, including install state and required plugin state.",
+                "description": "Returns active agent catalog entries, install state, and required connections.",
                 "produces": [
                     "application/json"
                 ],
@@ -1552,7 +1357,7 @@ const docTemplate = `{
         },
         "/v1/agents/catalog/{slug}": {
             "get": {
-                "description": "Returns one active agent catalog entry by slug for the current organization, including required plugin install state.",
+                "description": "Returns one active agent catalog entry and its required connections.",
                 "produces": [
                     "application/json"
                 ],
@@ -1605,7 +1410,7 @@ const docTemplate = `{
         },
         "/v1/agents/catalog/{slug}/install": {
             "post": {
-                "description": "Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.",
+                "description": "Clones a catalog agent into the caller's team when all required connections are granted.",
                 "produces": [
                     "application/json"
                 ],
@@ -1659,7 +1464,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Unprocessable Entity",
                         "schema": {
-                            "$ref": "#/definitions/agentCatalogMissingPluginsResponse"
+                            "$ref": "#/definitions/agentCatalogMissingConnectionsResponse"
                         }
                     },
                     "500": {
@@ -6396,36 +6201,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/integrationAvailableResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/integrations/supported": {
-            "get": {
-                "description": "Returns every enabled platform integration definition and whether it is configured for connection.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "integrations"
-                ],
-                "summary": "List supported platform integrations",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/supportedIntegrationsResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
+                            "$ref": "#/definitions/paginatedResponse-handler_integrationAvailableResponse"
                         }
                     }
                 }
@@ -6484,7 +6260,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Stores a connection after the OAuth flow completes via Nango. During onboarding, matching plugins are installed and enabled for the org's sole active team.",
+                "description": "Stores a connection after the OAuth flow completes via Nango. During onboarding, the connection is granted to the org's sole active team.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9753,6 +9529,107 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/orgs/current/teams/{teamID}/connections": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "List a team's connections",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamConnectionsResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Grant a connection to a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connection grant",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/teamConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/teamConnectionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/teams/{teamID}/connections/{connectionID}": {
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Revoke a connection from a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Connection ID",
+                        "name": "connectionID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamConnectionsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/orgs/current/teams/{teamID}/mcp-servers": {
             "get": {
                 "security": [
@@ -9946,221 +9823,6 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/orgs/current/teams/{teamID}/plugins": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Lists the plugins enabled for a team. Visible to org managers, API keys, and members of that team; other members receive 404.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "team-provisioning"
-                ],
-                "summary": "List a team's enabled plugins",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Team ID",
-                        "name": "teamID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/teamPluginsResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Adds a plugin to a team's allowlist. The plugin must belong to the org and be installed. Admin-only.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "team-provisioning"
-                ],
-                "summary": "Enable a plugin for a team",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Team ID",
-                        "name": "teamID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Plugin to enable",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/enableTeamPluginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/teamPluginsResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Removes a plugin from a team's allowlist. Idempotent. Admin-only.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "team-provisioning"
-                ],
-                "summary": "Disable a plugin for a team",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Team ID",
-                        "name": "teamID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Plugin ID",
-                        "name": "pluginID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/teamPluginsResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -10377,6 +10039,107 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/orgs/current/teams/{teamID}/skills": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "List a team's effective skills",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamSkillsResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Grant a skill to a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Skill grant",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/teamSkillRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/teamSkillsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/orgs/current/teams/{teamID}/skills/{skillID}": {
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "team-provisioning"
+                ],
+                "summary": "Revoke a skill from a team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "teamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teamSkillsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/orgs/current/transfer-ownership": {
             "post": {
                 "security": [
@@ -10464,212 +10227,6 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/planDTO"
                             }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/plugins": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns active plugins for the current organization, including install state, requirements, and presentation metadata for the plugins catalog.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "List plugins",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/pluginResponse"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/plugins/{slug}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns one active plugin by slug for the current organization, including install state, requirements, and presentation metadata.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "Get plugin",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Plugin slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/pluginResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/plugins/{slug}/install": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Installs a plugin for the current organization when requirements are satisfied. Agents receive it through team grants.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "Install plugin",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Plugin slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/pluginResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/pluginInstallConflictResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Uninstalls a plugin for the current organization and removes its team grants.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "plugins"
-                ],
-                "summary": "Uninstall plugin",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Plugin slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/statusResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
                         }
                     },
                     "500": {
@@ -15146,6 +14703,119 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/skills": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "List skills",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/skillsResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Create a skill",
+                "parameters": [
+                    {
+                        "description": "Skill",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/skillMutationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/skillEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/skills/{id}": {
+            "delete": {
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Archive a skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statusResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Update a skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Skill patch",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/skillMutationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/skillEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/slack/channels": {
             "get": {
                 "security": [
@@ -15921,116 +15591,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "AdminCredentialField": {
-            "type": "object",
-            "properties": {
-                "label": {
-                    "type": "string"
-                },
-                "multiline": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "placeholder": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "secret": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "AdminDefinition": {
-            "type": "object",
-            "properties": {
-                "auth_mode": {
-                    "type": "string"
-                },
-                "credential_fields": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/AdminCredentialField"
-                    }
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "existing": {
-                    "$ref": "#/definitions/AdminExistingIntegration"
-                },
-                "fixed_credentials": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/AdminFixedCredential"
-                    }
-                },
-                "id": {
-                    "type": "string"
-                },
-                "meta": {
-                    "$ref": "#/definitions/JSON"
-                },
-                "nango_provider": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "supports_rag_source": {
-                    "type": "boolean"
-                },
-                "unique_key": {
-                    "type": "string"
-                }
-            }
-        },
-        "AdminExistingIntegration": {
-            "type": "object",
-            "properties": {
-                "active_connections": {
-                    "type": "integer"
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "managed": {
-                    "type": "boolean"
-                },
-                "unique_key": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "AdminFixedCredential": {
-            "type": "object",
-            "properties": {
-                "label": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
         "ArtifactFileResponse": {
             "type": "object",
             "properties": {
@@ -16184,6 +15744,9 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
+                "connections": {
+                    "$ref": "#/definitions/ConnectionsSpec"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -16211,9 +15774,6 @@ const docTemplate = `{
                 },
                 "official": {
                     "type": "boolean"
-                },
-                "plugins": {
-                    "$ref": "#/definitions/PluginsSpec"
                 },
                 "resources": {
                     "type": "object",
@@ -16279,6 +15839,15 @@ const docTemplate = `{
                 }
             }
         },
+        "ConnectionMCPToolDeny": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
         "ConnectionTestResult": {
             "type": "object",
             "properties": {
@@ -16298,6 +15867,23 @@ const docTemplate = `{
                 }
             }
         },
+        "ConnectionsSpec": {
+            "type": "object",
+            "properties": {
+                "recommended": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "Cost": {
             "type": "object",
             "properties": {
@@ -16312,52 +15898,6 @@ const docTemplate = `{
                 },
                 "output": {
                     "type": "number"
-                }
-            }
-        },
-        "Credentials": {
-            "type": "object",
-            "properties": {
-                "app_id": {
-                    "type": "string"
-                },
-                "app_link": {
-                    "type": "string"
-                },
-                "client_id": {
-                    "type": "string"
-                },
-                "client_logo_uri": {
-                    "type": "string"
-                },
-                "client_name": {
-                    "description": "MCP_OAUTH2_GENERIC fields",
-                    "type": "string"
-                },
-                "client_secret": {
-                    "type": "string"
-                },
-                "client_uri": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "private_key": {
-                    "type": "string"
-                },
-                "scopes": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "username": {
-                    "description": "INSTALL_PLUGIN fields",
-                    "type": "string"
-                },
-                "webhook_secret": {
-                    "type": "string"
                 }
             }
         },
@@ -16623,32 +16163,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "token_endpoint_auth_methods_supported": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "PluginMCPToolDeny": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            }
-        },
-        "PluginsSpec": {
-            "type": "object",
-            "properties": {
-                "recommended": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "required": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -16985,6 +16499,14 @@ const docTemplate = `{
                 }
             }
         },
+        "agentCatalogConnectionSummary": {
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "type": "string"
+                }
+            }
+        },
         "agentCatalogInstallRequest": {
             "type": "object",
             "properties": {
@@ -16993,34 +16515,17 @@ const docTemplate = `{
                 }
             }
         },
-        "agentCatalogMissingPluginsResponse": {
+        "agentCatalogMissingConnectionsResponse": {
             "type": "object",
             "properties": {
                 "error": {
                     "type": "string"
                 },
-                "missing_plugins": {
+                "missing_connections": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "agentCatalogPluginSummary": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "installed": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
                 }
             }
         },
@@ -17064,16 +16569,10 @@ const docTemplate = `{
                 "official": {
                     "type": "boolean"
                 },
-                "recommended_plugins": {
+                "required_connections": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/agentCatalogPluginSummary"
-                    }
-                },
-                "required_plugins": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/agentCatalogPluginSummary"
+                        "$ref": "#/definitions/agentCatalogConnectionSummary"
                     }
                 },
                 "sandbox_image": {
@@ -17111,13 +16610,7 @@ const docTemplate = `{
                 "official": {
                     "type": "boolean"
                 },
-                "recommended_plugins": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "required_plugins": {
+                "required_connections": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -17169,6 +16662,9 @@ const docTemplate = `{
                 "catalog": {
                     "$ref": "#/definitions/agentCatalogSummary"
                 },
+                "connection_mcp_tool_deny": {
+                    "$ref": "#/definitions/ConnectionMCPToolDeny"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -17177,13 +16673,6 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
-                },
-                "disabled_plugin_ids": {
-                    "description": "DisabledPluginIDs lists optional team plugins disabled only for this agent.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 },
                 "icon": {
                     "type": "string"
@@ -17217,9 +16706,6 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
-                },
-                "plugin_mcp_tool_deny": {
-                    "$ref": "#/definitions/PluginMCPToolDeny"
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
@@ -17283,18 +16769,19 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
+                "connection_mcp_tool_deny": {
+                    "description": "ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ConnectionMCPToolDeny"
+                        }
+                    ]
+                },
                 "default_reasoning_effort": {
                     "type": "string"
                 },
                 "description": {
                     "type": "string"
-                },
-                "disabled_plugin_ids": {
-                    "description": "DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.\nOmit it to leave overrides unchanged; send [] to restore all team plugins.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 },
                 "icon": {
                     "type": "string"
@@ -17316,14 +16803,6 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
-                },
-                "plugin_mcp_tool_deny": {
-                    "description": "PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys\nare plugin UUIDs; omitted means unchanged and an empty object enables all.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/PluginMCPToolDeny"
-                        }
-                    ]
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
@@ -17392,6 +16871,9 @@ const docTemplate = `{
                 "catalog": {
                     "$ref": "#/definitions/agentCatalogSummary"
                 },
+                "connection_mcp_tool_deny": {
+                    "$ref": "#/definitions/ConnectionMCPToolDeny"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -17400,13 +16882,6 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
-                },
-                "disabled_plugin_ids": {
-                    "description": "DisabledPluginIDs lists optional team plugins disabled only for this agent.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 },
                 "icon": {
                     "type": "string"
@@ -17440,9 +16915,6 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
-                },
-                "plugin_mcp_tool_deny": {
-                    "$ref": "#/definitions/PluginMCPToolDeny"
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
@@ -17506,14 +16978,8 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "locked": {
-                    "type": "boolean"
-                },
                 "name": {
                     "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
                 },
                 "source_type": {
                     "type": "string"
@@ -19225,14 +18691,6 @@ const docTemplate = `{
                 }
             }
         },
-        "enableTeamPluginRequest": {
-            "type": "object",
-            "properties": {
-                "plugin_id": {
-                    "type": "string"
-                }
-            }
-        },
         "errorRate": {
             "type": "object",
             "properties": {
@@ -20574,6 +20032,23 @@ const docTemplate = `{
                 }
             }
         },
+        "paginatedResponse-handler_integrationAvailableResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/integrationAvailableResponse"
+                    }
+                },
+                "has_more": {
+                    "type": "boolean"
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
         "paginatedResponse-handler_sandboxResponse": {
             "type": "object",
             "properties": {
@@ -20730,219 +20205,6 @@ const docTemplate = `{
                 },
                 "welcome_credits": {
                     "type": "integer"
-                }
-            }
-        },
-        "pluginConnectionRequirement": {
-            "type": "object",
-            "properties": {
-                "kind": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "pluginInstallConflictResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "missing_requirements": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/pluginConnectionRequirement"
-                    }
-                }
-            }
-        },
-        "pluginLinksResponse": {
-            "type": "object",
-            "properties": {
-                "privacy": {
-                    "type": "string"
-                },
-                "terms": {
-                    "type": "string"
-                },
-                "website": {
-                    "type": "string"
-                }
-            }
-        },
-        "pluginResourceRequirement": {
-            "type": "object",
-            "properties": {
-                "connection_id": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "missing": {
-                    "type": "boolean"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "resource_key": {
-                    "type": "string"
-                },
-                "selected": {
-                    "type": "boolean"
-                },
-                "selected_count": {
-                    "type": "integer"
-                }
-            }
-        },
-        "pluginResponse": {
-            "type": "object",
-            "properties": {
-                "auto_install": {
-                    "type": "boolean"
-                },
-                "capabilities": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "category": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "detail_category": {
-                    "type": "string"
-                },
-                "developer": {
-                    "type": "string"
-                },
-                "enabled_agent_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "examples": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "featured": {
-                    "type": "boolean"
-                },
-                "icon": {
-                    "type": "string"
-                },
-                "icon_color": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "installed": {
-                    "type": "boolean"
-                },
-                "links": {
-                    "$ref": "#/definitions/pluginLinksResponse"
-                },
-                "locked": {
-                    "type": "boolean"
-                },
-                "long_description": {
-                    "type": "string"
-                },
-                "missing_requirements": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/pluginConnectionRequirement"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "official": {
-                    "type": "boolean"
-                },
-                "required_connections": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/pluginConnectionRequirement"
-                    }
-                },
-                "resource_requirements": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/pluginResourceRequirement"
-                    }
-                },
-                "skills": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/pluginSkillResponse"
-                    }
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "pluginSkillResponse": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "human_description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -22680,6 +21942,89 @@ const docTemplate = `{
                 }
             }
         },
+        "skillEnvelope": {
+            "type": "object",
+            "properties": {
+                "skill": {
+                    "$ref": "#/definitions/skillResponse"
+                }
+            }
+        },
+        "skillMutationRequest": {
+            "type": "object",
+            "properties": {
+                "bundle": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "human_description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "team_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "skillResponse": {
+            "type": "object",
+            "properties": {
+                "bundle": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "human_description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "org_id": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "source_type": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "team_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "skillsResponse": {
+            "type": "object",
+            "properties": {
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/skillResponse"
+                    }
+                }
+            }
+        },
         "slackChannelResponse": {
             "type": "object",
             "properties": {
@@ -22910,51 +22255,47 @@ const docTemplate = `{
                 }
             }
         },
-        "supportedIntegrationResponse": {
+        "syncTriggerRequest": {
             "type": "object",
             "properties": {
-                "configured": {
+                "from_beginning": {
                     "type": "boolean"
-                },
-                "created_at": {
+                }
+            }
+        },
+        "teamConnectionRequest": {
+            "type": "object",
+            "properties": {
+                "connection_id": {
                     "type": "string"
-                },
-                "definition_id": {
-                    "type": "string"
-                },
-                "display_name": {
-                    "type": "string"
-                },
+                }
+            }
+        },
+        "teamConnectionResponse": {
+            "type": "object",
+            "properties": {
                 "id": {
                     "type": "string"
                 },
-                "meta": {
-                    "$ref": "#/definitions/JSON"
+                "kind": {
+                    "type": "string"
                 },
-                "nango_config": {
-                    "$ref": "#/definitions/NangoConfig"
+                "name": {
+                    "type": "string"
                 },
                 "provider": {
                     "type": "string"
                 }
             }
         },
-        "supportedIntegrationsResponse": {
+        "teamConnectionsResponse": {
             "type": "object",
             "properties": {
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/supportedIntegrationResponse"
+                        "$ref": "#/definitions/teamConnectionResponse"
                     }
-                }
-            }
-        },
-        "syncTriggerRequest": {
-            "type": "object",
-            "properties": {
-                "from_beginning": {
-                    "type": "boolean"
                 }
             }
         },
@@ -23041,31 +22382,6 @@ const docTemplate = `{
                 }
             }
         },
-        "teamPluginResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                }
-            }
-        },
-        "teamPluginsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/teamPluginResponse"
-                    }
-                }
-            }
-        },
         "teamRagSourceResponse": {
             "type": "object",
             "properties": {
@@ -23132,6 +22448,45 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "teamSkillRequest": {
+            "type": "object",
+            "properties": {
+                "skill_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "teamSkillResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "teamSkillsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/teamSkillResponse"
+                    }
                 }
             }
         },
@@ -23789,25 +23144,6 @@ const docTemplate = `{
                 },
                 "position": {
                     "type": "number"
-                }
-            }
-        },
-        "upsertAdminIntegrationRequest": {
-            "type": "object",
-            "properties": {
-                "credentials": {
-                    "$ref": "#/definitions/Credentials"
-                }
-            }
-        },
-        "upsertAdminIntegrationResponse": {
-            "type": "object",
-            "properties": {
-                "definition": {
-                    "$ref": "#/definitions/AdminDefinition"
-                },
-                "state": {
-                    "type": "string"
                 }
             }
         },

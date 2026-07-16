@@ -53,7 +53,7 @@ describe("internal app links", () => {
   it("only cards curated agent-facing links, not every /w/ URL", () => {
     // A mix: the templated edit-agent link + non-templated app links.
     const targets = internalAppLinkTargets(
-      `${agentUrl} https://usehivy.test/w/plugins/github https://usehivy.test/w/settings/general`
+      `${agentUrl} https://usehivy.test/w/connections https://usehivy.test/w/settings/general`
     )
     expect(targets.map((t) => t.href)).toEqual([agentHref])
   })
@@ -62,7 +62,7 @@ describe("internal app links", () => {
     // Different origin than the app
     expect(isInternalAppURL(`https://example.com${agentHref}`)).toBe(false)
     // Same origin but no template for this path
-    expect(isInternalAppURL("https://usehivy.test/w/plugins/github")).toBe(false)
+    expect(isInternalAppURL("https://usehivy.test/w/connections")).toBe(false)
     expect(isInternalAppURL("https://usehivy.test/pricing")).toBe(false)
     // Same origin + templated edit-agent path
     expect(isInternalAppURL(agentUrl)).toBe(true)

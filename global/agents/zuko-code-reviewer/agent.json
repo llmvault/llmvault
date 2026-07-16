@@ -125,8 +125,5 @@
       }
     }
   },
-  "plugins": {
-    "required": ["github-code-reviews"],
-    "recommended": []
-  }
+  "required_connections": ["github-app-code-reviews"]
 }

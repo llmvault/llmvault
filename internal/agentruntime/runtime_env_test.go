@@ -21,7 +21,7 @@ func testSymmetricKey(t *testing.T) *crypto.SymmetricKey {
 	return key
 }
 
-func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
+func TestBuildRuntimeEnvWithProxyTokenIncludesControlPlaneEnv(t *testing.T) {
 	orgID := uuid.New()
 	agentID := uuid.New()
 	agent := &model.Agent{
@@ -53,22 +53,6 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		AgentEnvGitEmail:               "hivy@users.noreply.github.com",
 		AgentEnvGitCredentialsURL:      "https://api.example.test/internal/git-credentials/" + agentID.String(),
 		AgentEnvGitHubNoKeyring:        "1",
-		AgentEnvBugsinkURL:             "https://api.example.test/internal/bugsink-proxy/" + agentID.String(),
-		AgentEnvBugsinkToken:           "runtime-secret",
-		AgentEnvGlitchTipURL:           "https://api.example.test/internal/glitchtip-proxy/" + agentID.String(),
-		AgentEnvGlitchTipToken:         "runtime-secret",
-		AgentEnvApifyURL:               "https://api.example.test/internal/apify-proxy/" + agentID.String(),
-		AgentEnvApifyToken:             "runtime-secret",
-		AgentEnvLinearURL:              "https://api.example.test/internal/linear-proxy/" + agentID.String(),
-		AgentEnvLinearToken:            "runtime-secret",
-		AgentEnvNotionAPIURL:           "https://api.example.test/internal/notion-proxy/" + agentID.String(),
-		AgentEnvNotionToken:            "runtime-secret",
-		AgentEnvRailwayAPIURL:          "https://api.example.test/internal/railway-proxy/" + agentID.String(),
-		AgentEnvRailwayAPIKey:          "runtime-secret",
-		AgentEnvVercelAPIURL:           "https://api.example.test/internal/vercel-proxy/" + agentID.String(),
-		AgentEnvVercelAPIKey:           "runtime-secret",
-		AgentEnvSlackAPIURL:            "https://api.example.test/internal/slack-proxy/" + agentID.String(),
-		AgentEnvSlackToken:             "runtime-secret",
 		AgentEnvPostgresURL:            "https://api.example.test/internal/database-proxy/postgres/" + agentID.String(),
 		AgentEnvPostgresToken:          "runtime-secret",
 		AgentEnvMySQLURL:               "https://api.example.test/internal/database-proxy/mysql/" + agentID.String(),

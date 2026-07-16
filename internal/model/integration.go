@@ -7,22 +7,13 @@ import (
 )
 
 type Integration struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	UniqueKey   string     `gorm:"not null;uniqueIndex"`
-	Provider    string     `gorm:"not null;index"`
-	DisplayName string     `gorm:"not null"`
-	BotHandle   string     `gorm:"type:text;not null;default:''" json:"bot_handle,omitempty"`
-	OrgID       *uuid.UUID `gorm:"type:uuid;index"`
-	Org         *Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	AgentID     *uuid.UUID `gorm:"type:uuid;index"`
-	Agent       *Agent     `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
-	CustomApp   bool       `gorm:"not null;default:false;index"`
-	Meta        JSON       `gorm:"type:jsonb;default:'{}'"`
-	NangoConfig JSON       `gorm:"type:jsonb;default:'{}'" json:"nango_config"`
-	ManagedBy   string     `gorm:"not null;default:'';index" json:"managed_by,omitempty"`
-	ManagedID   string     `gorm:"not null;default:'';index" json:"managed_id,omitempty"`
-	ManagedHash string     `gorm:"not null;default:''" json:"managed_hash,omitempty"`
-	Required    bool       `gorm:"not null;default:false" json:"required"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UniqueKey   string    `gorm:"not null;uniqueIndex"`
+	Provider    string    `gorm:"not null;index"`
+	DisplayName string    `gorm:"not null"`
+	BotHandle   string    `gorm:"type:text;not null;default:''" json:"bot_handle,omitempty"`
+	Meta        JSON      `gorm:"type:jsonb;default:'{}'"`
+	NangoConfig JSON      `gorm:"type:jsonb;default:'{}'" json:"nango_config"`
 	// SupportsRAGSource is the admin-UI picker gate: only integrations
 	// with this flag true appear in "Add RAG source". Seeded true for
 	// the known-good providers (github, notion, slack, confluence,

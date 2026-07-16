@@ -1,7 +1,7 @@
 package e2e
 
 // Payloads copied VERBATIM from the shipped skill at
-// global/plugins/sheets/skills/sheets/SKILL.md (Core Workflow / CSV Import /
+// the native sheets MCP contract (Core Workflow / CSV Import /
 // Mistakes & Recovery). Placeholder IDs are swapped for real ones at runtime;
 // the JSON shape is untouched. internal/sheets/mcptools_contract_test.go pins
 // the full contract — this e2e drives the same documented payloads through

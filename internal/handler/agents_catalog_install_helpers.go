@@ -13,66 +13,32 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
-	"github.com/usehivy/hivy/internal/teamprovision"
 )
 
-// teamMissingRequiredPlugins returns the catalog's required-plugin slugs that
-// the team cannot use. A plugin is usable by a team when it is an auto-install
-// system plugin, or the org has installed it AND it is provisioned for the team.
-func (h *AgentHandler) teamMissingRequiredPlugins(ctx context.Context, orgID, teamID uuid.UUID, slugs []string) ([]string, error) {
+func (h *AgentHandler) teamMissingRequiredConnections(ctx context.Context, orgID, teamID uuid.UUID, providers []string) ([]string, error) {
 	missing := []string{}
-	for _, slug := range slugs {
-		slug = strings.TrimSpace(slug)
-		if slug == "" {
-			continue
-		}
-		usable, err := h.pluginUsableByTeam(ctx, orgID, teamID, slug)
+	for _, provider := range providers {
+		var count int64
+		err := h.db.WithContext(ctx).Table("team_connection_grants tcg").
+			Joins("LEFT JOIN connections c ON c.id = tcg.connection_id AND c.revoked_at IS NULL").
+			Joins("LEFT JOIN integrations i ON i.id = c.integration_id AND i.deleted_at IS NULL").
+			Joins("LEFT JOIN database_connections dc ON dc.id = tcg.database_connection_id AND dc.revoked_at IS NULL").
+			Where("tcg.org_id = ? AND tcg.team_id = ? AND (i.provider = ? OR dc.provider = ?)", orgID, teamID, provider, provider).Count(&count).Error
 		if err != nil {
 			return nil, err
 		}
-		if !usable {
-			missing = append(missing, slug)
+		if count == 0 {
+			missing = append(missing, provider)
 		}
 	}
 	return missing, nil
 }
 
-func (h *AgentHandler) pluginUsableByTeam(ctx context.Context, orgID, teamID uuid.UUID, slug string) (bool, error) {
-	var plugin model.Plugin
-	err := h.db.WithContext(ctx).
-		Where("slug = ? AND status = ?", slug, model.PluginStatusActive).
-		First(&plugin).Error
-	if err == gorm.ErrRecordNotFound {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if pluginstore.PluginAutoInstall(plugin) {
-		return true, nil
-	}
-	installed, err := h.orgPluginInstalled(ctx, orgID, plugin.ID)
-	if err != nil {
-		return false, err
-	}
-	if !installed {
-		return false, nil
-	}
-	return teamprovision.PluginEnabledForTeam(ctx, h.db, teamID, plugin.ID)
-}
-
-// resolveCatalogInstallTeam resolves and authorizes the target team for a
-// catalog install/uninstall. The team_id may arrive in the JSON body or the
-// query string. Installing/uninstalling a catalog agent is a team-scoped member
-// action: the actor must be able to manage the team, and a team_id is always
-// required (there is no org-level catalog install anymore). Writes an error
-// response and returns ok=false when not allowed.
 func (h *AgentHandler) resolveCatalogInstallTeam(ctx context.Context, w http.ResponseWriter, r *http.Request, orgID uuid.UUID) (*uuid.UUID, bool) {
 	raw := strings.TrimSpace(r.URL.Query().Get("team_id"))
 	if raw == "" && r.Body != nil {
 		var body agentCatalogInstallRequest
-		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+		if json.NewDecoder(r.Body).Decode(&body) == nil {
 			raw = cleanStringPtr(body.TeamID)
 		}
 	}
@@ -87,14 +53,9 @@ func (h *AgentHandler) resolveCatalogInstallTeam(ctx context.Context, w http.Res
 	return teamID, true
 }
 
-// activeAgentForCatalogTeam finds the team's live clone of a catalog agent.
-// Catalog agents are installed once PER TEAM (each team gets its own clone), so
-// the "already installed" lookup is scoped by (org, catalog, team).
 func activeAgentForCatalogTeam(ctx context.Context, tx *gorm.DB, orgID, catalogID, teamID uuid.UUID) (model.Agent, bool, error) {
 	var agent model.Agent
-	err := tx.WithContext(ctx).
-		Where("org_id = ? AND agent_catalog_id = ? AND team_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, catalogID, teamID, "archived").
-		First(&agent).Error
+	err := tx.WithContext(ctx).Where("org_id = ? AND agent_catalog_id = ? AND team_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, catalogID, teamID, "archived").First(&agent).Error
 	if err == nil {
 		return agent, true, nil
 	}
@@ -120,40 +81,10 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	for _, tool := range model.ValidSandboxTools {
 		sandboxTools = append(sandboxTools, tool.ID)
 	}
-	desc := catalog.Description
-	avatarURL := catalog.AvatarURL
-	catalogID := catalog.ID
-	// Instructions is intentionally nil so the clone inherits the live catalog
-	// prompt. InstructionsSnapshot is only a fallback if the catalog disappears.
-	promptSnapshot := snapshotCatalogInstructions(catalog.Instructions)
-	agent := model.Agent{
-		OrgID:                  &orgID,
-		TeamID:                 teamID,
-		AgentCatalogID:         &catalogID,
-		InstructionsSnapshot:   promptSnapshot,
-		Name:                   catalog.Name,
-		Description:            &desc,
-		AvatarURL:              optionalStringPtr(avatarURL),
-		IsDefault:              false,
-		SandboxImage:           model.NormalizeSandboxImage(catalog.SandboxImage),
-		SandboxSize:            model.DefaultAgentSandboxSize,
-		Model:                  modelID,
-		DefaultReasoningEffort: strings.TrimSpace(catalog.DefaultReasoningEffort),
-		AutoLoadSkills:         append(model.AutoLoadSkills(nil), catalog.AutoLoadSkills...),
-		Tools:                  cloneModelJSON(catalog.Tools),
-		McpServers:             model.RawJSON("[]"),
-		Skills:                 model.JSON{},
-		Permissions:            permissions,
-		Resources:              model.JSON{},
-		SandboxTools:           pq.StringArray(sandboxTools),
-		Status:                 "active",
-	}
-	agent.Name = catalog.Name
+	desc, avatar, catalogID := catalog.Description, catalog.AvatarURL, catalog.ID
+	agent := model.Agent{OrgID: &orgID, TeamID: teamID, AgentCatalogID: &catalogID, InstructionsSnapshot: snapshotCatalogInstructions(catalog.Instructions), Name: catalog.Name, Description: &desc, AvatarURL: optionalStringPtr(avatar), SandboxImage: model.NormalizeSandboxImage(catalog.SandboxImage), SandboxSize: model.DefaultAgentSandboxSize, Model: modelID, DefaultReasoningEffort: catalog.DefaultReasoningEffort, AutoLoadSkills: append(model.AutoLoadSkills(nil), catalog.AutoLoadSkills...), Tools: cloneModelJSON(catalog.Tools), McpServers: model.RawJSON("[]"), Skills: model.JSON{}, Permissions: permissions, Resources: model.JSON{}, SandboxTools: pq.StringArray(sandboxTools), Status: "active"}
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return model.Agent{}, fmt.Errorf("create catalog agent: %w", err)
-	}
-	if err := pluginstore.EnsureAutoInstalledForOrg(ctx, tx, orgID); err != nil {
-		return model.Agent{}, err
 	}
 	return agent, nil
 }

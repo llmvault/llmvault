@@ -28,7 +28,7 @@ type CatalogItem struct {
 	Enabled      bool            `json:"enabled"`
 	Official     bool            `json:"official"`
 	Integration  IntegrationSpec `json:"integration"`
-	Plugins      PluginsSpec     `json:"plugins"`
+	Connections  ConnectionsSpec `json:"connections"`
 	Trigger      *TriggerSpec    `json:"trigger,omitempty"`
 	Schedule     *ScheduleSpec   `json:"schedule,omitempty"`
 	Resources    map[string]any  `json:"resources,omitempty"`
@@ -43,7 +43,7 @@ type IntegrationSpec struct {
 	ManualWebhook bool   `json:"manual_webhook,omitempty"`
 }
 
-type PluginsSpec struct {
+type ConnectionsSpec struct {
 	Required    []string `json:"required"`
 	Recommended []string `json:"recommended"`
 }

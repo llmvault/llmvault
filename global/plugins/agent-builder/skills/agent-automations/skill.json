@@ -1,9 +1,0 @@
-{
-  "name": "agent-automations",
-  "description": "Use this skill when the user wants an agent to run automatically — on a recurring schedule (e.g. every day at 8am) or whenever an external system calls a URL. It covers creating scheduled cron jobs and HTTP triggers for an agent, converting the user's time to UTC, and making the agent deliver its output (e.g. posting to a Slack channel).",
-  "human_description": "Set up scheduled and HTTP-triggered automations for other agents.",
-  "category": "Hivy",
-  "root": "./SKILL.md",
-  "tags": ["automations", "triggers", "cron", "schedule", "webhook", "slack"],
-  "files": []
-}

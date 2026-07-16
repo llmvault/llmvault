@@ -9,13 +9,13 @@ import (
 )
 
 // mountOrgMemberLifecycleRoutes wires the org-membership lifecycle: team
-// provisioning (team plugin allowlist + team RAG grants) and member role/removal
+// provisioning (team connection, skill, and RAG grants) and member role/removal
 // are admin-only, while ownership transfer and org deletion are owner-only.
 func mountOrgMemberLifecycleRoutes(r chi.Router, database *gorm.DB) {
 	orgMemberHandler := handler.NewOrgMemberHandler(database)
 	teamProvisioning := handler.NewTeamProvisioningHandler(database)
 	r.Route("/orgs/current", func(r chi.Router) {
-		// Reading a team's enabled plugins is a member action, gated in-handler
+		// Reading a team's connections and skills is a member action, gated in-handler
 		// to members of that team; every mutation stays admin-only below.
 		teamProvisioning.MountReadable(r)
 		r.Group(func(r chi.Router) {

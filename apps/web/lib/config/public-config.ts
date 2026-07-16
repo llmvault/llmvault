@@ -32,7 +32,11 @@ export const PUBLIC_CONFIG_KEY = "__HIVY_ENV__"
 function readServerPublicConfig(): PublicConfig {
   // apiUrl: browser-facing public API URL. HIVY_PUBLIC_API_URL lets split-network
   // deploys (browser vs. server-internal) differ; falls back to HIVY_API_URL.
-  const apiUrl = (process.env.HIVY_PUBLIC_API_URL || process.env.HIVY_API_URL || "").trim()
+  const apiUrl = (
+    process.env.HIVY_PUBLIC_API_URL ||
+    process.env.HIVY_API_URL ||
+    ""
+  ).trim()
   const connectionsHost = (process.env.HIVY_CONNECTIONS_HOST || "").trim()
   const previewDomain = (process.env.HIVY_PREVIEW_BASE_DOMAIN || "").trim()
   const docsUrl = (process.env.HIVY_DOCS_URL || "").trim().replace(/\/$/, "")
@@ -41,7 +45,7 @@ function readServerPublicConfig(): PublicConfig {
     automations: (process.env.HIVY_TUTORIAL_AUTOMATIONS_VIDEO_URL || "").trim(),
     schedules: (process.env.HIVY_TUTORIAL_SCHEDULES_VIDEO_URL || "").trim(),
     webhooks: (process.env.HIVY_TUTORIAL_WEBHOOKS_VIDEO_URL || "").trim(),
-    plugins: (process.env.HIVY_TUTORIAL_PLUGINS_VIDEO_URL || "").trim(),
+    connections: (process.env.HIVY_TUTORIAL_CONNECTIONS_VIDEO_URL || "").trim(),
     knowledge: (process.env.HIVY_TUTORIAL_KNOWLEDGE_VIDEO_URL || "").trim(),
     teams: (process.env.HIVY_TUTORIAL_TEAMS_VIDEO_URL || "").trim(),
   }
@@ -72,7 +76,9 @@ function readServerPublicConfig(): PublicConfig {
  */
 export function clientConfig(): PublicConfig {
   if (typeof window !== "undefined") {
-    const injected = (window as unknown as Record<string, PublicConfig | undefined>)[PUBLIC_CONFIG_KEY]
+    const injected = (
+      window as unknown as Record<string, PublicConfig | undefined>
+    )[PUBLIC_CONFIG_KEY]
     if (!injected) {
       throw new Error(
         `window.${PUBLIC_CONFIG_KEY} is not set — the runtime public config was not injected. ` +
@@ -97,7 +103,9 @@ export function serializePublicConfig(): string {
  * clientConfig() works under vitest/jsdom. Defaults mirror the legacy hosted
  * values so existing assertions need minimal changes; override per test as needed.
  */
-export function setPublicConfigForTests(overrides: Partial<PublicConfig> = {}): void {
+export function setPublicConfigForTests(
+  overrides: Partial<PublicConfig> = {}
+): void {
   const base: PublicConfig = {
     apiUrl: "https://api.usehivy.test",
     connectionsHost: "connections.usehivy.test",
@@ -106,5 +114,8 @@ export function setPublicConfigForTests(overrides: Partial<PublicConfig> = {}): 
     tutorialVideos: {},
   }
   ;(globalThis as unknown as Record<string, unknown>).window ??= {}
-  ;(window as unknown as Record<string, PublicConfig>)[PUBLIC_CONFIG_KEY] = { ...base, ...overrides }
+  ;(window as unknown as Record<string, PublicConfig>)[PUBLIC_CONFIG_KEY] = {
+    ...base,
+    ...overrides,
+  }
 }

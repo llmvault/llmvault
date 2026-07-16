@@ -72,7 +72,7 @@ func (h *OrgHandler) AdvanceOnboarding(w http.ResponseWriter, r *http.Request) {
 func writeOnboardingError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, onboarding.ErrConnectionRequired):
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "connect at least one plugin before continuing"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "add at least one connection before continuing"})
 	case errors.Is(err, onboarding.ErrInvalidTransition):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "onboarding steps must be completed in order"})
 	case errors.Is(err, onboarding.ErrNotFound):

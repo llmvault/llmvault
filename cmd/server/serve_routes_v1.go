@@ -40,7 +40,6 @@ func setupV1Routes(
 	credHandler *handler.CredentialHandler,
 	tokenHandler *handler.TokenHandler,
 	sandboxTemplateHandler *handler.SandboxTemplateHandler,
-	pluginHandler *handler.PluginHandler,
 	databaseIntegrationHandler *handler.DatabaseIntegrationHandler,
 	ragSourceHandler *handler.RAGSourceHandler,
 	ragSearchHandler *handler.RAGSearchHandler,
@@ -74,6 +73,7 @@ func setupV1Routes(
 				mcpServerHandler.Mount(r)
 			}
 			r.Get("/orgs/current/members", orgInviteHandler.ListMembers)
+			handler.NewSkillHandler(database).Mount(r)
 			mountBrandRoutes(r, database, brandHandler)
 
 			// Reading teams is a member action (members pick a team when
@@ -163,16 +163,6 @@ func setupV1Routes(
 			})
 
 			mountBillingRoutes(r, database, billingHandler, subscriptionHandler)
-			if pluginHandler != nil {
-				r.Get("/plugins", pluginHandler.List)
-				r.Get("/plugins/{slug}", pluginHandler.Get)
-				// Installing/uninstalling an org plugin is an admin-only mutation.
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequireOrgAdmin(database))
-					r.Post("/plugins/{slug}/install", pluginHandler.Install)
-					r.Delete("/plugins/{slug}/install", pluginHandler.Uninstall)
-				})
-			}
 			if slackChannelHandler != nil {
 				r.Get("/slack/channels", slackChannelHandler.ListChannels)
 				r.Post("/slack/channels/join", slackChannelHandler.JoinChannels)

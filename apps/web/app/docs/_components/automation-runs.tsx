@@ -11,7 +11,7 @@ const FIRST_CHECKS = [
   ],
   [
     "Scope",
-    "Check that the agent still belongs to the channel's team and can use the provider plugin.",
+    "Check that the agent still belongs to the channel's team and can use the provider connection.",
   ],
   [
     "Instructions",

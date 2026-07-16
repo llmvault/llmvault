@@ -121,7 +121,7 @@ func validateManifests(manifests []Manifest) error {
 		if seen[manifest.Slug] {
 			return fmt.Errorf("duplicate agent slug %q", manifest.Slug)
 		}
-		if err := validateDefaultAgentPlugins(manifest); err != nil {
+		if err := validateDefaultAgentConnections(manifest); err != nil {
 			return err
 		}
 		if !model.ValidSandboxImage(manifest.Runtime.SandboxImage) {
@@ -144,17 +144,15 @@ func validateManifests(manifests []Manifest) error {
 	return nil
 }
 
-func validateDefaultAgentPlugins(manifest Manifest) error {
+func validateDefaultAgentConnections(manifest Manifest) error {
 	if manifest.Default == nil || !*manifest.Default {
 		return nil
 	}
 	if manifest.Slug != "hivy" {
 		return fmt.Errorf("agent %q must not set default: only the Hivy agent is the default", manifest.Slug)
 	}
-	required := normalizeStrings(manifest.Plugins.Required)
-	recommended := normalizeStrings(manifest.Plugins.Recommended)
-	if len(required) > 0 || len(recommended) > 0 {
-		return fmt.Errorf("default Hivy agent must not declare plugins")
+	if len(normalizeStrings(manifest.RequiredConnections)) > 0 {
+		return fmt.Errorf("default Hivy agent must not require connections")
 	}
 	return nil
 }

@@ -17,7 +17,6 @@ export type ChannelProviderMeta = {
   icon: string
   description: string
   connectionProviders: string[]
-  pluginSlug: string
 }
 
 export type ChannelProviderStatus = {
@@ -33,7 +32,6 @@ export const CHANNEL_PROVIDERS: ChannelProviderMeta[] = [
     icon: "slack",
     description: "Link a connected Slack channel",
     connectionProviders: ["slack"],
-    pluginSlug: "slack",
   },
 ]
 

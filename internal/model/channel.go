@@ -7,20 +7,20 @@ import (
 )
 
 type Channel struct {
-	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID            uuid.UUID  `gorm:"type:uuid;not null;index;uniqueIndex:idx_channels_org_source_name,priority:1,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:1,where:external_resource_key <> ''"`
-	Org              Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	Name             string     `gorm:"type:text;not null;uniqueIndex:idx_channels_org_source_name,priority:6,where:archived_at IS NULL"`
-	Description      string     `gorm:"type:text;not null;default:''"`
-	Kind             string     `gorm:"type:text;not null;default:'standard'"`
-	Visibility       string     `gorm:"type:text;not null;default:'public'"`
-	TeamID           uuid.UUID  `gorm:"type:uuid;index"`
-	Team             *Team      `gorm:"foreignKey:TeamID;constraint:OnDelete:SET NULL"`
-	DefaultAgentID   uuid.UUID  `gorm:"type:uuid;not null;index"`
-	DefaultAgent     Agent      `gorm:"foreignKey:DefaultAgentID;constraint:OnDelete:RESTRICT"`
-	ImageModel       string     `gorm:"type:text;not null;default:''"`
-	VectorImageModel string     `gorm:"type:text;not null;default:''"`
-	IsDefault        bool       `gorm:"not null;default:false;index"`
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID            uuid.UUID `gorm:"type:uuid;not null;index;uniqueIndex:idx_channels_org_source_name,priority:1,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:1,where:external_resource_key <> ''"`
+	Org              Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	Name             string    `gorm:"type:text;not null;uniqueIndex:idx_channels_org_source_name,priority:6,where:archived_at IS NULL"`
+	Description      string    `gorm:"type:text;not null;default:''"`
+	Kind             string    `gorm:"type:text;not null;default:'standard'"`
+	Visibility       string    `gorm:"type:text;not null;default:'public'"`
+	TeamID           uuid.UUID `gorm:"type:uuid;index"`
+	Team             *Team     `gorm:"foreignKey:TeamID;constraint:OnDelete:SET NULL"`
+	DefaultAgentID   uuid.UUID `gorm:"type:uuid;not null;index"`
+	DefaultAgent     Agent     `gorm:"foreignKey:DefaultAgentID;constraint:OnDelete:RESTRICT"`
+	ImageModel       string    `gorm:"type:text;not null;default:''"`
+	VectorImageModel string    `gorm:"type:text;not null;default:''"`
+	IsDefault        bool      `gorm:"not null;default:false;index"`
 	// ExposeOrgMemories folds org-wide (channel-less) memories into this
 	// channel's recall/search for its agents when true.
 	ExposeOrgMemories bool `gorm:"not null;default:true"`

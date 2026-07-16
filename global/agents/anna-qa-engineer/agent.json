@@ -30,14 +30,7 @@
   "mcp_tool_filter": {
     "allow": []
   },
-  "plugins": {
-    "required": [
-      "playwright"
-    ],
-    "recommended": [
-      "github"
-    ]
-  },
+  "required_connections": [],
   "sub_agents": {
     "codebase-explorer": {
       "name": "Codebase Explorer",

@@ -10,15 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
-// Tool names for the agent-facing apps MCP tool group (apps plan §6). The
-// names, args, and return shapes are the contract documented in
-// global/plugins/apps/skills/apps/SKILL.md — change them together.
+// Tool names for the agent-facing apps MCP tool group.
 const (
 	toolAppCreate   = "app_create"
 	toolAppPublish  = "app_publish"
@@ -26,11 +22,6 @@ const (
 	toolAppLogs     = "app_logs"
 	toolAppRollback = "app_rollback"
 )
-
-// AppsPluginSlug is the plugin whose per-agent install gates this tool group.
-// Installing the plugin grants both the apps skill (existing machinery) and
-// these tools, mirroring the sheets plugin gate.
-const AppsPluginSlug = "apps"
 
 const (
 	// appToolTimeout bounds quick tool work: DB loads, app_create.
@@ -44,11 +35,8 @@ const (
 	appPublishTimeout = 10 * time.Minute
 )
 
-// NewToolsFunc returns the apps ToolsFunc. It registers the five app tools on
-// the MCP server ONLY when the calling token is an agent proxy for an active
-// agent whose team-resolved effective plugin set includes the `apps` plugin,
-// mirroring sheets.NewToolsFunc. Registering nothing when the plugin is
-// absent keeps the tool surface out of un-enrolled agents' prompts entirely.
+// NewToolsFunc registers the app tools for active agent proxy tokens. The
+// runtime MCP allow-list remains authoritative for tool visibility.
 func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || svc == nil || svc.db == nil || !appToolAgentProxy(token) {
@@ -66,23 +54,12 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 			First(&agent).Error; err != nil {
 			return
 		}
-		if !PluginInstalled(ctx, svc.db, agent) {
-			return
-		}
 		registerAppCreate(server, svc, token, agentID)
 		registerAppPublish(server, svc, token, agentID)
 		registerAppStatus(server, svc, token)
 		registerAppLogs(server, svc, token)
 		registerAppRollback(server, svc, token)
 	}
-}
-
-// PluginInstalled reports whether the apps plugin is in the agent's effective
-// plugin set (team grants ∪ auto-install ∪ default-agent). Exported because the
-// preview-env endpoint gates on the same entitlement (handler.AppPreviewEnv).
-func PluginInstalled(ctx context.Context, db *gorm.DB, agent model.Agent) bool {
-	has, err := pluginresolve.AgentHasPluginSlug(ctx, db, agent, AppsPluginSlug)
-	return err == nil && has
 }
 
 func appToolAgentProxy(token *model.Token) bool {

@@ -38,11 +38,5 @@
       "sheet_operations"
     ]
   },
-  "plugins": {
-    "required": [
-      "apify",
-      "sheets"
-    ],
-    "recommended": []
-  }
+  "required_connections": ["apify"]
 }

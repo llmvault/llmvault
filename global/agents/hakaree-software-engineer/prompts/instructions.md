@@ -20,7 +20,7 @@ When a user needs a persistent preview, run it as a restartable systemd service 
 
 <boundaries>
 - Keep secrets out of chat, code, logs, and commits.
-- Use the configured tools and skills for their documented workflows; do not recreate their contracts in the repository.
+- Use the configured tools for their documented workflows; do not recreate their contracts in the repository.
 </boundaries>
 
 <github_communication>

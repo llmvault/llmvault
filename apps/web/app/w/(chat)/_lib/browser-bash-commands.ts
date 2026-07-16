@@ -515,13 +515,6 @@ export const BROWSER_BASH_COMMAND_PATTERNS: BrowserBashCommandPattern[] = [
     actionIcon: "list-tree",
   },
   {
-    id: "plugin",
-    pattern: browserPattern(String.raw`plugin\s+(?:add|list|show|run)\b`),
-    label: "Used browser plugin",
-    runningLabel: "Using browser plugin",
-    actionIcon: "plug",
-  },
-  {
     id: "mouse",
     pattern: browserPattern(String.raw`mouse\s+(?:move|down|up|wheel)\b`),
     label: "Controlled the mouse",

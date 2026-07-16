@@ -7,10 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/plugins"
-	"github.com/usehivy/hivy/internal/teamprovision"
 )
 
 var (
@@ -34,10 +33,10 @@ func (s *Service) TeamCreated(ctx context.Context, orgID uuid.UUID) error {
 	return s.transition(ctx, orgID, model.OnboardingStepTeam, model.OnboardingStepConnections)
 }
 
-// ConnectionCreated installs the matching plugins and grants them to the org's
-// sole active team only while the org is on the onboarding connections step.
-// Normal connection creation is intentionally left manual.
-func (s *Service) ConnectionCreated(ctx context.Context, orgID, userID uuid.UUID, provider string) error {
+// ConnectionCreated grants a new connection to the org's sole active team only
+// while the org is on the onboarding connections step. Normal connection
+// creation is intentionally left manual.
+func (s *Service) ConnectionCreated(ctx context.Context, orgID, userID, connectionID uuid.UUID) error {
 	var org model.Org
 	if err := s.db.WithContext(ctx).
 		Select("id", "onboarding_step").
@@ -64,18 +63,12 @@ func (s *Service) ConnectionCreated(ctx context.Context, orgID, userID uuid.UUID
 		return ErrInvalidTeamState
 	}
 
-	pluginIDs, err := plugins.InstallForConnection(ctx, s.db, orgID, userID, provider)
-	if err != nil {
-		return fmt.Errorf("install onboarding connection plugins: %w", err)
+	grant := model.TeamConnectionGrant{
+		ID: uuid.New(), OrgID: orgID, TeamID: teams[0].ID,
+		ConnectionID: &connectionID, GrantedBy: &userID,
 	}
-	if len(pluginIDs) == 0 {
-		return fmt.Errorf("install onboarding connection plugins: no active plugin for provider %q", provider)
-	}
-	for _, pluginID := range pluginIDs {
-		enabledBy := userID
-		if err := teamprovision.EnablePlugin(ctx, s.db, orgID, teams[0].ID, pluginID, &enabledBy); err != nil && !errors.Is(err, teamprovision.ErrPluginAlwaysEnabled) {
-			return fmt.Errorf("enable onboarding plugin for team: %w", err)
-		}
+	if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&grant).Error; err != nil {
+		return fmt.Errorf("grant onboarding connection to team: %w", err)
 	}
 	return nil
 }

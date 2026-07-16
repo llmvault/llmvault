@@ -16,7 +16,7 @@ import (
 // logged loudly and skipped — a config push must never fail the whole session
 // for one unresolvable auto-load skill. resolveAgent is the agent whose skill
 // entitlements gate the entries (the sub-agent's parent for sub-agent
-// definitions, since sub-agents inherit the parent's plugins).
+// definitions, since sub-agents inherit the parent.s skills).
 func compileAutoLoadSkills(ctx context.Context, db *gorm.DB, resolveAgent *model.Agent, entries model.AutoLoadSkills) []model.AutoLoadSkill {
 	normalized, err := model.NormalizeAutoLoadSkills(entries)
 	if err != nil {

@@ -90,8 +90,8 @@ export function Sheets() {
             Open <strong className="text-foreground">Sheets</strong> from the
             workspace sidebar; Hivy groups each database under its channel. If
             you know the columns you need, start with a blank Sheet. Otherwise,
-            ask an agent with the Sheets plugin to plan the structure and add
-            the records.
+            ask an agent with the Sheets connection to plan the structure and
+            add the records.
           </p>
           <p className="mt-3">
             Tell the agent what one row represents and what you&apos;ll do with
@@ -177,8 +177,8 @@ export function Sheets() {
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
                 Hivy keeps every Sheet inside the channel where someone created
                 it. A person needs access to that channel. An agent also needs a
-                session there and must have the Sheets plugin before it can read
-                or change the records.
+                session there and must have the Sheets connection before it can
+                read or change the records.
               </p>
             </div>
           </div>

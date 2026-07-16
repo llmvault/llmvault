@@ -16,7 +16,6 @@ import (
 	dbi "github.com/usehivy/hivy/internal/databaseintegration"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 type DatabaseProxyHandler struct {
@@ -65,17 +64,6 @@ func (h *DatabaseProxyHandler) handle(w http.ResponseWriter, r *http.Request, pr
 		}
 		h.capture(ctx, provider, status, "database proxy agent resolution failed", err)
 		writeJSON(w, status, map[string]string{"error": "agent not found"})
-		return
-	}
-	allowed, err := h.hasDatabasePluginAccess(ctx, agent, provider)
-	if err != nil {
-		h.capture(ctx, provider, http.StatusInternalServerError, "database plugin access check failed", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database connection not found"})
-		return
-	}
-	if !allowed {
-		h.capture(ctx, provider, http.StatusNotFound, "database plugin access denied", gorm.ErrRecordNotFound)
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "database connection not found"})
 		return
 	}
 	conn, err := h.resolveConnection(ctx, agent, provider)
@@ -136,25 +124,11 @@ func (h *DatabaseProxyHandler) resolveAgent(ctx context.Context, agentID uuid.UU
 func (h *DatabaseProxyHandler) resolveConnection(ctx context.Context, agent model.Agent, provider string) (model.DatabaseConnection, error) {
 	var conn model.DatabaseConnection
 	return conn, h.db.WithContext(ctx).
-		Where("org_id = ? AND provider = ? AND revoked_at IS NULL", *agent.OrgID, provider).
-		Order("created_at ASC").
+		Joins("JOIN team_connection_grants tcg ON tcg.database_connection_id = database_connections.id AND tcg.org_id = database_connections.org_id").
+		Where("tcg.team_id = ?", agent.TeamID).
+		Where("database_connections.org_id = ? AND database_connections.provider = ? AND database_connections.revoked_at IS NULL", *agent.OrgID, provider).
+		Order("database_connections.created_at ASC").
 		First(&conn).Error
-}
-
-func (h *DatabaseProxyHandler) hasDatabasePluginAccess(ctx context.Context, agent model.Agent, provider string) (bool, error) {
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, h.db, agent)
-	if err != nil {
-		return false, err
-	}
-	if len(pluginIDs) == 0 {
-		return false, nil
-	}
-	var count int64
-	err = h.db.WithContext(ctx).Model(&model.PluginIntegration{}).
-		Where("plugin_id IN ?", pluginIDs).
-		Where("kind = ? AND provider = ?", model.PluginIntegrationKindDatabase, provider).
-		Count(&count).Error
-	return count > 0, err
 }
 
 func (h *DatabaseProxyHandler) capture(ctx context.Context, provider string, status int, reason string, err error) {

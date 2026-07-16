@@ -66,21 +66,24 @@ export function KnowledgeSources() {
         indexes and which teams may search it.
       </p>
 
-      <section aria-labelledby="knowledge-is-not-a-plugin" className="mt-14">
+      <section
+        aria-labelledby="knowledge-is-not-a-connection"
+        className="mt-14"
+      >
         <h2
-          id="knowledge-is-not-a-plugin"
+          id="knowledge-is-not-a-connection"
           className="text-xl font-semibold tracking-tight text-foreground"
         >
           Knowledge is context, not a live tool
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
-          A plugin lets an agent read or change data in an external service. A
-          knowledge source indexes a chosen set of content for search. You may
+          A connection lets an agent read or change data in an external service.
+          A knowledge source indexes a chosen set of content for search. You may
           connect the same service both ways, but search and live actions remain
           separate.
         </p>
-        <DocLink href="/docs/plugins-and-connections/connect-tools">
-          Compare plugins and connections
+        <DocLink href="/docs/connections-and-skills/connect-tools">
+          Compare connections and connections
         </DocLink>
       </section>
 
@@ -191,8 +194,8 @@ export function KnowledgeSources() {
           </p>
           <p className="mt-3">
             Hivy refreshes connected content on a schedule. Use the
-            provider&apos;s plugin when you need its current record or want the
-            agent to change something there.
+            provider&apos;s connection when you need its current record or want
+            the agent to change something there.
           </p>
           <DocLink href="/docs/agents/sessions">
             Read about agent sessions

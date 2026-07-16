@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/usehivy/hivy/internal/logging"
 )
 
-// Client wraps the Nango API for managing integrations.
+// Client wraps the Nango API for discovering configured integrations and
+// managing end-user connections.
 // Authenticated via a secret key (UUID v4) with Bearer token auth.
 type Client struct {
 	endpoint   string
@@ -31,38 +33,16 @@ type Provider struct {
 	WebhookUserDefinedSecret bool   `json:"webhook_user_defined_secret,omitempty"`
 }
 
-// Credentials is a union type covering all Nango auth modes.
-// Only fields relevant to the auth mode should be populated.
-type Credentials struct {
-	Type          string `json:"type"`
-	ClientID      string `json:"client_id,omitempty"`
-	ClientSecret  string `json:"client_secret,omitempty"`
-	Scopes        string `json:"scopes,omitempty"`
-	AppID         string `json:"app_id,omitempty"`
-	AppLink       string `json:"app_link,omitempty"`
-	PrivateKey    string `json:"private_key,omitempty"`
-	WebhookSecret string `json:"webhook_secret,omitempty"`
-	// MCP_OAUTH2_GENERIC fields
-	ClientName    string `json:"client_name,omitempty"`
-	ClientUri     string `json:"client_uri,omitempty"`
-	ClientLogoUri string `json:"client_logo_uri,omitempty"`
-	// INSTALL_PLUGIN fields
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-// CreateIntegrationRequest is the payload for creating an integration in Nango.
-type CreateIntegrationRequest struct {
-	UniqueKey   string       `json:"unique_key"`
-	Provider    string       `json:"provider"`
-	DisplayName string       `json:"display_name,omitempty"`
-	Credentials *Credentials `json:"credentials,omitempty"`
-}
-
-// UpdateIntegrationRequest is the payload for updating an integration in Nango.
-type UpdateIntegrationRequest struct {
-	DisplayName string       `json:"display_name,omitempty"`
-	Credentials *Credentials `json:"credentials,omitempty"`
+// Integration is a configured provider integration returned by Nango.
+// UniqueKey is Nango's provider configuration key and Provider identifies the
+// underlying provider template (for example github-app).
+type Integration struct {
+	UniqueKey   string `json:"unique_key"`
+	Provider    string `json:"provider"`
+	DisplayName string `json:"display_name"`
+	Logo        string `json:"logo,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
 }
 
 // NewClient creates a Nango API client.
@@ -161,40 +141,38 @@ func (c *Client) GetProviders() []Provider {
 	return result
 }
 
-// CreateIntegration creates an integration in Nango.
-// POST /integrations
-func (c *Client) CreateIntegration(ctx context.Context, req CreateIntegrationRequest) error {
-	if _, err := c.doJSON(ctx, http.MethodPost, "/integrations", req); err != nil {
-		logging.Capture(ctx, fmt.Errorf("nango create integration %s: %w", req.UniqueKey, err))
-		return err
+// ListIntegrations returns every integration configured in Nango.
+// GET /integrations
+func (c *Client) ListIntegrations(ctx context.Context) ([]Integration, error) {
+	resp, err := c.doJSON(ctx, http.MethodGet, "/integrations", nil)
+	if err != nil {
+		return nil, fmt.Errorf("list Nango integrations: %w", err)
 	}
-	return nil
-}
-
-// UpdateIntegration updates an existing integration in Nango.
-// PATCH /integrations/{uniqueKey}
-func (c *Client) UpdateIntegration(ctx context.Context, uniqueKey string, req UpdateIntegrationRequest) error {
-	if _, err := c.doJSON(ctx, http.MethodPatch, "/integrations/"+uniqueKey, req); err != nil {
-		logging.Capture(ctx, fmt.Errorf("nango update integration %s: %w", uniqueKey, err))
-		return err
+	raw, ok := resp["data"]
+	if !ok {
+		return nil, fmt.Errorf("unexpected integration response: missing 'data' key")
 	}
-	return nil
+	body, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("marshal Nango integrations: %w", err)
+	}
+	var integrations []Integration
+	if err := json.Unmarshal(body, &integrations); err != nil {
+		return nil, fmt.Errorf("unmarshal Nango integrations: %w", err)
+	}
+	for _, integration := range integrations {
+		if integration.UniqueKey == "" || integration.Provider == "" || integration.DisplayName == "" {
+			return nil, fmt.Errorf("unexpected integration response: unique_key, provider, and display_name are required")
+		}
+	}
+	sort.Slice(integrations, func(i, j int) bool { return integrations[i].UniqueKey < integrations[j].UniqueKey })
+	return integrations, nil
 }
 
 // GetIntegration fetches an integration by its unique key.
 // GET /integrations/{uniqueKey}?include[]=webhook&include[]=credentials
 func (c *Client) GetIntegration(ctx context.Context, uniqueKey string) (map[string]any, error) {
 	return c.doJSON(ctx, http.MethodGet, "/integrations/"+uniqueKey+"?include[]=webhook&include[]=credentials", nil)
-}
-
-// DeleteIntegration removes an integration by its unique key.
-// DELETE /integrations/{uniqueKey}
-func (c *Client) DeleteIntegration(ctx context.Context, uniqueKey string) error {
-	if _, err := c.doJSON(ctx, http.MethodDelete, "/integrations/"+uniqueKey, nil); err != nil {
-		logging.Capture(ctx, fmt.Errorf("nango delete integration %s: %w", uniqueKey, err))
-		return err
-	}
-	return nil
 }
 
 // DeleteConnection removes a connection by its ID.

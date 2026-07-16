@@ -10,10 +10,15 @@ const SCREENSHOTS_BY_TITLE: Record<string, string> = {
   "An automated session and its source": "event-trigger-configuration",
   "Create channel form": "channel-create-form",
   "The custom agent configuration form": "custom-agent-configuration",
-  "Choose a plugin and review its requirements": "plugin-requirements-access",
-  "Set a database access policy": "plugin-requirements-access",
-  "Enable an installed plugin for one team": "plugin-requirements-access",
-  "Plugin requirements and access state": "plugin-requirements-access",
+  "Choose a connection and review its requirements":
+    "connection-requirements-access",
+  "Choose a provider and review existing instances":
+    "connection-requirements-access",
+  "Set a database access policy": "connection-requirements-access",
+  "Enable an installed connection for one team":
+    "connection-requirements-access",
+  "Connection requirements and access state": "connection-requirements-access",
+  "Connection grant and generated tools": "connection-requirements-access",
   "A complete event trigger configuration": "event-trigger-configuration",
   "A session with multiple work views open": "sheet-pages-fields-rows",
   "See where work lives": "workspace-hierarchy",
@@ -66,8 +71,8 @@ export function DocsMediaPlaceholder({
       >
         <DocsScreenshot title={title} lightSrc={lightSrc} darkSrc={darkSrc} />
         <figcaption className="mt-3 px-1 text-sm leading-6 text-muted">
-          <span className="font-semibold text-foreground">{title}.</span>{" "}
-          Live Hivy capture, available in light and dark themes.
+          <span className="font-semibold text-foreground">{title}.</span> Live
+          Hivy capture, available in light and dark themes.
         </figcaption>
       </figure>
     )

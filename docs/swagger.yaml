@@ -1,77 +1,5 @@
 basePath: /
 definitions:
-  AdminCredentialField:
-    properties:
-      label:
-        type: string
-      multiline:
-        type: boolean
-      name:
-        type: string
-      placeholder:
-        type: string
-      required:
-        type: boolean
-      secret:
-        type: boolean
-    type: object
-  AdminDefinition:
-    properties:
-      auth_mode:
-        type: string
-      credential_fields:
-        items:
-          $ref: '#/definitions/AdminCredentialField'
-        type: array
-      display_name:
-        type: string
-      enabled:
-        type: boolean
-      existing:
-        $ref: '#/definitions/AdminExistingIntegration'
-      fixed_credentials:
-        items:
-          $ref: '#/definitions/AdminFixedCredential'
-        type: array
-      id:
-        type: string
-      meta:
-        $ref: '#/definitions/JSON'
-      nango_provider:
-        type: string
-      provider:
-        type: string
-      required:
-        type: boolean
-      supports_rag_source:
-        type: boolean
-      unique_key:
-        type: string
-    type: object
-  AdminExistingIntegration:
-    properties:
-      active_connections:
-        type: integer
-      display_name:
-        type: string
-      id:
-        type: string
-      managed:
-        type: boolean
-      unique_key:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  AdminFixedCredential:
-    properties:
-      label:
-        type: string
-      name:
-        type: string
-      value:
-        type: string
-    type: object
   ArtifactFileResponse:
     properties:
       content_type:
@@ -172,6 +100,8 @@ definitions:
     properties:
       category:
         type: string
+      connections:
+        $ref: '#/definitions/ConnectionsSpec'
       description:
         type: string
       enabled:
@@ -191,8 +121,6 @@ definitions:
         type: string
       official:
         type: boolean
-      plugins:
-        $ref: '#/definitions/PluginsSpec'
       resources:
         additionalProperties: {}
         type: object
@@ -235,6 +163,12 @@ definitions:
       type:
         type: string
     type: object
+  ConnectionMCPToolDeny:
+    additionalProperties:
+      items:
+        type: string
+      type: array
+    type: object
   ConnectionTestResult:
     properties:
       capabilities:
@@ -248,6 +182,17 @@ definitions:
         additionalProperties: {}
         type: object
     type: object
+  ConnectionsSpec:
+    properties:
+      recommended:
+        items:
+          type: string
+        type: array
+      required:
+        items:
+          type: string
+        type: array
+    type: object
   Cost:
     properties:
       cache_read:
@@ -258,37 +203,6 @@ definitions:
         type: number
       output:
         type: number
-    type: object
-  Credentials:
-    properties:
-      app_id:
-        type: string
-      app_link:
-        type: string
-      client_id:
-        type: string
-      client_logo_uri:
-        type: string
-      client_name:
-        description: MCP_OAUTH2_GENERIC fields
-        type: string
-      client_secret:
-        type: string
-      client_uri:
-        type: string
-      password:
-        type: string
-      private_key:
-        type: string
-      scopes:
-        type: string
-      type:
-        type: string
-      username:
-        description: INSTALL_PLUGIN fields
-        type: string
-      webhook_secret:
-        type: string
     type: object
   DiscoveredPage:
     properties:
@@ -464,23 +378,6 @@ definitions:
       token_endpoint:
         type: string
       token_endpoint_auth_methods_supported:
-        items:
-          type: string
-        type: array
-    type: object
-  PluginMCPToolDeny:
-    additionalProperties:
-      items:
-        type: string
-      type: array
-    type: object
-  PluginsSpec:
-    properties:
-      recommended:
-        items:
-          type: string
-        type: array
-      required:
         items:
           type: string
         type: array
@@ -702,30 +599,24 @@ definitions:
       step:
         type: string
     type: object
+  agentCatalogConnectionSummary:
+    properties:
+      provider:
+        type: string
+    type: object
   agentCatalogInstallRequest:
     properties:
       team_id:
         type: string
     type: object
-  agentCatalogMissingPluginsResponse:
+  agentCatalogMissingConnectionsResponse:
     properties:
       error:
         type: string
-      missing_plugins:
+      missing_connections:
         items:
           type: string
         type: array
-    type: object
-  agentCatalogPluginSummary:
-    properties:
-      id:
-        type: string
-      installed:
-        type: boolean
-      name:
-        type: string
-      slug:
-        type: string
     type: object
   agentCatalogResponse:
     properties:
@@ -758,13 +649,9 @@ definitions:
         type: string
       official:
         type: boolean
-      recommended_plugins:
+      required_connections:
         items:
-          $ref: '#/definitions/agentCatalogPluginSummary'
-        type: array
-      required_plugins:
-        items:
-          $ref: '#/definitions/agentCatalogPluginSummary'
+          $ref: '#/definitions/agentCatalogConnectionSummary'
         type: array
       sandbox_image:
         type: string
@@ -789,11 +676,7 @@ definitions:
         type: string
       official:
         type: boolean
-      recommended_plugins:
-        items:
-          type: string
-        type: array
-      required_plugins:
+      required_connections:
         items:
           type: string
         type: array
@@ -827,18 +710,14 @@ definitions:
         type: string
       catalog:
         $ref: '#/definitions/agentCatalogSummary'
+      connection_mcp_tool_deny:
+        $ref: '#/definitions/ConnectionMCPToolDeny'
       created_at:
         type: string
       default_reasoning_effort:
         type: string
       description:
         type: string
-      disabled_plugin_ids:
-        description: DisabledPluginIDs lists optional team plugins disabled only for
-          this agent.
-        items:
-          type: string
-        type: array
       icon:
         type: string
       id:
@@ -861,8 +740,6 @@ definitions:
         type: string
       permissions:
         $ref: '#/definitions/JSON'
-      plugin_mcp_tool_deny:
-        $ref: '#/definitions/PluginMCPToolDeny'
       resources:
         $ref: '#/definitions/JSON'
       sandbox_image:
@@ -904,17 +781,15 @@ definitions:
         type: array
       avatar_url:
         type: string
+      connection_mcp_tool_deny:
+        allOf:
+        - $ref: '#/definitions/ConnectionMCPToolDeny'
+        description: ConnectionMCPToolDeny replaces generated MCP tool opt-outs by
+          connection.
       default_reasoning_effort:
         type: string
       description:
         type: string
-      disabled_plugin_ids:
-        description: |-
-          DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
-          Omit it to leave overrides unchanged; send [] to restore all team plugins.
-        items:
-          type: string
-        type: array
       icon:
         type: string
       image_model:
@@ -929,12 +804,6 @@ definitions:
         type: string
       permissions:
         $ref: '#/definitions/JSON'
-      plugin_mcp_tool_deny:
-        allOf:
-        - $ref: '#/definitions/PluginMCPToolDeny'
-        description: |-
-          PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys
-          are plugin UUIDs; omitted means unchanged and an empty object enables all.
       resources:
         $ref: '#/definitions/JSON'
       sandbox_image:
@@ -979,18 +848,14 @@ definitions:
         type: string
       catalog:
         $ref: '#/definitions/agentCatalogSummary'
+      connection_mcp_tool_deny:
+        $ref: '#/definitions/ConnectionMCPToolDeny'
       created_at:
         type: string
       default_reasoning_effort:
         type: string
       description:
         type: string
-      disabled_plugin_ids:
-        description: DisabledPluginIDs lists optional team plugins disabled only for
-          this agent.
-        items:
-          type: string
-        type: array
       icon:
         type: string
       id:
@@ -1013,8 +878,6 @@ definitions:
         type: string
       permissions:
         $ref: '#/definitions/JSON'
-      plugin_mcp_tool_deny:
-        $ref: '#/definitions/PluginMCPToolDeny'
       resources:
         $ref: '#/definitions/JSON'
       sandbox_image:
@@ -1056,12 +919,8 @@ definitions:
         type: string
       id:
         type: string
-      locked:
-        type: boolean
       name:
         type: string
-      required:
-        type: boolean
       source_type:
         type: string
     type: object
@@ -2199,11 +2058,6 @@ definitions:
       url:
         type: string
     type: object
-  enableTeamPluginRequest:
-    properties:
-      plugin_id:
-        type: string
-    type: object
   errorRate:
     properties:
       date:
@@ -3076,6 +2930,17 @@ definitions:
       next_cursor:
         type: string
     type: object
+  paginatedResponse-handler_integrationAvailableResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/integrationAvailableResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
   paginatedResponse-handler_sandboxResponse:
     properties:
       data:
@@ -3178,146 +3043,6 @@ definitions:
         type: string
       welcome_credits:
         type: integer
-    type: object
-  pluginConnectionRequirement:
-    properties:
-      kind:
-        type: string
-      provider:
-        type: string
-      required:
-        type: boolean
-    type: object
-  pluginInstallConflictResponse:
-    properties:
-      error:
-        type: string
-      missing_requirements:
-        items:
-          $ref: '#/definitions/pluginConnectionRequirement'
-        type: array
-    type: object
-  pluginLinksResponse:
-    properties:
-      privacy:
-        type: string
-      terms:
-        type: string
-      website:
-        type: string
-    type: object
-  pluginResourceRequirement:
-    properties:
-      connection_id:
-        type: string
-      description:
-        type: string
-      display_name:
-        type: string
-      kind:
-        type: string
-      missing:
-        type: boolean
-      provider:
-        type: string
-      required:
-        type: boolean
-      resource_key:
-        type: string
-      selected:
-        type: boolean
-      selected_count:
-        type: integer
-    type: object
-  pluginResponse:
-    properties:
-      auto_install:
-        type: boolean
-      capabilities:
-        items:
-          type: string
-        type: array
-      category:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      detail_category:
-        type: string
-      developer:
-        type: string
-      enabled_agent_ids:
-        items:
-          type: string
-        type: array
-      examples:
-        items:
-          type: string
-        type: array
-      featured:
-        type: boolean
-      icon:
-        type: string
-      icon_color:
-        type: string
-      id:
-        type: string
-      installed:
-        type: boolean
-      links:
-        $ref: '#/definitions/pluginLinksResponse'
-      locked:
-        type: boolean
-      long_description:
-        type: string
-      missing_requirements:
-        items:
-          $ref: '#/definitions/pluginConnectionRequirement'
-        type: array
-      name:
-        type: string
-      official:
-        type: boolean
-      required_connections:
-        items:
-          $ref: '#/definitions/pluginConnectionRequirement'
-        type: array
-      resource_requirements:
-        items:
-          $ref: '#/definitions/pluginResourceRequirement'
-        type: array
-      skills:
-        items:
-          $ref: '#/definitions/pluginSkillResponse'
-        type: array
-      slug:
-        type: string
-      status:
-        type: string
-      updated_at:
-        type: string
-      version:
-        type: string
-    type: object
-  pluginSkillResponse:
-    properties:
-      category:
-        type: string
-      description:
-        type: string
-      human_description:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      slug:
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
     type: object
   previewChangeRequest:
     properties:
@@ -4453,6 +4178,60 @@ definitions:
       upload_url:
         type: string
     type: object
+  skillEnvelope:
+    properties:
+      skill:
+        $ref: '#/definitions/skillResponse'
+    type: object
+  skillMutationRequest:
+    properties:
+      bundle:
+        $ref: '#/definitions/JSON'
+      description:
+        type: string
+      human_description:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+      status:
+        type: string
+      team_id:
+        type: string
+    type: object
+  skillResponse:
+    properties:
+      bundle:
+        items:
+          type: integer
+        type: array
+      description:
+        type: string
+      human_description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      org_id:
+        type: string
+      slug:
+        type: string
+      source_type:
+        type: string
+      status:
+        type: string
+      team_id:
+        type: string
+    type: object
+  skillsResponse:
+    properties:
+      skills:
+        items:
+          $ref: '#/definitions/skillResponse'
+        type: array
+    type: object
   slackChannelResponse:
     properties:
       id:
@@ -4604,36 +4383,33 @@ definitions:
       status:
         type: string
     type: object
-  supportedIntegrationResponse:
-    properties:
-      configured:
-        type: boolean
-      created_at:
-        type: string
-      definition_id:
-        type: string
-      display_name:
-        type: string
-      id:
-        type: string
-      meta:
-        $ref: '#/definitions/JSON'
-      nango_config:
-        $ref: '#/definitions/NangoConfig'
-      provider:
-        type: string
-    type: object
-  supportedIntegrationsResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/supportedIntegrationResponse'
-        type: array
-    type: object
   syncTriggerRequest:
     properties:
       from_beginning:
         type: boolean
+    type: object
+  teamConnectionRequest:
+    properties:
+      connection_id:
+        type: string
+    type: object
+  teamConnectionResponse:
+    properties:
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      provider:
+        type: string
+    type: object
+  teamConnectionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/teamConnectionResponse'
+        type: array
     type: object
   teamDetailResponse:
     properties:
@@ -4688,22 +4464,6 @@ definitions:
       team:
         $ref: '#/definitions/teamResponse'
     type: object
-  teamPluginResponse:
-    properties:
-      id:
-        type: string
-      name:
-        type: string
-      slug:
-        type: string
-    type: object
-  teamPluginsResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/teamPluginResponse'
-        type: array
-    type: object
   teamRagSourceResponse:
     properties:
       id:
@@ -4748,6 +4508,31 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  teamSkillRequest:
+    properties:
+      skill_id:
+        type: string
+    type: object
+  teamSkillResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+      sources:
+        items:
+          type: string
+        type: array
+    type: object
+  teamSkillsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/teamSkillResponse'
+        type: array
     type: object
   tokenListItem:
     properties:
@@ -5180,18 +4965,6 @@ definitions:
         type: string
       position:
         type: number
-    type: object
-  upsertAdminIntegrationRequest:
-    properties:
-      credentials:
-        $ref: '#/definitions/Credentials'
-    type: object
-  upsertAdminIntegrationResponse:
-    properties:
-      definition:
-        $ref: '#/definitions/AdminDefinition'
-      state:
-        type: string
     type: object
   usageResponse:
     properties:
@@ -5892,134 +5665,6 @@ paths:
       summary: X (Twitter) OAuth callback
       tags:
       - oauth
-  /v1/admin/integrations:
-    get:
-      description: Lists supported global integration definitions and existing synced
-        records.
-      parameters:
-      - description: Admin secret
-        in: header
-        name: X-Hivy-Admin-Secret
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/AdminDefinition'
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List admin integration definitions
-      tags:
-      - admin
-  /v1/admin/integrations/{id}:
-    delete:
-      description: Removes a supported global integration when it has no active connections.
-      parameters:
-      - description: Admin secret
-        in: header
-        name: X-Hivy-Admin-Secret
-        required: true
-        type: string
-      - description: Integration definition ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/AdminDefinition'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete an admin integration
-      tags:
-      - admin
-    put:
-      consumes:
-      - application/json
-      description: Creates or updates the supported global integration in Nango and
-        the Hivy database.
-      parameters:
-      - description: Admin secret
-        in: header
-        name: X-Hivy-Admin-Secret
-        required: true
-        type: string
-      - description: Integration definition ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Integration credentials
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/upsertAdminIntegrationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/upsertAdminIntegrationResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Sync an admin integration
-      tags:
-      - admin
   /v1/admin/llm-providers:
     get:
       description: Returns available LLM provider definitions for system credential
@@ -6783,8 +6428,8 @@ paths:
       - agents
   /v1/agents/catalog:
     get:
-      description: Returns active agent catalog entries for the current organization,
-        including install state and required plugin state.
+      description: Returns active agent catalog entries, install state, and required
+        connections.
       produces:
       - application/json
       responses:
@@ -6807,8 +6452,7 @@ paths:
       - agents
   /v1/agents/catalog/{slug}:
     get:
-      description: Returns one active agent catalog entry by slug for the current
-        organization, including required plugin install state.
+      description: Returns one active agent catalog entry and its required connections.
       parameters:
       - description: Agent catalog slug
         in: path
@@ -6882,9 +6526,8 @@ paths:
       tags:
       - agents
     post:
-      description: Clones a catalog agent (a template) into the caller's team. The
-        actor must be able to manage the team, and the team must be able to use every
-        plugin the catalog requires; otherwise the install is refused.
+      description: Clones a catalog agent into the caller's team when all required
+        connections are granted.
       parameters:
       - description: Agent catalog slug
         in: path
@@ -6919,7 +6562,7 @@ paths:
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/agentCatalogMissingPluginsResponse'
+            $ref: '#/definitions/agentCatalogMissingConnectionsResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -9483,8 +9126,7 @@ paths:
       consumes:
       - application/json
       description: Stores a connection after the OAuth flow completes via Nango. During
-        onboarding, matching plugins are installed and enabled for the org's sole
-        active team.
+        onboarding, the connection is granted to the org's sole active team.
       parameters:
       - description: Integration ID
         in: path
@@ -9543,30 +9185,10 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/integrationAvailableResponse'
-            type: array
+            $ref: '#/definitions/paginatedResponse-handler_integrationAvailableResponse'
       security:
       - BearerAuth: []
       summary: List available platform integrations
-      tags:
-      - integrations
-  /v1/integrations/supported:
-    get:
-      description: Returns every enabled platform integration definition and whether
-        it is configured for connection.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/supportedIntegrationsResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      summary: List supported platform integrations
       tags:
       - integrations
   /v1/invites/{token}:
@@ -11656,6 +11278,72 @@ paths:
       summary: Add or update a team member
       tags:
       - teams
+  /v1/orgs/current/teams/{teamID}/connections:
+    get:
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamConnectionsResponse'
+      summary: List a team's connections
+      tags:
+      - team-provisioning
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Connection grant
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/teamConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/teamConnectionsResponse'
+      summary: Grant a connection to a team
+      tags:
+      - team-provisioning
+  /v1/orgs/current/teams/{teamID}/connections/{connectionID}:
+    delete:
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Connection ID
+        in: path
+        name: connectionID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamConnectionsResponse'
+      summary: Revoke a connection from a team
+      tags:
+      - team-provisioning
   /v1/orgs/current/teams/{teamID}/mcp-servers:
     get:
       parameters:
@@ -11788,147 +11476,6 @@ paths:
       summary: Revoke an MCP server from a team
       tags:
       - mcp-servers
-  /v1/orgs/current/teams/{teamID}/plugins:
-    get:
-      description: Lists the plugins enabled for a team. Visible to org managers,
-        API keys, and members of that team; other members receive 404.
-      parameters:
-      - description: Team ID
-        in: path
-        name: teamID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/teamPluginsResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List a team's enabled plugins
-      tags:
-      - team-provisioning
-    post:
-      consumes:
-      - application/json
-      description: Adds a plugin to a team's allowlist. The plugin must belong to
-        the org and be installed. Admin-only.
-      parameters:
-      - description: Team ID
-        in: path
-        name: teamID
-        required: true
-        type: string
-      - description: Plugin to enable
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/enableTeamPluginRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/teamPluginsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Enable a plugin for a team
-      tags:
-      - team-provisioning
-  /v1/orgs/current/teams/{teamID}/plugins/{pluginID}:
-    delete:
-      description: Removes a plugin from a team's allowlist. Idempotent. Admin-only.
-      parameters:
-      - description: Team ID
-        in: path
-        name: teamID
-        required: true
-        type: string
-      - description: Plugin ID
-        in: path
-        name: pluginID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/teamPluginsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Disable a plugin for a team
-      tags:
-      - team-provisioning
   /v1/orgs/current/teams/{teamID}/rag-sources:
     get:
       description: Lists the RAG sources granted to a team. A team's agents may search
@@ -12062,6 +11609,72 @@ paths:
       summary: Revoke a knowledge source from a team
       tags:
       - team-provisioning
+  /v1/orgs/current/teams/{teamID}/skills:
+    get:
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamSkillsResponse'
+      summary: List a team's effective skills
+      tags:
+      - team-provisioning
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Skill grant
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/teamSkillRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/teamSkillsResponse'
+      summary: Grant a skill to a team
+      tags:
+      - team-provisioning
+  /v1/orgs/current/teams/{teamID}/skills/{skillID}:
+    delete:
+      parameters:
+      - description: Team ID
+        in: path
+        name: teamID
+        required: true
+        type: string
+      - description: Skill ID
+        in: path
+        name: skillID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teamSkillsResponse'
+      summary: Revoke a skill from a team
+      tags:
+      - team-provisioning
   /v1/orgs/current/transfer-ownership:
     post:
       consumes:
@@ -12129,141 +11742,6 @@ paths:
       summary: List all public active plans
       tags:
       - plans
-  /v1/plugins:
-    get:
-      description: Returns active plugins for the current organization, including
-        install state, requirements, and presentation metadata for the plugins catalog.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/pluginResponse'
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List plugins
-      tags:
-      - plugins
-  /v1/plugins/{slug}:
-    get:
-      description: Returns one active plugin by slug for the current organization,
-        including install state, requirements, and presentation metadata.
-      parameters:
-      - description: Plugin slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/pluginResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get plugin
-      tags:
-      - plugins
-  /v1/plugins/{slug}/install:
-    delete:
-      description: Uninstalls a plugin for the current organization and removes its
-        team grants.
-      parameters:
-      - description: Plugin slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/statusResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Uninstall plugin
-      tags:
-      - plugins
-    post:
-      description: Installs a plugin for the current organization when requirements
-        are satisfied. Agents receive it through team grants.
-      parameters:
-      - description: Plugin slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/pluginResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/pluginInstallConflictResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Install plugin
-      tags:
-      - plugins
   /v1/providers:
     get:
       description: Returns every provider in the catalog with a model count.
@@ -15167,6 +14645,79 @@ paths:
       summary: Get a CSV import job
       tags:
       - sheets
+  /v1/skills:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/skillsResponse'
+      summary: List skills
+      tags:
+      - skills
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Skill
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/skillMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/skillEnvelope'
+      summary: Create a skill
+      tags:
+      - skills
+  /v1/skills/{id}:
+    delete:
+      parameters:
+      - description: Skill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+      summary: Archive a skill
+      tags:
+      - skills
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Skill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Skill patch
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/skillMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/skillEnvelope'
+      summary: Update a skill
+      tags:
+      - skills
   /v1/slack/channels:
     get:
       description: Returns public Slack channels plus private channels where Hivy

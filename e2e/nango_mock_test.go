@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,8 +12,8 @@ import (
 )
 
 // nangoMock is an in-memory mock of the Nango API for e2e tests.
-// It tracks created integrations and connections so that GET/DELETE
-// operations behave realistically.
+// It exposes configured integrations and tracks connections so read-only
+// integration discovery and connection operations behave realistically.
 type nangoMock struct {
 	mu           sync.Mutex
 	integrations map[string]map[string]any // uniqueKey → stored data
@@ -25,8 +24,12 @@ type nangoMock struct {
 func newNangoMock(t *testing.T) *nangoMock {
 	t.Helper()
 	m := &nangoMock{
-		integrations: make(map[string]map[string]any),
-		connections:  make(map[string]map[string]any),
+		integrations: map[string]map[string]any{
+			"github-app":              {"unique_key": "github-app", "provider": "github-app", "display_name": "GitHub"},
+			"github-app-code-reviews": {"unique_key": "github-app-code-reviews", "provider": "github-app", "display_name": "GitHub Code Reviews"},
+			"slack":                   {"unique_key": "slack", "provider": "slack", "display_name": "Slack"},
+		},
+		connections: make(map[string]map[string]any),
 	}
 	m.server = httptest.NewServer(m)
 	t.Cleanup(func() { m.server.Close() })
@@ -72,8 +75,8 @@ func (m *nangoMock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if path == "/integrations" && r.Method == http.MethodPost {
-		m.handleCreateIntegration(w, r)
+	if path == "/integrations" && r.Method == http.MethodGet {
+		m.handleListIntegrations(w)
 		return
 	}
 
@@ -86,12 +89,6 @@ func (m *nangoMock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			m.handleGetIntegration(w, uniqueKey)
-			return
-		case http.MethodPatch:
-			m.handleUpdateIntegration(w, r, uniqueKey)
-			return
-		case http.MethodDelete:
-			m.handleDeleteIntegration(w, uniqueKey)
 			return
 		}
 	}
@@ -118,7 +115,7 @@ func (m *nangoMock) handleGetProviders(w http.ResponseWriter, _ *http.Request) {
 			{"name": "asana", "display_name": "Asana", "auth_mode": "OAUTH2"},
 			{"name": "jira", "display_name": "Jira", "auth_mode": "OAUTH2"},
 			{"name": "salesforce", "display_name": "Salesforce", "auth_mode": "OAUTH2"},
-			{"name": "github-app-oauth", "display_name": "GitHub App", "auth_mode": "APP"},
+			{"name": "github-app", "display_name": "GitHub App", "auth_mode": "APP"},
 			{"name": "salesforce", "display_name": "Salesforce", "auth_mode": "OAUTH2"},
 		},
 	})
@@ -175,31 +172,14 @@ func (m *nangoMock) handleDeleteConnection(w http.ResponseWriter, connID, provid
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 }
 
-func (m *nangoMock) handleCreateIntegration(w http.ResponseWriter, r *http.Request) {
-	body, _ := io.ReadAll(r.Body)
-	var req map[string]any
-	_ = json.Unmarshal(body, &req)
-
-	uniqueKey, _ := req["unique_key"].(string)
-
-	creds, _ := req["credentials"].(map[string]any)
-	if creds != nil {
-		if credType, _ := creds["type"].(string); credType == "APP" {
-			creds["webhook_secret"] = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6abcd"
-		}
-	}
-
+func (m *nangoMock) handleListIntegrations(w http.ResponseWriter) {
 	m.mu.Lock()
-	m.integrations[uniqueKey] = map[string]any{
-		"unique_key":   uniqueKey,
-		"provider":     req["provider"],
-		"display_name": req["display_name"],
-		"credentials":  creds,
-		"webhook_url":  "https://mock.nango.dev/webhooks/" + uniqueKey,
+	data := make([]map[string]any, 0, len(m.integrations))
+	for _, integration := range m.integrations {
+		data = append(data, integration)
 	}
 	m.mu.Unlock()
-
-	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 }
 
 func (m *nangoMock) handleGetIntegration(w http.ResponseWriter, uniqueKey string) {
@@ -213,49 +193,6 @@ func (m *nangoMock) handleGetIntegration(w http.ResponseWriter, uniqueKey string
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"data": integ})
-}
-
-func (m *nangoMock) handleUpdateIntegration(w http.ResponseWriter, r *http.Request, uniqueKey string) {
-	body, _ := io.ReadAll(r.Body)
-	var req map[string]any
-	_ = json.Unmarshal(body, &req)
-
-	m.mu.Lock()
-	integ, ok := m.integrations[uniqueKey]
-	if ok {
-		if dn, exists := req["display_name"]; exists {
-			integ["display_name"] = dn
-		}
-		if creds, exists := req["credentials"]; exists {
-			credsMap, _ := creds.(map[string]any)
-
-			if credsMap != nil {
-				if credType, _ := credsMap["type"].(string); credType == "APP" {
-					credsMap["webhook_secret"] = fmt.Sprintf("%x", time.Now().UnixNano()) + "00000000000000000000000000000000000000000000000000"
-					credsMap["webhook_secret"] = credsMap["webhook_secret"].(string)[:64]
-				}
-			}
-			integ["credentials"] = credsMap
-		}
-		m.integrations[uniqueKey] = integ
-	}
-	m.mu.Unlock()
-
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]any{"error": "integration not found"})
-		return
-	}
-
-	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-}
-
-func (m *nangoMock) handleDeleteIntegration(w http.ResponseWriter, uniqueKey string) {
-	m.mu.Lock()
-	delete(m.integrations, uniqueKey)
-	m.mu.Unlock()
-
-	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 }
 
 func (m *nangoMock) handleProxy(w http.ResponseWriter, _ *http.Request) {

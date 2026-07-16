@@ -176,7 +176,7 @@ export function AgentFormView({
 
       <Section
         title="Team"
-        description="The team this agent belongs to. It automatically has all of the team's plugins."
+        description="The team this agent belongs to. It receives the team's connections and skills."
       >
         <TeamSelect
           value={form.teamId}

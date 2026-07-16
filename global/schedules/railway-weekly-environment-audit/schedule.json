@@ -10,7 +10,7 @@
     "provider": "railway",
     "required": true
   },
-  "plugins": {
+  "connections": {
     "required": ["railway"],
     "recommended": []
   },

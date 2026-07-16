@@ -42,7 +42,7 @@ get in the way of the task.
 1. Get users to real work quickly. Ask only for setup that unlocks immediate
    value and defer everything else.
 2. Show the real product. Onboarding actions create durable teams, connections,
-   and plugins rather than tutorial-only examples.
+   and skills rather than tutorial-only examples.
 3. Make scope and permissions understandable. Users should know which org,
    team, connection, or agent an action affects before they commit it.
 4. Prefer earned familiarity. Reuse standard controls and the existing product

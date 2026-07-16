@@ -213,14 +213,14 @@ func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID, chan
 	if !allowed {
 		return fmt.Errorf("agent is not available in this channel")
 	}
-	return validateTriggerAgentPlugin(ctx, db, orgID, agentID, template)
+	return validateTriggerAgentConnection(ctx, db, orgID, agentID, template)
 }
 
-// validateTriggerAgentPlugin enforces that the target agent can actually use
+// validateTriggerAgentConnection enforces that the target agent can actually use
 // the provider the trigger's playbook depends on. It reuses the same resolver
 // the runtime uses to authenticate provider tooling, so a passing check means
-// the agent has the plugin installed and a usable connection.
-func validateTriggerAgentPlugin(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, template triggerTemplate) error {
+// the agent has a concrete team-granted connection.
+func validateTriggerAgentConnection(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, template triggerTemplate) error {
 	if len(template.requiredProviders) == 0 {
 		return nil
 	}
@@ -229,13 +229,13 @@ func validateTriggerAgentPlugin(ctx context.Context, db *gorm.DB, orgID, agentID
 		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		label := template.requiredPluginLabel
+		label := template.requiredConnectionLabel
 		if label == "" {
 			label = "required"
 		}
-		return fmt.Errorf("agent is missing the required %s plugin", label)
+		return fmt.Errorf("agent is missing the required %s connection", label)
 	}
-	return fmt.Errorf("check agent plugin access: %w", err)
+	return fmt.Errorf("check agent connection access: %w", err)
 }
 
 func normalizeTriggerValue(value string) string {

@@ -50,17 +50,18 @@ type Agent struct {
 	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	McpServers       RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
 	// McpToolFilter records requested grants for managed MCP capabilities. The
-	// runtime compiler adds the universal floor; generated plugin MCP servers use
-	// PluginMCPToolDeny instead.
+	// runtime compiler adds the universal floor; generated connection MCP servers
+	// use ConnectionMCPToolDeny instead.
 	McpToolFilter *ToolFilter `gorm:"type:jsonb;serializer:json"`
-	// PluginMCPToolDeny is intentionally deny-based: generated plugin MCP tools
-	// are available by default, and users opt individual tools out per plugin.
-	PluginMCPToolDeny PluginMCPToolDeny `gorm:"column:plugin_mcp_tool_deny;type:jsonb;not null;default:'{}';serializer:json"`
-	Skills            JSON              `gorm:"type:jsonb;not null;default:'{}'"`
-	Integrations      JSON              `gorm:"-"`
-	RuntimeConfig     JSON              `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
-	Permissions       JSON              `gorm:"type:jsonb;not null;default:'{}'"`
-	Resources         JSON              `gorm:"type:jsonb;not null;default:'{}'"`
+	// ConnectionMCPToolDeny is keyed by concrete connection UUID. Users can opt
+	// individual generated MCP tools out without affecting another instance of
+	// the same provider.
+	ConnectionMCPToolDeny ConnectionMCPToolDeny `gorm:"column:connection_mcp_tool_deny;type:jsonb;not null;default:'{}';serializer:json"`
+	Skills                JSON                  `gorm:"type:jsonb;not null;default:'{}'"`
+	Integrations          JSON                  `gorm:"-"`
+	RuntimeConfig         JSON                  `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
+	Permissions           JSON                  `gorm:"type:jsonb;not null;default:'{}'"`
+	Resources             JSON                  `gorm:"type:jsonb;not null;default:'{}'"`
 
 	SandboxTools  pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
 	SetupCommands pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run during sandbox creation

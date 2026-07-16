@@ -37,7 +37,6 @@ type serveHandlersRest struct {
 	incomingWebhookHandler *handler.IncomingWebhookHandler
 	httpTriggerHandler     *handler.HTTPTriggerHandler
 	sandboxTemplateHandler *handler.SandboxTemplateHandler
-	pluginHandler          *handler.PluginHandler
 	agentHandler           *handler.AgentHandler
 	appsInternalHandler    *handler.AppsInternalHandler
 	appsHandler            *handler.AppsHandler
@@ -142,7 +141,6 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		templateBuilder = orchestrator
 	}
 	sandboxTemplateHandler := handler.NewSandboxTemplateHandler(database, templateBuilder, enqueuer)
-	pluginHandler := handler.NewPluginHandler(database)
 
 	var agentHandler *handler.AgentHandler
 	if orchestrator != nil {
@@ -238,7 +236,6 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		incomingWebhookHandler: incomingWebhookHandler,
 		httpTriggerHandler:     httpTriggerHandler,
 		sandboxTemplateHandler: sandboxTemplateHandler,
-		pluginHandler:          pluginHandler,
 		agentHandler:           agentHandler,
 		appsInternalHandler:    appsInternalHandler,
 		appsHandler:            appsHandler,

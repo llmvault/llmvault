@@ -14,7 +14,6 @@ import (
 	dbi "github.com/usehivy/hivy/internal/databaseintegration"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // BuildDatabaseServer creates the single read-only query tool for one exact
@@ -61,17 +60,10 @@ func resolveAgentDatabaseConnection(ctx context.Context, db *gorm.DB, orgID, age
 	if err := db.WithContext(ctx).Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").First(&agent).Error; err != nil {
 		return model.DatabaseConnection{}, err
 	}
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, agent)
-	if err != nil || len(pluginIDs) == 0 {
-		if err != nil {
-			return model.DatabaseConnection{}, err
-		}
-		return model.DatabaseConnection{}, gorm.ErrRecordNotFound
-	}
 	var connection model.DatabaseConnection
-	err = db.WithContext(ctx).
-		Joins("JOIN plugin_integrations ON plugin_integrations.provider = database_connections.provider AND plugin_integrations.kind = ?", model.PluginIntegrationKindDatabase).
-		Where("plugin_integrations.plugin_id IN ?", pluginIDs).
+	err := db.WithContext(ctx).
+		Joins("JOIN team_connection_grants tcg ON tcg.database_connection_id = database_connections.id AND tcg.org_id = database_connections.org_id").
+		Where("tcg.team_id = ?", agent.TeamID).
 		Where("database_connections.id = ? AND database_connections.org_id = ? AND database_connections.revoked_at IS NULL", connectionID, orgID).
 		First(&connection).Error
 	return connection, err

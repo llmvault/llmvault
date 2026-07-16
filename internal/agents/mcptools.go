@@ -12,31 +12,22 @@ import (
 
 	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
-// Tool names. list_team_plugins, list_agents, and get_agent are read-only;
+// Tool names. list_team_skills, list_agents, and get_agent are read-only;
 // create_agent and update_agent are privileged, opt-in mutating tools gated per
 // calling agent.
 const (
-	toolListTeamPlugins = "list_team_plugins"
-	toolListAgents      = "list_agents"
-	toolGetAgent        = "get_agent"
-	toolCreateAgent     = "create_agent"
-	toolUpdateAgent     = "update_agent"
-
-	// AgentBuilderPluginSlug gates agent-management MCP tools. The plugin is
-	// installed automatically on default Hivy agents; other agents receive it
-	// only through their team's plugin grants.
-	AgentBuilderPluginSlug = "agent-builder"
+	toolListTeamSkills = "list_team_skills"
+	toolListAgents     = "list_agents"
+	toolGetAgent       = "get_agent"
+	toolCreateAgent    = "create_agent"
+	toolUpdateAgent    = "update_agent"
 )
 
 // NewToolsFunc returns the agent-builder ToolsFunc. It registers the read-only
-// list_team_plugins / list_agents / get_agent tools and the mutating
-// create_agent / update_agent tools on the MCP server ONLY when the calling
-// agent is permitted (see agentBuilderEnabled) AND has the Agent Builder plugin
-// through its effective plugin set. frontendURL is used to build the agent URL
-// in tool responses.
+// list_team_skills / list_agents / get_agent tools and the mutating
+// create_agent / update_agent tools when the calling agent is permitted.
 func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || deps.DB == nil || !agentProxyToken(token) {
@@ -53,11 +44,7 @@ func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token 
 		if !agentBuilderEnabled(agent) {
 			return
 		}
-		hasPlugin, err := pluginresolve.AgentHasPluginSlug(context.Background(), deps.DB, *agent, AgentBuilderPluginSlug)
-		if err != nil || !hasPlugin {
-			return
-		}
-		registerListTeamPlugins(server, deps.DB, token, frontendURL)
+		registerListTeamSkills(server, deps.DB, token)
 		registerListAgents(server, deps.DB, token)
 		registerGetAgent(server, deps.DB, token, frontendURL)
 		registerCreateAgent(server, deps, token, agent.TeamID, frontendURL)
@@ -68,7 +55,7 @@ func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token 
 // agentBuilderEnabled reports whether the calling agent may use the privileged
 // agent-builder tools. The default Hivy agent is eligible for its catalog-defined
 // builder surface; any other agent must explicitly allow-list create_agent or
-// update_agent and receive the plugin through its team.
+// update_agent.
 func agentBuilderEnabled(agent *model.Agent) bool {
 	if agent == nil {
 		return false

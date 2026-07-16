@@ -4,6 +4,7 @@ mod ssrf;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -36,7 +37,6 @@ use legacy_sse::LegacySseClientTransport;
 use ssrf::{prepare_http_target, OutboundNetworkPolicy};
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
-const MAX_CONCURRENT_CONNECTIONS: usize = 8;
 const DEFAULT_SEARCH_LIMIT: usize = 12;
 const MAX_SEARCH_LIMIT: usize = 50;
 const MAX_MODEL_TOOL_NAME_BYTES: usize = 64;
@@ -199,6 +199,7 @@ pub struct McpRegistry {
     runtime_env: RwLock<HashMap<String, String>>,
     statuses: ArcSwap<Vec<McpConnectionStatus>>,
     activated_by_session: DashMap<String, Vec<McpToolDefinition>>,
+    discovery_generation: AtomicU64,
     workspace_root: PathBuf,
     network_policy: OutboundNetworkPolicy,
 }
@@ -252,17 +253,22 @@ impl McpRegistry {
             runtime_env: RwLock::new(runtime_env.clone()),
             statuses: ArcSwap::from_pointee(statuses),
             activated_by_session: DashMap::new(),
+            discovery_generation: AtomicU64::new(0),
             workspace_root,
             network_policy,
         }
     }
 
-    pub async fn reload_from_specs(
-        &self,
+    /// Immediately revokes the previous MCP snapshot, then discovers every
+    /// server concurrently in a background task. The returned handle is only
+    /// needed by tests and orderly shutdown paths; config push callers should
+    /// not await it.
+    pub fn reload_from_specs_in_background(
+        self: &Arc<Self>,
         specs: &[McpSpec],
         runtime_env: &HashMap<String, String>,
-    ) {
-        let (servers, statuses) = discover_specs(specs, runtime_env, self.network_policy).await;
+    ) -> tokio::task::JoinHandle<()> {
+        let generation = self.discovery_generation.fetch_add(1, Ordering::SeqCst) + 1;
         for entry in self.live_entries.iter() {
             entry.value().cancel();
         }
@@ -271,11 +277,46 @@ impl McpRegistry {
         if let Ok(mut current_env) = self.runtime_env.write() {
             *current_env = runtime_env.clone();
         }
-        self.servers.store(Arc::new(servers));
-        self.statuses.store(Arc::new(statuses));
         // A reload can represent revoked org/team/agent access. Never retain
         // activated definitions from the previous authorization snapshot.
         self.activated_by_session.clear();
+
+        let pending_servers = specs
+            .iter()
+            .cloned()
+            .map(|spec| McpServerConfig {
+                state: Arc::new(McpServerState::new(
+                    spec.name().to_string(),
+                    spec.tool_name_prefix().map(str::to_string),
+                    spec_tool_filter(&spec).clone(),
+                )),
+                spec,
+            })
+            .collect();
+        let pending_statuses = specs
+            .iter()
+            .map(|spec| McpConnectionStatus {
+                server_name: spec.name().to_string(),
+                connected: false,
+                tool_count: 0,
+                error: None,
+            })
+            .collect();
+        self.servers.store(Arc::new(pending_servers));
+        self.statuses.store(Arc::new(pending_statuses));
+
+        let registry = self.clone();
+        let specs = specs.to_vec();
+        let runtime_env = runtime_env.clone();
+        tokio::spawn(async move {
+            let (servers, statuses) =
+                discover_specs(&specs, &runtime_env, registry.network_policy).await;
+            if registry.discovery_generation.load(Ordering::SeqCst) != generation {
+                return;
+            }
+            registry.servers.store(Arc::new(servers));
+            registry.statuses.store(Arc::new(statuses));
+        })
     }
 
     pub fn connection_statuses(&self) -> Vec<McpConnectionStatus> {
@@ -579,6 +620,7 @@ async fn discover_specs(
     network_policy: OutboundNetworkPolicy,
 ) -> (Vec<McpServerConfig>, Vec<McpConnectionStatus>) {
     let runtime_env = Arc::new(runtime_env.clone());
+    let concurrency = specs.len().max(1);
     let mut outcomes: Vec<ConnectOutcome> = stream::iter(specs.iter().cloned().enumerate())
         .map(|(index, spec)| {
             let runtime_env = runtime_env.clone();
@@ -652,7 +694,7 @@ async fn discover_specs(
                 }
             }
         })
-        .buffer_unordered(MAX_CONCURRENT_CONNECTIONS)
+        .buffer_unordered(concurrency)
         .collect()
         .await;
     outcomes.sort_by_key(|outcome| outcome.index);
@@ -851,7 +893,7 @@ fn mcp_tool_allowed(
     true
 }
 
-// A server-level filter is authoritative for that server. Generated plugin MCP
+// A server-level filter is authoritative for that server. Generated connection MCP
 // servers always carry an explicit deny filter (including an empty one), so the
 // legacy top-level allow-list for Hivy capabilities cannot hide their tools.
 // Servers without a local filter retain the previous global-filter behavior.

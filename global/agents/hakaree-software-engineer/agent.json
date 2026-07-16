@@ -85,8 +85,5 @@
       }
     }
   },
-  "plugins": {
-    "required": ["github"],
-    "recommended": []
-  }
+  "required_connections": ["github-app"]
 }

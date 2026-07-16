@@ -141,20 +141,20 @@ func createSandboxSizeTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, size
 func createSandboxConfigTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, image, size string) model.Agent {
 	t.Helper()
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		TeamID:          firstTeamID(t, db, orgID),
-		Name:            "sandbox-config-" + randSuffix(),
-		SandboxImage:    image,
-		SandboxSize:     size,
-		Model:           agentruntime.DefaultAgentModel,
-		Status:          "active",
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
+		Name:          "sandbox-config-" + randSuffix(),
+		SandboxImage:  image,
+		SandboxSize:   size,
+		Model:         agentruntime.DefaultAgentModel,
+		Status:        "active",
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

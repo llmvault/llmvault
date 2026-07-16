@@ -12,7 +12,6 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
@@ -169,15 +168,6 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID, teamID uuid.UUID
 	agent.Name = name
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return nil, fmt.Errorf("create Hivy agent: %w", err)
-	}
-	if err := pluginstore.EnsureAutoInstalledForOrg(ctx, tx, orgID); err != nil {
-		return nil, err
-	}
-	// The default Hivy agent also resolves plugins flagged "default_agent_install"
-	// (e.g. the agent-builder capability), which other agents do not. Ensure the
-	// org has them installed so the resolver can surface them.
-	if err := pluginstore.EnsureDefaultAgentPluginsForOrg(ctx, tx, orgID); err != nil {
-		return nil, err
 	}
 
 	return &agent, nil

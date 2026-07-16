@@ -23,9 +23,6 @@ func setupConnectRoutes(
 	if cfg.AdminEnabled {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAdminSecret(cfg.AdminSecret))
-			r.Get("/v1/admin/integrations", integrationHandler.ListAdmin)
-			r.Put("/v1/admin/integrations/{id}", integrationHandler.UpsertAdmin)
-			r.Delete("/v1/admin/integrations/{id}", integrationHandler.DeleteAdmin)
 			r.Get("/v1/admin/system-credentials", credentialHandler.ListSystem)
 			r.Post("/v1/admin/system-credentials", credentialHandler.CreateSystem)
 			r.Patch("/v1/admin/system-credentials/{id}", credentialHandler.UpdateSystem)

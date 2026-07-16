@@ -12,7 +12,6 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 type agentMutationRequest struct {
@@ -32,18 +31,14 @@ type agentMutationRequest struct {
 	VectorImageModel       *string                `json:"vector_image_model,omitempty"`
 	Tools                  *model.JSON            `json:"tools,omitempty"`
 	McpToolFilter          *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
-	// PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys
-	// are plugin UUIDs; omitted means unchanged and an empty object enables all.
-	PluginMCPToolDeny *model.PluginMCPToolDeny `json:"plugin_mcp_tool_deny,omitempty"`
-	McpServers        *json.RawMessage         `json:"mcp_servers,omitempty" swaggerignore:"true"`
-	Skills            *model.JSON              `json:"skills,omitempty"`
-	Permissions       *model.JSON              `json:"permissions,omitempty"`
-	Resources         *model.JSON              `json:"resources,omitempty"`
-	SandboxTools      *[]string                `json:"sandbox_tools,omitempty"`
-	SubAgents         *[]subAgentInput         `json:"sub_agents,omitempty"`
-	// DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
-	// Omit it to leave overrides unchanged; send [] to restore all team plugins.
-	DisabledPluginIDs *[]string `json:"disabled_plugin_ids,omitempty"`
+	// ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection.
+	ConnectionMCPToolDeny *model.ConnectionMCPToolDeny `json:"connection_mcp_tool_deny,omitempty"`
+	McpServers            *json.RawMessage             `json:"mcp_servers,omitempty" swaggerignore:"true"`
+	Skills                *model.JSON                  `json:"skills,omitempty"`
+	Permissions           *model.JSON                  `json:"permissions,omitempty"`
+	Resources             *model.JSON                  `json:"resources,omitempty"`
+	SandboxTools          *[]string                    `json:"sandbox_tools,omitempty"`
+	SubAgents             *[]subAgentInput             `json:"sub_agents,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -147,7 +142,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pluginMCPToolDeny, ok := normalizePluginMCPToolDenyForRequest(w, req.PluginMCPToolDeny)
+	connectionMCPToolDeny, ok := normalizeConnectionMCPToolDenyForRequest(w, req.ConnectionMCPToolDeny)
 	if !ok {
 		return
 	}
@@ -192,7 +187,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		VectorImageModel:       vectorImageModel,
 		Tools:                  tools,
 		McpToolFilter:          normalizeMcpToolFilter(req.McpToolFilter),
-		PluginMCPToolDeny:      pluginMCPToolDeny,
+		ConnectionMCPToolDeny:  connectionMCPToolDeny,
 		McpServers:             model.RawJSON("[]"),
 		Skills:                 normalizeJSONPtr(req.Skills),
 		Permissions:            permissions,
@@ -200,19 +195,9 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxTools:           pq.StringArray(sandboxTools),
 		Status:                 "active",
 	}
-	disabledPluginIDs, ok := h.normalizeDisabledAgentPluginIDsForRequest(ctx, w, org.ID, &agent, req.DisabledPluginIDs)
-	if !ok {
-		return
-	}
-	disabledBy, _ := currentRequestUserID(ctx)
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&agent).Error; err != nil {
 			return err
-		}
-		if req.DisabledPluginIDs != nil {
-			if err := replaceAgentPluginOverrides(ctx, tx, org.ID, agent.ID, disabledPluginIDs, disabledBy); err != nil {
-				return err
-			}
 		}
 		for i := range subAgentRows {
 			subAgentRows[i].ParentAgentID = &agent.ID
@@ -221,7 +206,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 		}
-		return pluginstore.EnsureAutoInstalledForOrg(ctx, tx, org.ID)
+		return nil
 	}); err != nil {
 		if isDuplicateKeyError(err) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent name already exists"})

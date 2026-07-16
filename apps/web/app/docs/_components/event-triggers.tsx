@@ -72,7 +72,7 @@ export function EventTriggers() {
           </p>
           <p className="mt-3">
             Hivy won&apos;t install the trigger unless that connection still
-            works and the chosen agent can use the provider plugin through a
+            works and the chosen agent can use the provider connection through a
             valid connection.
           </p>
         </DocSection>

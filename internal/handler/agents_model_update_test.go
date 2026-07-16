@@ -75,20 +75,20 @@ func newAgentModelUpdateRuntimeHarness(t *testing.T) (*handler.AgentHandler, *se
 func createAgentModelUpdateTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
 	agent := model.Agent{
-		ID:              uuid.New(),
-		OrgID:           &orgID,
-		TeamID:          firstTeamID(t, db, orgID),
-		Name:            "model-update-" + uuid.NewString()[:8],
-		Description:     ptrString("model update test agent"),
-		SandboxSize:     model.DefaultAgentSandboxSize,
-		Model:           agentModelUpdateOriginalModel,
-		Tools:           model.JSON{},
-		McpServers:      model.RawJSON("[]"),
-		Skills:          model.JSON{},
-		RuntimeConfig:   model.JSON{},
-		Permissions:     model.JSON{},
-		Resources:       model.JSON{},
-		Status:          "active",
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		TeamID:        firstTeamID(t, db, orgID),
+		Name:          "model-update-" + uuid.NewString()[:8],
+		Description:   ptrString("model update test agent"),
+		SandboxSize:   model.DefaultAgentSandboxSize,
+		Model:         agentModelUpdateOriginalModel,
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
+		Resources:     model.JSON{},
+		Status:        "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

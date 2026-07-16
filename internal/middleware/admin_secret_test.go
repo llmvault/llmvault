@@ -44,7 +44,7 @@ func TestRequireAdminSecret(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/v1/admin/integrations", nil)
+			req := httptest.NewRequest(http.MethodGet, "/v1/admin/system-credentials", nil)
 			if tt.provided != "" {
 				req.Header.Set(AdminSecretHeader, tt.provided)
 			}

@@ -133,8 +133,11 @@ func TestIntegrationHandler_ListAvailable_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp []map[string]any
-	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	var envelope struct {
+		Data []map[string]any `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&envelope)
+	resp := envelope.Data
 	if len(resp) < 1 {
 		t.Fatal("expected at least 1 available integration")
 	}
@@ -144,37 +147,6 @@ func TestIntegrationHandler_ListAvailable_Success(t *testing.T) {
 			t.Fatal("unique_key should not be in available response")
 		}
 	}
-}
-
-func TestIntegrationHandler_ListSupported_IncludesUnconfiguredDefinitions(t *testing.T) {
-	h := newIntegrationHarness(t, nil)
-
-	rr := h.doRequest(t, http.MethodGet, "/v1/integrations/supported", nil, nil)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
-	}
-
-	var resp struct {
-		Data []struct {
-			DefinitionID string `json:"definition_id"`
-			Configured   bool   `json:"configured"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode supported integrations: %v", err)
-	}
-	if len(resp.Data) == 0 {
-		t.Fatal("expected supported integration definitions")
-	}
-	for _, item := range resp.Data {
-		if item.DefinitionID == "slack" {
-			if item.Configured {
-				t.Fatal("unconfigured Slack definition reported as configured")
-			}
-			return
-		}
-	}
-	t.Fatal("supported integrations missing Slack")
 }
 
 func TestIntegrationHandler_ListAvailable_ReturnsSanitizedNangoConfig(t *testing.T) {
@@ -221,8 +193,11 @@ func TestIntegrationHandler_ListAvailable_ReturnsSanitizedNangoConfig(t *testing
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp []map[string]any
-	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	var envelope struct {
+		Data []map[string]any `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&envelope)
+	resp := envelope.Data
 	byProvider := availableByProvider(resp)
 
 	bugsinkConfig := requireNangoConfig(t, byProvider["bugsink"])
@@ -260,8 +235,11 @@ func TestIntegrationHandler_ListAvailable_RefreshesMissingNangoConfig(t *testing
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp []map[string]any
-	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	var envelope struct {
+		Data []map[string]any `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&envelope)
+	resp := envelope.Data
 	glitchtipConfig := requireNangoConfig(t, availableByProvider(resp)["glitchtip"])
 	if glitchtipConfig["auth_mode"] != "API_KEY" {
 		t.Fatalf("glitchtip auth_mode = %v, want API_KEY", glitchtipConfig["auth_mode"])

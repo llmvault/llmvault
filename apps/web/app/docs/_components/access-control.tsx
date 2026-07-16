@@ -14,7 +14,7 @@ const WORKSPACE_ROLES = [
     role: "Admin",
     summary: "Runs membership and shared setup.",
     details:
-      "Admins invite and remove members, assign Admin or Member, manage teams, and configure shared plugins, connections, and knowledge.",
+      "Admins invite and remove members, assign Admin or Member, manage teams, and configure shared connections, connections, and knowledge.",
   },
   {
     role: "Member",

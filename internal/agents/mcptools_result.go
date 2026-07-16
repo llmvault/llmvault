@@ -12,18 +12,13 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // --- output ------------------------------------------------------------------
 
 func agentResultJSON(ctx context.Context, db *gorm.DB, agent *model.Agent, frontendURL string, skillSlugs []string, runtime model.JSON, mcpAllow []string) (*mcp.CallToolResult, error) {
-	// Load the persisted plugin/skill/tool state so update responses reflect the
+	// Load the persisted skill/tool state so update responses reflect the
 	// stored values, not just the request.
-	pluginSlugs, err := agentPluginSlugs(ctx, db, agent)
-	if err != nil {
-		return toolError(err.Error()), nil
-	}
 	skillsOut := agentSkillSlugs(agent)
 	toolsOut := agentToolIDs(agent)
 	subs, err := agentSubAgents(ctx, db, agent.ID)
@@ -36,24 +31,12 @@ func agentResultJSON(ctx context.Context, db *gorm.DB, agent *model.Agent, front
 			"name":       agent.Name,
 			"status":     agent.Status,
 			"model":      agent.Model,
-			"plugins":    pluginSlugs,
 			"skills":     skillsOut,
 			"tools":      toolsOut,
 			"sub_agents": subs,
 		},
 		"url": agentURL(frontendURL, agent.ID),
 	})
-}
-
-func agentPluginSlugs(ctx context.Context, db *gorm.DB, agent *model.Agent) ([]string, error) {
-	slugs, err := pluginresolve.EffectivePluginSlugs(ctx, db, *agent)
-	if err != nil {
-		return nil, fmt.Errorf("load agent plugins: %w", err)
-	}
-	if slugs == nil {
-		slugs = []string{}
-	}
-	return slugs, nil
 }
 
 func agentSkillSlugs(agent *model.Agent) []string {
@@ -188,8 +171,8 @@ func mergeBaselineRuntime(runtime model.JSON) {
 }
 
 // parentAllowFilter builds the MCP filter for a parent agent as an explicit
-// allow-list. Plugin installation controls availability, never implicit tool
-// authorization; a Sheets or Apps plugin only exposes a tool the parent chose.
+// allow-list. Connection grants control provider availability; native tools
+// remain available only when the parent explicitly chose them.
 func parentAllowFilter(mcpAllow []string) *model.ToolFilter {
 	return allowFilter(mcpAllow)
 }

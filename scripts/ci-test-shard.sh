@@ -129,8 +129,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/microsandbox/runner \
     github.com/usehivy/hivy/internal/microsandbox/security \
     github.com/usehivy/hivy/internal/netguard \
-    github.com/usehivy/hivy/internal/pluginresolve \
-    github.com/usehivy/hivy/internal/plugins \
+	github.com/usehivy/hivy/internal/skillaccess \
     github.com/usehivy/hivy/internal/precontext \
     github.com/usehivy/hivy/internal/quiver \
     github.com/usehivy/hivy/internal/railway \

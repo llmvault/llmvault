@@ -10,7 +10,7 @@
     "provider": "github-app",
     "required": true
   },
-  "plugins": {
+  "connections": {
     "required": [
       "github"
     ],

@@ -141,7 +141,7 @@ function SheetsViewContent({
       <SheetsState
         icon="table"
         title="No sheets yet"
-        message="Create a sheet, or ask an agent with the Sheets plugin to build one for you."
+        message="Create a sheet, or ask an agent with Sheets tools to build one for you."
         action={<NamePopover label="New sheet" onSubmit={createNewSheet} />}
       />
     )

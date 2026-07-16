@@ -102,6 +102,16 @@ func (s *store) getIntegration(key string) (*integration, bool) {
 	return i, ok
 }
 
+func (s *store) listIntegrations() []*integration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]*integration, 0, len(s.integrations))
+	for _, integration := range s.integrations {
+		out = append(out, integration)
+	}
+	return out
+}
+
 func (s *store) deleteIntegration(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

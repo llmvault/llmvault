@@ -15,7 +15,7 @@ describe("SlackChannels", () => {
     expect(html).toContain("A linked Slack thread and its Hivy session")
     expect(html).toContain("Connect Slack and complete a session")
     expect(html).toContain("Direct messages and group direct messages")
-    expect(html).toContain("/w/plugins/slack")
+    expect(html).toContain("/w/connections/slack")
     expect(html).not.toContain(".jpg")
     expect(html).not.toContain("conversation")
   })

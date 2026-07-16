@@ -18,7 +18,6 @@ import (
 // --- archive_skill -------------------------------------------------------------
 
 type archiveSkillArgs struct {
-	PluginSlug      string `json:"plugin_slug"`
 	Skill           string `json:"skill"`
 	UserApproved    bool   `json:"user_approved"`
 	HivyActorUserID string `json:"_hivy_actor_user_id"`
@@ -27,16 +26,15 @@ type archiveSkillArgs struct {
 func registerArchiveSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolArchiveSkill,
-		Description: "Archive a skill in a plugin owned by the calling agent's team, removing it from that team's agents. Catalog plugins and plugins owned by another team are rejected. Destructive: requires user_approved=true, which you may only set after showing the user exactly which skill will be removed and getting their explicit confirmation in this conversation.",
+		Description: "Archive a skill owned by the calling agent's team, removing it from that team's agents. Destructive: requires user_approved=true, which you may only set after showing the user exactly which skill will be removed and getting their explicit confirmation in this conversation.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 			"properties": map[string]any{
-				"plugin_slug":   map[string]any{"type": "string", "description": "Slug of the calling team's custom plugin that contains the skill."},
 				"skill":         map[string]any{"type": "string", "description": "Slug of the skill to archive."},
 				"user_approved": map[string]any{"type": "boolean", "description": "Set true only after the user explicitly confirmed archiving this exact skill in this conversation."},
 			},
-			"required": []string{"plugin_slug", "skill", "user_approved"},
+			"required": []string{"skill", "user_approved"},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args archiveSkillArgs
@@ -52,11 +50,7 @@ func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, ar
 	if errResult != nil {
 		return errResult, nil
 	}
-	plugin, errResult := loadTeamOwnedPlugin(ctx, db, token.OrgID, agent.TeamID, args.PluginSlug)
-	if errResult != nil {
-		return errResult, nil
-	}
-	skill, errResult := loadTeamOwnedSkill(ctx, db, token.OrgID, plugin, args.Skill)
+	skill, errResult := loadTeamOwnedSkill(ctx, db, token.OrgID, agent.TeamID, args.Skill)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -66,8 +60,8 @@ func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, ar
 			desc = *skill.Description
 		}
 		return skillToolError(fmt.Sprintf(
-			"archiving %q removes it from every agent that has the %q plugin. Show the user the skill (name: %s, description: %s), get their explicit confirmation in this conversation, then retry with user_approved=true",
-			skill.Slug, plugin.Slug, skill.Name, desc,
+			"archiving %q removes it from every agent on this team. Show the user the skill (name: %s, description: %s), get their explicit confirmation in this conversation, then retry with user_approved=true",
+			skill.Slug, skill.Name, desc,
 		)), nil
 	}
 	if err := db.WithContext(ctx).Model(skill).Update("status", model.SkillStatusArchived).Error; err != nil {
@@ -76,9 +70,9 @@ func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, ar
 	return skillToolJSON(map[string]any{
 		"success": true,
 		"skill": map[string]any{
-			"slug":        skill.Slug,
-			"plugin_slug": plugin.Slug,
-			"status":      model.SkillStatusArchived,
+			"slug":    skill.Slug,
+			"team_id": agent.TeamID.String(),
+			"status":  model.SkillStatusArchived,
 		},
 		"hint": "Archived. update_skill on this slug republishes it.",
 	})
@@ -86,47 +80,17 @@ func handleArchiveSkill(ctx context.Context, db *gorm.DB, token *model.Token, ar
 
 // --- shared helpers ------------------------------------------------------------
 
-// loadTeamOwnedPlugin resolves an active plugin owned by the calling team.
-// Catalog and cross-team plugins are deliberately rejected: agent-authored
-// skills only ever live in team-owned plugins.
-func loadTeamOwnedPlugin(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, slug string) (*model.Plugin, *mcp.CallToolResult) {
-	slug = strings.TrimSpace(slug)
-	if slug == "" {
-		return nil, skillToolError("plugin_slug is required")
-	}
-	var plugin model.Plugin
-	err := db.WithContext(ctx).
-		Where("slug = ? AND org_id = ? AND team_id = ? AND status = ?", slug, orgID, teamID, model.PluginStatusActive).
-		First(&plugin).Error
-	if err == gorm.ErrRecordNotFound {
-		var globalCount int64
-		if checkErr := db.WithContext(ctx).Model(&model.Plugin{}).
-			Where("slug = ? AND org_id IS NULL AND status = ?", slug, model.PluginStatusActive).
-			Count(&globalCount).Error; checkErr != nil {
-			return nil, skillToolError("failed to check catalog plugin")
-		}
-		if globalCount > 0 {
-			return nil, skillToolError(fmt.Sprintf("plugin %q is a catalog plugin; custom skills can only be added to plugins created by this team with create_team_plugin", slug))
-		}
-		return nil, skillToolError(fmt.Sprintf("team plugin %q not found; create it with create_team_plugin or check list_team_plugins", slug))
-	}
-	if err != nil {
-		return nil, skillToolError("failed to load plugin: " + err.Error())
-	}
-	return &plugin, nil
-}
-
-func loadTeamOwnedSkill(ctx context.Context, db *gorm.DB, orgID uuid.UUID, plugin *model.Plugin, slug string) (*model.Skill, *mcp.CallToolResult) {
+func loadTeamOwnedSkill(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, slug string) (*model.Skill, *mcp.CallToolResult) {
 	slug = strings.TrimSpace(slug)
 	if slug == "" {
 		return nil, skillToolError("skill is required")
 	}
 	var skill model.Skill
 	err := db.WithContext(ctx).
-		Where("plugin_id = ? AND slug = ? AND org_id = ?", plugin.ID, slug, orgID).
+		Where("org_id = ? AND team_id = ? AND slug = ?", orgID, teamID, slug).
 		First(&skill).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, skillToolError(fmt.Sprintf("skill %q not found in plugin %q", slug, plugin.Slug))
+		return nil, skillToolError(fmt.Sprintf("team skill %q not found", slug))
 	}
 	if err != nil {
 		return nil, skillToolError("failed to load skill: " + err.Error())
@@ -213,9 +177,7 @@ func cleanSkillFiles(files map[string]string) map[string]string {
 	return out
 }
 
-// marshalSkillBundle builds the Bundle jsonb exactly like plugin sync does for
-// filesystem skills, so agent-authored skills flow through skill_view and
-// materialization unchanged.
+// marshalSkillBundle builds the Bundle jsonb persisted for a skill.
 func marshalSkillBundle(slug, name, description, content string, files map[string]string, envVars []string) ([]byte, error) {
 	bundle := &Bundle{
 		ID:          slug,
@@ -272,6 +234,6 @@ func environmentSettingsURL(frontendURL string) string {
 	return base + "/w/settings/environments"
 }
 
-func skillPublishHint(pluginSlug string) string {
-	return "Published. The \"" + pluginSlug + "\" plugin belongs to this team, so its agents see the skill in their Available skills prompt section on the next session."
+func skillPublishHint() string {
+	return "Published. Every agent on this team sees the skill in its Available skills prompt section on the next session."
 }

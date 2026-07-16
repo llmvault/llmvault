@@ -42,24 +42,17 @@ func seedNangoGitHubConnection(t *testing.T, db *gorm.DB) (model.Org, model.Conn
 	return org, conn
 }
 
-// seedGitHubPluginForAgent installs an active GitHub plugin (integrating the
-// github-app provider) on the agent so connectionaccess.ResolveAgentProvider
-// resolves — i.e. the agent can actually use GitHub tooling.
-func seedGitHubPluginForAgent(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID) {
+// grantGitHubConnectionToAgentTeam gives the agent's team concrete access to
+// the seeded GitHub connection.
+func grantGitHubConnectionToAgentTeam(t *testing.T, db *gorm.DB, orgID, agentID, connectionID uuid.UUID) {
 	t.Helper()
-	plugin := model.Plugin{Slug: "github-" + uuid.NewString()[:8], Name: "GitHub", Status: model.PluginStatusActive}
-	if err := db.Create(&plugin).Error; err != nil {
-		t.Fatalf("create plugin: %v", err)
+	var agent model.Agent
+	if err := db.First(&agent, "id = ?", agentID).Error; err != nil {
+		t.Fatalf("load agent: %v", err)
 	}
-	if err := db.Create(&model.PluginIntegration{
-		PluginID: plugin.ID, Provider: githubAppProvider, Kind: model.PluginIntegrationKindIntegration, Required: true,
-	}).Error; err != nil {
-		t.Fatalf("create plugin integration: %v", err)
+	if err := db.Create(&model.TeamConnectionGrant{ID: uuid.New(), OrgID: orgID, TeamID: agent.TeamID, ConnectionID: &connectionID}).Error; err != nil {
+		t.Fatalf("grant connection: %v", err)
 	}
-	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: plugin.ID}).Error; err != nil {
-		t.Fatalf("create org plugin install: %v", err)
-	}
-	grantPluginToAgentTeam(t, db, orgID, agentID, plugin.ID)
 }
 
 // The split issue/PR mention keys resolve to their own templates, so install
@@ -77,7 +70,7 @@ func TestTriggerHandlerCreateGitHubMentionSplitKeys(t *testing.T) {
 			db := connectNangoSlackTestDB(t)
 			org, conn := seedNangoGitHubConnection(t, db)
 			agent := seedSlackReactionAgent(t, db, org.ID)
-			seedGitHubPluginForAgent(t, db, org.ID, agent.ID)
+			grantGitHubConnectionToAgentTeam(t, db, org.ID, agent.ID, conn.ID)
 			body, _ := json.Marshal(createTriggerRequest{
 				Name:                 "Test trigger",
 				Provider:             githubAppProvider,
@@ -122,7 +115,7 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	db := connectNangoSlackTestDB(t)
 	org, conn := seedNangoGitHubConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
-	seedGitHubPluginForAgent(t, db, org.ID, agent.ID)
+	grantGitHubConnectionToAgentTeam(t, db, org.ID, agent.ID, conn.ID)
 	body, _ := json.Marshal(createTriggerRequest{
 		Name:                 "Test trigger",
 		Provider:             githubAppProvider,
@@ -184,11 +177,11 @@ func TestTriggerHandlerCreateGitHubMentionTrigger(t *testing.T) {
 	}
 }
 
-func TestTriggerHandlerCreateGitHubMentionRequiresGitHubPlugin(t *testing.T) {
+func TestTriggerHandlerCreateGitHubMentionRequiresGitHubConnection(t *testing.T) {
 	db := connectNangoSlackTestDB(t)
 	org, conn := seedNangoGitHubConnection(t, db)
 	agent := seedSlackReactionAgent(t, db, org.ID)
-	// No GitHub plugin installed on the agent → the agent could not post a
+	// No GitHub connection granted to the agent's team means it could not post a
 	// reply, so install must be rejected.
 	body, _ := json.Marshal(createTriggerRequest{
 		Name:                 "Test trigger",
@@ -210,8 +203,8 @@ func TestTriggerHandlerCreateGitHubMentionRequiresGitHubPlugin(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if body := rr.Body.String(); !strings.Contains(body, "GitHub plugin") {
-		t.Fatalf("expected GitHub plugin message, got %s", body)
+	if body := rr.Body.String(); !strings.Contains(body, "GitHub connection") {
+		t.Fatalf("expected GitHub connection message, got %s", body)
 	}
 	var count int64
 	if err := db.Model(&model.AgentTrigger{}).Where("org_id = ?", org.ID).Count(&count).Error; err != nil {

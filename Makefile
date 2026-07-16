@@ -250,10 +250,6 @@ test-agent-runtime-e2e:
 test-agent-sessions-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
 	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run 'Test(AgentSessions(DefaultGeneralChannel|Memory|Reflection|SandboxUpgradeDrain|SleepWakeCronLifecycle|ImageGenerationTools|ReadFileImageDescribe|CanvasBrandsCLI|CanvasArtifactsCLI|Sheets|QAAgent)|MicrosandboxPreviewCacheWake)E2E' -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
 
-# Run only the QA-plugin agent sessions E2E against a live compose stack. Stands
-# up a login-page fixture, creates the QA agent + sub-agents, installs the
-# sheets + qa plugins, and asserts a QA registry sheet with a passing result.
-
 # Build the app sandbox image (hivy-appd host). Always rebuilt — it is tiny
 # and must track cmd/hivy-appd. Tag `app` matches the compose default for
 # HIVY_SANDBOXES_APP_IMAGE_TAG.

@@ -136,11 +136,6 @@ func newHarness(t *testing.T) *testHarness {
 		r.Get("/providers/{id}/models", providerHandler.Models)
 	})
 
-	r.Route("/v1/widget", func(r chi.Router) {
-		r.Route("/integrations", func(r chi.Router) {
-		})
-	})
-
 	proxyHandler := handler.NewProxyHandler(cm, nil, proxy.NewTransport())
 	r.Route("/v1/proxy", func(r chi.Router) {
 		r.Use(middleware.TokenAuth(signingKey, db))

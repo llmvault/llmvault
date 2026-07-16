@@ -25,7 +25,7 @@ func TestLoadManifestLoadsSubAgentInstructions(t *testing.T) {
   "name": "Hakaree",
   "runtime": {"model": "deepseek-v4-pro"},
   "prompt": {},
-  "plugins": {},
+  "required_connections": [],
   "sub_agents": {
     "codebase-explorer": {
       "name": "Codebase Explorer",

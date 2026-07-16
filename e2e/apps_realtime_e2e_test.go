@@ -57,10 +57,6 @@ func TestAppsRealtimeE2E(t *testing.T) {
 	orgID := ownerAuth.Orgs[0].ID
 	token := ownerAuth.AccessToken
 
-	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "sheets")
-	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "apps")
-	t.Log("installed sheets + apps org plugins")
-
 	channelID := appsRealtimeDefaultChannel(t, ctx, apiBase, token, orgID)
 	t.Logf("using channel id=%s", channelID)
 

@@ -57,7 +57,7 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	// Archive the team AND cascade its provisioning in one tx so no orphaned,
 	// still-active agent (the team's Hivy + catalog clones) is left org-listable
-	// behind the archived team, and no stale team_plugins / team_rag_sources /
+	// behind the archived team, and no stale connection/skill/RAG/team-member
 	// team_members grants survive. Channels were already required to be removed
 	// above, so the team's agents have no live sessions to tear down here.
 	if err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
@@ -81,7 +81,11 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		}
 		// Clear the team's provisioning rows.
 		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).
-			Delete(&model.TeamPlugin{}).Error; err != nil {
+			Delete(&model.TeamConnectionGrant{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).
+			Delete(&model.TeamSkillGrant{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).

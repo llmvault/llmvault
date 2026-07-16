@@ -42,8 +42,8 @@ export function ToolsAndSubAgents() {
       <div className="mt-16 space-y-14">
         <DocSection title="Tools control what the agent can do">
           <p>
-            Runtime tools act inside Hivy, while plugins connect the agent to
-            company systems and external services. Grant only the combination
+            Runtime tools act inside Hivy, while connections connect the agent
+            to company systems and external services. Grant only the combination
             required by the job.
           </p>
           <dl className="mt-6 divide-y divide-border rounded-xl border border-border bg-surface">
@@ -66,18 +66,18 @@ export function ToolsAndSubAgents() {
           </p>
         </DocSection>
 
-        <DocSection title="Team plugins add external capabilities">
+        <DocSection title="Team connections add external capabilities">
           <p>
-            An agent receives the plugins available to its team, which may
+            An agent receives the connections available to its team, which may
             expose a connected service, a database, Sheets, or another Hivy
-            feature. Switch off an optional plugin here when this role
+            feature. Switch off an optional connection here when this role
             doesn&apos;t need it.
           </p>
           <p className="mt-3">
             Catalog requirements work differently: Hivy blocks the team
-            installation until every required plugin is available.
+            installation until every required connection is available.
           </p>
-          <DocLink href="/docs/plugins-and-connections/how-access-works">
+          <DocLink href="/docs/connections-and-skills/how-access-works">
             Learn how connections and team access work
           </DocLink>
         </DocSection>

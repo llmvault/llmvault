@@ -262,7 +262,7 @@ export function automationMatchesQuery(
     automation.type,
     automationSourceLabel(automation),
     automationTriggerKey(automation),
-    ...automationRequiredPlugins(automation),
+    ...automationRequiredConnections(automation),
   ]
     .filter(Boolean)
     .some((value) => value.toLowerCase().includes(normalized))
@@ -332,10 +332,10 @@ export function automationDefaultChannel(automation: AutomationItem): string {
   return humanizeSlug(channel) || channel
 }
 
-export function automationRequiredPlugins(
+export function automationRequiredConnections(
   automation: AutomationItem
 ): string[] {
-  return automation.catalog?.plugins?.required ?? []
+  return automation.catalog?.connections?.required ?? []
 }
 
 function humanizeSlug(value: string): string {

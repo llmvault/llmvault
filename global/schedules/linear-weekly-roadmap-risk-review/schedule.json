@@ -10,7 +10,7 @@
     "provider": "linear",
     "required": true
   },
-  "plugins": {
+  "connections": {
     "required": ["linear"],
     "recommended": []
   },

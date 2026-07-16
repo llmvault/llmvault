@@ -40,11 +40,11 @@ type ConfigUpdateRequest struct {
 }
 
 type HTTPMessageRequest struct {
-	Text            string       `json:"text"`
-	SessionID       string       `json:"-"`
-	SessionContext  []string     `json:"session_context,omitempty"`
-	User            string       `json:"user,omitempty"`
-	UserDisplayName string       `json:"user_display_name,omitempty"`
+	Text            string   `json:"text"`
+	SessionID       string   `json:"-"`
+	SessionContext  []string `json:"session_context,omitempty"`
+	User            string   `json:"user,omitempty"`
+	UserDisplayName string   `json:"user_display_name,omitempty"`
 	// ActorUserID is the Hivy user id of the human on whose behalf this turn
 	// runs. The runtime injects it into agent tool calls as `_hivy_actor_user_id`
 	// so tools can authorize on the requesting user. Empty for automated

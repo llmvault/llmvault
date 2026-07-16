@@ -10,12 +10,12 @@ func iptr(v int) *int { return &v }
 
 func TestComputeRAGProgress(t *testing.T) {
 	cases := []struct {
-		name          string
-		attempt       ragmodel.RAGIndexAttempt
-		wantPercent   *int
-		wantBasis     string
-		wantIndet     bool
-		wantDocs      int
+		name        string
+		attempt     ragmodel.RAGIndexAttempt
+		wantPercent *int
+		wantBasis   string
+		wantIndet   bool
+		wantDocs    int
 	}{
 		{
 			name:        "successful attempt is 100 percent",

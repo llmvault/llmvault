@@ -8,10 +8,22 @@ import (
 )
 
 func mountIntegrations(r chi.Router, st *store) {
+	r.Get("/integrations", listIntegrations(st))
 	r.Post("/integrations", createIntegration(st))
 	r.Get("/integrations/{key}", getIntegration(st))
 	r.Patch("/integrations/{key}", updateIntegration(st))
 	r.Delete("/integrations/{key}", deleteIntegration(st))
+}
+
+func listIntegrations(st *store) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		integrations := st.listIntegrations()
+		data := make([]map[string]any, 0, len(integrations))
+		for _, integration := range integrations {
+			data = append(data, integration2payload(integration))
+		}
+		writeJSON(w, http.StatusOK, apiResp{Data: data})
+	}
 }
 
 type createIntegrationReq struct {

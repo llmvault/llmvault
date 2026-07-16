@@ -73,23 +73,25 @@ export function SlackChannels() {
       <div className="mt-16 space-y-14 border-t border-border pt-14">
         <DocStep number="1" title="Install and connect Slack">
           <p>
-            A workspace Owner or Admin opens <strong>Plugins</strong>, chooses
-            the <strong>Slack</strong> plugin, and adds it to the workspace. If
-            no Slack connection exists, choose <strong>Connect</strong> under{" "}
-            <strong>Required connections</strong> to open the authorization
-            flow.
+            A workspace Owner or Admin opens <strong>Connections</strong>,
+            chooses the <strong>Slack</strong> connection, and adds it to the
+            workspace. If no Slack connection exists, choose{" "}
+            <strong>Connect</strong> under <strong>Required connections</strong>{" "}
+            to open the authorization flow.
           </p>
           <p className="mt-3">
             Members can check Slack&apos;s status. Only an Owner or Admin can
-            install or remove the plugin and change its connection.
+            install or remove the connection and change its connection.
           </p>
-          <DocLink href="/w/plugins/slack">Open the Slack plugin</DocLink>
+          <DocLink href="/w/connections/slack">
+            Open the Slack connection
+          </DocLink>
         </DocStep>
 
         <DocStep number="2" title="Enable Slack for the team">
           <p>
             Go to <strong>Settings</strong> &gt; <strong>Teams</strong>, open
-            the team that owns this work, and enable the Slack plugin there.
+            the team that owns this work, and enable the Slack connection there.
           </p>
           <p className="mt-3">
             That team&apos;s agents can now use Slack. Agents on other teams
@@ -132,7 +134,7 @@ export function SlackChannels() {
         <DocsMediaPlaceholder
           type="video"
           title="Connect Slack and complete a session"
-          description="Record a 90 second walkthrough at 4K and 100% browser zoom. Connect the Slack plugin, enable it for one team, link a public channel, send an @Hivy request, then open the resulting Hivy session."
+          description="Record a 90 second walkthrough at 4K and 100% browser zoom. Connect the Slack connection, enable it for one team, link a public channel, send an @Hivy request, then open the resulting Hivy session."
           bleed={false}
         />
 
@@ -239,7 +241,7 @@ function Troubleshooting() {
       <ul className="mt-5 max-w-2xl space-y-4 text-muted">
         <TroubleshootingItem title="Slack is unavailable during channel setup">
           Ask a workspace Owner or Admin to install and connect Slack, then
-          enable the plugin for your team.
+          enable the connection for your team.
         </TroubleshootingItem>
         <TroubleshootingItem title="A private channel is missing">
           Invite the Hivy Slack app to the private channel. Return to Hivy and

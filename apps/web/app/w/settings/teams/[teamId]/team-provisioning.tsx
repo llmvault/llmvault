@@ -3,11 +3,12 @@
 import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
-import { PluginLogoTile } from "@/components/plugin-logo"
+import { IntegrationLogo } from "@/components/integration-logo"
+import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { useIsAdmin } from "@/lib/auth/use-role"
-import { pluginName, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
+import type { components } from "@/lib/api/schema"
 import {
   deriveProvider,
   providerMeta,
@@ -15,11 +16,7 @@ import {
   type RagSource,
 } from "../../knowledge/_lib"
 import { ProviderIcon } from "../../knowledge/_provider-icon"
-import {
-  enabledIdSet,
-  isProvisioned,
-  isTeamProvisionable,
-} from "./_provisioning-lib"
+import { enabledIdSet, isProvisioned } from "./_provisioning-lib"
 import {
   EmptyProvisioningRow,
   ProvisioningRow,
@@ -27,9 +24,13 @@ import {
   SectionHeader,
 } from "./_provisioning-row"
 
-const TEAM_PLUGINS_KEY = [
+const TEAM_CONNECTIONS_KEY = [
   "get",
-  "/v1/orgs/current/teams/{teamID}/plugins",
+  "/v1/orgs/current/teams/{teamID}/connections",
+] as const
+const TEAM_SKILLS_KEY = [
+  "get",
+  "/v1/orgs/current/teams/{teamID}/skills",
 ] as const
 const TEAM_RAG_SOURCES_KEY = [
   "get",
@@ -40,13 +41,19 @@ export function TeamProvisioningSection({ teamId }: { teamId: string }) {
   const isAdmin = useIsAdmin()
   return (
     <div className="flex flex-col gap-8">
-      <TeamPluginsSection teamId={teamId} readOnly={!isAdmin} />
+      <TeamConnectionsSection teamId={teamId} readOnly={!isAdmin} />
+      <TeamSkillsSection teamId={teamId} readOnly={!isAdmin} />
       {isAdmin ? <TeamKnowledgeSourcesSection teamId={teamId} /> : null}
     </div>
   )
 }
 
-function TeamPluginsSection({
+type ConnectionRow =
+  | components["schemas"]["connectionResponse"]
+  | components["schemas"]["databaseConnectionResponse"]
+type SkillRow = components["schemas"]["skillResponse"]
+
+function TeamConnectionsSection({
   teamId,
   readOnly,
 }: {
@@ -55,99 +62,112 @@ function TeamPluginsSection({
 }) {
   const queryClient = useQueryClient()
 
-  const pluginsQuery = $api.useQuery("get", "/v1/plugins")
-  const teamPluginsQuery = $api.useQuery(
+  const connectionsQuery = $api.useQuery("get", "/v1/connections", {
+    params: { query: { limit: 100 } },
+  })
+  const databasesQuery = $api.useQuery("get", "/v1/database-integrations")
+  const teamConnectionsQuery = $api.useQuery(
     "get",
-    "/v1/orgs/current/teams/{teamID}/plugins",
+    "/v1/orgs/current/teams/{teamID}/connections",
     { params: { path: { teamID: teamId } } }
   )
-  const enableMutation = $api.useMutation(
+  const grantMutation = $api.useMutation(
     "post",
-    "/v1/orgs/current/teams/{teamID}/plugins"
+    "/v1/orgs/current/teams/{teamID}/connections"
   )
-  const disableMutation = $api.useMutation(
+  const revokeMutation = $api.useMutation(
     "delete",
-    "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}"
+    "/v1/orgs/current/teams/{teamID}/connections/{connectionID}"
   )
 
-  const plugins = useMemo(
-    () =>
-      (pluginsQuery.data ?? []).filter(
-        (plugin) =>
-          plugin.installed === true &&
-          (isTeamProvisionable(plugin) || plugin.auto_install === true)
-      ),
-    [pluginsQuery.data]
+  const connections = useMemo<ConnectionRow[]>(
+    () => [
+      ...(connectionsQuery.data?.data ?? []),
+      ...(databasesQuery.data ?? []),
+    ],
+    [connectionsQuery.data?.data, databasesQuery.data]
   )
   const enabledIds = useMemo(
-    () => enabledIdSet(teamPluginsQuery.data?.data),
-    [teamPluginsQuery.data?.data]
+    () => enabledIdSet(teamConnectionsQuery.data?.data),
+    [teamConnectionsQuery.data?.data]
   )
-  const isBusy = enableMutation.isPending || disableMutation.isPending
-  const isLoading = pluginsQuery.isLoading || teamPluginsQuery.isLoading
+  const isBusy = grantMutation.isPending || revokeMutation.isPending
+  const isLoading =
+    connectionsQuery.isLoading ||
+    databasesQuery.isLoading ||
+    teamConnectionsQuery.isLoading
 
-  function toggle(plugin: ApiPlugin, on: boolean) {
-    const id = plugin.id
+  function toggle(connection: ConnectionRow, on: boolean) {
+    const id = connection.id
     if (!id) return
-    const name = pluginName(plugin)
+    const name =
+      connection.name ||
+      connection.display_name ||
+      connection.provider ||
+      "connection"
     const options = {
       onSuccess: () => {
-        toast.success(`${on ? "Enabled" : "Disabled"} ${name} for this team`)
-        queryClient.invalidateQueries({ queryKey: TEAM_PLUGINS_KEY })
+        toast.success(`${on ? "Granted" : "Revoked"} ${name} for this team`)
+        queryClient.invalidateQueries({ queryKey: TEAM_CONNECTIONS_KEY })
       },
       onError: (err: unknown) =>
         toast.danger(
           extractErrorMessage(
             err,
-            `Could not ${on ? "enable" : "disable"} plugin`
+            `Could not ${on ? "grant" : "revoke"} connection`
           )
         ),
     }
     if (on) {
-      enableMutation.mutate(
-        { params: { path: { teamID: teamId } }, body: { plugin_id: id } },
+      grantMutation.mutate(
+        { params: { path: { teamID: teamId } }, body: { connection_id: id } },
         options
       )
     } else {
-      disableMutation.mutate(
-        { params: { path: { teamID: teamId, pluginID: id } } },
+      revokeMutation.mutate(
+        { params: { path: { teamID: teamId, connectionID: id } } },
         options
       )
     }
   }
 
-  const enabledPlugins = useMemo(
-    () =>
-      plugins.filter(
-        (plugin) =>
-          plugin.auto_install === true || isProvisioned(plugin.id, enabledIds)
-      ),
-    [plugins, enabledIds]
-  )
+  const visibleConnections = readOnly
+    ? connections.filter((item) => isProvisioned(item.id, enabledIds))
+    : connections
 
   if (readOnly) {
     return (
       <section className="flex flex-col gap-3">
         <SectionHeader
-          title="Plugins"
-          description="Plugins this team's agents can use."
+          title="Connections"
+          description="Connections this team's agents can use."
         />
         <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           {isLoading ? (
             <ProvisioningSkeleton />
-          ) : enabledPlugins.length === 0 ? (
-            <EmptyProvisioningRow text="No plugins are enabled for this team yet." />
+          ) : visibleConnections.length === 0 ? (
+            <EmptyProvisioningRow text="No connections are granted to this team yet." />
           ) : (
-            enabledPlugins.map((plugin, index) => (
+            visibleConnections.map((connection, index) => (
               <ProvisioningRow
-                key={plugin.id ?? index}
+                key={connection.id ?? index}
                 readOnly
-                last={index === enabledPlugins.length - 1}
-                icon={<PluginLogoTile plugin={plugin} />}
-                title={pluginName(plugin)}
-                subtitle={plugin.description || "No description"}
+                last={index === visibleConnections.length - 1}
+                icon={
+                  <IntegrationLogo
+                    provider={connection.provider ?? ""}
+                    size={32}
+                  />
+                }
+                title={
+                  connection.name ||
+                  connection.display_name ||
+                  connection.provider ||
+                  "Connection"
+                }
+                subtitle={connection.provider || "Connection"}
                 on
-                label={`${pluginName(plugin)} is enabled for this team`}
+                label="Connection is granted to this team"
               />
             ))
           )}
@@ -159,33 +179,127 @@ function TeamPluginsSection({
   return (
     <section className="flex flex-col gap-3">
       <SectionHeader
-        title="Plugins"
-        description="Plugins enabled here are available to every agent in this team."
+        title="Connections"
+        description="Granted connections expose their generated MCP tools to every agent in this team."
       />
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {isLoading ? (
           <ProvisioningSkeleton />
-        ) : plugins.length === 0 ? (
-          <EmptyProvisioningRow text="No plugins are installed for this workspace yet." />
+        ) : connections.length === 0 ? (
+          <EmptyProvisioningRow text="No connections exist for this workspace yet." />
         ) : (
-          plugins.map((plugin, index) => {
-            const alwaysOn = plugin.auto_install === true
-            const on = alwaysOn || isProvisioned(plugin.id, enabledIds)
+          connections.map((connection, index) => {
+            const on = isProvisioned(connection.id, enabledIds)
             return (
               <ProvisioningRow
-                key={plugin.id ?? index}
-                last={index === plugins.length - 1}
-                icon={<PluginLogoTile plugin={plugin} />}
-                title={pluginName(plugin)}
-                subtitle={plugin.description || "No description"}
-                on={on}
-                disabled={alwaysOn || isBusy || !plugin.id}
-                label={
-                  alwaysOn
-                    ? `${pluginName(plugin)} is always enabled for every team`
-                    : `${on ? "Disable" : "Enable"} ${pluginName(plugin)} for this team`
+                key={connection.id ?? index}
+                last={index === connections.length - 1}
+                icon={
+                  <IntegrationLogo
+                    provider={connection.provider ?? ""}
+                    size={32}
+                  />
                 }
-                onChange={(selected) => toggle(plugin, selected)}
+                title={
+                  connection.name ||
+                  connection.display_name ||
+                  connection.provider ||
+                  "Connection"
+                }
+                subtitle={connection.provider || "Connection"}
+                on={on}
+                disabled={isBusy || !connection.id}
+                label={`${on ? "Revoke" : "Grant"} connection for this team`}
+                onChange={(selected) => toggle(connection, selected)}
+              />
+            )
+          })
+        )}
+      </div>
+    </section>
+  )
+}
+
+function TeamSkillsSection({
+  teamId,
+  readOnly,
+}: {
+  teamId: string
+  readOnly: boolean
+}) {
+  const queryClient = useQueryClient()
+  const skillsQuery = $api.useQuery("get", "/v1/skills")
+  const teamSkillsQuery = $api.useQuery(
+    "get",
+    "/v1/orgs/current/teams/{teamID}/skills",
+    { params: { path: { teamID: teamId } } }
+  )
+  const grant = $api.useMutation(
+    "post",
+    "/v1/orgs/current/teams/{teamID}/skills"
+  )
+  const revoke = $api.useMutation(
+    "delete",
+    "/v1/orgs/current/teams/{teamID}/skills/{skillID}"
+  )
+  const effective = teamSkillsQuery.data?.data ?? []
+  const effectiveIDs = enabledIdSet(effective)
+  const skills = readOnly
+    ? effective
+    : (skillsQuery.data?.skills ?? []).filter(
+        (skill: SkillRow) => !skill.team_id
+      )
+  const toggle = (skill: SkillRow, on: boolean) => {
+    if (!skill.id) return
+    const options = {
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: TEAM_SKILLS_KEY }),
+      onError: (error: unknown) =>
+        toast.danger(extractErrorMessage(error, "Could not update team skill")),
+    }
+    if (on)
+      grant.mutate(
+        { params: { path: { teamID: teamId } }, body: { skill_id: skill.id } },
+        options
+      )
+    else
+      revoke.mutate(
+        { params: { path: { teamID: teamId, skillID: skill.id } } },
+        options
+      )
+  }
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHeader
+        title="Skills"
+        description="Org skills explicitly granted to this team. Team-owned skills are available automatically."
+      />
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        {skillsQuery.isLoading || teamSkillsQuery.isLoading ? (
+          <ProvisioningSkeleton />
+        ) : skills.length === 0 ? (
+          <EmptyProvisioningRow text="No skills are available for this team yet." />
+        ) : (
+          skills.map((skill, index) => {
+            const matching = effective.find((item) => item.id === skill.id)
+            const on =
+              Boolean(matching) || isProvisioned(skill.id, effectiveIDs)
+            return (
+              <ProvisioningRow
+                key={skill.id ?? index}
+                last={index === skills.length - 1}
+                icon={
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-default">
+                    <AppIcon icon="sparkles" className="h-4 w-4" />
+                  </span>
+                }
+                title={skill.name || "Skill"}
+                subtitle={skill.slug || "Skill"}
+                on={on}
+                readOnly={readOnly}
+                disabled={grant.isPending || revoke.isPending}
+                label={`${on ? "Revoke" : "Grant"} skill`}
+                onChange={(selected) => toggle(skill as SkillRow, selected)}
               />
             )
           })

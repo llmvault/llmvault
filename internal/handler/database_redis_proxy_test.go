@@ -19,7 +19,7 @@ import (
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
-func TestDatabaseProxyUsesRedisProviderPluginInstall(t *testing.T) {
+func TestDatabaseProxyUsesTeamRedisConnectionGrant(t *testing.T) {
 	db := connectTestDB(t)
 	kms := newTestKMS(t)
 	encKey := testSymmetricKey(t)
@@ -40,8 +40,8 @@ func TestDatabaseProxyUsesRedisProviderPluginInstall(t *testing.T) {
 	org := createDatabaseScopeTestOrg(t, db)
 	agent := createDatabaseScopeTestAgent(t, db, org.ID, "redis")
 	secret := createDatabaseScopeTestSandbox(t, db, encKey, org.ID, agent.ID)
-	installDatabaseScopePlugin(t, db, org.ID, agent.ID, "redis")
-	createRedisDatabaseScopeConnection(t, db, kms, org.ID, redisAddr)
+	connectionID := createRedisDatabaseScopeConnection(t, db, kms, org.ID, redisAddr)
+	grantDatabaseConnectionToAgentTeam(t, db, org.ID, agent.ID, connectionID)
 
 	r := chi.NewRouter()
 	r.Post("/internal/database-proxy/redis/{agentID}", proxy.Handle("redis"))
@@ -62,7 +62,7 @@ func TestDatabaseProxyUsesRedisProviderPluginInstall(t *testing.T) {
 	}
 }
 
-func createRedisDatabaseScopeConnection(t *testing.T, db *gorm.DB, kms *crypto.KeyWrapper, orgID uuid.UUID, dsn string) {
+func createRedisDatabaseScopeConnection(t *testing.T, db *gorm.DB, kms *crypto.KeyWrapper, orgID uuid.UUID, dsn string) uuid.UUID {
 	t.Helper()
 	encryptedDSN, wrappedDEK, err := dbi.EncryptSecret(t.Context(), kms, dsn)
 	if err != nil {
@@ -84,6 +84,7 @@ func createRedisDatabaseScopeConnection(t *testing.T, db *gorm.DB, kms *crypto.K
 	if err := db.Create(&conn).Error; err != nil {
 		t.Fatalf("create Redis database connection: %v", err)
 	}
+	return conn.ID
 }
 
 func postRedisDatabaseProxy(t *testing.T, r http.Handler, agentID uuid.UUID, secret, key string) *httptest.ResponseRecorder {

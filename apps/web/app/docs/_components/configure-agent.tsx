@@ -13,7 +13,7 @@ const FIRST_DECISIONS = [
     number: "02",
     title: "Choose the owning team",
     description:
-      "Choose the team that owns the work because that choice controls the agent’s channels and plugins.",
+      "Choose the team that owns the work because that choice controls the agent’s channels and connections.",
   },
   {
     number: "03",
@@ -138,8 +138,8 @@ export function ConfigureAgent() {
             place in this job.
           </p>
           <p className="mt-3">
-            Team plugins come with the agent, but switching off an optional
-            plugin here doesn&apos;t remove it from the rest of the team.
+            Team connections come with the agent, but switching off an optional
+            connection here doesn&apos;t remove it from the rest of the team.
           </p>
           <DocLink href="/docs/agents/tools-and-sub-agents">
             Understand tools, sub-agents, and sandboxes

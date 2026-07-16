@@ -42,12 +42,12 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 		t.Fatalf("create status = %d, body = %s", create.Code, create.Body.String())
 	}
 	id := decodeCreateAgent(t, create).Agent.ID
-	pluginID := uuid.New()
+	connectionID := uuid.New()
 
 	patch := patchAgent(t, h, &org, id, `{
 		"name": "Edited",
 		"mcp_tool_filter": { "deny": ["generate_vector_image", "web_search"] },
-		"plugin_mcp_tool_deny": { "`+pluginID.String()+`": [" chat_delete ", "chat_delete", "reactions_remove"] },
+		"connection_mcp_tool_deny": { "`+connectionID.String()+`": [" chat_delete ", "chat_delete", "reactions_remove"] },
 		"sub_agents": [
 			{ "name": "NewA", "tools": { "bash": true } },
 			{ "name": "NewB", "tools": { "write_file": true } }
@@ -68,9 +68,9 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 		agent.McpToolFilter.Deny[0] != "generate_vector_image" {
 		t.Fatalf("mcp_tool_filter = %#v, want deny vector+web_search", agent.McpToolFilter)
 	}
-	pluginDeny := agent.PluginMCPToolDeny[pluginID.String()]
-	if len(pluginDeny) != 2 || pluginDeny[0] != "chat_delete" || pluginDeny[1] != "reactions_remove" {
-		t.Fatalf("plugin_mcp_tool_deny = %#v, want normalized Slack denies", agent.PluginMCPToolDeny)
+	connectionDeny := agent.ConnectionMCPToolDeny[connectionID.String()]
+	if len(connectionDeny) != 2 || connectionDeny[0] != "chat_delete" || connectionDeny[1] != "reactions_remove" {
+		t.Fatalf("connection_mcp_tool_deny = %#v, want normalized Slack denies", agent.ConnectionMCPToolDeny)
 	}
 
 	var subs []model.Agent
@@ -83,19 +83,19 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 	}
 }
 
-func TestUpdateAgentRejectsNonUUIDPluginMCPToolDenyKey(t *testing.T) {
+func TestUpdateAgentRejectsNonUUIDConnectionMCPToolDenyKey(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
 	cleanupAgents(t, db, org.ID)
 	seedDefaultModelCredential(t, db)
 	h := newAgentHandlerForTest(db)
 
-	create := postCreateAgent(t, db, h, &org, `{"name":"Plugin policy"}`)
+	create := postCreateAgent(t, db, h, &org, `{"name":"Connection policy"}`)
 	if create.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, body = %s", create.Code, create.Body.String())
 	}
 	id := decodeCreateAgent(t, create).Agent.ID
-	patch := patchAgent(t, h, &org, id, `{"plugin_mcp_tool_deny":{"slack":["chat_delete"]}}`)
+	patch := patchAgent(t, h, &org, id, `{"connection_mcp_tool_deny":{"slack":["chat_delete"]}}`)
 	if patch.Code != http.StatusBadRequest {
 		t.Fatalf("update status = %d, want 400; body = %s", patch.Code, patch.Body.String())
 	}

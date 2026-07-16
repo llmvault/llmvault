@@ -31,7 +31,7 @@ const PROGRESS_STEPS: {
   },
   {
     id: "connections",
-    label: "Install plugins",
+    label: "Connections",
     description:
       "Give your agents restricted access to the tools your team uses",
   },
@@ -257,7 +257,7 @@ function CreateTeamStep({ onCreated }: { onCreated: () => void }) {
           Create your first team
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-          Teams control which agents and teammates can access plugins and
+          Teams control which agents and teammates can access connections and
           knowledge sources.
         </p>
       </div>

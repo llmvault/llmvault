@@ -11,13 +11,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
-const (
-	skillViewDescription   = "Load a skill's full content and materialize its bundle (SKILL.md plus references/, templates/, scripts/, assets/) into .skills/<name> in your workspace so linked files and scripts are usable. Pass file_path to read a single linked file instead."
-	skillManagerPluginSlug = "skill-manager"
-)
+const skillViewDescription = "Load a skill's full content and materialize its bundle (SKILL.md plus references/, templates/, scripts/, assets/) into .skills/<name> in your workspace so linked files and scripts are usable. Pass file_path to read a single linked file instead."
 
 // NewToolsFunc registers skill_view for agent proxy MCP servers. The static
 // system prompt already lists every available skill, so a separate skills_list
@@ -25,12 +21,8 @@ const (
 // DB-backed and scoped to the token's agent/org; skill_view returns a
 // materialize payload the runtime writes to the sandbox workspace.
 //
-// It also registers the privileged skill-manager tools (create_team_plugin,
-// create_skill, update_skill, archive_skill) ONLY when the calling agent is
-// permitted and has Skill Manager in its effective plugin set. Default Hivy
-// agents receive it automatically; another agent must receive it through its
-// team and explicitly allow-list a manager tool. frontendURL builds the
-// environment-settings link in manager tool responses.
+// It also registers mutating skill tools when the calling agent's managed MCP
+// filter allows them. frontendURL builds the environment-settings link.
 func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || db == nil || !skillToolAgentProxy(token) {
@@ -44,10 +36,6 @@ func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, toke
 
 		agent, err := loadActiveAgent(context.Background(), db, token.OrgID, agentID)
 		if err != nil || !skillManagerEnabled(agent) {
-			return
-		}
-		hasPlugin, err := pluginresolve.AgentHasPluginSlug(context.Background(), db, *agent, skillManagerPluginSlug)
-		if err != nil || !hasPlugin {
 			return
 		}
 		registerSkillManagerTools(server, db, token, frontendURL)
@@ -92,7 +80,7 @@ func handleSkillView(ctx context.Context, db *gorm.DB, token *model.Token, agent
 	if name == "" {
 		return skillToolError("name is required"), nil
 	}
-	agent, err := loadActiveAgent(ctx, db, token.OrgID, agentID)
+	_, err := loadActiveAgent(ctx, db, token.OrgID, agentID)
 	if err != nil {
 		return skillToolError(err.Error()), nil
 	}
@@ -100,11 +88,9 @@ func handleSkillView(ctx context.Context, db *gorm.DB, token *model.Token, agent
 	if err != nil {
 		return skillToolError("failed to load skills: " + err.Error()), nil
 	}
-	filter := resolveSkillFilter(agent)
-
 	var found *model.Skill
 	for i := range all {
-		if all[i].Slug == name && skillAllowed(all[i].Slug, filter) {
+		if all[i].Slug == name {
 			found = &all[i]
 			break
 		}

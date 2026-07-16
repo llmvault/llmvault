@@ -42,11 +42,5 @@
       "sheet_operations"
     ]
   },
-  "plugins": {
-    "required": [
-      "apps",
-      "sheets"
-    ],
-    "recommended": []
-  }
+  "required_connections": []
 }

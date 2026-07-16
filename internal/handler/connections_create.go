@@ -19,7 +19,7 @@ import (
 )
 
 // @Summary Create a connection
-// @Description Stores a connection after the OAuth flow completes via Nango. During onboarding, matching plugins are installed and enabled for the org's sole active team.
+// @Description Stores a connection after the OAuth flow completes via Nango. During onboarding, the connection is granted to the org's sole active team.
 // @Tags connections
 // @Accept json
 // @Produce json
@@ -134,7 +134,7 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			if createErr := tx.WithContext(ctx).Create(&conn).Error; createErr != nil {
 				return createErr
 			}
-			if onboardingErr := onboarding.New(tx).ConnectionCreated(ctx, org.ID, user.ID, integ.Provider); onboardingErr != nil {
+			if onboardingErr := onboarding.New(tx).ConnectionCreated(ctx, org.ID, user.ID, conn.ID); onboardingErr != nil {
 				return onboardingErr
 			}
 			return nil

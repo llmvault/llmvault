@@ -49,59 +49,54 @@ type agentSkillSummary struct {
 	Description      *string `json:"description,omitempty"`
 	HumanDescription *string `json:"human_description,omitempty"`
 	SourceType       string  `json:"source_type"`
-	Locked           bool    `json:"locked,omitempty"`
-	Required         bool    `json:"required,omitempty"`
 }
 
 type agentCatalogSummary struct {
-	ID                 string   `json:"id"`
-	Slug               string   `json:"slug"`
-	Name               string   `json:"name"`
-	Description        string   `json:"description"`
-	Category           string   `json:"category"`
-	AvatarURL          string   `json:"avatar_url"`
-	Developer          string   `json:"developer"`
-	Official           bool     `json:"official"`
-	IsDefault          bool     `json:"is_default"`
-	SandboxImage       string   `json:"sandbox_image"`
-	RequiredPlugins    []string `json:"required_plugins"`
-	RecommendedPlugins []string `json:"recommended_plugins"`
+	ID                  string   `json:"id"`
+	Slug                string   `json:"slug"`
+	Name                string   `json:"name"`
+	Description         string   `json:"description"`
+	Category            string   `json:"category"`
+	AvatarURL           string   `json:"avatar_url"`
+	Developer           string   `json:"developer"`
+	Official            bool     `json:"official"`
+	IsDefault           bool     `json:"is_default"`
+	SandboxImage        string   `json:"sandbox_image"`
+	RequiredConnections []string `json:"required_connections"`
 }
 
 type agentResponse struct {
-	ID                     string                  `json:"id"`
-	Name                   string                  `json:"name"`
-	TeamID                 *string                 `json:"team_id,omitempty"`
-	Description            *string                 `json:"description,omitempty"`
-	Instructions           string                  `json:"instructions"`
-	AvatarURL              *string                 `json:"avatar_url,omitempty"`
-	Icon                   string                  `json:"icon"`
-	IsDefault              bool                    `json:"is_default"`
-	SandboxImage           string                  `json:"sandbox_image"`
-	SandboxSize            string                  `json:"sandbox_size"`
-	SandboxTemplateID      *string                 `json:"sandbox_template_id,omitempty"`
-	Model                  string                  `json:"model"`
-	DefaultReasoningEffort string                  `json:"default_reasoning_effort"`
-	AutoLoadSkills         model.AutoLoadSkills    `json:"auto_load_skills"`
-	ImageModel             string                  `json:"image_model"`
-	VectorImageModel       string                  `json:"vector_image_model"`
-	Tools                  model.JSON              `json:"tools"`
-	McpToolFilter          *model.ToolFilter       `json:"mcp_tool_filter,omitempty"`
-	PluginMCPToolDeny      model.PluginMCPToolDeny `json:"plugin_mcp_tool_deny"`
-	McpServers             json.RawMessage         `json:"mcp_servers"`
-	Skills                 model.JSON              `json:"skills"`
-	Permissions            model.JSON              `json:"permissions"`
-	SandboxTools           []string                `json:"sandbox_tools"`
-	Status                 string                  `json:"status"`
-	Catalog                *agentCatalogSummary    `json:"catalog,omitempty"`
-	Resources              model.JSON              `json:"resources"`
-	// DisabledPluginIDs lists optional team plugins disabled only for this agent.
-	DisabledPluginIDs []string               `json:"disabled_plugin_ids"`
-	Triggers          []agentTriggerResponse `json:"triggers"`
-	AttachedSkills    []agentSkillSummary    `json:"attached_skills"`
-	SubAgents         []subAgentResponse     `json:"sub_agents"`
-	CreatedAt         string                 `json:"created_at"`
-	UpdatedAt         string                 `json:"updated_at"`
+	ID                     string                      `json:"id"`
+	Name                   string                      `json:"name"`
+	TeamID                 *string                     `json:"team_id,omitempty"`
+	Description            *string                     `json:"description,omitempty"`
+	Instructions           string                      `json:"instructions"`
+	AvatarURL              *string                     `json:"avatar_url,omitempty"`
+	Icon                   string                      `json:"icon"`
+	IsDefault              bool                        `json:"is_default"`
+	SandboxImage           string                      `json:"sandbox_image"`
+	SandboxSize            string                      `json:"sandbox_size"`
+	SandboxTemplateID      *string                     `json:"sandbox_template_id,omitempty"`
+	Model                  string                      `json:"model"`
+	DefaultReasoningEffort string                      `json:"default_reasoning_effort"`
+	AutoLoadSkills         model.AutoLoadSkills        `json:"auto_load_skills"`
+	ImageModel             string                      `json:"image_model"`
+	VectorImageModel       string                      `json:"vector_image_model"`
+	Tools                  model.JSON                  `json:"tools"`
+	McpToolFilter          *model.ToolFilter           `json:"mcp_tool_filter,omitempty"`
+	ConnectionMCPToolDeny  model.ConnectionMCPToolDeny `json:"connection_mcp_tool_deny"`
+	McpServers             json.RawMessage             `json:"mcp_servers"`
+	Skills                 model.JSON                  `json:"skills"`
+	Permissions            model.JSON                  `json:"permissions"`
+	SandboxTools           []string                    `json:"sandbox_tools"`
+	Status                 string                      `json:"status"`
+	Catalog                *agentCatalogSummary        `json:"catalog,omitempty"`
+	Resources              model.JSON                  `json:"resources"`
+	Triggers               []agentTriggerResponse      `json:"triggers"`
+	AttachedSkills         []agentSkillSummary         `json:"attached_skills"`
+	SubAgents              []subAgentResponse          `json:"sub_agents"`
+	CreatedAt              string                      `json:"created_at"`
+	UpdatedAt              string                      `json:"updated_at"`
 }
 
 func toAgentResponse(a model.Agent) agentResponse {
@@ -139,14 +134,13 @@ func toAgentResponse(a model.Agent) agentResponse {
 		VectorImageModel:       a.VectorImageModel,
 		Tools:                  nonNilJSON(a.Tools),
 		McpToolFilter:          a.McpToolFilter,
-		PluginMCPToolDeny:      nonNilPluginMCPToolDeny(a.PluginMCPToolDeny),
+		ConnectionMCPToolDeny:  nonNilConnectionMCPToolDeny(a.ConnectionMCPToolDeny),
 		McpServers:             mcpServers,
 		Skills:                 nonNilJSON(a.Skills),
 		Permissions:            nonNilJSON(a.Permissions),
 		SandboxTools:           append([]string(nil), a.SandboxTools...),
 		Status:                 a.Status,
 		Resources:              nonNilJSON(a.Resources),
-		DisabledPluginIDs:      []string{},
 		SubAgents:              []subAgentResponse{},
 		CreatedAt:              a.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:              a.UpdatedAt.Format(time.RFC3339),
@@ -165,18 +159,17 @@ func toAgentResponse(a model.Agent) agentResponse {
 
 func toAgentCatalogSummary(c model.AgentCatalog) *agentCatalogSummary {
 	return &agentCatalogSummary{
-		ID:                 c.ID.String(),
-		Slug:               c.Slug,
-		Name:               c.Name,
-		Description:        c.Description,
-		Category:           c.Category,
-		AvatarURL:          c.AvatarURL,
-		Developer:          c.Developer,
-		Official:           c.Official,
-		IsDefault:          c.IsDefault,
-		SandboxImage:       model.NormalizeSandboxImage(c.SandboxImage),
-		RequiredPlugins:    append([]string(nil), c.RequiredPlugins...),
-		RecommendedPlugins: append([]string(nil), c.RecommendedPlugins...),
+		ID:                  c.ID.String(),
+		Slug:                c.Slug,
+		Name:                c.Name,
+		Description:         c.Description,
+		Category:            c.Category,
+		AvatarURL:           c.AvatarURL,
+		Developer:           c.Developer,
+		Official:            c.Official,
+		IsDefault:           c.IsDefault,
+		SandboxImage:        model.NormalizeSandboxImage(c.SandboxImage),
+		RequiredConnections: append([]string(nil), c.RequiredConnections...),
 	}
 }
 
@@ -201,9 +194,9 @@ func nonNilAutoLoadSkills(value model.AutoLoadSkills) model.AutoLoadSkills {
 	return value
 }
 
-func nonNilPluginMCPToolDeny(value model.PluginMCPToolDeny) model.PluginMCPToolDeny {
+func nonNilConnectionMCPToolDeny(value model.ConnectionMCPToolDeny) model.ConnectionMCPToolDeny {
 	if value == nil {
-		return model.PluginMCPToolDeny{}
+		return model.ConnectionMCPToolDeny{}
 	}
 	return value
 }
