@@ -153,6 +153,7 @@ const sizeClasses: Record<number, string> = {
   24: "size-6 p-1",
   28: "size-7 p-1",
   32: "size-8 p-1",
+  36: "size-9 p-1.5",
   40: "size-10 p-1.5",
   48: "size-12 p-2",
 }
@@ -163,7 +164,11 @@ interface IntegrationLogoProps {
   className?: string
 }
 
-export function IntegrationLogo({ provider, size = 32, className }: IntegrationLogoProps) {
+export function IntegrationLogo({
+  provider,
+  size = 32,
+  className,
+}: IntegrationLogoProps) {
   const sizeClass = sizeClasses[size] ?? "size-8"
 
   return (
