@@ -20722,6 +20722,15 @@
           }
         }
       },
+      "PluginMCPToolDeny": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
       "PluginsSpec": {
         "type": "object",
         "properties": {
@@ -21020,6 +21029,9 @@
           "key": {
             "type": "string"
           },
+          "mcp_enabled": {
+            "type": "boolean"
+          },
           "parameters": {
             "type": "array",
             "items": {
@@ -21298,6 +21310,9 @@
           "permissions": {
             "$ref": "#/components/schemas/JSON"
           },
+          "plugin_mcp_tool_deny": {
+            "$ref": "#/components/schemas/PluginMCPToolDeny"
+          },
           "resources": {
             "$ref": "#/components/schemas/JSON"
           },
@@ -21393,6 +21408,14 @@
           },
           "permissions": {
             "$ref": "#/components/schemas/JSON"
+          },
+          "plugin_mcp_tool_deny": {
+            "description": "PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys\nare plugin UUIDs; omitted means unchanged and an empty object enables all.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PluginMCPToolDeny"
+              }
+            ]
           },
           "resources": {
             "$ref": "#/components/schemas/JSON"
@@ -21509,6 +21532,9 @@
           },
           "permissions": {
             "$ref": "#/components/schemas/JSON"
+          },
+          "plugin_mcp_tool_deny": {
+            "$ref": "#/components/schemas/PluginMCPToolDeny"
           },
           "resources": {
             "$ref": "#/components/schemas/JSON"

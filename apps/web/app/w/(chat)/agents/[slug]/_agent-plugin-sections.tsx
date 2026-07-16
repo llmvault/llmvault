@@ -1,14 +1,20 @@
 "use client"
 
+import { useState } from "react"
 import NextLink from "next/link"
-import { Skeleton, Switch } from "@heroui/react"
+import { Button, Skeleton, Switch } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { PluginLogoTile } from "@/components/plugin-logo"
+import { $api } from "@/lib/api/hooks"
+import type { components } from "@/lib/api/schema"
 import {
+  pluginConnectionKind,
   pluginDescription,
   pluginName,
+  pluginRequiredConnections,
   pluginSlug,
   type ApiPlugin,
+  type PluginRequirement,
 } from "@/app/w/(chat)/plugins/_lib"
 import {
   pluginEnabledForAgent,
@@ -29,6 +35,8 @@ export function AgentPluginsSection({
   isSaving,
   isLoading,
   onDisabledPluginIDsChange,
+  pluginMCPToolDeny,
+  onPluginMCPToolDenyChange,
 }: {
   agentID: string
   plugins: ApiPlugin[]
@@ -40,6 +48,12 @@ export function AgentPluginsSection({
   isSaving: boolean
   isLoading: boolean
   onDisabledPluginIDsChange: (pluginIDs: string[]) => void
+  pluginMCPToolDeny: Record<string, string[]>
+  onPluginMCPToolDenyChange: (
+    pluginID: string,
+    tool: string,
+    denied: boolean
+  ) => void
 }) {
   const teamPluginIDSet = new Set(teamPluginIDs)
   const disabledPluginIDSet = new Set(disabledPluginIDs)
@@ -95,6 +109,13 @@ export function AgentPluginsSection({
                 if (disabled) next.add(id)
                 else next.delete(id)
                 onDisabledPluginIDsChange(Array.from(next))
+              }}
+              deniedTools={
+                plugin.id ? (pluginMCPToolDeny[plugin.id] ?? []) : []
+              }
+              onToolDeniedChange={(tool, denied) => {
+                if (plugin.id)
+                  onPluginMCPToolDenyChange(plugin.id, tool, denied)
               }}
             />
           ))}
@@ -162,6 +183,8 @@ function AgentPluginRow({
   canManage,
   isSaving,
   onDisabledChange,
+  deniedTools,
+  onToolDeniedChange,
 }: {
   plugin: ApiPlugin
   inheritedFromTeam: boolean
@@ -170,11 +193,20 @@ function AgentPluginRow({
   canManage: boolean
   isSaving: boolean
   onDisabledChange: (disabled: boolean) => void
+  deniedTools: string[]
+  onToolDeniedChange: (tool: string, denied: boolean) => void
 }) {
+  const [toolsOpen, setToolsOpen] = useState(false)
   const slug = pluginSlug(plugin)
   const alwaysOn = plugin.auto_install === true || !inheritedFromTeam
   const locked = alwaysOn || required
   const enabled = locked || !disabled
+  const toolRequirements = pluginRequiredConnections(plugin).filter(
+    (requirement) => {
+      const kind = pluginConnectionKind(requirement)
+      return kind === "integration" || kind === "database"
+    }
+  )
   const details = (
     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
       <PluginLogoTile plugin={plugin} />
@@ -190,32 +222,205 @@ function AgentPluginRow({
   )
 
   return (
-    <div className="bg-card flex min-w-0 items-center justify-between gap-4 rounded-lg border border-border p-3">
-      {slug ? (
-        <NextLink
-          href={`/w/plugins/${slug}`}
-          className="min-w-0 flex-1 overflow-hidden rounded-md transition-colors hover:text-foreground"
+    <div className="bg-card overflow-hidden rounded-lg border border-border">
+      <div className="flex min-w-0 items-center justify-between gap-4 p-3">
+        {slug ? (
+          <NextLink
+            href={`/w/plugins/${slug}`}
+            className="min-w-0 flex-1 overflow-hidden rounded-md transition-colors hover:text-foreground"
+          >
+            {details}
+          </NextLink>
+        ) : (
+          details
+        )}
+        <div className="flex shrink-0 items-center gap-3">
+          {toolRequirements.length > 0 ? (
+            <Button
+              size="sm"
+              variant="tertiary"
+              isDisabled={!enabled}
+              onPress={() => setToolsOpen((open) => !open)}
+              aria-expanded={toolsOpen}
+            >
+              Tools
+              <AppIcon
+                icon={toolsOpen ? "chevron-down" : "chevron-right"}
+                className="h-3.5 w-3.5"
+              />
+            </Button>
+          ) : null}
+          <span className="text-muted-foreground rounded-full bg-default px-2 py-0.5 text-xs">
+            {required ? "Required" : alwaysOn ? "Always on" : "From team"}
+          </span>
+          <Switch
+            aria-label={`${enabled ? "Disable" : "Enable"} ${pluginName(plugin)}`}
+            isSelected={enabled}
+            isDisabled={locked || !canManage || isSaving}
+            onChange={() => onDisabledChange(enabled)}
+            className="shrink-0"
+          >
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch>
+        </div>
+      </div>
+      {toolsOpen ? (
+        <PluginToolAccess
+          requirements={toolRequirements}
+          deniedTools={deniedTools}
+          canManage={canManage}
+          isSaving={isSaving}
+          onToolDeniedChange={onToolDeniedChange}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+type ActionSummary = components["schemas"]["actionSummary"]
+
+function PluginToolAccess({
+  requirements,
+  deniedTools,
+  canManage,
+  isSaving,
+  onToolDeniedChange,
+}: {
+  requirements: PluginRequirement[]
+  deniedTools: string[]
+  canManage: boolean
+  isSaving: boolean
+  onToolDeniedChange: (tool: string, denied: boolean) => void
+}) {
+  return (
+    <div className="border-t border-border bg-default/30 px-3 py-3">
+      <div className="mb-3">
+        <p className="text-sm font-medium text-foreground">Tool access</p>
+        <p className="text-muted-foreground text-xs">
+          New plugin tools are enabled automatically. Turn off tools this agent
+          should not use.
+        </p>
+      </div>
+      <div className="grid gap-4">
+        {requirements.map((requirement) => (
+          <ProviderToolAccess
+            key={`${pluginConnectionKind(requirement)}:${requirement.provider}`}
+            requirement={requirement}
+            deniedTools={deniedTools}
+            canManage={canManage}
+            isSaving={isSaving}
+            onToolDeniedChange={onToolDeniedChange}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProviderToolAccess({
+  requirement,
+  deniedTools,
+  canManage,
+  isSaving,
+  onToolDeniedChange,
+}: {
+  requirement: PluginRequirement
+  deniedTools: string[]
+  canManage: boolean
+  isSaving: boolean
+  onToolDeniedChange: (tool: string, denied: boolean) => void
+}) {
+  const kind = pluginConnectionKind(requirement)
+  const provider = requirement.provider ?? ""
+  const actionsQuery = $api.useQuery(
+    "get",
+    "/v1/catalog/integrations/{id}/actions",
+    { params: { path: { id: provider } } },
+    { enabled: kind === "integration" && provider.length > 0, retry: false }
+  )
+  const actions: ActionSummary[] =
+    kind === "database"
+      ? [
+          {
+            key: "query",
+            display_name: "Run read-only query",
+            description:
+              "Query this database connection without modifying data.",
+            access: "read",
+            mcp_enabled: true,
+          },
+        ]
+      : (actionsQuery.data ?? []).filter(
+          (action) => action.mcp_enabled === true
+        )
+
+  if (actionsQuery.isLoading && kind === "integration") {
+    return <Skeleton className="h-16 w-full rounded-lg" />
+  }
+  if (actionsQuery.isError && kind === "integration") {
+    return (
+      <div className="bg-card flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+        <p className="text-muted-foreground text-xs">
+          Could not load tools for {provider}.
+        </p>
+        <Button
+          size="sm"
+          variant="tertiary"
+          onPress={() => actionsQuery.refetch()}
         >
-          {details}
-        </NextLink>
-      ) : (
-        details
-      )}
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="text-muted-foreground rounded-full bg-default px-2 py-0.5 text-xs">
-          {required ? "Required" : alwaysOn ? "Always on" : "From team"}
-        </span>
-        <Switch
-          aria-label={`${enabled ? "Disable" : "Enable"} ${pluginName(plugin)}`}
-          isSelected={enabled}
-          isDisabled={locked || !canManage || isSaving}
-          onChange={() => onDisabledChange(enabled)}
-          className="shrink-0"
-        >
-          <Switch.Control>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch>
+          Retry
+        </Button>
+      </div>
+    )
+  }
+  if (actions.length === 0) return null
+
+  const denied = new Set(deniedTools)
+  return (
+    <div>
+      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
+        {provider}
+      </p>
+      <div className="bg-card divide-y divide-border rounded-lg border border-border">
+        {actions.map((action) => {
+          const key = action.key ?? ""
+          const enabled = key !== "" && !denied.has(key)
+          return (
+            <div
+              key={key}
+              className="flex items-center justify-between gap-4 px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {action.display_name || key}
+                  </p>
+                  <span className="text-muted-foreground rounded-full bg-default px-1.5 py-0.5 text-[11px] capitalize">
+                    {action.access || "read"}
+                  </span>
+                </div>
+                {action.description ? (
+                  <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
+                    {action.description}
+                  </p>
+                ) : null}
+              </div>
+              <Switch
+                aria-label={`${enabled ? "Disable" : "Enable"} ${action.display_name || key}`}
+                isSelected={enabled}
+                isDisabled={!canManage || isSaving || key === ""}
+                onChange={() => onToolDeniedChange(key, enabled)}
+                className="shrink-0"
+              >
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -38,6 +38,9 @@ func TestResolveConnectionMCPServersEmitsOneServerPerMatchingConnection(t *testi
 	if err := db.Create(&model.TeamPlugin{OrgID: orgID, TeamID: agent.TeamID, PluginID: plugin.ID}).Error; err != nil {
 		t.Fatalf("grant plugin: %v", err)
 	}
+	agent.PluginMCPToolDeny = model.PluginMCPToolDeny{
+		plugin.ID.String(): {"chat_delete", "query"},
+	}
 	integration := model.Integration{UniqueKey: "connection-mcp-" + uuid.NewString(), Provider: "slack", DisplayName: "Slack"}
 	if err := db.Create(&integration).Error; err != nil {
 		t.Fatalf("create integration: %v", err)
@@ -84,5 +87,29 @@ func TestResolveConnectionMCPServersEmitsOneServerPerMatchingConnection(t *testi
 		if url := server["url"].(string); !strings.Contains(url, "/test-jti/") {
 			t.Fatalf("server URL = %q", url)
 		}
+		filter, ok := server["tool_filter"].(map[string]any)
+		if !ok {
+			t.Fatalf("server %s tool filter = %#v", wantNames[index], server["tool_filter"])
+		}
+		deny, ok := filter["deny"].([]string)
+		if !ok || len(deny) != 2 || deny[0] != "chat_delete" || deny[1] != "query" {
+			t.Fatalf("server %s deny = %#v, want chat_delete+query", wantNames[index], filter["deny"])
+		}
+	}
+}
+
+func TestPluginMCPToolDenyByProviderUnionsPluginsForSharedProvider(t *testing.T) {
+	first := uuid.New()
+	second := uuid.New()
+	got := pluginMCPToolDenyByProvider(model.PluginMCPToolDeny{
+		first.String():  {"chat_delete", "chat_update"},
+		second.String(): {"chat_delete", "reactions_remove"},
+	}, []connectionMCPRequirement{
+		{PluginID: first, Provider: "slack", Kind: model.PluginIntegrationKindIntegration},
+		{PluginID: second, Provider: "slack", Kind: model.PluginIntegrationKindIntegration},
+	})
+	want := []string{"chat_delete", "chat_update", "reactions_remove"}
+	if joined := strings.Join(got[pluginMCPProviderKey(model.PluginIntegrationKindIntegration, "slack")], ","); joined != strings.Join(want, ",") {
+		t.Fatalf("shared-provider deny = %q, want %q", joined, strings.Join(want, ","))
 	}
 }

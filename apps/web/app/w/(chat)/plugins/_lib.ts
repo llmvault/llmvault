@@ -58,7 +58,7 @@ export function pluginLogoProvider(plugin: ApiPlugin): string | null {
   return required[0].provider || null
 }
 
-function pluginRequiredConnections(
+export function pluginRequiredConnections(
   plugin: ApiPlugin
 ): PluginRequirement[] {
   return (plugin.required_connections ?? []).filter(
@@ -99,7 +99,7 @@ function pluginRequiredDatabaseProvider(
   return required[0].provider || null
 }
 
-function pluginConnectionKind(requirement: PluginRequirement): string {
+export function pluginConnectionKind(requirement: PluginRequirement): string {
   return requirement.kind || "integration"
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { pluginLogoProvider, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import {
   agentCanInstall,
   agentInstalledTeamIDs,
@@ -11,6 +12,7 @@ import {
   agentMissingPlugins,
   availableTeamsFor,
   formatMissingPluginsMessage,
+  withPluginMCPToolDenied,
   groupAgents,
   installErrorMessage,
   installedTeamsFor,
@@ -26,7 +28,30 @@ import {
   type InstalledAgent,
   type Team,
 } from "./_lib"
-import { pluginLogoProvider, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
+
+describe("withPluginMCPToolDenied", () => {
+  it("adds, removes, sorts, and clears per-plugin tool denies", () => {
+    const pluginID = "11111111-1111-1111-1111-111111111111"
+    const added = withPluginMCPToolDenied(
+      { [pluginID]: ["users_list"] },
+      pluginID,
+      "chat_delete",
+      true
+    )
+    expect(added[pluginID]).toEqual(["chat_delete", "users_list"])
+    expect(
+      withPluginMCPToolDenied(added, pluginID, "chat_delete", false)
+    ).toEqual({ [pluginID]: ["users_list"] })
+    expect(
+      withPluginMCPToolDenied(
+        { [pluginID]: ["users_list"] },
+        pluginID,
+        "users_list",
+        false
+      )
+    ).toEqual({})
+  })
+})
 
 function agent(overrides: Partial<CatalogAgent>): CatalogAgent {
   return {

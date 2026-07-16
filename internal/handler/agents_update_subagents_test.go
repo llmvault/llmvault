@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -40,10 +42,12 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 		t.Fatalf("create status = %d, body = %s", create.Code, create.Body.String())
 	}
 	id := decodeCreateAgent(t, create).Agent.ID
+	pluginID := uuid.New()
 
 	patch := patchAgent(t, h, &org, id, `{
 		"name": "Edited",
 		"mcp_tool_filter": { "deny": ["generate_vector_image", "web_search"] },
+		"plugin_mcp_tool_deny": { "`+pluginID.String()+`": [" chat_delete ", "chat_delete", "reactions_remove"] },
 		"sub_agents": [
 			{ "name": "NewA", "tools": { "bash": true } },
 			{ "name": "NewB", "tools": { "write_file": true } }
@@ -64,6 +68,10 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 		agent.McpToolFilter.Deny[0] != "generate_vector_image" {
 		t.Fatalf("mcp_tool_filter = %#v, want deny vector+web_search", agent.McpToolFilter)
 	}
+	pluginDeny := agent.PluginMCPToolDeny[pluginID.String()]
+	if len(pluginDeny) != 2 || pluginDeny[0] != "chat_delete" || pluginDeny[1] != "reactions_remove" {
+		t.Fatalf("plugin_mcp_tool_deny = %#v, want normalized Slack denies", agent.PluginMCPToolDeny)
+	}
 
 	var subs []model.Agent
 	if err := db.Where("parent_agent_id = ? AND type = ?", agent.ID, model.AgentTypeSubAgent).
@@ -72,5 +80,23 @@ func TestUpdateAgent_ReplacesSubAgentsAndMcpFilter(t *testing.T) {
 	}
 	if len(subs) != 2 || subs[0].Name != "NewA" || subs[1].Name != "NewB" {
 		t.Fatalf("sub-agents = %#v, want NewA+NewB (Old removed)", subs)
+	}
+}
+
+func TestUpdateAgentRejectsNonUUIDPluginMCPToolDenyKey(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	cleanupAgents(t, db, org.ID)
+	seedDefaultModelCredential(t, db)
+	h := newAgentHandlerForTest(db)
+
+	create := postCreateAgent(t, db, h, &org, `{"name":"Plugin policy"}`)
+	if create.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body = %s", create.Code, create.Body.String())
+	}
+	id := decodeCreateAgent(t, create).Agent.ID
+	patch := patchAgent(t, h, &org, id, `{"plugin_mcp_tool_deny":{"slack":["chat_delete"]}}`)
+	if patch.Code != http.StatusBadRequest {
+		t.Fatalf("update status = %d, want 400; body = %s", patch.Code, patch.Body.String())
 	}
 }

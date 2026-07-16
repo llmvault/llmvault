@@ -32,12 +32,15 @@ type agentMutationRequest struct {
 	VectorImageModel       *string                `json:"vector_image_model,omitempty"`
 	Tools                  *model.JSON            `json:"tools,omitempty"`
 	McpToolFilter          *model.ToolFilter      `json:"mcp_tool_filter,omitempty"`
-	McpServers             *json.RawMessage       `json:"mcp_servers,omitempty" swaggerignore:"true"`
-	Skills                 *model.JSON            `json:"skills,omitempty"`
-	Permissions            *model.JSON            `json:"permissions,omitempty"`
-	Resources              *model.JSON            `json:"resources,omitempty"`
-	SandboxTools           *[]string              `json:"sandbox_tools,omitempty"`
-	SubAgents              *[]subAgentInput       `json:"sub_agents,omitempty"`
+	// PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys
+	// are plugin UUIDs; omitted means unchanged and an empty object enables all.
+	PluginMCPToolDeny *model.PluginMCPToolDeny `json:"plugin_mcp_tool_deny,omitempty"`
+	McpServers        *json.RawMessage         `json:"mcp_servers,omitempty" swaggerignore:"true"`
+	Skills            *model.JSON              `json:"skills,omitempty"`
+	Permissions       *model.JSON              `json:"permissions,omitempty"`
+	Resources         *model.JSON              `json:"resources,omitempty"`
+	SandboxTools      *[]string                `json:"sandbox_tools,omitempty"`
+	SubAgents         *[]subAgentInput         `json:"sub_agents,omitempty"`
 	// DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
 	// Omit it to leave overrides unchanged; send [] to restore all team plugins.
 	DisabledPluginIDs *[]string `json:"disabled_plugin_ids,omitempty"`
@@ -144,6 +147,10 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	pluginMCPToolDeny, ok := normalizePluginMCPToolDenyForRequest(w, req.PluginMCPToolDeny)
+	if !ok {
+		return
+	}
 	subAgentRows, ok := h.buildSubAgentRows(ctx, w, org.ID, modelID, req.SubAgents)
 	if !ok {
 		return
@@ -185,6 +192,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		VectorImageModel:       vectorImageModel,
 		Tools:                  tools,
 		McpToolFilter:          normalizeMcpToolFilter(req.McpToolFilter),
+		PluginMCPToolDeny:      pluginMCPToolDeny,
 		McpServers:             model.RawJSON("[]"),
 		Skills:                 normalizeJSONPtr(req.Skills),
 		Permissions:            permissions,

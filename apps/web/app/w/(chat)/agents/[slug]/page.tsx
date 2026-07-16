@@ -22,6 +22,7 @@ import {
   normalizeAgentSandboxImage,
   normalizeAgentSandboxSize,
   pluginsBySlug,
+  withPluginMCPToolDenied,
   type AgentSandboxImage,
   type AgentSandboxSize,
   type CatalogAgent,
@@ -107,6 +108,7 @@ export default function AgentDetailPage({
     [teamPluginsQuery.data?.data]
   )
   const disabledPluginIDs = installedAgent?.disabled_plugin_ids ?? []
+  const pluginMCPToolDeny = installedAgent?.plugin_mcp_tool_deny ?? {}
   const requiredPluginSlugs = useMemo(
     () =>
       requiredPlugins
@@ -211,6 +213,36 @@ export default function AgentDetailPage({
     )
   }
 
+  function handlePluginMCPToolDenyChange(
+    pluginID: string,
+    tool: string,
+    denied: boolean
+  ) {
+    if (!installedAgentID) return
+    const next = withPluginMCPToolDenied(
+      pluginMCPToolDeny,
+      pluginID,
+      tool,
+      denied
+    )
+    updateAgent.mutate(
+      {
+        params: { path: { id: installedAgentID } },
+        body: { plugin_mcp_tool_deny: next },
+      },
+      {
+        onSuccess: () => {
+          toast.success(denied ? "Plugin tool disabled" : "Plugin tool enabled")
+          refresh()
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not update plugin tool access")
+          ),
+      }
+    )
+  }
+
   if (agentQuery.isLoading) {
     return <DetailSkeleton />
   }
@@ -280,6 +312,8 @@ export default function AgentDetailPage({
               teamPluginsQuery.isLoading
             }
             onDisabledPluginIDsChange={handleDisabledPluginIDsChange}
+            pluginMCPToolDeny={pluginMCPToolDeny}
+            onPluginMCPToolDenyChange={handlePluginMCPToolDenyChange}
           />
           <SandboxImageSection
             selectedSandboxImage={selectedSandboxImage}

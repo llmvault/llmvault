@@ -184,6 +184,36 @@ func normalizeMcpToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 	return &model.ToolFilter{Allow: allow, Deny: deny}
 }
 
+func normalizePluginMCPToolDenyForRequest(w http.ResponseWriter, value *model.PluginMCPToolDeny) (model.PluginMCPToolDeny, bool) {
+	if value == nil || len(*value) == 0 {
+		return model.PluginMCPToolDeny{}, true
+	}
+	out := make(model.PluginMCPToolDeny, len(*value))
+	for pluginID, tools := range *value {
+		pluginID = strings.TrimSpace(pluginID)
+		parsed, err := uuid.Parse(pluginID)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "plugin_mcp_tool_deny keys must be plugin UUIDs"})
+			return nil, false
+		}
+		pluginID = parsed.String()
+		seen := make(map[string]bool, len(tools))
+		for _, tool := range tools {
+			tool = strings.TrimSpace(tool)
+			if tool == "" || seen[tool] {
+				continue
+			}
+			seen[tool] = true
+			out[pluginID] = append(out[pluginID], tool)
+		}
+		sort.Strings(out[pluginID])
+		if len(out[pluginID]) == 0 {
+			delete(out, pluginID)
+		}
+	}
+	return out, true
+}
+
 func normalizeToolFilterList(values []string) []string {
 	if len(values) == 0 {
 		return nil

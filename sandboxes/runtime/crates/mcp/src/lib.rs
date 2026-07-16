@@ -316,19 +316,17 @@ impl McpRegistry {
         session_id: &str,
         tool_filter: Option<&ToolFilter>,
     ) -> Vec<McpToolDefinition> {
+        let allowed: HashSet<String> = self
+            .all_tools_filtered(tool_filter)
+            .into_iter()
+            .map(|tool| tool.prefixed_name)
+            .collect();
         self.activated_by_session
             .get(session_id)
             .map(|tools| {
                 tools
                     .iter()
-                    .filter(|tool| {
-                        mcp_tool_allowed(
-                            &tool.prefixed_name,
-                            &tool.raw_name,
-                            &tool.server_name,
-                            tool_filter,
-                        )
-                    })
+                    .filter(|tool| allowed.contains(&tool.prefixed_name))
                     .cloned()
                     .collect()
             })
@@ -491,11 +489,12 @@ impl McpRegistry {
         let mut seen = HashSet::new();
         for server in servers.iter() {
             for tool in server.state.tools.load().iter() {
-                if !mcp_tool_allowed(
+                if !agent_mcp_tool_allowed(
                     &tool.prefixed_name,
                     &tool.raw_name,
                     &tool.server_name,
                     tool_filter,
+                    server.state.tool_filter.is_some(),
                 ) {
                     continue;
                 }
@@ -828,6 +827,20 @@ fn mcp_tool_allowed(
     true
 }
 
+// A server-level filter is authoritative for that server. Generated plugin MCP
+// servers always carry an explicit deny filter (including an empty one), so the
+// legacy top-level allow-list for Hivy capabilities cannot hide their tools.
+// Servers without a local filter retain the previous global-filter behavior.
+fn agent_mcp_tool_allowed(
+    prefixed: &str,
+    raw: &str,
+    server_name: &str,
+    tool_filter: Option<&ToolFilter>,
+    has_server_filter: bool,
+) -> bool {
+    has_server_filter || mcp_tool_allowed(prefixed, raw, server_name, tool_filter)
+}
+
 /// Maps the MCP `(server, raw tool name)` identity into the conservative
 /// function-name grammar shared by OpenAI-compatible providers. Ordinary
 /// names retain their readable form. Names that require rewriting, exceed the
@@ -1016,9 +1029,9 @@ fn search_score(tool: &McpToolDefinition, query: &str) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::{
-        discover_tools, expand_env_placeholders, mcp_tool_allowed, model_safe_tool_name,
-        normalize_detail_level, search_score, McpServerState, McpToolDefinition, RuntimeMcpClient,
-        MAX_MODEL_TOOL_NAME_BYTES, MODEL_TOOL_HASH_CHARS,
+        agent_mcp_tool_allowed, discover_tools, expand_env_placeholders, mcp_tool_allowed,
+        model_safe_tool_name, normalize_detail_level, search_score, McpServerState,
+        McpToolDefinition, RuntimeMcpClient, MAX_MODEL_TOOL_NAME_BYTES, MODEL_TOOL_HASH_CHARS,
     };
     use domain::ToolFilter;
     use rmcp::{
@@ -1105,6 +1118,28 @@ mod tests {
             "cron",
             "hivy",
             Some(&filter)
+        ));
+    }
+
+    #[test]
+    fn server_filter_overrides_legacy_global_allow_list() {
+        let global = ToolFilter {
+            allow: Some(vec!["skill_view".to_string()]),
+            deny: None,
+        };
+        assert!(agent_mcp_tool_allowed(
+            "connection_slack_chat_post_message",
+            "chat_post_message",
+            "connection-slack",
+            Some(&global),
+            true,
+        ));
+        assert!(!agent_mcp_tool_allowed(
+            "external_chat_post_message",
+            "chat_post_message",
+            "external",
+            Some(&global),
+            false,
         ));
     }
 

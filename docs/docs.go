@@ -16630,6 +16630,15 @@ const docTemplate = `{
                 }
             }
         },
+        "PluginMCPToolDeny": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
         "PluginsSpec": {
             "type": "object",
             "properties": {
@@ -16928,6 +16937,9 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
+                "mcp_enabled": {
+                    "type": "boolean"
+                },
                 "parameters": {
                     "type": "array",
                     "items": {
@@ -17206,6 +17218,9 @@ const docTemplate = `{
                 "permissions": {
                     "$ref": "#/definitions/JSON"
                 },
+                "plugin_mcp_tool_deny": {
+                    "$ref": "#/definitions/PluginMCPToolDeny"
+                },
                 "resources": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -17301,6 +17316,14 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
+                },
+                "plugin_mcp_tool_deny": {
+                    "description": "PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys\nare plugin UUIDs; omitted means unchanged and an empty object enables all.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/PluginMCPToolDeny"
+                        }
+                    ]
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
@@ -17417,6 +17440,9 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
+                },
+                "plugin_mcp_tool_deny": {
+                    "$ref": "#/definitions/PluginMCPToolDeny"
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"

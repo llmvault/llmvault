@@ -19064,6 +19064,9 @@ export interface components {
             token_endpoint?: string;
             token_endpoint_auth_methods_supported?: string[];
         };
+        PluginMCPToolDeny: {
+            [key: string]: string[];
+        };
         PluginsSpec: {
             recommended?: string[];
             required?: string[];
@@ -19162,6 +19165,7 @@ export interface components {
             description?: string;
             display_name?: string;
             key?: string;
+            mcp_enabled?: boolean;
             parameters?: number[];
             resource_type?: string;
             response_schema?: string;
@@ -19252,6 +19256,7 @@ export interface components {
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
+            plugin_mcp_tool_deny?: components["schemas"]["PluginMCPToolDeny"];
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
@@ -19283,6 +19288,11 @@ export interface components {
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
+            /**
+             * @description PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys
+             *     are plugin UUIDs; omitted means unchanged and an empty object enables all.
+             */
+            plugin_mcp_tool_deny?: components["schemas"]["PluginMCPToolDeny"];
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
@@ -19317,6 +19327,7 @@ export interface components {
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
+            plugin_mcp_tool_deny?: components["schemas"]["PluginMCPToolDeny"];
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;

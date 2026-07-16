@@ -2,6 +2,24 @@ import type { components } from "@/lib/api/schema"
 import type { ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import { extractErrorMessage } from "@/lib/api/error"
 
+export type PluginMCPToolDeny = components["schemas"]["PluginMCPToolDeny"]
+
+export function withPluginMCPToolDenied(
+  current: PluginMCPToolDeny,
+  pluginID: string,
+  tool: string,
+  denied: boolean
+): PluginMCPToolDeny {
+  const next: PluginMCPToolDeny = { ...current }
+  const tools = new Set(current[pluginID] ?? [])
+  if (denied) tools.add(tool)
+  else tools.delete(tool)
+  const normalized = Array.from(tools).sort()
+  if (normalized.length > 0) next[pluginID] = normalized
+  else delete next[pluginID]
+  return next
+}
+
 export type CatalogAgent = components["schemas"]["agentCatalogResponse"]
 export type InstalledAgent = components["schemas"]["agentListItem"]
 export type AgentPluginRequirement =

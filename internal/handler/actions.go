@@ -52,6 +52,7 @@ type actionSummary struct {
 	ResourceType   string          `json:"resource_type,omitempty"`
 	Parameters     json.RawMessage `json:"parameters"`
 	ResponseSchema string          `json:"response_schema,omitempty"`
+	MCPEnabled     bool            `json:"mcp_enabled"`
 }
 
 // ListIntegrations handles GET /v1/catalog/integrations.
@@ -124,7 +125,7 @@ func (h *ActionsHandler) GetIntegration(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	actions := actionsFromMap(p.Actions)
+	actions := actionsFromProvider(p)
 
 	writeJSON(w, http.StatusOK, integrationDetail{
 		ID:          id,
@@ -135,9 +136,9 @@ func (h *ActionsHandler) GetIntegration(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-func actionsFromMap(m map[string]catalog.ActionDef) []actionSummary {
-	actions := make([]actionSummary, 0, len(m))
-	for key, a := range m {
+func actionsFromProvider(provider *catalog.ProviderActions) []actionSummary {
+	actions := make([]actionSummary, 0, len(provider.Actions))
+	for key, a := range provider.Actions {
 		actions = append(actions, actionSummary{
 			Key:            key,
 			DisplayName:    a.DisplayName,
@@ -146,6 +147,7 @@ func actionsFromMap(m map[string]catalog.ActionDef) []actionSummary {
 			ResourceType:   a.ResourceType,
 			Parameters:     a.Parameters,
 			ResponseSchema: a.ResponseSchema,
+			MCPEnabled:     provider.ShouldPushToMCP() && a.Execution != nil,
 		})
 	}
 	sort.Slice(actions, func(i, j int) bool {

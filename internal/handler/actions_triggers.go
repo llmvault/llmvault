@@ -42,7 +42,7 @@ func (h *ActionsHandler) ListActions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accessFilter := r.URL.Query().Get("access")
-	actions := actionsFromMap(p.Actions)
+	actions := actionsFromProvider(p)
 
 	if accessFilter != "" {
 		filtered := make([]actionSummary, 0, len(actions))

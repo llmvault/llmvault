@@ -251,6 +251,14 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["mcp_tool_filter"] = value
 		agent.McpToolFilter = value
 	}
+	if req.PluginMCPToolDeny != nil {
+		value, ok := normalizePluginMCPToolDenyForRequest(w, req.PluginMCPToolDeny)
+		if !ok {
+			return false
+		}
+		updates["plugin_mcp_tool_deny"] = value
+		agent.PluginMCPToolDeny = value
+	}
 	if req.McpServers != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "configure MCP servers through MCP settings"})
 		return false
