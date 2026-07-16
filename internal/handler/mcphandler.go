@@ -174,22 +174,6 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 	return srv
 }
 
-func connectionServerTarget(r *http.Request) (string, uuid.UUID, bool, error) {
-	wildcard := strings.Trim(chi.URLParam(r, "*"), "/")
-	if wildcard == "" {
-		return "", uuid.Nil, false, nil
-	}
-	parts := strings.Split(wildcard, "/")
-	if len(parts) != 2 || (parts[0] != "connection" && parts[0] != "database") {
-		return "", uuid.Nil, false, fmt.Errorf("unknown MCP server path")
-	}
-	connectionID, err := uuid.Parse(parts[1])
-	if err != nil || connectionID == uuid.Nil {
-		return "", uuid.Nil, false, fmt.Errorf("invalid MCP connection id")
-	}
-	return parts[0], connectionID, true, nil
-}
-
 // agentProxyMCPToolFilter resolves the exact compiler policy before the server
 // is cached for a token JTI. That means tools outside the allow-list are absent
 // from the MCP tools/list response and never enter the runtime's registry.

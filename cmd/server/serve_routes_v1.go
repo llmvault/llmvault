@@ -108,7 +108,6 @@ func setupV1Routes(
 					r.Put("/orgs/current/teams/{id}/members/{userID}", teamHandler.PutMember)
 					r.Delete("/orgs/current/teams/{id}/members/{userID}", teamHandler.DeleteMember)
 				}
-
 			})
 
 			mountOrgMemberLifecycleRoutes(r, database)
