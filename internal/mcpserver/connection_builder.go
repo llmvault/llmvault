@@ -71,7 +71,7 @@ func BuildConnectionServer(
 			if params == nil {
 				params = map[string]any{}
 			}
-			// Resolve again for every call so revocation or plugin removal takes
+			// Resolve again for every call so revocation or grant removal takes
 			// effect even if this server instance remains in the JTI cache.
 			current, err := connectionaccess.ResolveAgentConnection(callCtx, db, token.OrgID, agentID, connectionID)
 			if err != nil {

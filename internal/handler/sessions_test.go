@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/runtimeevents"

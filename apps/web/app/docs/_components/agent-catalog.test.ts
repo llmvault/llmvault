@@ -9,7 +9,7 @@ describe("AgentCatalog", () => {
 
     expect(html).toContain("Choose and install an agent")
     expect(html).toContain("Each team gets its own agent")
-    expect(html).toContain("Hivy checks required plugins first")
+    expect(html).toContain("Hivy checks required connections first")
     expect(html).toContain("Video placeholder")
     expect(html).toContain("/docs/captures/")
     expect(html).toContain("/docs/agents/configure-an-agent")

@@ -23,18 +23,17 @@ type AgentCatalog struct {
 	DefaultReasoningEffort string `gorm:"not null;default:''"`
 	// AutoLoadSkills mirrors the manifest auto_load_skills and is copied to the
 	// installed agent row (normalized {name, files} object form).
-	AutoLoadSkills     AutoLoadSkills `gorm:"column:auto_load_skills;type:jsonb;not null;default:'[]'"`
-	SandboxImage       string         `gorm:"type:text;not null;default:'default'"`
-	Instructions       string         `gorm:"type:text;not null;default:''"`
-	Tools              JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	SubAgents          RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
-	RequiredPlugins    pq.StringArray `gorm:"type:text[];default:'{}'"`
-	RecommendedPlugins pq.StringArray `gorm:"type:text[];default:'{}'"`
-	Manifest           RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
-	SourceHash         string         `gorm:"not null;default:''"`
-	Status             string         `gorm:"not null;default:'active';index"`
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	AutoLoadSkills      AutoLoadSkills `gorm:"column:auto_load_skills;type:jsonb;not null;default:'[]'"`
+	SandboxImage        string         `gorm:"type:text;not null;default:'default'"`
+	Instructions        string         `gorm:"type:text;not null;default:''"`
+	Tools               JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	SubAgents           RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	RequiredConnections pq.StringArray `gorm:"type:text[];default:'{}'"`
+	Manifest            RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	SourceHash          string         `gorm:"not null;default:''"`
+	Status              string         `gorm:"not null;default:'active';index"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (AgentCatalog) TableName() string { return "agent_catalog" }

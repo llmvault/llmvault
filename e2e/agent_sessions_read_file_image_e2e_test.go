@@ -97,10 +97,10 @@ func agentSessionsCreateReadFileImageAgent(t *testing.T, ctx context.Context, ba
 	t.Helper()
 	var out agentSessionsAgentMutation
 	payload := map[string]any{
-		"name":             "Read image E2E " + runID,
-		"instructions":     "Use the requested tools exactly. Do not describe images from memory; use read_file.",
-		"model":            agentruntime.DefaultAgentModel,
-		"tools":            map[string]any{"read_file": true},
+		"name":         "Read image E2E " + runID,
+		"instructions": "Use the requested tools exactly. Do not describe images from memory; use read_file.",
+		"model":        agentruntime.DefaultAgentModel,
+		"tools":        map[string]any{"read_file": true},
 	}
 	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/agents", token, orgID, payload, http.StatusCreated, &out)
 	if out.Agent.ID == "" {

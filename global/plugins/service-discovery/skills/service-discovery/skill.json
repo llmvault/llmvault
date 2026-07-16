@@ -1,9 +1,0 @@
-{
-  "name": "Service Discovery",
-  "description": "Use when the user asks to discover, map, inventory, or refresh their services and infrastructure — Railway projects/services/domains, Vercel projects, Notion data sources, Slack channels — or when you are about to work with one of those services and your memory holds no inventory for it. Teaches: check memory first, enumerate via the service proxy, and report compact durable facts so background reflection commits them to memory.",
-  "human_description": "Discovers connected services once so the inventory lands in agent memory.",
-  "category": "Developer Tools",
-  "root": "./SKILL.md",
-  "tags": ["service-discovery", "railway", "vercel", "notion", "slack", "memory"],
-  "files": []
-}

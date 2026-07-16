@@ -9,24 +9,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentcatalog"
 	"github.com/usehivy/hivy/internal/billing/plancatalog"
 	"github.com/usehivy/hivy/internal/logging"
-	"github.com/usehivy/hivy/internal/plugins"
 )
-
-func syncGlobalPlugins(ctx context.Context, database *gorm.DB) error {
-	result, err := plugins.SyncLocal(ctx, database, "global/plugins")
-	if err != nil {
-		return fmt.Errorf("syncing global plugins: %w", err)
-	}
-	logging.FromContext(ctx).InfoContext(ctx, "global plugins synced",
-		"plugins_created", result.PluginsCreated,
-		"plugins_updated", result.PluginsUpdated,
-		"plugins_archived", result.PluginsArchived,
-		"skills_created", result.SkillsCreated,
-		"skills_updated", result.SkillsUpdated,
-		"skills_archived", result.SkillsArchived,
-	)
-	return nil
-}
 
 func syncGlobalAgents(ctx context.Context, database *gorm.DB) error {
 	result, err := agentcatalog.SyncLocal(ctx, database, "global/agents")

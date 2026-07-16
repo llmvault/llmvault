@@ -171,7 +171,7 @@ func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
   },
   "mcp_tool_filter": {"deny": ["generate_image", "generate_vector_image", "generate_image", " "]},
   "prompt": {},
-  "plugins": {},
+  "required_connections": [],
   "sub_agents": {
     "codebase-explorer": {
       "name": "Codebase Explorer",

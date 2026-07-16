@@ -13,12 +13,18 @@ describe("DocsMediaPlaceholder", () => {
       })
     )
 
-    expect(html).toContain("/docs/captures/agent-catalog-installation-light.png")
+    expect(html).toContain(
+      "/docs/captures/agent-catalog-installation-light.png"
+    )
     expect(html).toContain("/docs/captures/agent-catalog-installation-dark.png")
     expect(html).toContain("A catalog agent’s team installation screen")
-    expect(html).toContain("Live Hivy capture, available in light and dark themes")
+    expect(html).toContain(
+      "Live Hivy capture, available in light and dark themes"
+    )
     expect(html).toContain("<button")
-    expect(html).toContain("Open A catalog agent’s team installation screen in a lightbox")
+    expect(html).toContain(
+      "Open A catalog agent’s team installation screen in a lightbox"
+    )
   })
 
   it("bleeds images but keeps videos inside the reading column", () => {

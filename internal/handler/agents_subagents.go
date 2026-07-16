@@ -184,19 +184,19 @@ func normalizeMcpToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 	return &model.ToolFilter{Allow: allow, Deny: deny}
 }
 
-func normalizePluginMCPToolDenyForRequest(w http.ResponseWriter, value *model.PluginMCPToolDeny) (model.PluginMCPToolDeny, bool) {
+func normalizeConnectionMCPToolDenyForRequest(w http.ResponseWriter, value *model.ConnectionMCPToolDeny) (model.ConnectionMCPToolDeny, bool) {
 	if value == nil || len(*value) == 0 {
-		return model.PluginMCPToolDeny{}, true
+		return model.ConnectionMCPToolDeny{}, true
 	}
-	out := make(model.PluginMCPToolDeny, len(*value))
-	for pluginID, tools := range *value {
-		pluginID = strings.TrimSpace(pluginID)
-		parsed, err := uuid.Parse(pluginID)
+	out := make(model.ConnectionMCPToolDeny, len(*value))
+	for connectionID, tools := range *value {
+		connectionID = strings.TrimSpace(connectionID)
+		parsed, err := uuid.Parse(connectionID)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "plugin_mcp_tool_deny keys must be plugin UUIDs"})
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "connection_mcp_tool_deny keys must be connection UUIDs"})
 			return nil, false
 		}
-		pluginID = parsed.String()
+		connectionID = parsed.String()
 		seen := make(map[string]bool, len(tools))
 		for _, tool := range tools {
 			tool = strings.TrimSpace(tool)
@@ -204,11 +204,11 @@ func normalizePluginMCPToolDenyForRequest(w http.ResponseWriter, value *model.Pl
 				continue
 			}
 			seen[tool] = true
-			out[pluginID] = append(out[pluginID], tool)
+			out[connectionID] = append(out[connectionID], tool)
 		}
-		sort.Strings(out[pluginID])
-		if len(out[pluginID]) == 0 {
-			delete(out, pluginID)
+		sort.Strings(out[connectionID])
+		if len(out[connectionID]) == 0 {
+			delete(out, connectionID)
 		}
 	}
 	return out, true

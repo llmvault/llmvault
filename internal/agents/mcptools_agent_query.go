@@ -75,7 +75,7 @@ type getAgentArgs struct {
 func registerGetAgent(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolGetAgent,
-		Description: "Get the full configuration of one agent in this organization: instructions, model, enabled plugins, skills, tools, and sub-agents. Use this to inspect an agent before calling update_agent.",
+		Description: "Get the full configuration of one agent in this organization: instructions, model, connections, skills, tools, and sub-agents. Use this to inspect an agent before calling update_agent.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -117,10 +117,6 @@ func handleGetAgent(ctx context.Context, db *gorm.DB, token *model.Token, fronte
 		}
 		return toolError("failed to load agent: " + err.Error()), nil
 	}
-	pluginSlugs, err := agentPluginSlugs(ctx, db, agent)
-	if err != nil {
-		return toolError(err.Error()), nil
-	}
 	subs, err := agentSubAgentsDetailed(ctx, db, agent.ID)
 	if err != nil {
 		return toolError(err.Error()), nil
@@ -134,7 +130,6 @@ func handleGetAgent(ctx context.Context, db *gorm.DB, token *model.Token, fronte
 			"model":        agent.Model,
 			"status":       agent.Status,
 			"is_default":   agent.IsDefault,
-			"plugins":      pluginSlugs,
 			"skills":       agentSkillSlugs(agent),
 			"tools":        agentToolIDs(agent),
 			"sub_agents":   subs,

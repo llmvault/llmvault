@@ -9,7 +9,7 @@ import (
 )
 
 // The payloads below are copied VERBATIM from the shipped skill at
-// global/plugins/agent-builder/skills/agent-builder/SKILL.md. The skill is the
+// the agent-builder tool contract. The tool surface is the
 // payload contract: if a schema change breaks this test, the SKILL.md must
 // change in the same commit (TestAgentBuilderSkillPayloadContract verifies the
 // constants still appear verbatim in the file). Placeholder values

@@ -18,9 +18,9 @@ const TEAM_SCOPE = [
   },
   {
     number: "03",
-    title: "Agents and plugins",
+    title: "Agents and connections",
     description:
-      "Each agent belongs to one team. It gets the plugins an admin enabled there.",
+      "Each agent belongs to one team. It gets the connections an admin enabled there.",
   },
   {
     number: "04",
@@ -35,8 +35,8 @@ export function Teams() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         Teams separate one group&apos;s work from another. Give Sales or Support
-        its own people, channels, agents, plugins, and knowledge without opening
-        the rest of the workspace.
+        its own people, channels, agents, connections, and knowledge without
+        opening the rest of the workspace.
       </p>
 
       <section aria-labelledby="what-a-team-controls" className="mt-14">
@@ -71,7 +71,7 @@ export function Teams() {
       <DocsMediaPlaceholder
         type="image"
         title="Team details and resource access"
-        description="Take this screenshot from the team details page at 4K and 100% browser zoom. Include the team name, member list, enabled plugins, and knowledge sources in one frame; remove browser chrome and personal data."
+        description="Take this screenshot from the team details page at 4K and 100% browser zoom. Include the team name, member list, enabled connections, and knowledge sources in one frame; remove browser chrome and personal data."
         className="mt-12"
       />
 
@@ -107,15 +107,15 @@ export function Teams() {
           </DocLink>
         </DocSection>
 
-        <DocSection title="Approve plugins and knowledge once">
+        <DocSection title="Approve connections and knowledge once">
           <p>
-            Owners and admins enable installed plugins and grant knowledge
+            Owners and admins enable installed connections and grant knowledge
             sources on the team page. Every agent on that team gets those
             resources, so the same boundary carries across its sessions.
           </p>
           <p className="mt-3">
-            Hivy won&apos;t disable a plugin while an active agent on the team
-            still requires it.
+            Hivy won&apos;t disable a connection while an active agent on the
+            team still requires it.
           </p>
           <DocLink href="/docs/knowledge-and-memory/indexing-and-access">
             Manage knowledge access
@@ -137,7 +137,7 @@ export function Teams() {
         <DocsMediaPlaceholder
           type="video"
           title="Create a team and set its access"
-          description="Record a 60 to 90 second walkthrough at 4K and 100% browser zoom. Create a team from Settings, open its general channel and Hivy agent, add one member, enable one plugin, then grant one knowledge source; use demo names and hide email addresses."
+          description="Record a 60 to 90 second walkthrough at 4K and 100% browser zoom. Create a team from Settings, open its general channel and Hivy agent, add one member, enable one connection, then grant one knowledge source; use demo names and hide email addresses."
           bleed={false}
         />
 

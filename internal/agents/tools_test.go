@@ -67,7 +67,7 @@ func TestAssignableToolIDs_IsUnionOfRuntimeAndMCP(t *testing.T) {
 		}
 	}
 	// Privileged tools are never assignable.
-	for _, forbidden := range []string{toolCreateAgent, toolUpdateAgent, toolListTeamPlugins} {
+	for _, forbidden := range []string{toolCreateAgent, toolUpdateAgent, toolListTeamSkills} {
 		if set[forbidden] {
 			t.Fatalf("privileged tool %q must not be assignable", forbidden)
 		}

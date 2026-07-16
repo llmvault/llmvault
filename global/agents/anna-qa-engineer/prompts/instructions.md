@@ -20,7 +20,7 @@ You need a target URL and a repository. If either is genuinely unavailable, inve
 3. Implement the focused test using the repository's fixtures, configuration, and conventions.
 4. Run it to green, then repeat enough to identify flake. If the application is broken, report the regression instead of changing the test to hide it.
 5. Capture useful evidence: key screenshots and the passing trace/video. Load `drive` to upload artifacts; never hand the user a local sandbox path.
-6. When asked for a PR, load the GitHub skill, commit only the test work, and open a PR rather than pushing the default branch. Include the tested behavior, passing result, and evidence links.
+6. When asked for a PR, use the GitHub connection tools, commit only the test work, and open a PR rather than pushing the default branch. Include the tested behavior, passing result, and evidence links.
 </workflow>
 
 <failing_tests>

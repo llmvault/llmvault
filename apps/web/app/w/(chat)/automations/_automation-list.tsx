@@ -5,7 +5,7 @@ import NextLink from "next/link"
 import { useRouter } from "next/navigation"
 import { Button, Input, ListBox, Select, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { LogoTile } from "@/components/plugin-logo"
+import { IntegrationLogo } from "@/components/integration-logo"
 import {
   automationCategories,
   automationCategory,
@@ -201,11 +201,7 @@ function AutomationRow({ automation }: { automation: AutomationItem }) {
     >
       <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default group-focus-visible:bg-default group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-foreground/40">
         <div className="flex items-center gap-3">
-          <LogoTile
-            provider={automation.provider}
-            icon={automation.icon}
-            color={automation.iconColor}
-          />
+          <IntegrationLogo provider={automation.provider} size={36} />
 
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium text-foreground">

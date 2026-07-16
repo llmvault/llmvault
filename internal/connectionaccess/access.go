@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 type Result struct {
@@ -35,20 +34,12 @@ func ResolveAgentProvider(ctx context.Context, db *gorm.DB, orgID uuid.UUID, age
 		return Result{}, err
 	}
 
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, agent)
-	if err != nil {
-		return Result{}, err
-	}
-	if len(pluginIDs) == 0 {
-		return Result{}, gorm.ErrRecordNotFound
-	}
-
 	var conn model.Connection
-	err = db.WithContext(ctx).
+	err := db.WithContext(ctx).
 		Preload("Integration").
 		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Joins("JOIN plugin_integrations ON plugin_integrations.provider = integrations.provider AND plugin_integrations.kind = ?", model.PluginIntegrationKindIntegration).
-		Where("plugin_integrations.plugin_id IN ?", pluginIDs).
+		Joins("JOIN team_connection_grants tcg ON tcg.connection_id = connections.id AND tcg.org_id = connections.org_id").
+		Where("tcg.team_id = ?", agent.TeamID).
 		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", orgID, provider).
 		Order("connections.created_at ASC").
 		First(&conn).Error
@@ -97,20 +88,12 @@ func ResolveAgentConnection(ctx context.Context, db *gorm.DB, orgID uuid.UUID, a
 		return Result{}, err
 	}
 
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, agent)
-	if err != nil {
-		return Result{}, err
-	}
-	if len(pluginIDs) == 0 {
-		return Result{}, gorm.ErrRecordNotFound
-	}
-
 	var conn model.Connection
-	err = db.WithContext(ctx).
+	err := db.WithContext(ctx).
 		Preload("Integration").
 		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Joins("JOIN plugin_integrations ON plugin_integrations.provider = integrations.provider AND plugin_integrations.kind = ?", model.PluginIntegrationKindIntegration).
-		Where("plugin_integrations.plugin_id IN ?", pluginIDs).
+		Joins("JOIN team_connection_grants tcg ON tcg.connection_id = connections.id AND tcg.org_id = connections.org_id").
+		Where("tcg.team_id = ?", agent.TeamID).
 		Where("connections.id = ? AND connections.org_id = ? AND connections.revoked_at IS NULL", connectionID, orgID).
 		First(&conn).Error
 	if err != nil {
@@ -125,6 +108,44 @@ func ResolveAgentConnection(ctx context.Context, db *gorm.DB, orgID uuid.UUID, a
 		ProviderConfigKey: NangoProviderConfigKey(conn.Integration.UniqueKey),
 		Resources:         EffectiveResources(agent.Resources, conn),
 	}, nil
+}
+
+// IntegrationConnections returns the active managed connections granted to an
+// agent's team.
+func IntegrationConnections(ctx context.Context, db *gorm.DB, agent model.Agent) ([]model.Connection, error) {
+	if db == nil || agent.OrgID == nil || agent.TeamID == uuid.Nil {
+		return []model.Connection{}, nil
+	}
+	var rows []model.Connection
+	err := db.WithContext(ctx).
+		Preload("Integration").
+		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
+		Joins("JOIN team_connection_grants tcg ON tcg.connection_id = connections.id AND tcg.org_id = connections.org_id").
+		Where("tcg.team_id = ? AND connections.org_id = ? AND connections.revoked_at IS NULL", agent.TeamID, *agent.OrgID).
+		Order("connections.created_at ASC, connections.id ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("load granted integration connections: %w", err)
+	}
+	return rows, nil
+}
+
+// DatabaseConnections returns the active database connections granted to an
+// agent's team.
+func DatabaseConnections(ctx context.Context, db *gorm.DB, agent model.Agent) ([]model.DatabaseConnection, error) {
+	if db == nil || agent.OrgID == nil || agent.TeamID == uuid.Nil {
+		return []model.DatabaseConnection{}, nil
+	}
+	var rows []model.DatabaseConnection
+	err := db.WithContext(ctx).
+		Joins("JOIN team_connection_grants tcg ON tcg.database_connection_id = database_connections.id AND tcg.org_id = database_connections.org_id").
+		Where("tcg.team_id = ? AND database_connections.org_id = ? AND database_connections.revoked_at IS NULL", agent.TeamID, *agent.OrgID).
+		Order("database_connections.created_at ASC, database_connections.id ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("load granted database connections: %w", err)
+	}
+	return rows, nil
 }
 
 func EffectiveResources(agentResources model.JSON, conn model.Connection) model.JSON {

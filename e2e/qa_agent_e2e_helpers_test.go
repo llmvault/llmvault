@@ -11,23 +11,6 @@ import (
 	"time"
 )
 
-// qaAgentInstallPlugin org-installs a plugin by slug, giving the operator a
-// clear remediation message when plugin sync has not picked up the definition
-// yet (404). It mirrors agentSessionsInstallPlugin but reports the 404 case
-// explicitly instead of dumping a raw status mismatch.
-func qaAgentInstallPlugin(t *testing.T, ctx context.Context, apiBase, token, orgID, slug string) {
-	t.Helper()
-	status, raw := qaAgentDo(t, ctx, http.MethodPost, apiBase+"/v1/plugins/"+slug+"/install", token, orgID, nil)
-	switch status {
-	case http.StatusCreated:
-		return
-	case http.StatusNotFound:
-		t.Fatalf("plugin %q not found (404); restart the api so plugin sync picks up global/plugins/%s, then re-run. body=%s", slug, slug, raw)
-	default:
-		t.Fatalf("install plugin %q status=%d want 201 body=%s", slug, status, raw)
-	}
-}
-
 // qaAgentWaitForFinalMarker polls the events API until a final event contains
 // the marker. It refreshes *token (via agentSessionsLogin) both proactively
 // every 10 minutes and reactively on any 401, so the long-running QA turn is

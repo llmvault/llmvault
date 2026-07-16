@@ -26,6 +26,7 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "teams", label: "Teams", icon: "users" },
       { id: "channels", label: "Channels", icon: "hash" },
       { id: "memories", label: "Memories", icon: "brain" },
+      { id: "skills", label: "Skills", icon: "sparkles" },
       { id: "knowledge", label: "Knowledge", icon: "folder-open", adminOnly: true },
       { id: "mcp", label: "MCP servers", icon: "plug-zap" },
     ],

@@ -258,9 +258,11 @@ pub(super) async fn render_dynamic_system_prompt(
                 .is_empty()
         })
         .unwrap_or(false);
-    // Exact names stay in the host-side search index. Listing the complete
-    // catalog here defeats progressive discovery even when schemas are hidden.
-    let mcp_tools = Vec::new();
+    // Names are intentionally cheap enough to expose in the prompt. Full
+    // schemas remain host-side until the agent activates an exact tool.
+    let mcp_tools = mcp_registry
+        .map(|registry| registry.available_tool_names_filtered(mcp_tool_filter))
+        .unwrap_or_default();
     let renders_legacy_context_segment = snapshot
         .system_prompt
         .dynamic_segments
@@ -273,7 +275,7 @@ pub(super) async fn render_dynamic_system_prompt(
         append_rendered_segment(
             &mut prompt,
             Some(
-                "## MCP progressive discovery\nThe names in the MCP catalog are available capabilities, but their full schemas are intentionally hidden to preserve context. Use `search_tools` to find relevant names, then call `get_tool_details` with an exact name to inspect and activate that tool. The activated definition becomes directly callable on the next model request."
+                "## MCP progressive discovery\nThe MCP tool names listed below are available capabilities. Their full schemas are intentionally hidden to preserve context. Use `search_tools` to narrow the list, then call `get_tool_details` with an exact name to inspect and activate that tool. Activating a tool starts its dormant MCP server and makes the definition directly callable on the next model request."
                     .to_string(),
             ),
         );

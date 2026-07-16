@@ -8,7 +8,6 @@ import { useTeamAgents } from "@/lib/api/team-agents"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { LogoMark } from "@/components/logo"
-import { PluginExamplePrompts } from "@/app/w/(chat)/_components/plugin-example-prompts"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import {
   CHAT_QUERY_STALE_TIME_MS,
@@ -289,12 +288,7 @@ export function SessionView({
           }
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pt-6 pb-4">
-        <PluginExamplePrompts
-          agentId={selectedAgent?.id}
-          onSelect={(prompt) => setComposerText(draftKey, prompt)}
-        />
-      </div>
+      <div className="min-h-0 flex-1" />
     </div>
   )
 }

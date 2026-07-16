@@ -1,29 +1,8 @@
 import type { components } from "@/lib/api/schema"
-import type { ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 import { extractErrorMessage } from "@/lib/api/error"
-
-type PluginMCPToolDeny = components["schemas"]["PluginMCPToolDeny"]
-
-export function withPluginMCPToolDenied(
-  current: PluginMCPToolDeny,
-  pluginID: string,
-  tool: string,
-  denied: boolean
-): PluginMCPToolDeny {
-  const next: PluginMCPToolDeny = { ...current }
-  const tools = new Set(current[pluginID] ?? [])
-  if (denied) tools.add(tool)
-  else tools.delete(tool)
-  const normalized = Array.from(tools).sort()
-  if (normalized.length > 0) next[pluginID] = normalized
-  else delete next[pluginID]
-  return next
-}
 
 export type CatalogAgent = components["schemas"]["agentCatalogResponse"]
 export type InstalledAgent = components["schemas"]["agentListItem"]
-export type AgentPluginRequirement =
-  components["schemas"]["agentCatalogPluginSummary"]
 export type Team = components["schemas"]["teamResponse"]
 export type AgentCategory = "All" | "Featured" | string
 export type AgentSandboxImage = "default" | "developer"
@@ -101,14 +80,13 @@ function agentIsFeatured(agent: CatalogAgent): boolean {
 
 export function agentIsInstalled(agent: CatalogAgent): boolean {
   return (
-    Boolean(agent.installed_agent_id) ||
-    agentInstalledTeamIDs(agent).length > 0
+    Boolean(agent.installed_agent_id) || agentInstalledTeamIDs(agent).length > 0
   )
 }
 
 // installed_team_ids lists the caller's visible teams that already have a
 // team-scoped clone of this catalog agent (one clone per team).
-export function agentInstalledTeamIDs(agent: CatalogAgent | undefined): string[] {
+function agentInstalledTeamIDs(agent: CatalogAgent | undefined): string[] {
   return (agent?.installed_team_ids ?? []).filter(
     (id): id is string => typeof id === "string" && id.trim().length > 0
   )
@@ -122,50 +100,13 @@ export function teamHasAgent(
 }
 
 export function teamNameByID(teams: Team[], id: string): string {
-  return firstText(
-    teams.find((team) => team.id === id)?.name,
-    id,
-    "your team"
-  )
-}
-
-// Teams (of the caller's visible teams) that already have a clone.
-export function installedTeamsFor(
-  teams: Team[],
-  agent: CatalogAgent | undefined
-): Team[] {
-  return teams.filter((team) => team.id && teamHasAgent(agent, team.id))
-}
-
-// Teams the caller could still install this agent into.
-export function availableTeamsFor(
-  teams: Team[],
-  agent: CatalogAgent | undefined
-): Team[] {
-  return teams.filter((team) => team.id && !teamHasAgent(agent, team.id))
+  return firstText(teams.find((team) => team.id === id)?.name, id, "your team")
 }
 
 // An installed agent is org-created when it has no catalog source (built via the
 // create-agent form rather than installed from the catalog).
 export function agentIsOrgCreated(agent: InstalledAgent): boolean {
   return !agent.catalog
-}
-
-export function agentRequiredPlugins(
-  agent: CatalogAgent | undefined
-): AgentPluginRequirement[] {
-  return agent?.required_plugins ?? []
-}
-
-export function agentRequiredPluginSlugs(
-  agent: CatalogAgent | undefined
-): Set<string> {
-  const slugs = new Set<string>()
-  for (const plugin of agentRequiredPlugins(agent)) {
-    const slug = pluginRequirementSlug(plugin)
-    if (slug) slugs.add(slug)
-  }
-  return slugs
 }
 
 export function normalizeAgentSandboxSize(
@@ -184,107 +125,36 @@ export function normalizeAgentSandboxImage(
     : "default"
 }
 
-export function agentMissingPlugins(
-  agent: CatalogAgent | undefined
-): AgentPluginRequirement[] {
-  return agentRequiredPlugins(agent).filter((plugin) => !plugin.installed)
-}
-
-export function agentCanInstall(agent: CatalogAgent | undefined): boolean {
-  return Boolean(
-    agent && !agentIsInstalled(agent) && agentMissingPlugins(agent).length === 0
-  )
-}
-
-export function pluginRequirementName(plugin: AgentPluginRequirement): string {
-  return firstText(plugin.name, plugin.slug, "Plugin")
-}
-
-export function pluginRequirementSlug(
-  plugin: AgentPluginRequirement
-): string | undefined {
-  return plugin.slug?.trim() || undefined
-}
-
-export function pluginsBySlug(plugins: ApiPlugin[]): Map<string, ApiPlugin> {
-  const out = new Map<string, ApiPlugin>()
-  for (const plugin of plugins) {
-    const slug = plugin.slug?.trim()
-    if (slug) out.set(slug, plugin)
-  }
-  return out
-}
-
-export function pluginForRequirement(
-  requirement: AgentPluginRequirement,
-  lookup: Map<string, ApiPlugin>
-): ApiPlugin | undefined {
-  const slug = pluginRequirementSlug(requirement)
-  return slug ? lookup.get(slug) : undefined
-}
-
-export function pluginEnabledForAgent(
-  plugin: ApiPlugin,
-  agentID: string | undefined
-): boolean {
-  const id = agentID?.trim()
-  if (!id) return false
-  return (plugin.enabled_agent_ids ?? []).includes(id)
-}
-
-// Maps plugin slug -> friendly display name using the catalog agent's own
-// required/recommended plugin summaries. The 422 install response only carries
-// slugs, so this recovers a human name where the catalog knows one.
-function agentPluginNameBySlug(
-  agent: CatalogAgent | undefined
-): Map<string, string> {
-  const map = new Map<string, string>()
-  const summaries = [
-    ...agentRequiredPlugins(agent),
-    ...(agent?.recommended_plugins ?? []),
-  ]
-  for (const plugin of summaries) {
-    const slug = pluginRequirementSlug(plugin)
-    if (slug && !map.has(slug)) map.set(slug, pluginRequirementName(plugin))
-  }
-  return map
-}
-
-// Reads the `missing_plugins` slug list off a 422 install error body.
-export function missingPluginSlugsFromError(error: unknown): string[] {
+function missingConnectionProvidersFromError(error: unknown): string[] {
   if (!isErrorRecord(error)) return []
-  const value = error.missing_plugins
+  const value = error.missing_connections
   if (!Array.isArray(value)) return []
   return value.filter(
     (slug): slug is string => typeof slug === "string" && slug.trim().length > 0
   )
 }
 
-// Non-generic copy for the missing-plugins block, naming the target team and
-// each plugin (friendly name when known, else the slug).
-export function formatMissingPluginsMessage(
+// Non-generic copy for missing required connections, naming the target team and
+// each connection (friendly name when known, else the provider key).
+function formatMissingConnectionsMessage(
   teamLabel: string,
   slugs: string[],
-  agent: CatalogAgent | undefined
+  _agent: CatalogAgent | undefined
 ): string {
-  const lookup = agentPluginNameBySlug(agent)
-  const names = slugs.map((slug) => lookup.get(slug) ?? slug)
-  const noun = names.length === 1 ? "plugin" : "plugins"
-  return `${teamLabel} can't use this agent yet — it needs the ${formatNameList(
-    names
-  )} ${noun}. Ask an org admin to enable it for ${teamLabel}.`
+  const noun = slugs.length === 1 ? "connection" : "connections"
+  return `${teamLabel} can't use this agent yet — grant ${formatNameList(slugs)} ${noun} to ${teamLabel}.`
 }
 
-// Turns an install mutation error into user-facing copy: missing-plugins block,
+// Turns an install mutation error into user-facing copy: missing-connections block,
 // not-a-member (403), or the backend message / a fallback.
 export function installErrorMessage(
   error: unknown,
   teamLabel: string,
   agent: CatalogAgent | undefined
 ): string {
-  const missing = missingPluginSlugsFromError(error)
+  const missing = missingConnectionProvidersFromError(error)
   if (missing.length > 0) {
-    return formatMissingPluginsMessage(teamLabel, missing, agent)
+    return formatMissingConnectionsMessage(teamLabel, missing, agent)
   }
   const message = extractErrorMessage(error, "")
   if (/\bmember\b/i.test(message)) {
@@ -301,7 +171,7 @@ function formatNameList(names: string[]): string {
 
 function isErrorRecord(
   value: unknown
-): value is { missing_plugins?: unknown; error?: unknown } {
+): value is { missing_connections?: unknown; error?: unknown } {
   return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 

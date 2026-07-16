@@ -27,24 +27,8 @@ const (
 	AgentEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvGitHubNoKeyring            = "GH_NO_KEYRING"
 	AgentEnvDriveUploadURL             = "HIVY_DRIVE_UPLOAD_URL"
-	AgentEnvBugsinkURL                 = "HIVY_BUGSINK_URL"
 	AgentEnvBugsinkDashboardBaseURL    = "HIVY_BUGSINK_DASHBOARD_BASE_URL"
-	AgentEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
-	AgentEnvGlitchTipURL               = "HIVY_GLITCHTIP_URL"
 	AgentEnvGlitchTipDashboardBaseURL  = "HIVY_GLITCHTIP_DASHBOARD_BASE_URL"
-	AgentEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
-	AgentEnvApifyURL                   = "HIVY_APIFY_URL"
-	AgentEnvApifyToken                 = "HIVY_APIFY_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
-	AgentEnvLinearURL                  = "HIVY_LINEAR_URL"
-	AgentEnvLinearToken                = "HIVY_LINEAR_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
-	AgentEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
-	AgentEnvNotionToken                = "HIVY_NOTION_TOKEN"
-	AgentEnvRailwayAPIURL              = "HIVY_RAILWAY_API_URL"
-	AgentEnvRailwayAPIKey              = "HIVY_RAILWAY_API_KEY"
-	AgentEnvVercelAPIURL               = "HIVY_VERCEL_API_URL"
-	AgentEnvVercelAPIKey               = "HIVY_VERCEL_API_KEY"
-	AgentEnvSlackAPIURL                = "HIVY_SLACK_API_URL"
-	AgentEnvSlackToken                 = "HIVY_SLACK_TOKEN"
 	AgentEnvPostgresURL                = "HIVY_POSTGRES_URL"
 	AgentEnvPostgresToken              = "HIVY_POSTGRES_TOKEN"
 	AgentEnvMySQLURL                   = "HIVY_MYSQL_URL"
@@ -117,24 +101,8 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvGitCredentialsURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvGitHubNoKeyring, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvDriveUploadURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvBugsinkURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvBugsinkDashboardBaseURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
-	{Key: AgentEnvBugsinkToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvGlitchTipURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvGlitchTipDashboardBaseURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
-	{Key: AgentEnvGlitchTipToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvApifyURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvApifyToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvLinearURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvLinearToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvNotionAPIURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvNotionToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvRailwayAPIURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvRailwayAPIKey, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvVercelAPIURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvVercelAPIKey, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvSlackAPIURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvSlackToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvPostgresURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvPostgresToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvMySQLURL, Source: AgentEnvSourceControlPlaneInjected},

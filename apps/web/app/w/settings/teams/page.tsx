@@ -87,7 +87,7 @@ export default function TeamsSettingsPage() {
       <TutorialBanner
         tutorial="teams"
         title="Understand team permissions"
-        description="See how teams scope members, channels, agents, plugins, and knowledge access."
+        description="See how teams scope members, channels, agents, connections, skills, and knowledge access."
         docsPath="teams-and-permissions"
       />
 

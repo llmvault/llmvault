@@ -10,6 +10,7 @@ OAuth client credentials.
 import json
 import queue
 import threading
+import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -18,6 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 EXPECTED_AUTH = {
     "/noauth": (None, None),
     "/names": (None, None),
+    "/slow": (None, None),
     "/static": ("x-api-key", "static-test-key"),
     "/static-bearer": ("authorization", "Bearer static-bearer-token"),
     "/oauth": ("authorization", "Bearer oauth-user-token"),
@@ -159,6 +161,8 @@ class McpHandler(BaseHTTPRequestHandler):
                 "serverInfo": {"name": "hivy-auth-fixture", "version": "1.0.0"},
             }
         elif method == "tools/list":
+            if endpoint == "/slow":
+                time.sleep(1)
             if endpoint == "/names":
                 result = {
                     "tools": [

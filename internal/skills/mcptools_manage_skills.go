@@ -12,13 +12,11 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // --- create_skill --------------------------------------------------------------
 
 type createSkillArgs struct {
-	PluginSlug                   string            `json:"plugin_slug"`
 	Name                         string            `json:"name"`
 	Description                  string            `json:"description"`
 	HumanDescription             string            `json:"human_description"`
@@ -33,7 +31,7 @@ type createSkillArgs struct {
 func registerCreateSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolCreateSkill,
-		Description: "Create a custom skill inside a plugin owned by the calling agent's team (create one first with create_team_plugin if needed). Catalog plugins and plugins owned by another team are rejected. Provide the SKILL.md body as `content` (WITHOUT frontmatter — it is generated from name/description) and supporting files under references/, templates/, scripts/, or assets/. The skill is published immediately to every agent on the team. Get the user's explicit approval of the final content before calling this.",
+		Description: "Create a skill owned by the calling agent's team. Provide the SKILL.md body as `content` without frontmatter and supporting files under references/, templates/, scripts/, or assets/. The skill is published immediately to every agent on the team. Get the user's explicit approval of the final content before calling this.",
 		InputSchema: createSkillSchema(),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args createSkillArgs
@@ -49,7 +47,6 @@ func createSkillSchema() map[string]any {
 		"type":                 "object",
 		"additionalProperties": false,
 		"properties": map[string]any{
-			"plugin_slug":                    map[string]any{"type": "string", "description": "Slug of a plugin owned by the calling agent's team. Must be created with create_team_plugin; catalog and cross-team plugins are rejected."},
 			"name":                           map[string]any{"type": "string", "description": "Skill display name. The slug is generated from it."},
 			"description":                    map[string]any{"type": "string", "description": "Agent-facing trigger text: when should an agent load this skill? Start with \"Use when...\". This appears in the agent's Available skills system-prompt section, so make the triggering conditions concrete."},
 			"human_description":              map[string]any{"type": "string", "description": "Optional user-facing display copy for the UI."},
@@ -63,16 +60,12 @@ func createSkillSchema() map[string]any {
 				"description":          "Supporting files keyed by relative path under references/, templates/, scripts/, or assets/ (e.g. {\"references/api.md\": \"...\", \"scripts/check.sh\": \"...\"}). Materialized into .skills/<slug>/ when an agent loads the skill.",
 			},
 		},
-		"required": []string{"plugin_slug", "name", "description", "content"},
+		"required": []string{"name", "description", "content"},
 	}
 }
 
 func handleCreateSkill(ctx context.Context, db *gorm.DB, token *model.Token, frontendURL string, args createSkillArgs) (*mcp.CallToolResult, error) {
 	agent, _, errResult := resolveSkillManagerTeam(ctx, db, token, args.HivyActorUserID, "creating a skill")
-	if errResult != nil {
-		return errResult, nil
-	}
-	plugin, errResult := loadTeamOwnedPlugin(ctx, db, token.OrgID, agent.TeamID, args.PluginSlug)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -86,12 +79,12 @@ func handleCreateSkill(ctx context.Context, db *gorm.DB, token *model.Token, fro
 
 	var count int64
 	if err := db.WithContext(ctx).Model(&model.Skill{}).
-		Where("plugin_id = ? AND slug = ?", plugin.ID, slug).
+		Where("org_id = ? AND team_id = ? AND slug = ?", token.OrgID, agent.TeamID, slug).
 		Count(&count).Error; err != nil {
 		return skillToolError("failed to check skill slug: " + err.Error()), nil
 	}
 	if count > 0 {
-		return skillToolError(fmt.Sprintf("skill %q already exists in plugin %q; use update_skill to change it", slug, plugin.Slug)), nil
+		return skillToolError(fmt.Sprintf("skill %q already exists on this team; use update_skill to change it", slug)), nil
 	}
 
 	files := cleanSkillFiles(args.Files)
@@ -106,8 +99,8 @@ func handleCreateSkill(ctx context.Context, db *gorm.DB, token *model.Token, fro
 	humanDesc := strings.TrimSpace(args.HumanDescription)
 	skill := model.Skill{
 		ID:               uuid.New(),
-		PluginID:         &plugin.ID,
 		OrgID:            &orgID,
+		TeamID:           &agent.TeamID,
 		Slug:             slug,
 		Name:             name,
 		Description:      &desc,
@@ -118,36 +111,29 @@ func handleCreateSkill(ctx context.Context, db *gorm.DB, token *model.Token, fro
 		Bundle:           model.RawJSON(rawBundle),
 		Tags:             pq.StringArray(normalizeStringList(args.Tags)),
 		Status:           model.SkillStatusPublished,
-		PublishedAt:      &now,
 		HydratedAt:       &now,
 	}
-	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&skill).Error; err != nil {
-			return err
-		}
-		return pluginresolve.RefreshPluginSkillInstallCounts(ctx, tx, plugin.ID)
-	}); err != nil {
+	if err := db.WithContext(ctx).Create(&skill).Error; err != nil {
 		return skillToolError("failed to create skill: " + err.Error()), nil
 	}
 
 	return skillToolJSON(map[string]any{
 		"success": true,
 		"skill": map[string]any{
-			"slug":        skill.Slug,
-			"name":        skill.Name,
-			"plugin_slug": plugin.Slug,
-			"status":      skill.Status,
+			"slug":    skill.Slug,
+			"name":    skill.Name,
+			"team_id": agent.TeamID.String(),
+			"status":  skill.Status,
 		},
 		"required_environment_variables": envVars,
 		"environment_settings_url":       environmentSettingsURL(frontendURL),
-		"hint":                           skillPublishHint(plugin.Slug),
+		"hint":                           skillPublishHint(),
 	})
 }
 
 // --- update_skill --------------------------------------------------------------
 
 type updateSkillArgs struct {
-	PluginSlug                   string             `json:"plugin_slug"`
 	Skill                        string             `json:"skill"`
 	Name                         *string            `json:"name"`
 	Description                  *string            `json:"description"`
@@ -163,7 +149,7 @@ type updateSkillArgs struct {
 func registerUpdateSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateSkill,
-		Description: "Update a skill in a plugin owned by the calling agent's team. Catalog plugins and plugins owned by another team are rejected. A true patch: only provided fields change; the skill slug never changes. A provided `files` object REPLACES the full file set. Updating an archived skill republishes it. Get the user's explicit approval of the changes before calling this.",
+		Description: "Update a skill owned by the calling agent's team. This is a true patch: only provided fields change; the skill slug never changes. A provided `files` object replaces the full file set. Updating an archived skill republishes it. Get the user's explicit approval of the changes before calling this.",
 		InputSchema: updateSkillSchema(),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args updateSkillArgs
@@ -177,11 +163,9 @@ func registerUpdateSkillTool(server *mcp.Server, db *gorm.DB, token *model.Token
 func updateSkillSchema() map[string]any {
 	schema := createSkillSchema()
 	props := schema["properties"].(map[string]any)
-	props["skill"] = map[string]any{"type": "string", "description": "Slug of the skill to update (see the Available skills prompt section or list_team_plugins)."}
+	props["skill"] = map[string]any{"type": "string", "description": "Slug of the team skill to update."}
 	props["name"] = map[string]any{"type": "string", "description": "New display name. The slug is NOT regenerated."}
-	delete(props, "plugin_slug")
-	props["plugin_slug"] = map[string]any{"type": "string", "description": "Slug of the calling team's custom plugin that contains the skill."}
-	schema["required"] = []string{"plugin_slug", "skill"}
+	schema["required"] = []string{"skill"}
 	return schema
 }
 
@@ -190,11 +174,7 @@ func handleUpdateSkill(ctx context.Context, db *gorm.DB, token *model.Token, fro
 	if errResult != nil {
 		return errResult, nil
 	}
-	plugin, errResult := loadTeamOwnedPlugin(ctx, db, token.OrgID, agent.TeamID, args.PluginSlug)
-	if errResult != nil {
-		return errResult, nil
-	}
-	skill, errResult := loadTeamOwnedSkill(ctx, db, token.OrgID, plugin, args.Skill)
+	skill, errResult := loadTeamOwnedSkill(ctx, db, token.OrgID, agent.TeamID, args.Skill)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -260,13 +240,13 @@ func handleUpdateSkill(ctx context.Context, db *gorm.DB, token *model.Token, fro
 	return skillToolJSON(map[string]any{
 		"success": true,
 		"skill": map[string]any{
-			"slug":        skill.Slug,
-			"name":        name,
-			"plugin_slug": plugin.Slug,
-			"status":      model.SkillStatusPublished,
+			"slug":    skill.Slug,
+			"name":    name,
+			"team_id": agent.TeamID.String(),
+			"status":  model.SkillStatusPublished,
 		},
 		"required_environment_variables": envVars,
 		"environment_settings_url":       environmentSettingsURL(frontendURL),
-		"hint":                           skillPublishHint(plugin.Slug),
+		"hint":                           skillPublishHint(),
 	})
 }

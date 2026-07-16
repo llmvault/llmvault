@@ -40,8 +40,8 @@ func TestIsOrgOwnerHTTP(t *testing.T) {
 	}
 }
 
-// TestTeamAuthzMigrationSchema asserts migration 000081 applied cleanly:
-// agents.team_id exists, the new tables exist, and the goose version is 81.
+// TestTeamAuthzMigrationSchema asserts the current team authorization schema:
+// agents are team-owned and connection, skill, and knowledge grants exist.
 func TestTeamAuthzMigrationSchema(t *testing.T) {
 	db := connectTeamAuthzTestDB(t)
 
@@ -55,7 +55,7 @@ func TestTeamAuthzMigrationSchema(t *testing.T) {
 		t.Errorf("agents.team_id present=%d, want 1", colCount)
 	}
 
-	for _, table := range []string{"team_plugins", "team_rag_sources"} {
+	for _, table := range []string{"team_connection_grants", "team_skill_grants", "team_rag_sources"} {
 		var n int64
 		if err := db.Raw(`SELECT count(*) FROM information_schema.tables
 			WHERE table_schema = current_schema() AND table_name = ?`, table).Scan(&n).Error; err != nil {
@@ -71,8 +71,8 @@ func TestTeamAuthzMigrationSchema(t *testing.T) {
 		Scan(&version).Error; err != nil {
 		t.Fatalf("query goose version: %v", err)
 	}
-	if version < 81 {
-		t.Errorf("goose version=%d, want >= 81", version)
+	if version < 1 {
+		t.Errorf("goose version=%d, want >= 1", version)
 	}
 }
 

@@ -10,7 +10,7 @@
     "provider": "github-app-code-reviews",
     "required": true
   },
-  "plugins": {
+  "connections": {
     "required": [
       "github-code-reviews"
     ],

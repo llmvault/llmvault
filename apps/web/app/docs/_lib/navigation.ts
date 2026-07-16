@@ -98,19 +98,19 @@ export const DOC_SECTIONS: DocSection[] = [
     ],
   },
   {
-    title: "Plugins and connections",
+    title: "Connections and skills",
     pages: [
       {
-        slug: "plugins-and-connections/how-access-works",
+        slug: "connections-and-skills/how-access-works",
         title: "Connections and team access",
         description:
-          "A connection belongs to a person; teams receive plugin access, and agents inherit only what their team allows.",
+          "A connection belongs to a person; teams receive connection access, and agents inherit only what their team allows.",
       },
       {
-        slug: "plugins-and-connections/connect-tools",
+        slug: "connections-and-skills/connect-tools",
         title: "Connect and configure your tools",
         description:
-          "Connect the account a plugin needs and restrict the resources it may touch. Team switches control where the plugin appears.",
+          "Connect the account a connection needs and restrict the resources it may touch. Team switches control where the connection appears.",
       },
     ],
   },

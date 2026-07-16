@@ -14,7 +14,7 @@ import (
 
 // TestAgentSessionsQAAgentE2E exercises the PRODUCTION QA agent shipped in the
 // catalog (global/agents/anna-qa-engineer/) against the live compose stack. Nothing
-// is hand-built: the org installs the sheets + qa plugins, installs the catalog
+// is hand-built: the org installs the catalog
 // agent (which carries its own instructions, skills, and sub-agents), and asks
 // it to author and run browser test cases against the real login page, then
 // verifies the QA registry sheet the agent authored on its own.
@@ -54,13 +54,7 @@ func TestAgentSessionsQAAgentE2E(t *testing.T) {
 	orgID := ownerAuth.Orgs[0].ID
 	token := ownerAuth.AccessToken
 
-	// --- Org-install the plugins the catalog agent requires. The runtime
-	// plugin is auto-installed, so it is NOT installed here.
-	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "sheets")
-	qaAgentInstallPlugin(t, ctx, apiBase, token, orgID, "qa")
-	t.Log("installed sheets + qa org plugins")
-
-	// --- Install the catalog agent. A 409 here means the required plugins are
+	// --- Install the catalog agent. A 409 here means required connections are
 	// not installed; agentSessionsInstallCatalogAgent fatals with the body
 	// dumped when the status is not 201.
 	agent := agentSessionsInstallCatalogAgent(t, ctx, apiBase, token, orgID, "anna-playwright-qa-engineer")

@@ -35,8 +35,8 @@ func TestLoadTriggersIncludesShippedTemplates(t *testing.T) {
 			mention.Trigger.Defaults.Instructions == "" {
 			t.Fatalf("%s=%+v", slug, mention)
 		}
-		if len(mention.Plugins.Required) != 1 || mention.Plugins.Required[0] != "github" {
-			t.Fatalf("%s plugins=%+v", slug, mention.Plugins)
+		if len(mention.Connections.Required) != 1 || mention.Connections.Required[0] != "github" {
+			t.Fatalf("%s connections=%+v", slug, mention.Connections)
 		}
 	}
 
@@ -48,8 +48,8 @@ func TestLoadTriggersIncludesShippedTemplates(t *testing.T) {
 		cr.Trigger.Key != "pr_mention" || cr.Trigger.Defaults.Instructions == "" {
 		t.Fatalf("github-code-reviews-pr-mention=%+v", cr)
 	}
-	if len(cr.Plugins.Required) != 1 || cr.Plugins.Required[0] != "github-code-reviews" {
-		t.Fatalf("github-code-reviews-pr-mention plugins=%+v", cr.Plugins)
+	if len(cr.Connections.Required) != 1 || cr.Connections.Required[0] != "github-code-reviews" {
+		t.Fatalf("github-code-reviews-pr-mention connections=%+v", cr.Connections)
 	}
 
 	crOpened, ok := bySlug["github-code-reviews-pr-opened"]
@@ -60,7 +60,7 @@ func TestLoadTriggersIncludesShippedTemplates(t *testing.T) {
 		crOpened.Trigger.Key != "pr_opened" || crOpened.Trigger.Defaults.Instructions == "" {
 		t.Fatalf("github-code-reviews-pr-opened=%+v", crOpened)
 	}
-	if len(crOpened.Plugins.Required) != 1 || crOpened.Plugins.Required[0] != "github-code-reviews" {
-		t.Fatalf("github-code-reviews-pr-opened plugins=%+v", crOpened.Plugins)
+	if len(crOpened.Connections.Required) != 1 || crOpened.Connections.Required[0] != "github-code-reviews" {
+		t.Fatalf("github-code-reviews-pr-opened connections=%+v", crOpened.Connections)
 	}
 }

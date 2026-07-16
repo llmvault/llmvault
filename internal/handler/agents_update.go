@@ -69,10 +69,6 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	disabledPluginIDs, ok := h.normalizeDisabledAgentPluginIDsForRequest(ctx, w, org.ID, &agent, req.DisabledPluginIDs)
-	if !ok {
-		return
-	}
 	updates := map[string]any{}
 	if !h.applyAgentUpdateFields(w, ctx, &agent, &req, updates) {
 		return
@@ -91,7 +87,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if len(updates) > 0 || req.SubAgents != nil || req.DisabledPluginIDs != nil {
+	if len(updates) > 0 || req.SubAgents != nil {
 		if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if len(updates) > 0 {
 				if err := tx.Model(&model.Agent{}).
@@ -111,12 +107,6 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 					if err := tx.Create(&subAgentRows[i]).Error; err != nil {
 						return err
 					}
-				}
-			}
-			if req.DisabledPluginIDs != nil {
-				disabledBy, _ := currentRequestUserID(ctx)
-				if err := replaceAgentPluginOverrides(ctx, tx, org.ID, agent.ID, disabledPluginIDs, disabledBy); err != nil {
-					return err
 				}
 			}
 			return nil
@@ -251,13 +241,13 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["mcp_tool_filter"] = value
 		agent.McpToolFilter = value
 	}
-	if req.PluginMCPToolDeny != nil {
-		value, ok := normalizePluginMCPToolDenyForRequest(w, req.PluginMCPToolDeny)
+	if req.ConnectionMCPToolDeny != nil {
+		value, ok := normalizeConnectionMCPToolDenyForRequest(w, req.ConnectionMCPToolDeny)
 		if !ok {
 			return false
 		}
-		updates["plugin_mcp_tool_deny"] = value
-		agent.PluginMCPToolDeny = value
+		updates["connection_mcp_tool_deny"] = value
+		agent.ConnectionMCPToolDeny = value
 	}
 	if req.McpServers != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "configure MCP servers through MCP settings"})

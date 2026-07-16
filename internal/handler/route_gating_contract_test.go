@@ -50,7 +50,7 @@ func TestRouteGating_MiddlewareTiers(t *testing.T) {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireOrgAdmin(db))
 			r.Get("/connections", ok)
-			r.Post("/plugins/{slug}/install", ok)
+			r.Post("/connections", ok)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireOrgAdminOrAPIKey(db))
@@ -75,7 +75,7 @@ func TestRouteGating_MiddlewareTiers(t *testing.T) {
 	cases := []tc{
 		{"billing.checkout", "POST", "/v1/billing/checkout", 200, 403, 403, -1},
 		{"connections.list", "GET", "/v1/connections", 200, 200, 403, -1},
-		{"plugins.install", "POST", "/v1/plugins/x/install", 200, 200, 403, -1},
+		{"connections.create", "POST", "/v1/connections", 200, 200, 403, -1},
 		{"apikeys.list", "GET", "/v1/api-keys", 200, 200, 403, 200},
 		{"tokens.list", "GET", "/v1/tokens", 200, 200, 403, 200},
 	}

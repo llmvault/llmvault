@@ -29,7 +29,7 @@ func (h *UploadsHandler) WithAppsService(svc *apps.Service) *UploadsHandler {
 // an app inside its OWN sandbox: the app's full deploy env (plus PORT) and the
 // server-computed public URL for the requested port. Auth is the sandbox
 // runtime-secret bearer (authAgent); the app must be an active app of the
-// agent's org and the agent must have the apps plugin installed.
+// agent's org.
 //
 // SECURITY: the env values are secrets. They exist only in this HTTP response
 // (fetched by `make preview` in the sandbox, never surfaced to the model) —
@@ -69,11 +69,6 @@ func (h *UploadsHandler) AppPreviewEnv(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "app not found"})
 		return
 	}
-	if !apps.PluginInstalled(r.Context(), h.db, *agent) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "the apps plugin is not installed for this agent"})
-		return
-	}
-
 	previewURL, status, errMsg := h.appPreviewURL(r.Context(), sb, port)
 	if errMsg != "" {
 		writeJSON(w, status, map[string]string{"error": errMsg})

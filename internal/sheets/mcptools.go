@@ -9,10 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
 
 // Tool names for the agent-facing sheets MCP tool group (plan §1).
@@ -27,11 +25,6 @@ const (
 	toolSheetOperations = "sheet_operations"
 )
 
-// SheetsPluginSlug is the plugin whose per-agent install gates this tool
-// group. Installing the plugin grants both the skill (existing machinery)
-// and these tools.
-const SheetsPluginSlug = "sheets"
-
 const (
 	// sheetToolTimeout bounds every tool call's service work.
 	sheetToolTimeout = 20 * time.Second
@@ -40,13 +33,8 @@ const (
 	sheetImportStartTimeout = 5 * time.Second
 )
 
-// NewToolsFunc returns the sheets ToolsFunc. It registers the eight sheets
-// tools on the MCP server ONLY when the calling token is an agent proxy for
-// an active agent whose team-resolved effective plugin set includes the
-// `sheets` plugin, mirroring the conditional-gating precedent of
-// agents.NewToolsFunc/agentBuilderEnabled. Registering nothing when the
-// plugin is absent keeps the tool surface out of un-enrolled agents' prompts
-// entirely.
+// NewToolsFunc registers the sheets tools for active agent proxy tokens. The
+// runtime MCP allow-list remains authoritative for tool visibility.
 func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || svc == nil || svc.db == nil || !sheetToolAgentProxy(token) {
@@ -64,9 +52,6 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 			First(&agent).Error; err != nil {
 			return
 		}
-		if !sheetsPluginInstalled(ctx, svc.db, agent) {
-			return
-		}
 		registerSheetCreate(server, svc, token, agentID)
 		registerSheetList(server, svc, token)
 		registerSheetDescribe(server, svc, token)
@@ -76,13 +61,6 @@ func NewToolsFunc(svc *Service) func(server *mcp.Server, token *model.Token) {
 		registerSheetImportCSV(server, svc, token, agentID)
 		registerSheetOperations(server, svc, token, agentID)
 	}
-}
-
-// sheetsPluginInstalled reports whether the sheets plugin is in the agent's
-// effective plugin set (team grants ∪ auto-install ∪ default-agent).
-func sheetsPluginInstalled(ctx context.Context, db *gorm.DB, agent model.Agent) bool {
-	has, err := pluginresolve.AgentHasPluginSlug(ctx, db, agent, SheetsPluginSlug)
-	return err == nil && has
 }
 
 func sheetToolAgentProxy(token *model.Token) bool {

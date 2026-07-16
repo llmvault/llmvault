@@ -33,9 +33,6 @@ func TestAgentSandboxEnvVarsUseAPIWebhookBaseURL(t *testing.T) {
 	for _, key := range []string{
 		agentruntime.AgentEnvGitCredentialsURL,
 		agentruntime.AgentEnvDriveUploadURL,
-		agentruntime.AgentEnvBugsinkURL,
-		agentruntime.AgentEnvLinearURL,
-		agentruntime.AgentEnvNotionAPIURL,
 	} {
 		if got := env[key]; !strings.HasPrefix(got, "http://host.docker.internal:8080/") {
 			t.Fatalf("%s = %q", key, got)

@@ -5,24 +5,19 @@ import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Skeleton, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { IntegrationLogo } from "@/components/integration-logo"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
-import { PLUGINS_QUERY_KEY } from "@/app/w/(chat)/plugins/_lib"
-import { useIsAdmin } from "@/lib/auth/use-role"
 import { AgentAvatar } from "../_agent-avatar"
 import { availableModelIds } from "@/app/w/(chat)/_lib/model-options"
 import {
   AGENT_CATALOG_QUERY_KEY,
   INSTALLED_AGENTS_QUERY_KEY,
   agentDescription,
-  agentMissingPlugins,
   agentName,
-  agentRequiredPlugins,
   normalizeAgentSandboxImage,
   normalizeAgentSandboxSize,
-  pluginsBySlug,
-  withPluginMCPToolDenied,
   type AgentSandboxImage,
   type AgentSandboxSize,
   type CatalogAgent,
@@ -30,18 +25,11 @@ import {
   type Team,
 } from "../_lib"
 import {
-  AgentPluginsSection,
-  NoRequirementsSection,
-  RequiredPluginsSection,
-} from "./_agent-plugin-sections"
-import {
   AgentSettingsSection,
   SandboxImageSection,
   SandboxSizeSection,
 } from "./_agent-settings-section"
 import { AgentTeamsSection } from "./_agent-teams-section"
-
-const EMPTY_TEAMS: Team[] = []
 
 export default function AgentDetailPage({
   params,
@@ -50,236 +38,68 @@ export default function AgentDetailPage({
 }) {
   const { slug } = use(params)
   const queryClient = useQueryClient()
-  const isAdmin = useIsAdmin()
-  // Installing/uninstalling a catalog agent is now team-scoped and member
-  // reachable: each of the caller's teams gets its own clone, so the per-team
-  // controls live in AgentTeamsSection. This page still lets anyone view and
-  // configure an installed clone (model, sandbox, plugins).
   const agentQuery = $api.useQuery("get", "/v1/agents/catalog/{slug}", {
     params: { path: { slug } },
   })
-  const pluginsQuery = $api.useQuery("get", "/v1/plugins")
-  const agentModelsQuery = $api.useQuery("get", "/v1/agents/models")
+  const modelsQuery = $api.useQuery("get", "/v1/agents/models")
   const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const updateAgentModel = $api.useMutation("patch", "/v1/agents/{id}/model")
-  const updateAgent = $api.useMutation("patch", "/v1/agents/{id}")
   const agent = agentQuery.data as CatalogAgent | undefined
-  const installedAgentID = agent?.installed_agent_id ?? ""
-  const installedAgentQuery = $api.useQuery(
+  const installedID = agent?.installed_agent_id ?? ""
+  const installedQuery = $api.useQuery(
     "get",
     "/v1/agents/{id}",
-    {
-      params: { path: { id: installedAgentID } },
-    },
-    { enabled: installedAgentID.length > 0 }
+    { params: { path: { id: installedID } } },
+    { enabled: Boolean(installedID) }
   )
-  const installedAgent = installedAgentQuery.data as InstalledAgent | undefined
-  const installedAgentTeamID = installedAgent?.team_id ?? ""
-  const teamPluginsQuery = $api.useQuery(
-    "get",
-    "/v1/orgs/current/teams/{teamID}/plugins",
-    { params: { path: { teamID: installedAgentTeamID } } },
-    { enabled: Boolean(installedAgentTeamID), retry: false }
+  const installed = installedQuery.data as InstalledAgent | undefined
+  const updateModel = $api.useMutation("patch", "/v1/agents/{id}/model")
+  const update = $api.useMutation("patch", "/v1/agents/{id}")
+  const models = useMemo(
+    () => availableModelIds(modelsQuery.data ?? []),
+    [modelsQuery.data]
   )
-  const plugins = useMemo(() => pluginsQuery.data ?? [], [pluginsQuery.data])
-  const pluginLookup = useMemo(() => pluginsBySlug(plugins), [plugins])
-  const requiredPlugins = agentRequiredPlugins(agent)
-  const missingPlugins = agentMissingPlugins(agent)
-  const availableModels = useMemo(
-    () => availableModelIds(agentModelsQuery.data ?? []),
-    [agentModelsQuery.data]
-  )
-  const selectedModel =
-    installedAgent?.model || agent?.model || availableModels[0] || ""
-  const selectedSandboxImage = normalizeAgentSandboxImage(
-    installedAgent?.sandbox_image ?? agent?.sandbox_image
-  )
-  const selectedSandboxSize = normalizeAgentSandboxSize(
-    installedAgent?.sandbox_size
-  )
-  const teams = teamsQuery.data?.data ?? EMPTY_TEAMS
-  const teamPluginIDs = useMemo(
-    () =>
-      (teamPluginsQuery.data?.data ?? [])
-        .map((plugin) => plugin.id)
-        .filter((id): id is string => Boolean(id)),
-    [teamPluginsQuery.data?.data]
-  )
-  const disabledPluginIDs = installedAgent?.disabled_plugin_ids ?? []
-  const pluginMCPToolDeny = installedAgent?.plugin_mcp_tool_deny ?? {}
-  const requiredPluginSlugs = useMemo(
-    () =>
-      requiredPlugins
-        .map((plugin) => plugin.slug)
-        .filter((slug): slug is string => Boolean(slug)),
-    [requiredPlugins]
-  )
-  const isDefaultAgent = Boolean(agent?.is_default)
-  const hasInstalledClone = installedAgentID.length > 0
-  const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
-  const sandboxConfigBusy =
-    installedAgentQuery.isLoading || updateAgent.isPending
-  const canManageAgentPlugins =
-    isAdmin || teams.some((team) => team.id === installedAgentTeamID)
-
+  const teams = (teamsQuery.data?.data ?? []) as Team[]
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: AGENT_CATALOG_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
-    queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.agentCatalog(),
-    })
-    if (installedAgentID) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agent() })
-    }
-  }, [installedAgentID, queryClient])
-
-  function handleModelChange(model: string) {
-    if (!installedAgentID || !model || model === selectedModel) return
-    updateAgentModel.mutate(
-      { params: { path: { id: installedAgentID } }, body: { model } },
+    queryClient.invalidateQueries({ queryKey: queryKeys.agentCatalog() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.agent() })
+  }, [queryClient])
+  const mutate = (body: Record<string, string>, success: string) =>
+    installedID &&
+    update.mutate(
+      { params: { path: { id: installedID } }, body },
       {
         onSuccess: () => {
-          toast.success("Default model updated")
+          toast.success(success)
           refresh()
         },
         onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not update default model")
-          ),
+          toast.danger(extractErrorMessage(error, "Could not update agent")),
       }
     )
-  }
-
-  function handleSandboxSizeChange(size: AgentSandboxSize) {
-    if (!installedAgentID || size === selectedSandboxSize) return
-    updateAgent.mutate(
-      {
-        params: { path: { id: installedAgentID } },
-        body: { sandbox_size: size },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Sandbox size updated")
-          refresh()
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not update sandbox size")
-          ),
-      }
-    )
-  }
-
-  function handleSandboxImageChange(image: AgentSandboxImage) {
-    if (!installedAgentID || image === selectedSandboxImage) return
-    updateAgent.mutate(
-      {
-        params: { path: { id: installedAgentID } },
-        body: { sandbox_image: image },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Image template updated")
-          refresh()
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not update image template")
-          ),
-      }
-    )
-  }
-
-  function handleDisabledPluginIDsChange(pluginIDs: string[]) {
-    if (!installedAgentID) return
-    updateAgent.mutate(
-      {
-        params: { path: { id: installedAgentID } },
-        body: { disabled_plugin_ids: pluginIDs },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Agent plugins updated")
-          refresh()
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not update agent plugins")
-          ),
-      }
-    )
-  }
-
-  function handlePluginMCPToolDenyChange(
-    pluginID: string,
-    tool: string,
-    denied: boolean
-  ) {
-    if (!installedAgentID) return
-    const next = withPluginMCPToolDenied(
-      pluginMCPToolDeny,
-      pluginID,
-      tool,
-      denied
-    )
-    updateAgent.mutate(
-      {
-        params: { path: { id: installedAgentID } },
-        body: { plugin_mcp_tool_deny: next },
-      },
-      {
-        onSuccess: () => {
-          toast.success(denied ? "Plugin tool disabled" : "Plugin tool enabled")
-          refresh()
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not update plugin tool access")
-          ),
-      }
-    )
-  }
-
-  if (agentQuery.isLoading) {
-    return <DetailSkeleton />
-  }
-
-  if (!agent) {
-    return <NotFoundState />
-  }
-
+  if (agentQuery.isLoading) return <DetailSkeleton />
+  if (!agent) return <NotFoundState />
+  const required = agent.required_connections ?? []
   return (
     <div className="flex flex-col gap-8">
       <NextLink
         href="/w/agents"
-        className="text-muted-foreground flex w-fit items-center gap-2 text-sm transition-colors hover:text-foreground"
+        className="flex w-fit items-center gap-2 text-sm text-muted"
       >
         <AppIcon icon="arrow-left" className="h-4 w-4" />
         Agents
       </NextLink>
-
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <AgentAvatar agent={agent} size="lg" />
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-foreground">
-              {agentName(agent)}
-            </h1>
-            <p className="text-muted-foreground mt-1 max-w-xl text-sm leading-5">
-              {agentDescription(agent)}
-            </p>
-          </div>
+      <header className="flex items-center gap-3">
+        <AgentAvatar agent={agent} size="lg" />
+        <div>
+          <h1 className="text-lg font-semibold">{agentName(agent)}</h1>
+          <p className="mt-1 text-sm text-muted">{agentDescription(agent)}</p>
         </div>
       </header>
-
-      {missingPlugins.length > 0 ? (
-        <MissingPluginsWarning count={missingPlugins.length} />
-      ) : null}
-
-      {isDefaultAgent ? null : (
+      {!agent.is_default ? (
         <AgentTeamsSection
           slug={slug}
           agent={agent}
@@ -287,74 +107,57 @@ export default function AgentDetailPage({
           isLoading={teamsQuery.isLoading}
           onChanged={refresh}
         />
-      )}
-
-      {hasInstalledClone ? (
+      ) : null}
+      {installed ? (
         <div className="flex flex-col gap-6">
           <AgentSettingsSection
-            availableModels={availableModels}
-            selectedModel={selectedModel}
-            isBusy={modelBusy}
-            onModelChange={handleModelChange}
-          />
-          <AgentPluginsSection
-            agentID={installedAgentID}
-            plugins={plugins}
-            teamId={installedAgentTeamID}
-            teamPluginIDs={teamPluginIDs}
-            disabledPluginIDs={disabledPluginIDs}
-            requiredPluginSlugs={requiredPluginSlugs}
-            canManage={canManageAgentPlugins}
-            isSaving={updateAgent.isPending}
-            isLoading={
-              installedAgentQuery.isLoading ||
-              pluginsQuery.isLoading ||
-              teamPluginsQuery.isLoading
+            availableModels={models}
+            selectedModel={installed.model || agent.model || models[0] || ""}
+            isBusy={updateModel.isPending}
+            onModelChange={(model) =>
+              updateModel.mutate(
+                { params: { path: { id: installedID } }, body: { model } },
+                { onSuccess: refresh }
+              )
             }
-            onDisabledPluginIDsChange={handleDisabledPluginIDsChange}
-            pluginMCPToolDeny={pluginMCPToolDeny}
-            onPluginMCPToolDenyChange={handlePluginMCPToolDenyChange}
           />
           <SandboxImageSection
-            selectedSandboxImage={selectedSandboxImage}
-            isBusy={sandboxConfigBusy}
-            onSandboxImageChange={handleSandboxImageChange}
+            selectedSandboxImage={normalizeAgentSandboxImage(
+              installed.sandbox_image
+            )}
+            isBusy={update.isPending}
+            onSandboxImageChange={(value: AgentSandboxImage) =>
+              mutate({ sandbox_image: value }, "Image template updated")
+            }
           />
           <SandboxSizeSection
-            selectedSandboxSize={selectedSandboxSize}
-            isBusy={sandboxConfigBusy}
-            onSandboxSizeChange={handleSandboxSizeChange}
+            selectedSandboxSize={normalizeAgentSandboxSize(
+              installed.sandbox_size
+            )}
+            isBusy={update.isPending}
+            onSandboxSizeChange={(value: AgentSandboxSize) =>
+              mutate({ sandbox_size: value }, "Sandbox size updated")
+            }
           />
         </div>
       ) : null}
-
-      {requiredPlugins.length > 0 ? (
-        <RequiredPluginsSection
-          plugins={requiredPlugins}
-          pluginLookup={pluginLookup}
-        />
-      ) : (
-        <NoRequirementsSection />
-      )}
-    </div>
-  )
-}
-
-function MissingPluginsWarning({ count }: { count: number }) {
-  return (
-    <div className="flex gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
-        <AppIcon icon="triangle-alert" className="h-5 w-5" />
-      </div>
-      <div className="min-w-0">
-        <h2 className="text-sm font-medium text-foreground">
-          Required plugins missing
-        </h2>
-        <p className="text-muted-foreground mt-1 text-sm leading-5">
-          Install {count === 1 ? "this plugin" : "these plugins"} before
-          installing this agent.
-        </p>
-      </div>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">Required connections</h2>
+        <div className="bg-card divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {required.length ? (
+            required.map((item) => (
+              <div key={item.provider} className="flex items-center gap-3 p-3">
+                <IntegrationLogo provider={item.provider ?? ""} size={32} />
+                <span className="text-sm font-medium">{item.provider}</span>
+              </div>
+            ))
+          ) : (
+            <div className="p-4 text-sm text-muted">
+              No required connections.
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
@@ -362,36 +165,19 @@ function MissingPluginsWarning({ count }: { count: number }) {
 function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-8">
-      <Skeleton className="h-4 w-20 rounded" />
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-12 w-12" />
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-5 w-36 rounded" />
-            <Skeleton className="h-4 w-80 max-w-full rounded" />
-          </div>
-        </div>
-        <Skeleton className="h-8 w-20 rounded-full" />
-      </header>
-      <Skeleton className="h-24" />
-      <Skeleton className="h-44" />
+      <Skeleton className="h-4 w-20" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-44 w-full" />
     </div>
   )
 }
-
 function NotFoundState() {
   return (
-    <div className="bg-card flex min-h-64 flex-col items-center justify-center rounded-xl border border-border px-6 text-center">
-      <AppIcon icon="bot" className="h-7 w-7 text-muted" />
-      <p className="mt-3 text-sm font-medium text-foreground">
-        Agent not found
-      </p>
-      <p className="mt-1 text-sm text-muted">
-        This agent may have been removed from the catalog.
-      </p>
+    <div className="bg-card rounded-xl border border-border p-10 text-center">
+      <p className="text-sm font-medium">Agent not found</p>
       <NextLink
         href="/w/agents"
-        className="text-muted-foreground mt-4 text-sm transition-colors hover:text-foreground"
+        className="mt-3 inline-block text-sm text-muted"
       >
         Back to agents
       </NextLink>

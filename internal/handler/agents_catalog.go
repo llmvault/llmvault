@@ -23,28 +23,24 @@ func snapshotCatalogInstructions(instructions string) *string {
 	return &trimmed
 }
 
-type agentCatalogPluginSummary struct {
-	ID        string `json:"id"`
-	Slug      string `json:"slug"`
-	Name      string `json:"name"`
-	Installed bool   `json:"installed"`
+type agentCatalogConnectionSummary struct {
+	Provider string `json:"provider"`
 }
 
 type agentCatalogResponse struct {
-	ID                 string                      `json:"id"`
-	Slug               string                      `json:"slug"`
-	Name               string                      `json:"name"`
-	Description        string                      `json:"description"`
-	Category           string                      `json:"category"`
-	AvatarURL          string                      `json:"avatar_url"`
-	Developer          string                      `json:"developer"`
-	Official           bool                        `json:"official"`
-	IsDefault          bool                        `json:"is_default"`
-	Model              string                      `json:"model"`
-	SandboxImage       string                      `json:"sandbox_image"`
-	RequiredPlugins    []agentCatalogPluginSummary `json:"required_plugins"`
-	RecommendedPlugins []agentCatalogPluginSummary `json:"recommended_plugins"`
-	InstalledAgentID   *string                     `json:"installed_agent_id,omitempty"`
+	ID                  string                          `json:"id"`
+	Slug                string                          `json:"slug"`
+	Name                string                          `json:"name"`
+	Description         string                          `json:"description"`
+	Category            string                          `json:"category"`
+	AvatarURL           string                          `json:"avatar_url"`
+	Developer           string                          `json:"developer"`
+	Official            bool                            `json:"official"`
+	IsDefault           bool                            `json:"is_default"`
+	Model               string                          `json:"model"`
+	SandboxImage        string                          `json:"sandbox_image"`
+	RequiredConnections []agentCatalogConnectionSummary `json:"required_connections"`
+	InstalledAgentID    *string                         `json:"installed_agent_id,omitempty"`
 	// InstalledTeamIDs lists the ids of the caller's visible teams that already
 	// have this catalog agent installed (one clone per team). Managers and
 	// API-key callers see every team in the org; a plain member sees only the
@@ -58,17 +54,15 @@ type agentCatalogInstallRequest struct {
 	TeamID *string `json:"team_id"`
 }
 
-// agentCatalogMissingPluginsResponse is the 422 body returned when the target
-// team cannot use every plugin the catalog requires. MissingPlugins holds the
-// catalog's required-plugin slugs that are not usable by the team.
-type agentCatalogMissingPluginsResponse struct {
-	Error          string   `json:"error"`
-	MissingPlugins []string `json:"missing_plugins"`
+// agentCatalogMissingConnectionsResponse reports required providers unavailable to the team.
+type agentCatalogMissingConnectionsResponse struct {
+	Error              string   `json:"error"`
+	MissingConnections []string `json:"missing_connections"`
 }
 
 // ListCatalog handles GET /v1/agents/catalog.
 // @Summary List agent catalog
-// @Description Returns active agent catalog entries for the current organization, including install state and required plugin state.
+// @Description Returns active agent catalog entries, install state, and required connections.
 // @Tags agents
 // @Produce json
 // @Success 200 {array} agentCatalogResponse
@@ -103,7 +97,7 @@ func (h *AgentHandler) ListCatalog(w http.ResponseWriter, r *http.Request) {
 
 // GetCatalog handles GET /v1/agents/catalog/{slug}.
 // @Summary Get agent catalog entry
-// @Description Returns one active agent catalog entry by slug for the current organization, including required plugin install state.
+// @Description Returns one active agent catalog entry and its required connections.
 // @Tags agents
 // @Produce json
 // @Param slug path string true "Agent catalog slug"
@@ -133,7 +127,7 @@ func (h *AgentHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 
 // InstallCatalog handles POST /v1/agents/catalog/{slug}/install.
 // @Summary Install catalog agent into a team
-// @Description Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.
+// @Description Clones a catalog agent into the caller's team when all required connections are granted.
 // @Tags agents
 // @Produce json
 // @Param slug path string true "Agent catalog slug"
@@ -142,7 +136,7 @@ func (h *AgentHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
-// @Failure 422 {object} agentCatalogMissingPluginsResponse
+// @Failure 422 {object} agentCatalogMissingConnectionsResponse
 // @Failure 500 {object} errorResponse
 // @Router /v1/agents/catalog/{slug}/install [post]
 func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
@@ -160,18 +154,16 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Hard block: every required plugin must be usable by the target team
-	// (auto-install system plugin, or org-installed AND provisioned for the
-	// team). A missing plugin refuses the install; no agent is created.
-	missing, err := h.teamMissingRequiredPlugins(ctx, org.ID, *teamID, catalog.RequiredPlugins)
+	// A missing required connection refuses the install; no agent is created.
+	missing, err := h.teamMissingRequiredConnections(ctx, org.ID, *teamID, catalog.RequiredConnections)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate required plugins"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate required connections"})
 		return
 	}
 	if len(missing) > 0 {
-		writeJSON(w, http.StatusUnprocessableEntity, agentCatalogMissingPluginsResponse{
-			Error:          "your team is missing required plugins",
-			MissingPlugins: missing,
+		writeJSON(w, http.StatusUnprocessableEntity, agentCatalogMissingConnectionsResponse{
+			Error:              "your team is missing required connections",
+			MissingConnections: missing,
 		})
 		return
 	}

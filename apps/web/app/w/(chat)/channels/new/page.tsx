@@ -64,44 +64,19 @@ export default function NewChannelPage() {
     [connectionsQuery.data?.data]
   )
 
-  const pluginsQuery = $api.useQuery("get", "/v1/plugins", undefined, {
-    retry: false,
-  })
-  const orgPluginBySlug = useMemo(() => {
-    const map = new Map<string, { id?: string; auto_install?: boolean }>()
-    for (const plugin of pluginsQuery.data ?? []) {
-      if (plugin.slug) map.set(plugin.slug, plugin)
-    }
-    return map
-  }, [pluginsQuery.data])
-
-  const teamPluginsQuery = $api.useQuery(
+  const teamConnectionsQuery = $api.useQuery(
     "get",
-    "/v1/orgs/current/teams/{teamID}/plugins",
+    "/v1/orgs/current/teams/{teamID}/connections",
     { params: { path: { teamID: selectedTeamID } } },
     { enabled: Boolean(selectedTeamID), retry: false }
   )
-  const teamPluginSlugs = useMemo(() => {
+  const teamConnectionIDs = useMemo(() => {
     const set = new Set<string>()
-    for (const plugin of teamPluginsQuery.data?.data ?? []) {
-      if (plugin.slug) set.add(plugin.slug)
+    for (const connection of teamConnectionsQuery.data?.data ?? []) {
+      if (connection.id) set.add(connection.id)
     }
     return set
-  }, [teamPluginsQuery.data?.data])
-  const teamPluginIDs = useMemo(() => {
-    const set = new Set<string>()
-    for (const plugin of teamPluginsQuery.data?.data ?? []) {
-      if (plugin.id) set.add(plugin.id)
-    }
-    return set
-  }, [teamPluginsQuery.data?.data])
-
-  function pluginEnabledForTeam(meta: ChannelProviderMeta): boolean {
-    const orgPlugin = orgPluginBySlug.get(meta.pluginSlug)
-    if (orgPlugin?.auto_install) return true
-    if (teamPluginSlugs.has(meta.pluginSlug)) return true
-    return Boolean(orgPlugin?.id && teamPluginIDs.has(orgPlugin.id))
-  }
+  }, [teamConnectionsQuery.data?.data])
 
   function providerStatus(meta: ChannelProviderMeta): ChannelProviderStatus {
     if (!selectedTeamID) {
@@ -111,21 +86,17 @@ export default function NewChannelPage() {
         showConnect: false,
       }
     }
-    if (teamPluginsQuery.isLoading || pluginsQuery.isLoading) {
+    if (teamConnectionsQuery.isLoading) {
       return {
         available: false,
-        hint: "Checking team plugins…",
+        hint: "Checking team connections…",
         showConnect: false,
       }
     }
-    if (!pluginEnabledForTeam(meta)) {
-      return {
-        available: false,
-        hint: `Install the ${meta.label} plugin for this team to link a ${meta.label} channel.`,
-        showConnect: false,
-      }
-    }
-    if (connectionsForProvider(meta, connections).length === 0) {
+    const granted = connectionsForProvider(meta, connections).filter(
+      (connection) => connection.id && teamConnectionIDs.has(connection.id)
+    )
+    if (granted.length === 0) {
       return {
         available: false,
         hint: `Connect ${meta.label} in settings to link a channel.`,
@@ -150,8 +121,11 @@ export default function NewChannelPage() {
   }, [meta, selectedProviderAvailable])
 
   const providerConnections = useMemo(
-    () => connectionsForProvider(meta, connections),
-    [meta, connections]
+    () =>
+      connectionsForProvider(meta, connections).filter(
+        (connection) => connection.id && teamConnectionIDs.has(connection.id)
+      ),
+    [meta, connections, teamConnectionIDs]
   )
   const activeConnectionID =
     selectedConnectionID || providerConnections[0]?.id || ""
@@ -342,8 +316,8 @@ export default function NewChannelPage() {
                   label={
                     teamsQuery.isLoading
                       ? "Loading team"
-                      : teams.find((team) => team.id === selectedTeamID)?.name ||
-                        "Selected team"
+                      : teams.find((team) => team.id === selectedTeamID)
+                          ?.name || "Selected team"
                   }
                 />
               ) : (
@@ -370,7 +344,9 @@ export default function NewChannelPage() {
                 aria-label="Category"
                 selectedKey={category || null}
                 onSelectionChange={(key) =>
-                  setCategory(key === null ? "" : (String(key) as ChannelCategory))
+                  setCategory(
+                    key === null ? "" : (String(key) as ChannelCategory)
+                  )
                 }
                 className="w-full"
               >

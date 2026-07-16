@@ -71,13 +71,8 @@ function providerBrand(provider: string): BrandConfig | undefined {
   return BRANDS[PROVIDER_BRAND_ALIASES[provider] ?? provider]
 }
 
-/** Brand config for an icon-registry name (e.g. a plugin's `icon`), if one exists. */
-export function brandForIcon(icon: string): BrandConfig | undefined {
-  return BRANDS[icon]
-}
-
 /** Renders a brand mark with its configured variant and tint. */
-export function BrandMark({
+function BrandMark({
   brand,
   label,
   size,
@@ -121,7 +116,7 @@ function integrationLogoURL(provider: string): string {
  * Unframed provider mark: renders the @thesvg/react brand component when one
  * exists for the provider, otherwise falls back to the remote/local logo URL.
  */
-export function ProviderLogoMark({
+function ProviderLogoMark({
   provider,
   size,
   className,

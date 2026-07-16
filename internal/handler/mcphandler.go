@@ -85,18 +85,18 @@ func (h *MCPHandler) SetSkillTools(fn mcpserver.SkillToolsFunc) {
 }
 
 // SetAgentBuilderTools sets the callback for registering the agent-builder
-// tools (list_team_plugins, create_agent, update_agent).
+// tools (list_team_skills, create_agent, update_agent).
 func (h *MCPHandler) SetAgentBuilderTools(fn mcpserver.AgentBuilderToolsFunc) {
 	h.agentBuilderTools = fn
 }
 
-// SetSheetTools sets the callback for registering the plugin-gated sheets
+// SetSheetTools sets the callback for registering the sheets
 // tool group.
 func (h *MCPHandler) SetSheetTools(fn mcpserver.SheetToolsFunc) {
 	h.sheetTools = fn
 }
 
-// SetAppsTools sets the callback for registering the plugin-gated apps
+// SetAppsTools sets the callback for registering the apps
 // tool group.
 func (h *MCPHandler) SetAppsTools(fn mcpserver.AppsToolsFunc) {
 	h.appsTools = fn

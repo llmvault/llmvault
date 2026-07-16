@@ -12,36 +12,30 @@ const ACCESS_LAYERS = [
   },
   {
     number: "02",
-    title: "Plugin",
+    title: "Team grant",
     description:
-      "An agent gets service skills through a plugin, which also records the connection or database those skills need.",
+      "An admin grants one concrete connection instance to a team. Every agent on that team can use its MCP server.",
   },
   {
     number: "03",
-    title: "Team access",
+    title: "Generated MCP tools",
     description:
-      "An admin grants the installed plugin to one team, making it available to that team's agents.",
-  },
-  {
-    number: "04",
-    title: "Agent access",
-    description:
-      "Agents inherit their team's plugins. You can turn off an optional one for a single agent without changing the rest of the team.",
+      "The connection exposes its capabilities directly as generated MCP tools; no bundled skill is installed.",
   },
 ]
 
 const ACCESS_ROLES = [
   [
     "Workspace owners and admins",
-    "They handle external accounts, plugin installation, connection resources, and team grants.",
+    "They create external account connections, control resources, grant connection instances to teams, and manage org-wide skills.",
   ],
   [
     "Team members",
-    "They can inspect the plugins granted to their teams and use agents that have those plugins.",
+    "They can inspect their teams' connections and create, edit, or archive team-owned skills.",
   ],
   [
-    "Members managing an agent",
-    "A member who manages an agent may turn off an optional inherited plugin. Hivy won't let them switch off required or always-on plugins.",
+    "Agents",
+    "Agents receive team-owned skills, directly granted org skills, and generated MCP tools from their team's connections.",
   ],
 ]
 
@@ -49,9 +43,9 @@ export function ConnectionsAccess() {
   return (
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
-        Connect the company account once; plugins map it to a job, and team
-        grants decide which agents may use it. You don&apos;t need a separate
-        sign-in for each agent.
+        Create as many connection instances as the workspace needs, then grant
+        each concrete instance to the teams that may use it. You don&apos;t need
+        a separate sign-in for every agent.
       </p>
 
       <section aria-labelledby="four-layers-of-access" className="mt-14">
@@ -59,11 +53,12 @@ export function ConnectionsAccess() {
           id="four-layers-of-access"
           className="text-xl font-semibold tracking-tight text-foreground"
         >
-          Follow the four layers of access
+          Follow the three layers of access
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
           A connection alone doesn&apos;t open an external service to an agent.
-          Hivy checks all four layers whenever the agent calls a plugin skill.
+          Hivy checks the connection instance and team grant whenever an agent
+          calls its generated MCP server.
         </p>
 
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -87,11 +82,11 @@ export function ConnectionsAccess() {
         className="mt-12"
         type="video"
         title="Trace an agent's tool access"
-        description="Record an admin opening a plugin and checking its connection. Keep the team grant visible as the agent inherits the plugin, then turn off an optional plugin for that agent."
+        description="Record an admin creating a second provider connection, granting that exact instance to a team, and showing its generated MCP tools becoming available."
       />
 
       <div className="mt-16 space-y-14 border-t border-border pt-14">
-        <DocSection title="A connection is workspace-level">
+        <DocSection title="Connections are workspace-level instances">
           <p>
             Hivy calls the approved link to an external account a connection.
             Slack, GitHub, Notion, and Google Drive connections can use OAuth or
@@ -99,44 +94,41 @@ export function ConnectionsAccess() {
             basic authentication.
           </p>
           <p className="mt-3">
-            That connection doesn&apos;t give agents access on its own. An admin
-            must install a matching plugin in the workspace, and the
-            agent&apos;s team must have a grant for it.
+            A connection does not give agents access on its own. An admin must
+            grant that exact instance to the agent&apos;s team. The same
+            provider can have multiple independently named instances.
           </p>
         </DocSection>
 
-        <DocSection title="Plugins define what an agent can do">
+        <DocSection title="Connections expose generated MCP tools">
           <p>
-            Plugins contain the skills for a job. Their requirements name the
-            external service or database behind those skills, and Hivy
-            won&apos;t let an admin add a plugin until every required connection
-            works.
+            Once a connection is granted to a team, its generated MCP server is
+            available to that team&apos;s agents. Provider operations appear as
+            tools directly.
           </p>
           <p className="mt-3">
-            A GitHub plugin, for example, may need a repository selection. Hivy
-            saves that choice as the default boundary for the connection; the
-            account stays connected, but agents see only the repositories you
-            picked.
+            Revoke the connection grant to remove its generated MCP access.
+            Team-owned and org-owned skills remain independent resources.
           </p>
-          <DocLink href="/docs/plugins-and-connections/connect-tools">
+          <DocLink href="/docs/connections-and-skills/connect-tools">
             Connect and configure a tool
           </DocLink>
         </DocSection>
 
         <DocsMediaPlaceholder
           type="image"
-          title="Plugin requirements and access state"
-          description="Use a plugin detail page with an active connection. The frame must show Required connections, Resources, install status, and the plugin's skills at a readable size."
+          title="Connection grant and generated tools"
+          description="Use team settings with one concrete connection instance enabled and its generated MCP tools visible at a readable size."
         />
 
-        <DocSection title="Teams decide which agents receive a plugin">
+        <DocSection title="Teams decide which agents receive a connection">
           <p>
-            Adding a plugin puts it in the workspace catalog, not on every team.
-            An owner or admin opens the team&apos;s settings and switches the
-            plugin on; every agent on that team inherits the grant.
+            Creating a connection adds an instance to the workspace, not every
+            team. An owner or admin opens team settings and switches that
+            instance on; every agent on that team inherits the grant.
           </p>
           <p className="mt-3">
-            Switch the grant off and the team&apos;s agents lose the plugin.
+            Switch the grant off and the team&apos;s agents lose the connection.
             Nothing changes for teams with their own grant.
           </p>
           <DocLink href="/docs/workspace-and-access/teams">
@@ -144,15 +136,15 @@ export function ConnectionsAccess() {
           </DocLink>
         </DocSection>
 
-        <DocSection title="Narrow one agent without changing its team">
+        <DocSection title="Skills are first-class resources">
           <p>
-            Open an installed agent to check what it inherited. Turning off an
-            optional team plugin there affects that agent alone, so the
-            team&apos;s other agents keep using it.
+            Team members can create, edit, and archive skills owned by any team
+            they belong to. Those skills are available to agents on that team
+            without a connection.
           </p>
           <p className="mt-3">
-            Hivy locks plugins that the agent requires, always-on plugins, and
-            plugins supplied to the team&apos;s default agent.
+            Workspace admins can also create org-wide skills and grant them to
+            one or more teams.
           </p>
           <DocLink href="/docs/agents/configure-an-agent">
             Configure an agent
@@ -193,10 +185,10 @@ export function ConnectionsAccess() {
                 Change the smallest boundary that solves the problem
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-                Turn off an optional plugin on one agent when only that agent
-                needs a smaller toolset. If the whole team should lose it,
-                remove the team grant; remove the workspace plugin or disconnect
-                the account only after every team has finished with it.
+                Revoke a team grant when that team should lose a connection.
+                Disconnect an account only after every team has finished with
+                that concrete instance. Manage independent team and org skills
+                from Settings → Skills.
               </p>
             </div>
           </div>

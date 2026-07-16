@@ -74,8 +74,7 @@ type CreateInput struct {
 	Skills        model.JSON
 
 	// TeamID is the owning team for the new agent (and its sub-agents). Agents
-	// are never teamless; plugins resolve from the team's grants minus any
-	// per-agent optional-plugin overrides.
+	// are never teamless; connections and skills resolve from team grants.
 	TeamID uuid.UUID
 
 	SubAgents []SubAgentInput
@@ -100,8 +99,7 @@ type UpdateInput struct {
 }
 
 // CreateAgent persists a top-level agent and its sub-agents on the given team
-// in one transaction. Plugins are not per-agent: they resolve from the team's
-// grants. It mirrors the HTTP create handler's defaults so both paths behave
+// in one transaction. It mirrors the HTTP create handler's defaults so both paths behave
 // identically.
 func CreateAgent(ctx context.Context, deps Deps, orgID uuid.UUID, in CreateInput) (*model.Agent, error) {
 	if deps.DB == nil {

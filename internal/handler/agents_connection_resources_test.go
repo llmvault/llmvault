@@ -29,7 +29,6 @@ func TestAgentHandler_UpdateConnectionResourcesStoresOnAgent(t *testing.T) {
 	org := createTestOrg(t, db)
 	user := createTestUser(t, db, "resources-"+uuid.New().String()[:8]+"@test.com")
 	integration := createTestIntegration(t, db, "github-app")
-	_ = createTestIntegrationManagedSkill(t, db, "git-github-test-"+uuid.New().String()[:8], []string{"github-app"})
 	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,

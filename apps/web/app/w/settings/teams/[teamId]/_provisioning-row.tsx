@@ -6,7 +6,7 @@ import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
 
 // Shared row/empty-state/skeleton primitives for the team provisioning lists
-// (plugins + knowledge sources), kept in one place so both toggle lists in
+// kept in one place so the toggle lists in
 // team-provisioning.tsx render identically.
 
 export function SectionHeader({

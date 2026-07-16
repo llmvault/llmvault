@@ -96,19 +96,3 @@ func TestLinkedFileGroups(t *testing.T) {
 		}
 	}
 }
-
-func TestSkillAllowed(t *testing.T) {
-	if !skillAllowed("anything", nil) {
-		t.Error("nil filter should allow all")
-	}
-	if !skillAllowed("anything", &model.SkillFilter{Allow: nil}) {
-		t.Error("nil allow-list should allow all")
-	}
-	filter := &model.SkillFilter{Allow: []string{"a", "b"}}
-	if !skillAllowed("a", filter) {
-		t.Error("a should be allowed")
-	}
-	if skillAllowed("c", filter) {
-		t.Error("c should be denied")
-	}
-}

@@ -18,8 +18,8 @@ type toolFilterJSON struct {
 
 // ResolveAgentMCPToolFilter is the single policy path for both runtime config
 // compilation and the JTI-scoped Hivy MCP server. It always returns an
-// allow-list for managed MCP capabilities. Generated plugin MCP servers carry
-// their own deny filters and are not governed by this global filter.
+// allow-list for managed MCP capabilities. Connection MCP servers carry their
+// own deny filters and are not governed by this global filter.
 func ResolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.ToolFilter {
 	if agent == nil {
 		return compileMCPToolFilter(nil)

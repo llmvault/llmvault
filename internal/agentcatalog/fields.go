@@ -33,8 +33,7 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"instructions":             strings.TrimSpace(manifest.instructions),
 		"tools":                    normalizeToolSelection(manifest.Tools),
 		"sub_agents":               catalogSubAgentsJSON(manifest),
-		"required_plugins":         pq.StringArray(normalizeStrings(manifest.Plugins.Required)),
-		"recommended_plugins":      pq.StringArray(normalizeStrings(manifest.Plugins.Recommended)),
+		"required_connections":     pq.StringArray(normalizeStrings(manifest.RequiredConnections)),
 		"manifest":                 raw,
 		"source_hash":              hash,
 		"status":                   status,
@@ -56,8 +55,7 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.Instructions = updates["instructions"].(string)
 	row.Tools = updates["tools"].(model.JSON)
 	row.SubAgents = updates["sub_agents"].(model.RawJSON)
-	row.RequiredPlugins = updates["required_plugins"].(pq.StringArray)
-	row.RecommendedPlugins = updates["recommended_plugins"].(pq.StringArray)
+	row.RequiredConnections = updates["required_connections"].(pq.StringArray)
 	row.Manifest = updates["manifest"].(model.RawJSON)
 	row.SourceHash = updates["source_hash"].(string)
 	row.Status = updates["status"].(string)

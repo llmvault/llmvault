@@ -139,8 +139,8 @@ export const Sidebar = memo(function Sidebar({
 
   const agentsActive =
     pathname === "/w/agents" || pathname.startsWith("/w/agents/")
-  const pluginsActive =
-    pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
+  const connectionsActive =
+    pathname === "/w/connections" || pathname.startsWith("/w/connections/")
   const automationsActive =
     pathname === "/w/automations" || pathname.startsWith("/w/automations/")
   const sheetsActive =
@@ -190,9 +190,9 @@ export const Sidebar = memo(function Sidebar({
           />
           <NavRow
             icon="toy-brick"
-            label="Plugins"
-            active={pluginsActive}
-            onClick={() => router.push("/w/plugins")}
+            label="Connections"
+            active={connectionsActive}
+            onClick={() => router.push("/w/connections")}
           />
           <NavRow
             icon="clock"

@@ -10,12 +10,12 @@ import type { components } from "@/lib/api/schema"
 import {
   type AvailableIntegration,
   integrationNeedsForm,
-} from "@/app/w/(chat)/plugins/integration-auth"
-import { IntegrationCredentialsForm } from "@/app/w/(chat)/plugins/integration-credentials-form"
+} from "@/app/w/(chat)/connections/integration-auth"
+import { IntegrationCredentialsForm } from "@/app/w/(chat)/connections/integration-credentials-form"
 import {
   type ConnectOptions,
   useConnectIntegration,
-} from "@/app/w/(chat)/plugins/use-connect-integration"
+} from "@/app/w/(chat)/connections/use-connect-integration"
 
 type Connection = components["schemas"]["connectionResponse"]
 
@@ -36,11 +36,13 @@ const CONNECTION_DESCRIPTIONS: Record<string, string> = {
 export function ConnectionsStep({
   onContinue,
   advancing,
+  showContinue = true,
 }: {
-  onContinue: () => void
-  advancing: boolean
+  onContinue?: () => void
+  advancing?: boolean
+  showContinue?: boolean
 }) {
-  const integrationsQuery = $api.useQuery("get", "/v1/integrations/supported")
+  const integrationsQuery = $api.useQuery("get", "/v1/integrations/available")
   const connectionsQuery = $api.useQuery("get", "/v1/connections", {
     params: { query: { limit: 100 } },
   })
@@ -84,7 +86,7 @@ export function ConnectionsStep({
     connectIntegration(integration.id, {
       ...options,
       onSuccess: () => {
-        posthog.capture("onboarding_plugin_connected", {
+        posthog.capture("onboarding_connection_created", {
           provider: integration.provider,
           integration_name: integration.display_name,
         })
@@ -107,7 +109,7 @@ export function ConnectionsStep({
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Install plugins
+            Connections
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
             Give your agents restricted access to the tools your team uses.
@@ -156,7 +158,7 @@ export function ConnectionsStep({
             <ConnectionState
               icon="plug"
               title="No connections are ready yet"
-              description="Your workspace administrator still needs to configure the connection catalog. You can continue and add tools later."
+              description="Configure an integration in Nango, then restart Hivy to refresh the connection catalog. You can continue and add tools later."
             />
           ) : filteredIntegrations.length === 0 ? (
             <ConnectionState
@@ -169,7 +171,6 @@ export function ConnectionsStep({
               const provider = integration.provider ?? ""
               const connected = connectedProviders.has(provider)
               const connecting = connectingId === integration.id
-              const configured = integration.configured ?? false
               return (
                 <div
                   key={integration.id ?? provider}
@@ -189,29 +190,19 @@ export function ConnectionsStep({
                     <p className="mt-1 line-clamp-1 text-xs text-muted">
                       {connected
                         ? "Connected and ready for your team"
-                        : configured
-                          ? (CONNECTION_DESCRIPTIONS[provider] ??
-                            "Connect this tool to use it with Hivy.")
-                          : "Supported by Hivy, awaiting workspace configuration"}
+                        : (CONNECTION_DESCRIPTIONS[provider] ??
+                          "Connect this tool to use it with Hivy.")}
                     </p>
                   </div>
                   <Button
                     className="col-start-2 justify-self-start sm:col-auto sm:justify-self-auto"
                     size="sm"
                     variant={connected ? "tertiary" : "secondary"}
-                    isDisabled={connected || isConnecting || !configured}
+                    isDisabled={isConnecting}
                     onPress={() => requestConnect(integration)}
                   >
                     {connecting ? <Spinner color="current" size="sm" /> : null}
-                    {connected ? (
-                      <>
-                        <AppIcon icon="check" className="h-4 w-4" /> Ready
-                      </>
-                    ) : configured ? (
-                      "Connect"
-                    ) : (
-                      "Unavailable"
-                    )}
+                    {connected ? "Add another" : "Connect"}
                   </Button>
                 </div>
               )
@@ -220,23 +211,25 @@ export function ConnectionsStep({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {connections.length === 0 ? (
-          <p className="text-xs text-muted">
-            Connect at least one plugin to continue.
-          </p>
-        ) : null}
-        <Button
-          className="w-full sm:ml-auto sm:w-auto"
-          variant="primary"
-          onPress={onContinue}
-          isDisabled={connections.length === 0 || advancing || isConnecting}
-        >
-          {advancing ? <Spinner color="current" size="sm" /> : null}
-          Continue
-          <AppIcon icon="arrow-right" className="h-4 w-4" />
-        </Button>
-      </div>
+      {showContinue ? (
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {connections.length === 0 ? (
+            <p className="text-xs text-muted">
+              Add at least one connection to continue.
+            </p>
+          ) : null}
+          <Button
+            className="w-full sm:ml-auto sm:w-auto"
+            variant="primary"
+            onPress={onContinue ?? (() => undefined)}
+            isDisabled={connections.length === 0 || advancing || isConnecting}
+          >
+            {advancing ? <Spinner color="current" size="sm" /> : null}
+            Continue
+            <AppIcon icon="arrow-right" className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
 
       <Modal
         isOpen={formIntegration !== null}

@@ -10,7 +10,7 @@
     "provider": "slack",
     "required": true
   },
-  "plugins": {
+  "connections": {
     "required": [
       "slack"
     ],

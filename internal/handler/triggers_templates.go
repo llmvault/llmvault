@@ -14,7 +14,7 @@ const (
 
 // Per-app tooling requirements: a trigger's playbook runs under the identity
 // of ONE GitHub App, so the target agent must resolve that app's connection
-// through its installed plugin (github vs github-code-reviews) — resolved with
+// through its granted connection (github vs github-code-reviews) — resolved with
 // the same ResolveAgentProviderAny call the runtime's git-credentials helper
 // uses. A primary-app agent must not receive code-review triggers or vice
 // versa. The legacy github/github-app-oauth/github-pat providers were removed
@@ -35,12 +35,12 @@ type triggerTemplate struct {
 	// valueFromResource derives trigger_value from the external resource key
 	// instead of user input (e.g. the repo full name for GitHub mentions).
 	valueFromResource bool
-	// requiredProviders, when set, requires the target agent to have a plugin
-	// installed that resolves one of these connection providers — otherwise the
+	// requiredProviders, when set, requires the target agent to have a granted
+	// connection for one of these providers — otherwise the
 	// trigger's playbook could not act (e.g. the agent could not post a reply).
 	requiredProviders []string
-	// requiredPluginLabel names the plugin in install-rejection messages.
-	requiredPluginLabel string
+	// requiredConnectionLabel names the connection in rejection messages.
+	requiredConnectionLabel string
 }
 
 var triggerTemplates = []triggerTemplate{
@@ -51,22 +51,22 @@ var triggerTemplates = []triggerTemplate{
 		triggerKeys:  []string{slackapp.EventReactionAdded},
 	},
 	{
-		provider:            githubAppProvider,
-		key:                 model.TriggerKeyGitHubIssueMention,
-		resourceType:        "github_repo",
-		triggerKeys:         model.GitHubIssueMentionEventKeys,
-		valueFromResource:   true,
-		requiredProviders:   githubPrimaryToolingProviders,
-		requiredPluginLabel: "GitHub",
+		provider:                githubAppProvider,
+		key:                     model.TriggerKeyGitHubIssueMention,
+		resourceType:            "github_repo",
+		triggerKeys:             model.GitHubIssueMentionEventKeys,
+		valueFromResource:       true,
+		requiredProviders:       githubPrimaryToolingProviders,
+		requiredConnectionLabel: "GitHub",
 	},
 	{
-		provider:            githubAppProvider,
-		key:                 model.TriggerKeyGitHubPRMention,
-		resourceType:        "github_repo",
-		triggerKeys:         model.GitHubPRMentionEventKeys,
-		valueFromResource:   true,
-		requiredProviders:   githubPrimaryToolingProviders,
-		requiredPluginLabel: "GitHub",
+		provider:                githubAppProvider,
+		key:                     model.TriggerKeyGitHubPRMention,
+		resourceType:            "github_repo",
+		triggerKeys:             model.GitHubPRMentionEventKeys,
+		valueFromResource:       true,
+		requiredProviders:       githubPrimaryToolingProviders,
+		requiredConnectionLabel: "GitHub",
 	},
 	// The code-reviews app answers @usehivy-reviews on pull requests. It reuses
 	// the pr_mention trigger_key and PR mention event keys — the connection
@@ -74,13 +74,13 @@ var triggerTemplates = []triggerTemplate{
 	// from the primary pr_mention template above. There is deliberately no
 	// issue-mention template for the code-reviews app: it reviews PRs only.
 	{
-		provider:            githubAppCodeReviewsProvider,
-		key:                 model.TriggerKeyGitHubPRMention,
-		resourceType:        "github_repo",
-		triggerKeys:         model.GitHubPRMentionEventKeys,
-		valueFromResource:   true,
-		requiredProviders:   githubCodeReviewsToolingProviders,
-		requiredPluginLabel: "GitHub Code Reviews",
+		provider:                githubAppCodeReviewsProvider,
+		key:                     model.TriggerKeyGitHubPRMention,
+		resourceType:            "github_repo",
+		triggerKeys:             model.GitHubPRMentionEventKeys,
+		valueFromResource:       true,
+		requiredProviders:       githubCodeReviewsToolingProviders,
+		requiredConnectionLabel: "GitHub Code Reviews",
 	},
 	// Auto-review every new pull request. Code-reviews app only — the primary
 	// app must never carry this key, so a build agent's PRs are reviewed by
@@ -88,13 +88,13 @@ var triggerTemplates = []triggerTemplate{
 	// pull_request.opened with no mention, so unlike pr_mention it subscribes to
 	// just that one event key.
 	{
-		provider:            githubAppCodeReviewsProvider,
-		key:                 model.TriggerKeyGitHubPROpened,
-		resourceType:        "github_repo",
-		triggerKeys:         model.GitHubPROpenedEventKeys,
-		valueFromResource:   true,
-		requiredProviders:   githubCodeReviewsToolingProviders,
-		requiredPluginLabel: "GitHub Code Reviews",
+		provider:                githubAppCodeReviewsProvider,
+		key:                     model.TriggerKeyGitHubPROpened,
+		resourceType:            "github_repo",
+		triggerKeys:             model.GitHubPROpenedEventKeys,
+		valueFromResource:       true,
+		requiredProviders:       githubCodeReviewsToolingProviders,
+		requiredConnectionLabel: "GitHub Code Reviews",
 	},
 }
 

@@ -498,12 +498,10 @@ async fn apply_config_snapshot(
         stats,
     );
     if let Some(registry) = state.mcp_registry.as_ref() {
-        registry
-            .reload_from_specs(&definition.mcp_servers, &runtime_env)
-            .await;
+        drop(registry.reload_from_specs_in_background(&definition.mcp_servers, &runtime_env));
     }
     phase_started =
-        log_config_apply_phase("reload mcp registry", phase_started, total_started, stats);
+        log_config_apply_phase("queue mcp discovery", phase_started, total_started, stats);
     if let Some(reloader) = state.outbound_reloader.as_ref() {
         reloader
             .reload_outbound_channels(&definition.outbound_channels, &runtime_env)

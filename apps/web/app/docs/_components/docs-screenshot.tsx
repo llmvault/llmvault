@@ -32,7 +32,9 @@ export function DocsScreenshot({
   ]
 
   const openScreenshot = () => {
-    setLightboxIndex(document.documentElement.classList.contains("dark") ? 1 : 0)
+    setLightboxIndex(
+      document.documentElement.classList.contains("dark") ? 1 : 0
+    )
   }
 
   return (
@@ -40,7 +42,7 @@ export function DocsScreenshot({
       <button
         type="button"
         onClick={openScreenshot}
-        className="group block w-full cursor-zoom-in overflow-hidden rounded-xl border border-border bg-surface-secondary text-left shadow-sm outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="group block w-full cursor-zoom-in overflow-hidden rounded-xl border border-border bg-surface-secondary text-left shadow-sm transition-shadow outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         aria-label={`Open ${title} in a lightbox`}
       >
         {/* Theme-specific screenshots follow Hivy's explicit theme setting, not only the OS preference. */}

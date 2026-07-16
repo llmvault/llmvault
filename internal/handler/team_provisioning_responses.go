@@ -11,24 +11,9 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	pluginstore "github.com/usehivy/hivy/internal/plugins"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/teamprovision"
 )
-
-type teamPluginResponse struct {
-	ID   string `json:"id"`
-	Slug string `json:"slug"`
-	Name string `json:"name"`
-}
-
-type teamPluginsResponse struct {
-	Data []teamPluginResponse `json:"data"`
-}
-
-type enableTeamPluginRequest struct {
-	PluginID string `json:"plugin_id"`
-}
 
 type teamRagSourceResponse struct {
 	ID     string `json:"id"`
@@ -99,47 +84,18 @@ func (h *TeamProvisioningHandler) writeProvisionError(w http.ResponseWriter, err
 	switch {
 	case errors.Is(err, teamprovision.ErrTeamNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "team not found"})
-	case errors.Is(err, teamprovision.ErrPluginNotFound):
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "plugin not found in org"})
+	case errors.Is(err, teamprovision.ErrConnectionNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "connection not found in org"})
+	case errors.Is(err, teamprovision.ErrSkillNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "skill not found in org or catalog"})
 	case errors.Is(err, teamprovision.ErrSourceNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "knowledge source not found in org"})
-	case errors.Is(err, teamprovision.ErrPluginNotInstalled):
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is not installed for this org"})
-	case errors.Is(err, teamprovision.ErrPluginAlwaysEnabled):
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "plugin is always enabled and cannot be toggled per team"})
-	case errors.Is(err, teamprovision.ErrPluginRequiredByAgents):
-		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin is required by an active team agent and cannot be disabled"})
+	case errors.Is(err, teamprovision.ErrConnectionRequired):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "connection is required by an active team agent and cannot be revoked"})
 	default:
 		return false
 	}
 	return true
-}
-
-func (h *TeamProvisioningHandler) respondTeamPlugins(w http.ResponseWriter, r *http.Request, teamID uuid.UUID, status int) {
-	ids, err := teamprovision.EnabledPluginIDs(r.Context(), h.db, teamID)
-	if err != nil {
-		h.fail(w, r, "failed to load team plugins", err)
-		return
-	}
-	var plugins []model.Plugin
-	if len(ids) > 0 {
-		if err := h.db.WithContext(r.Context()).
-			Where("id IN ?", ids).Order("name").Find(&plugins).Error; err != nil {
-			h.fail(w, r, "failed to load team plugins", err)
-			return
-		}
-	}
-	data := make([]teamPluginResponse, 0, len(plugins))
-	for _, p := range plugins {
-		// Auto-install system plugins are enabled for every team implicitly and
-		// are not per-team provisionable; never list them as team-enabled even if
-		// a stale/legacy team_plugins row exists.
-		if pluginstore.PluginAutoInstall(p) {
-			continue
-		}
-		data = append(data, teamPluginResponse{ID: p.ID.String(), Slug: p.Slug, Name: p.Name})
-	}
-	writeJSON(w, status, teamPluginsResponse{Data: data})
 }
 
 func (h *TeamProvisioningHandler) respondTeamRagSources(w http.ResponseWriter, r *http.Request, teamID uuid.UUID, status int) {

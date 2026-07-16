@@ -10,29 +10,22 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
+	"github.com/usehivy/hivy/internal/skillaccess"
 )
 
-// teamAvailableSkillSlugs returns the published skills effective for a regular
-// agent on the team: global auto-install plugins plus plugins actively granted
-// to that team. Custom plugins from other teams are therefore excluded.
+// teamAvailableSkillSlugs returns the published skills effective for an agent:
+// team-owned skills and direct grants of org-wide skills.
 func teamAvailableSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID) ([]string, error) {
 	if db == nil || orgID == uuid.Nil || teamID == uuid.Nil {
 		return nil, nil
 	}
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, db, model.Agent{OrgID: &orgID, TeamID: teamID})
+	resolved, err := skillaccess.ResolveAgent(ctx, db, model.Agent{OrgID: &orgID, TeamID: teamID})
 	if err != nil {
 		return nil, err
 	}
-	if len(pluginIDs) == 0 {
-		return nil, nil
-	}
-	var slugs []string
-	if err := db.WithContext(ctx).Model(&model.Skill{}).
-		Where("plugin_id IN ? AND status = ?", pluginIDs, model.SkillStatusPublished).
-		Distinct("slug").
-		Pluck("slug", &slugs).Error; err != nil {
-		return nil, err
+	slugs := make([]string, 0, len(resolved))
+	for _, item := range resolved {
+		slugs = append(slugs, item.Skill.Slug)
 	}
 	sort.Strings(slugs)
 	return slugs, nil
@@ -40,8 +33,7 @@ func teamAvailableSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uui
 
 // validateSkillSlugs checks every requested slug against the team-available set,
 // returning the de-duped sorted slugs. On an unknown slug it returns a helpful
-// error listing the valid slugs (or directing the caller to list_team_plugins
-// when none are available).
+// error listing the valid slugs.
 func validateSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, requested []string) ([]string, error) {
 	cleaned := dedupeNonEmpty(requested)
 	if len(cleaned) == 0 {
@@ -59,7 +51,7 @@ func validateSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUI
 		if !allowed[slug] {
 			if len(available) == 0 {
 				return nil, fmt.Errorf(
-					"unknown skill %q: no skills are available to this team; enable a plugin that provides skills (call list_team_plugins to see options)",
+					"unknown skill %q: no skills are available to this team",
 					slug,
 				)
 			}
@@ -75,7 +67,7 @@ func validateSkillSlugs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUI
 // skillsJSON builds the agent Skills jsonb from a validated slug list. It uses
 // the {"skill_filter": {"allow": [...]}} shape consumed by
 // skills.resolveSkillFilter / skillFilterFromAgentSkills. An empty list yields
-// an empty object (nil filter = all plugin skills allowed).
+// an empty object (nil filter = all effective skills allowed).
 func skillsJSON(slugs []string) model.JSON {
 	if len(slugs) == 0 {
 		return model.JSON{}

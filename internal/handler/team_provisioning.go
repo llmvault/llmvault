@@ -11,8 +11,8 @@ import (
 	"github.com/usehivy/hivy/internal/teamprovision"
 )
 
-// TeamProvisioningHandler serves the org-admin endpoints that provision plugins
-// and knowledge (RAG) sources to a team. The admin gate (RequireOrgAdmin) is
+// TeamProvisioningHandler serves endpoints that provision connections, skills,
+// and knowledge sources to a team. The admin gate (RequireOrgAdmin) is
 // applied by the route layer around Mount; the handler still resolves the org
 // from context for tenancy and defensively org-scopes every lookup.
 type TeamProvisioningHandler struct {
@@ -35,8 +35,10 @@ func NewTeamProvisioningHandler(db *gorm.DB) *TeamProvisioningHandler {
 //	    })
 //	})
 func (h *TeamProvisioningHandler) Mount(r chi.Router) {
-	r.Post("/teams/{teamID}/plugins", h.EnableTeamPlugin)
-	r.Delete("/teams/{teamID}/plugins/{pluginID}", h.DisableTeamPlugin)
+	r.Post("/teams/{teamID}/connections", h.GrantTeamConnection)
+	r.Delete("/teams/{teamID}/connections/{connectionID}", h.RevokeTeamConnection)
+	r.Post("/teams/{teamID}/skills", h.GrantTeamSkill)
+	r.Delete("/teams/{teamID}/skills/{skillID}", h.RevokeTeamSkill)
 	r.Get("/teams/{teamID}/rag-sources", h.ListTeamRagSources)
 	r.Post("/teams/{teamID}/rag-sources", h.GrantTeamRagSource)
 	r.Delete("/teams/{teamID}/rag-sources/{sourceID}", h.RevokeTeamRagSource)
@@ -46,115 +48,8 @@ func (h *TeamProvisioningHandler) Mount(r chi.Router) {
 // the team may reach. The route layer mounts this OUTSIDE the RequireOrgAdmin
 // group; each handler enforces team-membership visibility itself.
 func (h *TeamProvisioningHandler) MountReadable(r chi.Router) {
-	r.Get("/teams/{teamID}/plugins", h.ListTeamPlugins)
-}
-
-// ListTeamPlugins handles GET /v1/orgs/current/teams/{teamID}/plugins.
-// @Summary List a team's enabled plugins
-// @Description Lists the plugins enabled for a team. Visible to org managers, API keys, and members of that team; other members receive 404.
-// @Tags team-provisioning
-// @Produce json
-// @Param teamID path string true "Team ID"
-// @Success 200 {object} teamPluginsResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/orgs/current/teams/{teamID}/plugins [get]
-func (h *TeamProvisioningHandler) ListTeamPlugins(w http.ResponseWriter, r *http.Request) {
-	_, team, ok := h.loadReadableTeam(w, r)
-	if !ok {
-		return
-	}
-	h.respondTeamPlugins(w, r, team.ID, http.StatusOK)
-}
-
-// EnableTeamPlugin handles POST /v1/orgs/current/teams/{teamID}/plugins.
-// @Summary Enable a plugin for a team
-// @Description Adds a plugin to a team's allowlist. The plugin must belong to the org and be installed. Admin-only.
-// @Tags team-provisioning
-// @Accept json
-// @Produce json
-// @Param teamID path string true "Team ID"
-// @Param body body enableTeamPluginRequest true "Plugin to enable"
-// @Success 201 {object} teamPluginsResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 409 {object} errorResponse
-// @Failure 422 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/orgs/current/teams/{teamID}/plugins [post]
-func (h *TeamProvisioningHandler) EnableTeamPlugin(w http.ResponseWriter, r *http.Request) {
-	org, team, ok := h.loadTeam(w, r)
-	if !ok {
-		return
-	}
-	var req enableTeamPluginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
-		return
-	}
-	pluginID, err := uuid.Parse(req.PluginID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid plugin_id"})
-		return
-	}
-	already, err := teamprovision.PluginEnabledForTeam(r.Context(), h.db, team.ID, pluginID)
-	if err != nil {
-		h.fail(w, r, "failed to check team plugin", err)
-		return
-	}
-	if already {
-		writeJSON(w, http.StatusConflict, errorResponse{Error: "plugin already enabled for team"})
-		return
-	}
-	if err := teamprovision.EnablePlugin(r.Context(), h.db, org.ID, team.ID, pluginID, h.actingUser(r)); err != nil {
-		if h.writeProvisionError(w, err) {
-			return
-		}
-		h.fail(w, r, "failed to enable team plugin", err)
-		return
-	}
-	h.respondTeamPlugins(w, r, team.ID, http.StatusCreated)
-}
-
-// DisableTeamPlugin handles DELETE /v1/orgs/current/teams/{teamID}/plugins/{pluginID}.
-// @Summary Disable a plugin for a team
-// @Description Removes a plugin from a team's allowlist. Idempotent. Admin-only.
-// @Tags team-provisioning
-// @Produce json
-// @Param teamID path string true "Team ID"
-// @Param pluginID path string true "Plugin ID"
-// @Success 200 {object} teamPluginsResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 409 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/orgs/current/teams/{teamID}/plugins/{pluginID} [delete]
-func (h *TeamProvisioningHandler) DisableTeamPlugin(w http.ResponseWriter, r *http.Request) {
-	org, team, ok := h.loadTeam(w, r)
-	if !ok {
-		return
-	}
-	pluginID, err := uuid.Parse(chi.URLParam(r, "pluginID"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid plugin id"})
-		return
-	}
-	if err := teamprovision.DisablePlugin(r.Context(), h.db, org.ID, team.ID, pluginID); err != nil {
-		if h.writeProvisionError(w, err) {
-			return
-		}
-		h.fail(w, r, "failed to disable team plugin", err)
-		return
-	}
-	h.respondTeamPlugins(w, r, team.ID, http.StatusOK)
+	r.Get("/teams/{teamID}/connections", h.ListTeamConnections)
+	r.Get("/teams/{teamID}/skills", h.ListTeamSkills)
 }
 
 // ListTeamRagSources handles GET /v1/orgs/current/teams/{teamID}/rag-sources.

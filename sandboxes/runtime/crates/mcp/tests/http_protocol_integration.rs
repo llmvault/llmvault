@@ -207,6 +207,72 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
 }
 
 #[tokio::test]
+async fn config_reload_discovers_in_background_then_leaves_servers_dormant_until_activation() {
+    let fixture = FixtureServer::start().await;
+    let registry = std::sync::Arc::new(
+        McpRegistry::from_specs_allowing_loopback_for_tests(
+            &[],
+            &HashMap::new(),
+            std::env::temp_dir(),
+        )
+        .await,
+    );
+    let specs = vec![
+        streamable_spec(
+            "slow-a",
+            format!("{}/slow", fixture.base_url),
+            HashMap::new(),
+        ),
+        streamable_spec(
+            "slow-b",
+            format!("{}/slow", fixture.base_url),
+            HashMap::new(),
+        ),
+    ];
+
+    let started = std::time::Instant::now();
+    let discovery = registry.reload_from_specs_in_background(&specs, &HashMap::new());
+    assert!(
+        started.elapsed() < std::time::Duration::from_millis(100),
+        "config reload must not wait for MCP discovery"
+    );
+    assert!(registry.available_tool_names().is_empty());
+    assert!(registry.live_connection_names().is_empty());
+
+    discovery.await.expect("background MCP discovery task");
+    assert!(
+        started.elapsed() < std::time::Duration::from_millis(1800),
+        "two one-second discoveries should run in parallel"
+    );
+    assert_eq!(registry.connection_statuses().len(), 2);
+    assert!(registry
+        .connection_statuses()
+        .iter()
+        .all(|status| status.connected));
+    assert_eq!(registry.available_tool_names().len(), 4);
+    assert!(
+        registry.live_connection_names().is_empty(),
+        "discovery transports must be shut down"
+    );
+
+    registry
+        .activate_tool_filtered("session-a", "slow-a_echo", None)
+        .await
+        .expect("activate tool from first server");
+    assert_eq!(registry.live_connection_names(), vec!["slow-a"]);
+    assert!(registry
+        .activated_tools_filtered("session-a", None)
+        .iter()
+        .any(|tool| tool.prefixed_name == "slow-a_echo"));
+    assert!(registry
+        .activated_tools_filtered("session-a", None)
+        .iter()
+        .all(|tool| tool.server_name != "slow-b"));
+
+    fixture.stop().await;
+}
+
+#[tokio::test]
 async fn explicit_tool_prefix_sets_the_model_facing_connection_name() {
     let fixture = FixtureServer::start().await;
     let specs = vec![McpSpec::StreamableHttp {

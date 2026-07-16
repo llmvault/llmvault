@@ -38,15 +38,6 @@ func TestAgentProductionOpenWeightGauntletE2E(t *testing.T) {
 	}
 }
 
-func TestAgentProductionFullStackSessionE2E(t *testing.T) {
-	loadEnv(t)
-	if os.Getenv("HIVY_AGENT_PRODUCTION_E2E") != "1" {
-		t.Skip("set HIVY_AGENT_PRODUCTION_E2E=1 to run the production full-stack session E2E")
-	}
-	t.Setenv("HIVY_AGENT_SESSIONS_E2E", "1")
-	TestAgentSessionsDefaultGeneralChannelE2E(t)
-}
-
 func productionE2EModels() []string {
 	raw := strings.TrimSpace(os.Getenv("HIVY_AGENT_PRODUCTION_E2E_MODELS"))
 	if raw == "" {

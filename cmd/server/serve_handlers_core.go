@@ -127,7 +127,7 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	databaseIntegrationHandler := handler.NewDatabaseIntegrationHandler(database, deps.KMS)
 	tokenHandler := handler.NewTokenHandler(database, signingKey, cacheManager, ctr, actionsCatalog, cfg.MCPBaseURL, mcpHandler.ServerCache)
 	providerHandler := handler.NewProviderHandler(reg, database)
-	integrationHandler := handler.NewIntegrationHandler(database, nangoClient, actionsCatalog)
+	integrationHandler := handler.NewIntegrationHandler(database, nangoClient)
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
 	brandHandler := handler.NewBrandHandler(database)

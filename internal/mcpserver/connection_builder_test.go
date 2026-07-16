@@ -14,13 +14,10 @@ func TestBuildConnectionServerListsOnlyConnectionProviderActions(t *testing.T) {
 	db := connectChannelToolTestDB(t)
 	fx := seedChannelToolFixture(t, db)
 	user := model.User{ID: uuid.New(), Email: "connection-mcp-" + uuid.NewString() + "@example.test", Name: "Connection owner"}
-	plugin := model.Plugin{ID: uuid.New(), Slug: "connection-mcp-" + uuid.NewString(), Name: "Connection MCP", Status: model.PluginStatusActive}
-	requirement := model.PluginIntegration{PluginID: plugin.ID, Provider: "slack", Kind: model.PluginIntegrationKindIntegration, Required: true}
-	install := model.OrgPluginInstall{OrgID: fx.org.ID, PluginID: plugin.ID}
-	grant := model.TeamPlugin{OrgID: fx.org.ID, TeamID: fx.team.ID, PluginID: plugin.ID}
 	integration := model.Integration{ID: uuid.New(), UniqueKey: "slack-" + uuid.NewString(), Provider: "slack", DisplayName: "Slack"}
 	connection := model.Connection{ID: uuid.New(), OrgID: fx.org.ID, UserID: user.ID, IntegrationID: integration.ID, NangoConnectionID: "nango-slack", Name: "Support", Slug: "support"}
-	for _, row := range []any{&user, &plugin, &requirement, &install, &grant, &integration, &connection} {
+	grant := model.TeamConnectionGrant{ID: uuid.New(), OrgID: fx.org.ID, TeamID: fx.team.ID, ConnectionID: &connection.ID}
+	for _, row := range []any{&user, &integration, &connection, &grant} {
 		if err := db.Create(row).Error; err != nil {
 			t.Fatalf("seed connection MCP row %T: %v", row, err)
 		}
@@ -28,10 +25,7 @@ func TestBuildConnectionServerListsOnlyConnectionProviderActions(t *testing.T) {
 	t.Cleanup(func() {
 		db.Delete(&connection)
 		db.Delete(&grant)
-		db.Delete(&install)
-		db.Delete(&requirement)
 		db.Delete(&integration)
-		db.Delete(&plugin)
 		db.Delete(&user)
 	})
 

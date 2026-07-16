@@ -16,7 +16,7 @@ export function isOwnerRole(role: string | null | undefined): boolean {
 }
 
 // isAdminRole reports whether the role can administer the org (owner or admin).
-// Admin-gated surfaces (teams, plugin/knowledge provisioning, connections,
+// Admin-gated surfaces (teams, skill/knowledge provisioning, connections,
 // member management) gate on this.
 export function isAdminRole(role: string | null | undefined): boolean {
   return role === "owner" || role === "admin"

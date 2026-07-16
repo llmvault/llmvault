@@ -75,7 +75,7 @@ func TestCreateAgent_NoMCPPicks_GrantsBaseline(t *testing.T) {
 }
 
 // TestCreateAgent_PicksTwoMCP_AllowListsOnlyThoseCapabilities verifies that
-// plugin and future MCP tools cannot leak through an unbounded deny-list.
+// connection capability and future MCP tools cannot leak through an unbounded deny-list.
 func TestCreateAgent_PicksTwoMCP_AllowListsOnlyThoseCapabilities(t *testing.T) {
 	db := testDB(t)
 	org := testOrg(t, db)

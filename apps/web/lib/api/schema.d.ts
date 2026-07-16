@@ -1242,226 +1242,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/integrations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List admin integration definitions
-         * @description Lists supported global integration definitions and existing synced records.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Admin secret */
-                    "X-Hivy-Admin-Secret": string;
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AdminDefinition"][];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/integrations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Sync an admin integration
-         * @description Creates or updates the supported global integration in Nango and the Hivy database.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Admin secret */
-                    "X-Hivy-Admin-Secret": string;
-                };
-                path: {
-                    /** @description Integration definition ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Integration credentials */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["upsertAdminIntegrationRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["upsertAdminIntegrationResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Bad Gateway */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        /**
-         * Delete an admin integration
-         * @description Removes a supported global integration when it has no active connections.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Admin secret */
-                    "X-Hivy-Admin-Secret": string;
-                };
-                path: {
-                    /** @description Integration definition ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AdminDefinition"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/llm-providers": {
         parameters: {
             query?: never;
@@ -1907,7 +1687,7 @@ export interface paths {
         };
         /**
          * List agent catalog
-         * @description Returns active agent catalog entries for the current organization, including install state and required plugin state.
+         * @description Returns active agent catalog entries, install state, and required connections.
          */
         get: {
             parameters: {
@@ -1964,7 +1744,7 @@ export interface paths {
         };
         /**
          * Get agent catalog entry
-         * @description Returns one active agent catalog entry by slug for the current organization, including required plugin install state.
+         * @description Returns one active agent catalog entry and its required connections.
          */
         get: {
             parameters: {
@@ -2044,7 +1824,7 @@ export interface paths {
         put?: never;
         /**
          * Install catalog agent into a team
-         * @description Clones a catalog agent (a template) into the caller's team. The actor must be able to manage the team, and the team must be able to use every plugin the catalog requires; otherwise the install is refused.
+         * @description Clones a catalog agent into the caller's team when all required connections are granted.
          */
         post: {
             parameters: {
@@ -2105,7 +1885,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["agentCatalogMissingPluginsResponse"];
+                        "application/json": components["schemas"]["agentCatalogMissingConnectionsResponse"];
                     };
                 };
                 /** @description Internal Server Error */
@@ -7800,55 +7580,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["integrationAvailableResponse"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/integrations/supported": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List supported platform integrations
-         * @description Returns every enabled platform integration definition and whether it is configured for connection.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["supportedIntegrationsResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["paginatedResponse-handler_integrationAvailableResponse"];
                     };
                 };
             };
@@ -7932,7 +7664,7 @@ export interface paths {
         put?: never;
         /**
          * Create a connection
-         * @description Stores a connection after the OAuth flow completes via Nango. During onboarding, matching plugins are installed and enabled for the org's sole active team.
+         * @description Stores a connection after the OAuth flow completes via Nango. During onboarding, the connection is granted to the org's sole active team.
          */
         post: {
             parameters: {
@@ -11832,6 +11564,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orgs/current/teams/{teamID}/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a team's connections */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamConnectionsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Grant a connection to a team */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Connection grant */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["teamConnectionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamConnectionsResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{teamID}/connections/{connectionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a connection from a team */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                    /** @description Connection ID */
+                    connectionID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamConnectionsResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orgs/current/teams/{teamID}/mcp-servers": {
         parameters: {
             query?: never;
@@ -12052,267 +11892,6 @@ export interface paths {
                 };
                 /** @description Not Found */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/orgs/current/teams/{teamID}/plugins": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a team's enabled plugins
-         * @description Lists the plugins enabled for a team. Visible to org managers, API keys, and members of that team; other members receive 404.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Team ID */
-                    teamID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["teamPluginsResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Enable a plugin for a team
-         * @description Adds a plugin to a team's allowlist. The plugin must belong to the org and be installed. Admin-only.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Team ID */
-                    teamID: string;
-                };
-                cookie?: never;
-            };
-            /** @description Plugin to enable */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["enableTeamPluginRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["teamPluginsResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/orgs/current/teams/{teamID}/plugins/{pluginID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Disable a plugin for a team
-         * @description Removes a plugin from a team's allowlist. Idempotent. Admin-only.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Team ID */
-                    teamID: string;
-                    /** @description Plugin ID */
-                    pluginID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["teamPluginsResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12579,6 +12158,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orgs/current/teams/{teamID}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a team's effective skills */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamSkillsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Grant a skill to a team */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Skill grant */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["teamSkillRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamSkillsResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{teamID}/skills/{skillID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a skill from a team */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    teamID: string;
+                    /** @description Skill ID */
+                    skillID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamSkillsResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orgs/current/transfer-ownership": {
         parameters: {
             query?: never;
@@ -12712,272 +12399,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/plugins": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List plugins
-         * @description Returns active plugins for the current organization, including install state, requirements, and presentation metadata for the plugins catalog.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["pluginResponse"][];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/plugins/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get plugin
-         * @description Returns one active plugin by slug for the current organization, including install state, requirements, and presentation metadata.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin slug */
-                    slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["pluginResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/plugins/{slug}/install": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Install plugin
-         * @description Installs a plugin for the current organization when requirements are satisfied. Agents receive it through team grants.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin slug */
-                    slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["pluginResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["pluginInstallConflictResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        /**
-         * Uninstall plugin
-         * @description Uninstalls a plugin for the current organization and removes its team grants.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Plugin slug */
-                    slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
         options?: never;
         head?: never;
         patch?: never;
@@ -17872,6 +17293,134 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List skills */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a skill */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Skill */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["skillMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/skills/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Archive a skill */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["statusResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update a skill */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Skill patch */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["skillMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/slack/channels": {
         parameters: {
             query?: never;
@@ -18825,42 +18374,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AdminCredentialField: {
-            label?: string;
-            multiline?: boolean;
-            name?: string;
-            placeholder?: string;
-            required?: boolean;
-            secret?: boolean;
-        };
-        AdminDefinition: {
-            auth_mode?: string;
-            credential_fields?: components["schemas"]["AdminCredentialField"][];
-            display_name?: string;
-            enabled?: boolean;
-            existing?: components["schemas"]["AdminExistingIntegration"];
-            fixed_credentials?: components["schemas"]["AdminFixedCredential"][];
-            id?: string;
-            meta?: components["schemas"]["JSON"];
-            nango_provider?: string;
-            provider?: string;
-            required?: boolean;
-            supports_rag_source?: boolean;
-            unique_key?: string;
-        };
-        AdminExistingIntegration: {
-            active_connections?: number;
-            display_name?: string;
-            id?: string;
-            managed?: boolean;
-            unique_key?: string;
-            updated_at?: string;
-        };
-        AdminFixedCredential: {
-            label?: string;
-            name?: string;
-            value?: string;
-        };
         ArtifactFileResponse: {
             content_type?: string;
             download_url?: string;
@@ -18909,6 +18422,7 @@ export interface components {
         };
         CatalogItem: {
             category?: string;
+            connections?: components["schemas"]["ConnectionsSpec"];
             description?: string;
             enabled?: boolean;
             install?: components["schemas"]["InstallSpec"];
@@ -18920,7 +18434,6 @@ export interface components {
             };
             name?: string;
             official?: boolean;
-            plugins?: components["schemas"]["PluginsSpec"];
             resources?: {
                 [key: string]: unknown;
             };
@@ -18945,6 +18458,9 @@ export interface components {
             title?: string;
             type?: string;
         };
+        ConnectionMCPToolDeny: {
+            [key: string]: string[];
+        };
         ConnectionTestResult: {
             capabilities?: {
                 [key: string]: unknown;
@@ -18955,28 +18471,15 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ConnectionsSpec: {
+            recommended?: string[];
+            required?: string[];
+        };
         Cost: {
             cache_read?: number;
             cache_write?: number;
             input?: number;
             output?: number;
-        };
-        Credentials: {
-            app_id?: string;
-            app_link?: string;
-            client_id?: string;
-            client_logo_uri?: string;
-            /** @description MCP_OAUTH2_GENERIC fields */
-            client_name?: string;
-            client_secret?: string;
-            client_uri?: string;
-            password?: string;
-            private_key?: string;
-            scopes?: string;
-            type?: string;
-            /** @description INSTALL_PLUGIN fields */
-            username?: string;
-            webhook_secret?: string;
         };
         DiscoveredPage: {
             path?: string;
@@ -19063,13 +18566,6 @@ export interface components {
             scopes_supported?: string[];
             token_endpoint?: string;
             token_endpoint_auth_methods_supported?: string[];
-        };
-        PluginMCPToolDeny: {
-            [key: string]: string[];
-        };
-        PluginsSpec: {
-            recommended?: string[];
-            required?: string[];
         };
         Policy: {
             allowed_collections?: string[];
@@ -19180,18 +18676,15 @@ export interface components {
         advanceOnboardingRequest: {
             step?: string;
         };
+        agentCatalogConnectionSummary: {
+            provider?: string;
+        };
         agentCatalogInstallRequest: {
             team_id?: string;
         };
-        agentCatalogMissingPluginsResponse: {
+        agentCatalogMissingConnectionsResponse: {
             error?: string;
-            missing_plugins?: string[];
-        };
-        agentCatalogPluginSummary: {
-            id?: string;
-            installed?: boolean;
-            name?: string;
-            slug?: string;
+            missing_connections?: string[];
         };
         agentCatalogResponse: {
             avatar_url?: string;
@@ -19211,8 +18704,7 @@ export interface components {
             model?: string;
             name?: string;
             official?: boolean;
-            recommended_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
-            required_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
+            required_connections?: components["schemas"]["agentCatalogConnectionSummary"][];
             sandbox_image?: string;
             slug?: string;
         };
@@ -19225,8 +18717,7 @@ export interface components {
             is_default?: boolean;
             name?: string;
             official?: boolean;
-            recommended_plugins?: string[];
-            required_plugins?: string[];
+            required_connections?: string[];
             sandbox_image?: string;
             slug?: string;
         };
@@ -19241,11 +18732,10 @@ export interface components {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
+            connection_mcp_tool_deny?: components["schemas"]["ConnectionMCPToolDeny"];
             created_at?: string;
             default_reasoning_effort?: string;
             description?: string;
-            /** @description DisabledPluginIDs lists optional team plugins disabled only for this agent. */
-            disabled_plugin_ids?: string[];
             icon?: string;
             id?: string;
             image_model?: string;
@@ -19256,7 +18746,6 @@ export interface components {
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
-            plugin_mcp_tool_deny?: components["schemas"]["PluginMCPToolDeny"];
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
@@ -19274,13 +18763,10 @@ export interface components {
         agentMutationRequest: {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
+            /** @description ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection. */
+            connection_mcp_tool_deny?: components["schemas"]["ConnectionMCPToolDeny"];
             default_reasoning_effort?: string;
             description?: string;
-            /**
-             * @description DisabledPluginIDs replaces this agent's optional team-plugin opt-outs.
-             *     Omit it to leave overrides unchanged; send [] to restore all team plugins.
-             */
-            disabled_plugin_ids?: string[];
             icon?: string;
             image_model?: string;
             instructions?: string;
@@ -19288,11 +18774,6 @@ export interface components {
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
-            /**
-             * @description PluginMCPToolDeny replaces per-plugin generated MCP tool opt-outs. Keys
-             *     are plugin UUIDs; omitted means unchanged and an empty object enables all.
-             */
-            plugin_mcp_tool_deny?: components["schemas"]["PluginMCPToolDeny"];
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
@@ -19312,11 +18793,10 @@ export interface components {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
+            connection_mcp_tool_deny?: components["schemas"]["ConnectionMCPToolDeny"];
             created_at?: string;
             default_reasoning_effort?: string;
             description?: string;
-            /** @description DisabledPluginIDs lists optional team plugins disabled only for this agent. */
-            disabled_plugin_ids?: string[];
             icon?: string;
             id?: string;
             image_model?: string;
@@ -19327,7 +18807,6 @@ export interface components {
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
-            plugin_mcp_tool_deny?: components["schemas"]["PluginMCPToolDeny"];
             resources?: components["schemas"]["JSON"];
             sandbox_image?: string;
             sandbox_size?: string;
@@ -19346,9 +18825,7 @@ export interface components {
             description?: string;
             human_description?: string;
             id?: string;
-            locked?: boolean;
             name?: string;
-            required?: boolean;
             source_type?: string;
         };
         agentTriggerResponse: {
@@ -19950,9 +19427,6 @@ export interface components {
         discoverWebsiteSectionsRequest: {
             url?: string;
         };
-        enableTeamPluginRequest: {
-            plugin_id?: string;
-        };
         errorRate: {
             date?: string;
             error_count?: number;
@@ -20395,6 +19869,11 @@ export interface components {
             has_more?: boolean;
             next_cursor?: string;
         };
+        "paginatedResponse-handler_integrationAvailableResponse": {
+            data?: components["schemas"]["integrationAvailableResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
         "paginatedResponse-handler_sandboxResponse": {
             data?: components["schemas"]["sandboxResponse"][];
             has_more?: boolean;
@@ -20442,70 +19921,6 @@ export interface components {
             provider?: string;
             slug?: string;
             welcome_credits?: number;
-        };
-        pluginConnectionRequirement: {
-            kind?: string;
-            provider?: string;
-            required?: boolean;
-        };
-        pluginInstallConflictResponse: {
-            error?: string;
-            missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
-        };
-        pluginLinksResponse: {
-            privacy?: string;
-            terms?: string;
-            website?: string;
-        };
-        pluginResourceRequirement: {
-            connection_id?: string;
-            description?: string;
-            display_name?: string;
-            kind?: string;
-            missing?: boolean;
-            provider?: string;
-            required?: boolean;
-            resource_key?: string;
-            selected?: boolean;
-            selected_count?: number;
-        };
-        pluginResponse: {
-            auto_install?: boolean;
-            capabilities?: string[];
-            category?: string;
-            created_at?: string;
-            description?: string;
-            detail_category?: string;
-            developer?: string;
-            enabled_agent_ids?: string[];
-            examples?: string[];
-            featured?: boolean;
-            icon?: string;
-            icon_color?: string;
-            id?: string;
-            installed?: boolean;
-            links?: components["schemas"]["pluginLinksResponse"];
-            locked?: boolean;
-            long_description?: string;
-            missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
-            name?: string;
-            official?: boolean;
-            required_connections?: components["schemas"]["pluginConnectionRequirement"][];
-            resource_requirements?: components["schemas"]["pluginResourceRequirement"][];
-            skills?: components["schemas"]["pluginSkillResponse"][];
-            slug?: string;
-            status?: string;
-            updated_at?: string;
-            version?: string;
-        };
-        pluginSkillResponse: {
-            category?: string;
-            description?: string;
-            human_description?: string;
-            id?: string;
-            name?: string;
-            slug?: string;
-            tags?: string[];
         };
         previewChangeRequest: {
             plan_slug?: string;
@@ -21094,6 +20509,33 @@ export interface components {
             upload_method?: string;
             upload_url?: string;
         };
+        skillEnvelope: {
+            skill?: components["schemas"]["skillResponse"];
+        };
+        skillMutationRequest: {
+            bundle?: components["schemas"]["JSON"];
+            description?: string;
+            human_description?: string;
+            name?: string;
+            slug?: string;
+            status?: string;
+            team_id?: string;
+        };
+        skillResponse: {
+            bundle?: number[];
+            description?: string;
+            human_description?: string;
+            id?: string;
+            name?: string;
+            org_id?: string;
+            slug?: string;
+            source_type?: string;
+            status?: string;
+            team_id?: string;
+        };
+        skillsResponse: {
+            skills?: components["schemas"]["skillResponse"][];
+        };
         slackChannelResponse: {
             id?: string;
             is_archived?: boolean;
@@ -21171,21 +20613,20 @@ export interface components {
             provider?: string;
             status?: string;
         };
-        supportedIntegrationResponse: {
-            configured?: boolean;
-            created_at?: string;
-            definition_id?: string;
-            display_name?: string;
-            id?: string;
-            meta?: components["schemas"]["JSON"];
-            nango_config?: components["schemas"]["NangoConfig"];
-            provider?: string;
-        };
-        supportedIntegrationsResponse: {
-            data?: components["schemas"]["supportedIntegrationResponse"][];
-        };
         syncTriggerRequest: {
             from_beginning?: boolean;
+        };
+        teamConnectionRequest: {
+            connection_id?: string;
+        };
+        teamConnectionResponse: {
+            id?: string;
+            kind?: string;
+            name?: string;
+            provider?: string;
+        };
+        teamConnectionsResponse: {
+            data?: components["schemas"]["teamConnectionResponse"][];
         };
         teamDetailResponse: {
             members?: components["schemas"]["teamMemberResponse"][];
@@ -21215,14 +20656,6 @@ export interface components {
         teamMutationResponse: {
             team?: components["schemas"]["teamResponse"];
         };
-        teamPluginResponse: {
-            id?: string;
-            name?: string;
-            slug?: string;
-        };
-        teamPluginsResponse: {
-            data?: components["schemas"]["teamPluginResponse"][];
-        };
         teamRagSourceResponse: {
             id?: string;
             kind?: string;
@@ -21244,6 +20677,18 @@ export interface components {
             name?: string;
             org_id?: string;
             updated_at?: string;
+        };
+        teamSkillRequest: {
+            skill_id?: string;
+        };
+        teamSkillResponse: {
+            id?: string;
+            name?: string;
+            slug?: string;
+            sources?: string[];
+        };
+        teamSkillsResponse: {
+            data?: components["schemas"]["teamSkillResponse"][];
         };
         tokenListItem: {
             created_at?: string;
@@ -21483,13 +20928,6 @@ export interface components {
             };
             name?: string;
             position?: number;
-        };
-        upsertAdminIntegrationRequest: {
-            credentials?: components["schemas"]["Credentials"];
-        };
-        upsertAdminIntegrationResponse: {
-            definition?: components["schemas"]["AdminDefinition"];
-            state?: string;
         };
         usageResponse: {
             api_keys?: components["schemas"]["apiKeyStats"];

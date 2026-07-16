@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rsa"
-	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -51,7 +50,6 @@ func setupPublicRoutes(
 
 	// Integration discovery (no auth)
 	r.Get("/v1/integrations/available", integrationHandler.ListAvailable)
-	r.Get("/v1/integrations/supported", integrationHandler.ListSupported)
 
 	// Integration catalog discovery (no auth)
 	actionsHandler := handler.NewActionsHandler(actionsCatalog)
@@ -80,37 +78,13 @@ func setupPublicRoutes(
 		r.Post("/internal/preview/sandboxes/{externalID}/activity", previewActivityHandler.Handle)
 	}
 
-	// Sandbox proxy endpoints (bearer-token auth, no middleware)
+	// Sandbox credential endpoints (bearer-token auth, no middleware)
 	if nangoClient != nil && sandboxEncKey != nil {
 		gitCredsHandler := handler.NewGitCredentialsHandler(database, sandboxEncKey, nangoClient)
 		r.Post("/internal/git-credentials/{agentID}", gitCredsHandler.Handle)
 
 		githubPRCreatedHandler := handler.NewGitHubPRCreatedHandler(database, sandboxEncKey)
 		r.Post("/internal/github-pr-created/{agentID}", githubPRCreatedHandler.Handle)
-
-		railwayProxyHandler := handler.NewRailwayProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Post("/internal/railway-proxy/{agentID}", railwayProxyHandler.Handle)
-
-		bugsinkProxyHandler := handler.NewBugsinkProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/bugsink-proxy/{agentID}/*", http.HandlerFunc(bugsinkProxyHandler.Handle))
-
-		glitchTipProxyHandler := handler.NewGlitchTipProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/glitchtip-proxy/{agentID}/*", http.HandlerFunc(glitchTipProxyHandler.Handle))
-
-		apifyProxyHandler := handler.NewApifyProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/apify-proxy/{agentID}/*", http.HandlerFunc(apifyProxyHandler.Handle))
-
-		linearProxyHandler := handler.NewLinearProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Post("/internal/linear-proxy/{agentID}", linearProxyHandler.Handle)
-
-		notionProxyHandler := handler.NewNotionProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/notion-proxy/{agentID}/*", http.HandlerFunc(notionProxyHandler.Handle))
-
-		vercelProxyHandler := handler.NewVercelProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/vercel-proxy/{agentID}/*", http.HandlerFunc(vercelProxyHandler.Handle))
-
-		slackProxyHandler := handler.NewSlackProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/slack-proxy/{agentID}/*", http.HandlerFunc(slackProxyHandler.Handle))
 	}
 	if sandboxEncKey != nil && kms != nil {
 		databaseProxyHandler := handler.NewDatabaseProxyHandler(database, sandboxEncKey, kms)

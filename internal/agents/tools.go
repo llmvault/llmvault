@@ -1,6 +1,6 @@
 // Package agents holds the reusable agent create/update service shared by the
 // HTTP handlers and the agent-builder MCP tools, plus the strict tool/skill/
-// plugin routing and validation those callers depend on.
+// connection and skill routing those callers depend on.
 package agents
 
 import (

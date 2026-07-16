@@ -88,8 +88,8 @@ func TestGitHubToolingProvidersNoLegacy(t *testing.T) {
 	if len(crPR.requiredProviders) != 1 || crPR.requiredProviders[0] != githubAppCodeReviewsProvider {
 		t.Fatalf("code-reviews template requiredProviders = %v, want only %s", crPR.requiredProviders, githubAppCodeReviewsProvider)
 	}
-	if crPR.requiredPluginLabel != "GitHub Code Reviews" {
-		t.Fatalf("code-reviews template plugin label = %q", crPR.requiredPluginLabel)
+	if crPR.requiredConnectionLabel != "GitHub Code Reviews" {
+		t.Fatalf("code-reviews template connection label = %q", crPR.requiredConnectionLabel)
 	}
 	primaryPR, ok := resolveTriggerTemplate(githubAppProvider, model.TriggerKeyGitHubPRMention)
 	if !ok {

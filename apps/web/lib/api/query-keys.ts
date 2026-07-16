@@ -25,8 +25,7 @@ export const queryKeys = {
   sessionUsage: (id: string) =>
     ["get", "/v1/sessions/{id}/usage", { params: { path: { id } } }] as const,
   connections: () => ["get", "/v1/connections"] as const,
-  plugins: () => ["get", "/v1/plugins"] as const,
-  plugin: () => ["get", "/v1/plugins/{slug}"] as const,
+  skills: () => ["get", "/v1/skills"] as const,
   databaseIntegrations: () => ["get", "/v1/database-integrations"] as const,
   mcpServers: () => ["get", "/v1/mcp-servers"] as const,
   mcpServer: (id: string) =>

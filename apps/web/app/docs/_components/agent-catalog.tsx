@@ -13,7 +13,7 @@ const INSTALL_STEPS = [
     number: "02",
     title: "Review its requirements",
     description:
-      "Check the agent’s purpose and required plugins before choosing a team; Hivy refuses the installation when a requirement is missing.",
+      "Check the agent’s purpose and required connections before choosing a team; Hivy refuses the installation when a requirement is missing.",
   },
   {
     number: "03",
@@ -25,7 +25,7 @@ const INSTALL_STEPS = [
     number: "04",
     title: "Test the installed copy",
     description:
-      "Run one representative task in a team channel before changing the model, sandbox, or optional plugins.",
+      "Run one representative task in a team channel before changing the model, sandbox, or optional connections.",
   },
 ]
 
@@ -81,7 +81,7 @@ export function AgentCatalog() {
       <DocsMediaPlaceholder
         type="image"
         title="A catalog agent’s team installation screen"
-        description="Include the agent details, required plugins, and per-team Install controls in one readable frame."
+        description="Include the agent details, required connections, and per-team Install controls in one readable frame."
         className="mt-12"
       />
 
@@ -95,23 +95,23 @@ export function AgentCatalog() {
           </p>
         </DocSection>
 
-        <DocSection title="Hivy checks required plugins first">
+        <DocSection title="Hivy checks required connections first">
           <p>
             Before installation, Hivy checks whether the selected team has every
-            plugin the agent requires. If one is missing, the page names it and
-            no agent gets created.
+            connection the agent requires. If one is missing, the page names it
+            and no agent gets created.
           </p>
           <p className="mt-3">
-            The installed agent receives the team&apos;s plugins, though you can
-            switch off an optional plugin for this agent without affecting its
-            teammates.
+            The installed agent receives the team&apos;s connections, though you
+            can switch off an optional connection for this agent without
+            affecting its teammates.
           </p>
         </DocSection>
 
         <DocSection title="Tune it for the work and budget">
           <p>
             After installation, set the model and sandbox for the work this
-            agent will handle most often, then remove optional plugins it
+            agent will handle most often, then remove optional connections it
             won&apos;t use. These choices affect cost and available compute.
           </p>
         </DocSection>

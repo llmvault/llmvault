@@ -1,9 +1,0 @@
-{
-  "name": "agent-builder",
-  "description": "Use this skill whenever the user wants to create, build, set up, configure, edit, improve, or manage an agent (or its sub-agents) in this Hivy organization — including choosing a model, picking tools or plugins, writing an agent's instructions, or reviewing what agents already exist.",
-  "human_description": "Guides an agent through creating and improving other agents effectively.",
-  "category": "Hivy",
-  "root": "./SKILL.md",
-  "tags": ["agents", "agent-builder", "configuration", "onboarding"],
-  "files": []
-}

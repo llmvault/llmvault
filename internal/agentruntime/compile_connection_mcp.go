@@ -9,16 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/pluginresolve"
 )
-
-type connectionMCPRequirement struct {
-	PluginID uuid.UUID
-	Provider string
-	Kind     string
-}
 
 func resolveConnectionMCPServers(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult) ([]any, error) {
 	if deps.DB == nil || deps.Cfg == nil || strings.TrimSpace(deps.Cfg.MCPBaseURL) == "" || agent == nil || agent.OrgID == nil {
@@ -38,75 +32,33 @@ func resolveConnectionMCPServers(ctx context.Context, deps CompileDeps, agent *m
 		}
 		jti = token.JTI
 	}
-	pluginIDs, err := pluginresolve.EffectivePluginIDs(ctx, deps.DB, *agent)
-	if err != nil {
-		return nil, fmt.Errorf("resolve connection MCP plugins: %w", err)
-	}
-	if len(pluginIDs) == 0 {
-		return []any{}, nil
-	}
-	var requirements []connectionMCPRequirement
-	if err := deps.DB.WithContext(ctx).Model(&model.PluginIntegration{}).
-		Select("plugin_id, provider, kind").Where("plugin_id IN ?", pluginIDs).
-		Scan(&requirements).Error; err != nil {
-		return nil, fmt.Errorf("load connection MCP requirements: %w", err)
-	}
-	integrationProviders := make([]string, 0)
-	databaseProviders := make([]string, 0)
-	for _, requirement := range requirements {
-		switch requirement.Kind {
-		case model.PluginIntegrationKindDatabase:
-			databaseProviders = append(databaseProviders, requirement.Provider)
-		default:
-			integrationProviders = append(integrationProviders, requirement.Provider)
-		}
-	}
 	baseURL := strings.TrimRight(deps.Cfg.MCPBaseURL, "/")
-	toolDenyByProvider := pluginMCPToolDenyByProvider(agent.PluginMCPToolDeny, requirements)
 	servers := make([]any, 0)
-	if len(integrationProviders) > 0 {
-		var connections []model.Connection
-		if err := deps.DB.WithContext(ctx).Preload("Integration").
-			Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-			Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider IN ?", *agent.OrgID, integrationProviders).
-			Order("connections.created_at ASC, connections.id ASC").Find(&connections).Error; err != nil {
-			return nil, fmt.Errorf("load connection MCP connections: %w", err)
-		}
-		cat := catalog.Global()
-		for _, connection := range connections {
-			provider, ok := cat.GetProvider(connection.Integration.Provider)
-			if !ok || !provider.ShouldPushToMCP() || executableActionCount(provider) == 0 {
-				continue
-			}
-			servers = append(servers, connectionMCPServer(
-				"connection",
-				connection.Slug,
-				"",
-				connection.ID,
-				baseURL,
-				jti,
-				toolDenyByProvider[pluginMCPProviderKey(model.PluginIntegrationKindIntegration, connection.Integration.Provider)],
-			))
-		}
+	connections, err := connectionaccess.IntegrationConnections(ctx, deps.DB, *agent)
+	if err != nil {
+		return nil, err
 	}
-	if len(databaseProviders) > 0 {
-		var connections []model.DatabaseConnection
-		if err := deps.DB.WithContext(ctx).
-			Where("org_id = ? AND revoked_at IS NULL AND provider IN ?", *agent.OrgID, databaseProviders).
-			Order("created_at ASC, id ASC").Find(&connections).Error; err != nil {
-			return nil, fmt.Errorf("load database MCP connections: %w", err)
+	cat := catalog.Global()
+	for _, connection := range connections {
+		provider, ok := cat.GetProvider(connection.Integration.Provider)
+		if !ok || !provider.ShouldPushToMCP() || executableActionCount(provider) == 0 {
+			continue
 		}
-		for _, connection := range connections {
-			servers = append(servers, connectionMCPServer(
-				"database",
-				connection.Slug,
-				databaseMCPToolPrefix(connection.Provider, connection.Slug),
-				connection.ID,
-				baseURL,
-				jti,
-				toolDenyByProvider[pluginMCPProviderKey(model.PluginIntegrationKindDatabase, connection.Provider)],
-			))
-		}
+		servers = append(servers, connectionMCPServer(
+			"connection", connection.Slug, "", connection.ID, baseURL, jti,
+			connectionToolDeny(agent.ConnectionMCPToolDeny, connection.ID),
+		))
+	}
+	databaseConnections, err := connectionaccess.DatabaseConnections(ctx, deps.DB, *agent)
+	if err != nil {
+		return nil, err
+	}
+	for _, connection := range databaseConnections {
+		servers = append(servers, connectionMCPServer(
+			"database", connection.Slug, databaseMCPToolPrefix(connection.Provider, connection.Slug),
+			connection.ID, baseURL, jti,
+			connectionToolDeny(agent.ConnectionMCPToolDeny, connection.ID),
+		))
 	}
 	sort.Slice(servers, func(i, j int) bool {
 		left, _ := servers[i].(map[string]any)["name"].(string)
@@ -135,12 +87,7 @@ func connectionMCPServer(kind, slug, toolNamePrefix string, connectionID uuid.UU
 		"headers": map[string]string{
 			"Authorization": agentMCPAuthorizationHeader(),
 		},
-		// Generated plugin MCPs are deny-based and therefore default to the full
-		// catalog. The explicit per-server filter also tells the runtime not to
-		// apply the legacy top-level Hivy MCP allow-list to this server.
-		"tool_filter": map[string]any{
-			"deny": append([]string(nil), deniedTools...),
-		},
+		"tool_filter": map[string]any{"deny": deniedTools},
 	}
 	if toolNamePrefix != "" {
 		server["tool_name_prefix"] = toolNamePrefix
@@ -159,38 +106,18 @@ func databaseMCPToolPrefix(provider, slug string) string {
 	return provider + "_" + label
 }
 
-func pluginMCPToolDenyByProvider(config model.PluginMCPToolDeny, requirements []connectionMCPRequirement) map[string][]string {
-	sets := make(map[string]map[string]bool)
-	for _, requirement := range requirements {
-		denied := config[requirement.PluginID.String()]
-		if len(denied) == 0 {
+func connectionToolDeny(config model.ConnectionMCPToolDeny, connectionID uuid.UUID) []string {
+	values := config[connectionID.String()]
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
 			continue
 		}
-		key := pluginMCPProviderKey(requirement.Kind, requirement.Provider)
-		if sets[key] == nil {
-			sets[key] = make(map[string]bool, len(denied))
-		}
-		for _, tool := range denied {
-			if tool = strings.TrimSpace(tool); tool != "" {
-				// v7.1.3 exposed the database tool as query. Preserve existing
-				// opt-outs when compiling the renamed run_query tool.
-				if requirement.Kind == model.PluginIntegrationKindDatabase && tool == "query" {
-					tool = "run_query"
-				}
-				sets[key][tool] = true
-			}
-		}
+		seen[value] = true
+		out = append(out, value)
 	}
-	out := make(map[string][]string, len(sets))
-	for key, set := range sets {
-		for tool := range set {
-			out[key] = append(out[key], tool)
-		}
-		sort.Strings(out[key])
-	}
+	sort.Strings(out)
 	return out
-}
-
-func pluginMCPProviderKey(kind, provider string) string {
-	return kind + ":" + provider
 }

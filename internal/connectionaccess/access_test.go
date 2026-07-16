@@ -63,16 +63,16 @@ func TestEffectiveResourcesReturnsEmptyWhenUnrestricted(t *testing.T) {
 	}
 }
 
-func TestResolveAgentProviderRequiresEnabledPlugin(t *testing.T) {
+func TestResolveAgentProviderRequiresTeamConnectionGrant(t *testing.T) {
 	db := newResolverTestDB(t)
 	fixture := insertResolverFixture(t, db)
 
 	_, err := ResolveAgentProvider(context.Background(), db, fixture.orgID, fixture.agentID, "linear")
 	if err == nil {
-		t.Fatal("expected resolver to deny provider without enabled plugin")
+		t.Fatal("expected resolver to deny provider without a team connection grant")
 	}
 
-	insertEnabledPlugin(t, db, fixture.orgID, fixture.teamID, "linear")
+	insertConnectionGrant(t, db, fixture.orgID, fixture.teamID, fixture.connectionID)
 	result, err := ResolveAgentProvider(context.Background(), db, fixture.orgID, fixture.agentID, "linear")
 	if err != nil {
 		t.Fatalf("resolve provider: %v", err)
@@ -88,7 +88,7 @@ func TestResolveAgentProviderRequiresEnabledPlugin(t *testing.T) {
 func TestResolveAgentProviderUsesEffectiveResources(t *testing.T) {
 	db := newResolverTestDB(t)
 	fixture := insertResolverFixture(t, db)
-	insertEnabledPlugin(t, db, fixture.orgID, fixture.teamID, "linear")
+	insertConnectionGrant(t, db, fixture.orgID, fixture.teamID, fixture.connectionID)
 	if err := db.Model(&model.Connection{}).Where("id = ?", fixture.connectionID).Update("meta", model.JSON{
 		"resources": map[string]any{"project": []any{map[string]any{"id": "default", "name": "Default"}}},
 	}).Error; err != nil {
@@ -193,29 +193,9 @@ func insertResolverFixture(t *testing.T, db *gorm.DB) resolverFixture {
 	return fixture
 }
 
-func insertEnabledPlugin(t *testing.T, db *gorm.DB, orgID uuid.UUID, teamID uuid.UUID, provider string) {
+func insertConnectionGrant(t *testing.T, db *gorm.DB, orgID uuid.UUID, teamID uuid.UUID, connectionID uuid.UUID) {
 	t.Helper()
-	pluginID := uuid.New()
-	if err := db.Create(&model.Plugin{
-		ID:     pluginID,
-		Slug:   "resolver-" + provider + "-" + uuid.NewString()[:8],
-		Name:   "Resolver " + provider,
-		Status: model.PluginStatusActive,
-	}).Error; err != nil {
-		t.Fatalf("insert plugin: %v", err)
-	}
-	if err := db.Create(&model.PluginIntegration{
-		PluginID: pluginID,
-		Provider: provider,
-		Kind:     model.PluginIntegrationKindIntegration,
-		Required: true,
-	}).Error; err != nil {
-		t.Fatalf("insert plugin integration: %v", err)
-	}
-	if err := db.Create(&model.OrgPluginInstall{OrgID: orgID, PluginID: pluginID}).Error; err != nil {
-		t.Fatalf("insert org plugin install: %v", err)
-	}
-	if err := db.Create(&model.TeamPlugin{OrgID: orgID, TeamID: teamID, PluginID: pluginID}).Error; err != nil {
-		t.Fatalf("insert team plugin: %v", err)
+	if err := db.Create(&model.TeamConnectionGrant{ID: uuid.New(), OrgID: orgID, TeamID: teamID, ConnectionID: &connectionID}).Error; err != nil {
+		t.Fatalf("insert team connection grant: %v", err)
 	}
 }
