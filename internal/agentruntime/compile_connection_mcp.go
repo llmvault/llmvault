@@ -81,6 +81,7 @@ func resolveConnectionMCPServers(ctx context.Context, deps CompileDeps, agent *m
 			servers = append(servers, connectionMCPServer(
 				"connection",
 				connection.Slug,
+				"",
 				connection.ID,
 				baseURL,
 				jti,
@@ -99,6 +100,7 @@ func resolveConnectionMCPServers(ctx context.Context, deps CompileDeps, agent *m
 			servers = append(servers, connectionMCPServer(
 				"database",
 				connection.Slug,
+				databaseMCPToolPrefix(connection.Provider, connection.Slug),
 				connection.ID,
 				baseURL,
 				jti,
@@ -124,9 +126,9 @@ func executableActionCount(provider *catalog.ProviderActions) int {
 	return count
 }
 
-func connectionMCPServer(kind, slug string, connectionID uuid.UUID, baseURL, jti string, deniedTools []string) any {
+func connectionMCPServer(kind, slug, toolNamePrefix string, connectionID uuid.UUID, baseURL, jti string, deniedTools []string) any {
 	name := kind + "-" + strings.Trim(strings.TrimSpace(slug), "-")
-	return map[string]any{
+	server := map[string]any{
 		"name":      name,
 		"transport": "streamable_http",
 		"url":       fmt.Sprintf("%s/%s/%s/%s", baseURL, jti, kind, connectionID),
@@ -140,6 +142,21 @@ func connectionMCPServer(kind, slug string, connectionID uuid.UUID, baseURL, jti
 			"deny": append([]string(nil), deniedTools...),
 		},
 	}
+	if toolNamePrefix != "" {
+		server["tool_name_prefix"] = toolNamePrefix
+	}
+	return server
+}
+
+func databaseMCPToolPrefix(provider, slug string) string {
+	provider = strings.Trim(strings.ToLower(strings.TrimSpace(provider)), "-_")
+	label := strings.Trim(strings.ToLower(strings.TrimSpace(slug)), "-_")
+	if label == "" || label == provider {
+		label = "primary"
+	}
+	provider = strings.ReplaceAll(provider, "-", "_")
+	label = strings.ReplaceAll(label, "-", "_")
+	return provider + "_" + label
 }
 
 func pluginMCPToolDenyByProvider(config model.PluginMCPToolDeny, requirements []connectionMCPRequirement) map[string][]string {
@@ -155,6 +172,11 @@ func pluginMCPToolDenyByProvider(config model.PluginMCPToolDeny, requirements []
 		}
 		for _, tool := range denied {
 			if tool = strings.TrimSpace(tool); tool != "" {
+				// v7.1.3 exposed the database tool as query. Preserve existing
+				// opt-outs when compiling the renamed run_query tool.
+				if requirement.Kind == model.PluginIntegrationKindDatabase && tool == "query" {
+					tool = "run_query"
+				}
 				sets[key][tool] = true
 			}
 		}

@@ -2538,6 +2538,7 @@ mod tests {
                         "Bearer ${USER_OAUTH_TOKEN}".to_string(),
                     )]),
                     tool_filter: None,
+                    tool_name_prefix: None,
                 }],
                 &HashMap::from([(
                     "USER_OAUTH_TOKEN".to_string(),

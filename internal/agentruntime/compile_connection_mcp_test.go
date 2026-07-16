@@ -39,7 +39,7 @@ func TestResolveConnectionMCPServersEmitsOneServerPerMatchingConnection(t *testi
 		t.Fatalf("grant plugin: %v", err)
 	}
 	agent.PluginMCPToolDeny = model.PluginMCPToolDeny{
-		plugin.ID.String(): {"chat_delete", "query"},
+		plugin.ID.String(): {"chat_delete", "run_query"},
 	}
 	integration := model.Integration{UniqueKey: "connection-mcp-" + uuid.NewString(), Provider: "slack", DisplayName: "Slack"}
 	if err := db.Create(&integration).Error; err != nil {
@@ -79,10 +79,21 @@ func TestResolveConnectionMCPServersEmitsOneServerPerMatchingConnection(t *testi
 		t.Fatalf("server count = %d, want 4: %#v", len(servers), servers)
 	}
 	wantNames := []string{"connection-sales", "connection-slack", "database-postgres", "database-reporting"}
+	wantPrefixes := map[string]string{
+		"database-postgres":  "postgres_primary",
+		"database-reporting": "postgres_reporting",
+	}
 	for index, raw := range servers {
 		server := raw.(map[string]any)
 		if server["name"] != wantNames[index] {
 			t.Fatalf("server %d name = %v, want %s", index, server["name"], wantNames[index])
+		}
+		if wantPrefix := wantPrefixes[wantNames[index]]; wantPrefix != "" {
+			if server["tool_name_prefix"] != wantPrefix {
+				t.Fatalf("server %s tool prefix = %v, want %s", wantNames[index], server["tool_name_prefix"], wantPrefix)
+			}
+		} else if _, ok := server["tool_name_prefix"]; ok {
+			t.Fatalf("integration server %s unexpectedly has a tool prefix", wantNames[index])
 		}
 		if url := server["url"].(string); !strings.Contains(url, "/test-jti/") {
 			t.Fatalf("server URL = %q", url)
@@ -92,9 +103,31 @@ func TestResolveConnectionMCPServersEmitsOneServerPerMatchingConnection(t *testi
 			t.Fatalf("server %s tool filter = %#v", wantNames[index], server["tool_filter"])
 		}
 		deny, ok := filter["deny"].([]string)
-		if !ok || len(deny) != 2 || deny[0] != "chat_delete" || deny[1] != "query" {
-			t.Fatalf("server %s deny = %#v, want chat_delete+query", wantNames[index], filter["deny"])
+		if !ok || len(deny) != 2 || deny[0] != "chat_delete" || deny[1] != "run_query" {
+			t.Fatalf("server %s deny = %#v, want chat_delete+run_query", wantNames[index], filter["deny"])
 		}
+	}
+}
+
+func TestDatabaseMCPToolPrefixUsesProviderAndConnectionLabel(t *testing.T) {
+	tests := map[string]struct {
+		provider string
+		slug     string
+		want     string
+	}{
+		"default postgres": {provider: "postgres", slug: "postgres", want: "postgres_primary"},
+		"named postgres":   {provider: "postgres", slug: "reporting", want: "postgres_reporting"},
+		"named mysql":      {provider: "mysql", slug: "analytics", want: "mysql_analytics"},
+		"named redis":      {provider: "redis", slug: "cache", want: "redis_cache"},
+		"named mongodb":    {provider: "mongodb", slug: "archive", want: "mongodb_archive"},
+		"hyphenated mongo": {provider: "mongodb", slug: "cold-archive", want: "mongodb_cold_archive"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := databaseMCPToolPrefix(test.provider, test.slug); got != test.want {
+				t.Fatalf("database MCP tool prefix = %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 
@@ -111,5 +144,18 @@ func TestPluginMCPToolDenyByProviderUnionsPluginsForSharedProvider(t *testing.T)
 	want := []string{"chat_delete", "chat_update", "reactions_remove"}
 	if joined := strings.Join(got[pluginMCPProviderKey(model.PluginIntegrationKindIntegration, "slack")], ","); joined != strings.Join(want, ",") {
 		t.Fatalf("shared-provider deny = %q, want %q", joined, strings.Join(want, ","))
+	}
+}
+
+func TestPluginMCPToolDenyPreservesLegacyDatabaseQueryOptOut(t *testing.T) {
+	pluginID := uuid.New()
+	got := pluginMCPToolDenyByProvider(model.PluginMCPToolDeny{
+		pluginID.String(): {"query"},
+	}, []connectionMCPRequirement{
+		{PluginID: pluginID, Provider: "postgres", Kind: model.PluginIntegrationKindDatabase},
+	})
+	denied := got[pluginMCPProviderKey(model.PluginIntegrationKindDatabase, "postgres")]
+	if len(denied) != 1 || denied[0] != "run_query" {
+		t.Fatalf("legacy database deny = %v, want run_query", denied)
 	}
 }

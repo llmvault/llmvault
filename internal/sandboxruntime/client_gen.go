@@ -701,6 +701,7 @@ type McpSpec0 struct {
 	Name                  string             `json:"name"`
 	StartupTimeoutSeconds *int32             `json:"startup_timeout_seconds,omitempty"`
 	ToolFilter            *ToolFilter        `json:"tool_filter,omitempty"`
+	ToolNamePrefix        *string            `json:"tool_name_prefix,omitempty"`
 	Transport             McpSpec0Transport  `json:"transport"`
 }
 
@@ -709,11 +710,12 @@ type McpSpec0Transport string
 
 // McpSpec1 defines model for .
 type McpSpec1 struct {
-	Headers    *map[string]string `json:"headers,omitempty"`
-	Name       string             `json:"name"`
-	ToolFilter *ToolFilter        `json:"tool_filter,omitempty"`
-	Transport  McpSpec1Transport  `json:"transport"`
-	Url        string             `json:"url"`
+	Headers        *map[string]string `json:"headers,omitempty"`
+	Name           string             `json:"name"`
+	ToolFilter     *ToolFilter        `json:"tool_filter,omitempty"`
+	ToolNamePrefix *string            `json:"tool_name_prefix,omitempty"`
+	Transport      McpSpec1Transport  `json:"transport"`
+	Url            string             `json:"url"`
 }
 
 // McpSpec1Transport defines model for McpSpec.1.Transport.
@@ -723,11 +725,12 @@ type McpSpec1Transport string
 // configured URL is the long-lived GET event stream; the server announces
 // the per-session POST endpoint with an `event: endpoint` frame.
 type McpSpec2 struct {
-	Headers    *map[string]string `json:"headers,omitempty"`
-	Name       string             `json:"name"`
-	ToolFilter *ToolFilter        `json:"tool_filter,omitempty"`
-	Transport  McpSpec2Transport  `json:"transport"`
-	Url        string             `json:"url"`
+	Headers        *map[string]string `json:"headers,omitempty"`
+	Name           string             `json:"name"`
+	ToolFilter     *ToolFilter        `json:"tool_filter,omitempty"`
+	ToolNamePrefix *string            `json:"tool_name_prefix,omitempty"`
+	Transport      McpSpec2Transport  `json:"transport"`
+	Url            string             `json:"url"`
 }
 
 // McpSpec2Transport defines model for McpSpec.2.Transport.
@@ -735,11 +738,12 @@ type McpSpec2Transport string
 
 // McpSpec3 defines model for .
 type McpSpec3 struct {
-	Headers    *map[string]string `json:"headers,omitempty"`
-	Name       string             `json:"name"`
-	ToolFilter *ToolFilter        `json:"tool_filter,omitempty"`
-	Transport  McpSpec3Transport  `json:"transport"`
-	Url        string             `json:"url"`
+	Headers        *map[string]string `json:"headers,omitempty"`
+	Name           string             `json:"name"`
+	ToolFilter     *ToolFilter        `json:"tool_filter,omitempty"`
+	ToolNamePrefix *string            `json:"tool_name_prefix,omitempty"`
+	Transport      McpSpec3Transport  `json:"transport"`
+	Url            string             `json:"url"`
 }
 
 // McpSpec3Transport defines model for McpSpec.3.Transport.

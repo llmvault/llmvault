@@ -207,6 +207,37 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
 }
 
 #[tokio::test]
+async fn explicit_tool_prefix_sets_the_model_facing_connection_name() {
+    let fixture = FixtureServer::start().await;
+    let specs = vec![McpSpec::StreamableHttp {
+        name: "database-postgres".to_string(),
+        url: format!("{}/noauth", fixture.base_url),
+        headers: HashMap::new(),
+        tool_filter: None,
+        tool_name_prefix: Some("postgres_primary".to_string()),
+    }];
+    let registry = McpRegistry::from_specs_allowing_loopback_for_tests(
+        &specs,
+        &HashMap::new(),
+        std::env::temp_dir(),
+    )
+    .await;
+
+    let names = registry.available_tool_names();
+    assert!(names.contains(&"postgres_primary_echo".to_string()));
+    assert!(names.contains(&"postgres_primary_lookup_customer".to_string()));
+
+    let details = registry
+        .activate_tool_filtered("database-session", "postgres_primary_echo", None)
+        .await
+        .expect("activate prefixed database tool");
+    assert_eq!(details["raw_name"], "echo");
+    assert_eq!(details["server"], "database-postgres");
+
+    fixture.stop().await;
+}
+
+#[tokio::test]
 async fn legacy_http_sse_connects_discovers_activates_and_calls_with_oauth_header() {
     let fixture = FixtureServer::start().await;
     let specs = vec![McpSpec::Sse {
@@ -217,6 +248,7 @@ async fn legacy_http_sse_connects_discovers_activates_and_calls_with_oauth_heade
             "Bearer ${LEGACY_OAUTH_TOKEN}".to_string(),
         )]),
         tool_filter: None,
+        tool_name_prefix: None,
     }];
     let runtime_env = HashMap::from([(
         "LEGACY_OAUTH_TOKEN".to_string(),
@@ -376,6 +408,7 @@ async fn production_policy_rejects_loopback_and_cloud_metadata_before_dial() {
             url: "https://169.254.169.254/latest/meta-data/".to_string(),
             headers: HashMap::new(),
             tool_filter: None,
+            tool_name_prefix: None,
         },
     ];
     let registry = McpRegistry::from_specs(&specs, &HashMap::new(), std::env::temp_dir()).await;
@@ -408,6 +441,7 @@ async fn streamable_and_legacy_transports_refuse_redirects() {
             url: format!("{}/legacy-redirect", fixture.base_url),
             headers: HashMap::new(),
             tool_filter: None,
+            tool_name_prefix: None,
         },
     ];
     let registry = McpRegistry::from_specs_allowing_loopback_for_tests(
@@ -435,6 +469,7 @@ async fn stdio_startup_timeout_is_enforced_and_reported() {
         args: vec!["-c".to_string(), "import time; time.sleep(60)".to_string()],
         env: HashMap::new(),
         tool_filter: None,
+        tool_name_prefix: None,
         startup_timeout_seconds: Some(1),
     }];
     let started = std::time::Instant::now();
@@ -459,5 +494,6 @@ fn streamable_spec(name: &str, url: String, headers: HashMap<String, String>) ->
         url,
         headers,
         tool_filter: None,
+        tool_name_prefix: None,
     }
 }

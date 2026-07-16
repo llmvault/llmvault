@@ -44,15 +44,21 @@ const MODEL_TOOL_HASH_CHARS: usize = 43;
 
 struct McpServerState {
     server_name: String,
+    tool_name_prefix: Option<String>,
     tool_filter: Option<ToolFilter>,
     tools: ArcSwap<Vec<McpToolDefinition>>,
     last_discovery_error: RwLock<Option<String>>,
 }
 
 impl McpServerState {
-    fn new(server_name: String, tool_filter: Option<ToolFilter>) -> Self {
+    fn new(
+        server_name: String,
+        tool_name_prefix: Option<String>,
+        tool_filter: Option<ToolFilter>,
+    ) -> Self {
         Self {
             server_name,
+            tool_name_prefix,
             tool_filter,
             tools: ArcSwap::from_pointee(Vec::new()),
             last_discovery_error: RwLock::new(None),
@@ -97,7 +103,14 @@ impl ClientHandler for RuntimeMcpClient {
         // transports that dispatch notifications serially would be unable to
         // process the tools/list response until this handler returned.
         tokio::spawn(async move {
-            match discover_tools(&context.peer, &state.server_name, &state.tool_filter).await {
+            match discover_tools(
+                &context.peer,
+                &state.server_name,
+                state.tool_name_prefix.as_deref(),
+                &state.tool_filter,
+            )
+            .await
+            {
                 Ok(tools) => {
                     info!(
                         server = %state.server_name,
@@ -684,6 +697,7 @@ async fn connect_and_discover_with_state(
     let state = existing_state.unwrap_or_else(|| {
         Arc::new(McpServerState::new(
             server_name.clone(),
+            spec.tool_name_prefix().map(str::to_string),
             spec_tool_filter(spec).clone(),
         ))
     });
@@ -750,7 +764,13 @@ async fn connect_and_discover_with_state(
         }
     };
 
-    let tools = discover_tools(&peer, &server_name, spec_tool_filter(spec)).await?;
+    let tools = discover_tools(
+        &peer,
+        &server_name,
+        spec.tool_name_prefix(),
+        spec_tool_filter(spec),
+    )
+    .await?;
     state.replace_tools(tools);
     Ok(McpEntry {
         service,
@@ -771,13 +791,17 @@ fn spec_tool_filter(spec: &McpSpec) -> &Option<ToolFilter> {
 async fn discover_tools(
     peer: &Peer<RoleClient>,
     server_name: &str,
+    tool_name_prefix: Option<&str>,
     tool_filter: &Option<ToolFilter>,
 ) -> anyhow::Result<Vec<McpToolDefinition>> {
     let discovered = peer.list_all_tools().await?;
     let mut definitions = Vec::new();
     for tool in discovered {
         let raw = tool.name.to_string();
-        let prefixed = model_safe_tool_name(server_name, &raw);
+        let prefixed = match tool_name_prefix {
+            Some(prefix) => model_safe_explicit_tool_name(prefix, &raw),
+            None => model_safe_tool_name(server_name, &raw),
+        };
         if !mcp_tool_allowed(&prefixed, &raw, server_name, tool_filter.as_ref()) {
             continue;
         }
@@ -847,7 +871,19 @@ fn agent_mcp_tool_allowed(
 /// 64-byte provider limit, or use an ambiguous server delimiter receive a
 /// stable SHA-256 suffix derived from the length-delimited original identity.
 fn model_safe_tool_name(server_name: &str, raw_name: &str) -> String {
-    let source = format!("{server_name}_{raw_name}");
+    model_safe_tool_name_with_namespace(server_name, raw_name, false)
+}
+
+fn model_safe_explicit_tool_name(prefix: &str, raw_name: &str) -> String {
+    model_safe_tool_name_with_namespace(prefix, raw_name, true)
+}
+
+fn model_safe_tool_name_with_namespace(
+    namespace: &str,
+    raw_name: &str,
+    namespace_is_explicit: bool,
+) -> String {
+    let source = format!("{namespace}_{raw_name}");
     let sanitized: String = source
         .chars()
         .map(|character| {
@@ -863,7 +899,7 @@ fn model_safe_tool_name(server_name: &str, raw_name: &str) -> String {
         && source == sanitized
         // `_` separates the server and tool. A server containing `_` makes
         // otherwise-safe pairs ambiguous (`a_b`+`c` vs `a`+`b_c`).
-        && !server_name.contains('_')
+        && (namespace_is_explicit || !namespace.contains('_'))
         // Reserve the hashed-name suffix namespace so a deliberately named
         // MCP tool cannot collide with a rewritten name.
         && !has_model_tool_hash_suffix(&source);
@@ -872,8 +908,8 @@ fn model_safe_tool_name(server_name: &str, raw_name: &str) -> String {
     }
 
     let mut hasher = Sha256::new();
-    hasher.update((server_name.len() as u64).to_be_bytes());
-    hasher.update(server_name.as_bytes());
+    hasher.update((namespace.len() as u64).to_be_bytes());
+    hasher.update(namespace.as_bytes());
     hasher.update((raw_name.len() as u64).to_be_bytes());
     hasher.update(raw_name.as_bytes());
     let digest = hasher.finalize();
@@ -1030,8 +1066,9 @@ fn search_score(tool: &McpToolDefinition, query: &str) -> Option<i64> {
 mod tests {
     use super::{
         agent_mcp_tool_allowed, discover_tools, expand_env_placeholders, mcp_tool_allowed,
-        model_safe_tool_name, normalize_detail_level, search_score, McpServerState,
-        McpToolDefinition, RuntimeMcpClient, MAX_MODEL_TOOL_NAME_BYTES, MODEL_TOOL_HASH_CHARS,
+        model_safe_explicit_tool_name, model_safe_tool_name, normalize_detail_level, search_score,
+        McpServerState, McpToolDefinition, RuntimeMcpClient, MAX_MODEL_TOOL_NAME_BYTES,
+        MODEL_TOOL_HASH_CHARS,
     };
     use domain::ToolFilter;
     use rmcp::{
@@ -1147,6 +1184,10 @@ mod tests {
     fn model_tool_names_are_safe_bounded_stable_and_collision_resistant() {
         let ordinary = model_safe_tool_name("salesforce", "update_record");
         assert_eq!(ordinary, "salesforce_update_record");
+        assert_eq!(
+            model_safe_explicit_tool_name("postgres_primary", "run_query"),
+            "postgres_primary_run_query"
+        );
 
         let dotted = model_safe_tool_name("github", "issues.list");
         let slash_collision = model_safe_tool_name("github", "issues/list");
@@ -1261,7 +1302,7 @@ mod tests {
         let (server_transport, client_transport) = tokio::io::duplex(8 * 1024);
         let server_task = tokio::spawn(async move { server.serve(server_transport).await });
 
-        let state = Arc::new(McpServerState::new("dynamic".to_string(), None));
+        let state = Arc::new(McpServerState::new("dynamic".to_string(), None, None));
         let client = RuntimeMcpClient {
             state: state.clone(),
             protocol_version: rmcp::model::ProtocolVersion::default(),
@@ -1270,7 +1311,7 @@ mod tests {
             .serve(client_transport)
             .await
             .expect("connect in-process MCP client");
-        let initial = discover_tools(client_service.peer(), "dynamic", &None)
+        let initial = discover_tools(client_service.peer(), "dynamic", None, &None)
             .await
             .expect("initial discovery");
         state.replace_tools(initial);

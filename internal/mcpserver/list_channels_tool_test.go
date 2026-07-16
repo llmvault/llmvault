@@ -93,6 +93,16 @@ func agentProxyToken(fx channelToolFixture) *model.Token {
 
 func listServerToolNames(t *testing.T, server *mcp.Server) map[string]bool {
 	t.Helper()
+	tools := listServerTools(t, server)
+	names := map[string]bool{}
+	for name := range tools {
+		names[name] = true
+	}
+	return names
+}
+
+func listServerTools(t *testing.T, server *mcp.Server) map[string]*mcp.Tool {
+	t.Helper()
 	ctx := t.Context()
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)
@@ -106,15 +116,15 @@ func listServerToolNames(t *testing.T, server *mcp.Server) map[string]bool {
 		t.Fatalf("connect client: %v", err)
 	}
 	defer clientSession.Close()
-	tools, err := clientSession.ListTools(ctx, nil)
+	result, err := clientSession.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	names := map[string]bool{}
-	for _, tool := range tools.Tools {
-		names[tool.Name] = true
+	tools := map[string]*mcp.Tool{}
+	for _, tool := range result.Tools {
+		tools[tool.Name] = tool
 	}
-	return names
+	return tools
 }
 
 func decodeChannelToolResult(t *testing.T, result *mcp.CallToolResult) map[string]any {

@@ -1823,6 +1823,12 @@
                   }
                 ]
               },
+              "tool_name_prefix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "transport": {
                 "type": "string",
                 "enum": [
@@ -1859,6 +1865,12 @@
                   {
                     "$ref": "#/components/schemas/ToolFilter"
                   }
+                ]
+              },
+              "tool_name_prefix": {
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "transport": {
@@ -1903,6 +1915,12 @@
                   }
                 ]
               },
+              "tool_name_prefix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "transport": {
                 "type": "string",
                 "enum": [
@@ -1942,6 +1960,12 @@
                   {
                     "$ref": "#/components/schemas/ToolFilter"
                   }
+                ]
+              },
+              "tool_name_prefix": {
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "transport": {

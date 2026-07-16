@@ -344,8 +344,8 @@ function ProviderToolAccess({
     kind === "database"
       ? [
           {
-            key: "query",
-            display_name: "Run read-only query",
+            key: "run_query",
+            display_name: "Run query",
             description:
               "Query this database connection without modifying data.",
             access: "read",
