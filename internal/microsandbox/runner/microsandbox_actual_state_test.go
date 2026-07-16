@@ -44,6 +44,14 @@ func TestActualSandboxStateHealthPredicates(t *testing.T) {
 	if !stopped.fullyStopped() {
 		t.Fatal("empty state should be fully stopped")
 	}
+
+	cleanupPending := actualSandboxState{NativeStatus: "stopped", VolumeDiskFDs: 1}
+	if !cleanupPending.runtimeStopped() {
+		t.Fatal("lingering volume fd must not keep a dead runtime routable")
+	}
+	if cleanupPending.fullyStopped() {
+		t.Fatal("lingering volume fd should still report cleanup pending")
+	}
 }
 
 func TestPathReferencesAnyVolume(t *testing.T) {

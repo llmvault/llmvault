@@ -210,6 +210,20 @@ func (s *Server) syncPreviewRoute(ctx context.Context, sb model.Sandbox, runner 
 	logger.InfoContext(ctx, "preview route synced", "sandbox_id", sb.ID, "ports", len(ports))
 }
 
+// publishPreviewRoute synchronously publishes a lifecycle transition. Callers
+// use this before stopping a runner so a routable cache entry can never outlive
+// its upstream port.
+func (s *Server) publishPreviewRoute(ctx context.Context, sb model.Sandbox, runner model.Runner, ports []model.SandboxPort) error {
+	if s.previewCache == nil || len(ports) == 0 {
+		return nil
+	}
+	route, err := previewCacheRouteFor(sb, runner, ports)
+	if err != nil {
+		return err
+	}
+	return s.previewCache.UpsertRoute(ctx, route)
+}
+
 func (s *Server) deletePreviewRoute(ctx context.Context, sandboxID string) {
 	if s.previewCache == nil {
 		return

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
+
+	"github.com/usehivy/hivy/internal/logging"
 )
 
 func (m *MicrosandboxBackend) startSandboxLocked(ctx context.Context, sandboxID string) error {
@@ -61,7 +63,8 @@ func (m *MicrosandboxBackend) startSandboxNative(ctx context.Context, sandboxID 
 
 func (m *MicrosandboxBackend) stopSandboxLocked(ctx context.Context, sandboxID string) error {
 	actual := m.actualState(ctx, sandboxID)
-	if actual.fullyStopped() {
+	if actual.runtimeStopped() {
+		m.logCleanupPending(ctx, sandboxID, actual)
 		m.setSandboxStatus(sandboxID, "stopped")
 		return nil
 	}
@@ -70,16 +73,25 @@ func (m *MicrosandboxBackend) stopSandboxLocked(ctx context.Context, sandboxID s
 			return stopErr
 		}
 	}
-	if err := m.waitForFullyStopped(ctx, sandboxID); err != nil {
+	if err := m.waitForRuntimeStopped(ctx, sandboxID); err != nil {
 		if forceErr := m.forceStopActual(ctx, sandboxID); forceErr != nil {
 			return fmt.Errorf("verify stopped: %v; force stop: %w", err, forceErr)
 		}
-		if retryErr := m.waitForFullyStopped(ctx, sandboxID); retryErr != nil {
+		if retryErr := m.waitForRuntimeStopped(ctx, sandboxID); retryErr != nil {
 			return fmt.Errorf("verify stopped after force stop: %w", retryErr)
 		}
 	}
+	m.logCleanupPending(ctx, sandboxID, m.actualState(ctx, sandboxID))
 	m.setSandboxStatus(sandboxID, "stopped")
 	return nil
+}
+
+func (m *MicrosandboxBackend) logCleanupPending(ctx context.Context, sandboxID string, actual actualSandboxState) {
+	if actual.VolumeDiskFDs == 0 {
+		return
+	}
+	logging.FromContext(ctx).WarnContext(ctx, "sandbox runtime stopped with volume cleanup pending",
+		"sandbox_id", sandboxID, "volume_disk_fds", actual.VolumeDiskFDs)
 }
 
 func (m *MicrosandboxBackend) stopSandboxNative(ctx context.Context, sandboxID string) error {

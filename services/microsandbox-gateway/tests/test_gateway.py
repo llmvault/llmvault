@@ -16,7 +16,7 @@ from microsandbox_gateway.app import (
     parse_preview_host,
 )
 from microsandbox_gateway.config import Config
-from microsandbox_gateway.store import alias_key, route_key
+from microsandbox_gateway.store import alias_key, route_key, route_replaces
 
 
 class MemoryStore:
@@ -45,6 +45,29 @@ class MemoryStore:
             return False
         self.values[key] = value
         return True
+
+    async def set_route_json(self, key: str, value: dict[str, Any], ttl: int = 0) -> bool:
+        current = self.values.get(key)
+        if current is not None and not route_replaces(current, value):
+            return False
+        self.values[key] = dict(value)
+        return True
+
+    async def invalidate_route_json(
+        self, key: str, generation: int, guest_port: int, upstream: str, now: int
+    ) -> dict[str, Any] | None:
+        current = self.values.get(key)
+        if current is None or int(current.get("route_generation") or 0) != generation:
+            return None
+        current_upstream = str((current.get("upstreams") or {}).get(str(guest_port)) or "")
+        normalize = lambda value: value.removeprefix("http://").removeprefix("https://").rstrip("/")
+        if normalize(current_upstream) != normalize(upstream):
+            return None
+        if str(current.get("status") or "running") not in ("running", "ready", ""):
+            return None
+        tombstone = dict(current, status="unavailable", lease_expires_at=now - 1, next_activity_after=now - 1)
+        self.values[key] = tombstone
+        return dict(tombstone)
 
 
 class FakeControl:
@@ -84,7 +107,11 @@ class FakeControl:
         if self.ensure_delay > 0:
             await asyncio.sleep(self.ensure_delay)
         self.ensure_calls.append((sandbox_id, guest_port))
-        return dict(self.route_payload, sandbox_id=sandbox_id)
+        return dict(
+            self.route_payload,
+            sandbox_id=sandbox_id,
+            route_generation=int(self.route_payload.get("route_generation") or 0) + 1,
+        )
 
     async def activity(self, sandbox_id: str, source: str = "gateway") -> None:
         self.activity_calls.append(sandbox_id)
@@ -434,3 +461,70 @@ async def test_admin_route_round_trip(client: tuple[TestClient, MemoryStore, Fak
     assert get.status == 200
     body = await get.json()
     assert body["upstreams"]["3000"] == "http://10.0.0.3:43000"
+
+
+async def test_tombstone_rejects_same_generation_running_route(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, _store, _control = client
+    headers = {"Authorization": "Bearer admin-token"}
+    base = {
+        "sandbox_id": "sbx_fenced",
+        "upstreams": {"3000": "http://10.0.0.3:43000"},
+        "route_generation": 7,
+        "lease_expires_at": int(time.time()) + 300,
+    }
+    assert (await test_client.put("/v1/routes/sbx_fenced", headers=headers, json=dict(base, status="stopping"))).status == 200
+    assert (await test_client.put("/v1/routes/sbx_fenced", headers=headers, json=dict(base, status="running"))).status == 200
+
+    fenced = await test_client.get("/v1/routes/sbx_fenced", headers=headers)
+    assert fenced.status == 200
+    assert (await fenced.json())["status"] == "stopping"
+
+    recovered = dict(base, status="running", route_generation=8)
+    assert (await test_client.put("/v1/routes/sbx_fenced", headers=headers, json=recovered)).status == 200
+    current = await test_client.get("/v1/routes/sbx_fenced", headers=headers)
+    assert (await current.json())["route_generation"] == 8
+
+
+async def test_exact_failed_upstream_invalidation_wakes_once(
+    client: tuple[TestClient, MemoryStore, FakeControl],
+) -> None:
+    test_client, store, control = client
+    route = dict(control.route_payload, route_generation=4)
+    control.route_payload["route_generation"] = 4
+    await store.set_route_json(route_key("sbx_test"), route)
+
+    first = await test_client.get("/v1/lookup", headers={"Host": "3000-sbx_test.preview.test"})
+    assert first.status == 204
+    assert first.headers["X-Microsandbox-Route-Generation"] == "4"
+
+    invalidated = await test_client.get(
+        "/v1/routes/invalidate",
+        headers={
+            "Authorization": "Bearer admin-token",
+            "X-Microsandbox-Sandbox-Id": "sbx_test",
+            "X-Microsandbox-Guest-Port": "3000",
+            "X-Microsandbox-Upstream": "10.0.0.2:43000",
+            "X-Microsandbox-Route-Generation": "4",
+        },
+    )
+    assert invalidated.status == 200
+    assert (await invalidated.json()) == {"invalidated": True}
+
+    recovered = await test_client.get("/v1/lookup", headers={"Host": "3000-sbx_test.preview.test"})
+    assert recovered.status == 204
+    assert recovered.headers["X-Microsandbox-Route-Generation"] == "5"
+    assert control.ensure_calls == [("sbx_test", 3000)]
+
+    stale = await test_client.post(
+        "/v1/routes/invalidate",
+        headers={"Authorization": "Bearer admin-token"},
+        json={
+            "sandbox_id": "sbx_test",
+            "guest_port": 3000,
+            "upstream": "10.0.0.2:43000",
+            "route_generation": 4,
+        },
+    )
+    assert (await stale.json()) == {"invalidated": False}

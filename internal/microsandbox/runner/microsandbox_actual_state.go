@@ -43,7 +43,14 @@ func (s actualSandboxState) hasHostResidue() bool {
 }
 
 func (s actualSandboxState) fullyStopped() bool {
-	return len(s.ProcessPIDs) == 0 && s.VolumeDiskFDs == 0 && len(s.OpenPorts) == 0
+	return s.runtimeStopped() && s.VolumeDiskFDs == 0
+}
+
+// runtimeStopped is the routing boundary: once no VM process or preview port
+// remains, callers must stop advertising the sandbox even if volume cleanup is
+// still settling in the background.
+func (s actualSandboxState) runtimeStopped() bool {
+	return !strings.EqualFold(s.NativeStatus, "running") && len(s.ProcessPIDs) == 0 && len(s.OpenPorts) == 0
 }
 
 func (m *MicrosandboxBackend) actualState(ctx context.Context, sandboxID string) actualSandboxState {
@@ -77,6 +84,16 @@ func (m *MicrosandboxBackend) waitForFullyStopped(ctx context.Context, sandboxID
 	return waitForCondition(ctx, stopVerifyTimeout, func() (bool, string) {
 		actual := m.actualState(ctx, sandboxID)
 		return actual.fullyStopped(), fmt.Sprintf(
+			"native=%s pids=%v disk_fds=%d open_ports=%v",
+			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts,
+		)
+	})
+}
+
+func (m *MicrosandboxBackend) waitForRuntimeStopped(ctx context.Context, sandboxID string) error {
+	return waitForCondition(ctx, stopVerifyTimeout, func() (bool, string) {
+		actual := m.actualState(ctx, sandboxID)
+		return actual.runtimeStopped(), fmt.Sprintf(
 			"native=%s pids=%v disk_fds=%d open_ports=%v",
 			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts,
 		)

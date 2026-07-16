@@ -77,6 +77,62 @@ func TestIdleAppSandboxes(t *testing.T) {
 	}
 }
 
+func TestIdleAgentSandboxesUsesRecentGatewayActivity(t *testing.T) {
+	db := connectTestDB(t)
+	ctx := context.Background()
+	orgID, agentID, channelID := watchdogSeedOrg(t, db)
+
+	old := time.Now().Add(-2 * time.Hour)
+	recent := time.Now().Add(-time.Minute)
+	seed := func(gatewayActivity *time.Time) uuid.UUID {
+		t.Helper()
+		sb := model.Sandbox{
+			OrgID: &orgID, AgentID: &agentID, ProviderID: sandbox.ProviderMicrosandbox,
+			ExternalID: "agent-sb-" + uuid.NewString()[:8], RuntimeURL: "http://x",
+			EncryptedRuntimeSecret: []byte("x"), Status: string(sandbox.StatusRunning),
+			LastGatewayActivityAt: gatewayActivity, CreatedAt: old,
+		}
+		if err := db.Create(&sb).Error; err != nil {
+			t.Fatalf("seed agent sandbox: %v", err)
+		}
+		session := model.Session{
+			OrgID: orgID, ChannelID: channelID, AgentID: agentID, SandboxID: &sb.ID,
+			Model: "m", ReasoningEffort: "high", Source: model.SessionSourceWeb,
+			SourceResourceKey: uuid.NewString(), Status: "active",
+			AgentTurnStatus: model.SessionAgentTurnIdle, IntegrationScopes: model.JSON{},
+			CreatedAt: old,
+		}
+		if err := db.Create(&session).Error; err != nil {
+			t.Fatalf("seed agent session: %v", err)
+		}
+		return sb.ID
+	}
+
+	idle := seed(nil)
+	active := seed(&recent)
+	got, err := NewSandboxAutoSleepHandler(db, nil).idleAgentSandboxes(ctx, time.Now().Add(-autoSleepIdleThreshold))
+	if err != nil {
+		t.Fatalf("idleAgentSandboxes: %v", err)
+	}
+	ids := map[uuid.UUID]bool{}
+	for _, sb := range got {
+		ids[sb.ID] = true
+	}
+	if !ids[idle] {
+		t.Fatal("idle agent sandbox was not selected for sleep")
+	}
+	if ids[active] {
+		t.Fatal("agent sandbox with recent gateway activity was selected for sleep")
+	}
+	stillIdle, err := NewSandboxAutoSleepHandler(db, nil).agentSandboxStillIdle(ctx, active, time.Now().Add(-autoSleepIdleThreshold))
+	if err != nil {
+		t.Fatalf("agentSandboxStillIdle: %v", err)
+	}
+	if stillIdle {
+		t.Fatal("pre-sleep recheck accepted recent gateway activity")
+	}
+}
+
 func TestMirrorGatewayActivity(t *testing.T) {
 	db := connectTestDB(t)
 	ctx := context.Background()

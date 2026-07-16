@@ -149,7 +149,9 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 				asynq.Queue(QueuePeriodic),
 				asynq.MaxRetry(1),
 				asynq.Timeout(2 * time.Minute),
-				asynq.Unique(30 * time.Second),
+				// Keep the uniqueness lease longer than the task timeout so a slow
+				// runner stop cannot allow a second sweep to overlap the first.
+				asynq.Unique(3 * time.Minute),
 			},
 		})
 

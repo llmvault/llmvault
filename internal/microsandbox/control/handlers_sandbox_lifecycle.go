@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -38,6 +39,10 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	}
 	if sb.Status == nextStatus {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
+		return
+	}
+	if nextStatus == model.SandboxStatusStopped {
+		s.stopSandboxLifecycle(w, r, sb, runner)
 		return
 	}
 	if nextStatus == model.SandboxStatusRunning && !runtimeReservationHeld(sb.Status) {
@@ -94,6 +99,66 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	}
 	s.syncSandboxAliasRoutes(r.Context(), sb.ID)
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
+}
+
+func (s *Server) stopSandboxLifecycle(w http.ResponseWriter, r *http.Request, sb model.Sandbox, runner model.Runner) {
+	ctx := r.Context()
+	if sb.Status != model.SandboxStatusStopping {
+		if err := s.db.WithContext(ctx).Model(&sb).Updates(map[string]any{
+			"status":           model.SandboxStatusStopping,
+			"route_generation": gorm.Expr("route_generation + 1"),
+		}).Error; err != nil {
+			httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to prepare sandbox stop"})
+			return
+		}
+		sb.Status = model.SandboxStatusStopping
+		sb.RouteGeneration++
+	}
+
+	var ports []model.SandboxPort
+	if err := s.db.WithContext(ctx).Order("guest_port asc").Find(&ports, "sandbox_id = ?", sb.ID).Error; err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load sandbox ports"})
+		return
+	}
+	if err := s.publishPreviewRoute(ctx, sb, runner, ports); err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "preview route invalidation failed", "sandbox_id", sb.ID, "error", err)
+		httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: "failed to invalidate preview route"})
+		return
+	}
+	s.syncSandboxAliasRoutes(ctx, sb.ID)
+
+	if err := s.client.Post(ctx, runner.APIURL, "/v1/sandboxes/"+sb.ID+"/stop", nil, nil); err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "runner stop failed", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
+		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: "runner stop failed"})
+		return
+	}
+
+	now := time.Now().UTC()
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if runtimeReservationHeld(sb.Status) {
+			if err := releaseRunnerReservationForSandboxTx(tx, sb, runtimeReservationSize(sb)); err != nil {
+				return err
+			}
+		}
+		return tx.Model(&sb).Updates(map[string]any{
+			"status":           model.SandboxStatusStopped,
+			"stopped_at":       now,
+			"sleep_after_at":   nil,
+			"route_generation": gorm.Expr("route_generation + 1"),
+		}).Error
+	}); err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to update sandbox status"})
+		return
+	}
+	sb.Status = model.SandboxStatusStopped
+	sb.StoppedAt = &now
+	sb.SleepAfterAt = nil
+	sb.RouteGeneration++
+	// The stopping tombstone is already authoritative. Final-state publication
+	// is best effort and cannot reopen the route if it fails.
+	s.syncPreviewRoute(ctx, sb, runner, ports)
+	s.syncSandboxAliasRoutes(ctx, sb.ID)
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": model.SandboxStatusStopped})
 }
 
 func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {

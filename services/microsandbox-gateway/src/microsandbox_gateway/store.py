@@ -19,6 +19,10 @@ class Store(Protocol):
     async def set_json(self, key: str, value: dict[str, Any], ttl: int = 0) -> None: ...
     async def delete(self, key: str) -> int: ...
     async def set_value(self, key: str, value: str, ttl: int = 0, nx: bool = False) -> bool: ...
+    async def set_route_json(self, key: str, value: dict[str, Any], ttl: int = 0) -> bool: ...
+    async def invalidate_route_json(
+        self, key: str, generation: int, guest_port: int, upstream: str, now: int
+    ) -> dict[str, Any] | None: ...
 
 
 class RedisStore:
@@ -47,6 +51,89 @@ class RedisStore:
     async def set_value(self, key: str, value: str, ttl: int = 0, nx: bool = False) -> bool:
         result = await self._client.set(key, value, ex=ttl or None, nx=nx)
         return bool(result)
+
+    async def set_route_json(self, key: str, value: dict[str, Any], ttl: int = 0) -> bool:
+        raw = json.dumps(value, separators=(",", ":"))
+        result = await self._client.eval(
+            """
+            local current_raw = redis.call('GET', KEYS[1])
+            if current_raw then
+                local current = cjson.decode(current_raw)
+                local incoming = cjson.decode(ARGV[1])
+                local current_generation = tonumber(current['route_generation'] or 0)
+                local incoming_generation = tonumber(incoming['route_generation'] or 0)
+                local current_status = tostring(current['status'] or 'running')
+                local incoming_status = tostring(incoming['status'] or 'running')
+                local current_running = current_status == 'running' or current_status == 'ready' or current_status == ''
+                local incoming_running = incoming_status == 'running' or incoming_status == 'ready' or incoming_status == ''
+                if incoming_generation < current_generation then
+                    return 0
+                end
+                if incoming_generation == current_generation and not current_running and incoming_running then
+                    return 0
+                end
+            end
+            local ttl = tonumber(ARGV[2])
+            if ttl and ttl > 0 then
+                redis.call('SET', KEYS[1], ARGV[1], 'EX', ttl)
+            else
+                redis.call('SET', KEYS[1], ARGV[1])
+            end
+            return 1
+            """,
+            1,
+            key,
+            raw,
+            ttl,
+        )
+        return bool(result)
+
+    async def invalidate_route_json(
+        self, key: str, generation: int, guest_port: int, upstream: str, now: int
+    ) -> dict[str, Any] | None:
+        result = await self._client.eval(
+            """
+            local current_raw = redis.call('GET', KEYS[1])
+            if not current_raw then
+                return ''
+            end
+            local current = cjson.decode(current_raw)
+            if tonumber(current['route_generation'] or 0) ~= tonumber(ARGV[1]) then
+                return ''
+            end
+            local status = tostring(current['status'] or 'running')
+            if status ~= 'running' and status ~= 'ready' and status ~= '' then
+                return ''
+            end
+            local route_upstream = tostring((current['upstreams'] or {})[ARGV[2]] or '')
+            route_upstream = string.gsub(route_upstream, '^http://', '')
+            route_upstream = string.gsub(route_upstream, '^https://', '')
+            route_upstream = string.gsub(route_upstream, '/$', '')
+            local expected_upstream = string.gsub(ARGV[3], '^http://', '')
+            expected_upstream = string.gsub(expected_upstream, '^https://', '')
+            expected_upstream = string.gsub(expected_upstream, '/$', '')
+            if route_upstream == '' or route_upstream ~= expected_upstream then
+                return ''
+            end
+            local now = tonumber(ARGV[4])
+            current['status'] = 'unavailable'
+            current['lease_expires_at'] = now - 1
+            current['next_activity_after'] = now - 1
+            current['updated_at'] = now
+            local tombstone = cjson.encode(current)
+            redis.call('SET', KEYS[1], tombstone)
+            return tombstone
+            """,
+            1,
+            key,
+            generation,
+            str(guest_port),
+            upstream,
+            now,
+        )
+        if not result:
+            return None
+        return json.loads(result)
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -108,12 +195,20 @@ async def load_route(store: Store, sandbox_id: str) -> dict[str, Any] | None:
     return await store.get_json(route_key(sandbox_id))
 
 
-async def store_route(store: Store, route: dict[str, Any]) -> None:
+async def store_route(store: Store, route: dict[str, Any]) -> bool:
     route = normalize_route(route)
     ttl = int(route.get("ttl_seconds") or 0)
-    if ttl <= 0:
+    if ttl <= 0 and route_running(route):
         ttl = route_cache_ttl_seconds(route)
-    await store.set_json(route_key(route["sandbox_id"]), route, ttl)
+    return await store.set_route_json(route_key(route["sandbox_id"]), route, ttl)
+
+
+async def invalidate_route(
+    store: Store, sandbox_id: str, generation: int, guest_port: int, upstream: str
+) -> dict[str, Any] | None:
+    return await store.invalidate_route_json(
+        route_key(sandbox_id), generation, guest_port, upstream, int(time.time())
+    )
 
 
 async def delete_route(store: Store, sandbox_id: str) -> bool:
@@ -152,6 +247,7 @@ def normalize_route(raw: dict[str, Any], sandbox_id: str | None = None) -> dict[
     route["sandbox_id"] = sid
     route["upstreams"] = normalized_upstreams
     route["status"] = str(route.get("status") or "running")
+    route["route_generation"] = int(route.get("route_generation") or 0)
     route["updated_at"] = int(route.get("updated_at") or time.time())
     return route
 
@@ -160,6 +256,18 @@ def route_running(route: dict[str, Any] | None) -> bool:
     if not route:
         return False
     return (route.get("status") or "running") in ("running", "ready", "")
+
+
+def route_replaces(current: dict[str, Any] | None, incoming: dict[str, Any]) -> bool:
+    if not current:
+        return True
+    current_generation = int(current.get("route_generation") or 0)
+    incoming_generation = int(incoming.get("route_generation") or 0)
+    if incoming_generation < current_generation:
+        return False
+    if incoming_generation == current_generation and not route_running(current) and route_running(incoming):
+        return False
+    return True
 
 
 def route_lease_valid(route: dict[str, Any] | None, now: float | None = None) -> bool:

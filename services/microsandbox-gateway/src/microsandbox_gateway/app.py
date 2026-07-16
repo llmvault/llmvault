@@ -20,12 +20,14 @@ from .store import (
     acquire_activity_report,
     delete_alias,
     delete_route,
+    invalidate_route,
     load_alias,
     load_route,
     normalize_alias,
     normalize_route,
     route_activity_due,
     route_lease_valid,
+    route_replaces,
     route_running,
     store_alias,
     store_route,
@@ -103,14 +105,17 @@ class LocalRouteCache:
         self._routes.move_to_end(sandbox_id)
         return dict(route)
 
-    def set(self, route: dict[str, Any]) -> None:
+    def set(self, route: dict[str, Any]) -> bool:
         sandbox_id = str(route.get("sandbox_id") or "")
         if not sandbox_id:
-            return
+            return False
+        if not route_replaces(self._routes.get(sandbox_id), route):
+            return False
         self._routes[sandbox_id] = dict(route)
         self._routes.move_to_end(sandbox_id)
         while len(self._routes) > self.max_size:
             self._routes.popitem(last=False)
+        return True
 
     def delete(self, sandbox_id: str) -> None:
         self._routes.pop(sandbox_id, None)
@@ -245,7 +250,15 @@ async def lookup(request: web.Request) -> web.Response:
             "lease_seconds": remaining_lease_seconds(route),
         },
     )
-    return web.Response(status=204, headers={"X-Microsandbox-Upstream": upstream})
+    return web.Response(
+        status=204,
+        headers={
+            "X-Microsandbox-Upstream": upstream,
+            "X-Microsandbox-Sandbox-Id": sandbox_id,
+            "X-Microsandbox-Guest-Port": str(port),
+            "X-Microsandbox-Route-Generation": str(int(route.get("route_generation") or 0)),
+        },
+    )
 
 
 async def load_alias_from_control(state: AppState, alias: str) -> dict[str, Any] | None:
@@ -319,8 +332,7 @@ async def ensure_ready(
                 cfg.wake_timeout_seconds,
                 request_id,
             )
-            await store_route(state.store, route)
-            state.route_cache.set(route)
+            route = await commit_route(state, route, port)
             state.metrics.inc("ensure_ready_owner")
             return route
         finally:
@@ -347,14 +359,25 @@ async def ensure_ready(
                     cfg.wake_timeout_seconds,
                     request_id,
                 )
-                await store_route(state.store, route)
-                state.route_cache.set(route)
+                route = await commit_route(state, route, port)
                 state.metrics.inc("ensure_ready_takeover")
                 return route
             finally:
                 await state.store.delete(lock_key)
         await asyncio.sleep(0.25)
     raise TimeoutError(f"waited {cfg.wake_timeout_seconds}s for {sandbox_id}")
+
+
+async def commit_route(state: AppState, route: dict[str, Any], port: int) -> dict[str, Any]:
+    route = normalize_route(route)
+    if await store_route(state.store, route):
+        state.route_cache.set(route)
+        return route
+    current = await load_route(state.store, str(route.get("sandbox_id") or ""))
+    if route_usable_for_port(current, port):
+        state.route_cache.set(current)
+        return current
+    raise RuntimeError("control returned a stale route generation")
 
 
 def remaining_lease_seconds(route: dict[str, Any]) -> int:
@@ -381,8 +404,9 @@ def report_activity_if_due(state: AppState, route: dict[str, Any]) -> None:
                 return
             routes = await state.control.activity_bulk([sandbox_id], "gateway")
             for refreshed in routes:
-                await store_route(state.store, refreshed)
-                state.route_cache.set(refreshed)
+                accepted = await store_route(state.store, refreshed)
+                if accepted:
+                    state.route_cache.set(refreshed)
             state.metrics.inc("activity_reported")
         except Exception as exc:
             state.metrics.inc("activity_error")
@@ -409,15 +433,48 @@ async def put_route(request: web.Request) -> web.Response:
     if request.path == "/v1/routes/bulk":
         routes = [normalize_route(item) for item in body.get("routes", [])]
         state = request.app[STATE_KEY]
+        stored = 0
         for route in routes:
-            await store_route(state.store, route)
-            state.route_cache.set(route)
-        return json_response(200, {"stored": len(routes)})
+            if await store_route(state.store, route):
+                state.route_cache.set(route)
+                stored += 1
+        return json_response(200, {"stored": stored})
     route = normalize_route(body, sandbox_id)
     state = request.app[STATE_KEY]
-    await store_route(state.store, route)
-    state.route_cache.set(route)
+    if await store_route(state.store, route):
+        state.route_cache.set(route)
     return json_response(200, route)
+
+
+async def invalidate_route_handler(request: web.Request) -> web.Response:
+    if not require_admin(request):
+        return json_response(401, {"error": "unauthorized"})
+    try:
+        if request.method == "GET":
+            identity = {
+                "sandbox_id": request.headers.get("X-Microsandbox-Sandbox-Id"),
+                "route_generation": request.headers.get("X-Microsandbox-Route-Generation"),
+                "guest_port": request.headers.get("X-Microsandbox-Guest-Port"),
+                "upstream": request.headers.get("X-Microsandbox-Upstream"),
+            }
+        else:
+            identity = await request.json()
+        sandbox_id = str(identity.get("sandbox_id") or "").strip()
+        generation = int(identity.get("route_generation") or 0)
+        guest_port = int(identity.get("guest_port") or 0)
+        upstream = str(identity.get("upstream") or "").strip()
+    except (TypeError, ValueError):
+        return json_response(400, {"error": "invalid route identity"})
+    if not sandbox_id or generation < 0 or guest_port <= 0 or not upstream:
+        return json_response(400, {"error": "invalid route identity"})
+    state = request.app[STATE_KEY]
+    tombstone = await invalidate_route(state.store, sandbox_id, generation, guest_port, upstream)
+    if tombstone is None:
+        state.metrics.inc("route_invalidation_stale")
+        return json_response(200, {"invalidated": False})
+    state.route_cache.set(tombstone)
+    state.metrics.inc("route_invalidated")
+    return json_response(200, {"invalidated": True})
 
 
 async def delete_route_handler(request: web.Request) -> web.Response:
@@ -483,10 +540,12 @@ def create_app(cfg: Config, store: Store | None = None, control: ControlClient |
     app.router.add_get("/health", health)
     app.router.add_get("/metrics", metrics)
     app.router.add_get("/v1/lookup", lookup)
+    app.router.add_post("/v1/routes/bulk", put_route)
+    app.router.add_get("/v1/routes/invalidate", invalidate_route_handler)
+    app.router.add_post("/v1/routes/invalidate", invalidate_route_handler)
     app.router.add_get("/v1/routes/{sandbox_id}", get_route)
     app.router.add_put("/v1/routes/{sandbox_id}", put_route)
     app.router.add_post("/v1/routes/{sandbox_id}", put_route)
-    app.router.add_post("/v1/routes/bulk", put_route)
     app.router.add_delete("/v1/routes/{sandbox_id}", delete_route_handler)
     app.router.add_post("/v1/aliases/bulk", put_alias)
     app.router.add_get("/v1/aliases/{alias}", get_alias)

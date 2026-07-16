@@ -130,6 +130,7 @@ const (
 
 	SandboxStatusCreating = "creating"
 	SandboxStatusRunning  = "running"
+	SandboxStatusStopping = "stopping"
 	SandboxStatusStopped  = "stopped"
 	SandboxStatusError    = "error"
 
