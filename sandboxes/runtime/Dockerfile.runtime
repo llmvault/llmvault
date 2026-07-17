@@ -199,6 +199,7 @@ ENV HOME=/home/daytona
 ENV HIVY_SANDBOX_DATA_ROOT=/home/daytona/.hivy
 ENV HIVY_DB_PATH=/home/daytona/.hivy/runtime/hivy-sandboxes-runtime.db
 ENV HIVY_WORKSPACE_ROOT=/home/daytona
+ENV HIVY_RUNTIME_CORS_MODE=upstream_proxy
 ENV TMPDIR=/home/daytona/.hivy/tmp
 ENV TEMP=/home/daytona/.hivy/tmp
 ENV TMP=/home/daytona/.hivy/tmp

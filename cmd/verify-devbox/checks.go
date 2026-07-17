@@ -99,6 +99,43 @@ func waitForRuntimeHealth(ctx context.Context, client *agentruntime.Client) erro
 	return fmt.Errorf("waiting for Runtime health: %w", lastErr)
 }
 
+func verifyBrowserPreviewCORS(ctx context.Context, url string) error {
+	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	const origin = "https://usehivy.com"
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Origin", origin)
+	req.Header.Set("User-Agent", "Mozilla/5.0 Hivy-Daytona-Acceptance")
+	req.Header.Set("X-Daytona-Skip-Preview-Warning", "true")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(string(body), 400))
+	}
+	allowedOrigins := resp.Header.Values("Access-Control-Allow-Origin")
+	if len(allowedOrigins) != 1 || allowedOrigins[0] != origin {
+		return fmt.Errorf("access-control-allow-origin = %q, want [%q]", allowedOrigins, origin)
+	}
+	if strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/html") {
+		return fmt.Errorf("preview returned HTML instead of Runtime response")
+	}
+	return nil
+}
+
 func httpGet(ctx context.Context, url, token string) (int, string, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

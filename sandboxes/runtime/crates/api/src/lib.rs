@@ -9,11 +9,11 @@ mod repos;
 mod session_stream;
 mod state;
 
-use std::net::SocketAddr;
+use std::{env, net::SocketAddr};
 
 use axum::{
     http::{
-        header::{AUTHORIZATION, CONTENT_TYPE},
+        header::{HeaderName, AUTHORIZATION, CONTENT_TYPE},
         Method,
     },
     routing::{get, post, put},
@@ -22,6 +22,15 @@ use axum::{
 use tokio::sync::oneshot;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn};
+
+const RUNTIME_CORS_MODE_ENV: &str = "HIVY_RUNTIME_CORS_MODE";
+const DAYTONA_SKIP_PREVIEW_WARNING_HEADER: &str = "x-daytona-skip-preview-warning";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RuntimeCorsMode {
+    Runtime,
+    UpstreamProxy,
+}
 
 pub use plan_manager::PlanManager;
 pub use question_manager::{QuestionAnswerError, QuestionAnswerResponse, QuestionManager};
@@ -226,16 +235,40 @@ pub fn build_router(state: ApiState) -> Router {
         "/canvas/preview/*path",
         get(canvas_preview::preview_canvas_file),
     );
-    Router::new()
+    let router = Router::new()
         .merge(iframe_preview)
         .merge(protected)
-        .layer(
+        .with_state(state);
+    apply_runtime_cors(router, runtime_cors_mode_from_env())
+}
+
+fn apply_runtime_cors(router: Router, mode: RuntimeCorsMode) -> Router {
+    match mode {
+        RuntimeCorsMode::Runtime => router.layer(
             CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
-                .allow_headers([AUTHORIZATION, CONTENT_TYPE]),
-        )
-        .with_state(state)
+                .allow_headers([
+                    AUTHORIZATION,
+                    CONTENT_TYPE,
+                    HeaderName::from_static(DAYTONA_SKIP_PREVIEW_WARNING_HEADER),
+                ]),
+        ),
+        RuntimeCorsMode::UpstreamProxy => router,
+    }
+}
+
+fn runtime_cors_mode_from_env() -> RuntimeCorsMode {
+    runtime_cors_mode(env::var(RUNTIME_CORS_MODE_ENV).ok().as_deref())
+}
+
+fn runtime_cors_mode(value: Option<&str>) -> RuntimeCorsMode {
+    match value.map(str::trim) {
+        Some(value) if value.eq_ignore_ascii_case("upstream_proxy") => {
+            RuntimeCorsMode::UpstreamProxy
+        }
+        _ => RuntimeCorsMode::Runtime,
+    }
 }
 
 pub async fn serve(
@@ -263,6 +296,92 @@ pub async fn serve(
         }
     });
     (handle, cancel_signal)
+}
+
+#[cfg(test)]
+mod cors_tests {
+    use super::{apply_runtime_cors, runtime_cors_mode, RuntimeCorsMode};
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+        routing::get,
+        Router,
+    };
+    use tower::ServiceExt;
+
+    fn test_router(mode: RuntimeCorsMode) -> Router {
+        apply_runtime_cors(
+            Router::new().route("/test", get(|| async { StatusCode::OK })),
+            mode,
+        )
+    }
+
+    #[tokio::test]
+    async fn runtime_cors_allows_daytona_warning_bypass_header() {
+        let response = test_router(RuntimeCorsMode::Runtime)
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri("/test")
+                    .header("origin", "https://usehivy.test")
+                    .header("access-control-request-method", "GET")
+                    .header(
+                        "access-control-request-headers",
+                        "authorization,x-daytona-skip-preview-warning",
+                    )
+                    .body(Body::empty())
+                    .expect("build preflight request"),
+            )
+            .await
+            .expect("serve preflight request");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("access-control-allow-origin")
+                .and_then(|value| value.to_str().ok()),
+            Some("*")
+        );
+        let allowed_headers = response
+            .headers()
+            .get("access-control-allow-headers")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default();
+        assert!(allowed_headers.contains("x-daytona-skip-preview-warning"));
+    }
+
+    #[tokio::test]
+    async fn upstream_proxy_mode_omits_runtime_cors_headers() {
+        let response = test_router(RuntimeCorsMode::UpstreamProxy)
+            .oneshot(
+                Request::builder()
+                    .uri("/test")
+                    .header("origin", "https://usehivy.test")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("serve request");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(!response
+            .headers()
+            .contains_key("access-control-allow-origin"));
+    }
+
+    #[test]
+    fn upstream_proxy_cors_mode_is_explicit() {
+        assert_eq!(
+            runtime_cors_mode(Some("upstream_proxy")),
+            RuntimeCorsMode::UpstreamProxy
+        );
+        assert_eq!(runtime_cors_mode(None), RuntimeCorsMode::Runtime);
+        assert_eq!(
+            runtime_cors_mode(Some("unexpected")),
+            RuntimeCorsMode::Runtime
+        );
+    }
 }
 
 #[cfg(all(test, feature = "openapi"))]

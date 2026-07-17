@@ -162,6 +162,10 @@ func runVerify(snapshot string, developer, keep bool) (retErr error) {
 	if err := waitForRuntimeHealth(ctx, runtimeClient); err != nil {
 		return err
 	}
+	if err := verifyBrowserPreviewCORS(ctx, runtimeURL+runtimeHealthPath); err != nil {
+		return fmt.Errorf("checking browser preview CORS: %w", err)
+	}
+	log.Printf("Browser preview bypass and CORS check passed.")
 	definition, err := runtimeClient.GetConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("getting bootstrap Runtime config: %w", err)
