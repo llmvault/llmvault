@@ -23,7 +23,11 @@ type verifyTransactionResponse struct {
 	// Paystack returns metadata in one of three shapes — null, the
 	// number 0 (their placeholder), or a JSON object — so we keep it
 	// raw and decode by inspection.
-	Metadata json.RawMessage `json:"metadata"`
+	Metadata      json.RawMessage              `json:"metadata"`
+	Authorization billing.PaymentAuthorization `json:"authorization"`
+	Customer      struct {
+		Email string `json:"email"`
+	} `json:"customer"`
 }
 
 // ResolveDeposit calls /transaction/verify/:reference and returns the
@@ -52,14 +56,19 @@ func (p *Provider) ResolveDeposit(ctx context.Context, req billing.ResolveDeposi
 		return nil, fmt.Errorf("%w: reference %q", billing.ErrPurchaseMismatch, req.Reference)
 	}
 
-	return &billing.DepositResult{
+	result := &billing.DepositResult{
 		Status:          mapTransactionStatus(tx.Status),
 		PaidAt:          tx.PaidAt,
 		PaidAmountMinor: tx.Amount,
 		Currency:        billing.Currency(tx.Currency),
 		Reference:       tx.Reference,
 		Metadata:        metadata,
-	}, nil
+		CustomerEmail:   tx.Customer.Email,
+	}
+	if tx.Authorization.AuthorizationCode != "" {
+		result.Authorization = &tx.Authorization
+	}
+	return result, nil
 }
 
 // parseMetadata decodes the metadata Paystack echoes back from the
@@ -72,7 +81,14 @@ func parseMetadata(raw json.RawMessage) map[string]string {
 		return nil
 	}
 	var m map[string]string
-	if err := json.Unmarshal(trimmed, &m); err != nil {
+	if err := json.Unmarshal(trimmed, &m); err == nil {
+		return m
+	}
+	var encoded string
+	if err := json.Unmarshal(trimmed, &encoded); err != nil {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(encoded), &m); err != nil {
 		return nil
 	}
 	return m

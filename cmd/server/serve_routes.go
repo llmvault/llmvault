@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing/purchase"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/handler"
@@ -37,6 +38,7 @@ func setupPublicRoutes(
 	appsInternalHandler *handler.AppsInternalHandler,
 	orchestrator *sandbox.Orchestrator,
 	orchestratorMissing bool,
+	purchases *purchase.Service,
 ) {
 	r.Get("/healthz", healthz)
 	r.Get("/readyz", readyz(database, redisClient, orchestratorMissing))
@@ -70,6 +72,10 @@ func setupPublicRoutes(
 
 	// Webhook receivers (HMAC-verified, no auth middleware)
 	r.Post("/internal/webhooks/nango", nangoWebhookHandler.Handle)
+	if cfg.PaystackSecretKey != "" && purchases != nil {
+		paystackWebhookHandler := handler.NewPaystackWebhookHandler(cfg.PaystackSecretKey, purchases)
+		r.Post("/internal/webhooks/paystack", paystackWebhookHandler.Handle)
+	}
 	if cfg.PreviewActivityToken != "" {
 		previewActivityHandler := handler.NewPreviewActivityHandler(database, orchestrator, cfg.PreviewActivityToken)
 		r.Post("/internal/preview/sandboxes/{externalID}/activity", previewActivityHandler.Handle)

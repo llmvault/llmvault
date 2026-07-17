@@ -1,0 +1,25 @@
+{
+  "status": true,
+  "message": "Charge attempted",
+  "data": {
+    "amount": 1100,
+    "currency": "USD",
+    "status": "success",
+    "reference": "11111111-1111-1111-1111-111111111111",
+    "authorization": {
+      "authorization_code": "AUTH_test_reusable",
+      "bin": "408408",
+      "last4": "4081",
+      "exp_month": "12",
+      "exp_year": "2030",
+      "channel": "card",
+      "card_type": "visa",
+      "bank": "TEST BANK",
+      "country_code": "NG",
+      "brand": "visa",
+      "reusable": true,
+      "signature": "SIG_test_card"
+    },
+    "customer": { "email": "buyer@example.com" }
+  }
+}

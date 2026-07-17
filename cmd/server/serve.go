@@ -63,7 +63,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, h.providerHandler, h.integrationHandler, actionsCatalog, h.orgInviteHandler, h.nangoWebhookHandler, h.incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, h.uploadsHandler, h.imageDescribeHandler, h.canvasHandler, h.appsInternalHandler, orchestrator, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, h.providerHandler, h.integrationHandler, actionsCatalog, h.orgInviteHandler, h.nangoWebhookHandler, h.incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, h.uploadsHandler, h.imageDescribeHandler, h.canvasHandler, h.appsInternalHandler, orchestrator, orchestratorMissing, deps.Purchases)
 	runtimeIngressHandler := handler.NewRuntimeStreamIngressHandler(database, sandboxEncKey, h.runtimeStreamStore, enqueuer)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/sessions/{sessionID}/ws", runtimeIngressHandler.HandleSessionWS)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/ws", runtimeIngressHandler.HandleWS)

@@ -1,0 +1,66 @@
+package purchase
+
+import "github.com/usehivy/hivy/internal/billing"
+
+type Pack struct {
+	ID            string
+	Currency      billing.Currency
+	SubtotalMinor int64
+}
+
+type PackQuote struct {
+	ID             string
+	Currency       billing.Currency
+	SubtotalMinor  int64
+	FeeBasisPoints int64
+	FeeMinor       int64
+	TotalMinor     int64
+	Credits        int64
+}
+
+var creditPacks = []Pack{
+	{ID: "usd_10", Currency: billing.CurrencyUSD, SubtotalMinor: 1_000},
+	{ID: "usd_25", Currency: billing.CurrencyUSD, SubtotalMinor: 2_500},
+	{ID: "usd_50", Currency: billing.CurrencyUSD, SubtotalMinor: 5_000},
+	{ID: "usd_100", Currency: billing.CurrencyUSD, SubtotalMinor: 10_000},
+	{ID: "ngn_5000", Currency: billing.CurrencyNGN, SubtotalMinor: 500_000},
+	{ID: "ngn_10000", Currency: billing.CurrencyNGN, SubtotalMinor: 1_000_000},
+	{ID: "ngn_25000", Currency: billing.CurrencyNGN, SubtotalMinor: 2_500_000},
+	{ID: "ngn_50000", Currency: billing.CurrencyNGN, SubtotalMinor: 5_000_000},
+}
+
+func findPack(id string, currency billing.Currency) (Pack, bool) {
+	for _, pack := range creditPacks {
+		if pack.ID == id && pack.Currency == currency {
+			return pack, true
+		}
+	}
+	return Pack{}, false
+}
+
+func (s *Service) Packs(currency billing.Currency) []PackQuote {
+	quotes := make([]PackQuote, 0, 4)
+	for _, pack := range creditPacks {
+		if pack.Currency != currency {
+			continue
+		}
+		credits, _, err := s.creditsForSubtotal(currency, pack.SubtotalMinor)
+		if err != nil {
+			continue
+		}
+		fee, err := percentageCeil(pack.SubtotalMinor, DepositFeeBasisPoints)
+		if err != nil {
+			continue
+		}
+		quotes = append(quotes, PackQuote{
+			ID:             pack.ID,
+			Currency:       currency,
+			SubtotalMinor:  pack.SubtotalMinor,
+			FeeBasisPoints: DepositFeeBasisPoints,
+			FeeMinor:       fee,
+			TotalMinor:     pack.SubtotalMinor + fee,
+			Credits:        credits,
+		})
+	}
+	return quotes
+}

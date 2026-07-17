@@ -821,6 +821,56 @@
         }
       }
     },
+    "/internal/webhooks/paystack": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Receive Paystack payment events",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/oauth/exchange": {
       "post": {
         "description": "Exchanges a short-lived, single-use OAuth exchange token for an access/refresh token pair. The exchange token is obtained from the OAuth callback redirect.",
@@ -4005,6 +4055,97 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/payment-methods": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "billing"
+        ],
+        "summary": "List billing payment methods",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billingPaymentMethodsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/payment-methods/{id}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "billing"
+        ],
+        "summary": "Remove billing payment method",
+        "parameters": [
+          {
+            "description": "Payment method ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -20466,7 +20607,7 @@
             "type": "string"
           },
           "connection_mcp_tool_deny": {
-            "description": "ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection.",
+            "description": "ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection;\n\"*\" disables an inherited connection for this agent.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/ConnectionMCPToolDeny"
@@ -21040,10 +21181,53 @@
           "ngn_minor_per_usd": {
             "type": "integer"
           },
+          "packs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/creditPackResponse"
+            }
+          },
           "supported_currencies": {
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "billingPaymentMethodResponse": {
+        "type": "object",
+        "properties": {
+          "bank": {
+            "type": "string"
+          },
+          "card_type": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "exp_month": {
+            "type": "string"
+          },
+          "exp_year": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last4": {
+            "type": "string"
+          }
+        }
+      },
+      "billingPaymentMethodsResponse": {
+        "type": "object",
+        "properties": {
+          "payment_methods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/billingPaymentMethodResponse"
             }
           }
         }
@@ -21740,11 +21924,17 @@
       "createCreditPurchaseRequest": {
         "type": "object",
         "properties": {
-          "callback_url": {
+          "idempotency_key": {
             "type": "string"
           },
-          "subtotal_minor": {
-            "type": "integer"
+          "pack_id": {
+            "type": "string"
+          },
+          "payment_method_id": {
+            "type": "string"
+          },
+          "save_payment_method": {
+            "type": "boolean"
           }
         }
       },
@@ -22136,6 +22326,32 @@
           }
         }
       },
+      "creditPackResponse": {
+        "type": "object",
+        "properties": {
+          "credits": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "fee_basis_points": {
+            "type": "integer"
+          },
+          "fee_minor": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "subtotal_minor": {
+            "type": "integer"
+          },
+          "total_minor": {
+            "type": "integer"
+          }
+        }
+      },
       "creditPurchaseResponse": {
         "type": "object",
         "properties": {
@@ -22169,7 +22385,13 @@
           "id": {
             "type": "string"
           },
+          "pack_id": {
+            "type": "string"
+          },
           "paid_at": {
+            "type": "string"
+          },
+          "payment_method_id": {
             "type": "string"
           },
           "provider_reference": {

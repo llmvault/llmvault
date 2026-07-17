@@ -28,11 +28,22 @@ func NewBillingHandler(db *gorm.DB, purchases *purchase.Service, credits *billin
 }
 
 type billingAccountResponse struct {
-	Currency            string   `json:"currency,omitempty"`
-	Balance             int64    `json:"balance"`
-	FeeBasisPoints      int64    `json:"fee_basis_points"`
-	NGNMinorPerUSD      int64    `json:"ngn_minor_per_usd"`
-	SupportedCurrencies []string `json:"supported_currencies"`
+	Currency            string               `json:"currency,omitempty"`
+	Balance             int64                `json:"balance"`
+	FeeBasisPoints      int64                `json:"fee_basis_points"`
+	NGNMinorPerUSD      int64                `json:"ngn_minor_per_usd"`
+	SupportedCurrencies []string             `json:"supported_currencies"`
+	Packs               []creditPackResponse `json:"packs"`
+}
+
+type creditPackResponse struct {
+	ID             string `json:"id"`
+	Currency       string `json:"currency"`
+	SubtotalMinor  int64  `json:"subtotal_minor"`
+	FeeBasisPoints int64  `json:"fee_basis_points"`
+	FeeMinor       int64  `json:"fee_minor"`
+	TotalMinor     int64  `json:"total_minor"`
+	Credits        int64  `json:"credits"`
 }
 
 // GetAccount returns the org's permanent credit balance and deposit settings.
@@ -56,12 +67,22 @@ func (h *BillingHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load billing account"})
 		return
 	}
+	packs := h.purchases.Packs(billing.Currency(org.BillingCurrency))
+	packResponses := make([]creditPackResponse, 0, len(packs))
+	for _, pack := range packs {
+		packResponses = append(packResponses, creditPackResponse{
+			ID: pack.ID, Currency: string(pack.Currency), SubtotalMinor: pack.SubtotalMinor,
+			FeeBasisPoints: pack.FeeBasisPoints, FeeMinor: pack.FeeMinor,
+			TotalMinor: pack.TotalMinor, Credits: pack.Credits,
+		})
+	}
 	writeJSON(w, http.StatusOK, billingAccountResponse{
 		Currency:            org.BillingCurrency,
 		Balance:             balance,
 		FeeBasisPoints:      purchase.DepositFeeBasisPoints,
 		NGNMinorPerUSD:      h.purchases.NGNMinorPerUSD(),
 		SupportedCurrencies: []string{string(billing.CurrencyUSD), string(billing.CurrencyNGN)},
+		Packs:               packResponses,
 	})
 }
 
@@ -100,8 +121,10 @@ func (h *BillingHandler) SelectCurrency(w http.ResponseWriter, r *http.Request) 
 }
 
 type createCreditPurchaseRequest struct {
-	SubtotalMinor int64  `json:"subtotal_minor"`
-	CallbackURL   string `json:"callback_url"`
+	PackID            string  `json:"pack_id"`
+	IdempotencyKey    string  `json:"idempotency_key"`
+	PaymentMethodID   *string `json:"payment_method_id,omitempty"`
+	SavePaymentMethod bool    `json:"save_payment_method"`
 }
 
 type creditPurchaseResponse struct {
@@ -120,6 +143,8 @@ type creditPurchaseResponse struct {
 	PaidAt            string `json:"paid_at,omitempty"`
 	CreditedAt        string `json:"credited_at,omitempty"`
 	CreatedAt         string `json:"created_at"`
+	PackID            string `json:"pack_id"`
+	PaymentMethodID   string `json:"payment_method_id,omitempty"`
 }
 
 // CreatePurchase creates a pending Paystack deposit and returns popup details.
@@ -156,12 +181,23 @@ func (h *BillingHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create credit purchase"})
 		return
 	}
+	var paymentMethodID *uuid.UUID
+	if body.PaymentMethodID != nil {
+		parsed, err := uuid.Parse(*body.PaymentMethodID)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid payment method id"})
+			return
+		}
+		paymentMethodID = &parsed
+	}
 	result, err := h.purchases.Create(r.Context(), purchase.CreateInput{
-		OrgID:         org.ID,
-		UserID:        *userID,
-		Email:         user.Email,
-		SubtotalMinor: body.SubtotalMinor,
-		CallbackURL:   body.CallbackURL,
+		OrgID:             org.ID,
+		UserID:            *userID,
+		Email:             user.Email,
+		PackID:            body.PackID,
+		IdempotencyKey:    body.IdempotencyKey,
+		PaymentMethodID:   paymentMethodID,
+		SavePaymentMethod: body.SavePaymentMethod,
 	})
 	if err != nil {
 		h.writePurchaseError(w, r, err)
@@ -247,6 +283,10 @@ func purchaseDTO(row model.CreditPurchase) creditPurchaseResponse {
 		FXMinorPerUSD:     row.FXMinorPerUSD,
 		ProviderReference: row.ProviderRef,
 		CreatedAt:         row.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		PackID:            row.PackID,
+	}
+	if row.PaymentMethodID != nil {
+		resp.PaymentMethodID = row.PaymentMethodID.String()
 	}
 	if row.PaidAt != nil {
 		resp.PaidAt = row.PaidAt.Format("2006-01-02T15:04:05Z07:00")
@@ -259,8 +299,10 @@ func purchaseDTO(row model.CreditPurchase) creditPurchaseResponse {
 
 func (h *BillingHandler) writePurchaseError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, purchase.ErrInvalidAmount):
+	case errors.Is(err, purchase.ErrInvalidAmount), errors.Is(err, purchase.ErrInvalidPack):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid deposit amount"})
+	case errors.Is(err, purchase.ErrInvalidRequestKey):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid idempotency key"})
 	case errors.Is(err, purchase.ErrInvalidCurrency):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "unsupported billing currency"})
 	case errors.Is(err, purchase.ErrCurrencyRequired):
@@ -273,6 +315,10 @@ func (h *BillingHandler) writePurchaseError(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusConflict, errorResponse{Error: "payment is not complete"})
 	case errors.Is(err, purchase.ErrPaymentMismatch):
 		writeJSON(w, http.StatusPaymentRequired, errorResponse{Error: "paid amount or currency does not match purchase"})
+	case errors.Is(err, purchase.ErrPaymentMethodNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "payment method not found"})
+	case errors.Is(err, purchase.ErrPaymentMethodUnavailable):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "saved payment method is unavailable"})
 	default:
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "credit purchase failed", "error", err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "credit purchase failed"})

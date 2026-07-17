@@ -1,6 +1,6 @@
 "use client"
 
-import { Skeleton } from "@heroui/react"
+import { ProgressBar, Skeleton } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 
@@ -27,6 +27,9 @@ export function CreditsUsageSection() {
 
   const spent = credits?.spent_this_period ?? 0
   const balance = credits?.balance ?? 0
+  const trackedCredits = spent + balance
+  const percentSpent =
+    trackedCredits > 0 ? Math.round((spent / trackedCredits) * 100) : 0
   const isLoading = dashboardQuery.isLoading
 
   return (
@@ -43,27 +46,34 @@ export function CreditsUsageSection() {
           <Skeleton className="h-16" />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <p className="text-xs text-muted">Spent this month</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">
-                  {formatNumber(spent)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">Available balance</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">
-                  {formatNumber(balance)}
-                </p>
-              </div>
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <span className="text-2xl font-semibold tabular-nums">
+                {formatNumber(spent)}
+                <span className="text-sm font-normal text-muted">
+                  {" "}
+                  spent this month
+                </span>
+              </span>
+              <span className="text-sm text-muted">
+                {formatNumber(balance)} available
+              </span>
             </div>
+            <ProgressBar
+              value={percentSpent}
+              aria-label={`${formatNumber(spent)} credits spent this month, ${formatNumber(balance)} credits available`}
+              className="mt-4"
+            >
+              <ProgressBar.Track>
+                <ProgressBar.Fill />
+              </ProgressBar.Track>
+            </ProgressBar>
             {credits?.period_start && credits?.period_end ? (
-              <div className="mt-4 flex justify-between border-t border-border pt-3 text-xs text-muted">
+              <div className="mt-2 flex justify-between text-xs text-muted">
                 <span>
                   {formatDate(credits.period_start)} –{" "}
                   {formatDate(credits.period_end)}
                 </span>
-                <span>Calendar month</span>
+                <span>{percentSpent}% spent</span>
               </div>
             ) : null}
           </>

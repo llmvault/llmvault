@@ -235,7 +235,7 @@ func New(ctx context.Context) (*Deps, error) {
 		ToolUsageWriter: toolUsageWriter,
 		BillingRegistry: billingRegistry,
 		Credits:         credits,
-		Purchases:       purchase.NewService(database, billingRegistry, credits, cfg.BillingNGNMinorPerUSD),
+		Purchases:       purchase.NewService(database, billingRegistry, credits, cfg.BillingNGNMinorPerUSD, kms),
 		S3Client:        s3Client,
 	}, nil
 }

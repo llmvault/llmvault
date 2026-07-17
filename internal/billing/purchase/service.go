@@ -12,6 +12,8 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -22,13 +24,17 @@ const (
 )
 
 var (
-	ErrCurrencyRequired = errors.New("credit purchase: billing currency is required")
-	ErrCurrencyLocked   = errors.New("credit purchase: billing currency is already locked")
-	ErrInvalidCurrency  = errors.New("credit purchase: unsupported billing currency")
-	ErrInvalidAmount    = errors.New("credit purchase: invalid deposit amount")
-	ErrNotFound         = errors.New("credit purchase: not found")
-	ErrPaymentPending   = errors.New("credit purchase: payment is not complete")
-	ErrPaymentMismatch  = errors.New("credit purchase: paid amount or currency does not match")
+	ErrCurrencyRequired         = errors.New("credit purchase: billing currency is required")
+	ErrCurrencyLocked           = errors.New("credit purchase: billing currency is already locked")
+	ErrInvalidCurrency          = errors.New("credit purchase: unsupported billing currency")
+	ErrInvalidAmount            = errors.New("credit purchase: invalid deposit amount")
+	ErrNotFound                 = errors.New("credit purchase: not found")
+	ErrPaymentPending           = errors.New("credit purchase: payment is not complete")
+	ErrPaymentMismatch          = errors.New("credit purchase: paid amount or currency does not match")
+	ErrInvalidPack              = errors.New("credit purchase: invalid credit pack")
+	ErrInvalidRequestKey        = errors.New("credit purchase: invalid idempotency key")
+	ErrPaymentMethodNotFound    = errors.New("credit purchase: payment method not found")
+	ErrPaymentMethodUnavailable = errors.New("credit purchase: saved payment method is unavailable")
 )
 
 type Service struct {
@@ -36,10 +42,11 @@ type Service struct {
 	registry       *billing.Registry
 	credits        *billing.CreditsService
 	ngnMinorPerUSD int64
+	kms            *crypto.KeyWrapper
 }
 
-func NewService(db *gorm.DB, registry *billing.Registry, credits *billing.CreditsService, ngnMinorPerUSD int64) *Service {
-	return &Service{db: db, registry: registry, credits: credits, ngnMinorPerUSD: ngnMinorPerUSD}
+func NewService(db *gorm.DB, registry *billing.Registry, credits *billing.CreditsService, ngnMinorPerUSD int64, kms *crypto.KeyWrapper) *Service {
+	return &Service{db: db, registry: registry, credits: credits, ngnMinorPerUSD: ngnMinorPerUSD, kms: kms}
 }
 
 func (s *Service) NGNMinorPerUSD() int64 { return s.ngnMinorPerUSD }
@@ -71,11 +78,13 @@ func (s *Service) SelectCurrency(ctx context.Context, orgID uuid.UUID, currency 
 }
 
 type CreateInput struct {
-	OrgID         uuid.UUID
-	UserID        uuid.UUID
-	Email         string
-	SubtotalMinor int64
-	CallbackURL   string
+	OrgID             uuid.UUID
+	UserID            uuid.UUID
+	Email             string
+	PackID            string
+	IdempotencyKey    string
+	PaymentMethodID   *uuid.UUID
+	SavePaymentMethod bool
 }
 
 type CreateResult struct {
@@ -84,6 +93,10 @@ type CreateResult struct {
 }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, error) {
+	requestKey, err := uuid.Parse(in.IdempotencyKey)
+	if err != nil || requestKey == uuid.Nil {
+		return nil, ErrInvalidRequestKey
+	}
 	var org model.Org
 	if err := s.db.WithContext(ctx).Where("id = ?", in.OrgID).First(&org).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -98,54 +111,97 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	if !currency.IsValid() {
 		return nil, ErrInvalidCurrency
 	}
-	credits, fxMinorPerUSD, err := s.creditsForSubtotal(currency, in.SubtotalMinor)
+	pack, ok := findPack(in.PackID, currency)
+	if !ok {
+		return nil, ErrInvalidPack
+	}
+	var existing model.CreditPurchase
+	if err := s.db.WithContext(ctx).Where("org_id = ? AND idempotency_key = ?", in.OrgID, requestKey.String()).First(&existing).Error; err == nil {
+		return createResultFromPurchase(&existing), nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("load idempotent purchase: %w", err)
+	}
+
+	credits, fxMinorPerUSD, err := s.creditsForSubtotal(currency, pack.SubtotalMinor)
 	if err != nil {
 		return nil, err
 	}
-	fee, err := percentageCeil(in.SubtotalMinor, DepositFeeBasisPoints)
-	if err != nil || in.SubtotalMinor > math.MaxInt64-fee {
+	fee, err := percentageCeil(pack.SubtotalMinor, DepositFeeBasisPoints)
+	if err != nil || pack.SubtotalMinor > math.MaxInt64-fee {
 		return nil, ErrInvalidAmount
 	}
+	purchaseID := uuid.New()
 	purchase := &model.CreditPurchase{
-		OrgID:           in.OrgID,
-		CreatedByUserID: &in.UserID,
-		Provider:        providerName,
-		Status:          model.CreditPurchasePending,
-		Currency:        string(currency),
-		SubtotalMinor:   in.SubtotalMinor,
-		FeeBasisPoints:  DepositFeeBasisPoints,
-		FeeMinor:        fee,
-		TotalMinor:      in.SubtotalMinor + fee,
-		Credits:         credits,
-		FXMinorPerUSD:   fxMinorPerUSD,
+		ID:                purchaseID,
+		OrgID:             in.OrgID,
+		CreatedByUserID:   &in.UserID,
+		PackID:            pack.ID,
+		IdempotencyKey:    requestKey.String(),
+		PaymentMethodID:   in.PaymentMethodID,
+		SavePaymentMethod: in.SavePaymentMethod,
+		Provider:          providerName,
+		ProviderRef:       purchaseID.String(),
+		Status:            model.CreditPurchasePending,
+		Currency:          string(currency),
+		SubtotalMinor:     pack.SubtotalMinor,
+		FeeBasisPoints:    DepositFeeBasisPoints,
+		FeeMinor:          fee,
+		TotalMinor:        pack.SubtotalMinor + fee,
+		Credits:           credits,
+		FXMinorPerUSD:     fxMinorPerUSD,
 	}
-	if err := s.db.WithContext(ctx).Create(purchase).Error; err != nil {
-		return nil, fmt.Errorf("create credit purchase: %w", err)
+	res := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(purchase)
+	if res.Error != nil {
+		return nil, fmt.Errorf("create credit purchase: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		if err := s.db.WithContext(ctx).Where("org_id = ? AND idempotency_key = ?", in.OrgID, requestKey.String()).First(&existing).Error; err != nil {
+			return nil, fmt.Errorf("load concurrent purchase: %w", err)
+		}
+		return createResultFromPurchase(&existing), nil
 	}
 	provider, err := s.registry.Get(providerName)
 	if err != nil {
 		s.markFailed(ctx, purchase.ID)
 		return nil, err
 	}
-	session, err := provider.CreateDeposit(ctx, billing.DepositIntent{
-		PurchaseID:    purchase.ID,
-		OrgID:         in.OrgID,
-		CustomerEmail: in.Email,
-		AmountMinor:   purchase.TotalMinor,
-		Currency:      currency,
-		CallbackURL:   in.CallbackURL,
-		Metadata: map[string]string{
-			"org_id":      in.OrgID.String(),
-			"purchase_id": purchase.ID.String(),
-		},
-	})
+	metadata := map[string]string{"org_id": in.OrgID.String(), "purchase_id": purchase.ID.String(), "pack_id": pack.ID}
+	var session *billing.DepositSession
+	if in.PaymentMethodID != nil {
+		_, secret, loadErr := s.loadPaymentMethodSecret(ctx, in.OrgID, in.UserID, *in.PaymentMethodID)
+		if loadErr != nil {
+			s.markFailed(ctx, purchase.ID)
+			return nil, loadErr
+		}
+		session, err = provider.ChargeSavedPayment(ctx, billing.SavedPaymentCharge{
+			PurchaseID: purchase.ID, OrgID: in.OrgID,
+			AuthorizationCode: secret.Authorization.AuthorizationCode,
+			CustomerEmail:     secret.Email, AmountMinor: purchase.TotalMinor,
+			Currency: currency, Metadata: metadata,
+		})
+	} else {
+		session, err = provider.CreateDeposit(ctx, billing.DepositIntent{
+			PurchaseID: purchase.ID, OrgID: in.OrgID, CustomerEmail: in.Email,
+			AmountMinor: purchase.TotalMinor, Currency: currency,
+			Metadata: metadata,
+			Channels: []string{"card"},
+		})
+	}
 	if err != nil {
 		s.markFailed(ctx, purchase.ID)
 		return nil, fmt.Errorf("initialize deposit: %w", err)
 	}
-	res := s.db.WithContext(ctx).Model(&model.CreditPurchase{}).
+	if session.Reference != purchase.ID.String() {
+		s.markFailed(ctx, purchase.ID)
+		return nil, ErrPaymentMismatch
+	}
+	res = s.db.WithContext(ctx).Model(&model.CreditPurchase{}).
 		Where("id = ? AND org_id = ?", purchase.ID, in.OrgID).
-		Update("provider_reference", session.Reference)
+		Updates(map[string]any{
+			"provider_reference":   session.Reference,
+			"checkout_access_code": session.AccessCode,
+			"checkout_url":         session.URL,
+		})
 	if res.Error != nil {
 		return nil, fmt.Errorf("store deposit reference: %w", res.Error)
 	}
@@ -153,7 +209,19 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		return nil, ErrNotFound
 	}
 	purchase.ProviderRef = session.Reference
+	purchase.CheckoutAccessCode = session.AccessCode
+	purchase.CheckoutURL = session.URL
 	return &CreateResult{Purchase: purchase, Session: session}, nil
+}
+
+func createResultFromPurchase(purchase *model.CreditPurchase) *CreateResult {
+	reference := purchase.ProviderRef
+	if reference == "" {
+		reference = purchase.ID.String()
+	}
+	return &CreateResult{Purchase: purchase, Session: &billing.DepositSession{
+		Reference: reference, AccessCode: purchase.CheckoutAccessCode, URL: purchase.CheckoutURL,
+	}}
 }
 
 func (s *Service) Verify(ctx context.Context, orgID, purchaseID uuid.UUID) (*model.CreditPurchase, error) {
@@ -182,7 +250,7 @@ func (s *Service) Verify(ctx context.Context, orgID, purchaseID uuid.UUID) (*mod
 	if result.Status != billing.PaymentPaid {
 		return nil, ErrPaymentPending
 	}
-	if result.PaidAmountMinor != purchase.TotalMinor || result.Currency != billing.Currency(purchase.Currency) {
+	if result.Reference != purchase.ProviderRef || result.PaidAmountMinor != purchase.TotalMinor || result.Currency != billing.Currency(purchase.Currency) {
 		return nil, ErrPaymentMismatch
 	}
 
@@ -225,6 +293,11 @@ func (s *Service) Verify(ctx context.Context, orgID, purchaseID uuid.UUID) (*mod
 	})
 	if err != nil {
 		return nil, fmt.Errorf("credit deposit: %w", err)
+	}
+	if purchase.SavePaymentMethod {
+		if err := s.savePaymentMethod(ctx, purchase, result); err != nil {
+			logging.FromContext(ctx).ErrorContext(ctx, "save billing payment method", "error", err, "purchase_id", purchase.ID)
+		}
 	}
 	return &purchase, nil
 }

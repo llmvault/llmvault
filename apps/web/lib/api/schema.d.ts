@@ -907,6 +907,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/webhooks/paystack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive Paystack payment events */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/oauth/exchange": {
         parameters: {
             query?: never;
@@ -3936,6 +3999,108 @@ export interface paths {
         };
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List billing payment methods */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["billingPaymentMethodsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payment-methods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove billing payment method */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Payment method ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -18486,7 +18651,10 @@ export interface components {
         agentMutationRequest: {
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
             avatar_url?: string;
-            /** @description ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection. */
+            /**
+             * @description ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection;
+             *     "*" disables an inherited connection for this agent.
+             */
             connection_mcp_tool_deny?: components["schemas"]["ConnectionMCPToolDeny"];
             default_reasoning_effort?: string;
             description?: string;
@@ -18675,7 +18843,20 @@ export interface components {
             currency?: string;
             fee_basis_points?: number;
             ngn_minor_per_usd?: number;
+            packs?: components["schemas"]["creditPackResponse"][];
             supported_currencies?: string[];
+        };
+        billingPaymentMethodResponse: {
+            bank?: string;
+            card_type?: string;
+            country_code?: string;
+            exp_month?: string;
+            exp_year?: string;
+            id?: string;
+            last4?: string;
+        };
+        billingPaymentMethodsResponse: {
+            payment_methods?: components["schemas"]["billingPaymentMethodResponse"][];
         };
         brandAssetMutationResponse: {
             asset?: components["schemas"]["brandAssetResponse"];
@@ -18909,8 +19090,10 @@ export interface components {
             remaining?: number;
         };
         createCreditPurchaseRequest: {
-            callback_url?: string;
-            subtotal_minor?: number;
+            idempotency_key?: string;
+            pack_id?: string;
+            payment_method_id?: string;
+            save_payment_method?: boolean;
         };
         createFieldRequest: {
             mutation_id?: string;
@@ -19059,6 +19242,15 @@ export interface components {
             revoked?: number;
             total?: number;
         };
+        creditPackResponse: {
+            credits?: number;
+            currency?: string;
+            fee_basis_points?: number;
+            fee_minor?: number;
+            id?: string;
+            subtotal_minor?: number;
+            total_minor?: number;
+        };
         creditPurchaseResponse: {
             access_code?: string;
             checkout_url?: string;
@@ -19070,7 +19262,9 @@ export interface components {
             fee_minor?: number;
             fx_minor_per_usd?: number;
             id?: string;
+            pack_id?: string;
             paid_at?: string;
+            payment_method_id?: string;
             provider_reference?: string;
             status?: string;
             subtotal_minor?: number;

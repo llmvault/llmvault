@@ -784,8 +784,9 @@ definitions:
       connection_mcp_tool_deny:
         allOf:
         - $ref: '#/definitions/ConnectionMCPToolDeny'
-        description: ConnectionMCPToolDeny replaces generated MCP tool opt-outs by
-          connection.
+        description: |-
+          ConnectionMCPToolDeny replaces generated MCP tool opt-outs by connection;
+          "*" disables an inherited connection for this agent.
       default_reasoning_effort:
         type: string
       description:
@@ -1163,9 +1164,37 @@ definitions:
         type: integer
       ngn_minor_per_usd:
         type: integer
+      packs:
+        items:
+          $ref: '#/definitions/creditPackResponse'
+        type: array
       supported_currencies:
         items:
           type: string
+        type: array
+    type: object
+  billingPaymentMethodResponse:
+    properties:
+      bank:
+        type: string
+      card_type:
+        type: string
+      country_code:
+        type: string
+      exp_month:
+        type: string
+      exp_year:
+        type: string
+      id:
+        type: string
+      last4:
+        type: string
+    type: object
+  billingPaymentMethodsResponse:
+    properties:
+      payment_methods:
+        items:
+          $ref: '#/definitions/billingPaymentMethodResponse'
         type: array
     type: object
   brandAssetMutationResponse:
@@ -1629,10 +1658,14 @@ definitions:
     type: object
   createCreditPurchaseRequest:
     properties:
-      callback_url:
+      idempotency_key:
         type: string
-      subtotal_minor:
-        type: integer
+      pack_id:
+        type: string
+      payment_method_id:
+        type: string
+      save_payment_method:
+        type: boolean
     type: object
   createFieldRequest:
     properties:
@@ -1895,6 +1928,23 @@ definitions:
       total:
         type: integer
     type: object
+  creditPackResponse:
+    properties:
+      credits:
+        type: integer
+      currency:
+        type: string
+      fee_basis_points:
+        type: integer
+      fee_minor:
+        type: integer
+      id:
+        type: string
+      subtotal_minor:
+        type: integer
+      total_minor:
+        type: integer
+    type: object
   creditPurchaseResponse:
     properties:
       access_code:
@@ -1917,7 +1967,11 @@ definitions:
         type: integer
       id:
         type: string
+      pack_id:
+        type: string
       paid_at:
+        type: string
+      payment_method_id:
         type: string
       provider_reference:
         type: string
@@ -5419,6 +5473,32 @@ paths:
       summary: Receive incoming webhook from external provider
       tags:
       - webhooks
+  /internal/webhooks/paystack:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: Receive Paystack payment events
+      tags:
+      - internal
   /oauth/exchange:
     post:
       consumes:
@@ -7059,6 +7139,52 @@ paths:
       security:
       - BearerAuth: []
       summary: Select billing currency
+      tags:
+      - billing
+  /v1/billing/payment-methods:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billingPaymentMethodsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List billing payment methods
+      tags:
+      - billing
+  /v1/billing/payment-methods/{id}:
+    delete:
+      parameters:
+      - description: Payment method ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove billing payment method
       tags:
       - billing
   /v1/billing/purchases:

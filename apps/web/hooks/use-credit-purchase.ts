@@ -29,11 +29,14 @@ export function useCreditPurchase() {
       queryClient.invalidateQueries({ queryKey: queryKeys.billingAccount() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.billingPurchases() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard() }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.billingPaymentMethods(),
+      }),
     ])
   }, [queryClient])
 
   const verify = useCallback(
-    (id: string) => {
+    (id: string, onComplete?: () => void) => {
       verifyPurchase.mutate(
         { params: { path: { id } } },
         {
@@ -43,6 +46,7 @@ export function useCreditPurchase() {
             )
             void refreshBilling()
             setIsPopupOpen(false)
+            onComplete?.()
           },
           onError: (error) => {
             toast.danger(
@@ -61,21 +65,40 @@ export function useCreditPurchase() {
   )
 
   const purchase = useCallback(
-    (subtotalMinor: number) => {
-      const callbackURL =
-        typeof window === "undefined" ? "" : window.location.href
+    ({
+      packID,
+      paymentMethodID,
+      savePaymentMethod,
+      onComplete,
+    }: {
+      packID: string
+      paymentMethodID?: string
+      savePaymentMethod: boolean
+      onComplete?: () => void
+    }) => {
       createPurchase.mutate(
-        { body: { subtotal_minor: subtotalMinor, callback_url: callbackURL } },
+        {
+          body: {
+            pack_id: packID,
+            idempotency_key: crypto.randomUUID(),
+            payment_method_id: paymentMethodID,
+            save_payment_method: savePaymentMethod,
+          },
+        },
         {
           onSuccess: (created) => {
-            if (!created.id || !created.access_code) {
-              toast.danger("Paystack checkout could not be started")
+            if (!created.id) {
+              toast.danger("Paystack purchase could not be started")
               return
             }
             const purchaseID = created.id
+            if (!created.access_code) {
+              verify(purchaseID, onComplete)
+              return
+            }
             setIsPopupOpen(true)
             void openPaystackTransaction(created.access_code, {
-              onSuccess: () => verify(purchaseID),
+              onSuccess: () => verify(purchaseID, onComplete),
               onCancel: () => setIsPopupOpen(false),
             }).catch((error) => {
               toast.danger(

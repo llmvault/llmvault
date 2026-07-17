@@ -57,6 +57,7 @@ export const queryKeys = {
   schedule: () => ["get", "/v1/schedules/{id}"] as const,
   billingAccount: () => ["get", "/v1/billing/account"] as const,
   billingPurchases: () => ["get", "/v1/billing/purchases"] as const,
+  billingPaymentMethods: () => ["get", "/v1/billing/payment-methods"] as const,
   usage: () => ["get", "/v1/usage"] as const,
   dashboard: () => ["get", "/v1/dashboard"] as const,
   canvasProjects: () => ["get", "/v1/canvas/projects"] as const,

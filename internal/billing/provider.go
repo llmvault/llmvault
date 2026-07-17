@@ -31,8 +31,18 @@ type DepositIntent struct {
 	CustomerEmail string
 	AmountMinor   int64
 	Currency      Currency
-	CallbackURL   string
 	Metadata      map[string]string
+	Channels      []string
+}
+
+type SavedPaymentCharge struct {
+	PurchaseID        uuid.UUID
+	OrgID             uuid.UUID
+	AuthorizationCode string
+	CustomerEmail     string
+	AmountMinor       int64
+	Currency          Currency
+	Metadata          map[string]string
 }
 
 type DepositSession struct {
@@ -63,11 +73,30 @@ type DepositResult struct {
 	PaidAmountMinor int64
 	Currency        Currency
 	Metadata        map[string]string
+	CustomerEmail   string
+	Authorization   *PaymentAuthorization
+}
+
+type PaymentAuthorization struct {
+	AuthorizationCode string  `json:"authorization_code"`
+	Bin               string  `json:"bin"`
+	CardType          string  `json:"card_type"`
+	Last4             string  `json:"last4"`
+	ExpMonth          string  `json:"exp_month"`
+	ExpYear           string  `json:"exp_year"`
+	Bank              string  `json:"bank"`
+	Channel           string  `json:"channel"`
+	Signature         string  `json:"signature"`
+	Reusable          bool    `json:"reusable"`
+	CountryCode       string  `json:"country_code"`
+	Brand             string  `json:"brand"`
+	AccountName       *string `json:"account_name"`
 }
 
 // Provider initializes and verifies one-time credit deposits.
 type Provider interface {
 	Name() string
 	CreateDeposit(ctx context.Context, intent DepositIntent) (*DepositSession, error)
+	ChargeSavedPayment(ctx context.Context, charge SavedPaymentCharge) (*DepositSession, error)
 	ResolveDeposit(ctx context.Context, req ResolveDepositRequest) (*DepositResult, error)
 }

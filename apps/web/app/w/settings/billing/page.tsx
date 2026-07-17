@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin } from "@/lib/auth/use-role"
@@ -12,6 +12,7 @@ export default function BillingSettingsPage() {
   const router = useRouter()
   const isAdmin = useIsAdmin()
   const { isLoading } = useAuth()
+  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAdmin) router.replace("/w/settings/teams")
@@ -28,9 +29,12 @@ export default function BillingSettingsPage() {
         </p>
       </div>
 
-      <CreditsBalanceSection />
+      <CreditsBalanceSection onBuyCredits={() => setBuyCreditsOpen(true)} />
 
-      <CreditPurchasesSection />
+      <CreditPurchasesSection
+        isOpen={buyCreditsOpen}
+        onOpenChange={setBuyCreditsOpen}
+      />
 
       <CreditsUsageSection />
     </div>

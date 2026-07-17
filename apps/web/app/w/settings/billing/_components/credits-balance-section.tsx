@@ -8,7 +8,11 @@ import { formatCreditsWithUsage } from "./credit-value"
 
 type DashboardResponse = components["schemas"]["dashboardResponse"]
 
-export function CreditsBalanceSection() {
+export function CreditsBalanceSection({
+  onBuyCredits,
+}: {
+  onBuyCredits: () => void
+}) {
   const isOwner = useIsOwner()
   const dashboardQuery = $api.useQuery("get", "/v1/dashboard")
   const credits = (dashboardQuery.data as DashboardResponse | undefined)
@@ -45,11 +49,7 @@ export function CreditsBalanceSection() {
         <BuyCreditsButton
           isLoading={dashboardQuery.isLoading}
           isOwner={isOwner}
-          onPress={() =>
-            document
-              .getElementById("credit-purchases")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" })
-          }
+          onPress={onBuyCredits}
         />
       </div>
     </section>
