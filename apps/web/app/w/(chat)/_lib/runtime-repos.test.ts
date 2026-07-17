@@ -60,6 +60,7 @@ describe("runtime repository helpers", () => {
     expect((init as RequestInit).headers).toMatchObject({
       Accept: "application/json",
       Authorization: "Bearer runtime-token",
+      "X-Daytona-Skip-Preview-Warning": "true",
     })
   })
 
@@ -100,6 +101,7 @@ describe("runtime repository helpers", () => {
     expect((init as RequestInit).headers).toMatchObject({
       Accept: "application/json",
       Authorization: "Bearer runtime-token",
+      "X-Daytona-Skip-Preview-Warning": "true",
     })
   })
 

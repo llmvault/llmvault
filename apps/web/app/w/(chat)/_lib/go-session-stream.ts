@@ -1,4 +1,5 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source"
+import { withDaytonaPreviewWarningBypass } from "@/app/w/(chat)/_lib/daytona-preview"
 import type { SessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 
 export interface GoSessionStreamFrame {
@@ -131,10 +132,10 @@ export function goSessionStreamHeaders(
 ) {
   const token = access.token?.trim()
   if (!token) throw new Error("Sandbox stream token is not available.")
-  return {
+  return withDaytonaPreviewWarningBypass({
     Accept: "text/event-stream",
     Authorization: `Bearer ${token}`,
-  }
+  })
 }
 
 export function goSessionStreamHTTPStatus(error: unknown) {

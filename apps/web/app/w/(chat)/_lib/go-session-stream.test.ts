@@ -95,6 +95,7 @@ describe("session stream", () => {
         headers: {
           Accept: "text/event-stream",
           Authorization: "Bearer sandbox-token",
+          "X-Daytona-Skip-Preview-Warning": "true",
         },
       })
     )
@@ -166,6 +167,7 @@ describe("session stream", () => {
       {
         Accept: "text/event-stream",
         Authorization: "Bearer token",
+        "X-Daytona-Skip-Preview-Warning": "true",
       }
     )
   })

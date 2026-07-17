@@ -1,4 +1,5 @@
 import type { GitStatusEntry } from "@pierre/trees"
+import { withDaytonaPreviewWarningBypass } from "@/app/w/(chat)/_lib/daytona-preview"
 
 export interface RuntimeSandboxAccess {
   session_id?: string
@@ -199,10 +200,10 @@ async function runtimeJSON<T>(
   }
   // eslint-disable-next-line no-restricted-globals -- direct-sandbox call: hits the sandbox base URL with a sandbox token, not the Hivy API.
   const response = await fetch(`${baseURL}${path}`, {
-    headers: {
+    headers: withDaytonaPreviewWarningBypass({
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     signal,
   })
   if (!response.ok) {
