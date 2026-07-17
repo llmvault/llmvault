@@ -6,6 +6,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${RAILWAY_TOKEN:?RAILWAY_TOKEN is required}"
 : "${RAILWAY_ENVIRONMENT:?RAILWAY_ENVIRONMENT is required}"
 : "${RAILWAY_SERVICES:?RAILWAY_SERVICES is required}"
+: "${HIVY_SANDBOX_PROVIDER_ID:?HIVY_SANDBOX_PROVIDER_ID is required}"
+: "${HIVY_DAYTONA_API_KEY:?HIVY_DAYTONA_API_KEY is required}"
+: "${HIVY_DAYTONA_API_URL:?HIVY_DAYTONA_API_URL is required}"
 
 environment="${RAILWAY_ENVIRONMENT}"
 services="${RAILWAY_SERVICES}"
@@ -103,6 +106,10 @@ for service in "${service_list[@]}"; do
   railway_with_retry variable set \
     "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG=${sandboxes_runtime_image_tag}" \
     "HIVY_SANDBOXES_APP_IMAGE_TAG=${sandboxes_app_image_tag}" \
+    "HIVY_SANDBOX_PROVIDER_ID=${HIVY_SANDBOX_PROVIDER_ID}" \
+    "HIVY_DAYTONA_API_KEY=${HIVY_DAYTONA_API_KEY}" \
+    "HIVY_DAYTONA_API_URL=${HIVY_DAYTONA_API_URL}" \
+    "HIVY_DAYTONA_TARGET=${HIVY_DAYTONA_TARGET:-}" \
     --environment "${environment}" \
     --service "${service}"
 
@@ -114,13 +121,17 @@ for service in "${service_list[@]}"; do
   )"
   for key_and_expected in \
     "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG=${sandboxes_runtime_image_tag}" \
-    "HIVY_SANDBOXES_APP_IMAGE_TAG=${sandboxes_app_image_tag}"
+    "HIVY_SANDBOXES_APP_IMAGE_TAG=${sandboxes_app_image_tag}" \
+    "HIVY_SANDBOX_PROVIDER_ID=${HIVY_SANDBOX_PROVIDER_ID}" \
+    "HIVY_DAYTONA_API_KEY=${HIVY_DAYTONA_API_KEY}" \
+    "HIVY_DAYTONA_API_URL=${HIVY_DAYTONA_API_URL}" \
+    "HIVY_DAYTONA_TARGET=${HIVY_DAYTONA_TARGET:-}"
   do
     key="${key_and_expected%%=*}"
     expected="${key_and_expected#*=}"
     actual="$(jq -r --arg key "${key}" '.[$key] // ""' <<<"${variables}")"
     if [[ "${actual}" != "${expected}" ]]; then
-      echo "Railway variable verification failed for ${service}: ${key}=${actual}, expected ${expected}" >&2
+      echo "Railway variable verification failed for ${service}: ${key}" >&2
       exit 1
     fi
   done

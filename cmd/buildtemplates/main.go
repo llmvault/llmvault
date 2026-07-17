@@ -1,4 +1,5 @@
-// Required env: HIVY_DAYTONA_API_KEY, HIVY_DAYTONA_API_URL, HIVY_DAYTONA_TARGET.
+// Required tools: Docker and the Daytona CLI. Required env:
+// HIVY_DAYTONA_API_KEY, HIVY_DAYTONA_API_URL, HIVY_DAYTONA_TARGET.
 //
 // Usage:
 //
@@ -40,6 +41,6 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
-  buildtemplates sandbox-runtime -version=v0.0.1              [-size=all|small,medium,large,xlarge]
-  buildtemplates sandbox-runtime-developers -version=v0.0.1   [-size=all|small,medium,large,xlarge]`)
+  buildtemplates sandbox-runtime -version=v0.0.1              [-size=all|micro,nano,small,medium,large,xlarge]
+  buildtemplates sandbox-runtime-developers -version=v0.0.1   [-size=all|micro,nano,small,medium,large,xlarge]`)
 }

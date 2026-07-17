@@ -1,0 +1,59 @@
+#!/bin/sh
+set -eu
+
+HIVY_SANDBOX_DATA_ROOT="${HIVY_SANDBOX_DATA_ROOT:-${HOME}/.hivy}"
+HIVY_DOCKER_DATA_ROOT="${HIVY_DOCKER_DATA_ROOT:-${HIVY_SANDBOX_DATA_ROOT}/docker}"
+XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-${HIVY_SANDBOX_DATA_ROOT}/run}"
+DOCKER_HOST="${DOCKER_HOST:-unix://${XDG_RUNTIME_DIR}/docker.sock}"
+DOCKER_TMPDIR="${DOCKER_TMPDIR:-${HIVY_SANDBOX_DATA_ROOT}/tmp/docker}"
+DOCKERD_ROOTLESS_ROOTLESSKIT_NET="${DOCKERD_ROOTLESS_ROOTLESSKIT_NET:-slirp4netns}"
+export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT XDG_RUNTIME_DIR DOCKER_HOST DOCKER_TMPDIR DOCKERD_ROOTLESS_ROOTLESSKIT_NET
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "docker CLI is not installed" >&2
+  exit 127
+fi
+if ! command -v dockerd-rootless.sh >/dev/null 2>&1; then
+  echo "dockerd-rootless.sh is not installed" >&2
+  exit 127
+fi
+
+mkdir -p \
+  "${HIVY_SANDBOX_DATA_ROOT}/logs" \
+  "${HIVY_DOCKER_DATA_ROOT}" \
+  "${XDG_RUNTIME_DIR}/docker" \
+  "${DOCKER_TMPDIR}"
+chmod 700 "${XDG_RUNTIME_DIR}"
+
+if docker info >/dev/null 2>&1; then
+  echo "docker already running"
+  exit 0
+fi
+
+rm -f "${XDG_RUNTIME_DIR}/docker.sock" "${XDG_RUNTIME_DIR}/dockerd.pid"
+rm -rf "${XDG_RUNTIME_DIR}/docker"
+mkdir -p "${XDG_RUNTIME_DIR}/docker"
+
+nohup dockerd-rootless.sh \
+  --host="${DOCKER_HOST}" \
+  --data-root="${HIVY_DOCKER_DATA_ROOT}" \
+  --exec-root="${XDG_RUNTIME_DIR}/docker" \
+  --pidfile="${XDG_RUNTIME_DIR}/dockerd.pid" \
+  --storage-driver=fuse-overlayfs \
+  >"${HIVY_SANDBOX_DATA_ROOT}/logs/dockerd.log" 2>&1 &
+dockerd_pid="$!"
+
+for _ in $(seq 1 120); do
+  if docker info >/dev/null 2>&1; then
+    echo "docker started"
+    exit 0
+  fi
+  if ! kill -0 "${dockerd_pid}" 2>/dev/null; then
+    cat "${HIVY_SANDBOX_DATA_ROOT}/logs/dockerd.log" >&2 || true
+    exit 1
+  fi
+  sleep 1
+done
+
+cat "${HIVY_SANDBOX_DATA_ROOT}/logs/dockerd.log" >&2 || true
+exit 1

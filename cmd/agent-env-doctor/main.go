@@ -18,7 +18,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	toolbox "github.com/daytonaio/daytona/libs/toolbox-api-client-go"
+	toolbox "github.com/daytona/clients/toolbox-api-client-go"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 )

@@ -1,15 +1,11 @@
-// Command verify-devbox spins up a sandbox from a dev-box snapshot and runs
-// HTTP-based verification against the services that should be listening
-// inside it: Runtime on :8080.
-//
-// Verification uses Daytona preview URLs (sandbox.GetPreviewLink) instead of
-// the toolbox proxy, because this Daytona instance returns a toolbox proxy
-// hostname (preview.example.com) that has no public DNS.
+// Command verify-devbox creates a sandbox from a Daytona runtime snapshot and
+// checks startup, config delivery, preview access, command execution, and the
+// developer image's rootless Docker daemon.
 //
 // Usage:
 //
-//	go run ./cmd/verify-devbox -snapshot hivy-dev-box-medium-v0.17.2
-//	go run ./cmd/verify-devbox -snapshot hivy-dev-box-medium-v0.17.2 -keep
+//	go run ./cmd/verify-devbox -snapshot hivy-sandboxes-runtime-daytona-7-2-1-small-v1
+//	go run ./cmd/verify-devbox -snapshot hivy-sandboxes-runtime-developers-daytona-7-2-1-small-v1
 //	go run ./cmd/verify-devbox -cleanup <sandbox-id>
 //
 // Requires HIVY_DAYTONA_API_KEY, HIVY_DAYTONA_API_URL, and HIVY_DAYTONA_TARGET in
@@ -18,6 +14,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -27,8 +25,21 @@ import (
 	"strings"
 	"time"
 
-	daytona "github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
-	"github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
+	daytona "github.com/daytona/clients/sdk-go/pkg/daytona"
+	"github.com/daytona/clients/sdk-go/pkg/types"
+
+	"github.com/usehivy/hivy/internal/agentruntime"
+)
+
+const (
+	runtimePort          = 7080
+	runtimeHealthPath    = "/healthz"
+	runtimeSecretEnv     = "HIVY_RUNTIME_SECRET" // #nosec G101 -- environment variable name, not a credential
+	daytonaUser          = "daytona"
+	daytonaHome          = "/home/daytona"
+	daytonaWorkspaceRoot = daytonaHome
+	daytonaDBPath        = daytonaHome + "/.hivy/runtime/hivy-sandboxes-runtime.db"
+	signedPreviewTTL     = 24 * 60 * 60
 )
 
 func mustEnv(name string) string {
@@ -48,7 +59,8 @@ func newClient(ctx context.Context) (*daytona.Client, error) {
 }
 
 func main() {
-	snapshot := flag.String("snapshot", "", "Snapshot name to verify (e.g. hivy-dev-box-medium-v0.17.2)")
+	snapshot := flag.String("snapshot", "", "Daytona runtime snapshot name to verify")
+	developer := flag.Bool("developer", false, "Require rootless Docker and run a Docker Compose workload (auto-detected for developer snapshot names)")
 	keep := flag.Bool("keep", false, "Keep the sandbox after verification (for manual debugging)")
 	cleanup := flag.String("cleanup", "", "Delete a sandbox by ID and exit (no verification)")
 	flag.Parse()
@@ -66,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := runVerify(*snapshot, *keep); err != nil {
+	if err := runVerify(*snapshot, *developer || strings.Contains(*snapshot, "developers"), *keep); err != nil {
 		log.Fatalf("verification failed: %v", err)
 	}
 }
@@ -96,7 +108,7 @@ func runCleanup(sandboxID string) error {
 	return nil
 }
 
-func runVerify(snapshot string, keep bool) (retErr error) {
+func runVerify(snapshot string, developer, keep bool) (retErr error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
@@ -106,8 +118,13 @@ func runVerify(snapshot string, keep bool) (retErr error) {
 	}
 	defer client.Close(ctx)
 
+	runtimeSecret, err := generateRuntimeSecret()
+	if err != nil {
+		return fmt.Errorf("generating runtime secret: %w", err)
+	}
+
 	log.Printf("Creating sandbox from snapshot %q...", snapshot)
-	sandbox, err := client.Create(ctx, types.SnapshotParams{Snapshot: snapshot})
+	sandbox, err := client.Create(ctx, sandboxParams(snapshot, runtimeSecret))
 	if err != nil {
 		return fmt.Errorf("creating sandbox: %w", err)
 	}
@@ -132,6 +149,43 @@ func runVerify(snapshot string, keep bool) (retErr error) {
 	}
 	log.Printf("Sandbox is running.")
 
+	if err := verifySandboxProcess(ctx, sandbox, developer); err != nil {
+		return err
+	}
+
+	log.Printf("Requesting a private signed Runtime preview URL...")
+	preview, err := sandbox.GetSignedPreviewLink(ctx, runtimePort, signedPreviewTTL)
+	if err != nil {
+		return fmt.Errorf("getting signed Runtime preview link: %w", err)
+	}
+	runtimeURL := strings.TrimRight(preview.URL, "/")
+	runtimeClient := agentruntime.NewClient(runtimeURL, runtimeSecret)
+
+	if err := waitForRuntimeHealth(ctx, runtimeClient); err != nil {
+		return err
+	}
+	definition, err := runtimeClient.GetConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("getting bootstrap Runtime config: %w", err)
+	}
+	if _, err := runtimeClient.PutRuntimeConfig(ctx, agentruntime.ConfigUpdateRequest{
+		RuntimeSecret: runtimeSecret,
+		RuntimeEnv: map[string]string{
+			"HOME":                             daytonaHome,
+			"HIVY_SANDBOX_DATA_ROOT":           daytonaHome + "/.hivy",
+			agentruntime.AgentEnvDBPath:        daytonaDBPath,
+			agentruntime.AgentEnvWorkspaceRoot: daytonaWorkspaceRoot,
+		},
+		Definition: definition,
+		Workspace:  &agentruntime.WorkspaceConfig{Repos: []agentruntime.WorkspaceRepoConfig{}},
+	}); err != nil {
+		return fmt.Errorf("pushing Runtime config: %w", err)
+	}
+	if err := runtimeClient.Readyz(ctx); err != nil {
+		return fmt.Errorf("checking Runtime readyz after config push: %w", err)
+	}
+	log.Printf("Runtime accepted config and reports ready.")
+
 	type portCheck struct {
 		name     string
 		port     int
@@ -139,23 +193,22 @@ func runVerify(snapshot string, keep bool) (retErr error) {
 		required bool // false = diagnostic only, doesn't fail the run
 	}
 	checks := []portCheck{
-		{name: "Runtime /health", port: 8080, path: "/health", required: true},
+		{name: "Runtime /healthz", port: runtimePort, path: runtimeHealthPath, required: true},
 		{name: "sentinel (definitely unbound)", port: 9999, path: "/", required: false},
 	}
 
 	failed := 0
 	for _, item := range checks {
 		log.Printf("\n[%s] requesting preview link for port %d...", item.name, item.port)
-		preview, err := sandbox.GetPreviewLink(ctx, item.port)
+		preview, err := sandbox.GetSignedPreviewLink(ctx, item.port, signedPreviewTTL)
 		if err != nil {
 			log.Printf("    ERROR getting preview link: %v", err)
-			failed++
+			if item.required {
+				failed++
+			}
 			continue
 		}
-		log.Printf("    URL:   %s", preview.URL)
-		if preview.Token != "" {
-			log.Printf("    Token: %s…", maskToken(preview.Token))
-		}
+		log.Printf("    signed private preview issued")
 
 		fullURL := strings.TrimRight(preview.URL, "/") + item.path
 
@@ -170,7 +223,7 @@ func runVerify(snapshot string, keep bool) (retErr error) {
 			attempts = 15
 		}
 		for attempt := 1; attempt <= attempts; attempt++ {
-			status, body, err := httpGet(ctx, fullURL, preview.Token)
+			status, body, err := httpGet(ctx, fullURL, "")
 			lastErr = err
 			lastStatus = status
 			lastBody = body
@@ -209,6 +262,94 @@ func runVerify(snapshot string, keep bool) (retErr error) {
 	return nil
 }
 
+func generateRuntimeSecret() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func sandboxParams(snapshot, runtimeSecret string) types.SnapshotParams {
+	return types.SnapshotParams{
+		SandboxBaseParams: types.SandboxBaseParams{
+			Name:   "hivy-daytona-acceptance-" + time.Now().UTC().Format("20060102-150405"),
+			User:   daytonaUser,
+			Public: false,
+			EnvVars: map[string]string{
+				"HOME":                   daytonaHome,
+				"HIVY_SANDBOX_DATA_ROOT": daytonaHome + "/.hivy",
+				"HIVY_DB_PATH":           daytonaDBPath,
+				"HIVY_WORKSPACE_ROOT":    daytonaWorkspaceRoot,
+				runtimeSecretEnv:         runtimeSecret,
+			},
+			NetworkBlockAll: false,
+		},
+		Snapshot: snapshot,
+	}
+}
+
+func verifySandboxProcess(ctx context.Context, sandbox *daytona.Sandbox, developer bool) error {
+	checks := []struct {
+		name    string
+		command string
+	}{
+		{name: "non-root Daytona user", command: `test "$(id -u)" = 1000 && test "$(whoami)" = daytona`},
+		{name: "Daytona home and workspace", command: `test "$HOME" = /home/daytona && test -w /home/daytona && test "$(readlink -f /workspace)" = /home/daytona`},
+		{name: "runtime process", command: `pgrep -f '^/usr/local/bin/hivy-sandboxes-runtime$' >/dev/null`},
+		{name: "no systemd dependency", command: `test "$(cat /proc/1/comm)" != systemd`},
+		{name: "outbound network", command: `curl -fsS --max-time 20 https://api.github.com/zen >/dev/null`},
+	}
+	if developer {
+		checks = append(checks,
+			struct {
+				name    string
+				command string
+			}{name: "rootless Docker", command: `docker info --format '{{json .SecurityOptions}}' | grep -q rootless`},
+			struct {
+				name    string
+				command string
+			}{name: "Docker Compose", command: `set -eu; d=$(mktemp -d); trap 'docker compose -f "$d/compose.yaml" down --remove-orphans >/dev/null 2>&1 || true; rm -rf "$d"' EXIT; printf '%s\n' 'services:' '  smoke:' '    image: alpine:3.22' '    command: ["sh", "-c", "echo compose-ok; sleep 30"]' >"$d/compose.yaml"; docker compose -f "$d/compose.yaml" up -d --wait; docker compose -f "$d/compose.yaml" logs smoke | grep -q compose-ok`},
+		)
+	} else {
+		checks = append(checks, struct {
+			name    string
+			command string
+		}{name: "default image excludes Docker", command: `! command -v docker >/dev/null 2>&1`})
+	}
+
+	for _, check := range checks {
+		log.Printf("Checking %s...", check.name)
+		result, err := sandbox.Process.ExecuteCommand(ctx, check.command)
+		if err != nil {
+			return fmt.Errorf("%s: %w", check.name, err)
+		}
+		if result.ExitCode != 0 {
+			return fmt.Errorf("%s exited %d: %s", check.name, result.ExitCode, truncate(result.Result, 500))
+		}
+	}
+	return nil
+}
+
+func waitForRuntimeHealth(ctx context.Context, client *agentruntime.Client) error {
+	deadline := time.Now().Add(2 * time.Minute)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if err := client.Healthz(ctx); err == nil {
+			log.Printf("Runtime health check passed.")
+			return nil
+		} else {
+			lastErr = err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+	return fmt.Errorf("waiting for Runtime health: %w", lastErr)
+}
+
 func httpGet(ctx context.Context, url, token string) (int, string, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -232,13 +373,6 @@ func httpGet(ctx context.Context, url, token string) (int, string, error) {
 		return resp.StatusCode, "", err
 	}
 	return resp.StatusCode, string(body), nil
-}
-
-func maskToken(token string) string {
-	if len(token) <= 8 {
-		return "****"
-	}
-	return token[:4] + "…" + token[len(token)-4:]
 }
 
 func truncate(text string, limit int) string {

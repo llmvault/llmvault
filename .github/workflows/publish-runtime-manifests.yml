@@ -61,6 +61,8 @@ jobs:
         run: |
           runtime="ghcr.io/usehivy/hivy-sandboxes-runtime"
           developers="ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
+          runtime_daytona="ghcr.io/usehivy/hivy-sandboxes-runtime-daytona"
+          developers_daytona="ghcr.io/usehivy/hivy-sandboxes-runtime-developers-daytona"
           for image in "$runtime" "$developers"; do
             docker buildx imagetools create \
               -t "${image}:${{ steps.version.outputs.RELEASE_TAG }}" \
@@ -75,6 +77,19 @@ jobs:
                 -t "${image}:latest" \
                 "${image}:${{ steps.version.outputs.RELEASE_TAG }}-amd64" \
                 "${image}:${{ steps.version.outputs.RELEASE_TAG }}-arm64"
+            fi
+          done
+          for image in "$runtime_daytona" "$developers_daytona"; do
+            docker buildx imagetools create \
+              -t "${image}:${{ steps.version.outputs.RELEASE_TAG }}" \
+              "${image}:${{ steps.version.outputs.RELEASE_TAG }}-amd64"
+            docker buildx imagetools create \
+              -t "${image}:${{ steps.version.outputs.RELEASE_VERSION }}" \
+              "${image}:${{ steps.version.outputs.RELEASE_TAG }}-amd64"
+            if [[ "${{ steps.version.outputs.RELEASE_IS_PRERELEASE }}" != "true" ]]; then
+              docker buildx imagetools create \
+                -t "${image}:latest" \
+                "${image}:${{ steps.version.outputs.RELEASE_TAG }}-amd64"
             fi
           done
 
@@ -92,11 +107,62 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ steps.version.outputs.RELEASE_TAG }}" release-manifest.json --clobber
 
+  publish-daytona-snapshots:
+    name: publish Daytona snapshots
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    needs:
+      - publish
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.publish.outputs.tag }}
+
+      - name: download manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: install Daytona CLI
+        run: |
+          sudo curl -fL https://github.com/daytonaio/daytona/releases/latest/download/daytona-linux-amd64 -o /usr/local/bin/daytona
+          sudo chmod +x /usr/local/bin/daytona
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: publish versioned snapshots
+        env:
+          HIVY_DAYTONA_API_KEY: ${{ secrets.HIVY_DAYTONA_API_KEY }}
+          HIVY_DAYTONA_API_URL: ${{ vars.HIVY_DAYTONA_API_URL }}
+          HIVY_DAYTONA_TARGET: ${{ vars.HIVY_DAYTONA_TARGET }}
+        run: bash ./scripts/release/publish-daytona-snapshots.sh release-manifest.json
+
+      - name: verify default and developer snapshots
+        env:
+          HIVY_DAYTONA_API_KEY: ${{ secrets.HIVY_DAYTONA_API_KEY }}
+          HIVY_DAYTONA_API_URL: ${{ vars.HIVY_DAYTONA_API_URL }}
+          HIVY_DAYTONA_TARGET: ${{ vars.HIVY_DAYTONA_TARGET }}
+        run: |
+          version="${{ needs.publish.outputs.version }}"
+          dashed_version="${version//./-}"
+          go run ./cmd/verify-devbox -snapshot "hivy-sandboxes-runtime-daytona-${dashed_version}-small-v1"
+          go run ./cmd/verify-devbox -snapshot "hivy-sandboxes-runtime-developers-daytona-${dashed_version}-small-v1"
+
   update-railway-runtime-config:
     name: update Railway runtime config
     runs-on: ubuntu-latest
     needs:
       - publish
+      - publish-daytona-snapshots
     steps:
       - uses: actions/checkout@v6
         with:
@@ -116,4 +182,8 @@ jobs:
           RAILWAY_ENVIRONMENT: production
           RAILWAY_SERVICES: "api.usehivy.com asynq.usehivy.com"
           HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX: amd64
+          HIVY_SANDBOX_PROVIDER_ID: daytona
+          HIVY_DAYTONA_API_KEY: ${{ secrets.HIVY_DAYTONA_API_KEY }}
+          HIVY_DAYTONA_API_URL: ${{ vars.HIVY_DAYTONA_API_URL }}
+          HIVY_DAYTONA_TARGET: ${{ vars.HIVY_DAYTONA_TARGET }}
         run: ./scripts/release/update-railway-runtime-config.sh release-manifest.json

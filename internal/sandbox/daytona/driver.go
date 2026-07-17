@@ -9,15 +9,24 @@ import (
 	"strings"
 	"time"
 
-	apiclient "github.com/daytonaio/daytona/libs/api-client-go"
-	daytonasdk "github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
-	daytonaerrors "github.com/daytonaio/daytona/libs/sdk-go/pkg/errors"
-	sdktypes "github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
+	apiclient "github.com/daytona/clients/api-client-go"
+	daytonasdk "github.com/daytona/clients/sdk-go/pkg/daytona"
+	daytonaerrors "github.com/daytona/clients/sdk-go/pkg/errors"
+	sdktypes "github.com/daytona/clients/sdk-go/pkg/types"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-const signedURLTTLSeconds = 3600
+const (
+	signedURLTTLSeconds  = 24 * 60 * 60
+	daytonaUser          = "daytona"
+	daytonaHome          = "/home/daytona"
+	daytonaWorkspaceRoot = daytonaHome
+	daytonaRepoDir       = daytonaWorkspaceRoot + "/repos"
+	daytonaDataRoot      = daytonaHome + "/.hivy"
+	daytonaDBPath        = daytonaDataRoot + "/runtime/hivy-sandboxes-runtime.db"
+)
 
 type Config struct {
 	APIURL string
@@ -46,8 +55,8 @@ func (d *Driver) ID() string { return sandbox.ProviderDaytona }
 
 func (d *Driver) RuntimeLayout() sandbox.RuntimeLayout {
 	return sandbox.RuntimeLayout{
-		AgentRepoDir:     "/home/daytona/repos",
-		WorkspaceRepoDir: "/workspace/repos",
+		AgentRepoDir:     daytonaRepoDir,
+		WorkspaceRepoDir: daytonaRepoDir,
 	}
 }
 
@@ -122,7 +131,18 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		return nil, fmt.Errorf("daytona: CreateSandbox requires a TemplateRef")
 	}
 
-	sb, err := d.sdk.Create(ctx, snapshotParamsFromCreateOpts(opts))
+	params, err := snapshotParamsFromCreateOpts(opts)
+	if err != nil {
+		return nil, err
+	}
+	if isDaytonaMicroRuntime(opts) {
+		logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona micro sandbox allocation",
+			"requested_memory_gb", opts.Memory,
+			"daytona_memory_gb", 1,
+			"snapshot", params.Snapshot,
+		)
+	}
+	sb, err := d.sdk.Create(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("creating sandbox: %w", err)
 	}
@@ -137,20 +157,31 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	}, nil
 }
 
-func snapshotParamsFromCreateOpts(opts sandbox.CreateSandboxOpts) sdktypes.SnapshotParams {
+func snapshotParamsFromCreateOpts(opts sandbox.CreateSandboxOpts) (sdktypes.SnapshotParams, error) {
 	envVars := make(map[string]string, len(opts.EnvVars))
 	maps.Copy(envVars, opts.EnvVars)
+	envVars["HOME"] = daytonaHome
+	envVars["HIVY_SANDBOX_DATA_ROOT"] = daytonaDataRoot
+	envVars["HIVY_DB_PATH"] = daytonaDBPath
+	envVars["HIVY_WORKSPACE_ROOT"] = daytonaWorkspaceRoot
+
+	snapshotRef, err := resolveRuntimeSnapshotRef(opts)
+	if err != nil {
+		return sdktypes.SnapshotParams{}, fmt.Errorf("daytona: resolve snapshot: %w", err)
+	}
 
 	// SDK switches on value types; passing pointers silently drops fields.
 	return sdktypes.SnapshotParams{
 		SandboxBaseParams: sdktypes.SandboxBaseParams{
-			Name:    opts.Name,
-			EnvVars: envVars,
-			Labels:  opts.Labels,
-			Public:  false,
+			Name:            opts.Name,
+			User:            daytonaUser,
+			EnvVars:         envVars,
+			Labels:          opts.Labels,
+			Public:          false,
+			NetworkBlockAll: false,
 		},
-		Snapshot: opts.TemplateRef,
-	}
+		Snapshot: snapshotRef,
+	}, nil
 }
 
 func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {

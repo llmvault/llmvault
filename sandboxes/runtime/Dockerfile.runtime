@@ -1,4 +1,4 @@
-FROM debian:13.4
+FROM debian:13.4 AS runtime-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV container=microsandbox
@@ -10,6 +10,7 @@ ENV PATH=/usr/local/share/mise/shims:${PATH}
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG TARGETARCH
+ARG GIT_LFS_VERSION=3.6.1
 
 LABEL org.opencontainers.image.source="https://github.com/usehivy/hivy"
 LABEL org.opencontainers.image.version="${VERSION}"
@@ -27,7 +28,6 @@ RUN apt-get update \
     findutils \
     gh \
     git \
-    git-lfs \
     gzip \
     jq \
     less \
@@ -40,8 +40,6 @@ RUN apt-get update \
     shellcheck \
     shfmt \
     sqlite3 \
-    systemd \
-    systemd-sysv \
     tar \
     tini \
     unzip \
@@ -52,18 +50,12 @@ RUN apt-get update \
     zsh \
     zstd \
   && ln -s /usr/bin/fdfind /usr/local/bin/fd \
-  && git lfs install --system \
-  && systemctl mask \
-    dev-hugepages.mount \
-    sys-fs-fuse-connections.mount \
-    systemd-hwdb-update.service \
-    systemd-journal-flush.service \
-    systemd-modules-load.service \
-    systemd-remount-fs.service \
-    systemd-sysctl.service \
-    systemd-tmpfiles-setup-dev.service \
-    systemd-udev-trigger.service \
-    systemd-udevd.service \
+  && curl -fsSL "https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-${TARGETARCH}-v${GIT_LFS_VERSION}.tar.gz" \
+    | tar -xz -C /usr/local/bin --strip-components=1 "git-lfs-${GIT_LFS_VERSION}/git-lfs" \
+  && git config --system filter.lfs.clean 'git-lfs clean -- %f' \
+  && git config --system filter.lfs.smudge 'git-lfs smudge -- %f' \
+  && git config --system filter.lfs.process 'git-lfs filter-process' \
+  && git config --system filter.lfs.required true \
   && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update \
@@ -166,8 +158,6 @@ WORKDIR /app
 COPY hivy-sandboxes-runtime /usr/local/bin/hivy-sandboxes-runtime
 COPY canvas /usr/local/bin/canvas
 COPY docker/runtime/entrypoint /usr/local/bin/hivy-runtime-entrypoint
-COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
-COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
 COPY docker/runtime/git-credential-hivy /usr/local/bin/git-credential-hivy
 COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
@@ -176,13 +166,11 @@ RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
   && chmod +x /usr/local/bin/canvas \
   && mkdir -p /app /workspace/.hivy/runtime /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
-  && chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
   && chmod +x /usr/local/bin/git-credential-hivy \
   && chmod +x /usr/local/bin/gh-wrapper \
   && chmod +x /usr/local/bin/hivy-guardian \
   && git config --system credential.helper /usr/local/bin/git-credential-hivy \
-  && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh \
-  && systemctl enable hivy-runtime.service
+  && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh
 
 ENV HIVY_SANDBOX_DATA_ROOT=/workspace/.hivy
 ENV HIVY_DB_PATH=/workspace/.hivy/runtime/hivy-sandboxes-runtime.db
@@ -192,6 +180,56 @@ ENV HIVY_SANDBOXES_RUNTIME_VERSION=${VERSION}
 ENV HIVY_SANDBOXES_RUNTIME_COMMIT=${COMMIT}
 
 EXPOSE 7080
+
+FROM runtime-base AS daytona
+
+ENV container=daytona
+
+COPY docker/daytona/entrypoint /usr/local/bin/hivy-daytona-entrypoint
+
+RUN groupadd --gid 1000 daytona \
+  && useradd --uid 1000 --gid daytona --create-home --home-dir /home/daytona --shell /bin/bash daytona \
+  && mkdir -p /home/daytona/.hivy/runtime /home/daytona/.hivy/logs /home/daytona/.hivy/tmp /home/daytona/repos /home/daytona/canvas \
+  && rm -rf /workspace \
+  && ln -s /home/daytona /workspace \
+  && chown -R daytona:daytona /home/daytona \
+  && chmod +x /usr/local/bin/hivy-daytona-entrypoint
+
+ENV HOME=/home/daytona
+ENV HIVY_SANDBOX_DATA_ROOT=/home/daytona/.hivy
+ENV HIVY_DB_PATH=/home/daytona/.hivy/runtime/hivy-sandboxes-runtime.db
+ENV HIVY_WORKSPACE_ROOT=/home/daytona
+ENV TMPDIR=/home/daytona/.hivy/tmp
+ENV TEMP=/home/daytona/.hivy/tmp
+ENV TMP=/home/daytona/.hivy/tmp
+
+WORKDIR /home/daytona
+USER daytona
+
+ENTRYPOINT ["/usr/local/bin/hivy-daytona-entrypoint"]
+
+FROM runtime-base AS microsandbox
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends systemd systemd-sysv \
+  && systemctl mask \
+    dev-hugepages.mount \
+    sys-fs-fuse-connections.mount \
+    systemd-hwdb-update.service \
+    systemd-journal-flush.service \
+    systemd-modules-load.service \
+    systemd-remount-fs.service \
+    systemd-sysctl.service \
+    systemd-tmpfiles-setup-dev.service \
+    systemd-udev-trigger.service \
+    systemd-udevd.service \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
+COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
+
+RUN chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
+  && systemctl enable hivy-runtime.service
 
 STOPSIGNAL SIGRTMIN+4
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/hivy-runtime-entrypoint", "/usr/local/bin/hivy-sandboxes-runtime"]

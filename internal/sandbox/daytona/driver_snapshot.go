@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
-	daytonasdk "github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
-	sdktypes "github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
+	daytonasdk "github.com/daytona/clients/sdk-go/pkg/daytona"
+	daytonaoptions "github.com/daytona/clients/sdk-go/pkg/options"
+	sdktypes "github.com/daytona/clients/sdk-go/pkg/types"
+	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -24,6 +29,9 @@ func (d *Driver) buildImage(ctx context.Context, opts sandbox.TemplateBuildReque
 	baseImage := opts.BaseImage
 	if baseImage == "" {
 		baseImage = "node:22-bookworm-slim"
+	}
+	if isHivyRuntimeImageRef(baseImage) {
+		return d.buildFromRuntimeSnapshot(ctx, opts, baseImage, onLog)
 	}
 
 	image := daytonasdk.Base(baseImage)
@@ -61,9 +69,18 @@ func (d *Driver) buildImage(ctx context.Context, opts sandbox.TemplateBuildReque
 		Image: image,
 	}
 	if opts.CPU > 0 || opts.Memory > 0 || opts.Disk > 0 {
+		memory := opts.Memory
+		if size, ok := model.TemplateSizeForResources(opts.CPU, opts.Memory, opts.Disk); ok && size == "micro" {
+			memory = 1
+			logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona micro template allocation",
+				"requested_memory_gb", opts.Memory,
+				"daytona_memory_gb", memory,
+				"template", opts.Name,
+			)
+		}
 		params.Resources = &sdktypes.Resources{
 			CPU:    opts.CPU,
-			Memory: opts.Memory,
+			Memory: memory,
 			Disk:   opts.Disk,
 		}
 	}
@@ -86,6 +103,111 @@ func (d *Driver) buildImage(ctx context.Context, opts sandbox.TemplateBuildReque
 	}
 
 	return snapshot.Name, nil
+}
+
+func (d *Driver) buildFromRuntimeSnapshot(
+	ctx context.Context,
+	opts sandbox.TemplateBuildRequest,
+	baseImage string,
+	onLog func(string),
+) (string, error) {
+	snapshotRef, err := resolveRuntimeSnapshotRef(sandbox.CreateSandboxOpts{
+		TemplateRef: baseImage,
+		CPU:         opts.CPU,
+		Memory:      opts.Memory,
+		Disk:        opts.Disk,
+	})
+	if err != nil {
+		return "", fmt.Errorf("resolving Daytona runtime snapshot: %w", err)
+	}
+
+	buildName := fmt.Sprintf("hivy-template-build-%s", uuid.NewString())
+	buildSandbox, err := d.sdk.Create(ctx, sdktypes.SnapshotParams{
+		SandboxBaseParams: sdktypes.SandboxBaseParams{
+			Name:            buildName,
+			User:            daytonaUser,
+			Public:          false,
+			NetworkBlockAll: false,
+			EnvVars: map[string]string{
+				"HOME":                   daytonaHome,
+				"HIVY_SANDBOX_DATA_ROOT": daytonaDataRoot,
+				"HIVY_DB_PATH":           daytonaDBPath,
+				"HIVY_WORKSPACE_ROOT":    daytonaWorkspaceRoot,
+			},
+		},
+		Snapshot: snapshotRef,
+	})
+	if err != nil {
+		return "", fmt.Errorf("creating Daytona template build sandbox: %w", err)
+	}
+	defer func() {
+		// Template-build sandboxes are temporary. Use a fresh context so caller
+		// cancellation does not leave paid infrastructure behind.
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		defer cancel()
+		_ = buildSandbox.Delete(cleanupCtx)
+	}()
+
+	if err := buildSandbox.WaitForStart(ctx, 3*time.Minute); err != nil {
+		return "", fmt.Errorf("waiting for Daytona template build sandbox: %w", err)
+	}
+	if onLog != nil {
+		onLog(fmt.Sprintf("building template from Daytona snapshot %s", snapshotRef))
+	}
+
+	commands := nonEmptyCommands(opts.BuildCommands)
+	if len(commands) > 0 {
+		result, execErr := buildSandbox.Process.ExecuteCommand(
+			ctx,
+			strings.Join(commands, " && "),
+			daytonaoptions.WithCwd(daytonaWorkspaceRoot),
+			daytonaoptions.WithExecuteTimeout(15*time.Minute),
+		)
+		if execErr != nil {
+			return "", fmt.Errorf("executing Daytona template build commands: %w", execErr)
+		}
+		if onLog != nil && strings.TrimSpace(result.Result) != "" {
+			onLog(result.Result)
+		}
+		if result.ExitCode != 0 {
+			return "", fmt.Errorf("Daytona template build commands exited with status %d", result.ExitCode)
+		}
+	}
+
+	// The runtime starts while the template is being prepared. Do not bake its
+	// transient database or logs into every sandbox created from the template.
+	cleanupResult, execErr := buildSandbox.Process.ExecuteCommand(
+		ctx,
+		fmt.Sprintf("rm -rf %s/runtime/* %s/logs/*", daytonaDataRoot, daytonaDataRoot),
+		daytonaoptions.WithExecuteTimeout(time.Minute),
+	)
+	if execErr != nil {
+		return "", fmt.Errorf("cleaning Daytona template runtime state: %w", execErr)
+	}
+	if cleanupResult.ExitCode != 0 {
+		return "", fmt.Errorf("cleaning Daytona template runtime state exited with status %d", cleanupResult.ExitCode)
+	}
+	if err := buildSandbox.Stop(ctx); err != nil {
+		return "", fmt.Errorf("stopping Daytona template build sandbox before capture: %w", err)
+	}
+
+	if onLog != nil {
+		onLog("capturing prepared sandbox filesystem")
+	}
+	if err := buildSandbox.ExperimentalCreateSnapshotWithTimeout(ctx, opts.Name, 15*time.Minute); err != nil {
+		return "", fmt.Errorf("capturing Daytona template snapshot: %w", err)
+	}
+	return opts.Name, nil
+}
+
+func nonEmptyCommands(commands []string) []string {
+	nonEmpty := make([]string, 0, len(commands))
+	for _, command := range commands {
+		if trimmed := strings.TrimSpace(command); trimmed != "" {
+			nonEmpty = append(nonEmpty, trimmed)
+		}
+	}
+	return nonEmpty
 }
 
 func (d *Driver) DeleteTemplate(ctx context.Context, externalID string) error {

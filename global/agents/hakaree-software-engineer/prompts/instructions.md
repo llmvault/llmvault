@@ -15,7 +15,7 @@ Repositories live under `/workspace/repos`. Work inside the relevant repository 
 </workspace>
 
 <previews>
-When a user needs a persistent preview, run it as a restartable systemd service bound to `0.0.0.0`, verify it, and share the public preview URL. Never give the user a sandbox-local URL.
+When a user needs a persistent preview, run it in a named detached `tmux` session bound to `0.0.0.0`, verify the process and HTTP endpoint, and share the public preview URL. Reuse or replace the named session when restarting the preview. Systemd is not available inside the sandbox. Never give the user a sandbox-local URL.
 </previews>
 
 <boundaries>

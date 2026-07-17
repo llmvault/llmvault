@@ -1,7 +1,6 @@
 package daytona
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -24,16 +23,39 @@ func TestSnapshotParamsFromCreateOpts_PassesEnvVarsUnchanged(t *testing.T) {
 		Labels: map[string]string{"harness": "agent-sandbox"},
 	}
 
-	params := snapshotParamsFromCreateOpts(opts)
+	params, err := snapshotParamsFromCreateOpts(opts)
+	if err != nil {
+		t.Fatalf("create params: %v", err)
+	}
 	if params.Snapshot != opts.TemplateRef {
 		t.Fatalf("snapshot = %q, want %q", params.Snapshot, opts.TemplateRef)
 	}
-	if !reflect.DeepEqual(params.EnvVars, opts.EnvVars) {
-		t.Fatalf("env vars = %#v, want %#v", params.EnvVars, opts.EnvVars)
+	for key, want := range opts.EnvVars {
+		if got := params.EnvVars[key]; got != want {
+			t.Fatalf("env %s = %q, want %q", key, got, want)
+		}
 	}
 	opts.EnvVars["HIVY_RUNTIME_SECRET"] = "mutated"
 	if params.EnvVars["HIVY_RUNTIME_SECRET"] != "secret" {
 		t.Fatalf("params env should be copied, got %q", params.EnvVars["HIVY_RUNTIME_SECRET"])
+	}
+	if params.User != daytonaUser {
+		t.Fatalf("user = %q, want %q", params.User, daytonaUser)
+	}
+	if params.EnvVars["HOME"] != daytonaHome {
+		t.Fatalf("HOME = %q, want %q", params.EnvVars["HOME"], daytonaHome)
+	}
+	if params.EnvVars["HIVY_WORKSPACE_ROOT"] != daytonaWorkspaceRoot {
+		t.Fatalf("workspace root = %q, want %q", params.EnvVars["HIVY_WORKSPACE_ROOT"], daytonaWorkspaceRoot)
+	}
+	if params.EnvVars["HIVY_DB_PATH"] != daytonaDBPath {
+		t.Fatalf("db path = %q, want %q", params.EnvVars["HIVY_DB_PATH"], daytonaDBPath)
+	}
+	if params.Public {
+		t.Fatal("sandbox preview must remain private")
+	}
+	if params.NetworkBlockAll {
+		t.Fatal("sandbox outbound network must not be blocked")
 	}
 }
 

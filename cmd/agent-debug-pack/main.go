@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	toolbox "github.com/daytonaio/daytona/libs/toolbox-api-client-go"
+	toolbox "github.com/daytona/clients/toolbox-api-client-go"
 )
 
 //go:embed debug-pack.sh

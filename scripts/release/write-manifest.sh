@@ -27,12 +27,17 @@ cat >"${out}" <<EOF
     "sandboxesRuntimeSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_VERSION}",
     "sandboxesRuntimeDevelopers": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_TAG}",
     "sandboxesRuntimeDevelopersSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_VERSION}",
+    "sandboxesRuntimeDaytona": "ghcr.io/usehivy/hivy-sandboxes-runtime-daytona:${RELEASE_TAG}",
+    "sandboxesRuntimeDaytonaSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-daytona:${RELEASE_VERSION}",
+    "sandboxesRuntimeDevelopersDaytona": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers-daytona:${RELEASE_TAG}",
+    "sandboxesRuntimeDevelopersDaytonaSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers-daytona:${RELEASE_VERSION}",
     "sandboxesApp": "ghcr.io/usehivy/hivy-app:${RELEASE_TAG}",
     "sandboxesAppSemver": "ghcr.io/usehivy/hivy-app:${RELEASE_VERSION}"
   },
   "runtimeConfig": {
     "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG": "${RELEASE_TAG}",
-    "HIVY_SANDBOXES_APP_IMAGE_TAG": "${RELEASE_TAG}"
+    "HIVY_SANDBOXES_APP_IMAGE_TAG": "${RELEASE_TAG}",
+    "HIVY_SANDBOX_PROVIDER_ID": "daytona"
   }
 }
 EOF
