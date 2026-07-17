@@ -382,6 +382,7 @@ jobs:
   update-railway-runtime-config:
     name: update Railway runtime config
     runs-on: ubuntu-latest
+    if: needs.prepare.outputs.prerelease != 'true'
     needs:
       - prepare
       - release-manifest

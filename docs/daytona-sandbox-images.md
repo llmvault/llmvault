@@ -133,6 +133,7 @@ The release workflow performs this sequence:
    and write the Daytona connection variables.
 
 Railway is not changed if image publication or snapshot activation fails.
+Prereleases also build and verify their snapshots but do not update Railway.
 
 Daytona previously returned `denied` while pulling Hivy's public GHCR packages
 through its remote image path. The release job therefore authenticates to GHCR,

@@ -25,6 +25,7 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.RELEASE_TAG }}
       version: ${{ steps.version.outputs.RELEASE_VERSION }}
+      prerelease: ${{ steps.version.outputs.RELEASE_IS_PRERELEASE }}
       commit: ${{ steps.version.outputs.RELEASE_COMMIT }}
     steps:
       - uses: actions/checkout@v6
@@ -160,6 +161,7 @@ jobs:
   update-railway-runtime-config:
     name: update Railway runtime config
     runs-on: ubuntu-latest
+    if: needs.publish.outputs.prerelease != 'true'
     needs:
       - publish
       - publish-daytona-snapshots
