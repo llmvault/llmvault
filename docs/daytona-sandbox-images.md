@@ -29,6 +29,8 @@ The Daytona targets use this contract:
   passwordless `sudo` rule before the Hivy runtime. Daytona's container DinD
   support requires that daemon model. The sandbox user, Runtime, and agent
   commands remain UID 1000; `DOCKER_HOST` points to a `docker`-group socket.
+  The daemon uses `overlay2`; `fuse-overlayfs` cannot remount nested container
+  root filesystems in Daytona's container sandbox.
 
 The Hivy systemd service and environment generator are installed only in the
 `microsandbox` target. Some desktop or browser packages may bring systemd

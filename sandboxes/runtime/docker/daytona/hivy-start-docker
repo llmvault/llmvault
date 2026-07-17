@@ -44,7 +44,7 @@ nohup dockerd \
   --data-root="${HIVY_DOCKER_DATA_ROOT}" \
   --exec-root="${DOCKER_EXEC_ROOT}" \
   --pidfile="${XDG_RUNTIME_DIR}/dockerd.pid" \
-  --storage-driver=fuse-overlayfs \
+  --storage-driver=overlay2 \
   --group=docker \
   >"${HIVY_SANDBOX_DATA_ROOT}/logs/dockerd.log" 2>&1 &
 dockerd_pid="$!"

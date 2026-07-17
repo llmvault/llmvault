@@ -74,7 +74,7 @@ func verifySandboxProcess(ctx context.Context, sandbox *daytona.Sandbox, develop
 			return fmt.Errorf("%s: %w", check.name, err)
 		}
 		if result.ExitCode != 0 {
-			return fmt.Errorf("%s exited %d: %s", check.name, result.ExitCode, truncate(result.Result, 500))
+			return fmt.Errorf("%s exited %d: %s", check.name, result.ExitCode, truncate(result.Result, 4000))
 		}
 	}
 	return nil
