@@ -1,6 +1,6 @@
 // Command verify-devbox creates a sandbox from a Daytona runtime snapshot and
 // checks startup, config delivery, preview access, command execution, and the
-// developer image's rootless Docker daemon.
+// developer image's Docker daemon.
 //
 // Usage:
 //
@@ -58,7 +58,7 @@ func newClient(ctx context.Context) (*daytona.Client, error) {
 
 func main() {
 	snapshot := flag.String("snapshot", "", "Daytona runtime snapshot name to verify")
-	developer := flag.Bool("developer", false, "Require rootless Docker and run a Docker Compose workload (auto-detected for developer snapshot names)")
+	developer := flag.Bool("developer", false, "Require Docker and run a Docker Compose workload (auto-detected for developer snapshot names)")
 	keep := flag.Bool("keep", false, "Keep the sandbox after verification (for manual debugging)")
 	cleanup := flag.String("cleanup", "", "Delete a sandbox by ID and exit (no verification)")
 	flag.Parse()

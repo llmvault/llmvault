@@ -35,13 +35,17 @@ func sandboxParams(snapshot, runtimeSecret string) types.SnapshotParams {
 }
 
 func verifySandboxProcess(ctx context.Context, sandbox *daytona.Sandbox, developer bool) error {
+	runtimeProcessCommand := `pgrep -f '^/usr/local/bin/hivy-sandboxes-runtime$' >/dev/null`
+	if developer {
+		runtimeProcessCommand = `for _ in $(seq 1 45); do pgrep -f '^/usr/local/bin/hivy-sandboxes-runtime$' >/dev/null && exit 0; sleep 1; done; cat "$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" 2>/dev/null || true; exit 1`
+	}
 	checks := []struct {
 		name    string
 		command string
 	}{
 		{name: "non-root Daytona user", command: `test "$(id -u)" = 1000 && test "$(whoami)" = daytona`},
 		{name: "Daytona home and workspace", command: `test "$HOME" = /home/daytona && test -w /home/daytona && test "$(readlink -f /workspace)" = /home/daytona`},
-		{name: "runtime process", command: `pgrep -f '^/usr/local/bin/hivy-sandboxes-runtime$' >/dev/null`},
+		{name: "runtime process", command: runtimeProcessCommand},
 		{name: "no systemd dependency", command: `test "$(cat /proc/1/comm)" != systemd`},
 		{name: "outbound network", command: `curl -fsS --max-time 20 https://api.github.com/zen >/dev/null`},
 	}
@@ -50,7 +54,7 @@ func verifySandboxProcess(ctx context.Context, sandbox *daytona.Sandbox, develop
 			struct {
 				name    string
 				command string
-			}{name: "rootless Docker", command: `docker info --format '{{json .SecurityOptions}}' | grep -q rootless`},
+			}{name: "Docker daemon", command: `test "$(id -u)" = 1000 && docker info >/dev/null`},
 			struct {
 				name    string
 				command string

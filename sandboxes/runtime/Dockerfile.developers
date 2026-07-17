@@ -322,28 +322,26 @@ EXPOSE 7080
 
 FROM runtime-base AS daytona
 
-ARG DOCKER_ROOTLESS_VERSION=28.3.3
-
 ENV container=daytona
 
 COPY docker/daytona/entrypoint /usr/local/bin/hivy-daytona-entrypoint
 COPY docker/daytona/hivy-start-docker /usr/local/bin/hivy-start-docker
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends slirp4netns uidmap \
-  && curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-rootless-extras-${DOCKER_ROOTLESS_VERSION}.tgz" \
-    | tar -xz -C /usr/local/bin --strip-components=1 \
+  && apt-get install -y --no-install-recommends sudo \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --gid 1000 daytona \
   && useradd --uid 1000 --gid daytona --create-home --home-dir /home/daytona --shell /bin/bash daytona \
-  && { grep -q '^daytona:' /etc/subuid || printf '%s\n' 'daytona:100000:65536' >>/etc/subuid; } \
-  && { grep -q '^daytona:' /etc/subgid || printf '%s\n' 'daytona:100000:65536' >>/etc/subgid; } \
+  && { getent group docker >/dev/null || groupadd --system docker; } \
+  && usermod --append --groups docker daytona \
   && mkdir -p /home/daytona/.cache/mise /home/daytona/.config /home/daytona/.hivy/runtime /home/daytona/.hivy/logs /home/daytona/.hivy/tmp/docker /home/daytona/.hivy/docker /home/daytona/.hivy/run /home/daytona/repos /home/daytona/canvas \
   && cp -a /usr/local/etc/mise /home/daytona/.config/mise \
   && rm -rf /workspace \
   && ln -s /home/daytona /workspace \
   && chown -R daytona:daytona /home/daytona \
-  && chmod +x /usr/local/bin/hivy-daytona-entrypoint /usr/local/bin/hivy-start-docker
+  && chmod +x /usr/local/bin/hivy-daytona-entrypoint /usr/local/bin/hivy-start-docker \
+  && printf '%s\n' 'daytona ALL=(root) NOPASSWD: /usr/local/bin/hivy-start-docker' >/etc/sudoers.d/hivy-daytona-docker \
+  && chmod 440 /etc/sudoers.d/hivy-daytona-docker
 
 ENV HOME=/home/daytona
 ENV MISE_CONFIG_DIR=/home/daytona/.config/mise

@@ -1,29 +1,34 @@
 #!/bin/sh
 set -eu
 
-HIVY_SANDBOX_DATA_ROOT="${HIVY_SANDBOX_DATA_ROOT:-${HOME}/.hivy}"
-HIVY_DOCKER_DATA_ROOT="${HIVY_DOCKER_DATA_ROOT:-${HIVY_SANDBOX_DATA_ROOT}/docker}"
-XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-${HIVY_SANDBOX_DATA_ROOT}/run}"
-DOCKER_HOST="${DOCKER_HOST:-unix://${XDG_RUNTIME_DIR}/docker.sock}"
-DOCKER_TMPDIR="${DOCKER_TMPDIR:-${HIVY_SANDBOX_DATA_ROOT}/tmp/docker}"
-DOCKERD_ROOTLESS_ROOTLESSKIT_NET="${DOCKERD_ROOTLESS_ROOTLESSKIT_NET:-slirp4netns}"
-export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT XDG_RUNTIME_DIR DOCKER_HOST DOCKER_TMPDIR DOCKERD_ROOTLESS_ROOTLESSKIT_NET
+if [ "$(id -u)" -ne 0 ]; then
+  exec sudo -n /usr/local/bin/hivy-start-docker
+fi
+
+HIVY_SANDBOX_DATA_ROOT=/home/daytona/.hivy
+HIVY_DOCKER_DATA_ROOT="${HIVY_SANDBOX_DATA_ROOT}/docker"
+XDG_RUNTIME_DIR="${HIVY_SANDBOX_DATA_ROOT}/run"
+DOCKER_EXEC_ROOT="${XDG_RUNTIME_DIR}/docker"
+DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
+DOCKER_TMPDIR="${HIVY_SANDBOX_DATA_ROOT}/tmp/docker"
+export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT XDG_RUNTIME_DIR DOCKER_HOST DOCKER_TMPDIR
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "docker CLI is not installed" >&2
   exit 127
 fi
-if ! command -v dockerd-rootless.sh >/dev/null 2>&1; then
-  echo "dockerd-rootless.sh is not installed" >&2
+if ! command -v dockerd >/dev/null 2>&1; then
+  echo "dockerd is not installed" >&2
   exit 127
 fi
 
 mkdir -p \
   "${HIVY_SANDBOX_DATA_ROOT}/logs" \
   "${HIVY_DOCKER_DATA_ROOT}" \
-  "${XDG_RUNTIME_DIR}/docker" \
+  "${DOCKER_EXEC_ROOT}" \
   "${DOCKER_TMPDIR}"
-chmod 700 "${XDG_RUNTIME_DIR}"
+chown root:docker "${XDG_RUNTIME_DIR}"
+chmod 770 "${XDG_RUNTIME_DIR}"
 
 if docker info >/dev/null 2>&1; then
   echo "docker already running"
@@ -31,20 +36,22 @@ if docker info >/dev/null 2>&1; then
 fi
 
 rm -f "${XDG_RUNTIME_DIR}/docker.sock" "${XDG_RUNTIME_DIR}/dockerd.pid"
-rm -rf "${XDG_RUNTIME_DIR}/docker"
-mkdir -p "${XDG_RUNTIME_DIR}/docker"
+rm -rf "${DOCKER_EXEC_ROOT}"
+mkdir -p "${DOCKER_EXEC_ROOT}"
 
-nohup dockerd-rootless.sh \
+nohup dockerd \
   --host="${DOCKER_HOST}" \
   --data-root="${HIVY_DOCKER_DATA_ROOT}" \
-  --exec-root="${XDG_RUNTIME_DIR}/docker" \
+  --exec-root="${DOCKER_EXEC_ROOT}" \
   --pidfile="${XDG_RUNTIME_DIR}/dockerd.pid" \
   --storage-driver=fuse-overlayfs \
+  --group=docker \
   >"${HIVY_SANDBOX_DATA_ROOT}/logs/dockerd.log" 2>&1 &
 dockerd_pid="$!"
 
 for _ in $(seq 1 120); do
   if docker info >/dev/null 2>&1; then
+    chown daytona:docker "${XDG_RUNTIME_DIR}/docker.sock"
     echo "docker started"
     exit 0
   fi

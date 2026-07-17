@@ -25,9 +25,10 @@ The Daytona targets use this contract:
 - The snapshot entrypoint is `/usr/local/bin/hivy-daytona-entrypoint`.
 - The entrypoint starts `hivy-sandboxes-runtime` directly. It does not start or
   depend on systemd.
-- The developer image starts a rootless Docker daemon before the Hivy runtime.
-  `DOCKER_HOST` points to its user-owned Unix socket. Docker Compose talks to
-  that daemon.
+- The developer image starts a root Docker daemon through one fixed,
+  passwordless `sudo` rule before the Hivy runtime. Daytona's container DinD
+  support requires that daemon model. The sandbox user, Runtime, and agent
+  commands remain UID 1000; `DOCKER_HOST` points to a `docker`-group socket.
 
 The Hivy systemd service and environment generator are installed only in the
 `microsandbox` target. Some desktop or browser packages may bring systemd
@@ -211,7 +212,7 @@ The verifier deletes its sandbox unless `-keep` is passed. It checks:
 - `/healthz`, config upload, then `/readyz`;
 - Daytona process command execution;
 - Docker absence in the default image; and
-- rootless Docker plus a real `docker compose up`, logs, and teardown in the
+- Docker plus a real `docker compose up`, logs, and teardown in the
   developer image.
 
 After the Railway deployment, confirm both services are healthy, verify that the
