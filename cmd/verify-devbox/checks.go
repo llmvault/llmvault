@@ -54,7 +54,7 @@ func verifySandboxProcess(ctx context.Context, sandbox *daytona.Sandbox, develop
 			struct {
 				name    string
 				command string
-			}{name: "Docker daemon", command: `test "$(id -u)" = 1000 && docker info >/dev/null`},
+			}{name: "Docker daemon", command: `test "$(id -u)" = 1000 && test "$(docker info --format '{{.Driver}} {{.DockerRootDir}}')" = "overlay2 /var/lib/docker"`},
 			struct {
 				name    string
 				command string

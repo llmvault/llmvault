@@ -334,7 +334,7 @@ RUN apt-get update \
   && useradd --uid 1000 --gid daytona --create-home --home-dir /home/daytona --shell /bin/bash daytona \
   && { getent group docker >/dev/null || groupadd --system docker; } \
   && usermod --append --groups docker daytona \
-  && mkdir -p /home/daytona/.cache/mise /home/daytona/.config /home/daytona/.hivy/runtime /home/daytona/.hivy/logs /home/daytona/.hivy/tmp/docker /home/daytona/.hivy/docker /home/daytona/.hivy/run /home/daytona/repos /home/daytona/canvas \
+  && mkdir -p /home/daytona/.cache/mise /home/daytona/.config /home/daytona/.hivy/runtime /home/daytona/.hivy/logs /home/daytona/.hivy/tmp/docker /home/daytona/.hivy/run /home/daytona/repos /home/daytona/canvas \
   && cp -a /usr/local/etc/mise /home/daytona/.config/mise \
   && rm -rf /workspace \
   && ln -s /home/daytona /workspace \
@@ -347,7 +347,7 @@ ENV HOME=/home/daytona
 ENV MISE_CONFIG_DIR=/home/daytona/.config/mise
 ENV MISE_CACHE_DIR=/home/daytona/.cache/mise
 ENV HIVY_SANDBOX_DATA_ROOT=/home/daytona/.hivy
-ENV HIVY_DOCKER_DATA_ROOT=/home/daytona/.hivy/docker
+ENV HIVY_DOCKER_DATA_ROOT=/var/lib/docker
 ENV HIVY_DB_PATH=/home/daytona/.hivy/runtime/hivy-sandboxes-runtime.db
 ENV HIVY_WORKSPACE_ROOT=/home/daytona
 ENV XDG_RUNTIME_DIR=/home/daytona/.hivy/run
