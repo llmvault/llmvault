@@ -95,6 +95,9 @@ func registerSandboxRuntimeSnapshots(ctx context.Context, version string, target
 		if size.Name == "micro" {
 			log.Printf("Daytona adjusts Hivy micro from %d CPU/%d GiB memory/%d GiB disk to %d CPU/%d GiB memory/%d GiB disk",
 				size.CPU, size.Memory, size.Disk, resources.CPU, resources.Memory, resources.Disk)
+		} else if size.Disk != resources.Disk {
+			log.Printf("Daytona adjusts Hivy %s disk from %d GiB to the account maximum of %d GiB",
+				size.Name, size.Disk, resources.Disk)
 		}
 		log.Printf("Registering Daytona snapshot %q from %s (cpu=%d, mem=%dGB, disk=%dGB)...",
 			name, imageRef, resources.CPU, resources.Memory, resources.Disk)
@@ -155,6 +158,9 @@ func sandboxRuntimeCreateParams(name, imageRef string, size model.TemplateSize, 
 	disk := size.Disk
 	if disk < minimumDisk {
 		disk = minimumDisk
+	}
+	if disk > 10 {
+		disk = 10
 	}
 	return &types.CreateSnapshotParams{
 		Name:       name,

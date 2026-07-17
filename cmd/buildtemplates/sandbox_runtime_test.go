@@ -31,15 +31,15 @@ func TestSandboxRuntimeCreateParamsStartsRuntime(t *testing.T) {
 	}
 }
 
-func TestSandboxRuntimeCreateParamsKeepsAccountDiskAllocation(t *testing.T) {
+func TestSandboxRuntimeCreateParamsCapsDiskAtDaytonaAccountMaximum(t *testing.T) {
 	size := model.TemplateSize{Name: "medium", CPU: 2, Memory: 4, Disk: 20}
 	params := sandboxRuntimeCreateParams("runtime-medium", "runtime:v1", size, 5)
 
 	if params.Resources == nil {
 		t.Fatal("resources must be set")
 	}
-	if params.Resources.Disk != 20 {
-		t.Fatalf("disk = %d, want 20", params.Resources.Disk)
+	if params.Resources.Disk != 10 {
+		t.Fatalf("disk = %d, want 10", params.Resources.Disk)
 	}
 }
 

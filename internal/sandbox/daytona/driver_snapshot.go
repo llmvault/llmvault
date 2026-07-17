@@ -70,18 +70,26 @@ func (d *Driver) buildImage(ctx context.Context, opts sandbox.TemplateBuildReque
 	}
 	if opts.CPU > 0 || opts.Memory > 0 || opts.Disk > 0 {
 		memory := opts.Memory
+		disk := opts.Disk
 		if size, ok := model.TemplateSizeForResources(opts.CPU, opts.Memory, opts.Disk); ok && size == "micro" {
 			memory = 1
-			logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona micro template allocation",
+		}
+		if disk > daytonaMaxDiskGB {
+			disk = daytonaMaxDiskGB
+		}
+		if memory != opts.Memory || disk != opts.Disk {
+			logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona template allocation",
 				"requested_memory_gb", opts.Memory,
 				"daytona_memory_gb", memory,
+				"requested_disk_gb", opts.Disk,
+				"daytona_disk_gb", disk,
 				"template", opts.Name,
 			)
 		}
 		params.Resources = &sdktypes.Resources{
 			CPU:    opts.CPU,
 			Memory: memory,
-			Disk:   opts.Disk,
+			Disk:   disk,
 		}
 	}
 
@@ -119,6 +127,21 @@ func (d *Driver) buildFromRuntimeSnapshot(
 	})
 	if err != nil {
 		return "", fmt.Errorf("resolving Daytona runtime snapshot: %w", err)
+	}
+	if adjustment, ok := daytonaRuntimeResourceAdjustment(sandbox.CreateSandboxOpts{
+		TemplateRef: baseImage,
+		CPU:         opts.CPU,
+		Memory:      opts.Memory,
+		Disk:        opts.Disk,
+	}); ok && (adjustment.RequestedMemory != adjustment.Memory || adjustment.RequestedDisk != adjustment.Disk) {
+		logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona runtime template allocation",
+			"size", adjustment.Size,
+			"requested_memory_gb", adjustment.RequestedMemory,
+			"daytona_memory_gb", adjustment.Memory,
+			"requested_disk_gb", adjustment.RequestedDisk,
+			"daytona_disk_gb", adjustment.Disk,
+			"template", opts.Name,
+		)
 	}
 
 	buildName := fmt.Sprintf("hivy-template-build-%s", uuid.NewString())

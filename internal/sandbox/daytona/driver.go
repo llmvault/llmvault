@@ -135,10 +135,14 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	if err != nil {
 		return nil, err
 	}
-	if isDaytonaMicroRuntime(opts) {
-		logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona micro sandbox allocation",
-			"requested_memory_gb", opts.Memory,
-			"daytona_memory_gb", 1,
+	if adjustment, ok := daytonaRuntimeResourceAdjustment(opts); ok &&
+		(adjustment.RequestedMemory != adjustment.Memory || adjustment.RequestedDisk != adjustment.Disk) {
+		logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona sandbox allocation",
+			"size", adjustment.Size,
+			"requested_memory_gb", adjustment.RequestedMemory,
+			"daytona_memory_gb", adjustment.Memory,
+			"requested_disk_gb", adjustment.RequestedDisk,
+			"daytona_disk_gb", adjustment.Disk,
 			"snapshot", params.Snapshot,
 		)
 	}

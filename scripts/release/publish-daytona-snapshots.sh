@@ -122,6 +122,7 @@ publish_variant() {
   local cpu
   local memory
   local disk
+  local requested_disk
   local name
   local state
 
@@ -133,12 +134,18 @@ publish_variant() {
 
   while IFS= read -r size; do
     read -r cpu memory disk <<<"$(snapshot_resources "${size}")"
+    requested_disk="${disk}"
     if ((disk < minimum_disk)); then
       disk="${minimum_disk}"
+    fi
+    if ((disk > 10)); then
+      disk=10
     fi
     name="${prefix}-${release_version_dashed}-${size}-v1"
     if [[ "${size}" == "micro" ]]; then
       echo "Daytona adjusts Hivy micro to its minimum ${cpu} CPU/${memory} GiB memory/${disk} GiB disk allocation."
+    elif ((requested_disk != disk)); then
+      echo "Daytona adjusts Hivy ${size} disk from ${requested_disk} GiB to the account maximum of ${disk} GiB."
     fi
     state="$(snapshot_state "${name}")"
     if [[ "${state}" == "active" ]]; then

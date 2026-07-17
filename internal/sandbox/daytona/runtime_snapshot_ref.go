@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	daytonaMaxDiskGB                  = 10
 	defaultRuntimeRepository          = "ghcr.io/usehivy/hivy-sandboxes-runtime"
 	developerRuntimeRepository        = "ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
 	defaultDaytonaRuntimeRepository   = "ghcr.io/usehivy/hivy-sandboxes-runtime-daytona"
@@ -18,12 +19,40 @@ const (
 	developerSnapshotPrefix           = "hivy-sandboxes-runtime-developers-daytona"
 )
 
-func isDaytonaMicroRuntime(opts sandbox.CreateSandboxOpts) bool {
+type runtimeResourceAdjustment struct {
+	Size            string
+	RequestedMemory int
+	RequestedDisk   int
+	Memory          int
+	Disk            int
+}
+
+func daytonaRuntimeResourceAdjustment(opts sandbox.CreateSandboxOpts) (runtimeResourceAdjustment, bool) {
 	if !isHivyRuntimeImageRef(opts.TemplateRef) {
-		return false
+		return runtimeResourceAdjustment{}, false
 	}
 	size, ok := model.TemplateSizeForResources(opts.CPU, opts.Memory, opts.Disk)
-	return ok && size == "micro"
+	if !ok {
+		return runtimeResourceAdjustment{}, false
+	}
+	memory := opts.Memory
+	if memory < 1 {
+		memory = 1
+	}
+	disk := opts.Disk
+	if isDeveloperRuntimeImageRef(opts.TemplateRef) && disk < daytonaMaxDiskGB {
+		disk = daytonaMaxDiskGB
+	}
+	if disk > daytonaMaxDiskGB {
+		disk = daytonaMaxDiskGB
+	}
+	return runtimeResourceAdjustment{
+		Size:            size,
+		RequestedMemory: opts.Memory,
+		RequestedDisk:   opts.Disk,
+		Memory:          memory,
+		Disk:            disk,
+	}, true
 }
 
 func resolveRuntimeSnapshotRef(opts sandbox.CreateSandboxOpts) (string, error) {
@@ -65,6 +94,14 @@ func isHivyRuntimeImageRef(imageRef string) bool {
 	default:
 		return false
 	}
+}
+
+func isDeveloperRuntimeImageRef(imageRef string) bool {
+	repository, _, ok := splitTaggedImageRef(imageRef)
+	if !ok {
+		return false
+	}
+	return repository == developerRuntimeRepository || repository == developerDaytonaRuntimeRepository
 }
 
 func splitTaggedImageRef(imageRef string) (repository, tag string, ok bool) {

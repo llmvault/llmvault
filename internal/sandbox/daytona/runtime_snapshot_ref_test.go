@@ -49,7 +49,7 @@ func TestResolveRuntimeSnapshotRef(t *testing.T) {
 			want:   defaultSnapshotPrefix + "-7-2-1-micro-v1",
 		},
 		{
-			name:   "xlarge uses upgraded account allocation",
+			name:   "xlarge maps to its snapshot before Daytona disk adjustment",
 			image:  defaultRuntimeRepository + ":v7.2.1",
 			cpu:    8,
 			memory: 16,
@@ -77,6 +77,73 @@ func TestResolveRuntimeSnapshotRef(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Fatalf("snapshot = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDaytonaRuntimeResourceAdjustment(t *testing.T) {
+	tests := []struct {
+		name       string
+		image      string
+		cpu        int
+		memory     int
+		disk       int
+		wantMemory int
+		wantDisk   int
+	}{
+		{
+			name:       "default micro gets Daytona minimum memory",
+			image:      defaultRuntimeRepository + ":v7.2.1-amd64",
+			cpu:        1,
+			memory:     0,
+			disk:       5,
+			wantMemory: 1,
+			wantDisk:   5,
+		},
+		{
+			name:       "developer nano gets image minimum disk",
+			image:      developerRuntimeRepository + ":v7.2.1-amd64",
+			cpu:        1,
+			memory:     1,
+			disk:       5,
+			wantMemory: 1,
+			wantDisk:   10,
+		},
+		{
+			name:       "medium disk is capped at account maximum",
+			image:      defaultRuntimeRepository + ":v7.2.1-amd64",
+			cpu:        2,
+			memory:     4,
+			disk:       20,
+			wantMemory: 4,
+			wantDisk:   10,
+		},
+		{
+			name:       "xlarge keeps cpu and memory while disk is capped",
+			image:      defaultRuntimeRepository + ":v7.2.1-amd64",
+			cpu:        8,
+			memory:     16,
+			disk:       60,
+			wantMemory: 16,
+			wantDisk:   10,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := daytonaRuntimeResourceAdjustment(sandbox.CreateSandboxOpts{
+				TemplateRef: tt.image,
+				CPU:         tt.cpu,
+				Memory:      tt.memory,
+				Disk:        tt.disk,
+			})
+			if !ok {
+				t.Fatal("expected Hivy runtime adjustment")
+			}
+			if got.Memory != tt.wantMemory || got.Disk != tt.wantDisk {
+				t.Fatalf("adjusted resources = memory %d disk %d, want memory %d disk %d",
+					got.Memory, got.Disk, tt.wantMemory, tt.wantDisk)
 			}
 		})
 	}

@@ -67,15 +67,17 @@ Release snapshots use these allocations:
 | micro | 1 | 1 | 5 | 10 |
 | nano | 1 | 1 | 5 | 10 |
 | small | 1 | 2 | 10 | 10 |
-| medium | 2 | 4 | 20 | 20 |
-| large | 4 | 8 | 40 | 40 |
-| xlarge | 8 | 16 | 60 | 60 |
+| medium | 2 | 4 | 10 | 10 |
+| large | 4 | 8 | 10 | 10 |
+| xlarge | 8 | 16 | 10 | 10 |
 
 Hivy's `micro` size asks other providers for a sub-GiB memory allocation. The
 Daytona API represents memory in whole GiB, so the Daytona provider selects the
 smallest supported allocation, 1 CPU, 1 GiB memory, and 5 GiB disk, and writes an
 info log when it makes that adjustment. The developer image needs at least a 10
 GiB disk because Daytona applies the disk value to the full sandbox filesystem.
+The account also enforces a 10 GiB disk maximum, so medium through xlarge retain
+their Hivy CPU and memory allocations while Daytona caps their disks at 10 GiB.
 The driver fails on unknown resource tuples; it does not silently select a
 different snapshot.
 
