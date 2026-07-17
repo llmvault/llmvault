@@ -43,6 +43,18 @@ func TestSandboxRuntimeCreateParamsCapsDiskAtDaytonaAccountMaximum(t *testing.T)
 	}
 }
 
+func TestSandboxRuntimeCreateParamsCapsXlargeAtDaytonaAccountMaximum(t *testing.T) {
+	size := model.TemplateSize{Name: "xlarge", CPU: 8, Memory: 16, Disk: 60}
+	params := sandboxRuntimeCreateParams("runtime-xlarge", "runtime:v1", size, 5)
+
+	if params.Resources == nil {
+		t.Fatal("resources must be set")
+	}
+	if params.Resources.CPU != 4 || params.Resources.Memory != 8 || params.Resources.Disk != 10 {
+		t.Fatalf("resources = %+v, want cpu=4 memory=8 disk=10", *params.Resources)
+	}
+}
+
 func TestSandboxRuntimeCreateParamsAdjustsMicroForDaytona(t *testing.T) {
 	size := model.TemplateSize{Name: "micro", CPU: 1, Memory: 0, Disk: 5}
 	params := sandboxRuntimeCreateParams("runtime-micro", "runtime:v1", size, 5)

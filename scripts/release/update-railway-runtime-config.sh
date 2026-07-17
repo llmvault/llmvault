@@ -13,6 +13,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 environment="${RAILWAY_ENVIRONMENT}"
 services="${RAILWAY_SERVICES}"
 runtime_arch_suffix="${HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX:-amd64}"
+daytona_max_cpu="${HIVY_DAYTONA_MAX_CPU:-4}"
+daytona_max_memory="${HIVY_DAYTONA_MAX_MEMORY_GB:-8}"
+daytona_max_disk="${HIVY_DAYTONA_MAX_DISK_GB:-10}"
 wait_seconds="${RAILWAY_DEPLOY_WAIT_SECONDS:-900}"
 poll_seconds="${RAILWAY_DEPLOY_POLL_SECONDS:-10}"
 railway_attempts=3
@@ -110,6 +113,9 @@ for service in "${service_list[@]}"; do
     "HIVY_DAYTONA_API_KEY=${HIVY_DAYTONA_API_KEY}" \
     "HIVY_DAYTONA_API_URL=${HIVY_DAYTONA_API_URL}" \
     "HIVY_DAYTONA_TARGET=${HIVY_DAYTONA_TARGET:-}" \
+    "HIVY_DAYTONA_MAX_CPU=${daytona_max_cpu}" \
+    "HIVY_DAYTONA_MAX_MEMORY_GB=${daytona_max_memory}" \
+    "HIVY_DAYTONA_MAX_DISK_GB=${daytona_max_disk}" \
     --environment "${environment}" \
     --service "${service}"
 
@@ -125,7 +131,10 @@ for service in "${service_list[@]}"; do
     "HIVY_SANDBOX_PROVIDER_ID=${HIVY_SANDBOX_PROVIDER_ID}" \
     "HIVY_DAYTONA_API_KEY=${HIVY_DAYTONA_API_KEY}" \
     "HIVY_DAYTONA_API_URL=${HIVY_DAYTONA_API_URL}" \
-    "HIVY_DAYTONA_TARGET=${HIVY_DAYTONA_TARGET:-}"
+    "HIVY_DAYTONA_TARGET=${HIVY_DAYTONA_TARGET:-}" \
+    "HIVY_DAYTONA_MAX_CPU=${daytona_max_cpu}" \
+    "HIVY_DAYTONA_MAX_MEMORY_GB=${daytona_max_memory}" \
+    "HIVY_DAYTONA_MAX_DISK_GB=${daytona_max_disk}"
   do
     key="${key_and_expected%%=*}"
     expected="${key_and_expected#*=}"

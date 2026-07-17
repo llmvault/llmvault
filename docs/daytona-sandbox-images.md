@@ -69,15 +69,18 @@ Release snapshots use these allocations:
 | small | 1 | 2 | 10 | 10 |
 | medium | 2 | 4 | 10 | 10 |
 | large | 4 | 8 | 10 | 10 |
-| xlarge | 8 | 16 | 10 | 10 |
+| xlarge | 4 | 8 | 10 | 10 |
 
 Hivy's `micro` size asks other providers for a sub-GiB memory allocation. The
 Daytona API represents memory in whole GiB, so the Daytona provider selects the
 smallest supported allocation, 1 CPU, 1 GiB memory, and 5 GiB disk, and writes an
 info log when it makes that adjustment. The developer image needs at least a 10
 GiB disk because Daytona applies the disk value to the full sandbox filesystem.
-The account also enforces a 10 GiB disk maximum, so medium through xlarge retain
-their Hivy CPU and memory allocations while Daytona caps their disks at 10 GiB.
+Daytona's standard per-sandbox limit is 4 vCPU, 8 GiB memory, and 10 GiB disk.
+Medium and large retain their Hivy CPU and memory allocations while their disks
+are capped at 10 GiB. Xlarge maps to Daytona's maximum 4/8/10 allocation. Set
+`HIVY_DAYTONA_MAX_CPU`, `HIVY_DAYTONA_MAX_MEMORY_GB`, and
+`HIVY_DAYTONA_MAX_DISK_GB` if the Daytona account has custom per-sandbox limits.
 The driver fails on unknown resource tuples; it does not silently select a
 different snapshot.
 

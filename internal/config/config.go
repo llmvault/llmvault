@@ -116,9 +116,12 @@ type Config struct {
 	SandboxWarmPoolDefaultSize   int    `env:"HIVY_SANDBOX_WARM_POOL_DEFAULT_SIZE" envDefault:"0"`
 	SandboxWarmPoolDeveloperSize int    `env:"HIVY_SANDBOX_WARM_POOL_DEVELOPER_SIZE" envDefault:"0"`
 
-	DaytonaAPIURL string `env:"HIVY_DAYTONA_API_URL"`
-	DaytonaAPIKey string `env:"HIVY_DAYTONA_API_KEY"`
-	DaytonaTarget string `env:"HIVY_DAYTONA_TARGET"`
+	DaytonaAPIURL    string `env:"HIVY_DAYTONA_API_URL"`
+	DaytonaAPIKey    string `env:"HIVY_DAYTONA_API_KEY"`
+	DaytonaTarget    string `env:"HIVY_DAYTONA_TARGET"`
+	DaytonaMaxCPU    int    `env:"HIVY_DAYTONA_MAX_CPU" envDefault:"4"`
+	DaytonaMaxMemory int    `env:"HIVY_DAYTONA_MAX_MEMORY_GB" envDefault:"8"`
+	DaytonaMaxDisk   int    `env:"HIVY_DAYTONA_MAX_DISK_GB" envDefault:"10"`
 
 	APIWebhookBaseURL string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
 	ProxyHost         string `env:"HIVY_PROXY_HOST" envDefault:"proxy.usehivy.com"`                 // LLM proxy hostname (proxy.usehivy.com)

@@ -91,6 +91,7 @@ func TestDaytonaRuntimeResourceAdjustment(t *testing.T) {
 		disk       int
 		wantMemory int
 		wantDisk   int
+		wantCPU    int
 	}{
 		{
 			name:       "default micro gets Daytona minimum memory",
@@ -100,6 +101,7 @@ func TestDaytonaRuntimeResourceAdjustment(t *testing.T) {
 			disk:       5,
 			wantMemory: 1,
 			wantDisk:   5,
+			wantCPU:    1,
 		},
 		{
 			name:       "developer nano gets image minimum disk",
@@ -109,6 +111,7 @@ func TestDaytonaRuntimeResourceAdjustment(t *testing.T) {
 			disk:       5,
 			wantMemory: 1,
 			wantDisk:   10,
+			wantCPU:    1,
 		},
 		{
 			name:       "medium disk is capped at account maximum",
@@ -118,15 +121,17 @@ func TestDaytonaRuntimeResourceAdjustment(t *testing.T) {
 			disk:       20,
 			wantMemory: 4,
 			wantDisk:   10,
+			wantCPU:    2,
 		},
 		{
-			name:       "xlarge keeps cpu and memory while disk is capped",
+			name:       "xlarge is capped at Daytona per-sandbox limits",
 			image:      defaultRuntimeRepository + ":v7.2.1-amd64",
 			cpu:        8,
 			memory:     16,
 			disk:       60,
-			wantMemory: 16,
+			wantMemory: 8,
 			wantDisk:   10,
+			wantCPU:    4,
 		},
 	}
 
@@ -137,13 +142,13 @@ func TestDaytonaRuntimeResourceAdjustment(t *testing.T) {
 				CPU:         tt.cpu,
 				Memory:      tt.memory,
 				Disk:        tt.disk,
-			})
+			}, defaultDaytonaResourceLimits)
 			if !ok {
 				t.Fatal("expected Hivy runtime adjustment")
 			}
-			if got.Memory != tt.wantMemory || got.Disk != tt.wantDisk {
-				t.Fatalf("adjusted resources = memory %d disk %d, want memory %d disk %d",
-					got.Memory, got.Disk, tt.wantMemory, tt.wantDisk)
+			if got.CPU != tt.wantCPU || got.Memory != tt.wantMemory || got.Disk != tt.wantDisk {
+				t.Fatalf("adjusted resources = cpu %d memory %d disk %d, want cpu %d memory %d disk %d",
+					got.CPU, got.Memory, got.Disk, tt.wantCPU, tt.wantMemory, tt.wantDisk)
 			}
 		})
 	}

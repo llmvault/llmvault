@@ -23,6 +23,12 @@ type runtimeVariant struct {
 	minimumDisk    int
 }
 
+const (
+	daytonaMaxCPU      = 4
+	daytonaMaxMemoryGB = 8
+	daytonaMaxDiskGB   = 10
+)
+
 var (
 	runtimeEntrypoint = []string{
 		"/usr/local/bin/hivy-daytona-entrypoint",
@@ -95,9 +101,9 @@ func registerSandboxRuntimeSnapshots(ctx context.Context, version string, target
 		if size.Name == "micro" {
 			log.Printf("Daytona adjusts Hivy micro from %d CPU/%d GiB memory/%d GiB disk to %d CPU/%d GiB memory/%d GiB disk",
 				size.CPU, size.Memory, size.Disk, resources.CPU, resources.Memory, resources.Disk)
-		} else if size.Disk != resources.Disk {
-			log.Printf("Daytona adjusts Hivy %s disk from %d GiB to the account maximum of %d GiB",
-				size.Name, size.Disk, resources.Disk)
+		} else if size.CPU != resources.CPU || size.Memory != resources.Memory || size.Disk != resources.Disk {
+			log.Printf("Daytona adjusts Hivy %s from %d CPU/%d GiB memory/%d GiB disk to %d CPU/%d GiB memory/%d GiB disk",
+				size.Name, size.CPU, size.Memory, size.Disk, resources.CPU, resources.Memory, resources.Disk)
 		}
 		log.Printf("Registering Daytona snapshot %q from %s (cpu=%d, mem=%dGB, disk=%dGB)...",
 			name, imageRef, resources.CPU, resources.Memory, resources.Disk)
@@ -151,7 +157,8 @@ func runCommand(ctx context.Context, extraEnv map[string]string, name string, ar
 }
 
 func sandboxRuntimeCreateParams(name, imageRef string, size model.TemplateSize, minimumDisk int) *types.CreateSnapshotParams {
-	memory := size.Memory
+	cpu := min(size.CPU, daytonaMaxCPU)
+	memory := min(size.Memory, daytonaMaxMemoryGB)
 	if size.Name == "micro" && memory < 1 {
 		memory = 1
 	}
@@ -159,15 +166,15 @@ func sandboxRuntimeCreateParams(name, imageRef string, size model.TemplateSize, 
 	if disk < minimumDisk {
 		disk = minimumDisk
 	}
-	if disk > 10 {
-		disk = 10
+	if disk > daytonaMaxDiskGB {
+		disk = daytonaMaxDiskGB
 	}
 	return &types.CreateSnapshotParams{
 		Name:       name,
 		Image:      imageRef,
 		Entrypoint: append([]string(nil), runtimeEntrypoint...),
 		Resources: &types.Resources{
-			CPU:    size.CPU,
+			CPU:    cpu,
 			Memory: memory,
 			Disk:   disk,
 		},

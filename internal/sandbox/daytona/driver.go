@@ -29,9 +29,12 @@ const (
 )
 
 type Config struct {
-	APIURL string
-	APIKey string
-	Target string
+	APIURL    string
+	APIKey    string
+	Target    string
+	MaxCPU    int
+	MaxMemory int
+	MaxDisk   int
 }
 
 // Driver talks to Daytona exclusively through the official Go SDKs:
@@ -49,6 +52,7 @@ type Driver struct {
 	apiClient *apiclient.APIClient
 	apiURL    string
 	apiKey    string
+	limits    resourceLimits
 }
 
 func (d *Driver) ID() string { return sandbox.ProviderDaytona }
@@ -95,6 +99,7 @@ func NewDriver(cfg Config) (*Driver, error) {
 		apiClient: apiClient,
 		apiURL:    apiURL,
 		apiKey:    apiKey,
+		limits:    normalizedResourceLimits(cfg.MaxCPU, cfg.MaxMemory, cfg.MaxDisk),
 	}, nil
 }
 
@@ -135,10 +140,11 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	if err != nil {
 		return nil, err
 	}
-	if adjustment, ok := daytonaRuntimeResourceAdjustment(opts); ok &&
-		(adjustment.RequestedMemory != adjustment.Memory || adjustment.RequestedDisk != adjustment.Disk) {
+	if adjustment, ok := daytonaRuntimeResourceAdjustment(opts, d.limits); ok && adjustment.Changed() {
 		logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona sandbox allocation",
 			"size", adjustment.Size,
+			"requested_cpu", adjustment.RequestedCPU,
+			"daytona_cpu", adjustment.CPU,
 			"requested_memory_gb", adjustment.RequestedMemory,
 			"daytona_memory_gb", adjustment.Memory,
 			"requested_disk_gb", adjustment.RequestedDisk,

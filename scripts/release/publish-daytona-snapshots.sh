@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+daytona_max_cpu="${HIVY_DAYTONA_MAX_CPU:-4}"
+daytona_max_memory="${HIVY_DAYTONA_MAX_MEMORY_GB:-8}"
+daytona_max_disk="${HIVY_DAYTONA_MAX_DISK_GB:-10}"
+
 manifest="${1:?usage: publish-daytona-snapshots.sh <release-manifest.json>}"
 : "${HIVY_DAYTONA_API_KEY:?HIVY_DAYTONA_API_KEY is required}"
 : "${HIVY_DAYTONA_API_URL:?HIVY_DAYTONA_API_URL is required}"
@@ -122,6 +126,8 @@ publish_variant() {
   local cpu
   local memory
   local disk
+  local requested_cpu
+  local requested_memory
   local requested_disk
   local name
   local state
@@ -134,18 +140,26 @@ publish_variant() {
 
   while IFS= read -r size; do
     read -r cpu memory disk <<<"$(snapshot_resources "${size}")"
+    requested_cpu="${cpu}"
+    requested_memory="${memory}"
     requested_disk="${disk}"
     if ((disk < minimum_disk)); then
       disk="${minimum_disk}"
     fi
-    if ((disk > 10)); then
-      disk=10
+    if ((cpu > daytona_max_cpu)); then
+      cpu="${daytona_max_cpu}"
+    fi
+    if ((memory > daytona_max_memory)); then
+      memory="${daytona_max_memory}"
+    fi
+    if ((disk > daytona_max_disk)); then
+      disk="${daytona_max_disk}"
     fi
     name="${prefix}-${release_version_dashed}-${size}-v1"
     if [[ "${size}" == "micro" ]]; then
       echo "Daytona adjusts Hivy micro to its minimum ${cpu} CPU/${memory} GiB memory/${disk} GiB disk allocation."
-    elif ((requested_disk != disk)); then
-      echo "Daytona adjusts Hivy ${size} disk from ${requested_disk} GiB to the account maximum of ${disk} GiB."
+    elif ((requested_cpu != cpu || requested_memory != memory || requested_disk != disk)); then
+      echo "Daytona adjusts Hivy ${size} from ${requested_cpu} CPU/${requested_memory} GiB memory/${requested_disk} GiB disk to ${cpu} CPU/${memory} GiB memory/${disk} GiB disk."
     fi
     state="$(snapshot_state "${name}")"
     if [[ "${state}" == "active" ]]; then

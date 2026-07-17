@@ -10,7 +10,9 @@ import (
 )
 
 const (
-	daytonaMaxDiskGB                  = 10
+	defaultDaytonaMaxCPU              = 4
+	defaultDaytonaMaxMemoryGB         = 8
+	defaultDaytonaMaxDiskGB           = 10
 	defaultRuntimeRepository          = "ghcr.io/usehivy/hivy-sandboxes-runtime"
 	developerRuntimeRepository        = "ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
 	defaultDaytonaRuntimeRepository   = "ghcr.io/usehivy/hivy-sandboxes-runtime-daytona"
@@ -19,15 +21,47 @@ const (
 	developerSnapshotPrefix           = "hivy-sandboxes-runtime-developers-daytona"
 )
 
+type resourceLimits struct {
+	CPU    int
+	Memory int
+	Disk   int
+}
+
+var defaultDaytonaResourceLimits = resourceLimits{
+	CPU:    defaultDaytonaMaxCPU,
+	Memory: defaultDaytonaMaxMemoryGB,
+	Disk:   defaultDaytonaMaxDiskGB,
+}
+
+func normalizedResourceLimits(cpu, memory, disk int) resourceLimits {
+	limits := defaultDaytonaResourceLimits
+	if cpu > 0 {
+		limits.CPU = cpu
+	}
+	if memory > 0 {
+		limits.Memory = memory
+	}
+	if disk > 0 {
+		limits.Disk = disk
+	}
+	return limits
+}
+
 type runtimeResourceAdjustment struct {
 	Size            string
+	RequestedCPU    int
 	RequestedMemory int
 	RequestedDisk   int
+	CPU             int
 	Memory          int
 	Disk            int
 }
 
-func daytonaRuntimeResourceAdjustment(opts sandbox.CreateSandboxOpts) (runtimeResourceAdjustment, bool) {
+func (a runtimeResourceAdjustment) Changed() bool {
+	return a.RequestedCPU != a.CPU || a.RequestedMemory != a.Memory || a.RequestedDisk != a.Disk
+}
+
+func daytonaRuntimeResourceAdjustment(opts sandbox.CreateSandboxOpts, limits resourceLimits) (runtimeResourceAdjustment, bool) {
 	if !isHivyRuntimeImageRef(opts.TemplateRef) {
 		return runtimeResourceAdjustment{}, false
 	}
@@ -35,21 +69,24 @@ func daytonaRuntimeResourceAdjustment(opts sandbox.CreateSandboxOpts) (runtimeRe
 	if !ok {
 		return runtimeResourceAdjustment{}, false
 	}
-	memory := opts.Memory
+	cpu := min(opts.CPU, limits.CPU)
+	memory := min(opts.Memory, limits.Memory)
 	if memory < 1 {
 		memory = 1
 	}
 	disk := opts.Disk
-	if isDeveloperRuntimeImageRef(opts.TemplateRef) && disk < daytonaMaxDiskGB {
-		disk = daytonaMaxDiskGB
+	if isDeveloperRuntimeImageRef(opts.TemplateRef) && disk < limits.Disk {
+		disk = limits.Disk
 	}
-	if disk > daytonaMaxDiskGB {
-		disk = daytonaMaxDiskGB
+	if disk > limits.Disk {
+		disk = limits.Disk
 	}
 	return runtimeResourceAdjustment{
 		Size:            size,
+		RequestedCPU:    opts.CPU,
 		RequestedMemory: opts.Memory,
 		RequestedDisk:   opts.Disk,
+		CPU:             cpu,
 		Memory:          memory,
 		Disk:            disk,
 	}, true

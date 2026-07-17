@@ -28,9 +28,12 @@ func newSandboxProvider(cfg *config.Config) (sandbox.Provider, error) {
 			return nil, fmt.Errorf("%w: HIVY_DAYTONA_API_KEY is empty", errSandboxProviderNotConfigured)
 		}
 		return daytona.NewDriver(daytona.Config{
-			APIURL: cfg.DaytonaAPIURL,
-			APIKey: cfg.DaytonaAPIKey,
-			Target: cfg.DaytonaTarget,
+			APIURL:    cfg.DaytonaAPIURL,
+			APIKey:    cfg.DaytonaAPIKey,
+			Target:    cfg.DaytonaTarget,
+			MaxCPU:    cfg.DaytonaMaxCPU,
+			MaxMemory: cfg.DaytonaMaxMemory,
+			MaxDisk:   cfg.DaytonaMaxDisk,
 		})
 	case sandbox.ProviderDocker:
 		if strings.TrimSpace(cfg.SandboxDockerRuntimeOrigin) == "" {

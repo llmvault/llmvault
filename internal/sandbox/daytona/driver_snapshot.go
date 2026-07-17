@@ -69,16 +69,16 @@ func (d *Driver) buildImage(ctx context.Context, opts sandbox.TemplateBuildReque
 		Image: image,
 	}
 	if opts.CPU > 0 || opts.Memory > 0 || opts.Disk > 0 {
-		memory := opts.Memory
-		disk := opts.Disk
+		cpu := min(opts.CPU, d.limits.CPU)
+		memory := min(opts.Memory, d.limits.Memory)
+		disk := min(opts.Disk, d.limits.Disk)
 		if size, ok := model.TemplateSizeForResources(opts.CPU, opts.Memory, opts.Disk); ok && size == "micro" {
 			memory = 1
 		}
-		if disk > daytonaMaxDiskGB {
-			disk = daytonaMaxDiskGB
-		}
-		if memory != opts.Memory || disk != opts.Disk {
+		if cpu != opts.CPU || memory != opts.Memory || disk != opts.Disk {
 			logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona template allocation",
+				"requested_cpu", opts.CPU,
+				"daytona_cpu", cpu,
 				"requested_memory_gb", opts.Memory,
 				"daytona_memory_gb", memory,
 				"requested_disk_gb", opts.Disk,
@@ -87,7 +87,7 @@ func (d *Driver) buildImage(ctx context.Context, opts sandbox.TemplateBuildReque
 			)
 		}
 		params.Resources = &sdktypes.Resources{
-			CPU:    opts.CPU,
+			CPU:    cpu,
 			Memory: memory,
 			Disk:   disk,
 		}
@@ -133,9 +133,11 @@ func (d *Driver) buildFromRuntimeSnapshot(
 		CPU:         opts.CPU,
 		Memory:      opts.Memory,
 		Disk:        opts.Disk,
-	}); ok && (adjustment.RequestedMemory != adjustment.Memory || adjustment.RequestedDisk != adjustment.Disk) {
+	}, d.limits); ok && adjustment.Changed() {
 		logging.FromContext(ctx).InfoContext(ctx, "adjust Daytona runtime template allocation",
 			"size", adjustment.Size,
+			"requested_cpu", adjustment.RequestedCPU,
+			"daytona_cpu", adjustment.CPU,
 			"requested_memory_gb", adjustment.RequestedMemory,
 			"daytona_memory_gb", adjustment.Memory,
 			"requested_disk_gb", adjustment.RequestedDisk,
