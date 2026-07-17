@@ -534,56 +534,6 @@ CREATE TABLE public.credit_ledger_entries (
     created_at timestamp with time zone
 );
 
-CREATE TABLE public.credit_purchases (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    created_by_user_id uuid,
-    pack_id character varying(32) NOT NULL,
-    idempotency_key character varying(64) NOT NULL,
-    payment_method_id uuid,
-    save_payment_method boolean DEFAULT false NOT NULL,
-    provider character varying(32) NOT NULL,
-    provider_reference character varying(128) DEFAULT ''::character varying NOT NULL,
-    checkout_access_code character varying(128) DEFAULT ''::character varying NOT NULL,
-    checkout_url text DEFAULT ''::text NOT NULL,
-    status character varying(32) DEFAULT 'pending'::character varying NOT NULL,
-    currency character varying(3) NOT NULL,
-    subtotal_minor bigint NOT NULL,
-    fee_basis_points bigint NOT NULL,
-    fee_minor bigint NOT NULL,
-    total_minor bigint NOT NULL,
-    credits bigint NOT NULL,
-    fx_minor_per_usd bigint,
-    provider_paid_minor bigint DEFAULT 0 NOT NULL,
-    provider_paid_currency character varying(3) DEFAULT ''::character varying NOT NULL,
-    paid_at timestamp with time zone,
-    credited_at timestamp with time zone,
-    failed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT credit_purchases_currency_check CHECK (((currency)::text = ANY ((ARRAY['USD'::character varying, 'NGN'::character varying])::text[]))),
-    CONSTRAINT credit_purchases_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'paid'::character varying, 'credited'::character varying, 'failed'::character varying, 'reversed'::character varying, 'refunded'::character varying])::text[]))),
-    CONSTRAINT credit_purchases_amounts_check CHECK (((subtotal_minor > 0) AND (fee_minor >= 0) AND (total_minor = (subtotal_minor + fee_minor)) AND (credits > 0)))
-);
-
-CREATE TABLE public.billing_payment_methods (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    provider character varying(32) NOT NULL,
-    provider_signature character varying(128) NOT NULL,
-    encrypted_authorization bytea NOT NULL,
-    wrapped_dek bytea NOT NULL,
-    card_type character varying(32) DEFAULT ''::character varying NOT NULL,
-    last4 character varying(4) DEFAULT ''::character varying NOT NULL,
-    exp_month character varying(2) DEFAULT ''::character varying NOT NULL,
-    exp_year character varying(4) DEFAULT ''::character varying NOT NULL,
-    bank character varying(128) DEFAULT ''::character varying NOT NULL,
-    country_code character varying(2) DEFAULT ''::character varying NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
 CREATE TABLE public.database_connections (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -810,7 +760,6 @@ CREATE TABLE public.orgs (
     rate_limit bigint DEFAULT 1000 NOT NULL,
     active boolean DEFAULT true NOT NULL,
     allowed_origins text[],
-    billing_currency character varying(3) DEFAULT ''::character varying NOT NULL,
     byok boolean DEFAULT false NOT NULL,
     logo_url text DEFAULT ''::text NOT NULL,
     website character varying(500) DEFAULT ''::character varying NOT NULL,
@@ -821,8 +770,7 @@ CREATE TABLE public.orgs (
     sandbox_exposed_ports integer[] DEFAULT '{3000,5173,8000,8080}'::integer[] NOT NULL,
     onboarding_step text DEFAULT 'complete'::text NOT NULL,
     mcp_config_version bigint DEFAULT 0 NOT NULL,
-    CONSTRAINT orgs_onboarding_step_check CHECK ((onboarding_step = ANY (ARRAY['team'::text, 'connections'::text, 'welcome'::text, 'complete'::text]))),
-    CONSTRAINT orgs_billing_currency_check CHECK (((billing_currency)::text = ANY ((ARRAY[''::character varying, 'USD'::character varying, 'NGN'::character varying])::text[])))
+    CONSTRAINT orgs_onboarding_step_check CHECK ((onboarding_step = ANY (ARRAY['team'::text, 'connections'::text, 'welcome'::text, 'complete'::text])))
 );
 
 CREATE TABLE public.otp_codes (
@@ -1560,12 +1508,6 @@ ALTER TABLE ONLY public.credentials
 ALTER TABLE ONLY public.credit_ledger_entries
     ADD CONSTRAINT credit_ledger_entries_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.credit_purchases
-    ADD CONSTRAINT credit_purchases_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.billing_payment_methods
-    ADD CONSTRAINT billing_payment_methods_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY public.database_connections
     ADD CONSTRAINT database_connections_pkey PRIMARY KEY (id);
 
@@ -1971,22 +1913,6 @@ CREATE UNIQUE INDEX idx_credit_ledger_entries_idem ON public.credit_ledger_entri
 CREATE INDEX idx_credit_ledger_entries_org_id ON public.credit_ledger_entries USING btree (org_id);
 
 CREATE INDEX idx_credit_ledger_entries_ref_id ON public.credit_ledger_entries USING btree (ref_id);
-
-CREATE INDEX idx_credit_purchases_created_by_user_id ON public.credit_purchases USING btree (created_by_user_id);
-
-CREATE UNIQUE INDEX idx_credit_purchases_org_id_idempotency_key ON public.credit_purchases USING btree (org_id, idempotency_key);
-
-CREATE INDEX idx_credit_purchases_payment_method_id ON public.credit_purchases USING btree (payment_method_id);
-
-CREATE INDEX idx_credit_purchases_org_id ON public.credit_purchases USING btree (org_id);
-
-CREATE UNIQUE INDEX idx_credit_purchases_provider_reference ON public.credit_purchases USING btree (provider, provider_reference) WHERE ((provider_reference)::text <> ''::text);
-
-CREATE INDEX idx_billing_payment_methods_org_id ON public.billing_payment_methods USING btree (org_id);
-
-CREATE INDEX idx_billing_payment_methods_user_id ON public.billing_payment_methods USING btree (user_id);
-
-CREATE UNIQUE INDEX idx_billing_payment_methods_user_signature ON public.billing_payment_methods USING btree (org_id, user_id, provider, provider_signature);
 
 CREATE INDEX idx_database_connections_active ON public.database_connections USING btree (org_id, provider) WHERE (revoked_at IS NULL);
 
@@ -2569,21 +2495,6 @@ ALTER TABLE ONLY public.connections
 
 ALTER TABLE ONLY public.credentials
     ADD CONSTRAINT fk_credentials_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.credit_purchases
-    ADD CONSTRAINT fk_credit_purchases_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.credit_purchases
-    ADD CONSTRAINT fk_credit_purchases_created_by_user FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.credit_purchases
-    ADD CONSTRAINT fk_credit_purchases_payment_method FOREIGN KEY (payment_method_id) REFERENCES public.billing_payment_methods(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.billing_payment_methods
-    ADD CONSTRAINT fk_billing_payment_methods_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.billing_payment_methods
-    ADD CONSTRAINT fk_billing_payment_methods_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.database_connections
     ADD CONSTRAINT fk_database_connections_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
