@@ -1,6 +1,0 @@
----
-caddy_preview_proxy_domain: preview.usehivy.com
-caddy_preview_proxy_acme_email: ops@usehivy.com
-caddy_preview_proxy_service_name: caddy
-caddy_preview_proxy_config_path: /etc/caddy/Caddyfile
-caddy_preview_proxy_health_body: "ok\n"

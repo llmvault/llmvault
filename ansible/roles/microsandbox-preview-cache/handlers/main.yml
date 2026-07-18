@@ -1,6 +1,0 @@
----
-- name: Restart microsandbox preview cache
-  ansible.builtin.systemd:
-    name: "{{ microsandbox_preview_cache_service_name }}"
-    state: restarted
-    daemon_reload: true

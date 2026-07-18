@@ -184,6 +184,13 @@
   register: microsandbox_ufw_private_api
   changed_when: "'Rule added' in microsandbox_ufw_private_api.stdout"
 
+- name: Remove preview host port access for retired proxies
+  ansible.builtin.command: "ufw delete allow from {{ item }} to any port {{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }} proto tcp"
+  loop: "{{ runner_preview_retired_sources }}"
+  register: microsandbox_ufw_retired_preview
+  changed_when: "'Rule deleted' in microsandbox_ufw_retired_preview.stdout"
+  failed_when: false
+
 - name: Allow preview host ports from preview proxies through UFW
   ansible.builtin.command: "ufw allow from {{ item }} to any port {{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }} proto tcp"
   loop: "{{ runner_preview_allowed_sources }}"

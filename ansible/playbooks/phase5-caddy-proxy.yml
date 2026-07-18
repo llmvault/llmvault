@@ -1,8 +1,0 @@
----
-- name: Provision Microsandbox preview Caddy proxy
-  hosts: preview_proxy
-  become: true
-  gather_facts: true
-  roles:
-    - microsandbox-preview-cache
-    - caddy-preview-proxy

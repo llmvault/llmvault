@@ -6,8 +6,9 @@ runner_disk_overcommit: 4
 runner_preview_port_range_start: 30000
 runner_preview_port_range_end: 60999
 runner_preview_allowed_sources:
-  - "{{ hostvars[groups['preview_proxy'][0]].preview_proxy_private_ip }}"
   - "{{ microsandbox_control_private_ip }}"
+runner_preview_retired_sources:
+  - 10.80.0.2
 zot_registry_domain: registry.usehivy.com
 zot_registry_private_ip: 10.80.0.3
 buildkit_registry: "{{ zot_registry_domain }}:5000"
