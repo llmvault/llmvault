@@ -1,8 +1,8 @@
 ---
-- name: Restart nftables
-  ansible.builtin.service:
-    name: nftables
-    state: restarted
+# Do not restart the nftables service here. Its stop action flushes the complete
+# ruleset, including rules installed by Cilium and other Kubernetes components.
+- name: Reload Hivy nftables rules
+  ansible.builtin.command: nft -f /etc/nftables.conf
 
 - name: Restart K3s
   ansible.builtin.systemd:

@@ -80,7 +80,7 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Restart nftables
+  notify: Reload Hivy nftables rules
 
 - name: Enable the host firewall
   ansible.builtin.service:
