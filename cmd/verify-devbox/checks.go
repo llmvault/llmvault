@@ -151,7 +151,9 @@ func verifyBrowserSessionStreamCORS(ctx context.Context, runtimeURL, runtimeSecr
 		return fmt.Errorf("signing browser stream token: %w", err)
 	}
 
-	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// Daytona may buffer a new SSE response until Runtime emits its first
+	// keepalive frame, so this must exceed the stream's keepalive interval.
+	reqCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(
 		reqCtx,
