@@ -118,6 +118,71 @@ wait_for_snapshot() {
   return 1
 }
 
+prune_superseded_hivy_snapshots() {
+  local inventory_file
+  local response_file
+  local previous_version
+  local snapshot_id
+  local snapshot_name
+  local http_status
+  local name_pattern
+  inventory_file="$(mktemp)"
+  response_file="$(mktemp)"
+  trap 'rm -f "${inventory_file}" "${response_file}"' RETURN
+  name_pattern='^(hivy-sandboxes-runtime-daytona|hivy-sandboxes-runtime-developers-daytona)-(?<version>[0-9]+-[0-9]+-[0-9]+)-(micro|nano|small|medium|large|xlarge)-v1$'
+
+  curl --silent --show-error --fail \
+    --output "${inventory_file}" \
+    --header "Authorization: Bearer ${HIVY_DAYTONA_API_KEY}" \
+    "${HIVY_DAYTONA_API_URL%/}/snapshots?page=1&limit=100"
+
+  previous_version="$({
+    jq -r \
+      --arg current "${release_version_dashed}" \
+      --arg pattern "${name_pattern}" \
+      '[.items[].name | capture($pattern).version | select(. != $current)] | unique[]' \
+      "${inventory_file}"
+  } | sort -V | tail -n 1)"
+
+  if [[ -n "${previous_version}" ]]; then
+    echo "Daytona snapshot retention keeps current ${release_version_dashed} and previous ${previous_version}."
+  else
+    echo "Daytona snapshot retention keeps current ${release_version_dashed}; no previous Hivy release exists."
+  fi
+
+  while IFS=$'\t' read -r snapshot_id snapshot_name; do
+    [[ -n "${snapshot_id}" && -n "${snapshot_name}" ]] || continue
+    http_status="$(
+      curl --silent --show-error \
+        --output "${response_file}" \
+        --write-out '%{http_code}' \
+        --request DELETE \
+        --header "Authorization: Bearer ${HIVY_DAYTONA_API_KEY}" \
+        "${HIVY_DAYTONA_API_URL%/}/snapshots/${snapshot_id}"
+    )"
+    case "${http_status}" in
+      200 | 204) echo "Deleted superseded Daytona snapshot ${snapshot_name}." ;;
+      *)
+        echo "Failed to delete superseded Daytona snapshot ${snapshot_name} with HTTP ${http_status}." >&2
+        jq -c . "${response_file}" >&2 || true
+        return 1
+        ;;
+    esac
+  done < <(
+    jq -r \
+      --arg current "${release_version_dashed}" \
+      --arg previous "${previous_version}" \
+      --arg pattern "${name_pattern}" \
+      '.items[]
+       | select(.name | test($pattern))
+       | (.name | capture($pattern).version) as $version
+       | select($version != $current and $version != $previous)
+       | [.id, .name]
+       | @tsv' \
+      "${inventory_file}"
+  )
+}
+
 publish_variant() {
   local image="$1"
   local prefix="$2"
@@ -180,6 +245,8 @@ publish_variant() {
     wait_for_snapshot "${name}"
   done < <(resolve_sizes)
 }
+
+prune_superseded_hivy_snapshots
 
 if [[ "${DAYTONA_PUBLISH_RUNTIME:-true}" == "true" ]]; then
   publish_variant "${runtime_image}" hivy-sandboxes-runtime-daytona 5
