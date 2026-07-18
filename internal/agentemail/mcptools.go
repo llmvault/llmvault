@@ -3,6 +3,7 @@ package agentemail
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -59,41 +60,61 @@ func tokenAgentID(token *model.Token) (uuid.UUID, error) {
 }
 
 type sendEmailArgs struct {
-	To       []string `json:"to"`
-	CC       []string `json:"cc"`
-	Subject  string   `json:"subject"`
-	Text     string   `json:"text"`
-	HTML     string   `json:"html"`
-	ThreadID string   `json:"thread_id"`
+	To            []string `json:"to"`
+	CC            []string `json:"cc"`
+	Subject       string   `json:"subject"`
+	Text          string   `json:"text"`
+	HTML          string   `json:"html"`
+	HivySessionID string   `json:"_hivy_session_id"`
 }
 
 func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer, token *model.Token, agentID uuid.UUID) {
-	server.AddTool(&mcp.Tool{Name: toolSendEmail, Description: "Queue an email from this agent's inbox. Provide plain-text text, HTML, or both; HTML is sent as supplied, so use semantic, self-contained email markup. To continue a received conversation, pass its thread_id from email_read or email_search. The tool handles Resend idempotency and reply headers; never invent RFC Message-ID headers yourself.", InputSchema: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"to": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Recipient email addresses."}, "cc": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "subject": map[string]any{"type": "string"}, "text": map[string]any{"type": "string", "description": "Plain-text body. Include when possible for accessibility."}, "html": map[string]any{"type": "string", "description": "Optional complete HTML email body."}, "thread_id": map[string]any{"type": "string", "description": "Existing inbox thread UUID to reply within."}}, "required": []string{"to", "subject"}}}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	server.AddTool(&mcp.Tool{Name: toolSendEmail, Description: "Queue an email from this agent's inbox. Provide plain-text text, HTML, or both; HTML is sent as supplied, so use semantic, self-contained email markup. When called from an email-triggered session, the recipient and email thread are derived automatically; provide only the body, optionally cc and a subject override. Otherwise, to and subject are required to start a new email conversation. The tool handles Resend idempotency and reply headers; never invent RFC Message-ID headers yourself.", InputSchema: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"to": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Recipient email addresses. Required only when not responding from an email-triggered session."}, "cc": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "subject": map[string]any{"type": "string", "description": "Required only for a new email. Optional override when replying."}, "text": map[string]any{"type": "string", "description": "Plain-text body. Include when possible for accessibility."}, "html": map[string]any{"type": "string", "description": "Optional complete HTML email body."}}}}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args sendEmailArgs
 		if result := decodeArgs(req, &args); result != nil {
 			return result, nil
 		}
-		if len(args.To) == 0 || len(args.To) > 50 || strings.TrimSpace(args.Subject) == "" {
-			return toolError("to and subject are required; to may contain at most 50 recipients"), nil
-		}
 		if len(args.Text)+len(args.HTML) == 0 || len(args.Text)+len(args.HTML) > maxEmailBody {
 			return toolError("provide text or html with a combined maximum of 1 MiB"), nil
-		}
-		if !validAddresses(append(append([]string{}, args.To...), args.CC...)) {
-			return toolError("to and cc must contain valid email addresses"), nil
 		}
 		var agent model.Agent
 		if err := db.WithContext(ctx).Where("id = ? AND org_id = ? AND status <> ?", agentID, token.OrgID, "archived").First(&agent).Error; err != nil {
 			return toolError("agent inbox is unavailable"), nil
 		}
-		thread, err := sendThread(ctx, db, token.OrgID, agentID, args.ThreadID)
+		reply, err := emailReplyContextForSession(ctx, db, token.OrgID, agentID, args.HivySessionID)
 		if err != nil {
 			return toolError(err.Error()), nil
 		}
+		to := args.To
+		subject := strings.TrimSpace(args.Subject)
+		var thread *model.AgentEmailThread
+		if reply != nil {
+			to = []string{reply.recipient}
+			if subject == "" {
+				subject = reply.subject
+			} else {
+				subject = replySubject(subject)
+			}
+			thread = reply.thread
+		} else {
+			if len(to) == 0 || len(to) > 50 || subject == "" {
+				return toolError("to and subject are required when starting a new email; to may contain at most 50 recipients"), nil
+			}
+			thread, err = newOutboundThread(ctx, db, token.OrgID, agentID)
+			if err != nil {
+				return toolError(err.Error()), nil
+			}
+		}
+		if !validAddresses(append(append([]string{}, to...), args.CC...)) {
+			return toolError("to and cc must contain valid email addresses"), nil
+		}
+		if err := requireTeamRecipients(ctx, db, token.OrgID, agent.TeamID, append(append([]string{}, to...), args.CC...)); err != nil {
+			return toolError("email recipients must be active members of the agent's team"), nil
+		}
 		now := time.Now().UTC()
-		toJSON, _ := json.Marshal(args.To)
+		toJSON, _ := json.Marshal(to)
 		ccJSON, _ := json.Marshal(args.CC)
-		message := model.AgentEmailMessage{OrgID: token.OrgID, AgentID: agentID, ThreadID: thread.ID, Direction: model.AgentEmailDirectionOutbound, Status: model.AgentEmailStatusQueued, ToAddresses: model.RawJSON(toJSON), CCAddresses: model.RawJSON(ccJSON), Subject: strings.TrimSpace(args.Subject), TextBody: args.Text, HTMLBody: args.HTML, Headers: model.RawJSON("{}"), ProviderAt: now}
+		message := model.AgentEmailMessage{OrgID: token.OrgID, AgentID: agentID, ThreadID: thread.ID, Direction: model.AgentEmailDirectionOutbound, Status: model.AgentEmailStatusQueued, ToAddresses: model.RawJSON(toJSON), CCAddresses: model.RawJSON(ccJSON), Subject: subject, TextBody: args.Text, HTMLBody: args.HTML, Headers: model.RawJSON("{}"), ProviderAt: now}
 		if err := db.WithContext(ctx).Create(&message).Error; err != nil {
 			return toolError("failed to queue email"), nil
 		}
@@ -104,22 +125,11 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 		if _, err := enq.Enqueue(task, opts...); err != nil {
 			return toolError("failed to queue email delivery"), nil
 		}
-		return toolJSON(map[string]string{"message_id": message.ID.String(), "thread_id": thread.ID.String(), "status": "queued"})
+		return toolJSON(map[string]string{"message_id": message.ID.String(), "status": "queued"})
 	})
 }
 
-func sendThread(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, rawID string) (*model.AgentEmailThread, error) {
-	if strings.TrimSpace(rawID) != "" {
-		id, err := uuid.Parse(strings.TrimSpace(rawID))
-		if err != nil || id == uuid.Nil {
-			return nil, fmt.Errorf("thread_id must be a valid UUID")
-		}
-		var thread model.AgentEmailThread
-		if err := db.WithContext(ctx).Where("id = ? AND org_id = ? AND agent_id = ?", id, orgID, agentID).First(&thread).Error; err != nil {
-			return nil, fmt.Errorf("email thread not found")
-		}
-		return &thread, nil
-	}
+func newOutboundThread(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (*model.AgentEmailThread, error) {
 	token, err := NewReplyToken()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create email thread")
@@ -129,6 +139,69 @@ func sendThread(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, rawI
 		return nil, fmt.Errorf("failed to create email thread")
 	}
 	return thread, nil
+}
+
+type emailReplyContext struct {
+	thread    *model.AgentEmailThread
+	recipient string
+	subject   string
+}
+
+func emailReplyContextForSession(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, rawSessionID string) (*emailReplyContext, error) {
+	rawSessionID = strings.TrimSpace(rawSessionID)
+	if rawSessionID == "" {
+		return nil, nil
+	}
+	sessionID, err := uuid.Parse(rawSessionID)
+	if err != nil || sessionID == uuid.Nil {
+		return nil, fmt.Errorf("_hivy_session_id must be a valid UUID")
+	}
+	var thread model.AgentEmailThread
+	err = db.WithContext(ctx).Where("session_id = ? AND org_id = ? AND agent_id = ?", sessionID, orgID, agentID).First(&thread).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load email session thread: %w", err)
+	}
+	var inbound model.AgentEmailMessage
+	err = db.WithContext(ctx).Where("thread_id = ? AND direction = ?", thread.ID, model.AgentEmailDirectionInbound).Order("provider_at DESC").First(&inbound).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("email session has no inbound message")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load inbound email for session: %w", err)
+	}
+	recipient, err := replyRecipient(inbound)
+	if err != nil {
+		return nil, err
+	}
+	return &emailReplyContext{thread: &thread, recipient: recipient, subject: replySubject(inbound.Subject)}, nil
+}
+
+func replyRecipient(message model.AgentEmailMessage) (string, error) {
+	var headers map[string]string
+	if err := json.Unmarshal(message.Headers, &headers); err != nil {
+		return "", fmt.Errorf("decode inbound email headers: %w", err)
+	}
+	for _, raw := range []string{Header(headers, "Reply-To"), message.FromAddress} {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		parsed, err := mail.ParseAddress(strings.TrimSpace(raw))
+		if err == nil {
+			return parsed.Address, nil
+		}
+	}
+	return "", fmt.Errorf("inbound email has no valid reply address")
+}
+
+func replySubject(subject string) string {
+	subject = strings.TrimSpace(subject)
+	if strings.HasPrefix(strings.ToLower(subject), "re:") {
+		return subject
+	}
+	return "Re: " + subject
 }
 
 type emailReadArgs struct {
@@ -220,6 +293,34 @@ func validAddresses(values []string) bool {
 	}
 	return true
 }
+
+// requireTeamRecipients makes the team boundary the outbound-email boundary:
+// agents may only send to the active humans who belong to their owning team.
+func requireTeamRecipients(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID, recipients []string) error {
+	var rows []struct {
+		Email string
+	}
+	if err := db.WithContext(ctx).
+		Table("team_members").
+		Select("users.email").
+		Joins("JOIN users ON users.id = team_members.user_id").
+		Where("team_members.org_id = ? AND team_members.team_id = ? AND users.banned_at IS NULL", orgID, teamID).
+		Scan(&rows).Error; err != nil {
+		return fmt.Errorf("load team email recipients: %w", err)
+	}
+	allowed := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		allowed[strings.ToLower(strings.TrimSpace(row.Email))] = true
+	}
+	for _, raw := range recipients {
+		parsed, err := mail.ParseAddress(strings.TrimSpace(raw))
+		if err != nil || !allowed[strings.ToLower(parsed.Address)] {
+			return fmt.Errorf("recipient is not an active team member")
+		}
+	}
+	return nil
+}
+
 func toolError(message string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "Error: " + message}}, IsError: true}
 }

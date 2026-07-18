@@ -242,11 +242,11 @@ func (h *AgentEmailReceiveHandler) dispatchAutomation(ctx context.Context, agent
 	if _, err := dispatcher.enqueueTriggerSessionMessage(ctx, session, compiled, "email:"+message.ResendEmailID, emailConversationSource); err != nil {
 		return err
 	}
-	if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, session.ID); err != nil {
-		return fmt.Errorf("enqueue email session message delivery: %w", err)
-	}
 	if err := h.db.WithContext(ctx).Model(&model.AgentEmailThread{}).Where("id = ?", thread.ID).Update("session_id", session.ID).Error; err != nil {
 		return fmt.Errorf("attach email thread session: %w", err)
+	}
+	if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, session.ID); err != nil {
+		return fmt.Errorf("enqueue email session message delivery: %w", err)
 	}
 	return nil
 }
