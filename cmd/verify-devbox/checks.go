@@ -11,6 +11,7 @@ import (
 
 	daytona "github.com/daytona/clients/sdk-go/pkg/daytona"
 	"github.com/daytona/clients/sdk-go/pkg/types"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 )
@@ -132,6 +133,56 @@ func verifyBrowserPreviewCORS(ctx context.Context, url string) error {
 	}
 	if strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/html") {
 		return fmt.Errorf("preview returned HTML instead of Runtime response")
+	}
+	return nil
+}
+
+func verifyBrowserSessionStreamCORS(ctx context.Context, runtimeURL, runtimeSecret string) error {
+	const sessionID = "daytona-acceptance-session"
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"aud":        "hivy-runtime",
+		"exp":        time.Now().UTC().Add(5 * time.Minute).Unix(),
+		"nbf":        time.Now().UTC().Add(-5 * time.Second).Unix(),
+		"session_id": sessionID,
+		"sandbox_id": "daytona-acceptance-sandbox",
+		"scopes":     []string{"stream:read"},
+	}).SignedString([]byte(runtimeSecret))
+	if err != nil {
+		return fmt.Errorf("signing browser stream token: %w", err)
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		reqCtx,
+		http.MethodGet,
+		strings.TrimRight(runtimeURL, "/")+"/sessions/"+sessionID+"/stream?replay=none",
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	const origin = "https://usehivy.com"
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Origin", origin)
+	req.Header.Set("User-Agent", "Mozilla/5.0 Hivy-Daytona-Acceptance")
+	req.Header.Set("X-Daytona-Skip-Preview-Warning", "true")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+		return fmt.Errorf("content-type = %q, want text/event-stream", resp.Header.Get("Content-Type"))
+	}
+	allowedOrigins := resp.Header.Values("Access-Control-Allow-Origin")
+	if len(allowedOrigins) != 1 || allowedOrigins[0] != origin {
+		return fmt.Errorf("access-control-allow-origin = %q, want [%q]", allowedOrigins, origin)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -37,5 +38,30 @@ func TestVerifyBrowserPreviewCORSRejectsDuplicateOrigins(t *testing.T) {
 
 	if err := verifyBrowserPreviewCORS(context.Background(), server.URL); err == nil {
 		t.Fatal("expected duplicate Access-Control-Allow-Origin values to fail")
+	}
+}
+
+func TestVerifyBrowserSessionStreamCORS(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/sessions/daytona-acceptance-session/stream" {
+			t.Fatalf("path = %q", r.URL.Path)
+		}
+		if r.URL.Query().Get("replay") != "none" {
+			t.Fatalf("replay = %q", r.URL.Query().Get("replay"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Fatalf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		if got := r.Header.Get("X-Daytona-Skip-Preview-Warning"); got != "true" {
+			t.Fatalf("X-Daytona-Skip-Preview-Warning = %q", got)
+		}
+		w.Header().Set("Access-Control-Allow-Origin", "https://usehivy.com")
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	if err := verifyBrowserSessionStreamCORS(context.Background(), server.URL, "runtime-secret"); err != nil {
+		t.Fatalf("verify browser session stream CORS: %v", err)
 	}
 }

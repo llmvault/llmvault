@@ -1160,10 +1160,6 @@ fn sse_stream_response(response: impl IntoResponse) -> Response {
         HeaderName::from_static("x-accel-buffering"),
         HeaderValue::from_static("no"),
     );
-    headers.insert(
-        HeaderName::from_static("access-control-allow-origin"),
-        HeaderValue::from_static("*"),
-    );
     response
 }
 
@@ -1209,6 +1205,16 @@ mod tests {
 
     use std::collections::HashMap;
     use std::io::Write;
+
+    #[test]
+    fn sse_response_does_not_override_router_cors_policy() {
+        let response = sse_stream_response(StatusCode::OK);
+
+        assert!(!response
+            .headers()
+            .contains_key("access-control-allow-origin"));
+        assert_eq!(response.headers()["x-accel-buffering"], "no");
+    }
 
     #[test]
     fn stream_query_default_replays_all() {

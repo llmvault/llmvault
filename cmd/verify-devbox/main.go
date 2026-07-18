@@ -187,6 +187,10 @@ func runVerify(snapshot string, developer, keep bool) (retErr error) {
 		return fmt.Errorf("checking Runtime readyz after config push: %w", err)
 	}
 	log.Printf("Runtime accepted config and reports ready.")
+	if err := verifyBrowserSessionStreamCORS(ctx, runtimeURL, runtimeSecret); err != nil {
+		return fmt.Errorf("checking authenticated browser session stream CORS: %w", err)
+	}
+	log.Printf("Authenticated browser session stream CORS check passed.")
 
 	type portCheck struct {
 		name     string
