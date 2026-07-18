@@ -2,9 +2,9 @@ import type { components } from "@/lib/api/schema"
 
 export type SidebarSessionResponse = components["schemas"]["sessionResponse"]
 export type SidebarAgentResponse = components["schemas"]["agentListItem"]
-export type SidebarTeamResponse = components["schemas"]["teamResponse"]
+type SidebarTeamResponse = components["schemas"]["teamResponse"]
 
-export function slugify(value: string): string {
+function slugify(value: string): string {
   const slug = value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -43,7 +43,7 @@ export function buildSidebarTeamGroups(
   return groups
 }
 
-export function sessionTeamID(session: SidebarSessionResponse): string | undefined {
+function sessionTeamID(session: SidebarSessionResponse): string | undefined {
   return (session as SidebarSessionResponse & { team_id?: string }).team_id
 }
 

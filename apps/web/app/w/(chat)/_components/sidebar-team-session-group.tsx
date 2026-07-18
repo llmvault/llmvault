@@ -14,7 +14,6 @@ import {
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { ChatRow, type SidebarSessionAgent } from "./sidebar-chat-row"
-import { IndentedStatusRow } from "./sidebar-channel-status"
 import { useQueryClient } from "@tanstack/react-query"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
@@ -142,4 +141,22 @@ function chatSessionFromResponse(
     sourceResourceKey: session.source_resource_key,
     loaded: true,
   }
+}
+
+function IndentedStatusRow({
+  label,
+  muted = false,
+}: {
+  label: string
+  muted?: boolean
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-lg py-1.5 pr-3 pl-9 text-sm ${
+        muted ? "text-muted/60" : "text-muted"
+      }`}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </div>
+  )
 }
