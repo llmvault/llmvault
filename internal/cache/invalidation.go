@@ -21,7 +21,7 @@ const (
 // When a credential or token is revoked on one instance, all other instances
 // are notified to purge their L1 caches.
 type Invalidator struct {
-	client      *redis.Client
+	client      redis.UniversalClient
 	memCache    *MemoryCache
 	dekCache    *DEKCache
 	apiKeyCache *APIKeyCache
@@ -38,7 +38,7 @@ type Invalidator struct {
 // this ceiling, which matches the longest token lifetime the platform issues.
 const revokedEntryMaxTTL = 24 * time.Hour
 
-func NewInvalidator(client *redis.Client, memCache *MemoryCache, dekCache *DEKCache, apiKeyCache *APIKeyCache) *Invalidator {
+func NewInvalidator(client redis.UniversalClient, memCache *MemoryCache, dekCache *DEKCache, apiKeyCache *APIKeyCache) *Invalidator {
 	return &Invalidator{
 		client:      client,
 		memCache:    memCache,

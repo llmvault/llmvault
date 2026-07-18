@@ -38,7 +38,7 @@ type AppsInternalHandler struct {
 	svc       *sheets.Service
 	encKey    *crypto.SymmetricKey
 	presigner SheetsPresigner
-	redis     *redis.Client
+	redis     redis.UniversalClient
 	// actorKey is the platform's launch-token PUBLIC key. When set, appActor
 	// verifies the X-Hivy-App-Actor header as a platform-signed JWT before
 	// trusting the user it names. Nil disables real user attribution (fail-safe:
@@ -68,7 +68,7 @@ func (h *AppsInternalHandler) WithPresigner(p SheetsPresigner) *AppsInternalHand
 
 // WithRedis enables the live sheet-event stream (GET .../v1/live). Nil leaves
 // the endpoint answering 503 "not configured".
-func (h *AppsInternalHandler) WithRedis(client *redis.Client) *AppsInternalHandler {
+func (h *AppsInternalHandler) WithRedis(client redis.UniversalClient) *AppsInternalHandler {
 	h.redis = client
 	return h
 }

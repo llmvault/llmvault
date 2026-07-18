@@ -21,7 +21,7 @@ import (
 // buildAppsInternalHandler wires the internal app API handler over the shared
 // sheets service. Built even without the sandbox encryption key so the routes
 // answer 503 "not configured" instead of 404, mirroring the drive endpoints.
-func buildAppsInternalHandler(cfg *config.Config, database *gorm.DB, svc *sheets.Service, encKey *crypto.SymmetricKey, redisClient *redis.Client) *handler.AppsInternalHandler {
+func buildAppsInternalHandler(cfg *config.Config, database *gorm.DB, svc *sheets.Service, encKey *crypto.SymmetricKey, redisClient redis.UniversalClient) *handler.AppsInternalHandler {
 	appsHandler := handler.NewAppsInternalHandler(database, svc, encKey)
 	if presigner := buildSheetsPresigner(cfg); presigner != nil {
 		appsHandler.WithPresigner(presigner)

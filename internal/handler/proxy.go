@@ -16,7 +16,7 @@ import (
 // NewProxyHandler creates the streaming reverse proxy handler.
 // It uses FlushInterval: -1 to immediately flush SSE chunks.
 // The transport should be wrapped with proxy.CaptureTransport for observability.
-func NewProxyHandler(db *gorm.DB, redisClient *redis.Client, cacheManager *cache.Manager, attrCache *middleware.AttributionCache, transport http.RoundTripper) http.Handler {
+func NewProxyHandler(db *gorm.DB, redisClient redis.UniversalClient, cacheManager *cache.Manager, attrCache *middleware.AttributionCache, transport http.RoundTripper) http.Handler {
 	router := proxy.NewModelRouter(db, redisClient, nil)
 	director := proxy.NewDirector(cacheManager, attrCache, router)
 	transport = &proxy.FailoverTransport{Inner: transport, Director: director, Router: router}

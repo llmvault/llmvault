@@ -101,10 +101,10 @@ type EventPublisher interface {
 
 // RedisEventPublisher publishes events to the sheet's LiveChannel.
 type RedisEventPublisher struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
-func NewRedisEventPublisher(client *redis.Client) *RedisEventPublisher {
+func NewRedisEventPublisher(client redis.UniversalClient) *RedisEventPublisher {
 	return &RedisEventPublisher{client: client}
 }
 

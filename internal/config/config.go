@@ -28,11 +28,16 @@ type Config struct {
 	KMSKey    string `env:"HIVY_KMS_KEY"`           // base64-encoded 32-byte key (aead) or AWS KMS key ID/ARN (awskms)
 	AWSRegion string `env:"HIVY_AWS_REGION"`        // AWS region for awskms (default: us-east-1)
 
-	RedisURL      string        `env:"HIVY_REDIS_URL"`  // Full URL (e.g. rediss://...), enables TLS automatically
-	RedisAddr     string        `env:"HIVY_REDIS_ADDR"` // Fallback: host:port (ignored when HIVY_REDIS_URL is set)
-	RedisPassword string        `env:"HIVY_REDIS_PASSWORD"`
-	RedisDB       int           `env:"HIVY_REDIS_DB"`
-	RedisCacheTTL time.Duration `env:"HIVY_REDIS_CACHE_TTL,required"`
+	RedisURL  string `env:"HIVY_REDIS_URL"`  // Full URL (e.g. rediss://...), enables TLS automatically
+	RedisAddr string `env:"HIVY_REDIS_ADDR"` // Fallback standalone address, or an additional cluster seed
+	// RedisCluster enables Redis Cluster topology discovery from RedisClusterAddrs.
+	// It also lets a single seed address (RedisURL or RedisAddr) discover the
+	// whole cluster. RedisClusterAddrs implicitly enables cluster mode.
+	RedisCluster      bool          `env:"HIVY_REDIS_CLUSTER" envDefault:"false"`
+	RedisClusterAddrs []string      `env:"HIVY_REDIS_CLUSTER_ADDRS" envSeparator:","`
+	RedisPassword     string        `env:"HIVY_REDIS_PASSWORD"`
+	RedisDB           int           `env:"HIVY_REDIS_DB"`
+	RedisCacheTTL     time.Duration `env:"HIVY_REDIS_CACHE_TTL,required"`
 
 	MemCacheTTL     time.Duration `env:"HIVY_MEM_CACHE_TTL,required"`
 	MemCacheMaxSize int           `env:"HIVY_MEM_CACHE_MAX_SIZE,required"`
@@ -226,8 +231,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("HIVY_KMS_TYPE must be 'aead' or 'awskms' (got %q)", cfg.KMSType)
 	}
 
-	if cfg.RedisURL == "" && cfg.RedisAddr == "" {
-		return nil, fmt.Errorf("either HIVY_REDIS_URL or HIVY_REDIS_ADDR must be set")
+	if cfg.RedisURL == "" && cfg.RedisAddr == "" && len(cfg.RedisClusterAddrs) == 0 {
+		return nil, fmt.Errorf("one of HIVY_REDIS_URL, HIVY_REDIS_ADDR, or HIVY_REDIS_CLUSTER_ADDRS must be set")
+	}
+	if cfg.RedisClusterEnabled() && cfg.RedisDB != 0 {
+		return nil, fmt.Errorf("HIVY_REDIS_DB must be 0 when Redis Cluster is enabled")
 	}
 	if cfg.RuntimeRedisStreamShardCount <= 0 {
 		cfg.RuntimeRedisStreamShardCount = 64
@@ -255,6 +263,12 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// RedisClusterEnabled reports whether the Redis client should discover the
+// cluster topology from one or more seed nodes.
+func (c *Config) RedisClusterEnabled() bool {
+	return c.RedisCluster || len(c.RedisClusterAddrs) > 0
 }
 
 func includeFrontendCORSOrigin(origins []string, frontendURL string) []string {

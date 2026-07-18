@@ -77,7 +77,7 @@ var checkpointProjectedScript = redis.NewScript(`
 	`)
 
 type Store struct {
-	client       *redis.Client
+	client       redis.UniversalClient
 	shardCount   int
 	streamMaxLen int64
 	sessionTTL   time.Duration
@@ -94,7 +94,7 @@ type AppendResult struct {
 	Error       string
 }
 
-func NewStore(client *redis.Client, shardCount int) *Store {
+func NewStore(client redis.UniversalClient, shardCount int) *Store {
 	if shardCount <= 0 {
 		shardCount = DefaultShardCount
 	}
@@ -106,7 +106,7 @@ func NewStore(client *redis.Client, shardCount int) *Store {
 	}
 }
 
-func (s *Store) Redis() *redis.Client {
+func (s *Store) Redis() redis.UniversalClient {
 	if s == nil {
 		return nil
 	}

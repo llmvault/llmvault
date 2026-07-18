@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func InstallRedisHook(client *redis.Client) {
+func InstallRedisHook(client redis.UniversalClient) {
 	if !Enabled() || client == nil {
 		return
 	}

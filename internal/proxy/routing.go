@@ -35,12 +35,12 @@ type RouteCandidate struct {
 // platform credentials: BYOK tokens remain bound to their selected credential.
 type ModelRouter struct {
 	db    *gorm.DB
-	redis *redis.Client
+	redis redis.UniversalClient
 	reg   *registry.Registry
 	now   func() time.Time
 }
 
-func NewModelRouter(db *gorm.DB, redisClient *redis.Client, reg *registry.Registry) *ModelRouter {
+func NewModelRouter(db *gorm.DB, redisClient redis.UniversalClient, reg *registry.Registry) *ModelRouter {
 	if reg == nil {
 		reg = registry.Global()
 	}

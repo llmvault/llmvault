@@ -17,7 +17,7 @@ import (
 // handlers and the MCP tool group, so both surfaces emit realtime events and
 // enqueue the CSV import worker. Without the enqueuer, import jobs persist as
 // pending and never run.
-func buildSheetsService(database *gorm.DB, redisClient *redis.Client, enqueuer enqueue.TaskEnqueuer) *sheets.Service {
+func buildSheetsService(database *gorm.DB, redisClient redis.UniversalClient, enqueuer enqueue.TaskEnqueuer) *sheets.Service {
 	svc := sheets.NewService(database)
 	if redisClient != nil {
 		svc.WithPublisher(sheets.NewRedisEventPublisher(redisClient))
@@ -30,7 +30,7 @@ func buildSheetsService(database *gorm.DB, redisClient *redis.Client, enqueuer e
 
 // buildSheetsHandler wires the shared sheets service with the REST handler,
 // its Redis live-stream support, and the attachment presigner.
-func buildSheetsHandler(cfg *config.Config, database *gorm.DB, redisClient *redis.Client, signingKey []byte, svc *sheets.Service) *handler.SheetsHandler {
+func buildSheetsHandler(cfg *config.Config, database *gorm.DB, redisClient redis.UniversalClient, signingKey []byte, svc *sheets.Service) *handler.SheetsHandler {
 	sheetsHandler := handler.NewSheetsHandler(database, svc, signingKey).
 		WithRedis(redisClient)
 	if presigner := buildSheetsPresigner(cfg); presigner != nil {

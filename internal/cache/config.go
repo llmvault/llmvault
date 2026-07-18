@@ -45,7 +45,7 @@ func DefaultConfig() Config {
 }
 
 // Build constructs a fully wired cache Manager.
-func Build(cfg Config, redisClient *redis.Client, kms *crypto.KeyWrapper, db *gorm.DB, apiKeyCache *APIKeyCache) *Manager {
+func Build(cfg Config, redisClient redis.UniversalClient, kms *crypto.KeyWrapper, db *gorm.DB, apiKeyCache *APIKeyCache) *Manager {
 	memCache := NewMemoryCache(cfg.MemMaxSize, cfg.MemTTL)
 	dekCache := NewDEKCache(cfg.DEKMaxSize, cfg.DEKTTL)
 	redisCache := NewRedisCache(redisClient, cfg.RedisTTL)

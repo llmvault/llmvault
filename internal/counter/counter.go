@@ -13,12 +13,12 @@ import (
 
 // Counter manages atomic request-cap counters in Redis with lazy refill from Postgres.
 type Counter struct {
-	rdb *redis.Client
+	rdb redis.UniversalClient
 	db  *gorm.DB
 }
 
 // New creates a Counter backed by the given Redis and Postgres connections.
-func New(rdb *redis.Client, db *gorm.DB) *Counter {
+func New(rdb redis.UniversalClient, db *gorm.DB) *Counter {
 	return &Counter{rdb: rdb, db: db}
 }
 

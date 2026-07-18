@@ -28,7 +28,7 @@ type SheetsHandler struct {
 	svc        *sheets.Service
 	signingKey []byte
 	presigner  SheetsPresigner
-	redis      *redis.Client
+	redis      redis.UniversalClient
 }
 
 func NewSheetsHandler(db *gorm.DB, svc *sheets.Service, signingKey []byte) *SheetsHandler {
@@ -42,7 +42,7 @@ func (h *SheetsHandler) WithPresigner(p SheetsPresigner) *SheetsHandler {
 }
 
 // WithRedis enables the /live SSE endpoint.
-func (h *SheetsHandler) WithRedis(client *redis.Client) *SheetsHandler {
+func (h *SheetsHandler) WithRedis(client redis.UniversalClient) *SheetsHandler {
 	h.redis = client
 	return h
 }

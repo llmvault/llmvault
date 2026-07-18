@@ -22,7 +22,7 @@ func setupPublicRoutes(
 	r chi.Router,
 	cfg *config.Config,
 	database *gorm.DB,
-	redisClient *redis.Client,
+	redisClient redis.UniversalClient,
 	providerHandler *handler.ProviderHandler,
 	integrationHandler *handler.IntegrationHandler,
 	actionsCatalog *catalog.Catalog,

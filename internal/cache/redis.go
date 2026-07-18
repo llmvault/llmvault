@@ -24,12 +24,12 @@ type RedisCredential struct {
 
 // RedisCache is the L2 Redis-backed credential cache.
 type RedisCache struct {
-	client *redis.Client
+	client redis.UniversalClient
 	ttl    time.Duration
 }
 
 // NewRedisCache creates a new Redis credential cache.
-func NewRedisCache(client *redis.Client, ttl time.Duration) *RedisCache {
+func NewRedisCache(client redis.UniversalClient, ttl time.Duration) *RedisCache {
 	return &RedisCache{client: client, ttl: ttl}
 }
 
@@ -67,13 +67,13 @@ func (r *RedisCache) Invalidate(ctx context.Context, credentialID string) error 
 // RevokedTokenCache manages token revocation state in Redis.
 // Revoked JTIs are stored with a TTL matching the token's original expiry.
 type RevokedTokenCache struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
 const revokedPrefix = "pbrev:"
 
 // NewRevokedTokenCache creates a cache for tracking revoked token JTIs.
-func NewRevokedTokenCache(client *redis.Client) *RevokedTokenCache {
+func NewRevokedTokenCache(client redis.UniversalClient) *RevokedTokenCache {
 	return &RevokedTokenCache{client: client}
 }
 

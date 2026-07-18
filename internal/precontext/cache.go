@@ -10,10 +10,10 @@ import (
 )
 
 type RedisCache struct {
-	Client *redis.Client
+	Client redis.UniversalClient
 }
 
-func NewRedisCache(client *redis.Client) *RedisCache {
+func NewRedisCache(client redis.UniversalClient) *RedisCache {
 	if client == nil {
 		return nil
 	}

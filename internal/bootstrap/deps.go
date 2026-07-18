@@ -37,7 +37,7 @@ import (
 type Deps struct {
 	Config          *config.Config
 	DB              *gorm.DB
-	Redis           *redis.Client
+	Redis           redis.UniversalClient
 	KMS             *crypto.KeyWrapper
 	CacheManager    *cache.Manager
 	APIKeyCache     *cache.APIKeyCache
@@ -103,37 +103,17 @@ func New(ctx context.Context) (*Deps, error) {
 	}
 	logging.FromContext(ctx).InfoContext(ctx, "kms wrapper ready", "type", cfg.KMSType)
 
-	var redisOpts *redis.Options
-	if cfg.RedisURL != "" {
-		redisOpts, err = redis.ParseURL(cfg.RedisURL)
-		if err != nil {
-			return nil, fmt.Errorf("parsing HIVY_REDIS_URL: %w", err)
-		}
-	} else {
-		redisOpts = &redis.Options{
-			Addr:     cfg.RedisAddr,
-			Password: cfg.RedisPassword,
-			DB:       cfg.RedisDB,
-		}
+	redisClient, err := cfg.RedisClient()
+	if err != nil {
+		return nil, fmt.Errorf("creating Redis client: %w", err)
 	}
-
-	if redisOpts.PoolSize == 0 {
-		redisOpts.PoolSize = 500
-	}
-	if redisOpts.MinIdleConns == 0 {
-		redisOpts.MinIdleConns = 20
-	}
-	if redisOpts.PoolTimeout == 0 {
-		redisOpts.PoolTimeout = 4 * time.Second
-	}
-	redisClient := redis.NewClient(redisOpts)
 	sentryobs.InstallRedisHook(redisClient)
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("connecting to redis: %w", err)
 	}
 	logging.FromContext(ctx).InfoContext(ctx, "redis ready",
-		"pool_size", redisOpts.PoolSize,
-		"min_idle_conns", redisOpts.MinIdleConns,
+		"cluster", cfg.RedisClusterEnabled(),
+		"seed_count", len(cfg.RedisClusterAddrs),
 	)
 
 	apiKeyCache := cache.NewAPIKeyCache(5000, 5*time.Minute)
