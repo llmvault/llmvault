@@ -14,7 +14,10 @@ import (
 	"time"
 )
 
-const maxAPIResponseBytes = 8 << 20
+const (
+	maxAPIResponseBytes = 8 << 20
+	resendAPIBaseURL    = "https://api.resend.com"
+)
 
 type Client struct {
 	apiKey  string
@@ -22,10 +25,14 @@ type Client struct {
 	http    *http.Client
 }
 
-func NewClient(apiKey, baseURL string) *Client {
+func NewClient(apiKey string) *Client {
+	return newClient(apiKey, resendAPIBaseURL)
+}
+
+func newClient(apiKey, baseURL string) *Client {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
-		baseURL = "https://api.resend.com"
+		baseURL = resendAPIBaseURL
 	}
 	return &Client{apiKey: strings.TrimSpace(apiKey), baseURL: baseURL, http: &http.Client{Timeout: 30 * time.Second}}
 }

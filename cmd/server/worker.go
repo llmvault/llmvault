@@ -115,7 +115,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		PreContextBuilder:  preContextBuilder,
 		OrgAgentEnsurer:    orgAgentEnsurer,
 		AgentCompile:       agentCompile,
-		AgentEmail:         agentemail.NewClient(cfg.ResendAPIKey, cfg.ResendAPIBaseURL),
+		AgentEmail:         agentemail.NewClient(cfg.ResendAPIKey),
 		AgentInboxDomain:   cfg.AgentInboxDomain,
 		SlackMediaEnricher: buildWorkerSlackMediaEnricher(deps),
 		Storage:            buildWorkerStorageReader(cfg),

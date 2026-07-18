@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rsa"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -74,11 +73,7 @@ func setupPublicRoutes(
 
 	// Webhook receivers (HMAC-verified, no auth middleware)
 	r.Post("/internal/webhooks/nango", nangoWebhookHandler.Handle)
-	resendWebhookPath := strings.TrimSpace(cfg.ResendWebhookPath)
-	if resendWebhookPath == "" || !strings.HasPrefix(resendWebhookPath, "/") {
-		resendWebhookPath = "/internal/webhooks/resend"
-	}
-	r.Post(resendWebhookPath, resendWebhookHandler.Handle)
+	r.Post("/internal/webhooks/resend", resendWebhookHandler.Handle)
 	if cfg.PaystackSecretKey != "" && purchases != nil {
 		paystackWebhookHandler := handler.NewPaystackWebhookHandler(cfg.PaystackSecretKey, purchases)
 		r.Post("/internal/webhooks/paystack", paystackWebhookHandler.Handle)

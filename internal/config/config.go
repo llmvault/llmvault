@@ -74,8 +74,6 @@ type Config struct {
 	// and their headers are retrieved through the Receiving API.
 	ResendAPIKey        string `env:"HIVY_RESEND_API_KEY"`
 	ResendWebhookSecret string `env:"HIVY_RESEND_WEBHOOK_SECRET"`
-	ResendAPIBaseURL    string `env:"HIVY_RESEND_API_BASE_URL" envDefault:"https://api.resend.com"`
-	ResendWebhookPath   string `env:"HIVY_RESEND_WEBHOOK_PATH" envDefault:"/internal/webhooks/resend"`
 	AgentInboxDomain    string `env:"HIVY_AGENT_INBOX_DOMAIN"`
 
 	OAuthGitHubClientID     string `env:"HIVY_OAUTH_GITHUB_CLIENT_ID"`

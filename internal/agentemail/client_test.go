@@ -38,7 +38,7 @@ func TestClientGetReceivedAndSend(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient("test-key", server.URL)
+	client := newClient("test-key", server.URL)
 	received, err := client.GetReceived(context.Background(), "email_123")
 	if err != nil {
 		t.Fatalf("GetReceived: %v", err)
