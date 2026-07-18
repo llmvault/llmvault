@@ -1,6 +1,43 @@
-# Microsandbox Runner Ansible
+# Infrastructure Ansible
 
-This Ansible project deploys bare-metal Microsandbox runners only. The Microsandbox control plane runs on Railway and must already be reachable before runner deployment.
+Ansible has two deliberately narrow responsibilities in this repository:
+
+- bootstrap the bare-metal Microsandbox hosts;
+- install and host-configure K3s on Kubernetes server nodes.
+
+Ansible does not install cluster add-ons or apply application workloads. Once
+the Kubernetes API is available, those resources are managed as ordinary
+Kustomize manifests and applied directly with `kubectl`.
+
+## K3s server
+
+The production K3s inventory group and pinned settings live in
+`inventory/hosts.yml` and `inventory/group_vars/k3s_servers.yml`. From this
+directory, install or reconcile the host and then validate it:
+
+```sh
+ansible-playbook playbooks/k3s/install.yml --limit k8s0
+ansible-playbook playbooks/k3s/validate.yml --limit k8s0
+```
+
+The install playbook exports the administrator kubeconfig, K3s server token,
+and node token to `.secrets/k8s0/`. This entire directory is git-ignored. Once
+cluster add-ons or workloads have created Kubernetes Secrets, export those
+separately from the repository root:
+
+```sh
+kubectl get secrets --all-namespaces -o yaml \
+  > ansible/.secrets/k8s0/cluster-secrets.yaml
+chmod 600 ansible/.secrets/k8s0/*
+```
+
+Keep these files in an encrypted operator backup. They are sensitive recovery
+material, not a declarative secret-management system. The post-K3s bootstrap
+and access procedure is documented in `../kubernetes/bootstrap/README.md`.
+
+## Microsandbox runners
+
+These playbooks deploy the bare-metal Microsandbox runners. The Microsandbox control plane runs on Railway and must already be reachable before runner deployment.
 
 ## Operator Setup
 

@@ -1,0 +1,38 @@
+#!/usr/sbin/nft -f
+
+table inet hivy_filter
+flush table inet hivy_filter
+
+table inet hivy_filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    ct state invalid drop
+    ct state established,related accept
+    iifname "lo" accept
+
+    ip protocol icmp accept
+    ip6 nexthdr ipv6-icmp accept
+
+    tcp dport 22 accept
+
+    # Pod and Service traffic is policy-enforced by Cilium before it reaches
+    # the host stack. The node firewall must not reject that post-BPF traffic.
+    ip saddr {{ k3s_cluster_cidr }} accept
+    ip saddr {{ k3s_service_cidr }} accept
+
+    iifname "{{ k3s_private_interface }}" ip saddr {{ k3s_private_network_cidr }} tcp dport { 2379, 2380, 4240, 4244, 4245, 6443, 10250 } accept
+    iifname "{{ k3s_private_interface }}" ip saddr {{ k3s_private_network_cidr }} udp dport 8472 accept
+{% if k3s_load_balancer_private_ip | length > 0 %}
+    iifname "{{ k3s_private_interface }}" ip saddr {{ k3s_load_balancer_private_ip }} tcp dport { {{ k3s_gateway_http_port }}, {{ k3s_gateway_https_port }} } accept
+{% endif %}
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy accept;
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}

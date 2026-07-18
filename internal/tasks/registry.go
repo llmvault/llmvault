@@ -1,9 +1,12 @@
 package tasks
 
 import (
+	"strings"
+
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentemail"
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/cache"
@@ -40,6 +43,8 @@ type WorkerDeps struct {
 	SheetEvents         sheets.EventPublisher        // nil disables sheet realtime events from workers
 	UsageNotices        UsageNoticePublisher         // nil disables usage.updated notices from the model-usage worker
 	SessionEventNotices SessionEventsNoticePublisher // nil disables session.events.appended notices from trigger/schedule injection
+	AgentEmail          *agentemail.Client           // nil disables Resend agent inbox processing
+	AgentInboxDomain    string                       // required to send from agent inboxes
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -151,6 +156,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			NewAgentGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.AgentCompile).Handle)
 	}
 	mux.HandleFunc(TypeAgentTriggerStoreDelivery, NewAgentTriggerStoreDeliveryHandler(deps.DB).Handle)
+	if deps.AgentEmail != nil && deps.AgentEmail.Configured() && strings.TrimSpace(deps.AgentInboxDomain) != "" && deps.Enqueuer != nil {
+		mux.HandleFunc(TypeAgentEmailReceive, NewAgentEmailReceiveHandler(deps.DB, deps.AgentEmail, deps.Enqueuer, deps.AgentInboxDomain).Handle)
+		mux.HandleFunc(TypeAgentEmailSend, NewAgentEmailSendHandler(deps.DB, deps.AgentEmail, deps.AgentInboxDomain).Handle)
+	}
 	if deps.Enqueuer != nil && deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
 		mux.HandleFunc(TypeAgentScheduleScan, NewAgentScheduleScanHandler(deps.DB, deps.Enqueuer).Handle)
 	}

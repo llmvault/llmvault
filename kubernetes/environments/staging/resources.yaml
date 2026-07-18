@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: staging-defaults
+  labels:
+    hivy.io/apply-phase: foundation
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 25m
+        memory: 64Mi
+      default:
+        cpu: 500m
+        memory: 512Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: staging-budget
+  labels:
+    hivy.io/apply-phase: foundation
+spec:
+  hard:
+    # Leaves room for the later Next.js, Nango, Qdrant, and supporting
+    # workloads without allowing staging to consume the whole 64 GiB node.
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "32"
+    limits.memory: 40Gi
+    requests.storage: 128Gi
+    persistentvolumeclaims: "32"
+    pods: "60"
+    services: "30"

@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: staging
+resources:
+  - namespace.yaml
+  - ../../apps/backend/base
+  - backend-config.yaml
+  - postgres.yaml
+  - redis.yaml
+  - resources.yaml
+  - network-policies.yaml
+  - routes.yaml
+patches:
+  - path: api-patch.yaml
+  - path: worker-patch.yaml
+images:
+  - name: ghcr.io/usehivy/hivy
+    newName: ghcr.io/usehivy/hivy
+    digest: sha256:d310bffaf541e05837a4740f2280f50588bf99816a2e5d889894eab0b7a2cbba
+secretGenerator:
+  - name: backend-secrets
+    envs:
+      - secrets/backend.env
+      - secrets/qdrant.env
+    type: Opaque
+  - name: backend-postgres-app
+    envs:
+      - secrets/postgres.env
+    type: kubernetes.io/basic-auth
+  - name: backend-redis-auth
+    envs:
+      - secrets/redis.env
+    type: Opaque
+  - name: qdrant-auth
+    envs:
+      - secrets/qdrant.env
+    type: Opaque
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    hivy.io/apply-phase: data
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: hivy
+      hivy.io/environment: staging

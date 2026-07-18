@@ -1,0 +1,216 @@
+---
+- name: Validate supported K3s host
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["distribution"] == "Ubuntu"
+      - ansible_facts["distribution_major_version"] | int >= 24
+      - ansible_facts["architecture"] == "x86_64"
+      - k3s_node_name | length > 0
+      - k3s_node_ip is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+    fail_msg: "K3s requires a supported Ubuntu amd64 host and explicit node identity."
+
+- name: Set the permanent node hostname
+  ansible.builtin.hostname:
+    name: "{{ k3s_node_name }}"
+
+- name: Install K3s host dependencies
+  ansible.builtin.apt:
+    name:
+      - apparmor
+      - ca-certificates
+      - curl
+      - nftables
+      - openssl
+    state: present
+    update_cache: true
+
+- name: Disable swap immediately
+  ansible.builtin.command: swapoff -a
+  changed_when: ansible_facts["swaptotal_mb"] | int > 0
+
+- name: Remove swap entries from fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(?!#)(.*\s+swap\s+.*)$'
+    replace: '# \1'
+
+- name: Configure required kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      overlay
+      br_netfilter
+      vxlan
+
+- name: Load required kernel modules
+  ansible.builtin.command: "modprobe {{ item }}"
+  changed_when: false
+  loop:
+    - overlay
+    - br_netfilter
+    - vxlan
+
+- name: Configure Kubernetes networking sysctls
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-k3s.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.all.forwarding = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      fs.inotify.max_user_instances = 8192
+      fs.inotify.max_user_watches = 1048576
+  register: k3s_sysctl_config
+
+- name: Reload sysctls
+  ansible.builtin.command: sysctl --system
+  when: k3s_sysctl_config.changed
+  changed_when: true
+
+- name: Install the host firewall
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nftables
+
+- name: Enable the host firewall
+  ansible.builtin.service:
+    name: nftables
+    enabled: true
+    state: started
+
+- name: Create K3s configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop:
+    - /etc/rancher/k3s
+    - /var/lib/rancher/k3s
+
+- name: Check for an existing K3s server token
+  ansible.builtin.stat:
+    path: /etc/rancher/k3s/server-token
+  register: k3s_server_token_file
+
+- name: Generate a K3s server token
+  ansible.builtin.command: openssl rand -hex 32
+  register: k3s_generated_server_token
+  changed_when: true
+  no_log: true
+  when: not k3s_server_token_file.stat.exists
+
+- name: Store the K3s server token
+  ansible.builtin.copy:
+    dest: /etc/rancher/k3s/server-token
+    content: "{{ k3s_generated_server_token.stdout }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: not k3s_server_token_file.stat.exists
+
+- name: Install the pinned K3s binary
+  ansible.builtin.get_url:
+    url: "https://github.com/k3s-io/k3s/releases/download/{{ k3s_version | urlencode }}/k3s"
+    dest: /usr/local/bin/k3s
+    owner: root
+    group: root
+    mode: "0755"
+    checksum: "{{ k3s_binary_checksum }}"
+  notify: Restart K3s
+
+- name: Install K3s command symlinks
+  ansible.builtin.file:
+    src: /usr/local/bin/k3s
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+  loop:
+    - kubectl
+    - crictl
+    - ctr
+
+- name: Render the visible K3s configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart K3s
+
+- name: Install the K3s systemd unit
+  ansible.builtin.template:
+    src: k3s.service.j2
+    dest: /etc/systemd/system/k3s.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart K3s
+
+- name: Enable and start K3s
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Apply pending service handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the private Kubernetes API
+  ansible.builtin.wait_for:
+    host: "{{ k3s_node_ip }}"
+    port: 6443
+    timeout: 180
+
+- name: Create the local secret export directory
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Export the administrator kubeconfig
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/kubeconfig.yaml"
+    flat: true
+  no_log: true
+
+- name: Export the K3s server token
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/server-token
+    dest: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/server-token"
+    flat: true
+  no_log: true
+
+- name: Export the K3s node token
+  ansible.builtin.fetch:
+    src: /var/lib/rancher/k3s/server/node-token
+    dest: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/node-token"
+    flat: true
+  no_log: true
+
+- name: Protect exported local credentials
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0600"
+  loop:
+    - "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/kubeconfig.yaml"
+    - "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/server-token"
+    - "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/node-token"
+  delegate_to: localhost
+  become: false

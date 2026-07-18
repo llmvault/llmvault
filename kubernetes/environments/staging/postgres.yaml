@@ -1,0 +1,36 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: backend-postgres
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  # CloudNativePG creates one primary and two streaming replicas.
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:06d950644d127249699c1468d0ffad7e44c34daa11688b0e966dec947eb043c4
+  enableSuperuserAccess: false
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: hivy
+      owner: hivy
+      secret:
+        name: backend-postgres-app
+  postgresql:
+    parameters:
+      max_connections: "150"
+      max_locks_per_transaction: "256"
+      shared_buffers: 512MB
+  storage:
+    storageClass: longhorn
+    size: 10Gi
+    resizeInUseVolumes: true
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  monitoring:
+    enablePodMonitor: false

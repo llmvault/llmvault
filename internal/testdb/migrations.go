@@ -135,6 +135,9 @@ var migratedTables = []string{
 	"agent_assets",
 	"agent_catalog",
 	"agent_directives",
+	"agent_email_messages",
+	"agent_email_threads",
+	"agent_email_webhook_receipts",
 	"agent_memories",
 	"agent_observations",
 	"agent_mcp_servers",
@@ -217,4 +220,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 2
+const latestMigrationVersion = 3

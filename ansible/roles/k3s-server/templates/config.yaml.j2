@@ -1,0 +1,37 @@
+# Managed by Ansible. Cluster-wide values must remain identical on every
+# future K3s server node.
+cluster-init: true
+token-file: /etc/rancher/k3s/server-token
+
+node-name: {{ k3s_node_name }}
+node-ip: {{ k3s_node_ip }}
+advertise-address: {{ k3s_node_ip }}
+bind-address: {{ k3s_bind_address }}
+tls-san:
+  - {{ k3s_node_ip }}
+
+cluster-cidr: {{ k3s_cluster_cidr }}
+service-cidr: {{ k3s_service_cidr }}
+
+flannel-backend: none
+disable-network-policy: true
+disable-kube-proxy: true
+
+disable:
+  - traefik
+  - servicelb
+  - local-storage
+
+secrets-encryption: true
+write-kubeconfig-mode: "0600"
+
+etcd-snapshot-schedule-cron: "{{ k3s_etcd_snapshot_schedule }}"
+etcd-snapshot-retention: {{ k3s_etcd_snapshot_retention }}
+
+node-label:
+  - "hivy.io/public-ingress=true"
+
+kubelet-arg:
+  - "system-reserved={{ k3s_system_reserved }}"
+  - "kube-reserved={{ k3s_kube_reserved }}"
+  - "eviction-hard=memory.available<2Gi,nodefs.available<10%,imagefs.available<15%"

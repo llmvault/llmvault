@@ -42,6 +42,9 @@ func validateAgentTriggers(db *gorm.DB, orgID uuid.UUID, triggers []agentTrigger
 			}
 		case "http":
 			// No required fields.
+		case "email":
+			// Email is delivered through the shared Resend webhook; the trigger
+			// only supplies the agent, channel, and automation instructions.
 		default:
 			return fmt.Sprintf("triggers[%d]: invalid trigger_type %q", i, triggerType)
 		}
@@ -129,6 +132,11 @@ func createAgentTriggersWithExistingSecrets(tx *gorm.DB, orgID, agentID uuid.UUI
 			} else if existingID != uuid.Nil && existingSecrets != nil {
 				trigger.SecretKey = existingSecrets[existingID]
 			}
+
+		case "email":
+			trigger.TriggerKey = "email.received"
+			trigger.TriggerKeys = pq.StringArray{"email.received"}
+			trigger.SourceSlug = "email/inbound"
 
 		default:
 			return fmt.Errorf("invalid trigger_type %q", triggerType)

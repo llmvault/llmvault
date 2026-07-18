@@ -1,0 +1,165 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: backend-api-ingress
+  labels:
+    hivy.io/apply-phase: workload
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-backend
+      app.kubernetes.io/component: api
+  ingress:
+    # Public requests arrive at backends with Cilium's reserved ingress
+    # identity. Host identities cover kubelet probes now and after adding nodes.
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+    # Nango and the web server may call the API over the cluster network.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: staging
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-ingress
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: backend-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+    # CloudNativePG reconciles instances over the TLS status endpoint.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-ingress
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  podSelector:
+    matchLabels:
+      redis_setup_type: cluster
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - port: 6379
+          protocol: TCP
+        - port: 16379
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: redis-operator
+      ports:
+        - port: 6379
+          protocol: TCP
+        - port: 16379
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-deny-ingress
+  labels:
+    hivy.io/apply-phase: workload
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-backend
+      app.kubernetes.io/component: worker
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-isolation
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: qdrant
+      app.kubernetes.io/component: vector-database
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Qdrant peers require all three ports for consensus, shard transfers,
+    # and distributed request routing when staging is scaled later.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: qdrant
+              app.kubernetes.io/component: vector-database
+      ports:
+        - port: 6333
+          protocol: TCP
+        - port: 6334
+          protocol: TCP
+        - port: 6335
+          protocol: TCP
+    # The Hivy backend uses only Qdrant's gRPC API.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hivy-backend
+      ports:
+        - port: 6334
+          protocol: TCP
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: qdrant
+              app.kubernetes.io/component: vector-database
+      ports:
+        - port: 6333
+          protocol: TCP
+        - port: 6334
+          protocol: TCP
+        - port: 6335
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

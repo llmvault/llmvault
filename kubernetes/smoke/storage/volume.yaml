@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volume-smoke
+  namespace: storage-smoke
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: longhorn-volume-smoke
+  namespace: storage-smoke
+spec:
+  restartPolicy: Never
+  containers:
+    - name: writer
+      image: busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+      command:
+        - sh
+        - -c
+        - echo longhorn-csi-ok > /data/health && sync && sleep 3600
+      readinessProbe:
+        exec:
+          command:
+            - cat
+            - /data/health
+        periodSeconds: 2
+      resources:
+        requests:
+          cpu: 5m
+          memory: 8Mi
+        limits:
+          memory: 32Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: longhorn-volume-smoke

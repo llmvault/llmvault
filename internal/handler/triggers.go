@@ -125,6 +125,9 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 	if strings.EqualFold(strings.TrimSpace(req.TriggerType), "http") {
 		return h.createHTTP(r, orgID, req)
 	}
+	if strings.EqualFold(strings.TrimSpace(req.TriggerType), "email") {
+		return h.createEmail(r, orgID, req)
+	}
 	provider := strings.ToLower(strings.TrimSpace(req.Provider))
 	if provider == "" {
 		provider = slackapp.Provider

@@ -45,6 +45,7 @@ require (
 	github.com/slack-go/slack v0.23.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/superradcompany/microsandbox/sdk/go v0.5.6
+	github.com/svix/svix-webhooks v1.98.0
 	github.com/swaggo/swag v1.16.6
 	github.com/wneessen/go-mail v0.8.0
 	go.mongodb.org/mongo-driver/v2 v2.6.0

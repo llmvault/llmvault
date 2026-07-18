@@ -37,6 +37,9 @@ type SheetToolsFunc func(server *mcp.Server, token *model.Token)
 // AppsToolsFunc registers the apps tool group.
 type AppsToolsFunc func(server *mcp.Server, token *model.Token)
 
+// EmailToolsFunc registers agent inbox read, search, and send tools.
+type EmailToolsFunc func(server *mcp.Server, token *model.Token)
+
 const universalSkillViewTool = "skill_view"
 
 // hivyMCPToolNames is the complete native Hivy MCP surface. BuildServer uses
@@ -51,6 +54,7 @@ var hivyMCPToolNames = []string{
 	"create_skill", "update_skill", "archive_skill",
 	"sheet_create", "sheet_list", "sheet_describe", "sheet_manage", "rows_query", "rows_write", "sheet_import_csv", "sheet_operations",
 	"app_create", "app_publish", "app_status", "app_logs", "app_rollback",
+	"send_email", "email_read", "email_search",
 	"cron", "create_http_trigger", "list_channels",
 }
 
@@ -118,6 +122,7 @@ func BuildServer(
 	addAgentBuilderTools AgentBuilderToolsFunc,
 	addSheetTools SheetToolsFunc,
 	addAppsTools AppsToolsFunc,
+	addEmailTools EmailToolsFunc,
 	toolFilters ...*model.ToolFilter,
 ) (*mcp.Server, error) {
 	var toolFilter *model.ToolFilter
@@ -159,6 +164,9 @@ func BuildServer(
 
 	if addAppsTools != nil && hasAllowedHivyMCPTool(toolFilter, "app_create", "app_publish", "app_status", "app_logs", "app_rollback") {
 		addAppsTools(server, token)
+	}
+	if addEmailTools != nil && hasAllowedHivyMCPTool(toolFilter, "send_email", "email_read", "email_search") {
+		addEmailTools(server, token)
 	}
 
 	if hasAllowedHivyMCPTool(toolFilter, "cron") {

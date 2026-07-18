@@ -34,12 +34,15 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 		"app_status",
 		"app_logs",
 		"app_rollback",
+		"send_email",
+		"email_read",
+		"email_search",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ParentAssignableToolIDs() = %v, want %v", got, want)
 	}
-	if len(got) != 22 {
-		t.Fatalf("parent enum length = %d, want 22", len(got))
+	if len(got) != 25 {
+		t.Fatalf("parent enum length = %d, want 25", len(got))
 	}
 	// No baseline or read-only floor id may appear in the parent enum.
 	for _, id := range got {

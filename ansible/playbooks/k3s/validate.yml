@@ -1,0 +1,31 @@
+---
+- name: Validate the production K3s server
+  hosts: k3s_servers
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check the K3s systemd service
+      ansible.builtin.command: systemctl is-active k3s
+      changed_when: false
+
+    - name: Wait for the Kubernetes API on the private address
+      ansible.builtin.wait_for:
+        host: "{{ k3s_node_ip }}"
+        port: 6443
+        timeout: 60
+
+    - name: Read node status
+      ansible.builtin.command: /usr/local/bin/k3s kubectl get nodes -o wide
+      register: k3s_node_status
+      changed_when: false
+
+    - name: Read embedded etcd status
+      ansible.builtin.command: /usr/local/bin/k3s etcd-snapshot list
+      register: k3s_snapshot_status
+      changed_when: false
+
+    - name: Show validation status
+      ansible.builtin.debug:
+        msg:
+          - "{{ k3s_node_status.stdout }}"
+          - "Embedded etcd snapshot command succeeded."

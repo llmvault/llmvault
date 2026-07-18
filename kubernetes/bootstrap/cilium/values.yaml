@@ -1,0 +1,53 @@
+# Cilium is rendered from the pinned OCI Helm chart into a local, git-ignored
+# manifest and then installed with kubectl apply. Helm does not own the release.
+kubeProxyReplacement: true
+k8sServiceHost: 10.80.1.4
+k8sServicePort: 6443
+
+ipam:
+  mode: cluster-pool
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - 10.42.0.0/16
+    clusterPoolIPv4MaskSize: 24
+
+routingMode: tunnel
+tunnelProtocol: vxlan
+MTU: 1350
+
+bpf:
+  masquerade: true
+
+operator:
+  replicas: 1
+
+rollOutCiliumPods: true
+policyEnforcementMode: default
+l7Proxy: true
+
+envoy:
+  enabled: true
+  terminationGracePeriodSeconds: 60
+
+gatewayAPI:
+  enabled: true
+  enableProxyProtocol: true
+  enableAppProtocol: true
+  enableAlpn: true
+  xffNumTrustedHops: 0
+  gatewayClass:
+    create: "true"
+  hostNetwork:
+    enabled: true
+    nodes:
+      matchLabels:
+        hivy.io/public-ingress: "true"
+
+hubble:
+  relay:
+    enabled: true
+  ui:
+    enabled: false
+
+prometheus:
+  enabled: true

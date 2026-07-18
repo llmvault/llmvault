@@ -81,7 +81,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 		}
 		return model.AgentTrigger{}, http.StatusInternalServerError, "failed to load trigger", err
 	}
-	if current.TriggerType == "http" {
+	if current.TriggerType == "http" || current.TriggerType == "email" {
 		return h.updateHTTP(r, orgID, id, current, req)
 	}
 	// The provider update path historically skipped the access + manage gates

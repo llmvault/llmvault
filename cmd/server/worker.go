@@ -12,6 +12,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"github.com/usehivy/hivy/internal/agentemail"
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/credentials"
@@ -114,6 +115,8 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		PreContextBuilder:  preContextBuilder,
 		OrgAgentEnsurer:    orgAgentEnsurer,
 		AgentCompile:       agentCompile,
+		AgentEmail:         agentemail.NewClient(cfg.ResendAPIKey, cfg.ResendAPIBaseURL),
+		AgentInboxDomain:   cfg.AgentInboxDomain,
 		SlackMediaEnricher: buildWorkerSlackMediaEnricher(deps),
 		Storage:            buildWorkerStorageReader(cfg),
 		Rag:                ragDeps,

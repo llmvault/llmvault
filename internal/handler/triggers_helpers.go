@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -111,6 +112,17 @@ func (h *TriggerHandler) resolveProviderTriggerChannel(r *http.Request, orgID uu
 // triggers it has no connection/resource — just an agent, a channel the caller
 // can access, instructions, and an optional shared secret.
 func (h *TriggerHandler) createHTTP(r *http.Request, orgID uuid.UUID, req createTriggerRequest) (model.AgentTrigger, string, int, string, error) {
+	return h.createInboundTrigger(r, orgID, req, "http")
+}
+
+// createEmail creates an email-received automation using the shared
+// agent_triggers table. Resend routing is global; this record only controls
+// whether received mail is injected into an agent session.
+func (h *TriggerHandler) createEmail(r *http.Request, orgID uuid.UUID, req createTriggerRequest) (model.AgentTrigger, string, int, string, error) {
+	return h.createInboundTrigger(r, orgID, req, "email")
+}
+
+func (h *TriggerHandler) createInboundTrigger(r *http.Request, orgID uuid.UUID, req createTriggerRequest, triggerType string) (model.AgentTrigger, string, int, string, error) {
 	if strings.TrimSpace(req.Instructions) == "" {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "instructions are required", fmt.Errorf("missing instructions")
 	}
@@ -155,12 +167,18 @@ func (h *TriggerHandler) createHTTP(r *http.Request, orgID uuid.UUID, req create
 			OrgID:        orgID,
 			AgentID:      agentID,
 			Name:         strings.TrimSpace(req.Name),
-			TriggerType:  "http",
+			TriggerType:  triggerType,
 			ChannelID:    &channelID,
 			Enabled:      true,
 			Instructions: strings.TrimSpace(req.Instructions),
 		}
-		if secret := strings.TrimSpace(req.SecretKey); secret != "" {
+		if triggerType == "email" {
+			trigger.TriggerKey = "email.received"
+			trigger.TriggerKeys = pq.StringArray{"email.received"}
+			trigger.SourceSlug = "email/inbound"
+		}
+		if triggerType == "http" && (strings.TrimSpace(req.SecretKey) != "") {
+			secret := strings.TrimSpace(req.SecretKey)
 			hash, hashErr := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
 			if hashErr != nil {
 				return fmt.Errorf("hash trigger secret: %w", hashErr)

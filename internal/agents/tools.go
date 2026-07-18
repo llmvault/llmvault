@@ -43,6 +43,9 @@ var AssignableMCPTools = []string{
 	"app_status",
 	"app_logs",
 	"app_rollback",
+	"send_email",
+	"email_read",
+	"email_search",
 }
 
 var assignableMCPToolSet = func() map[string]bool {

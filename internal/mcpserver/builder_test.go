@@ -23,6 +23,7 @@ func TestBuildServerWithNoScopes(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("build server: %v", err)
@@ -48,7 +49,7 @@ func TestBuildServerFiltersNativeToolsBeforeDiscovery(t *testing.T) {
 		}
 	}
 	filter := &model.ToolFilter{Allow: []string{"sheet_list"}}
-	server, err := BuildServer(context.Background(), &model.Token{}, nil, nil, nil, nil, nil, nil, nil, nil, register, nil, filter)
+	server, err := BuildServer(context.Background(), &model.Token{}, nil, nil, nil, nil, nil, nil, nil, nil, register, nil, nil, filter)
 	if err != nil {
 		t.Fatalf("build server: %v", err)
 	}

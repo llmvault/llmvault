@@ -70,6 +70,14 @@ type Config struct {
 	EmailSiteURL  string `env:"HIVY_EMAIL_SITE_URL"`
 	EmailAssetURL string `env:"HIVY_EMAIL_ASSET_URL"`
 
+	// Agent email uses Resend's HTTP API (not SMTP) because inbound messages
+	// and their headers are retrieved through the Receiving API.
+	ResendAPIKey        string `env:"HIVY_RESEND_API_KEY"`
+	ResendWebhookSecret string `env:"HIVY_RESEND_WEBHOOK_SECRET"`
+	ResendAPIBaseURL    string `env:"HIVY_RESEND_API_BASE_URL" envDefault:"https://api.resend.com"`
+	ResendWebhookPath   string `env:"HIVY_RESEND_WEBHOOK_PATH" envDefault:"/internal/webhooks/resend"`
+	AgentInboxDomain    string `env:"HIVY_AGENT_INBOX_DOMAIN"`
+
 	OAuthGitHubClientID     string `env:"HIVY_OAUTH_GITHUB_CLIENT_ID"`
 	OAuthGitHubClientSecret string `env:"HIVY_OAUTH_GITHUB_CLIENT_SECRET"`
 	OAuthGoogleClientID     string `env:"HIVY_OAUTH_GOOGLE_CLIENT_ID"`
@@ -150,9 +158,8 @@ type Config struct {
 	// guard against an empty preview domain. Self-hosters set their own.
 	PreviewBaseDomain string `env:"HIVY_PREVIEW_BASE_DOMAIN,required"`
 
-	PreviewCNAMETarget string `env:"HIVY_PREVIEW_CNAME_TARGET" envDefault:"preview-proxy.usehivy.com"`
-	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.example.com)
-	CaddyAdminURL      string `env:"HIVY_CADDY_ADMIN_URL"`  // Caddy admin API proxy (e.g. https://caddy-admin.daytona.example.com)
+	AcmeDNSAPIURL string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.example.com)
+	CaddyAdminURL string `env:"HIVY_CADDY_ADMIN_URL"`  // Caddy admin API proxy (e.g. https://caddy-admin.daytona.example.com)
 
 	// Web crawl/search providers, enabled by their API keys. Priority per
 	// operation is hardcoded in bootstrap: scrape/crawl/map go spider then

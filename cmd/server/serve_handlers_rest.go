@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentemail"
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/agents"
 	"github.com/usehivy/hivy/internal/apps"
@@ -35,6 +36,7 @@ type serveHandlersRest struct {
 	memoryHandler          *handler.MemoryHandler
 	nangoWebhookHandler    *handler.NangoWebhookHandler
 	incomingWebhookHandler *handler.IncomingWebhookHandler
+	resendWebhookHandler   *handler.ResendWebhookHandler
 	httpTriggerHandler     *handler.HTTPTriggerHandler
 	sandboxTemplateHandler *handler.SandboxTemplateHandler
 	agentHandler           *handler.AgentHandler
@@ -125,6 +127,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	}
 	mcpHandler.SetAgentBuilderTools(agents.NewToolsFunc(agentBuilderDeps, cfg.FrontendURL)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	mcpHandler.SetSheetTools(sheets.NewToolsFunc(sheetsService))                            //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
+	mcpHandler.SetEmailTools(agentemail.NewToolsFunc(database, enqueuer))                   //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	preContextBuilder := buildPreContextService(
 		cfg, database, preContextCache, memorySearchService,
 		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,
@@ -133,6 +136,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	nangoWebhookHandler := handler.NewNangoWebhookHandler(database, cfg.NangoWebhooksSecret, sandboxEncKey, nangoClient, enqueuer)
 
 	incomingWebhookHandler := handler.NewIncomingWebhookHandler(database, enqueuer)
+	resendWebhookHandler := handler.NewResendWebhookHandler(database, cfg.ResendWebhookSecret, cfg.AgentInboxDomain, enqueuer)
 	httpTriggerHandler := handler.NewHTTPTriggerHandler(database, enqueuer)
 
 	var templateBuilder handler.TemplateBuildable
@@ -232,6 +236,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		memoryHandler:          memoryHandler,
 		nangoWebhookHandler:    nangoWebhookHandler,
 		incomingWebhookHandler: incomingWebhookHandler,
+		resendWebhookHandler:   resendWebhookHandler,
 		httpTriggerHandler:     httpTriggerHandler,
 		sandboxTemplateHandler: sandboxTemplateHandler,
 		agentHandler:           agentHandler,

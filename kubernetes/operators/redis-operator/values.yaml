@@ -1,0 +1,38 @@
+redisOperator:
+  imageName: quay.io/opstree/redis-operator
+  imageTag: v0.26.0@sha256:1c6818e5e50553f9f3c1b91a8824ae5c1999a0c9416c794ca51431b7f0cb48c3
+  initContainerImageTag: v0.26.0@sha256:1c6818e5e50553f9f3c1b91a8824ae5c1999a0c9416c794ca51431b7f0cb48c3
+  imagePullPolicy: IfNotPresent
+  watchNamespace: ""
+  webhook: false
+  metrics:
+    enabled: true
+    bindAddress: :8080
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+rbac:
+  enabled: true
+  scope: cluster
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+certmanager:
+  enabled: false

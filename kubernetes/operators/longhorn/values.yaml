@@ -1,0 +1,43 @@
+# Single-node bootstrap settings. Raise replica counts when additional storage
+# nodes join the cluster; existing one-replica volumes must be updated too.
+global:
+  nodeSelector:
+    kubernetes.io/os: linux
+
+persistence:
+  defaultClass: true
+  defaultClassReplicaCount: 1
+  defaultDataLocality: best-effort
+  defaultFsType: ext4
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+
+csi:
+  attacherReplicaCount: 1
+  provisionerReplicaCount: 1
+  resizerReplicaCount: 1
+  snapshotterReplicaCount: 1
+
+defaultSettings:
+  defaultDataPath: /var/lib/longhorn
+  defaultDataLocality: best-effort
+  defaultReplicaCount:
+    v1: "1"
+    v2: "1"
+  replicaSoftAntiAffinity: false
+  replicaAutoBalance: best-effort
+  storageOverProvisioningPercentage: 100
+  storageMinimalAvailablePercentage: 15
+  storageReservedPercentageForDefaultDisk: 15
+  upgradeChecker: false
+  v2DataEngine: false
+
+longhornUI:
+  replicas: 1
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: false
+  type: k3s

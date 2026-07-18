@@ -1,5 +1,7 @@
 package tasks
 
+import "github.com/usehivy/hivy/internal/agentemail"
+
 // Task type constants for all Asynq tasks.
 const (
 	// On-demand tasks (enqueued by HTTP handlers / middleware)
@@ -10,6 +12,8 @@ const (
 	TypeAPIKeyUpdate              = "apikey:update_last_used" // #nosec G101 -- task type identifier, not a credential
 	TypeEmailSend                 = "email:send"
 	TypeEmailSendTemplate         = "email:send_template"
+	TypeAgentEmailReceive         = "agent_email:receive"
+	TypeAgentEmailSend            = agentemail.TypeSend
 	TypeSandboxTemplateBuild      = "sandbox_template:build"
 	TypeSandboxTemplateRetryBuild = "sandbox_template:retry"
 	TypeSkillHydrate              = "skill:hydrate"

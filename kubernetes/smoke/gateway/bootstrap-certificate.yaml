@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: bootstrap-selfsigned
+  namespace: ingress-public
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: gateway-smoke-tls
+  namespace: ingress-public
+spec:
+  secretName: gateway-smoke-tls
+  dnsNames:
+    - gateway-check.usehivy.com
+  issuerRef:
+    name: bootstrap-selfsigned
+    kind: Issuer

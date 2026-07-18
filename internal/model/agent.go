@@ -1,10 +1,15 @@
 package model
 
 import (
+	"crypto/rand"
+	"encoding/base32"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"gorm.io/gorm"
 )
 
 type Agent struct {
@@ -23,16 +28,19 @@ type Agent struct {
 	ParentAgentID *uuid.UUID `gorm:"type:uuid;index"`
 	// Name is unique within a parent for sub-agents (idx_agents_parent_name).
 	// Top-level agent names are not unique per org (several teams share a "Hivy").
-	Name              string           `gorm:"type:text;not null"`
-	Description       *string          `gorm:"type:text;not null;default:''"`
-	AvatarURL         *string          `gorm:"type:text"`
-	Category          *string          `gorm:"-"`
-	Icon              string           `gorm:"type:text;not null;default:''"`
-	IsDefault         bool             `gorm:"not null;default:false;index"`
-	SandboxImage      string           `gorm:"type:text;not null;default:'default'"`
-	SandboxSize       string           `gorm:"type:text;not null;default:'small'"`
-	SandboxTemplateID *uuid.UUID       `gorm:"type:uuid"`
-	SandboxTemplate   *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
+	Name string `gorm:"type:text;not null"`
+	// EmailInboxLocalPart is immutable once provisioned. The configured inbox
+	// domain is deployment-wide, so only the local part belongs in the DB.
+	EmailInboxLocalPart string           `gorm:"column:email_inbox_local_part;type:text;not null;default:'';uniqueIndex:idx_agents_email_inbox_local_part,where:email_inbox_local_part <> ''"`
+	Description         *string          `gorm:"type:text;not null;default:''"`
+	AvatarURL           *string          `gorm:"type:text"`
+	Category            *string          `gorm:"-"`
+	Icon                string           `gorm:"type:text;not null;default:''"`
+	IsDefault           bool             `gorm:"not null;default:false;index"`
+	SandboxImage        string           `gorm:"type:text;not null;default:'default'"`
+	SandboxSize         string           `gorm:"type:text;not null;default:'small'"`
+	SandboxTemplateID   *uuid.UUID       `gorm:"type:uuid"`
+	SandboxTemplate     *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 
 	Instructions *string `gorm:"type:text"`
 	// InstructionsSnapshot is a fallback copy of the catalog prompt. An unedited
@@ -78,6 +86,48 @@ type Agent struct {
 }
 
 func (Agent) TableName() string { return "agents" }
+
+// BeforeCreate gives every agent a stable inbound email address without making
+// address generation depend on the caller that creates the agent.
+func (a *Agent) BeforeCreate(_ *gorm.DB) error {
+	if strings.TrimSpace(a.EmailInboxLocalPart) != "" {
+		return nil
+	}
+	buf := make([]byte, 5) // 40 random bits -> 8 unpadded base32 characters.
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Errorf("generate agent inbox suffix: %w", err)
+	}
+	suffix := strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf))
+	name := agentEmailSlug(a.Name)
+	// RFC 5321 caps an email local part at 64 octets. Keep room for '-' + suffix.
+	if len(name) > 55 {
+		name = name[:55]
+	}
+	a.EmailInboxLocalPart = name + "-" + suffix
+	return nil
+}
+
+func agentEmailSlug(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash && b.Len() > 0 {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	result := strings.Trim(b.String(), "-")
+	if result == "" {
+		return "agent"
+	}
+	return result
+}
 
 const (
 	// AgentTypeAgent is a top-level agent (parent_agent_id IS NULL).
@@ -179,6 +229,9 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "app_status", Name: "App status", Description: "Inspect an app's status.", Category: "mcp.apps"},
 	{ID: "app_logs", Name: "App logs", Description: "Read app logs.", Category: "mcp.apps"},
 	{ID: "app_rollback", Name: "Rollback app", Description: "Roll an app back to a prior version.", Category: "mcp.apps"},
+	{ID: "send_email", Name: "Send email", Description: "Send an email from the agent's inbox.", Category: "mcp.email"},
+	{ID: "email_read", Name: "Read email", Description: "Read an email from the agent's inbox.", Category: "mcp.email"},
+	{ID: "email_search", Name: "Search email", Description: "Search the agent's inbox.", Category: "mcp.email"},
 }
 
 // validBuiltInToolIDs is a set for fast validation lookups.

@@ -40,6 +40,7 @@ type MCPHandler struct {
 	agentBuilderTools mcpserver.AgentBuilderToolsFunc
 	sheetTools        mcpserver.SheetToolsFunc
 	appsTools         mcpserver.AppsToolsFunc
+	emailTools        mcpserver.EmailToolsFunc
 	ServerCache       *mcpserver.ServerCache
 }
 
@@ -102,6 +103,11 @@ func (h *MCPHandler) SetAppsTools(fn mcpserver.AppsToolsFunc) {
 	h.appsTools = fn
 }
 
+// SetEmailTools sets the callback for registering the agent inbox tools.
+func (h *MCPHandler) SetEmailTools(fn mcpserver.EmailToolsFunc) {
+	h.emailTools = fn
+}
+
 // StreamableHTTPHandler returns an HTTP handler for the MCP Streamable HTTP transport.
 func (h *MCPHandler) StreamableHTTPHandler() http.Handler {
 	return mcp.NewStreamableHTTPHandler(h.serverFactory, &mcp.StreamableHTTPOptions{
@@ -159,7 +165,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 		}
 
 		toolFilter := h.agentProxyMCPToolFilter(ctx, &token)
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools, toolFilter)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools, h.emailTools, toolFilter)
 		if err != nil {
 			return nil, time.Time{}, err
 		}
