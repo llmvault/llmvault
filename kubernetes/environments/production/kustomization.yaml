@@ -5,6 +5,10 @@ resources:
   - namespace.yaml
   - ../../apps/data-backups
   - postgres.yaml
+  - microsandbox-postgres.yaml
+  - microsandbox-control.yaml
+  - microsandbox-preview-cache.yaml
+  - microsandbox-preview-proxy.yaml
   - redis.yaml
   - resources.yaml
   - network-policies.yaml
@@ -39,6 +43,18 @@ secretGenerator:
   - name: backend-redis-backup-s3
     envs:
       - secrets/redis-backup.env
+    type: Opaque
+  - name: microsandbox-postgres-app
+    envs:
+      - secrets/microsandbox-postgres.env
+    type: kubernetes.io/basic-auth
+  - name: microsandbox-control-secrets
+    envs:
+      - secrets/microsandbox-control.env
+    type: Opaque
+  - name: microsandbox-postgres-backup-s3
+    envs:
+      - secrets/microsandbox-postgres-backup.env
     type: Opaque
 generatorOptions:
   disableNameSuffixHash: true

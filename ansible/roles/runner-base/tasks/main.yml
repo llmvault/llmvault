@@ -179,8 +179,14 @@
   changed_when: "'Rule deleted' in microsandbox_ufw_api_delete.stdout"
   failed_when: false
 
-- name: Allow preview host ports from Caddy private IP through UFW
-  ansible.builtin.command: "ufw allow from {{ runner_preview_allowed_source }} to any port {{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }} proto tcp"
+- name: Allow the Kubernetes node to call the private runner API
+  ansible.builtin.command: "ufw allow from {{ microsandbox_control_private_ip }} to any port {{ runner_api_port }} proto tcp"
+  register: microsandbox_ufw_private_api
+  changed_when: "'Rule added' in microsandbox_ufw_private_api.stdout"
+
+- name: Allow preview host ports from preview proxies through UFW
+  ansible.builtin.command: "ufw allow from {{ item }} to any port {{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }} proto tcp"
+  loop: "{{ runner_preview_allowed_sources }}"
   register: microsandbox_ufw_preview
   changed_when: "'Rule added' in microsandbox_ufw_preview.stdout"
 

@@ -1,0 +1,210 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microsandbox-preview-proxy-config
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    app.kubernetes.io/component: public-proxy
+    hivy.io/apply-phase: workload
+data:
+  Caddyfile: |
+    {
+      auto_https off
+      admin off
+    }
+
+    :8080 {
+      log {
+        output stdout
+        format json
+      }
+
+      handle /health {
+        respond "ok" 200
+      }
+
+      handle_path /_microsandbox/preview-cache/* {
+        reverse_proxy microsandbox-preview-cache:8091
+      }
+
+      handle {
+        forward_auth http://microsandbox-preview-cache:8091 {
+          uri /v1/lookup
+          header_up -Authorization
+          header_up X-Forwarded-Host {host}
+          header_up X-Forwarded-Uri {uri}
+          copy_headers X-Microsandbox-Upstream
+          transport http {
+            response_header_timeout 100s
+          }
+        }
+
+        reverse_proxy {http.request.header.X-Microsandbox-Upstream} {
+          header_up X-Hivy-Preview-Host {host}
+          flush_interval -1
+          transport http {
+            response_header_timeout 60s
+          }
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microsandbox-preview-proxy
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    app.kubernetes.io/component: public-proxy
+    hivy.io/apply-phase: workload
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microsandbox-preview-proxy
+      app.kubernetes.io/component: public-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: microsandbox-preview-proxy
+        app.kubernetes.io/component: public-proxy
+        hivy.io/environment: production
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: caddy
+          image: caddy:2.9.1-alpine@sha256:b4e3952384eb9524a887633ce65c752dd7c71314d2c2acf98cd5c715aaa534f0
+          args: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /etc/caddy
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+      volumes:
+        - name: config
+          configMap:
+            name: microsandbox-preview-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microsandbox-preview-proxy
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    app.kubernetes.io/component: public-proxy
+    hivy.io/apply-phase: workload
+spec:
+  selector:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    app.kubernetes.io/component: public-proxy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: microsandbox-preview-https
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    hivy.io/apply-phase: ingress
+spec:
+  parentRefs:
+    - name: public
+      namespace: ingress-public
+      sectionName: https
+  hostnames:
+    - preview.usehivy.com
+    - "*.preview.usehivy.com"
+  rules:
+    - backendRefs:
+        - name: microsandbox-preview-proxy
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: microsandbox-preview-http-redirect
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    hivy.io/apply-phase: ingress
+spec:
+  parentRefs:
+    - name: public
+      namespace: ingress-public
+      sectionName: http
+  hostnames:
+    - preview.usehivy.com
+    - "*.preview.usehivy.com"
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            port: 443
+            statusCode: 301
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: microsandbox-preview-proxy-ingress
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-proxy
+    hivy.io/apply-phase: ingress
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: microsandbox-preview-proxy
+      app.kubernetes.io/component: public-proxy
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

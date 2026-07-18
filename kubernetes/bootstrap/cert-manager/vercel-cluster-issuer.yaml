@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production-vercel
+spec:
+  acme:
+    email: ops@usehivy.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-production-vercel-account
+    solvers:
+      - selector:
+          dnsZones:
+            - usehivy.com
+        dns01:
+          webhook:
+            groupName: acme.usehivy.com
+            solverName: vercel
+            config:
+              apiKeySecretRef:
+                name: vercel-credentials
+                key: token
+              teamId: team_gt37YmduFjqmnLiwzX0hwy4Q

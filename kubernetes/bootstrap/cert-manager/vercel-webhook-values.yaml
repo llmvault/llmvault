@@ -1,0 +1,21 @@
+groupName: acme.usehivy.com
+
+certManager:
+  namespace: cert-manager
+  serviceAccountName: cert-manager
+
+image:
+  repository: ghcr.io/rhythmbhiwani/cert-manager-webhook-vercel
+  tag: v1.0.0@sha256:dca95bc033ceb4ad466d0f7be0115eef9cfc686dedb77cd63afa2de073cb9591
+  pullPolicy: IfNotPresent
+
+deployment:
+  logLevel: 2
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi

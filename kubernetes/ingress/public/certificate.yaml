@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: preview-usehivy
+  namespace: ingress-public
+spec:
+  secretName: preview-usehivy-tls
+  dnsNames:
+    - preview.usehivy.com
+    - "*.preview.usehivy.com"
+  issuerRef:
+    name: letsencrypt-production-vercel
+    kind: ClusterIssuer

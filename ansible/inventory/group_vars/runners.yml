@@ -5,7 +5,9 @@ runner_memory_overcommit: 2
 runner_disk_overcommit: 4
 runner_preview_port_range_start: 30000
 runner_preview_port_range_end: 60999
-runner_preview_allowed_source: "{{ hostvars[groups['preview_proxy'][0]].preview_proxy_private_ip }}"
+runner_preview_allowed_sources:
+  - "{{ hostvars[groups['preview_proxy'][0]].preview_proxy_private_ip }}"
+  - "{{ microsandbox_control_private_ip }}"
 zot_registry_domain: registry.usehivy.com
 zot_registry_private_ip: 10.80.0.3
 buildkit_registry: "{{ zot_registry_domain }}:5000"
@@ -13,7 +15,8 @@ buildkit_registry: "{{ zot_registry_domain }}:5000"
 microsandbox_binary_local_path: "{{ playbook_dir }}/../../dist/microsandbox-linux-amd64"
 microsandbox_binary_remote_path: /usr/local/bin/microsandbox
 microsandbox_env_file: "{{ playbook_dir }}/../.env"
-microsandbox_runner_addr: "127.0.0.1:{{ runner_api_port }}"
+microsandbox_runner_addr: "{{ runner_private_ip }}:{{ runner_api_port }}"
+microsandbox_control_private_ip: 10.80.1.4
 microsandbox_runner_env_path: /etc/hivy/microsandbox-runner.env
 microsandbox_runner_service_name: microsandbox-runner
 microsandbox_runner_backend: microsandbox

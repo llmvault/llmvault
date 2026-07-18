@@ -1,0 +1,195 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microsandbox-preview-redis
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-redis
+    app.kubernetes.io/component: cache
+    hivy.io/apply-phase: workload
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microsandbox-preview-redis
+      app.kubernetes.io/component: cache
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: microsandbox-preview-redis
+        app.kubernetes.io/component: cache
+        hivy.io/environment: production
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
+          args: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microsandbox-preview-redis
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-redis
+    app.kubernetes.io/component: cache
+    hivy.io/apply-phase: workload
+spec:
+  selector:
+    app.kubernetes.io/name: microsandbox-preview-redis
+    app.kubernetes.io/component: cache
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microsandbox-preview-cache
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-cache
+    app.kubernetes.io/component: preview-cache
+    hivy.io/apply-phase: workload
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microsandbox-preview-cache
+      app.kubernetes.io/component: preview-cache
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: microsandbox-preview-cache
+        app.kubernetes.io/component: preview-cache
+        hivy.io/environment: production
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: preview-cache
+          image: ghcr.io/usehivy/microsandbox-gateway@sha256:ddab7d7d5845df1e250384add1038757e7e8cd89bebc25043a6ec56e2ad4b69d
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HIVY_MICROSANDBOX_PREVIEW_CACHE_ADDR
+              value: 0.0.0.0
+            - name: HIVY_MICROSANDBOX_PREVIEW_CACHE_PORT
+              value: "8091"
+            - name: HIVY_MICROSANDBOX_PREVIEW_CACHE_REDIS_URL
+              value: redis://microsandbox-preview-redis:6379/0
+            - name: HIVY_MICROSANDBOX_PREVIEW_BASE_DOMAIN
+              value: preview.usehivy.com
+            - name: HIVY_MICROSANDBOX_CONTROL_URL
+              value: http://microsandbox-control:8080
+            - name: HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: microsandbox-control-secrets
+                  key: HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN
+            - name: HIVY_MICROSANDBOX_CONTROL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: microsandbox-control-secrets
+                  key: HIVY_MICROSANDBOX_API_TOKEN
+          ports:
+            - name: http
+              containerPort: 8091
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microsandbox-preview-cache
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-cache
+    app.kubernetes.io/component: preview-cache
+    hivy.io/apply-phase: workload
+spec:
+  selector:
+    app.kubernetes.io/name: microsandbox-preview-cache
+    app.kubernetes.io/component: preview-cache
+  ports:
+    - name: http
+      port: 8091
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: microsandbox-preview-redis-ingress
+  labels:
+    app.kubernetes.io/name: microsandbox-preview-redis
+    hivy.io/apply-phase: workload
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: microsandbox-preview-redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: microsandbox-preview-cache
+      ports:
+        - port: 6379
+          protocol: TCP

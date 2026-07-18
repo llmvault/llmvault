@@ -3,6 +3,5 @@ kind: Kustomization
 resources:
   - namespaces.yaml
   - bootstrap-certificate.yaml
-  - public-gateway.yaml
   - echo.yaml
   - routes.yaml
