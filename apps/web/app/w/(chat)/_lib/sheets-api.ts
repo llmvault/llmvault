@@ -21,18 +21,18 @@ async function unwrap<T>(
   return data as T
 }
 
-export function fetchSheets(channelId: string, signal?: AbortSignal) {
+export function fetchSheets(teamId: string, signal?: AbortSignal) {
   return unwrap(
     api.GET("/v1/sheets", {
-      params: { query: { channel_id: channelId, limit: 200 } },
+      params: { query: { team_id: teamId, limit: 200 } },
       signal,
     })
   )
 }
 
-export function createSheet(channelId: string, name: string) {
+export function createSheet(teamId: string, name: string) {
   return unwrap(
-    api.POST("/v1/sheets", { body: { channel_id: channelId, name } })
+    api.POST("/v1/sheets", { body: { team_id: teamId, name } })
   )
 }
 

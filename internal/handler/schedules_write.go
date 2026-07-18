@@ -9,7 +9,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/access"
 	"github.com/usehivy/hivy/internal/agentschedule"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -66,49 +65,9 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var channelID uuid.UUID
-	if raw := strings.TrimSpace(req.ChannelID); raw != "" {
-		parsed, perr := uuid.Parse(raw)
-		if perr != nil || parsed == uuid.Nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
-			return
-		}
-		channelID = parsed
-	} else {
-		resolved, rerr := agentschedule.ResolveScheduleChannel(r.Context(), h.db, org.ID, agentID, "")
-		if rerr != nil {
-			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: rerr.Error()})
-			return
-		}
-		parsed, perr := uuid.Parse(resolved)
-		if perr != nil || parsed == uuid.Nil {
-			writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent's team has no default channel; a schedule requires an explicit channel"})
-			return
-		}
-		channelID = parsed
-	}
-
-	allowed, cerr := actor.CanUseChannelID(r.Context(), h.db, channelID)
-	if cerr != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel access"})
-		return
-	}
-	if !allowed {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
-		return
-	}
-	acts, aerr := channelagents.ActsInChannel(r.Context(), h.db, org.ID, channelID, agentID)
-	if aerr != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
-		return
-	}
-	if !acts {
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
-		return
-	}
-	// Binding a schedule to this channel is a manage-the-team action.
-	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, org.ID, channelID); mErr != nil {
-		writeJSON(w, mStatus, errorResponse{Error: mMessage})
+	allowed, cerr := actor.CanManageTeamResource(r.Context(), h.db, agent.TeamID)
+	if cerr != nil || !allowed {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this agent's team"})
 		return
 	}
 
@@ -117,7 +76,6 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CreatedByUserID: scheduleCreatorUserID(r),
 		Description:     req.Description,
 		TaskPrompt:      req.TaskPrompt,
-		ChannelID:       channelID.String(),
 		CronExpression:  req.CronExpression,
 		IntervalSeconds: req.IntervalSeconds,
 		RepeatCount:     req.RepeatCount,
@@ -178,36 +136,6 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	agent := schedule.Agent
 	jobID := schedule.RuntimeJobID
 
-	if req.ChannelID != nil {
-		if raw := strings.TrimSpace(*req.ChannelID); raw != "" {
-			channelID, perr := uuid.Parse(raw)
-			if perr != nil || channelID == uuid.Nil {
-				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
-				return
-			}
-			allowed, cerr := actor.CanUseChannelID(r.Context(), h.db, channelID)
-			if cerr != nil || !allowed {
-				writeJSON(w, http.StatusForbidden, errorResponse{Error: "you do not have access to this channel"})
-				return
-			}
-			acts, aerr := channelagents.ActsInChannel(r.Context(), h.db, org.ID, channelID, schedule.AgentID)
-			if aerr != nil {
-				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
-				return
-			}
-			if !acts {
-				writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "agent does not belong to this channel's team"})
-				return
-			}
-			// Re-binding a schedule to a channel is a manage-the-team action, not
-			// merely use-the-channel: match Create's manage gate.
-			if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, org.ID, channelID); mErr != nil {
-				writeJSON(w, mStatus, errorResponse{Error: mMessage})
-				return
-			}
-		}
-	}
-
 	updated := schedule
 	if req.Status != nil {
 		updated, err = agentschedule.SetStatus(r.Context(), h.db, &agent, jobID, *req.Status)
@@ -221,7 +149,6 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 			Name:            req.Name,
 			Description:     req.Description,
 			TaskPrompt:      req.TaskPrompt,
-			ChannelID:       req.ChannelID,
 			CronExpression:  req.CronExpression,
 			IntervalSeconds: req.IntervalSeconds,
 			RepeatCount:     req.RepeatCount,
@@ -272,7 +199,6 @@ func hasScheduleFieldUpdate(req updateScheduleRequest) bool {
 	return req.Name != nil ||
 		req.Description != nil ||
 		req.TaskPrompt != nil ||
-		req.ChannelID != nil ||
 		req.CronExpression != nil ||
 		req.IntervalSeconds != nil ||
 		req.RepeatCount != nil

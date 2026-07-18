@@ -32,8 +32,6 @@ func setupV1Routes(
 	apiKeyHandler *handler.APIKeyHandler,
 	billingHandler *handler.BillingHandler,
 	dashboardHandler *handler.DashboardHandler,
-	slackChannelHandler *handler.SlackChannelHandler,
-	channelHandler *handler.ChannelHandler,
 	sessionHandler *handler.SessionHandler,
 	memoryHandler *handler.MemoryHandler,
 	credHandler *handler.CredentialHandler,
@@ -76,14 +74,18 @@ func setupV1Routes(
 			mountBrandRoutes(r, database, brandHandler)
 
 			// Reading teams is a member action (members pick a team when
-			// creating agents/channels); the handlers scope results to the
+			// creating agents); the handlers scope results to the
 			// caller, so these two routes are NOT admin-gated. Team write +
 			// member management stay admin-only below.
 			if teamHandler != nil {
 				r.Get("/orgs/current/teams", teamHandler.List)
 				r.Get("/orgs/current/teams/{id}", teamHandler.Get)
+				r.Get("/orgs/current/teams/{id}/external-resource-routes", teamHandler.ListExternalResourceRoutes)
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.RequireAPIKeyScopeOrJWT("teams"))
+					r.Post("/orgs/current/teams/{id}/external-resource-routes", teamHandler.CreateExternalResourceRoute)
+					r.Patch("/orgs/current/teams/{id}/external-resource-routes/{routeID}", teamHandler.UpdateExternalResourceRoute)
+					r.Delete("/orgs/current/teams/{id}/external-resource-routes/{routeID}", teamHandler.DeleteExternalResourceRoute)
 					r.Get("/orgs/current/teams/{id}/environment-variables", teamHandler.ListEnvironmentVariables)
 					r.Post("/orgs/current/teams/{id}/environment-variables", teamHandler.CreateEnvironmentVariable)
 					r.Patch("/orgs/current/teams/{id}/environment-variables/{name}", teamHandler.UpdateEnvironmentVariable)
@@ -135,14 +137,14 @@ func setupV1Routes(
 			if databaseIntegrationHandler != nil {
 				r.Get("/database-integrations", databaseIntegrationHandler.List)
 			}
-			// Sheets are scope-gated for API keys like channels/agents; JWT
-			// callers pass and channel-level access is enforced per sheet.
+			// Sheets are scope-gated for API keys like agents; JWT callers pass
+			// and team access is enforced per sheet.
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("sheets"))
 				mountSheetRoutes(r, database, sheetsHandler)
 			})
-			// Apps are channel-scoped like sheets; channel-level access is
-			// enforced per app inside the handlers.
+			// Apps are team-scoped like sheets; team access is enforced inside
+			// the handlers.
 			mountAppRoutes(r, database, appsHandler)
 
 			// API-key CREATE is org-admin-or-above only (owners+admins): a FINAL
@@ -162,26 +164,6 @@ func setupV1Routes(
 			})
 
 			mountBillingRoutes(r, database, billingHandler)
-			if slackChannelHandler != nil {
-				r.Get("/slack/channels", slackChannelHandler.ListChannels)
-				r.Post("/slack/channels/join", slackChannelHandler.JoinChannels)
-			}
-			if channelHandler != nil {
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequireAPIKeyScopeOrJWT("channels"))
-					r.Get("/channels", channelHandler.List)
-					r.Post("/channels", channelHandler.Create)
-					r.Get("/channels/{id}", channelHandler.Get)
-					r.Patch("/channels/{id}", channelHandler.Update)
-					r.Delete("/channels/{id}", channelHandler.Archive)
-					r.Post("/channels/{id}/join", channelHandler.Join)
-					r.Put("/channels/{id}/members/{userID}", channelHandler.PutMember)
-					r.Delete("/channels/{id}/members/{userID}", channelHandler.DeleteMember)
-					if sessionHandler != nil {
-						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
-					}
-				})
-			}
 			if sessionHandler != nil {
 				mountSessionRoutes(r, sessionHandler)
 			}
@@ -230,11 +212,7 @@ func setupV1Routes(
 				}
 				mountSandboxTemplateRoutes(r, database, sandboxTemplateHandler)
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
-				triggerOptions := []handler.TriggerHandlerOption{handler.WithTriggerWebhookBaseURL(cfg.APIWebhookBaseURL)}
-				if slackChannelHandler != nil {
-					triggerOptions = append(triggerOptions, handler.WithTriggerExternalProvisioner(slackChannelHandler))
-				}
-				triggerHandler := handler.NewTriggerHandler(database, triggerOptions...)
+				triggerHandler := handler.NewTriggerHandler(database, handler.WithTriggerWebhookBaseURL(cfg.APIWebhookBaseURL))
 				scheduleHandler := handler.NewScheduleHandler(database)
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)

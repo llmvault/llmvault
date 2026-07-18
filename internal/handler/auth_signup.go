@@ -87,7 +87,7 @@ func provisionFirstTeam(ctx context.Context, tx *gorm.DB, orgID, createdByUserID
 			return model.Team{}, fmt.Errorf("creating first team member: %w", err)
 		}
 	}
-	if _, _, err := provisionTeamDefaults(ctx, tx, orgID, team.ID, createdByUserID); err != nil {
+	if _, err := provisionTeamDefaults(ctx, tx, orgID, team.ID, createdByUserID); err != nil {
 		return model.Team{}, err
 	}
 	return team, nil

@@ -14,34 +14,28 @@ type Embedder interface {
 
 type EnqueueEmbeddingFunc func(context.Context, uuid.UUID, int) error
 
-// ChannelScope selects which memories a read touches. It is the single scoping
-// primitive: a regular agent reads its own channel (optionally folding in
-// org-wide memories when the channel allows it); the manage tool reads every
-// channel.
-type ChannelScope struct {
-	ChannelID          *uuid.UUID // channel to read; nil = org-wide (channel_id IS NULL) only
-	IncludeOrgMemories bool       // also include org-wide memories (only meaningful with ChannelID set)
-	AllChannels        bool       // manage mode: every memory in the org, any channel
+// AgentScope selects records owned by one agent. Memory is intentionally never
+// inherited from the team or another agent: shared team knowledge lives in
+// team-owned sources, while retained context is agent-specific.
+type AgentScope struct {
+	AgentID   uuid.UUID
+	AllAgents bool // administration-only listing within an org
 }
 
 // whereSQL renders the scope as a SQL predicate and its args. An empty string
-// means "no channel filter" (AllChannels).
-func (cs ChannelScope) whereSQL() (string, []any) {
+// means "no agent filter" (AllAgents).
+func (as AgentScope) whereSQL() (string, []any) {
 	switch {
-	case cs.AllChannels:
+	case as.AllAgents:
 		return "", nil
-	case cs.ChannelID != nil && cs.IncludeOrgMemories:
-		return "(channel_id = ? OR channel_id IS NULL)", []any{*cs.ChannelID}
-	case cs.ChannelID != nil:
-		return "channel_id = ?", []any{*cs.ChannelID}
 	default:
-		return "channel_id IS NULL", nil
+		return "agent_id = ?", []any{as.AgentID}
 	}
 }
 
 type CreateRequest struct {
 	OrgID             uuid.UUID
-	ChannelID         *uuid.UUID // nil = org-wide
+	AgentID           uuid.UUID
 	Content           string
 	MemoryFingerprint string
 	Tags              []string
@@ -57,10 +51,6 @@ type UpdateRequest struct {
 	Content  *string
 	Tags     *[]string
 	Metadata *model.JSON
-	// UpdateChannel re-scopes the memory when true: ChannelID nil = org-wide,
-	// otherwise that channel. Leave false to keep the current channel.
-	UpdateChannel bool
-	ChannelID     *uuid.UUID
 }
 
 type ArchiveRequest struct {
@@ -68,12 +58,9 @@ type ArchiveRequest struct {
 	ID    uuid.UUID
 }
 
-// Visibility optionally restricts a list read to channels the actor may use.
-// When Restrict is false (org managers and API-key callers) every channel is
-// visible. When true, results are limited to global (channel_id IS NULL)
-// memories plus channels usable by UserID under the team-based channel
-// visibility predicate (see channelagents.VisibleChannelIDsSubquery). A nil
-// UserID with Restrict true yields only global rows.
+// Visibility is retained as an API compatibility placeholder while the HTTP
+// layer moves to agent/team authorization. Memory service reads never perform
+// legacy visibility checks.
 type Visibility struct {
 	Restrict bool
 	UserID   *uuid.UUID
@@ -81,7 +68,7 @@ type Visibility struct {
 
 type ListRequest struct {
 	OrgID      uuid.UUID
-	Scope      ChannelScope
+	Scope      AgentScope
 	Visibility Visibility
 	Tags       []string
 	Limit      int
@@ -90,7 +77,7 @@ type ListRequest struct {
 
 type SearchRequest struct {
 	OrgID       uuid.UUID
-	Scope       ChannelScope
+	Scope       AgentScope
 	Visibility  Visibility
 	Query       string
 	QueryVector []float32

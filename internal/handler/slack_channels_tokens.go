@@ -10,20 +10,7 @@ import (
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
-func (h *SlackChannelHandler) loadSlackBotToken(ctx context.Context, orgID uuid.UUID) (string, error) {
-	var conn model.Connection
-	if err := h.db.WithContext(ctx).
-		Preload("Integration").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", orgID, slackapp.Provider).
-		Order("connections.created_at ASC").
-		First(&conn).Error; err != nil {
-		return "", fmt.Errorf("active Slack connection required: %w", err)
-	}
-	return h.botTokenFromConnection(ctx, conn)
-}
-
-func (h *SlackChannelHandler) loadSlackBotTokenForConnection(ctx context.Context, orgID, connectionID uuid.UUID) (string, error) {
+func (h *SlackResourceRouteValidator) loadSlackBotTokenForConnection(ctx context.Context, orgID, connectionID uuid.UUID) (string, error) {
 	var conn model.Connection
 	if err := h.db.WithContext(ctx).
 		Preload("Integration").
@@ -35,6 +22,6 @@ func (h *SlackChannelHandler) loadSlackBotTokenForConnection(ctx context.Context
 	return h.botTokenFromConnection(ctx, conn)
 }
 
-func (h *SlackChannelHandler) botTokenFromConnection(ctx context.Context, conn model.Connection) (string, error) {
+func (h *SlackResourceRouteValidator) botTokenFromConnection(ctx context.Context, conn model.Connection) (string, error) {
 	return slackapp.LoadBotToken(ctx, h.nango, conn)
 }

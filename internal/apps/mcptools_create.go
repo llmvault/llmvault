@@ -26,7 +26,7 @@ type appCreateArgs struct {
 func registerAppCreate(server *mcp.Server, svc *Service, token *model.Token, agentID uuid.UUID) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolAppCreate,
-		Description: "Create a new Hivy app bound to exactly ONE sheet in the current channel. The binding is permanent — the app reads that sheet's structure and does row CRUD on it, never schema changes. Returns app_id (used by every other app tool) and slug (names your workspace directory and drive upload folder). Call sheet_describe first to confirm the sheet and capture its field IDs; then follow the apps skill workflow to build and publish.",
+		Description: "Create a new Hivy app bound to exactly ONE sheet in the current team. The binding is permanent — the app reads that sheet's structure and does row CRUD on it, never schema changes. Returns app_id (used by every other app tool) and slug (names your workspace directory and drive upload folder). Call sheet_describe first to confirm the sheet and capture its field IDs; then follow the apps skill workflow to build and publish.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -34,7 +34,7 @@ func registerAppCreate(server *mcp.Server, svc *Service, token *model.Token, age
 				"name":        map[string]any{"type": "string", "description": "App display name, e.g. \"Leads Manager\". The app's slug is derived from it and must be unique in the org."},
 				"description": map[string]any{"type": "string", "description": "Short description of what the app does."},
 				"icon":        map[string]any{"type": "string", "description": "Optional icon name shown on the app card."},
-				"sheet_id":    map[string]any{"type": "string", "description": "UUID of the sheet to bind — must be a sheet in the channel you are working in."},
+				"sheet_id":    map[string]any{"type": "string", "description": "UUID of the sheet to bind — must be a sheet in the team you are working in."},
 			},
 			"required": []string{"name", "sheet_id"},
 		},
@@ -57,13 +57,13 @@ func handleAppCreate(ctx context.Context, svc *Service, token *model.Token, agen
 	if errResult != nil {
 		return errResult, nil
 	}
-	channelID, sessionID, err := svc.appToolSession(tctx, token, args.HivySessionID)
+	teamID, sessionID, err := svc.appToolSession(tctx, token, args.HivySessionID)
 	if err != nil {
 		return appToolError(err.Error()), nil
 	}
 	params := CreateAppParams{
 		OrgID:            token.OrgID,
-		ChannelID:        channelID,
+		TeamID:           teamID,
 		SheetID:          sheetID,
 		Name:             args.Name,
 		Description:      args.Description,
@@ -84,7 +84,7 @@ func handleAppCreate(ctx context.Context, svc *Service, token *model.Token, agen
 	app, err := svc.CreateApp(tctx, params)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return appToolError("sheet not found in this channel — sheet_id must be an existing sheet in the channel you are working in (use sheet_list)"), nil
+			return appToolError("sheet not found in this team — sheet_id must be an existing sheet in the team you are working in (use sheet_list)"), nil
 		}
 		return appToolError(err.Error()), nil
 	}
@@ -139,11 +139,11 @@ func handleAppPublish(ctx context.Context, svc *Service, token *model.Token, age
 	// tool timeout.
 	tctx, cancel := context.WithTimeout(ctx, appPublishTimeout)
 	defer cancel()
-	channelID, sessionID, err := svc.appToolSession(tctx, token, args.HivySessionID)
+	teamID, sessionID, err := svc.appToolSession(tctx, token, args.HivySessionID)
 	if err != nil {
 		return appToolError(err.Error()), nil
 	}
-	app, errResult := svc.appForSession(tctx, token, channelID, args.AppID)
+	app, errResult := svc.appForSession(tctx, token, teamID, args.AppID)
 	if errResult != nil {
 		return errResult, nil
 	}

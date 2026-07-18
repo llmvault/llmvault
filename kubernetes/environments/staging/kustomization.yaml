@@ -4,6 +4,7 @@ namespace: staging
 resources:
   - namespace.yaml
   - ../../apps/backend/base
+  - ../../apps/data-backups
   - backend-config.yaml
   - postgres.yaml
   - redis.yaml
@@ -34,6 +35,18 @@ secretGenerator:
   - name: qdrant-auth
     envs:
       - secrets/qdrant.env
+    type: Opaque
+  - name: backend-postgres-backup-s3
+    envs:
+      - secrets/postgres-backup.env
+    type: Opaque
+  - name: qdrant-backup-s3
+    envs:
+      - secrets/qdrant-backup.env
+    type: Opaque
+  - name: backend-redis-backup-s3
+    envs:
+      - secrets/redis-backup.env
     type: Opaque
 generatorOptions:
   disableNameSuffixHash: true

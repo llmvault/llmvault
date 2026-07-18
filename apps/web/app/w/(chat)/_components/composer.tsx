@@ -33,7 +33,6 @@ import { useSessionUsageSummary } from "@/app/w/(chat)/_stores/session-runtime-s
 import { SessionSpendPill } from "./session-spend-pill"
 import type {
   SidebarAgentResponse,
-  SidebarChannelResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { AgentSelect } from "@/components/agent-select"
@@ -41,7 +40,6 @@ import {
   discardDraftUploads,
   useComposerAttachments,
 } from "./use-composer-attachments"
-import { ComposerChannelPicker } from "./composer-channel-picker"
 import { ComposerModelPicker } from "./composer-model-picker"
 import { ComposerTeamPicker, type ComposerTeam } from "./composer-team-picker"
 
@@ -65,12 +63,6 @@ export function Composer({
   teamsLoading = false,
   teamsError = false,
   onTeamChange,
-  channelSelectable = false,
-  channel,
-  channels = [],
-  channelsLoading = false,
-  channelsError = false,
-  onChannelChange,
   agentSelectable = false,
   agent,
   agents = [],
@@ -111,12 +103,6 @@ export function Composer({
   teamsLoading?: boolean
   teamsError?: boolean
   onTeamChange?: (team: ComposerTeam) => void
-  channelSelectable?: boolean
-  channel?: SidebarChannelResponse
-  channels?: SidebarChannelResponse[]
-  channelsLoading?: boolean
-  channelsError?: boolean
-  onChannelChange?: (channel: SidebarChannelResponse) => void
   agentSelectable?: boolean
   agent?: SidebarAgentResponse
   agents?: SidebarAgentResponse[]
@@ -168,7 +154,6 @@ export function Composer({
     !isSubmitting &&
     !hasPendingAttachment &&
     !hasFailedAttachment &&
-    (!channelSelectable || Boolean(channel?.id)) &&
     (value.trim().length > 0 ||
       readyAttachments.length > 0 ||
       lineComments.length > 0)
@@ -425,15 +410,6 @@ export function Composer({
                 teamsLoading={teamsLoading}
                 teamsError={teamsError}
                 onTeamChange={onTeamChange}
-              />
-            ) : null}
-            {channelSelectable ? (
-              <ComposerChannelPicker
-                channel={channel}
-                channels={channels}
-                channelsLoading={channelsLoading}
-                channelsError={channelsError}
-                onChannelChange={onChannelChange}
               />
             ) : null}
             {agentSelectable ? (

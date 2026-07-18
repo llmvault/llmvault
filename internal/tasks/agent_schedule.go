@@ -15,7 +15,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/agentschedule"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -154,25 +153,15 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		if err := tx.Where("id = ? AND org_id = ? AND status <> ?", run.AgentID, run.OrgID, "archived").First(&agent).Error; err != nil {
 			return fmt.Errorf("load schedule agent: %w", err)
 		}
-		channelID, err := uuid.Parse(strings.TrimSpace(run.Schedule.Channel))
-		if err != nil || channelID == uuid.Nil {
-			return fmt.Errorf("scheduled channel_id is invalid")
-		}
-		// Hard enforcement: the agent must belong to the schedule's channel's team
-		// (system/external channels are unbounded via channelagents.ActsInChannel).
-		acts, err := channelagents.ActsInChannel(ctx, tx, run.OrgID, channelID, run.AgentID)
-		if err != nil {
-			return fmt.Errorf("check schedule channel agent: %w", err)
-		}
-		if !acts {
-			return fmt.Errorf("agent does not belong to this channel's team")
+		if agent.TeamID == uuid.Nil {
+			return fmt.Errorf("scheduled agent has no team")
 		}
 		now := time.Now().UTC()
 		sessionID = uuid.New()
 		session := model.Session{
 			ID:                sessionID,
 			OrgID:             run.OrgID,
-			ChannelID:         channelID,
+			TeamID:            agent.TeamID,
 			AgentID:           run.AgentID,
 			CreatedBy:         run.Schedule.CreatedByUserID,
 			Model:             agent.Model,

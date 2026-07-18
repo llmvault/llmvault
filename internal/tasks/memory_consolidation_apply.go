@@ -24,15 +24,11 @@ func (h *MemoryConsolidationHandler) applyCreate(
 	now time.Time,
 ) (*model.AgentObservation, bool, error) {
 	logger := logging.FromContext(ctx)
-	humanSource := false
 	var occurredStart, occurredEnd *time.Time
 	for _, factID := range create.SourceFactIDs {
 		fact, ok := factByID[factID]
 		if !ok {
 			continue
-		}
-		if factFromHumanActor(fact) {
-			humanSource = true
 		}
 		at := fact.CreatedAt
 		if occurredStart == nil || at.Before(*occurredStart) {
@@ -44,14 +40,13 @@ func (h *MemoryConsolidationHandler) applyCreate(
 			occurredEnd = &end
 		}
 	}
-	obsChannelID := consolidationCreateChannelID(create.Op.Scope, payload.ChannelID, len(create.SourceFactIDs), humanSource)
-	suppressed, err := svc.IsSuppressed(ctx, payload.OrgID, obsChannelID, create.Op.Text)
+	suppressed, err := svc.IsSuppressed(ctx, payload.OrgID, payload.AgentID, create.Op.Text)
 	if err != nil {
 		return nil, false, err
 	}
 	if suppressed {
 		logger.InfoContext(ctx, "consolidation create dropped by suppression list",
-			"org_id", payload.OrgID, "channel_id", payload.ChannelID, "reason", create.Op.Reason)
+			"org_id", payload.OrgID, "agent_id", payload.AgentID, "reason", create.Op.Reason)
 		return nil, false, nil
 	}
 	kind := create.Op.Kind
@@ -61,7 +56,7 @@ func (h *MemoryConsolidationHandler) applyCreate(
 	metadata := appendObservationAudit(model.JSON{"source": "consolidation"}, "create", create.Op.Reason, create.SourceFactIDs, now, "")
 	obs, err := svc.CreateObservation(ctx, memory.CreateObservationRequest{
 		OrgID:           payload.OrgID,
-		ChannelID:       obsChannelID,
+		AgentID:         payload.AgentID,
 		Content:         create.Op.Text,
 		Kind:            kind,
 		Entities:        create.Op.Entities,
@@ -186,7 +181,7 @@ func (h *MemoryConsolidationHandler) dedupObservation(
 	obsID := obs.ID
 	hits, err := svc.SimilarObservations(ctx, memory.SimilarObservationsRequest{
 		OrgID:     obs.OrgID,
-		ChannelID: obs.ChannelID, // nil probes org-wide scope only — same scope as obs
+		AgentID:   obs.AgentID,
 		Vector:    vector,
 		Limit:     memoryConsolidationTopK,
 		ExcludeID: &obsID,

@@ -23,8 +23,7 @@ type triggerAutomationResponse struct {
 	Provider             string `json:"provider"`
 	ConnectionID         string `json:"connection_id,omitempty"`
 	ConnectionName       string `json:"connection_name,omitempty"`
-	ChannelID            string `json:"channel_id,omitempty"`
-	ChannelName          string `json:"channel_name,omitempty"`
+	ResourceType         string `json:"resource_type,omitempty"`
 	ExternalResourceKey  string `json:"external_resource_key,omitempty"`
 	ExternalResourceName string `json:"external_resource_name,omitempty"`
 	AgentID              string `json:"agent_id"`
@@ -51,20 +50,23 @@ type triggerAutomationResponse struct {
 func triggerAutomationToResponse(trigger model.AgentTrigger) triggerAutomationResponse {
 	provider := triggerProvider(trigger)
 	response := triggerAutomationResponse{
-		ID:           trigger.ID.String(),
-		Name:         trigger.Name,
-		TriggerType:  trigger.TriggerType,
-		Provider:     provider,
-		AgentID:      trigger.AgentID.String(),
-		AgentName:    fallbackAgentName(trigger.Agent),
-		AgentIcon:    trigger.Agent.Icon,
-		TriggerKey:   trigger.TriggerKey,
-		TriggerValue: trigger.TriggerValue,
-		Enabled:      trigger.Enabled,
-		SourceSlug:   trigger.SourceSlug,
-		Instructions: trigger.Instructions,
-		CreatedAt:    formatTriggerTime(trigger.CreatedAt),
-		UpdatedAt:    formatTriggerTime(trigger.UpdatedAt),
+		ID:                   trigger.ID.String(),
+		Name:                 trigger.Name,
+		TriggerType:          trigger.TriggerType,
+		Provider:             provider,
+		AgentID:              trigger.AgentID.String(),
+		AgentName:            fallbackAgentName(trigger.Agent),
+		AgentIcon:            trigger.Agent.Icon,
+		TriggerKey:           trigger.TriggerKey,
+		TriggerValue:         trigger.TriggerValue,
+		Enabled:              trigger.Enabled,
+		SourceSlug:           trigger.SourceSlug,
+		Instructions:         trigger.Instructions,
+		ResourceType:         trigger.ResourceType,
+		ExternalResourceKey:  trigger.ResourceKey,
+		ExternalResourceName: trigger.ResourceName,
+		CreatedAt:            formatTriggerTime(trigger.CreatedAt),
+		UpdatedAt:            formatTriggerTime(trigger.UpdatedAt),
 	}
 	if trigger.Agent.AvatarURL != nil {
 		response.AgentAvatarURL = *trigger.Agent.AvatarURL
@@ -73,23 +75,12 @@ func triggerAutomationToResponse(trigger model.AgentTrigger) triggerAutomationRe
 		response.ConnectionID = trigger.ConnectionID.String()
 		response.ConnectionName = trigger.Connection.NangoConnectionID
 	}
-	if trigger.ChannelID != nil {
-		response.ChannelID = trigger.ChannelID.String()
-	}
-	if trigger.Channel != nil {
-		response.ChannelName = trigger.Channel.Name
-		response.ExternalResourceKey = trigger.Channel.ExternalResourceKey
-		response.ExternalResourceName = trigger.Channel.ExternalResourceName
-	}
 	return response
 }
 
 func triggerProvider(trigger model.AgentTrigger) string {
 	if trigger.ConnectionID != nil && trigger.Connection.Integration.Provider != "" {
 		return trigger.Connection.Integration.Provider
-	}
-	if trigger.Channel != nil && trigger.Channel.ExternalProvider != "" {
-		return trigger.Channel.ExternalProvider
 	}
 	return ""
 }

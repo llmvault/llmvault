@@ -38,8 +38,8 @@ func ValidObservationKind(kind string) bool {
 
 // SuppressionFingerprint fingerprints observation content for the
 // memory_suppressions table: sha256 of the lowercased, whitespace-collapsed
-// content — the same content normalization the reflection store uses. Org and
-// channel scope live in dedicated columns, so the fingerprint is content-only.
+// content — the same content normalization the reflection store uses. Agent
+// ownership lives in a dedicated column, so the fingerprint is content-only.
 func SuppressionFingerprint(content string) string {
 	normalized := strings.ToLower(strings.Join(strings.Fields(content), " "))
 	sum := sha256.Sum256([]byte(normalized))
@@ -49,7 +49,7 @@ func SuppressionFingerprint(content string) string {
 // CreateObservationRequest inserts one consolidated observation.
 type CreateObservationRequest struct {
 	OrgID           uuid.UUID
-	ChannelID       *uuid.UUID // nil = org-wide
+	AgentID         uuid.UUID
 	Content         string
 	Kind            string
 	Entities        []string
@@ -74,6 +74,9 @@ func (s *Service) CreateObservation(ctx context.Context, req CreateObservationRe
 	if req.OrgID == uuid.Nil {
 		return nil, fmt.Errorf("org_id is required")
 	}
+	if req.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
 	if !ValidObservationKind(req.Kind) {
 		return nil, fmt.Errorf("invalid observation kind %q", req.Kind)
 	}
@@ -88,7 +91,7 @@ func (s *Service) CreateObservation(ctx context.Context, req CreateObservationRe
 	obs := &model.AgentObservation{
 		ID:                uuid.New(),
 		OrgID:             req.OrgID,
-		ChannelID:         req.ChannelID,
+		AgentID:           req.AgentID,
 		Content:           content,
 		Kind:              req.Kind,
 		Entities:          pq.StringArray(NormalizeTags(req.Entities)),
@@ -189,9 +192,7 @@ func (s *Service) ArchiveObservation(ctx context.Context, orgID, id uuid.UUID, s
 }
 
 // ForgetObservation archives an observation, records its content fingerprint
-// in the per-channel suppression list so consolidation cannot resurrect it,
-// and refreshes affected channel memory digests in the background — the same
-// semantics as the observation delete endpoint.
+// in the owning agent's suppression list, and refreshes that agent's digest.
 func (s *Service) ForgetObservation(ctx context.Context, obs *model.AgentObservation) error {
 	if s == nil || s.cfg.DB == nil || obs == nil {
 		return fmt.Errorf("memory service is not configured")
@@ -208,48 +209,29 @@ func (s *Service) ForgetObservation(ctx context.Context, obs *model.AgentObserva
 			return gorm.ErrRecordNotFound
 		}
 		return tx.Clauses(clause.OnConflict{DoNothing: true}).
-			Omit("Org", "Channel").
+			Omit("Org", "Agent").
 			Create(&model.MemorySuppression{
 				OrgID:              obs.OrgID,
-				ChannelID:          obs.ChannelID,
+				AgentID:            obs.AgentID,
 				ContentFingerprint: SuppressionFingerprint(obs.Content),
 			}).Error
 	})
 	if err != nil {
 		return fmt.Errorf("forget observation: %w", err)
 	}
-	s.recomputeDigestsInBackground(ctx, obs.OrgID, obs.ChannelID)
+	s.recomputeDigestsInBackground(ctx, obs.OrgID, obs.AgentID)
 	return nil
 }
 
-// recomputeDigestsInBackground refreshes the precomputed channel memory digest
-// after an observation mutation so recall reflects it immediately. Best-effort
-// in the background: a failed recompute is logged, never surfaced, and the
-// periodic consolidation sweep repairs it. For org-wide observations (nil
-// channelID) every channel folding org memories in is refreshed.
-func (s *Service) recomputeDigestsInBackground(ctx context.Context, orgID uuid.UUID, channelID *uuid.UUID) {
+// recomputeDigestsInBackground refreshes the owning agent's memory digest
+// after an observation mutation. Best-effort failures are repaired by the
+// periodic consolidation sweep.
+func (s *Service) recomputeDigestsInBackground(ctx context.Context, orgID, agentID uuid.UUID) {
 	bg := context.WithoutCancel(ctx)
 	goroutine.Go(bg, func(bg context.Context) {
-		if channelID != nil {
-			if err := s.RecomputeChannelDigest(bg, orgID, *channelID); err != nil {
-				logging.FromContext(bg).WarnContext(bg, "recompute channel memory digest",
-					"error", err, "channel_id", *channelID)
-			}
-			return
-		}
-		var channelIDs []uuid.UUID
-		if err := s.cfg.DB.WithContext(bg).Model(&model.Channel{}).
-			Where("org_id = ? AND archived_at IS NULL AND expose_org_memories = true", orgID).
-			Pluck("id", &channelIDs).Error; err != nil {
-			logging.FromContext(bg).WarnContext(bg, "list channels for digest recompute",
-				"error", err, "org_id", orgID)
-			return
-		}
-		for _, id := range channelIDs {
-			if err := s.RecomputeChannelDigest(bg, orgID, id); err != nil {
-				logging.FromContext(bg).WarnContext(bg, "recompute channel memory digest",
-					"error", err, "channel_id", id)
-			}
+		if err := s.RecomputeAgentDigest(bg, orgID, agentID); err != nil {
+			logging.FromContext(bg).WarnContext(bg, "recompute agent memory digest",
+				"error", err, "agent_id", agentID)
 		}
 	})
 }

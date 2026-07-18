@@ -136,7 +136,14 @@ spec:
             matchLabels:
               app.kubernetes.io/name: hivy-backend
       ports:
-        - port: 6334
+            - port: 6334
+              protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: qdrant-backup
+      ports:
+        - port: 6333
           protocol: TCP
   egress:
     - to:
@@ -162,4 +169,11 @@ spec:
         - port: 53
           protocol: UDP
         - port: 53
+          protocol: TCP
+    # Qdrant writes collection snapshots directly to Hetzner Object Storage.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
           protocol: TCP

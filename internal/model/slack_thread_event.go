@@ -25,8 +25,10 @@ type SlackThreadEvent struct {
 	Org                   Org                  `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
 	ConnectionID          uuid.UUID            `gorm:"type:uuid;not null;index"`
 	Connection            Connection           `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
-	ChannelID             *uuid.UUID           `gorm:"type:uuid;index"`
-	Channel               *Channel             `gorm:"foreignKey:ChannelID;constraint:OnDelete:SET NULL"`
+	ResolvedTeamID        *uuid.UUID           `gorm:"column:team_id;type:uuid;index"`
+	ResolvedTeam          *Team                `gorm:"foreignKey:ResolvedTeamID;constraint:OnDelete:SET NULL"`
+	AgentID               *uuid.UUID           `gorm:"type:uuid;index"`
+	Agent                 *Agent               `gorm:"foreignKey:AgentID;constraint:OnDelete:SET NULL"`
 	TriggerID             *uuid.UUID           `gorm:"type:uuid;index"`
 	Trigger               *AgentTrigger        `gorm:"foreignKey:TriggerID;constraint:OnDelete:SET NULL"`
 	SessionID             *uuid.UUID           `gorm:"type:uuid;index"`
@@ -35,7 +37,7 @@ type SlackThreadEvent struct {
 	SessionEvent          *SessionEvent        `gorm:"foreignKey:SessionEventID;constraint:OnDelete:SET NULL"`
 	SessionMessageQueueID *uuid.UUID           `gorm:"type:uuid"`
 	SessionMessageQueue   *SessionMessageQueue `gorm:"foreignKey:SessionMessageQueueID;constraint:OnDelete:SET NULL"`
-	TeamID                string               `gorm:"type:text;not null;default:''"`
+	SlackTeamID           string               `gorm:"column:slack_team_id;type:text;not null;default:''"`
 	SlackChannelID        string               `gorm:"type:text;not null"`
 	ThreadTS              string               `gorm:"type:text;not null"`
 	MessageTS             string               `gorm:"type:text;not null"`
@@ -56,7 +58,7 @@ type SlackThreadEvent struct {
 	StatusSetAt           *time.Time
 	EnqueuedAt            *time.Time
 	JobStartedAt          *time.Time
-	ChannelResolvedAt     *time.Time
+	RouteResolvedAt       *time.Time `gorm:"column:route_resolved_at"`
 	SessionResolvedAt     *time.Time
 	RuntimePostedAt       *time.Time
 	FinalReceivedAt       *time.Time

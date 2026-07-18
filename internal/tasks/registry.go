@@ -70,7 +70,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 
 	mux.HandleFunc(TypeTokenCleanup, NewTokenCleanupHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeSessionTurnWatchdog, NewSessionTurnWatchdogHandler(deps.DB).Handle)
-	mux.HandleFunc(TypeChannelMemoriesDelete, NewChannelMemoriesDeleteHandler(deps.DB).Handle)
 
 	if deps.Orchestrator != nil {
 		mux.HandleFunc(TypeSandboxResourceCheck, NewSandboxResourceCheckHandler(deps.Orchestrator).Handle)

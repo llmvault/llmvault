@@ -149,7 +149,7 @@ func (h *SlackAppMentionHandler) processWithSlack(ctx context.Context, row *mode
 	if err := h.resolveSlackThreadContinuation(ctx, row); err != nil {
 		return err
 	}
-	channel, agent, err := h.resolveChannelAndAgent(ctx, row, client, token)
+	team, agent, err := h.resolveTeamAndAgent(ctx, row, client)
 	if err != nil {
 		if errors.Is(err, errSlackChannelNotConfigured) {
 			logging.FromContext(ctx).InfoContext(ctx, "slack_app_mention_channel_not_configured",
@@ -163,8 +163,7 @@ func (h *SlackAppMentionHandler) processWithSlack(ctx context.Context, row *mode
 	if err := h.enrichSlackInboundContext(ctx, row, token, client); err != nil {
 		return err
 	}
-	row.ChannelID = &channel.ID
-	session, err := h.findOrCreateSlackSession(ctx, row, channel, agent)
+	session, err := h.findOrCreateSlackSession(ctx, row, team, agent)
 	if err != nil {
 		return err
 	}

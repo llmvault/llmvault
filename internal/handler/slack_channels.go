@@ -2,53 +2,32 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 	"sort"
 	"strings"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/logging"
-	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
-type SlackChannelHandler struct {
+// SlackResourceRouteValidator is the Slack adapter for the provider-neutral
+// team external-resource route API. It only understands Slack's resource
+// vocabulary; no Hivy channel is created or configured here.
+type SlackResourceRouteValidator struct {
 	db                 *gorm.DB
 	nango              *nango.Client
-	enq                enqueue.TaskEnqueuer
-	loadBotToken       func(context.Context, uuid.UUID) (string, error)
 	listPublicChannels func(context.Context, string) ([]slackapp.Channel, error)
 	listBotChannels    func(context.Context, string) ([]slackapp.Channel, error)
 	joinChannel        func(context.Context, string, string) (slackapp.Channel, error)
 }
 
-func NewSlackChannelHandler(db *gorm.DB, nangoClient *nango.Client, enq enqueue.TaskEnqueuer) *SlackChannelHandler {
-	h := &SlackChannelHandler{db: db, nango: nangoClient, enq: enq}
-	h.loadBotToken = h.loadSlackBotToken
+func NewSlackResourceRouteValidator(db *gorm.DB, nangoClient *nango.Client) *SlackResourceRouteValidator {
+	h := &SlackResourceRouteValidator{db: db, nango: nangoClient}
 	h.listPublicChannels = slackapp.ListPublicChannels
 	h.listBotChannels = slackapp.ListBotChannels
 	h.joinChannel = slackapp.JoinChannel
 	return h
-}
-
-type slackChannelResponse struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	IsPrivate  bool   `json:"is_private"`
-	IsArchived bool   `json:"is_archived"`
-	IsMember   bool   `json:"is_member"`
-	Topic      string `json:"topic,omitempty"`
-	Purpose    string `json:"purpose,omitempty"`
-	NumMembers int    `json:"num_members,omitempty"`
-}
-
-type slackChannelsResponse struct {
-	Channels []slackChannelResponse `json:"channels"`
 }
 
 type joinSlackChannelsRequest struct {
@@ -70,82 +49,7 @@ type joinSlackChannelsResponse struct {
 	allReady      bool                      `json:"-"`
 }
 
-// List channels Hivy can be invited to or is already in.
-// @Summary List Slack channels
-// @Description Returns public Slack channels plus private channels where Hivy is already a member.
-// @Tags slack
-// @Produce json
-// @Success 200 {object} slackChannelsResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/slack/channels [get]
-func (h *SlackChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
-	}
-	token, err := h.loadBotToken(r.Context(), org.ID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "active Slack connection required"})
-		return
-	}
-	channels, err := h.availableChannels(r.Context(), token)
-	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "list Slack channels", "error", err, "org_id", org.ID)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list Slack channels"})
-		return
-	}
-	writeJSON(w, http.StatusOK, slackChannelsResponse{Channels: toSlackChannelResponses(channels)})
-}
-
-// JoinChannels invites Hivy to public Slack channels.
-// @Summary Join Slack channels
-// @Description Invites Hivy to all public channels or selected channels. Joined private channels are treated as already available.
-// @Tags slack
-// @Accept json
-// @Produce json
-// @Param body body joinSlackChannelsRequest true "Join request"
-// @Success 200 {object} joinSlackChannelsResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/slack/channels/join [post]
-func (h *SlackChannelHandler) JoinChannels(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
-	}
-	var req joinSlackChannelsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
-		return
-	}
-	if !req.AllPublic && len(req.ChannelIDs) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "all_public or channel_ids is required"})
-		return
-	}
-	token, err := h.loadBotToken(r.Context(), org.ID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "active Slack connection required"})
-		return
-	}
-
-	result, err := h.joinRequestedChannels(r.Context(), token, req)
-	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "join Slack channels", "error", err, "org_id", org.ID)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to join Slack channels"})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, result)
-}
-
-func (h *SlackChannelHandler) availableChannels(ctx context.Context, botToken string) ([]slackapp.Channel, error) {
+func (h *SlackResourceRouteValidator) availableChannels(ctx context.Context, botToken string) ([]slackapp.Channel, error) {
 	publicChannels, err := h.listPublicChannels(ctx, botToken)
 	if err != nil {
 		return nil, err
@@ -191,7 +95,7 @@ func (h *SlackChannelHandler) availableChannels(ctx context.Context, botToken st
 	return out, nil
 }
 
-func (h *SlackChannelHandler) joinRequestedChannels(ctx context.Context, botToken string, req joinSlackChannelsRequest) (joinSlackChannelsResponse, error) {
+func (h *SlackResourceRouteValidator) joinRequestedChannels(ctx context.Context, botToken string, req joinSlackChannelsRequest) (joinSlackChannelsResponse, error) {
 	channels, err := h.availableChannels(ctx, botToken)
 	if err != nil {
 		return joinSlackChannelsResponse{}, err

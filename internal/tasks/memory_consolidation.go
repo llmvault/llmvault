@@ -71,7 +71,7 @@ type consolidationCompletionFunc func(
 	maxTokens int,
 ) (string, error)
 
-// MemoryConsolidationHandler folds a channel's unconsolidated reflection
+// MemoryConsolidationHandler folds an agent's unconsolidated reflection
 // facts into canonical observations: one LLM call proposing
 // creates/updates/deletes, applied with the promotion/suppression/verified
 // guards, followed by a semantic dedup post-pass and a digest recompute.
@@ -127,7 +127,7 @@ func (h *MemoryConsolidationHandler) Handle(ctx context.Context, task *asynq.Tas
 	logger := logging.FromContext(ctx)
 	svc := h.memoryService()
 
-	facts, err := svc.ListUnconsolidatedFacts(ctx, payload.OrgID, payload.ChannelID, memoryConsolidationBatchSize)
+	facts, err := svc.ListUnconsolidatedFacts(ctx, payload.OrgID, payload.AgentID, memoryConsolidationBatchSize)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (h *MemoryConsolidationHandler) Handle(ctx context.Context, task *asynq.Tas
 		return nil
 	}
 
-	// 2. Per fact: vector top-K similar non-archived channel + org-wide
+	// 2. Per fact: vector top-K similar non-archived agent observations;
 	// observations; pool and dedupe.
 	contents := make([]string, len(facts))
 	for i, fact := range facts {
@@ -145,15 +145,13 @@ func (h *MemoryConsolidationHandler) Handle(ctx context.Context, task *asynq.Tas
 	if err != nil {
 		return fmt.Errorf("embed facts for consolidation: %w", err)
 	}
-	channelID := payload.ChannelID
 	pool := map[uuid.UUID]model.AgentObservation{}
 	for i := range facts {
 		hits, err := svc.SimilarObservations(ctx, memory.SimilarObservationsRequest{
-			OrgID:          payload.OrgID,
-			ChannelID:      &channelID,
-			IncludeOrgWide: true,
-			Vector:         vectors[i],
-			Limit:          memoryConsolidationTopK,
+			OrgID:   payload.OrgID,
+			AgentID: payload.AgentID,
+			Vector:  vectors[i],
+			Limit:   memoryConsolidationTopK,
 		})
 		if err != nil {
 			return err
@@ -194,7 +192,7 @@ func (h *MemoryConsolidationHandler) Handle(ctx context.Context, task *asynq.Tas
 	resolved := resolveConsolidationOps(ops, factIDs, observationIDs)
 	if resolved.Skipped > 0 {
 		logger.WarnContext(ctx, "consolidation ops referencing unknown ids skipped",
-			"org_id", payload.OrgID, "channel_id", payload.ChannelID, "skipped", resolved.Skipped)
+			"org_id", payload.OrgID, "agent_id", payload.AgentID, "skipped", resolved.Skipped)
 	}
 
 	factByID := make(map[uuid.UUID]model.AgentMemory, len(facts))
@@ -242,13 +240,13 @@ func (h *MemoryConsolidationHandler) Handle(ctx context.Context, task *asynq.Tas
 	h.embedAndDedup(ctx, svc, payload.OrgID, changed, now)
 
 	// Digest recompute after every run (zero-latency recall contract).
-	if err := svc.RecomputeChannelDigest(ctx, payload.OrgID, payload.ChannelID); err != nil {
+	if err := svc.RecomputeAgentDigest(ctx, payload.OrgID, payload.AgentID); err != nil {
 		return err
 	}
 
 	// More unconsolidated facts than one batch: chain the next run.
 	if len(facts) == memoryConsolidationBatchSize {
-		if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, payload.OrgID, payload.ChannelID); err != nil {
+		if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, payload.OrgID, payload.AgentID); err != nil {
 			logger.WarnContext(ctx, "enqueue follow-up consolidation failed", "error", err)
 		}
 	}

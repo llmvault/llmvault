@@ -12,11 +12,7 @@ import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
 import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
-import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
-import {
-  ChannelSelect,
-  useHivyChannels,
-} from "@/app/w/(chat)/automations/_channel-select"
+import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
   FormSection,
   InlineNotice,
@@ -79,38 +75,30 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
   // mutates via PATCH/DELETE /v1/triggers/{id}, which is admin-only on the
   // backend. Creating a trigger is a member action and isn't gated here.
   const isAdmin = useIsAdmin()
-  const { channels, isLoading: channelsLoading } = useHivyChannels()
+  const { teams, isLoading: teamsLoading } = useTeams()
   const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
   const deleteTrigger = $api.useMutation("delete", "/v1/triggers/{id}")
 
   const [name, setName] = useState(trigger.name ?? "")
-  const [channelID, setChannelID] = useState(trigger.channel_id ?? "")
+  const [teamID, setTeamID] = useState("")
   const [agentID, setAgentID] = useState(trigger.agent_id ?? "")
   const [instructions, setInstructions] = useState(trigger.instructions ?? "")
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const activeChannelID = channelID || channels[0]?.id || ""
-  const activeChannel = channels.find((c) => c.id === activeChannelID)
-  const { agents, isLoading: agentsLoading } = useTeamAgents(
-    activeChannel?.team_id
-  )
-  const activeAgentID = resolveScopedAgentID(
-    agents,
-    agentID,
-    activeChannel?.default_agent_id
-  )
+  const activeTeamID = teamID || teams[0]?.id || ""
+  const { agents, isLoading: agentsLoading } = useTeamAgents(activeTeamID)
+  const activeAgentID = resolveScopedAgentID(agents, agentID, undefined)
 
   const enabled = trigger.enabled ?? true
-  const lastRunHref =
-    trigger.last_run_session_id && trigger.channel_name
-      ? `/w/channels/${slugify(trigger.channel_name)}/${trigger.last_run_session_id}`
-      : null
+  const lastRunHref = trigger.last_run_session_id
+    ? `/w/sessions/${trigger.last_run_session_id}`
+    : null
 
   const canSave = Boolean(
     isAdmin &&
     !updateTrigger.isPending &&
     name.trim() &&
-    activeChannelID &&
+    activeTeamID &&
     activeAgentID &&
     instructions.trim()
   )
@@ -121,8 +109,8 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
   }
 
   function handleSave() {
-    if (!name.trim() || !activeChannelID || !activeAgentID) {
-      toast.danger("Fill in name, channel and agent")
+    if (!name.trim() || !activeTeamID || !activeAgentID) {
+      toast.danger("Fill in name, team and agent")
       return
     }
     if (!instructions.trim()) {
@@ -134,7 +122,6 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
         params: { path: { id } },
         body: {
           name: name.trim(),
-          channel_id: activeChannelID,
           agent_id: activeAgentID,
           instructions: instructions.trim(),
         },
@@ -281,41 +268,41 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
         </FormSection>
 
         <FormSection
-          title="Channel"
-          description="The channel this webhook's agent runs in. You can only pick channels you have access to."
+          title="Team"
+          description="The team that owns the agent handling this webhook."
         >
-          {channelsLoading ? (
+          {teamsLoading ? (
             <div className="h-9 animate-pulse rounded-md bg-default" />
-          ) : channels.length === 0 ? (
+          ) : teams.length === 0 ? (
             <InlineNotice
               icon="hash"
-              title="No channels"
-              body="No channels available."
+              title="No teams"
+              body="No teams available."
             />
           ) : (
-            <ChannelSelect
-              channels={channels}
-              value={activeChannelID}
-              onChange={setChannelID}
+            <TeamSelect
+              teams={teams}
+              value={activeTeamID}
+              onChange={setTeamID}
             />
           )}
         </FormSection>
 
         <FormSection
           title="Agent"
-          description="The agent that handles inbound webhook requests. Any agent on the chosen channel's team can run here."
+          description="The agent that handles inbound webhook requests."
         >
-          {!activeChannelID ? (
+          {!activeTeamID ? (
             <InlineNotice
               icon="bot"
-              title="Select a channel first"
-              body="Agents are scoped to the team that owns this webhook's channel."
+              title="Select a team first"
+              body="Agents are scoped to teams."
             />
           ) : agents.length === 0 && !agentsLoading ? (
             <InlineNotice
               icon="bot"
               title="No agents on this team"
-              body="Add an agent to the selected channel's team to handle this webhook."
+              body="Add an agent to this team to handle this webhook."
             />
           ) : (
             <AgentSelect

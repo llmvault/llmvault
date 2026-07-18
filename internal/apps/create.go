@@ -16,11 +16,11 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// CreateAppParams describes a new app. The sheet must live in the channel:
+// CreateAppParams describes a new app. The sheet must live in the team:
 // an app is bound to exactly one sheet at creation (apps plan philosophy).
 type CreateAppParams struct {
 	OrgID       uuid.UUID
-	ChannelID   uuid.UUID
+	TeamID      uuid.UUID
 	SheetID     uuid.UUID
 	Name        string
 	Description string
@@ -31,7 +31,7 @@ type CreateAppParams struct {
 	SourceSessionID  *uuid.UUID
 }
 
-// CreateApp validates the channel/sheet binding, derives a unique slug from
+// CreateApp validates the team/sheet binding, derives a unique slug from
 // the name (sheets slug normalization; a taken slug is ErrSlugTaken, not
 // auto-suffixed — the slug is the app's stable alias stem), generates and
 // encrypts the app secret, and persists the app in status draft.
@@ -40,19 +40,19 @@ func (s *Service) CreateApp(ctx context.Context, params CreateAppParams) (*model
 	if name == "" {
 		return nil, validationErrorf("name is required")
 	}
-	if params.OrgID == uuid.Nil || params.ChannelID == uuid.Nil || params.SheetID == uuid.Nil {
-		return nil, validationErrorf("org_id, channel_id and sheet_id are required")
+	if params.OrgID == uuid.Nil || params.TeamID == uuid.Nil || params.SheetID == uuid.Nil {
+		return nil, validationErrorf("org_id, team_id and sheet_id are required")
 	}
 
-	var channel model.Channel
+	var team model.Team
 	err := s.db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", params.ChannelID, params.OrgID).
-		First(&channel).Error
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", params.TeamID, params.OrgID).
+		First(&team).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("load channel: %w", err)
+		return nil, fmt.Errorf("load team: %w", err)
 	}
 
 	var sheet model.Sheet
@@ -65,8 +65,8 @@ func (s *Service) CreateApp(ctx context.Context, params CreateAppParams) (*model
 	if err != nil {
 		return nil, fmt.Errorf("load sheet: %w", err)
 	}
-	if sheet.ChannelID != channel.ID {
-		return nil, validationErrorf("sheet does not belong to this channel")
+	if sheet.TeamID != team.ID {
+		return nil, validationErrorf("sheet does not belong to this team")
 	}
 
 	// The slug doubles as the microsandbox alias stem, so it must satisfy the
@@ -91,10 +91,10 @@ func (s *Service) CreateApp(ctx context.Context, params CreateAppParams) (*model
 	}
 
 	app := model.App{
-		OrgID:     params.OrgID,
-		ChannelID: channel.ID,
-		SheetID:   sheet.ID,
-		Slug:      slug,
+		OrgID:   params.OrgID,
+		TeamID:  team.ID,
+		SheetID: sheet.ID,
+		Slug:    slug,
 		// The alias stem defaults to the slug; the alias claim on deploy is the
 		// authority on collisions (last-write-wins repoint on the control plane).
 		Alias:              slug,

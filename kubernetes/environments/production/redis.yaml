@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-redis-config
+  labels:
+    hivy.io/apply-phase: data
+data:
+  redis-additional.conf: |
+    appendonly yes
+    appendfsync everysec
+    maxmemory-policy noeviction
+    tcp-keepalive 300
+---
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: RedisCluster
+metadata:
+  name: backend-redis
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  clusterSize: 3
+  clusterVersion: v7
+  persistenceEnabled: true
+  podManagementPolicy: Parallel
+  redisConfig:
+    maxMemoryPercentOfLimit: 75
+  redisLeader:
+    replicas: 3
+    redisConfig:
+      additionalRedisConfig: backend-redis-config
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 5
+    livenessProbe:
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      runAsNonRoot: true
+  redisFollower:
+    replicas: 3
+    redisConfig:
+      additionalRedisConfig: backend-redis-config
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      runAsNonRoot: true
+  kubernetesConfig:
+    image: quay.io/opstree/redis@sha256:5f79911253cb74636e8e97555b08095902d46a835c6423adb123295b00ba70d7
+    imagePullPolicy: IfNotPresent
+    redisSecret:
+      name: backend-redis-auth
+      key: password
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: longhorn
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+    nodeConfVolume: true
+    nodeConfVolumeClaimTemplate:
+      spec:
+        storageClassName: longhorn
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 256Mi
+

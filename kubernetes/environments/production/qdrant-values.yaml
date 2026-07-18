@@ -1,0 +1,198 @@
+replicaCount: 3
+
+image:
+  repository: docker.io/qdrant/qdrant
+  pullPolicy: IfNotPresent
+  tag: v1.18.2
+  useUnprivilegedImage: true
+
+updateVolumeFsOwnership: false
+fullnameOverride: qdrant
+
+additionalLabels:
+  app.kubernetes.io/part-of: hivy
+  hivy.io/environment: production
+  hivy.io/apply-phase: data
+
+podLabels:
+  app.kubernetes.io/component: vector-database
+
+env:
+  - name: QDRANT__SERVICE__API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: qdrant-auth
+        key: HIVY_QDRANT_API_KEY
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__SNAPSHOTS_STORAGE
+    value: s3
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__BUCKET
+    value: usehivy-prod-qdrant
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__REGION
+    value: hel1
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ENDPOINT_URL
+    value: https://hel1.your-objectstorage.com
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: qdrant-backup-s3
+        key: ACCESS_KEY_ID
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: qdrant-backup-s3
+        key: ACCESS_SECRET_KEY
+
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 6333
+      targetPort: 6333
+      protocol: TCP
+      checksEnabled: true
+      appProtocol: http
+    - name: grpc
+      port: 6334
+      targetPort: 6334
+      protocol: TCP
+      checksEnabled: false
+      appProtocol: http2
+    - name: p2p
+      port: 6335
+      targetPort: 6335
+      protocol: TCP
+      checksEnabled: false
+
+ingress:
+  enabled: false
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 2Gi
+  limits:
+    cpu: "4"
+    memory: 10Gi
+
+containerSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 2000
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContext:
+  fsGroup: 3000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+terminationGracePeriodSeconds: 60
+
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - sleep
+        - "10"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: qdrant
+              app.kubernetes.io/instance: qdrant
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: qdrant
+        app.kubernetes.io/instance: qdrant
+
+persistence:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  size: 10Gi
+  additionalLabels:
+    app.kubernetes.io/part-of: hivy
+    hivy.io/environment: production
+
+snapshotPersistence:
+  enabled: false
+
+podManagementPolicy: Parallel
+
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+
+apiKey: false
+readOnlyApiKey: false
+
+metrics:
+  serviceMonitor:
+    enabled: false
+
+config:
+  log_level: INFO
+  storage:
+    storage_path: /qdrant/storage
+    snapshots_path: /qdrant/snapshots
+    on_disk_payload: true
+    collection:
+      shard_number_per_node: 2
+      replication_factor: 2
+      write_consistency_factor: 1
+      vectors:
+        on_disk: true
+  service:
+    host: 0.0.0.0
+    http_port: 6333
+    grpc_port: 6334
+    enable_cors: false
+    enable_tls: false
+    enforce_internal_auth: true
+    enable_snapshot_url_recovery: false
+    metrics_prefix: qdrant_
+  cluster:
+    enabled: true
+    p2p:
+      port: 6335
+      enable_tls: false
+    consensus:
+      tick_period_ms: 100
+  telemetry_disabled: true
+

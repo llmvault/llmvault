@@ -90,7 +90,7 @@ func (h *SlackAppMentionHandler) ensureSlackSessionEvent(tx *gorm.DB, row *model
 	payload := model.JSON{
 		"text": slackAgentText(*row),
 		"slack": map[string]any{
-			"team_id":       row.TeamID,
+			"team_id":       row.SlackTeamID,
 			"channel_id":    row.SlackChannelID,
 			"thread_ts":     row.ThreadTS,
 			"message_ts":    row.MessageTS,

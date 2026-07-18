@@ -2580,7 +2580,7 @@ var curatedProviders = []Provider{
 			},
 		},
 	},
-usfind 	{ // quantised — CrofAI Quantised
+	{ // quantised — CrofAI Quantised
 		ID:   "quantised",
 		Name: "Quantised",
 		API:  "https://crof.ai/v1",

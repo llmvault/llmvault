@@ -6,13 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
-	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -43,10 +41,6 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 					"type":        "string",
 					"description": "What the agent should do each time the trigger fires.",
 				},
-				"channel_id": map[string]any{
-					"type":        "string",
-					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) the run's conversation lives in. Use list_channels to find valid ids. Defaults to your team's #general channel.",
-				},
 				"secret": map[string]any{
 					"type":        "string",
 					"description": "Optional shared secret. When set, callers must send it (Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=). Recommended.",
@@ -68,7 +62,6 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 type httpTriggerArgs struct {
 	AgentID         string `json:"agent_id"`
 	Instructions    string `json:"instructions"`
-	ChannelID       string `json:"channel_id"`
 	Secret          string `json:"secret"`
 	HivyActorUserID string `json:"_hivy_actor_user_id"`
 }
@@ -91,28 +84,10 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 		agent = target
 	}
 
-	// Resolve the channel exactly like cron schedules do: an empty channel
-	// resolves to the agent's team #general (the team-scoped IsDefault channel);
-	// explicit values get org-scoped validation plus the agent-access check.
-	// Every new trigger stores an explicit channel.
-	channelText, err := agentschedule.ResolveScheduleChannel(ctx, db, token.OrgID, agent.ID, args.ChannelID)
-	if err != nil {
-		return cronToolError(err.Error()), nil
-	}
-	resolved, err := uuid.Parse(channelText)
-	if err != nil || resolved == uuid.Nil {
-		return cronToolError("resolve channel: invalid channel id"), nil
-	}
-	if errResult := enforceActorChannelAccess(ctx, db, actor, resolved); errResult != nil {
-		return errResult, nil
-	}
-	channelID := &resolved
-
 	trigger := model.AgentTrigger{
 		OrgID:        token.OrgID,
 		AgentID:      agent.ID,
 		TriggerType:  "http",
-		ChannelID:    channelID,
 		Instructions: instructions,
 		Enabled:      true,
 	}

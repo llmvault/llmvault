@@ -36,7 +36,7 @@ func TestClaimInboundAllowsContinuationOnlyAfterHivyReply(t *testing.T) {
 	if err := db.Create(&model.SlackThreadEvent{
 		OrgID:          org.ID,
 		ConnectionID:   conn.ID,
-		TeamID:         "T123",
+		SlackTeamID:    "T123",
 		SlackChannelID: "C123",
 		ThreadTS:       appMention.ThreadTS,
 		MessageTS:      "1710000002.000000",

@@ -25,12 +25,10 @@ export type Team = components["schemas"]["teamResponse"]
 export type Member = components["schemas"]["orgMemberResponse"]
 export type Invite = components["schemas"]["orgInviteResponse"]
 export type TeamMember = components["schemas"]["teamMemberResponse"]
-type Channel = components["schemas"]["channelResponse"]
 
 export const TEAMS_KEY = ["get", "/v1/orgs/current/teams"] as const
 export const MEMBERS_KEY = ["get", "/v1/orgs/current/members"] as const
 export const INVITES_KEY = ["get", "/v1/orgs/current/invites"] as const
-const CHANNELS_KEY = ["get", "/v1/channels"] as const
 
 export function roleLabel(role: string | undefined) {
   if (!role) return "Member"
@@ -61,10 +59,6 @@ export function memberLabel(member: Member | TeamMember | undefined) {
   return member?.name?.trim() || member?.email?.trim() || "Unknown member"
 }
 
-function channelLabel(channel: Channel | undefined) {
-  return channel?.name?.trim() || "Untitled channel"
-}
-
 export function teamMap(teams: Team[]) {
   return new Map(teams.flatMap((team) => (team.id ? [[team.id, team]] : [])))
 }
@@ -93,7 +87,6 @@ export function TeamRow({ team, last }: { team: Team; last?: boolean }) {
       </span>
       <span className="hidden shrink-0 items-center gap-2 text-xs text-muted sm:flex">
         <span>{team.member_count ?? 0} members</span>
-        <span>{team.channel_count ?? 0} channels</span>
       </span>
       <AppIcon
         icon="chevron-right"

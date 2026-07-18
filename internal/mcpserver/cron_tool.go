@@ -61,10 +61,6 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 					"type":        "integer",
 					"description": "Optional maximum number of runs.",
 				},
-				"channel_id": map[string]any{
-					"type":        "string",
-					"description": "Optional HIVY channel UUID (not a Slack/provider channel id) for the scheduled run's session. Use list_channels to find valid ids. Defaults to your team's #general channel.",
-				},
 			},
 			"required": []string{"action"},
 		},
@@ -86,7 +82,6 @@ type cronToolArgs struct {
 	IntervalSeconds *int64  `json:"interval_seconds"`
 	CronExpression  *string `json:"cron_expression"`
 	RepeatCount     *int64  `json:"repeat_count"`
-	ChannelID       string  `json:"channel_id"`
 	HivySessionID   string  `json:"_hivy_session_id"`
 	HivyActorUserID string  `json:"_hivy_actor_user_id"`
 }
@@ -124,17 +119,6 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 	}
 	switch args.Action {
 	case "create":
-		channelText, err := agentschedule.ResolveScheduleChannel(ctx, db, orgID, agent.ID, args.ChannelID)
-		if err != nil {
-			return cronToolError(err.Error()), nil
-		}
-		resolvedChannel, err := uuid.Parse(channelText)
-		if err != nil || resolvedChannel == uuid.Nil {
-			return cronToolError("resolve channel: invalid channel id"), nil
-		}
-		if errResult := enforceActorChannelAccess(ctx, db, actor, resolvedChannel); errResult != nil {
-			return errResult, nil
-		}
 		expr := ""
 		if args.CronExpression != nil {
 			expr = strings.TrimSpace(*args.CronExpression)
@@ -144,7 +128,6 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 			CreatedByUserID: cronScheduleCreator(actor),
 			Description:     args.Description,
 			TaskPrompt:      args.TaskPrompt,
-			ChannelID:       channelText,
 			IntervalSeconds: args.IntervalSeconds,
 			CronExpression:  expr,
 			RepeatCount:     args.RepeatCount,
@@ -166,7 +149,7 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		if err != nil {
 			return cronToolError(err.Error()), nil
 		}
-		// A non-manager actor only sees schedules in channels they can use;
+		// A non-manager actor only sees schedules owned by agents in their teams.
 		// nil-actor (automated) and managers see all.
 		out := make([]map[string]any, 0, len(rows))
 		for _, row := range rows {
@@ -183,9 +166,6 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		if errResult := enforceActorCronSchedule(ctx, db, actor, agent, args.JobID); errResult != nil {
 			return errResult, nil
 		}
-		if errResult := enforceActorChannelArg(ctx, db, actor, args.ChannelID); errResult != nil {
-			return errResult, nil
-		}
 		update := agentschedule.UpdateInput{
 			IntervalSeconds: args.IntervalSeconds,
 			CronExpression:  args.CronExpression,
@@ -196,9 +176,6 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 		}
 		if strings.TrimSpace(args.TaskPrompt) != "" {
 			update.TaskPrompt = &args.TaskPrompt
-		}
-		if strings.TrimSpace(args.ChannelID) != "" {
-			update.ChannelID = &args.ChannelID
 		}
 		schedule, err := agentschedule.Update(ctx, db, agent, args.JobID, update)
 		if err != nil {

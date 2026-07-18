@@ -7,15 +7,10 @@ import { Button } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
-import { ChannelGroup } from "@/app/w/(chat)/_components/sidebar-channel-group"
-import { SidebarTeamGroup } from "@/app/w/(chat)/_components/sidebar-team-group"
+import { SidebarTeamSessionGroup } from "@/app/w/(chat)/_components/sidebar-team-session-group"
 import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   buildSidebarTeamGroups,
-  channelRouteSlug,
-  channelRouteSlugCounts,
-  sortChannelsByRecentSession,
-  type SidebarChannelResponse,
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { ThemeModeToggle } from "@/components/theme-mode-toggle"
@@ -58,31 +53,20 @@ export const Sidebar = memo(function Sidebar({
     () => teamsQuery.data?.data ?? [],
     [teamsQuery.data?.data]
   )
-  const channels = useMemo(
-    () => teams.flatMap((team) => team.channels ?? []),
-    [teams]
+  const sessionsQuery = $api.useQuery(
+    "get",
+    "/v1/sessions",
+    { params: { query: { limit: 100 } } },
+    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
-  const latestSessionsByChannelID = useMemo(() => {
-    const out = new Map<string, SidebarSessionResponse | null>()
-    channels.forEach((channel) => {
-      if (!channel.id) return
-      out.set(channel.id, channel.recent_sessions?.[0] ?? null)
-    })
-    return out
-  }, [channels])
-  const sortedChannels = useMemo(
-    () => sortChannelsByRecentSession(channels, latestSessionsByChannelID),
-    [channels, latestSessionsByChannelID]
+  const sessions = useMemo(
+    () => sessionsQuery.data?.data ?? [],
+    [sessionsQuery.data?.data]
   )
   const teamGroups = useMemo(
-    () => buildSidebarTeamGroups(teams, latestSessionsByChannelID),
-    [teams, latestSessionsByChannelID]
+    () => buildSidebarTeamGroups(teams, sessions),
+    [teams, sessions]
   )
-  const channelOrder = useMemo(() => {
-    const out = new Map<SidebarChannelResponse, number>()
-    sortedChannels.forEach((channel, index) => out.set(channel, index))
-    return out
-  }, [sortedChannels])
   const agentsByID = useMemo(
     () =>
       new Map(
@@ -92,50 +76,9 @@ export const Sidebar = memo(function Sidebar({
       ),
     [agentsQuery.data?.data]
   )
-  const channelSlugCounts = useMemo(
-    () => channelRouteSlugCounts(channels),
-    [channels]
-  )
-  const latestSessions = useMemo(
-    () =>
-      channels
-        .flatMap((channel) => channel.recent_sessions ?? [])
-        .filter((session): session is SidebarSessionResponse =>
-          Boolean(session)
-        ),
-    [channels]
-  )
-
   useEffect(() => {
-    hydrateSessionListRuntime(latestSessions, queryClient)
-  }, [latestSessions, queryClient])
-
-  function openChannelSettings(channel: SidebarChannelResponse) {
-    if (channel.id) router.push(`/w/settings/channels/${channel.id}`)
-  }
-
-  function openCreateChannelForTeam(teamID: string) {
-    router.push(`/w/channels/new?team=${teamID}`)
-  }
-
-  function renderChannel(channel: SidebarChannelResponse, order: number) {
-    return (
-      <ChannelGroup
-        key={channel.id ?? channel.name ?? order}
-        channel={channel}
-        agentsByID={agentsByID}
-        autoExpanded={order < 4}
-        onRenameChannel={openChannelSettings}
-        onRenameSession={onRenameSession}
-        onShareSession={onShareSession}
-        onArchiveSession={onArchiveSession}
-        onShowChannelDetails={openChannelSettings}
-        slugAmbiguous={
-          (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
-        }
-      />
-    )
-  }
+    hydrateSessionListRuntime(sessions as SidebarSessionResponse[], queryClient)
+  }, [sessions, queryClient])
 
   const agentsActive =
     pathname === "/w/agents" || pathname.startsWith("/w/agents/")
@@ -215,27 +158,30 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          {teamsQuery.isLoading ? (
+          {teamsQuery.isLoading || sessionsQuery.isLoading ? (
             <ChannelSkeletonList />
-          ) : teamsQuery.isError ? (
+          ) : teamsQuery.isError || sessionsQuery.isError ? (
             <SidebarStatusRow
-              label="Could not load channels"
+              label="Could not load chats"
               actionLabel="Retry"
-              onAction={() => void teamsQuery.refetch()}
+              onAction={() => {
+                void teamsQuery.refetch()
+                void sessionsQuery.refetch()
+              }}
             />
           ) : !teamGroups.length ? (
-            <SidebarStatusRow label="No channels" />
+            <SidebarStatusRow label="No teams" />
           ) : (
             teamGroups.map((group) => (
-              <SidebarTeamGroup
+              <SidebarTeamSessionGroup
                 key={group.key}
                 name={group.name}
-                onAddChannel={() => openCreateChannelForTeam(group.teamId)}
-              >
-                {group.channels.map((channel) =>
-                  renderChannel(channel, channelOrder.get(channel) ?? 0)
-                )}
-              </SidebarTeamGroup>
+                sessions={group.sessions}
+                agentsByID={agentsByID}
+                onRenameSession={onRenameSession}
+                onShareSession={onShareSession}
+                onArchiveSession={onArchiveSession}
+              />
             ))
           )}
         </div>

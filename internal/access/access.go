@@ -1,5 +1,5 @@
 // Package access resolves the human actor behind an agent turn and answers
-// authorization questions (org role, channel access) for the agent-facing MCP
+// authorization questions (org role and team access) for the agent-facing MCP
 // tools.
 //
 // The agent proxy token carries only org + agent identity, so tools cannot
@@ -9,7 +9,7 @@
 // forge it. Tools pass that raw value to Resolve and then gate on the returned
 // Actor. This package is the single source of truth for those predicates so the
 // agent path and the HTTP API cannot drift: the handler helpers
-// (handler.canUseChannel, handler.canManageTeamResource) delegate here rather
+// (handler.canUseTeam, handler.canManageTeamResource) delegate here rather
 // than re-implementing the rule.
 package access
 
@@ -112,70 +112,4 @@ func (a *Actor) CanManageTeamResource(ctx context.Context, db *gorm.DB, teamID u
 		return true, nil
 	}
 	return a.IsTeamMember(ctx, db, teamID)
-}
-
-// CanUseChannelID reports whether the actor may use (post/run in) the given
-// channel. Mirrors handler.canUseChannel: org managers and API-key paths aside,
-// external and non-team channels are open to any org member, while a
-// team-scoped channel requires active membership of that team. A nil actor
-// (no human context) cannot use any channel; callers decide whether to enforce.
-func (a *Actor) CanUseChannelID(ctx context.Context, db *gorm.DB, channelID uuid.UUID) (bool, error) {
-	if a == nil {
-		return false, nil
-	}
-	if a.IsOrgManager() {
-		return true, nil
-	}
-	var channel model.Channel
-	err := db.WithContext(ctx).
-		Where("id = ? AND org_id = ?", channelID, a.OrgID).
-		First(&channel).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("load channel: %w", err)
-	}
-	return a.canUseChannel(ctx, db, channel), nil
-}
-
-// CanUseChannel is CanUseChannelID for an already-loaded channel, letting
-// list-style callers avoid a per-row reload.
-func (a *Actor) CanUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel) bool {
-	if a == nil {
-		return false
-	}
-	if a.IsOrgManager() {
-		return true
-	}
-	return a.canUseChannel(ctx, db, channel)
-}
-
-func (a *Actor) canUseChannel(ctx context.Context, db *gorm.DB, channel model.Channel) bool {
-	if channel.Visibility == "private" {
-		return userIsChannelMember(ctx, db, channel.ID, a.UserID)
-	}
-	return userIsActiveTeamMember(ctx, db, channel.TeamID, a.UserID)
-}
-
-// userIsChannelMember reports whether userID has an explicit channel_members row
-// for channelID. Gates private-channel access on the agent path (mirror of
-// handler.userIsChannelMember).
-func userIsChannelMember(ctx context.Context, db *gorm.DB, channelID, userID uuid.UUID) bool {
-	var count int64
-	_ = db.WithContext(ctx).
-		Table("channel_members").
-		Where("channel_id = ? AND user_id = ? AND deactivated_at IS NULL", channelID, userID).
-		Count(&count).Error
-	return count > 0
-}
-
-func userIsActiveTeamMember(ctx context.Context, db *gorm.DB, teamID, userID uuid.UUID) bool {
-	var count int64
-	_ = db.WithContext(ctx).
-		Table("team_members").
-		Joins("JOIN teams ON teams.id = team_members.team_id AND teams.archived_at IS NULL").
-		Where("team_members.team_id = ? AND team_members.user_id = ? AND team_members.deactivated_at IS NULL", teamID, userID).
-		Count(&count).Error
-	return count > 0
 }

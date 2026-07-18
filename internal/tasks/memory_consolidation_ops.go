@@ -24,7 +24,6 @@ type consolidationCreate struct {
 	Kind          string   `json:"kind"`
 	Entities      []string `json:"entities"`
 	SourceFactIDs []string `json:"source_fact_ids"`
-	Scope         string   `json:"scope"`
 	ExpiresAt     string   `json:"expires_at"`
 	Reason        string   `json:"reason"`
 }
@@ -190,16 +189,11 @@ func buildConsolidationUserPrompt(
 	b.WriteString("\n### Existing observations\n\n")
 	entries := make([]map[string]any, 0, len(observations))
 	for _, obs := range observations {
-		scope := "channel"
-		if obs.ChannelID == nil {
-			scope = "org"
-		}
 		entries = append(entries, map[string]any{
 			"id":                observationIDs.keyFor(obs.ID),
 			"text":              obs.Content,
 			"kind":              obs.Kind,
 			"proof_count":       obs.ProofCount,
-			"scope":             scope,
 			"last_mentioned_at": obs.LastMentionedAt.UTC().Format("2006-01-02"),
 		})
 	}

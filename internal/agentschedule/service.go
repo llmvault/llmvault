@@ -39,7 +39,6 @@ type CreateInput struct {
 	CreatedByUserID *uuid.UUID
 	Description     string
 	TaskPrompt      string
-	ChannelID       string
 	IntervalSeconds *int64
 	CronExpression  string
 	RepeatCount     *int64
@@ -49,7 +48,6 @@ type UpdateInput struct {
 	Name            *string
 	Description     *string
 	TaskPrompt      *string
-	ChannelID       *string
 	IntervalSeconds *int64
 	CronExpression  *string
 	RepeatCount     *int64
@@ -95,10 +93,6 @@ func Create(ctx context.Context, db *gorm.DB, agent *model.Agent, input CreateIn
 }
 
 func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySession string, input CreateInput) (*model.AgentSchedule, error) {
-	channelID, err := ResolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, input.ChannelID)
-	if err != nil {
-		return nil, err
-	}
 	kind, nextRunAt, err := normalizeCadence(time.Now().UTC(), input.IntervalSeconds, input.CronExpression)
 	if err != nil {
 		return nil, err
@@ -121,7 +115,6 @@ func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySessi
 		SourceSlug:       strings.TrimSpace(input.SourceSlug),
 		CreatedByUserID:  input.CreatedByUserID,
 		ScheduleKind:     kind,
-		Channel:          channelID,
 		Description:      defaultDescription(input.Description, taskPrompt),
 		TaskPrompt:       taskPrompt,
 		CronExpression:   strings.TrimSpace(input.CronExpression),
@@ -141,7 +134,6 @@ func create(ctx context.Context, db *gorm.DB, agent *model.Agent, createdBySessi
 			"status":             schedule.Status,
 			"source_slug":        gorm.Expr("CASE WHEN EXCLUDED.source_slug <> '' THEN EXCLUDED.source_slug ELSE agent_schedules.source_slug END"),
 			"schedule_kind":      schedule.ScheduleKind,
-			"channel":            schedule.Channel,
 			"description":        schedule.Description,
 			"task_prompt":        schedule.TaskPrompt,
 			"cron_expression":    schedule.CronExpression,
@@ -197,13 +189,6 @@ func Update(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID string, 
 			return nil, fmt.Errorf("task_prompt is required")
 		}
 		updates["task_prompt"] = taskPrompt
-	}
-	if input.ChannelID != nil {
-		channelID, err := ResolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, *input.ChannelID)
-		if err != nil {
-			return nil, err
-		}
-		updates["channel"] = channelID
 	}
 	if input.IntervalSeconds != nil || input.CronExpression != nil {
 		expr := schedule.CronExpression

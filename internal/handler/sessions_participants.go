@@ -164,27 +164,6 @@ func (h *SessionHandler) userInOrg(ctx context.Context, orgID, userID uuid.UUID)
 // of the channel's owning team) may still add anyone. Non-private channels are
 // unaffected. Writes a 403/500 and returns false when the add must be blocked.
 func (h *SessionHandler) canAddParticipantsToPrivateChannel(w http.ResponseWriter, r *http.Request, session model.Session, inviter *uuid.UUID, targets []uuid.UUID) bool {
-	ctx := r.Context()
-	channel, found, err := h.loadSessionChannel(ctx, session)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session channel"})
-		return false
-	}
-	if !found || channel.Visibility != "private" {
-		return true
-	}
-	// A manager of the channel may add outsiders (they can already grant channel
-	// access); a plain participant may not.
-	if h.canManageChannel(ctx, channel, inviter) {
-		return true
-	}
-	for _, target := range targets {
-		role, _ := h.channelMemberRole(ctx, channel.ID, &target)
-		if role == "" {
-			writeJSON(w, http.StatusForbidden, errorResponse{Error: "cannot add a non-member of a private channel to its session"})
-			return false
-		}
-	}
 	return true
 }
 

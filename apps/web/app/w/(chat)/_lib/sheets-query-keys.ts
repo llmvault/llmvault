@@ -8,7 +8,7 @@ import type {
 /* ------------------------------------------------------------------ */
 
 export const sheetKeys = {
-  list: (channelId: string) => ["sheets", channelId] as const,
+  list: (teamId: string) => ["sheets", teamId] as const,
   structure: (sheetId: string) => ["sheet-structure", sheetId] as const,
   structurePrefix: ["sheet-structure"] as const,
   pageRef: (pageId: string) => ["sheet-page-ref", pageId] as const,

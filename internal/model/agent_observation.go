@@ -9,18 +9,17 @@ import (
 
 // AgentObservation is the consolidated memory product built from raw
 // reflection facts (agent_memories): one canonical observation per facet,
-// carrying proof counts, supersession links, expiry, and channel scoping.
-// ChannelID scopes the observation: set = that channel's memory, NULL =
-// org-wide. Facts stay as internal evidence behind SourceFactIDs.
+// carrying proof counts, supersession links, expiry, and agent ownership.
+// Facts stay as internal evidence behind SourceFactIDs.
 type AgentObservation struct {
-	ID        uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID     uuid.UUID      `gorm:"type:uuid;not null;index"`
-	Org       Org            `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	ChannelID *uuid.UUID     `gorm:"type:uuid;index"`
-	Channel   *Channel       `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
-	Content   string         `gorm:"type:text;not null"`
-	Kind      string         `gorm:"type:text;not null"`
-	Entities  pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
+	ID       uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID    uuid.UUID      `gorm:"type:uuid;not null;index"`
+	Org      Org            `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	AgentID  uuid.UUID      `gorm:"type:uuid;not null;index"`
+	Agent    Agent          `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
+	Content  string         `gorm:"type:text;not null"`
+	Kind     string         `gorm:"type:text;not null"`
+	Entities pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 	// ProofCount is how many source facts support this observation.
 	ProofCount int `gorm:"not null;default:1"`
 	// SourceFactIDs reference agent_memories.id rows (stored as uuid[]).
@@ -48,16 +47,14 @@ type AgentObservation struct {
 
 func (AgentObservation) TableName() string { return "agent_observations" }
 
-// ChannelMemoryDigest is the precomputed, byte-budgeted memory block for one
-// channel: ranked and rendered at write time by the consolidation worker so
-// session create is a single point-read. Org-wide observations are folded
-// into each channel digest at write time — there is no separate org row.
-type ChannelMemoryDigest struct {
-	ChannelID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+// AgentMemoryDigest is the precomputed, byte-budgeted memory block for one
+// agent. It is written by consolidation so session creation is a point-read.
+type AgentMemoryDigest struct {
+	AgentID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	OrgID            uuid.UUID `gorm:"type:uuid;not null"`
 	Content          string    `gorm:"type:text;not null"`
 	ObservationCount int       `gorm:"not null;default:0"`
 	UpdatedAt        time.Time
 }
 
-func (ChannelMemoryDigest) TableName() string { return "channel_memory_digests" }
+func (AgentMemoryDigest) TableName() string { return "agent_memory_digests" }

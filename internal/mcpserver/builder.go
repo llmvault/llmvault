@@ -55,7 +55,7 @@ var hivyMCPToolNames = []string{
 	"sheet_create", "sheet_list", "sheet_describe", "sheet_manage", "rows_query", "rows_write", "sheet_import_csv", "sheet_operations",
 	"app_create", "app_publish", "app_status", "app_logs", "app_rollback",
 	"send_email", "email_read", "email_search",
-	"cron", "create_http_trigger", "list_channels",
+	"cron", "create_http_trigger",
 }
 
 func hivyMCPToolAllowed(filter *model.ToolFilter, name string) bool {
@@ -174,9 +174,6 @@ func BuildServer(
 	}
 	if hasAllowedHivyMCPTool(toolFilter, "create_http_trigger") {
 		addHTTPTriggerTool(server, token, db)
-	}
-	if hasAllowedHivyMCPTool(toolFilter, "list_channels") {
-		addListChannelsTool(server, token, db)
 	}
 	filterHivyMCPTools(server, toolFilter)
 

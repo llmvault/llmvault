@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/cache"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -44,13 +43,13 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (*model.AgentMe
 	if req.OrgID == uuid.Nil {
 		return nil, fmt.Errorf("org_id is required")
 	}
-	if err := s.validateChannel(ctx, req.OrgID, req.ChannelID); err != nil {
-		return nil, err
+	if req.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
 	}
 	mem := &model.AgentMemory{
 		ID:                uuid.New(),
 		OrgID:             req.OrgID,
-		ChannelID:         req.ChannelID,
+		AgentID:           req.AgentID,
 		Content:           content,
 		MemoryFingerprint: strings.TrimSpace(req.MemoryFingerprint),
 		Tags:              pq.StringArray(NormalizeTags(req.Tags)),
@@ -87,13 +86,6 @@ func (s *Service) Update(ctx context.Context, req UpdateRequest) (*model.AgentMe
 	}
 	updates := map[string]any{"updated_at": time.Now()}
 	reembed := false
-	if req.UpdateChannel {
-		if err := s.validateChannel(ctx, req.OrgID, req.ChannelID); err != nil {
-			return nil, err
-		}
-		updates["channel_id"] = req.ChannelID
-		mem.ChannelID = req.ChannelID
-	}
 	if req.Content != nil {
 		content, err := normalizeContent(*req.Content)
 		if err != nil {
@@ -228,32 +220,10 @@ func (s *Service) enqueueEmbed(ctx context.Context, id uuid.UUID, revision int) 
 	return s.cfg.EnqueueEmbed(ctx, id, revision)
 }
 
-// applyVisibility constrains q to memories the actor may see: global
-// (channel_id IS NULL) rows plus channels usable under the team-based channel
-// visibility predicate. It is a no-op when v.Restrict is false (managers and
-// API-key callers see every channel).
+// applyVisibility is intentionally a no-op. Authorization is enforced by the
+// caller against the selected agent's owning team.
 func (s *Service) applyVisibility(q *gorm.DB, orgID uuid.UUID, v Visibility) *gorm.DB {
-	if !v.Restrict {
-		return q
-	}
-	sub := channelagents.VisibleChannelIDsSubquery(s.cfg.DB, orgID, v.UserID)
-	return q.Where("channel_id IS NULL OR channel_id IN (?)", sub)
-}
-
-func (s *Service) validateChannel(ctx context.Context, orgID uuid.UUID, channelID *uuid.UUID) error {
-	if channelID == nil || *channelID == uuid.Nil {
-		return nil
-	}
-	var count int64
-	if err := s.cfg.DB.WithContext(ctx).Model(&model.Channel{}).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", *channelID, orgID).
-		Count(&count).Error; err != nil {
-		return fmt.Errorf("validate memory channel: %w", err)
-	}
-	if count == 0 {
-		return fmt.Errorf("channel_id must belong to org")
-	}
-	return nil
+	return q
 }
 
 func (s *Service) embeddingModel() string {

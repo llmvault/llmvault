@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -61,7 +60,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Managers and API-key callers see org-wide; a regular member sees only
 	// agents assigned to channels they can use (mirrors channel visibility).
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
-		q = q.Where("agents.id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+		q = q.Where("agents.team_id IN (?)", visibleTeamSubquery(h.db, userID))
 	}
 
 	if status := r.URL.Query().Get("status"); status != "" {
@@ -149,7 +148,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// not 403) so we never leak the existence of agents outside the caller's
 	// channels. Managers and API-key callers keep org-wide access.
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
-		q = q.Where("agents.id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+		q = q.Where("agents.team_id IN (?)", visibleTeamSubquery(h.db, userID))
 	}
 
 	var agent model.Agent
@@ -171,7 +170,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // actorOrgRole returns the caller's org role, or "" when there is no user
 // (API-key/proxy) or the user is not a member. It mirrors
-// ChannelHandler.currentUserOrgRole so the agents surface applies the same
+// shared organization-role resolver so the agents surface applies the same
 // manager check as channels without depending on the channel handler.
 func (h *AgentHandler) actorOrgRole(ctx context.Context, orgID uuid.UUID, userID *uuid.UUID) (string, error) {
 	if userID == nil {

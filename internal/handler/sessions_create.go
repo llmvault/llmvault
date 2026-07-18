@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -61,28 +60,21 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	hasInitialMessage := sessionMessageHasContent(text, payload)
 	logPhase("decode request",
 		"org_id", org.ID,
-		"channel_id", strings.TrimSpace(req.ChannelID),
 		"requested_agent_id", strings.TrimSpace(req.AgentID),
 		"has_initial_message", hasInitialMessage,
 		"requested_model", createSessionModelID(req),
 		"has_reasoning_effort", createSessionReasoningEffort(req) != "",
 	)
-	channel, ok := h.loadUsableChannel(w, r, org.ID, req.ChannelID)
-	if !ok {
-		return
-	}
-	logPhase("load channel", "org_id", org.ID, "channel_id", channel.ID)
 	userID, _ := currentSessionUserID(r)
-	if !h.canUseChannel(ctx, channel, userID) {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "join the channel before creating sessions"})
-		return
-	}
-	logPhase("authorize channel", "org_id", org.ID, "channel_id", channel.ID, "user_id", userID)
-	agent, ok := h.resolveSessionAgent(w, r, org.ID, channel, req.AgentID)
+	agent, ok := h.resolveSessionAgent(w, r, org.ID, req.AgentID)
 	if !ok {
 		return
 	}
-	logPhase("resolve agent", "org_id", org.ID, "channel_id", channel.ID, "agent_id", agent.ID)
+	if !h.canUseTeam(ctx, org.ID, agent.TeamID, userID) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "team not found"})
+		return
+	}
+	logPhase("resolve agent", "org_id", org.ID, "team_id", agent.TeamID, "agent_id", agent.ID)
 	if ok := h.validateSessionModel(w, r, org.ID, &agent, createSessionModelID(req)); !ok {
 		return
 	}
@@ -91,7 +83,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logPhase("validate runtime options", "org_id", org.ID, "agent_id", agent.ID)
-	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
+	session := h.newSessionRecord(r, org.ID, agent.TeamID, agent, req, userID)
 	mcpContext := agentruntime.MCPRuntimeContextForSession(session, userID)
 	if mcpContext.AllowsPersonalServers() {
 		session.RuntimeMCPActorUserID = mcpContext.ActorUserID
@@ -111,7 +103,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		logPhase("hydrate initial message attachments", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
-	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, channel.TeamID, session.Model, session.ReasoningEffort, mcpContext)
+	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
 		logging.Capture(ctx, err)
@@ -195,39 +187,14 @@ func (h *SessionHandler) validateSessionModel(w http.ResponseWriter, r *http.Req
 	return true
 }
 
-func (h *SessionHandler) loadUsableChannel(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, raw string) (model.Channel, bool) {
-	channelID, err := uuid.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
-		return model.Channel{}, false
-	}
-	var channel model.Channel
-	err = h.db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
-		First(&channel).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "channel not found"})
-		return model.Channel{}, false
-	}
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load channel"})
-		return model.Channel{}, false
-	}
-	return channel, true
-}
-
-func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, channel model.Channel, raw string) (model.Agent, bool) {
-	agentID := channel.DefaultAgentID
-	if strings.TrimSpace(raw) != "" {
-		id, err := uuid.Parse(strings.TrimSpace(raw))
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "agent_id must be a uuid"})
-			return model.Agent{}, false
-		}
-		agentID = id
+func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, raw string) (model.Agent, bool) {
+	agentID, err := uuid.Parse(strings.TrimSpace(raw))
+	if err != nil || agentID == uuid.Nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "agent_id must be a uuid"})
+		return model.Agent{}, false
 	}
 	var agent model.Agent
-	err := h.db.WithContext(r.Context()).
+	err = h.db.WithContext(r.Context()).
 		Preload("AgentCatalog").
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
 		First(&agent).Error
@@ -239,19 +206,10 @@ func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return model.Agent{}, false
 	}
-	acts, err := channelagents.ActsInChannel(r.Context(), h.db, orgID, channel.ID, agent.ID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
-		return model.Agent{}, false
-	}
-	if !acts {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent does not belong to this channel's team"})
-		return model.Agent{}, false
-	}
 	return agent, true
 }
 
-func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid.UUID, agent model.Agent, req createSessionRequest, userID *uuid.UUID) model.Session {
+func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, teamID uuid.UUID, agent model.Agent, req createSessionRequest, userID *uuid.UUID) model.Session {
 	sessionID := uuid.New()
 	modelID := createSessionModelID(req)
 	if modelID == "" {
@@ -261,7 +219,7 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 	session := model.Session{
 		ID:                sessionID,
 		OrgID:             orgID,
-		ChannelID:         channelID,
+		TeamID:            teamID,
 		AgentID:           agent.ID,
 		CreatedBy:         userID,
 		Model:             modelID,

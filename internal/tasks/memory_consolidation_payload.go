@@ -14,10 +14,10 @@ import (
 )
 
 // MemoryConsolidatePayload keys one consolidation run: all unconsolidated
-// reflection facts of one channel in one org.
+// reflection facts of one agent in one org.
 type MemoryConsolidatePayload struct {
-	OrgID     uuid.UUID `json:"org_id"`
-	ChannelID uuid.UUID `json:"channel_id"`
+	OrgID   uuid.UUID `json:"org_id"`
+	AgentID uuid.UUID `json:"agent_id"`
 }
 
 // ObservationEmbedPayload retries the embedding of one observation revision
@@ -48,8 +48,8 @@ func NewMemoryConsolidateTask(payload MemoryConsolidatePayload) (*asynq.Task, []
 	if payload.OrgID == uuid.Nil {
 		return nil, nil, fmt.Errorf("org_id is required")
 	}
-	if payload.ChannelID == uuid.Nil {
-		return nil, nil, fmt.Errorf("channel_id is required")
+	if payload.AgentID == uuid.Nil {
+		return nil, nil, fmt.Errorf("agent_id is required")
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -59,21 +59,21 @@ func NewMemoryConsolidateTask(payload MemoryConsolidatePayload) (*asynq.Task, []
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
 		asynq.Timeout(4 * time.Minute),
-		// Uniqueness is payload-keyed, so one pending run per org+channel.
+		// Uniqueness is payload-keyed, so one pending run per org+agent.
 		asynq.Unique(time.Minute),
 	}
 	return asynq.NewTask(TypeMemoryConsolidate, encoded), opts, nil
 }
 
-// EnqueueMemoryConsolidate schedules a consolidation run for one channel's
+// EnqueueMemoryConsolidate schedules a consolidation run for one agent's
 // unconsolidated reflection facts. Called right after each reflection run
 // stores facts, and by the periodic stranded-facts sweep. Duplicate enqueues
 // within the uniqueness window collapse into one run.
-func EnqueueMemoryConsolidate(ctx context.Context, enq enqueue.TaskEnqueuer, orgID, channelID uuid.UUID) error {
+func EnqueueMemoryConsolidate(ctx context.Context, enq enqueue.TaskEnqueuer, orgID, agentID uuid.UUID) error {
 	if enq == nil {
 		return nil
 	}
-	task, opts, err := NewMemoryConsolidateTask(MemoryConsolidatePayload{OrgID: orgID, ChannelID: channelID})
+	task, opts, err := NewMemoryConsolidateTask(MemoryConsolidatePayload{OrgID: orgID, AgentID: agentID})
 	if err != nil {
 		return err
 	}

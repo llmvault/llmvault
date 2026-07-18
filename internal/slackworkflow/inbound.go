@@ -37,7 +37,7 @@ func ClaimInbound(ctx context.Context, db *gorm.DB, orgID, connectionID uuid.UUI
 	row := model.SlackThreadEvent{
 		OrgID:          orgID,
 		ConnectionID:   connectionID,
-		TeamID:         event.TeamID,
+		SlackTeamID:    event.TeamID,
 		SlackChannelID: event.ChannelID,
 		ThreadTS:       event.ThreadTS,
 		MessageTS:      event.MessageTS,

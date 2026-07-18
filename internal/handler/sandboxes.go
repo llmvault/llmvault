@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -142,7 +141,7 @@ func (h *SandboxHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	q := h.db.Where("org_id = ?", org.ID)
 	if !orgWide {
-		q = q.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+		q = q.Where("agent_id IN (SELECT id FROM agents WHERE team_id IN (?))", visibleTeamSubquery(h.db, userID))
 	}
 	if status := r.URL.Query().Get("status"); status != "" {
 		q = q.Where("status = ?", status)
@@ -201,7 +200,7 @@ func (h *SandboxHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if !orgWide {
 		// Hidden-agent (or agent-less) sandboxes are indistinguishable from a
 		// nonexistent one for a member: 404.
-		q = q.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+		q = q.Where("agent_id IN (SELECT id FROM agents WHERE team_id IN (?))", visibleTeamSubquery(h.db, userID))
 	}
 	var sb model.Sandbox
 	if err := q.First(&sb).Error; err != nil {

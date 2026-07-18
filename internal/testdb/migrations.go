@@ -138,6 +138,7 @@ var migratedTables = []string{
 	"agent_email_messages",
 	"agent_email_threads",
 	"agent_email_webhook_receipts",
+	"agent_memory_digests",
 	"agent_memories",
 	"agent_observations",
 	"agent_mcp_servers",
@@ -155,9 +156,6 @@ var migratedTables = []string{
 	"canvas_artifact_files",
 	"canvas_artifacts",
 	"canvas_projects",
-	"channel_members",
-	"channel_memory_digests",
-	"channels",
 	"connections",
 	"credentials",
 	"credit_ledger_entries",
@@ -210,6 +208,7 @@ var migratedTables = []string{
 	"team_mcp_servers",
 	"team_env_vars",
 	"team_connection_grants",
+	"team_external_resource_routes",
 	"team_skill_grants",
 	"team_rag_sources",
 	"teams",
@@ -220,4 +219,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 3
+const latestMigrationVersion = 1

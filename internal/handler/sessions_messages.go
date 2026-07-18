@@ -120,10 +120,6 @@ func (h *SessionHandler) externalSessionMessageTarget(r *http.Request, session m
 	// "continue in Slack". The channel is loaded solely to label the provider.
 	external := session.Source == model.SessionSourceExternal
 	provider := ""
-	channel, found, err := h.loadSessionChannel(r.Context(), session)
-	if err == nil && found {
-		provider = externalProviderLabel(channel.ExternalProvider)
-	}
 	if !external {
 		return false, ""
 	}

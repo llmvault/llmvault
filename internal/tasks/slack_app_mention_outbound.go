@@ -19,10 +19,11 @@ func (h *SlackAppMentionHandler) recordSlackOutbound(ctx context.Context, inboun
 	row := model.SlackThreadEvent{
 		OrgID:          inbound.OrgID,
 		ConnectionID:   inbound.ConnectionID,
-		ChannelID:      inbound.ChannelID,
+		ResolvedTeamID: inbound.ResolvedTeamID,
+		AgentID:        inbound.AgentID,
 		TriggerID:      inbound.TriggerID,
 		SessionID:      &session.ID,
-		TeamID:         inbound.TeamID,
+		SlackTeamID:    inbound.SlackTeamID,
 		SlackChannelID: inbound.SlackChannelID,
 		ThreadTS:       inbound.ThreadTS,
 		MessageTS:      strings.TrimSpace(replyTS),

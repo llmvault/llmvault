@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -27,7 +26,7 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 	var installedID *string
 	q := h.db.WithContext(ctx).Where("org_id = ? AND agent_catalog_id = ? AND status <> ? AND parent_agent_id IS NULL", orgID, c.ID, "archived")
 	if !orgWide {
-		q = q.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, userID))
+		q = q.Where("team_id IN (?)", visibleTeamSubquery(h.db, userID))
 	}
 	var agent model.Agent
 	if err = q.First(&agent).Error; err == nil {

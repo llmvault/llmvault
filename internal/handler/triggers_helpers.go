@@ -13,20 +13,14 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// requireChannelBindingManage verifies the caller may bind a team resource
-// (trigger/schedule) to channelID under the team-primary model. Creating such a
-// binding is a manage-the-channel's-team action, not merely use-the-channel:
-// API-key callers are trusted org-wide; a human actor must be an org manager or
-// an active member of the channel's owning team. A channel with no team is
-// denied (fail-closed). Returns (status, message, err); err is nil and status
-// 200 on success.
-func requireChannelBindingManage(r *http.Request, db *gorm.DB, orgID, channelID uuid.UUID) (int, string, error) {
+// requireAgentBindingManage verifies that the caller can manage the target
+// agent's team before configuring one of its automations.
+func requireAgentBindingManage(r *http.Request, db *gorm.DB, orgID, agentID uuid.UUID) (int, string, error) {
 	if isAPIKeyRequest(r.Context()) {
 		return http.StatusOK, "", nil
 	}
@@ -35,82 +29,34 @@ func requireChannelBindingManage(r *http.Request, db *gorm.DB, orgID, channelID 
 		return http.StatusForbidden, "forbidden", err
 	}
 	if actor == nil {
-		return http.StatusForbidden, "you must manage this channel's team to bind resources to it", fmt.Errorf("no actor")
+		return http.StatusForbidden, "you must manage this agent's team to configure automations", fmt.Errorf("no actor")
 	}
 	if actor.IsOrgManager() {
 		return http.StatusOK, "", nil
 	}
-	var channel model.Channel
+	var agent model.Agent
 	err = db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ?", channelID, orgID).
-		First(&channel).Error
+		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
+		First(&agent).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel not found")
+		return http.StatusNotFound, "agent not found", err
 	}
 	if err != nil {
-		return http.StatusInternalServerError, "failed to load channel", err
+		return http.StatusInternalServerError, "failed to load agent", err
 	}
-	ok, err := actor.CanManageTeamResource(r.Context(), db, channel.TeamID)
+	ok, err := actor.CanManageTeamResource(r.Context(), db, agent.TeamID)
 	if err != nil {
 		return http.StatusInternalServerError, "failed to check team membership", err
 	}
 	if !ok {
-		return http.StatusForbidden, "you must manage this channel's team to bind resources to it", fmt.Errorf("not a team member")
+		return http.StatusForbidden, "you must manage this agent's team to configure automations", fmt.Errorf("not a team member")
 	}
 	return http.StatusOK, "", nil
 }
 
-// resolveProviderTriggerChannel returns the channel a provider trigger's session
-// runs in. A caller-supplied channel_id is used after an access check; otherwise
-// the channel is auto-created from the provider resource.
-func (h *TriggerHandler) resolveProviderTriggerChannel(r *http.Request, orgID uuid.UUID, provider string, conn model.Connection, template triggerTemplate, resourceKey, resourceName string, agentID uuid.UUID, rawChannelID string) (uuid.UUID, int, string, error) {
-	if raw := strings.TrimSpace(rawChannelID); raw != "" {
-		cid, err := uuid.Parse(raw)
-		if err != nil || cid == uuid.Nil {
-			return uuid.Nil, http.StatusBadRequest, "channel_id must be a uuid", fmt.Errorf("invalid channel id")
-		}
-		actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
-		if err != nil {
-			return uuid.Nil, http.StatusForbidden, "forbidden", err
-		}
-		allowed, err := actor.CanUseChannelID(r.Context(), h.db, cid)
-		if err != nil {
-			return uuid.Nil, http.StatusInternalServerError, "failed to check channel access", err
-		}
-		if !allowed {
-			return uuid.Nil, http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel access denied")
-		}
-		acts, err := channelagents.ActsInChannel(r.Context(), h.db, orgID, cid, agentID)
-		if err != nil {
-			return uuid.Nil, http.StatusInternalServerError, "failed to check channel agents", err
-		}
-		if !acts {
-			return uuid.Nil, http.StatusUnprocessableEntity, "agent does not belong to this channel's team", fmt.Errorf("agent not in team")
-		}
-		return cid, http.StatusOK, "", nil
-	}
-	channel, err := findOrAutoCreateExternalChannel(r.Context(), h.db, h.externalProvisioner, orgID, externalChannelAutoCreateRequest{
-		Provider:       provider,
-		Connection:     conn,
-		ResourceType:   template.resourceType,
-		ResourceKey:    resourceKey,
-		ResourceName:   resourceName,
-		DefaultAgentID: agentID,
-	})
-	if err != nil {
-		status, message := triggerCreateError(err)
-		return uuid.Nil, status, message, err
-	}
-	// The channel was resolved/created with this agent as its default. Under the
-	// team-primary model the agent is usable by virtue of team ownership (external
-	// channels are unbounded), so no assignment row is needed for the trigger to
-	// fire.
-	return channel.ID, http.StatusOK, "", nil
-}
-
 // createHTTP creates an inbound HTTP ("webhook") trigger. Unlike provider
-// triggers it has no connection/resource — just an agent, a channel the caller
-// can access, instructions, and an optional shared secret.
+// triggers it has no connection/resource — just an agent, instructions, and
+// an optional shared secret.
 func (h *TriggerHandler) createHTTP(r *http.Request, orgID uuid.UUID, req createTriggerRequest) (model.AgentTrigger, string, int, string, error) {
 	return h.createInboundTrigger(r, orgID, req, "http")
 }
@@ -130,30 +76,7 @@ func (h *TriggerHandler) createInboundTrigger(r *http.Request, orgID uuid.UUID, 
 	if err != nil || agentID == uuid.Nil {
 		return model.AgentTrigger{}, "", http.StatusBadRequest, "agent_id must be a uuid", fmt.Errorf("invalid agent id")
 	}
-	channelID, err := uuid.Parse(strings.TrimSpace(req.ChannelID))
-	if err != nil || channelID == uuid.Nil {
-		return model.AgentTrigger{}, "", http.StatusBadRequest, "channel_id must be a uuid", fmt.Errorf("invalid channel id")
-	}
-
-	actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
-	if err != nil {
-		return model.AgentTrigger{}, "", http.StatusForbidden, "forbidden", err
-	}
-	allowed, err := actor.CanUseChannelID(r.Context(), h.db, channelID)
-	if err != nil {
-		return model.AgentTrigger{}, "", http.StatusInternalServerError, "failed to check channel access", err
-	}
-	if !allowed {
-		return model.AgentTrigger{}, "", http.StatusForbidden, "you do not have access to this channel", fmt.Errorf("channel access denied")
-	}
-	acts, err := channelagents.ActsInChannel(r.Context(), h.db, orgID, channelID, agentID)
-	if err != nil {
-		return model.AgentTrigger{}, "", http.StatusInternalServerError, "failed to check channel agents", err
-	}
-	if !acts {
-		return model.AgentTrigger{}, "", http.StatusUnprocessableEntity, "agent does not belong to this channel's team", fmt.Errorf("agent not in team")
-	}
-	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, orgID, channelID); mErr != nil {
+	if mStatus, mMessage, mErr := requireAgentBindingManage(r, h.db, orgID, agentID); mErr != nil {
 		return model.AgentTrigger{}, "", mStatus, mMessage, mErr
 	}
 
@@ -168,7 +91,6 @@ func (h *TriggerHandler) createInboundTrigger(r *http.Request, orgID uuid.UUID, 
 			AgentID:      agentID,
 			Name:         strings.TrimSpace(req.Name),
 			TriggerType:  triggerType,
-			ChannelID:    &channelID,
 			Enabled:      true,
 			Instructions: strings.TrimSpace(req.Instructions),
 		}
@@ -212,7 +134,7 @@ func loadTriggerConnection(db *gorm.DB, orgID, connectionID uuid.UUID, provider 
 	return conn, nil
 }
 
-func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID, channelID uuid.UUID, template triggerTemplate) error {
+func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, template triggerTemplate) error {
 	var count int64
 	if err := db.Model(&model.Agent{}).
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
@@ -221,15 +143,6 @@ func validateTriggerAgent(ctx context.Context, db *gorm.DB, orgID, agentID, chan
 	}
 	if count == 0 {
 		return fmt.Errorf("agent not found")
-	}
-	// Team-primary rule: an agent may run in a channel iff it belongs to the
-	// channel's owning team. Replaces the cut agent_channels allowlist.
-	allowed, err := channelagents.ActsInChannel(ctx, db, orgID, channelID, agentID)
-	if err != nil {
-		return err
-	}
-	if !allowed {
-		return fmt.Errorf("agent is not available in this channel")
 	}
 	return validateTriggerAgentConnection(ctx, db, orgID, agentID, template)
 }
@@ -268,10 +181,6 @@ func triggerCreateError(err error) (int, string) {
 	if isDuplicateKeyError(err) {
 		return http.StatusConflict, "trigger already exists"
 	}
-	var provisionErr *ChannelExternalProvisionError
-	if errors.As(err, &provisionErr) {
-		return externalProvisionResponse(provisionErr)
-	}
 	switch {
 	case strings.Contains(err.Error(), "not found"):
 		return http.StatusNotFound, err.Error()
@@ -296,9 +205,6 @@ func triggerToResponse(trigger model.AgentTrigger, provider string) agentTrigger
 		SourceSlug:   trigger.SourceSlug,
 		Instructions: trigger.Instructions,
 		SecretSet:    trigger.SecretKey != "",
-	}
-	if trigger.ChannelID != nil {
-		response.ChannelID = trigger.ChannelID.String()
 	}
 	if trigger.ConnectionID != nil {
 		response.ConnectionID = trigger.ConnectionID.String()

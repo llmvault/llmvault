@@ -266,13 +266,13 @@ export function NumberEditor({
 export function RelationEditor({
   field,
   value,
-  channelId,
+  teamId,
   relations,
   onCommit,
 }: {
   field: SheetField
   value: unknown
-  channelId: string
+  teamId: string
   relations: Record<string, SheetRelationRef>
   onCommit: (value: unknown) => void
 }) {
@@ -283,7 +283,7 @@ export function RelationEditor({
   const refQuery = useQuery({
     enabled: Boolean(targetPageId),
     queryKey: sheetKeys.pageRef(targetPageId ?? ""),
-    queryFn: () => resolvePageRef(queryClient, channelId, targetPageId ?? ""),
+    queryFn: () => resolvePageRef(queryClient, teamId, targetPageId ?? ""),
     staleTime: 5 * 60_000,
   })
   const pageRef = refQuery.data ?? null

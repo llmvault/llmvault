@@ -10,8 +10,8 @@ type Sheet struct {
 	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID            uuid.UUID  `gorm:"type:uuid;not null;index"`
 	Org              *Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	ChannelID        uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Channel          *Channel   `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	TeamID           uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Team             *Team      `gorm:"foreignKey:TeamID;constraint:OnDelete:RESTRICT"`
 	Slug             string     `gorm:"type:text;not null"`
 	Name             string     `gorm:"type:text;not null"`
 	Description      string     `gorm:"type:text;not null;default:''"`

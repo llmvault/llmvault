@@ -28,6 +28,24 @@ env:
       secretKeyRef:
         name: qdrant-auth
         key: HIVY_QDRANT_API_KEY
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__SNAPSHOTS_STORAGE
+    value: s3
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__BUCKET
+    value: usehivy-staging-qdrant
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__REGION
+    value: hel1
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ENDPOINT_URL
+    value: https://hel1.your-objectstorage.com
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: qdrant-backup-s3
+        key: ACCESS_KEY_ID
+  - name: QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: qdrant-backup-s3
+        key: ACCESS_SECRET_KEY
 
 service:
   type: ClusterIP

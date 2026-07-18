@@ -26,21 +26,13 @@ func (h *TriggerHandler) triggerResponse(trigger model.AgentTrigger) triggerAuto
 }
 
 // actorCanAccessTrigger reports whether the actor may see/manage a trigger.
-// Every trigger — provider (webhook) and HTTP alike — is channel-scoped for
-// read: an org manager sees all, otherwise the actor must be able to use the
-// trigger's channel. A trigger with no channel is visible only to managers
-// (mirrors how schedules treat a channel they cannot resolve).
+// Every trigger belongs to its target agent, so ordinary members see only
+// triggers for teams they can manage.
 func (h *TriggerHandler) actorCanAccessTrigger(ctx context.Context, actor *access.Actor, trigger model.AgentTrigger) bool {
 	if actor.IsOrgManager() {
 		return true
 	}
-	if trigger.Channel != nil {
-		return actor.CanUseChannel(ctx, h.db, *trigger.Channel)
-	}
-	if trigger.ChannelID == nil {
-		return false
-	}
-	allowed, err := actor.CanUseChannelID(ctx, h.db, *trigger.ChannelID)
+	allowed, err := actor.CanManageTeamResource(ctx, h.db, trigger.Agent.TeamID)
 	return err == nil && allowed
 }
 
@@ -156,7 +148,6 @@ func triggerQuery(db *gorm.DB, orgID uuid.UUID) *gorm.DB {
 		Model(&model.AgentTrigger{}).
 		Joins("JOIN agents ON agents.id = agent_triggers.agent_id AND agents.status <> ?", "archived").
 		Preload("Agent").
-		Preload("Channel").
 		Preload("Connection").
 		Preload("Connection.Integration").
 		Where("agent_triggers.org_id = ?", orgID)

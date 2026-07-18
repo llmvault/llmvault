@@ -9,7 +9,6 @@ import (
 
 const (
 	imageModelSourceSession = "session"
-	imageModelSourceChannel = "channel"
 	imageModelSourceAgent   = "agent"
 	imageModelSourceDefault = "default"
 )
@@ -18,8 +17,8 @@ func validateImageModelPreference(modelID string, vector bool) error {
 	return registry.Global().ValidateImageGenerationModel(strings.TrimSpace(modelID), vector)
 }
 
-func resolveImageModelPreference(session *model.Session, channel *model.Channel, agent *model.Agent, vector bool) (string, string) {
-	if value := selectedImageModelPreference(session, channel, agent, vector); value.modelID != "" {
+func resolveImageModelPreference(session *model.Session, agent *model.Agent, vector bool) (string, string) {
+	if value := selectedImageModelPreference(session, agent, vector); value.modelID != "" {
 		return value.modelID, value.source
 	}
 	if vector {
@@ -33,15 +32,10 @@ type imageModelPreference struct {
 	source  string
 }
 
-func selectedImageModelPreference(session *model.Session, channel *model.Channel, agent *model.Agent, vector bool) imageModelPreference {
+func selectedImageModelPreference(session *model.Session, agent *model.Agent, vector bool) imageModelPreference {
 	if session != nil {
 		if value := cleanImagePreference(session.ImageModel, session.VectorImageModel, vector); value != "" {
 			return imageModelPreference{modelID: value, source: imageModelSourceSession}
-		}
-	}
-	if channel != nil {
-		if value := cleanImagePreference(channel.ImageModel, channel.VectorImageModel, vector); value != "" {
-			return imageModelPreference{modelID: value, source: imageModelSourceChannel}
 		}
 	}
 	if agent != nil {

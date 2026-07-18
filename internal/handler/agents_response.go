@@ -12,8 +12,9 @@ import (
 type agentTriggerInput struct {
 	ID           string              `json:"id,omitempty"`
 	TriggerType  string              `json:"trigger_type,omitempty"` // "webhook" (default), "http"
-	ChannelID    string              `json:"channel_id,omitempty"`
 	ConnectionID string              `json:"connection_id,omitempty"`
+	ResourceType string              `json:"resource_type,omitempty"`
+	ResourceKey  string              `json:"resource_key,omitempty"`
 	TriggerKeys  []string            `json:"trigger_keys,omitempty"`
 	Conditions   *model.TriggerMatch `json:"conditions,omitempty"`
 	SourceSlug   string              `json:"source_slug,omitempty"`
@@ -27,8 +28,9 @@ type agentTriggerInput struct {
 type agentTriggerResponse struct {
 	ID           string   `json:"id"`
 	TriggerType  string   `json:"trigger_type"`
-	ChannelID    string   `json:"channel_id,omitempty"`
 	ConnectionID string   `json:"connection_id,omitempty"`
+	ResourceType string   `json:"resource_type,omitempty"`
+	ResourceKey  string   `json:"resource_key,omitempty"`
 	Provider     string   `json:"provider,omitempty"`
 	TriggerKeys  []string `json:"trigger_keys,omitempty"`
 	TriggerKey   string   `json:"trigger_key,omitempty"`

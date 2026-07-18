@@ -30,8 +30,8 @@ func appsFlagshipLoadPreviewApp(t *testing.T, ctx context.Context, db *gorm.DB, 
 	if !strings.Contains(strings.ToLower(app.Name), "welcome") {
 		t.Fatalf("app name %q does not mention Welcome", app.Name)
 	}
-	if app.ChannelID.String() != channelID {
-		t.Fatalf("app channel_id=%s want %s", app.ChannelID, channelID)
+	if app.TeamID.String() != channelID {
+		t.Fatalf("app team_id=%s want %s", app.TeamID, channelID)
 	}
 	if app.SheetID == uuid.Nil {
 		t.Fatalf("app has no bound sheet")

@@ -34,9 +34,10 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 		AgentID      uuid.UUID      `gorm:"column:agent_id"`
 		TriggerID    uuid.UUID      `gorm:"column:trigger_id"`
 		TriggerType  string         `gorm:"column:trigger_type"`
-		ChannelID    *uuid.UUID     `gorm:"column:channel_id"`
 		ConnID       *uuid.UUID     `gorm:"column:conn_id"`
 		Provider     *string        `gorm:"column:provider"`
+		ResourceType string         `gorm:"column:resource_type"`
+		ResourceKey  string         `gorm:"column:resource_key"`
 		TriggerKeys  pq.StringArray `gorm:"column:trigger_keys;type:text[]"`
 		TriggerKey   string         `gorm:"column:trigger_key"`
 		TriggerValue string         `gorm:"column:trigger_value"`
@@ -53,9 +54,10 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 			at.agent_id,
 			at.id AS trigger_id,
 			at.trigger_type,
-			at.channel_id,
 			at.connection_id AS conn_id,
 			ii.provider,
+			at.resource_type,
+			at.resource_key,
 			at.trigger_keys,
 			at.trigger_key,
 			at.trigger_value,
@@ -92,12 +94,11 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 			SourceSlug:   row.SourceSlug,
 			Instructions: row.Instructions,
 			SecretSet:    row.SecretKey != "",
+			ResourceType: row.ResourceType,
+			ResourceKey:  row.ResourceKey,
 		}
 		if row.ConnID != nil {
 			response.ConnectionID = row.ConnID.String()
-		}
-		if row.ChannelID != nil {
-			response.ChannelID = row.ChannelID.String()
 		}
 		if row.Provider != nil {
 			response.Provider = *row.Provider

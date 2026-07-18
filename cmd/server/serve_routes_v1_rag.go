@@ -29,7 +29,6 @@ func mountRAGRoutes(
 		r.Get("/sources/{id}", ragSourceHandler.Get)
 		r.Get("/sources/{id}/attempts", ragSourceHandler.ListAttempts)
 		r.Get("/sources/{id}/attempts/{attempt_id}", ragSourceHandler.GetAttempt)
-		r.Get("/sources/{id}/channels", ragSourceHandler.GetSourceChannels)
 		if ragSearchHandler != nil {
 			r.Post("/search", ragSearchHandler.Search)
 			r.Get("/sources/{id}/documents", ragSearchHandler.ListDocuments)

@@ -76,7 +76,7 @@ func TestRenderObservationEvolution(t *testing.T) {
 	}
 }
 
-func TestRenderChannelDigestIncludesEvolution(t *testing.T) {
+func TestRenderAgentDigestIncludesEvolution(t *testing.T) {
 	now := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
 	evolved := evolvedObservation("decision", "Production runs on Railway.", []any{
 		map[string]any{"op": "update", "at": "2026-06-20T00:00:00Z", "previous_content": "Production hosting runs on Vercel."},
@@ -86,7 +86,7 @@ func TestRenderChannelDigestIncludesEvolution(t *testing.T) {
 		ProofCount: 1, LastMentionedAt: now,
 	}
 
-	digest, count := RenderChannelDigest([]model.AgentObservation{evolved, plain}, now, 10, DigestByteBudget)
+	digest, count := RenderAgentDigest([]model.AgentObservation{evolved, plain}, now, 10, DigestByteBudget)
 	if count != 2 {
 		t.Fatalf("count = %d, want 2", count)
 	}

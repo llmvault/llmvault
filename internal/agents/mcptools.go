@@ -10,7 +10,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -88,20 +87,28 @@ func loadOrgAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (*
 }
 
 // loadVisibleOrgAgent is loadOrgAgent with actor-scoped visibility: when userID
-// is non-nil the agent must also be assigned to a channel that user can use, so
+// is non-nil the agent must also belong to a team that user belongs to, so
 // a hidden agent returns gorm.ErrRecordNotFound and never leaks its existence. A
 // nil userID (manager or automated run) keeps org-wide access.
 func loadVisibleOrgAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, userID *uuid.UUID) (*model.Agent, error) {
 	q := db.WithContext(ctx).
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived")
 	if userID != nil {
-		q = q.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(db, orgID, userID))
+		q = q.Where("team_id IN (?)", visibleTeamIDsSubquery(db, userID))
 	}
 	var agent model.Agent
 	if err := q.First(&agent).Error; err != nil {
 		return nil, err
 	}
 	return &agent, nil
+}
+
+func visibleTeamIDsSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
+	q := db.Model(&model.TeamMember{}).Select("team_id").Where("deactivated_at IS NULL")
+	if userID == nil {
+		return q.Where("1 = 0")
+	}
+	return q.Where("user_id = ?", *userID)
 }
 
 func agentProxyToken(token *model.Token) bool {

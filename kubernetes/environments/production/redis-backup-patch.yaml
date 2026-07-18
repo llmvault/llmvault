@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backend-redis-backup
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: validate-rdb
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 512Mi
+                limits:
+                  cpu: "2"
+                  memory: 5Gi
+          volumes:
+            - name: backup
+              emptyDir:
+                sizeLimit: 20Gi

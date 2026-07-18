@@ -17,10 +17,7 @@ import {
 } from "@/app/w/(chat)/automations/_data"
 import { AgentSelect } from "@/components/agent-select"
 import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
-import {
-  ChannelSelect,
-  useHivyChannels,
-} from "@/app/w/(chat)/automations/_channel-select"
+import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
   GithubConnectionSelect,
   GithubRepoSelect,
@@ -63,7 +60,7 @@ export type GithubMentionFormConfig = {
 }
 
 const defaultChannelDescription =
-  "The channel this agent's session runs in when it's @mentioned. You can only pick channels you have access to."
+  "Choose the team that owns the agent this automation runs."
 const defaultStatusEnabledDescription =
   "Mentions in this repository will run this automation."
 const defaultStatusDisabledDescription =
@@ -100,9 +97,9 @@ export function GithubMentionInstallFormBase({
   const createTrigger = $api.useMutation("post", "/v1/triggers")
   const updateTrigger = $api.useMutation("patch", "/v1/triggers/{id}")
   const deleteTrigger = $api.useMutation("delete", "/v1/triggers/{id}")
-  const { channels, isLoading: channelsLoading } = useHivyChannels()
+  const { teams, isLoading: teamsLoading } = useTeams()
   const [name, setName] = useState(trigger?.name || automation.name || "")
-  const [channelID, setChannelID] = useState(trigger?.channel_id || "")
+  const [teamID, setTeamID] = useState("")
   const [connectionID, setConnectionID] = useState(trigger?.connection_id || "")
   const [resourceID, setResourceID] = useState(
     trigger?.external_resource_key || ""
@@ -165,15 +162,14 @@ export function GithubMentionInstallFormBase({
     () => resources.find((resource) => resource.id === activeResourceID),
     [activeResourceID, resources]
   )
-  const activeChannelID = channelID || channels[0]?.id || ""
-  const activeChannel = channels.find((c) => c.id === activeChannelID)
+  const activeTeamID = teamID || teams[0]?.id || ""
   const { agents, isLoading: agentsLoading } = useTeamAgents(
-    activeChannel?.team_id
+    activeTeamID
   )
   const activeAgentID = resolveScopedAgentID(
     agents,
     agentID,
-    activeChannel?.default_agent_id
+    undefined
   )
   const selectedAgent = useMemo(
     () => agents.find((agent) => agent.id === activeAgentID),
@@ -209,7 +205,7 @@ export function GithubMentionInstallFormBase({
     connectionsQuery.isLoading ||
     resourcesQuery.isLoading ||
     agentsLoading ||
-    channelsLoading
+    teamsLoading
   const isSaving = createTrigger.isPending || updateTrigger.isPending
   const isBusy = isSaving || deleteTrigger.isPending
   const canSubmit =
@@ -222,7 +218,7 @@ export function GithubMentionInstallFormBase({
       activeConnectionID &&
       selectedResource?.id &&
       activeAgentID &&
-      activeChannelID &&
+      activeTeamID &&
       instructions.trim()
     )
 
@@ -249,8 +245,8 @@ export function GithubMentionInstallFormBase({
       toast.danger("Select an agent")
       return
     }
-    if (!activeChannelID) {
-      toast.danger("Select a channel")
+    if (!activeTeamID) {
+      toast.danger("Select a team")
       return
     }
     const trimmedInstructions = instructions.trim()
@@ -265,7 +261,6 @@ export function GithubMentionInstallFormBase({
       external_resource_key: selectedResource.id,
       external_resource_name: repoName(selectedResource),
       agent_id: activeAgentID,
-      channel_id: activeChannelID,
       trigger_key: triggerKey,
       instructions: trimmedInstructions,
     }
@@ -278,7 +273,6 @@ export function GithubMentionInstallFormBase({
       )
       queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
       queryClient.invalidateQueries({ queryKey: queryKeys.agents() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
       if (triggerID) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.trigger(),
@@ -334,7 +328,6 @@ export function GithubMentionInstallFormBase({
           toast.success("Trigger deleted")
           queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
           queryClient.invalidateQueries({ queryKey: queryKeys.agents() })
-          queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
           router.push("/w/automations")
         },
         onError: (error) =>
@@ -410,17 +403,17 @@ export function GithubMentionInstallFormBase({
         </FormSection>
 
         <FormSection title="Agent" description={config.agentDescription}>
-          {!activeChannelID ? (
+          {!activeTeamID ? (
             <InlineNotice
               icon="bot"
-              title="Select a channel first"
-              body="Agents are scoped to the team that owns this trigger's channel."
+              title="Select a team first"
+              body="Agents are scoped to a team."
             />
           ) : agents.length === 0 && !agentsLoading ? (
             <InlineNotice
               icon="bot"
               title="No agents on this team"
-              body="Add an agent to the selected channel's team before installing this trigger."
+              body="Add an agent to this team before installing this trigger."
             />
           ) : (
             <AgentSelect
@@ -434,22 +427,22 @@ export function GithubMentionInstallFormBase({
         </FormSection>
 
         <FormSection
-          title="Channel"
+          title="Team"
           description={config.channelDescription ?? defaultChannelDescription}
         >
-          {channelsLoading ? (
+          {teamsLoading ? (
             <FieldSkeleton />
-          ) : channels.length === 0 ? (
+          ) : teams.length === 0 ? (
             <InlineNotice
               icon="hash"
-              title="No channels"
-              body="Create a channel before installing this trigger."
+              title="No teams"
+              body="Create a team before installing this trigger."
             />
           ) : (
-            <ChannelSelect
-              channels={channels}
-              value={activeChannelID}
-              onChange={setChannelID}
+            <TeamSelect
+              teams={teams}
+              value={activeTeamID}
+              onChange={setTeamID}
             />
           )}
         </FormSection>

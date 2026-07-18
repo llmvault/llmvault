@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -43,7 +42,7 @@ func handleListAgents(ctx context.Context, db *gorm.DB, token *model.Token, acto
 		Where("org_id = ? AND parent_agent_id IS NULL AND status <> ?", token.OrgID, "archived")
 	if actor != nil && !actor.IsOrgManager() {
 		uid := actor.UserID
-		q = q.Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(db, token.OrgID, &uid))
+		q = q.Where("team_id IN (?)", visibleTeamIDsSubquery(db, &uid))
 	}
 	var rows []model.Agent
 	if err := q.

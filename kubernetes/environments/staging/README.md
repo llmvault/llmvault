@@ -14,6 +14,9 @@ reviewed and brought up before the API and workers.
 - three cluster-enabled Qdrant 1.18.2 peers, with six collection shards,
   replication factor two, API-key authentication, and a separate 1 GiB
   expandable Longhorn volume per peer;
+- native daily PostgreSQL base backups with continuous WAL archiving, daily
+  Redis Cluster RDB exports, and daily per-peer Qdrant snapshots in Hetzner
+  Object Storage;
 - two API replicas, exposed only through the shared Gateway and internally by a
   ClusterIP Service;
 - two Asynq worker replicas with no Service and ingress denied;
@@ -98,6 +101,16 @@ others:
 ```sh
 kubernetes/environments/staging/secrets/generate-qdrant.sh
 ```
+
+Generate or refresh the ignored staging backup inputs from the repository-root
+`.env.hetzner-s3` file:
+
+```sh
+kubernetes/environments/generate-data-secrets.sh --refresh-backups
+```
+
+Backup schedules, retention, restore checks, and disaster-recovery caveats are
+documented in `../BACKUPS.md`.
 
 Add the required external credentials listed in `CREDENTIALS.md`, then run:
 

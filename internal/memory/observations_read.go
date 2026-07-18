@@ -39,7 +39,7 @@ const (
 )
 
 // SearchScore orders agent-facing search hits: cosine similarity, mildly
-// boosted by the same strength signal the channel digest uses (kind weight,
+// boosted by the same strength signal the agent digest uses (kind weight,
 // proof count, recency decay via DigestScore).
 func SearchScore(hit ObservationHit, now time.Time) float64 {
 	return hit.Similarity * (1 + searchStrengthWeight*math.Log1p(DigestScore(hit.Observation, now)))
@@ -71,11 +71,11 @@ func filterAndRankSearchHits(hits []ObservationHit, now time.Time, limit int) []
 	return kept
 }
 
-// TopObservations returns the channel's strongest live observations ordered by
-// proof_count then recency — the synchronous fallback when a channel has no
+// TopObservations returns an agent's strongest live observations ordered by
+// proof_count then recency — the synchronous fallback when an agent has no
 // precomputed memory digest yet. One indexed query; no embeddings. Before the
 // observations migration lands the table reads as empty.
-func (s *Service) TopObservations(ctx context.Context, orgID uuid.UUID, scope ChannelScope, limit int) ([]model.AgentObservation, error) {
+func (s *Service) TopObservations(ctx context.Context, orgID uuid.UUID, scope AgentScope, limit int) ([]model.AgentObservation, error) {
 	if s == nil || s.cfg.DB == nil {
 		return nil, fmt.Errorf("memory service is not configured")
 	}
@@ -104,7 +104,7 @@ func (s *Service) TopObservations(ctx context.Context, orgID uuid.UUID, scope Ch
 }
 
 // SearchObservations runs the agent-facing semantic search over consolidated
-// observations with the same ChannelScope semantics as Search over facts (the
+// observations with the same AgentScope semantics as Search over facts (the
 // worker-side vector lookup is SimilarObservations, which stays raw-cosine).
 // Tags (lowercase slugs) are matched case-insensitively against observation
 // entities. Candidates come back cosine-ordered from Postgres, then hits below
@@ -156,7 +156,7 @@ func (s *Service) SearchObservations(ctx context.Context, req SearchRequest) ([]
 
 	var rows []observationSearchRow
 	query := `
-SELECT id, org_id, channel_id, content, kind, entities, proof_count, source_fact_ids,
+SELECT id, org_id, agent_id, content, kind, entities, proof_count, source_fact_ids,
        occurred_start, occurred_end, last_mentioned_at, expires_at, superseded_by,
        archived_at, human_verified, embedding_model, embedding_status,
        embedding_revision, embedding_error, embedded_at, metadata, created_at, updated_at,

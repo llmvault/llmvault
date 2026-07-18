@@ -18,9 +18,6 @@ export const queryKeys = {
   teams: () => ["get", "/v1/orgs/current/teams"] as const,
   teamEnvironmentVariables: () =>
     ["get", "/v1/orgs/current/teams/{id}/environment-variables"] as const,
-  channels: () => ["get", "/v1/channels"] as const,
-  channel: () => ["get", "/v1/channels/{id}"] as const,
-  channelSessions: () => ["get", "/v1/channels/{id}/sessions"] as const,
   sessions: () => ["get", "/v1/sessions"] as const,
   sessionUsage: (id: string) =>
     ["get", "/v1/sessions/{id}/usage", { params: { path: { id } } }] as const,

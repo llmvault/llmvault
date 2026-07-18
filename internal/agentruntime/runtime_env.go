@@ -207,7 +207,7 @@ func mergeTeamEnvVars(ctx context.Context, deps CompileDeps, env map[string]stri
 // sandbox runtime strips it so the workload sees the clean name.
 const teamEnvInjectPrefix = "__ENV__"
 
-// resolveTeamIDForSandbox recovers the team of the sandbox session's channel.
+// resolveTeamIDForSandbox recovers the team of the sandbox session.
 // Used by every push path except session creation, where the session↔sandbox
 // link is not yet persisted and the team is passed explicitly.
 func resolveTeamIDForSandbox(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox) uuid.UUID {
@@ -217,8 +217,7 @@ func resolveTeamIDForSandbox(ctx context.Context, deps CompileDeps, agent *model
 	var rawTeamID string
 	err := deps.DB.WithContext(ctx).
 		Table("sessions").
-		Select("channels.team_id").
-		Joins("JOIN channels ON channels.id = sessions.channel_id AND channels.org_id = sessions.org_id").
+		Select("sessions.team_id").
 		Where("sessions.sandbox_id = ? AND sessions.org_id = ? AND sessions.agent_id = ? AND sessions.status <> ?", sb.ID, *agent.OrgID, agent.ID, "archived").
 		Order("sessions.created_at DESC").
 		Limit(1).

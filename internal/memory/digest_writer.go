@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -10,14 +9,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
 )
 
 const (
-	// DigestMaxObservations caps how many ranked observations one channel
+	// DigestMaxObservations caps how many ranked observations one agent
 	// digest may carry (K).
 	DigestMaxObservations = 250
 	// DigestByteBudget caps the rendered digest block size; trimming happens
@@ -51,7 +49,7 @@ func DigestKindWeight(kind string) float64 {
 	return 1
 }
 
-// DigestScore ranks one observation for the channel digest:
+// DigestScore ranks one observation for an agent digest:
 // kind weight * ln(1+proof_count), with a mild half-life recency decay on
 // last_mentioned_at.
 func DigestScore(obs model.AgentObservation, now time.Time) float64 {
@@ -81,14 +79,14 @@ func RankObservationsForDigest(rows []model.AgentObservation, now time.Time) []m
 	return ranked
 }
 
-// RenderChannelDigest ranks observations, takes the top maxObservations, and
+// RenderAgentDigest ranks observations, takes the top maxObservations, and
 // renders them as `- [kind] content` markdown bullets within budgetBytes
 // (whole lines only). Observations whose content was rewritten carry a
 // compact evolution note (their most recent superseded wordings with dates,
 // explicitly marked as former wordings) so agents see how a memory evolved
 // without any tool call. Returns the rendered block and how many observations
 // it carries.
-func RenderChannelDigest(rows []model.AgentObservation, now time.Time, maxObservations, budgetBytes int) (string, int) {
+func RenderAgentDigest(rows []model.AgentObservation, now time.Time, maxObservations, budgetBytes int) (string, int) {
 	if maxObservations <= 0 {
 		maxObservations = DigestMaxObservations
 	}
@@ -123,60 +121,39 @@ func RenderChannelDigest(rows []model.AgentObservation, now time.Time, maxObserv
 	return b.String(), count
 }
 
-// RecomputeChannelDigest rebuilds and upserts one channel's memory digest
-// from its live observations. Org-wide observations are folded in when the
-// channel's expose_org_memories flag is true. Called after every
-// consolidation run, after nightly expiry, and by the human-feedback
-// endpoints to force a refresh.
-func (s *Service) RecomputeChannelDigest(ctx context.Context, orgID, channelID uuid.UUID) error {
+// RecomputeAgentDigest rebuilds and upserts one agent's memory digest from
+// its live observations.
+func (s *Service) RecomputeAgentDigest(ctx context.Context, orgID, agentID uuid.UUID) error {
 	if s == nil || s.cfg.DB == nil {
 		return fmt.Errorf("memory service is not configured")
 	}
-	if orgID == uuid.Nil || channelID == uuid.Nil {
-		return fmt.Errorf("org_id and channel_id are required")
-	}
-	var channel model.Channel
-	err := s.cfg.DB.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
-		First(&channel).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// Channel is gone: drop any stale digest row and stop. Scoped by org_id
-		// too so it upholds the tenancy invariant (every org query carries org_id).
-		return s.cfg.DB.WithContext(ctx).
-			Where("channel_id = ? AND org_id = ?", channelID, orgID).
-			Delete(&model.ChannelMemoryDigest{}).Error
-	}
-	if err != nil {
-		return fmt.Errorf("load channel for digest: %w", err)
+	if orgID == uuid.Nil || agentID == uuid.Nil {
+		return fmt.Errorf("org_id and agent_id are required")
 	}
 
 	now := time.Now().UTC()
 	q := s.cfg.DB.WithContext(ctx).
 		Where("org_id = ? AND archived_at IS NULL", orgID).
+		Where("agent_id = ?", agentID).
 		Where("(expires_at IS NULL OR expires_at > ?)", now)
-	if channel.ExposeOrgMemories {
-		q = q.Where("(channel_id = ? OR channel_id IS NULL)", channelID)
-	} else {
-		q = q.Where("channel_id = ?", channelID)
-	}
 	var rows []model.AgentObservation
 	if err := q.Find(&rows).Error; err != nil {
 		return fmt.Errorf("load observations for digest: %w", err)
 	}
 
-	content, count := RenderChannelDigest(rows, now, DigestMaxObservations, DigestByteBudget)
-	digest := model.ChannelMemoryDigest{
-		ChannelID:        channelID,
+	content, count := RenderAgentDigest(rows, now, DigestMaxObservations, DigestByteBudget)
+	digest := model.AgentMemoryDigest{
+		AgentID:          agentID,
 		OrgID:            orgID,
 		Content:          content,
 		ObservationCount: count,
 		UpdatedAt:        now,
 	}
 	if err := s.cfg.DB.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "channel_id"}},
+		Columns:   []clause.Column{{Name: "agent_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"org_id", "content", "observation_count", "updated_at"}),
 	}).Create(&digest).Error; err != nil {
-		return fmt.Errorf("upsert channel memory digest: %w", err)
+		return fmt.Errorf("upsert agent memory digest: %w", err)
 	}
 	return nil
 }

@@ -10,10 +10,7 @@ import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
-import {
-  ChannelSelect,
-  useHivyChannels,
-} from "@/app/w/(chat)/automations/_channel-select"
+import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
   ScheduleCadenceFields,
   type Cadence,
@@ -31,32 +28,25 @@ export default function NewSchedulePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const { channels, isLoading: channelsLoading } = useHivyChannels()
+  const { teams, isLoading: teamsLoading } = useTeams()
   const createSchedule = $api.useMutation("post", "/v1/schedules")
 
   const [name, setName] = useState("")
-  const [channelID, setChannelID] = useState("")
+  const [teamID, setTeamID] = useState("")
   const [agentID, setAgentID] = useState("")
   const [taskPrompt, setTaskPrompt] = useState(DEFAULT_TASK_PROMPT)
   const [cadence, setCadence] = useState<Cadence | null>(null)
 
-  const activeChannelID = channelID || channels[0]?.id || ""
-  const activeChannel = channels.find((c) => c.id === activeChannelID)
-  const { agents, isLoading: agentsLoading } = useTeamAgents(
-    activeChannel?.team_id
-  )
-  const activeAgentID = resolveScopedAgentID(
-    agents,
-    agentID,
-    activeChannel?.default_agent_id
-  )
+  const activeTeamID = teamID || teams[0]?.id || ""
+  const { agents, isLoading: agentsLoading } = useTeamAgents(activeTeamID)
+  const activeAgentID = resolveScopedAgentID(agents, agentID, undefined)
 
   const isSaving = createSchedule.isPending
   const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSubmit = Boolean(
     !isSaving &&
     name.trim() &&
-    activeChannelID &&
+    activeTeamID &&
     activeAgentID &&
     taskPrompt.trim() &&
     cadenceValid
@@ -68,8 +58,8 @@ export default function NewSchedulePage() {
       toast.danger("Name is required")
       return
     }
-    if (!activeChannelID) {
-      toast.danger("Select a channel")
+    if (!activeTeamID) {
+      toast.danger("Select a team")
       return
     }
     if (!activeAgentID) {
@@ -91,7 +81,6 @@ export default function NewSchedulePage() {
         body: {
           name: name.trim(),
           agent_id: activeAgentID,
-          channel_id: activeChannelID,
           task_prompt: taskPrompt.trim(),
           ...cadence.body,
         },
@@ -156,41 +145,41 @@ export default function NewSchedulePage() {
             </FormSection>
 
             <FormSection
-              title="Channel"
-              description="The channel this schedule's agent runs in. You can only pick channels you have access to."
+              title="Team"
+              description="The team that owns the agent running this schedule."
             >
-              {channelsLoading ? (
+              {teamsLoading ? (
                 <div className="h-9 animate-pulse rounded-md bg-default" />
-              ) : channels.length === 0 ? (
+              ) : teams.length === 0 ? (
                 <InlineNotice
-                  icon="hash"
-                  title="No channels"
-                  body="Create a channel before adding a schedule."
+                  icon="users"
+                  title="No teams"
+                  body="Create a team before adding a schedule."
                 />
               ) : (
-                <ChannelSelect
-                  channels={channels}
-                  value={activeChannelID}
-                  onChange={setChannelID}
+                <TeamSelect
+                  teams={teams}
+                  value={activeTeamID}
+                  onChange={setTeamID}
                 />
               )}
             </FormSection>
 
             <FormSection
               title="Agent"
-              description="Select the agent that should run on this schedule. Any agent on the chosen channel's team can run here."
+              description="Select the agent that should run on this schedule."
             >
-              {!activeChannelID ? (
+              {!activeTeamID ? (
                 <InlineNotice
                   icon="bot"
-                  title="Select a channel first"
-                  body="Agents are scoped to the team that owns this schedule's channel."
+                  title="Select a team first"
+                  body="Agents are scoped to teams."
                 />
               ) : agents.length === 0 && !agentsLoading ? (
                 <InlineNotice
                   icon="bot"
                   title="No agents on this team"
-                  body="Add an agent to the selected channel's team before adding a schedule."
+                  body="Add an agent to this team before adding a schedule."
                 />
               ) : (
                 <AgentSelect

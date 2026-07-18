@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -17,14 +16,9 @@ const (
 	memoryToolMaxTags       = 5
 )
 
-// NewToolsFunc registers the privileged org-wide memory view for eligible
-// agent proxy MCP servers.
-//
-// Agents are read-only on memory: every write flows through background
-// reflection/consolidation, and corrections or deletions happen in the
-// memories UI. The privileged manage_memories tool (also read-only: search +
-// overview) additionally requires the calling agent to be the org's default
-// agent; the agent row is loaded once here to evaluate that gate.
+// NewToolsFunc registers the agent-scoped, read-only memory view for agent
+// proxy MCP servers. Memory writes flow exclusively through reflection and
+// consolidation.
 
 func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
@@ -35,13 +29,7 @@ func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token)
 		if err != nil {
 			return
 		}
-		manage := false
-		if agent, err := service.loadOrgAgent(context.Background(), token.OrgID, agentID); err == nil {
-			manage = agent.IsDefault
-		}
-		if manage {
-			registerManageMemoriesTool(server, service, token)
-		}
+		registerManageMemoriesTool(server, service, token, agentID)
 	}
 }
 

@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qdrant-backup-script
+  labels:
+    hivy.io/apply-phase: data
+data:
+  backup.py: |
+    import json
+    import os
+    import urllib.parse
+    import urllib.request
+
+    api_key = os.environ["QDRANT_API_KEY"]
+    peer_count = int(os.environ.get("QDRANT_PEERS", "3"))
+
+    def request(method: str, url: str):
+        req = urllib.request.Request(
+            url,
+            data=b"" if method == "POST" else None,
+            method=method,
+            headers={"api-key": api_key},
+        )
+        with urllib.request.urlopen(req, timeout=300) as response:
+            return json.load(response)
+
+    collections_response = request("GET", "http://qdrant:6333/collections")
+    collections = [item["name"] for item in collections_response["result"]["collections"]]
+    if not collections:
+        print("No Qdrant collections exist; backup run is healthy but has nothing to snapshot.")
+
+    for collection in collections:
+        encoded_collection = urllib.parse.quote(collection, safe="")
+        for peer in range(peer_count):
+            url = (
+                f"http://qdrant-{peer}.qdrant-headless:6333/collections/"
+                f"{encoded_collection}/snapshots?wait=true"
+            )
+            result = request("POST", url)
+            snapshot = result.get("result", {}).get("name", "created")
+            print(f"Created snapshot for collection={collection} peer={peer}: {snapshot}")
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qdrant-backup
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  schedule: "30 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: qdrant-backup
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: snapshot
+              image: docker.io/library/python:3.13.5-alpine3.22@sha256:37b14db89f587f9eaa890e4a442a3fe55db452b69cca1403cc730bd0fbdc8aaf
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - /opt/hivy/backup.py
+              env:
+                - name: QDRANT_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: qdrant-auth
+                      key: HIVY_QDRANT_API_KEY
+                - name: QDRANT_PEERS
+                  value: "3"
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 32Mi
+                limits:
+                  cpu: 250m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+              volumeMounts:
+                - name: script
+                  mountPath: /opt/hivy
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: qdrant-backup-script
+

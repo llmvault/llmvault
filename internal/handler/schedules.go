@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,7 +30,6 @@ type scheduleResponse struct {
 	AgentID         string `json:"agent_id"`
 	AgentName       string `json:"agent_name"`
 	AgentIcon       string `json:"agent_icon,omitempty"`
-	ChannelID       string `json:"channel_id,omitempty"`
 	Status          string `json:"status"`
 	ScheduleKind    string `json:"schedule_kind"`
 	CronExpression  string `json:"cron_expression,omitempty"`
@@ -61,7 +59,6 @@ type scheduleGetResponse struct {
 type createScheduleRequest struct {
 	Name            string `json:"name"`
 	AgentID         string `json:"agent_id"`
-	ChannelID       string `json:"channel_id"`
 	TaskPrompt      string `json:"task_prompt"`
 	Description     string `json:"description"`
 	CronExpression  string `json:"cron_expression"`
@@ -74,7 +71,6 @@ type updateScheduleRequest struct {
 	Status          *string `json:"status,omitempty"`
 	Description     *string `json:"description,omitempty"`
 	TaskPrompt      *string `json:"task_prompt,omitempty"`
-	ChannelID       *string `json:"channel_id,omitempty"`
 	CronExpression  *string `json:"cron_expression,omitempty"`
 	IntervalSeconds *int64  `json:"interval_seconds,omitempty"`
 	RepeatCount     *int64  `json:"repeat_count,omitempty"`
@@ -91,7 +87,6 @@ func scheduleToResponse(row model.AgentSchedule) scheduleResponse {
 		AgentID:         row.AgentID.String(),
 		AgentName:       fallbackAgentName(row.Agent),
 		AgentIcon:       row.Agent.Icon,
-		ChannelID:       row.Channel,
 		Status:          row.Status,
 		ScheduleKind:    row.ScheduleKind,
 		CronExpression:  row.CronExpression,
@@ -118,17 +113,15 @@ func formatSchedulePtrTime(t *time.Time) string {
 }
 
 // actorCanAccessSchedule reports whether the actor may see/manage a schedule.
-// Org managers see everything; otherwise the actor must be able to use the
-// schedule's channel.
+// Org managers see everything; otherwise the actor must belong to the
+// scheduled agent's team.
 func (h *ScheduleHandler) actorCanAccessSchedule(ctx context.Context, actor *access.Actor, schedule model.AgentSchedule) bool {
 	if actor.IsOrgManager() {
 		return true
 	}
-	channelID, err := uuid.Parse(strings.TrimSpace(schedule.Channel))
-	if err != nil || channelID == uuid.Nil {
-		return false
-	}
-	allowed, err := actor.CanUseChannelID(ctx, h.db, channelID)
+	var agent model.Agent
+	err := h.db.WithContext(ctx).Select("team_id").Where("id = ? AND org_id = ?", schedule.AgentID, schedule.OrgID).First(&agent).Error
+	allowed, err := actor.IsTeamMember(ctx, h.db, agent.TeamID)
 	return err == nil && allowed
 }
 

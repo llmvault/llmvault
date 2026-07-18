@@ -73,7 +73,7 @@ type reflectionMemoryCandidate struct {
 
 const sessionReflectionPromptIntro = `You extract durable organizational memories from a Hivy agent session.
 Be SELECTIVE — most sessions contain 0–5 memories worth keeping. Extract only
-what a teammate joining this channel would still need to know weeks from now.`
+what this agent should still know weeks from now.`
 
 const sessionReflectionPromptRules = `ONLY extract:
 ✅ Stated preferences, corrections, and rules from humans ("always X", "stop doing Y", "we prefer Z")
@@ -98,11 +98,11 @@ DO NOT extract:
 ❌ Secrets, tokens, credentials, hidden reasoning
 ❌ Individual end-customer queries, requests, or personal details (names, contact info,
    account specifics of the org's customers' end users). Recurring PATTERNS across
-   customers ARE channel knowledge ("password-reset emails land in spam for Outlook
-   users") — individual interactions are not. The channel mission may explicitly
-   override this for dedicated account channels.
+   customers are useful agent knowledge ("password-reset emails land in spam for Outlook
+   users") — individual interactions are not. The agent mission may explicitly
+   override this for a dedicated account agent.
 
-LITMUS TEST: "Will this still be true and useful to someone in this channel in 6 months?"
+LITMUS TEST: "Will this still be true and useful to this agent in 6 months?"
 If unsure → omit. A missed triviality costs nothing; stored noise pollutes every future prompt.
 
 MEMORY QUALITY:
@@ -132,7 +132,7 @@ Return compact minified JSON with no prose.`
 
 const sessionReflectionPromptExamples = `EXAMPLES:
 
-Example 1 — noisy exploration session (Session Date: 2026-07-06, Channel: engineering):
+Example 1 — noisy exploration session (Session Date: 2026-07-06, Agent: engineering):
 Transcript (abridged):
 [event:6f0a1b2c-0000-0000-0000-000000000001] Actor: Dana — "Set up Playwright e2e tests for the dashboard repo."
 [event:6f0a1b2c-0000-0000-0000-000000000002] Result: bash ok — npm install: added 312 packages in 41s; disk 3.9 GB free
@@ -143,7 +143,7 @@ Transcript (abridged):
 Output — ONLY 2 memories. Explicitly skipped: the 3.9 GB disk reading (environment reading), the dbus warning and npm install output (one-off command output), "setting up Playwright" (mid-task state):
 {"memories":[{"content":"Playwright/Chromium in Hivy sandboxes must launch with --disable-dev-shm-usage because /dev/shm (64M) is too small; without the flag browser startup fails.","kind":"workaround","tags":["playwright","chromium","sandbox"],"confidence":0.85,"entities":["Playwright","Chromium","Hivy sandbox"],"expires_at":"","source_event_ids":["6f0a1b2c-0000-0000-0000-000000000003","6f0a1b2c-0000-0000-0000-000000000004"],"actor_display_name":"","actor_external_ref":""},{"content":"Dana's rule (stated July 6, 2026): keep test artifacts out of git — add test-results/ to .gitignore in every repo.","kind":"rule","tags":["git","testing","conventions"],"confidence":0.95,"entities":["Dana"],"expires_at":"","source_event_ids":["6f0a1b2c-0000-0000-0000-000000000005"],"actor_display_name":"Dana","actor_external_ref":""}]}
 
-Example 2 — decision-rich session (Session Date: 2026-07-06, Channel: operations):
+Example 2 — decision-rich session (Session Date: 2026-07-06, Agent: operations):
 Transcript (abridged):
 [event:7a1b2c3d-0000-0000-0000-000000000001] Actor: Priya — "Decision from yesterday's infra review: preview deploys move from Fly to Railway — Fly's 3-app preview limit kept blocking PR previews. Prod stays on Hetzner."
 [event:7a1b2c3d-0000-0000-0000-000000000002] Actor: Priya — "Also FYI invoicing goes through Paystack now, not Stripe."
@@ -158,14 +158,14 @@ Output:
 {"memories":[]}`
 
 // buildSessionReflectionSystemPrompt assembles the extraction system prompt.
-// channelMission is the per-channel memory mission (Phase 3); when empty the
+// agentMission is the per-agent memory mission; when empty the
 // mission section is omitted entirely.
-func buildSessionReflectionSystemPrompt(channelMission string) string {
+func buildSessionReflectionSystemPrompt(agentMission string) string {
 	sections := make([]string, 0, 5)
 	sections = append(sections, sessionReflectionPromptIntro)
-	if mission := strings.TrimSpace(channelMission); mission != "" {
+	if mission := strings.TrimSpace(agentMission); mission != "" {
 		sections = append(sections,
-			"FOCUS — what to retain for this channel (takes priority over the general guidelines):\n"+mission)
+			"FOCUS — what to retain for this agent (takes priority over the general guidelines):\n"+mission)
 	}
 	sections = append(sections,
 		sessionReflectionPromptRules,
@@ -177,14 +177,14 @@ func buildSessionReflectionSystemPrompt(channelMission string) string {
 
 // generateSessionReflection runs the extraction prompt and returns the kept
 // candidates plus the raw model response (for the replay harness).
-func generateSessionReflection(ctx context.Context, client hivy.CompletionClient, modelID string, temperature float64, transcript, existing, channelMission string) (sessionReflectionResult, string, error) {
+func generateSessionReflection(ctx context.Context, client hivy.CompletionClient, modelID string, temperature float64, transcript, existing, agentMission string) (sessionReflectionResult, string, error) {
 	userPrompt := "Existing reflection memories for this session:\n" + emptyMarker(existing) +
 		"\n\nNew transcript range:\n" + emptyMarker(transcript)
 	reqTemperature := float32(temperature)
 	req := hivy.CompletionRequest{
 		Model: modelID,
 		Messages: []hivy.Message{
-			{Role: "system", Content: buildSessionReflectionSystemPrompt(channelMission)},
+			{Role: "system", Content: buildSessionReflectionSystemPrompt(agentMission)},
 			{Role: "user", Content: userPrompt},
 		},
 		MaxTokens:   sessionReflectionMaxTokens,

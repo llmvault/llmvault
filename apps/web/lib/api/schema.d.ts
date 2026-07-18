@@ -3211,12 +3211,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List a channel's apps */
+        /** List a team's apps */
         get: {
             parameters: {
                 query: {
-                    /** @description Channel ID */
-                    channel_id: string;
+                    /** @description Team ID */
+                    team_id: string;
                 };
                 header?: never;
                 path?: never;
@@ -3256,7 +3256,7 @@ export interface paths {
         put?: never;
         /**
          * Create an app
-         * @description Registers a new app bound to exactly one sheet in one channel. Returns 409 when an active app in the org already uses the slug derived from the name.
+         * @description Registers a new app bound to exactly one sheet in one team. Returns 409 when an active app in the org already uses the slug derived from the name.
          */
         post: {
             parameters: {
@@ -4944,747 +4944,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List channels
-         * @description Lists channels visible to the caller. Use discoverable=true to include public channels the caller can join.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Include public discoverable channels */
-                    discoverable?: boolean;
-                    /** @description Comma-separated optional expansions. Supports recent_sessions. */
-                    include?: string;
-                    /** @description Recent sessions per channel when include=recent_sessions (default 5, max 20) */
-                    recent_sessions_limit?: number;
-                    /** @description Page size (default 50, max 100) */
-                    limit?: number;
-                    /** @description Pagination cursor */
-                    cursor?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["paginatedResponse-channelResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create a channel
-         * @description Creates a web-first channel. The creator becomes channel owner when the caller is a user.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Channel create payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["channelMutationRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelMutationResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/channels/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a channel
-         * @description Returns one visible channel and its members.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelDetailResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        /**
-         * Delete a channel
-         * @description Deletes a non-default, non-personal channel: it archives the channel and all its sessions, then queues deletion of the channel's memories. Rejected with 409 if any session has an in-progress agent turn.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelMutationResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Update a channel
-         * @description Updates a channel when the caller is a channel owner, org admin, or scoped API key.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Channel update payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["channelMutationRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelMutationResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/v1/channels/{id}/join": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Join a public channel
-         * @description Adds the authenticated user to a public channel.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelMutationResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/channels/{id}/members/{userID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Add or update a channel member
-         * @description Adds a user to a channel or updates their channel role.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                    /** @description User ID */
-                    userID: string;
-                };
-                cookie?: never;
-            };
-            /** @description Member role */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["channelMemberRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelDetailResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        /**
-         * Remove a channel member
-         * @description Removes a user from a channel. Users may remove themselves; owners and org admins may remove others.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                    /** @description User ID */
-                    userID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["channelDetailResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/channels/{id}/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List channel sessions
-         * @description Lists sessions in a visible channel.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Page size */
-                    limit?: number;
-                    /** @description Pagination cursor */
-                    cursor?: string;
-                    /** @description Sort order: created_at or activity */
-                    sort?: string;
-                };
-                header?: never;
-                path: {
-                    /** @description Channel ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["paginatedResponse-sessionResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/connections": {
         parameters: {
             query?: never;
@@ -6991,56 +6250,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List directives
-         * @description Lists agent directives. channel_id filters: a channel UUID returns that channel's directives plus org-wide ones (the injected set for the channel), "org" returns org-wide only, omitted returns all.
-         */
         get: {
             parameters: {
-                query?: {
-                    /** @description Filter: channel UUID (channel + org-wide), \ */
-                    channel_id?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["directiveListResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            responses: never;
         };
         put?: never;
-        /**
-         * Create a directive
-         * @description Creates a manual (user-pinned) directive in a channel (channel_id) or org-wide (omit channel_id). Requires an org admin/owner.
-         */
         post: {
             parameters: {
                 query?: never;
@@ -7048,52 +6268,8 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Directive content and optional channel_id */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["directiveMutationRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: components["schemas"]["directiveResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            requestBody?: never;
+            responses: never;
         };
         delete?: never;
         options?: never;
@@ -7111,133 +6287,27 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Delete a directive
-         * @description Soft-deletes a directive so it is no longer injected into prompts or listed. The row is retained as history for as-of temporal audits (rule content is immutable, so the deleted wording is preserved verbatim). Requires an org admin/owner.
-         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    /** @description Directive UUID */
-                    id: string;
-                };
+                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            responses: never;
         };
         options?: never;
         head?: never;
-        /**
-         * Update a directive
-         * @description Updates a directive's active flag. Directive content is immutable: delete and re-create a directive to change its text. Requires an org admin/owner.
-         */
         patch: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    /** @description Directive UUID */
-                    id: string;
-                };
+                path?: never;
                 cookie?: never;
             };
-            /** @description Fields to update */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["directiveUpdateRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: components["schemas"]["directiveResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            requestBody?: never;
+            responses: never;
         };
         trace?: never;
     };
@@ -8606,62 +7676,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List memories
-         * @description Lists memories, optionally filtered by channel_id ("org" for organization-wide, a UUID for one channel, omitted for all). Pass q to semantic-search instead.
-         */
         get: {
             parameters: {
-                query?: {
-                    /** @description Filter: channel UUID, \ */
-                    channel_id?: string;
-                    /** @description Semantic search query */
-                    q?: string;
-                    /** @description Comma-separated tag filters */
-                    tags?: string;
-                    /** @description Max items (1-100, default 50) */
-                    limit?: number;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["memoryListResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            responses: never;
         };
         put?: never;
-        /**
-         * Create a memory
-         * @description Stores a memory in a channel (channel_id) or organization-wide (omit channel_id). Requires an org admin/owner. Content is embedded asynchronously.
-         */
         post: {
             parameters: {
                 query?: never;
@@ -8669,187 +7694,9 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Memory content, optional channel_id and tags */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["memoryMutationRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: components["schemas"]["memoryResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/memories/channels/{channelId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Page one channel's memories
-         * @description Cursor-paginated memories for a single channel, newest first. Use channelId "global" for channel-less organization memories, or a channel UUID. Pass the previous response's next_cursor to fetch the next page.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Pagination cursor from a previous response */
-                    cursor?: string;
-                    /** @description Max items per page (1-50, default 10) */
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    /** @description Channel UUID or \ */
-                    channelId: string;
-                };
-                cookie?: never;
-            };
             requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["paginatedResponse-memoryResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            responses: never;
         };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/memories/grouped": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List memories grouped by channel
-         * @description Returns the newest memories for every channel in one call (default 10 per channel) with a per-channel has_more flag. Global (channel-less) memories are the first group. Use the per-channel endpoint to page past the initial slice.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Max memories per channel (1-50, default 10) */
-                    per_channel?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["memoryGroupedResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8866,133 +7713,27 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Forget a memory
-         * @description Archives a memory so agents no longer recall it. Requires an org admin/owner.
-         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    /** @description Memory UUID */
-                    id: string;
-                };
+                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            responses: never;
         };
         options?: never;
         head?: never;
-        /**
-         * Update a memory
-         * @description Updates a memory's content, tags, or metadata. Editing content re-embeds it. Requires an org admin/owner.
-         */
         patch: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    /** @description Memory UUID */
-                    id: string;
-                };
+                path?: never;
                 cookie?: never;
             };
-            /** @description Fields to update */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["memoryMutationRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: components["schemas"]["memoryResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
+            requestBody?: never;
+            responses: never;
         };
         trace?: never;
     };
@@ -9029,368 +7770,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/observations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List memory observations
-         * @description Lists consolidated memory observations, non-archived first. channel_id filters: a channel UUID for that channel, "org" for org-wide, omitted for all. Paginate with limit/offset.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter: channel UUID, \ */
-                    channel_id?: string;
-                    /** @description Max items (1-100, default 50) */
-                    limit?: number;
-                    /** @description Pagination offset */
-                    offset?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["observationListResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/observations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete an observation
-         * @description Archives the observation and records its content fingerprint in the per-channel suppression list so consolidation cannot resurrect it. Requires an org admin/owner.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Observation UUID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/observations/{id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Confirm an observation
-         * @description Human confirmation: increments proof_count and refreshes last_mentioned_at. Requires an org admin/owner.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Observation UUID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: components["schemas"]["observationResponse"];
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/observations/{id}/correct": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Correct an observation
-         * @description Human edit: creates a new human-verified observation with the corrected content (proof count carried over) and archives the old one with a supersession link. Requires an org admin/owner.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Observation UUID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Corrected content */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["observationCorrectRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: components["schemas"]["observationResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/observations/{id}/pin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pin an observation to a directive
-         * @description Promotes the observation into an agent directive (source extracted-confirmed) in the observation's scope, and marks the observation as pinned. Requires an org admin/owner.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Observation UUID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -10903,7 +9282,7 @@ export interface paths {
         post?: never;
         /**
          * Archive a team
-         * @description Archives an active team after all channels are removed from it. Admin-only. Rejected if it is the org's last team.
+         * @description Archives an active team. Admin-only. Rejected if it is the org's last team.
          */
         delete: {
             parameters: {
@@ -11058,7 +9437,7 @@ export interface paths {
         };
         /**
          * List team environment variables
-         * @description Lists environment variables shared by all channels in a team. Values are not returned.
+         * @description Lists environment variables shared by agents in a team. Values are not returned.
          */
         get: {
             parameters: {
@@ -11113,7 +9492,7 @@ export interface paths {
         put?: never;
         /**
          * Create a team environment variable
-         * @description Stores an environment variable shared by all channels in a team.
+         * @description Stores an environment variable shared by agents in a team.
          */
         post: {
             parameters: {
@@ -11346,6 +9725,144 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{id}/external-resource-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List external resource routes */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["externalResourceRoutesResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create external resource route */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description External resource route */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["externalResourceRouteRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["externalResourceRouteResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{id}/external-resource-routes/{routeID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete external resource route */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                    /** @description Route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update external resource route */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                    /** @description Route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            /** @description External resource route changes */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["externalResourceRouteUpdateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["externalResourceRouteResponse"];
                     };
                 };
             };
@@ -12822,57 +11339,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/rag/sources/{id}/channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List which channels can search a source
-         * @description Returns the ids of the channels that can search this knowledge source. Derived from team grants — a channel can search a source when its team has been granted the source by an org admin.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description RAG source ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["sourceChannelsResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/rag/sources/{id}/documents": {
         parameters: {
             query?: never;
@@ -14176,13 +12642,13 @@ export interface paths {
         };
         /**
          * List sessions
-         * @description Lists sessions visible to the caller, optionally filtered by channel or agent.
+         * @description Lists sessions visible to the caller, optionally filtered by team or agent.
          */
         get: {
             parameters: {
                 query?: {
-                    /** @description Channel ID */
-                    channel_id?: string;
+                    /** @description Team ID */
+                    team_id?: string;
                     /** @description Agent ID */
                     agent_id?: string;
                     /** @description Page size */
@@ -15639,14 +14105,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List sheets in a channel
-         * @description Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.
+         * List sheets in a team
+         * @description Lists a team's sheets, newest-updated first.
          */
         get: {
             parameters: {
                 query: {
-                    /** @description Channel ID to list sheets for */
-                    channel_id: string;
+                    /** @description Team ID to list sheets for */
+                    team_id: string;
                     /** @description Case-insensitive name substring filter */
                     search?: string;
                     /** @description Page size (max 100) */
@@ -15701,7 +14167,7 @@ export interface paths {
         put?: never;
         /**
          * Create a sheet
-         * @description Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.
+         * @description Creates a sheet in a team with optional inline pages and typed fields.
          */
         post: {
             parameters: {
@@ -15710,7 +14176,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Sheet to create (channel_id required) */
+            /** @description Sheet to create (team_id required) */
             requestBody: {
                 content: {
                     "application/json": components["schemas"]["createSheetRequest"];
@@ -15770,7 +14236,7 @@ export interface paths {
         };
         /**
          * Get a CSV import job
-         * @description Returns import job status. The caller must be able to use the job's sheet's channel.
+         * @description Returns import job status. The caller must be able to use the job's sheet's team.
          */
         get: {
             parameters: {
@@ -15830,7 +14296,7 @@ export interface paths {
         };
         /**
          * Get a sheet
-         * @description Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.
+         * @description Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's team.
          */
         get: {
             parameters: {
@@ -15877,7 +14343,7 @@ export interface paths {
         post?: never;
         /**
          * Archive a sheet
-         * @description Archives a sheet (soft delete). The caller must be able to use the sheet's channel.
+         * @description Archives a sheet (soft delete). The caller must be able to use the sheet's team.
          */
         delete: {
             parameters: {
@@ -15924,7 +14390,7 @@ export interface paths {
         head?: never;
         /**
          * Update a sheet
-         * @description Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.
+         * @description Renames a sheet or updates its description/icon. The caller must be able to use the sheet's team.
          */
         patch: {
             parameters: {
@@ -16057,7 +14523,7 @@ export interface paths {
         put?: never;
         /**
          * Mint a sheet live-stream token
-         * @description Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.
+         * @description Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's team.
          */
         post: {
             parameters: {
@@ -17307,143 +15773,6 @@ export interface paths {
                 };
             };
         };
-        trace?: never;
-    };
-    "/v1/slack/channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Slack channels
-         * @description Returns public Slack channels plus private channels where Hivy is already a member.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["slackChannelsResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/slack/channels/join": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Join Slack channels
-         * @description Invites Hivy to all public channels or selected channels. Joined private channels are treated as already available.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Join request */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["joinSlackChannelsRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["joinSlackChannelsResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/v1/tokens": {
@@ -18720,13 +17049,14 @@ export interface components {
             source_type?: string;
         };
         agentTriggerResponse: {
-            channel_id?: string;
             conditions?: unknown;
             connection_id?: string;
             enabled?: boolean;
             id?: string;
             instructions?: string;
             provider?: string;
+            resource_key?: string;
+            resource_type?: string;
             /**
              * @description SecretSet indicates whether an HTTP trigger has a shared secret configured.
              *     True when the trigger requires auth on incoming requests. The secret value
@@ -18788,7 +17118,6 @@ export interface components {
         };
         appView: {
             active_version_id?: string;
-            channel_id?: string;
             created_at?: string;
             description?: string;
             icon?: string;
@@ -18797,6 +17126,7 @@ export interface components {
             sheet_id?: string;
             slug?: string;
             status?: string;
+            team_id?: string;
             template_version?: string;
             updated_at?: string;
         };
@@ -18913,88 +17243,6 @@ export interface components {
             current_password?: string;
             new_password?: string;
         };
-        channelDetailResponse: {
-            channel?: components["schemas"]["channelResponse"];
-            members?: components["schemas"]["channelMemberResponse"][];
-        };
-        channelMemberRequest: {
-            role?: string;
-        };
-        channelMemberResponse: {
-            created_at?: string;
-            email?: string;
-            name?: string;
-            role?: string;
-            user_id?: string;
-        };
-        channelMutationRequest: {
-            category?: string;
-            default_agent_id?: string;
-            description?: string;
-            external_connection_id?: string;
-            external_metadata?: components["schemas"]["JSON"];
-            external_provider?: string;
-            external_resource_key?: string;
-            external_resource_name?: string;
-            external_resource_type?: string;
-            external_resource_url?: string;
-            external_workspace_key?: string;
-            image_model?: string;
-            memory_mission?: string;
-            name?: string;
-            origin?: string;
-            team_id?: string;
-            vector_image_model?: string;
-            visibility?: string;
-        };
-        channelMutationResponse: {
-            channel?: components["schemas"]["channelResponse"];
-        };
-        channelResponse: {
-            archived_at?: string;
-            category?: string;
-            created_at?: string;
-            created_by?: string;
-            default_agent_id?: string;
-            default_memory_mission?: string;
-            description?: string;
-            external_connection_id?: string;
-            external_metadata?: components["schemas"]["JSON"];
-            external_provider?: string;
-            external_resource_key?: string;
-            external_resource_name?: string;
-            external_resource_type?: string;
-            external_resource_url?: string;
-            external_workspace_key?: string;
-            id?: string;
-            image_model?: string;
-            is_default?: boolean;
-            kind?: string;
-            member_count?: number;
-            /**
-             * @description MemoryMission is the channel's stored mission; empty means the channel
-             *     follows DefaultMemoryMission (the curated template for its category,
-             *     empty for 'general'), which is what extraction actually uses then.
-             */
-            memory_mission?: string;
-            name?: string;
-            origin?: string;
-            recent_sessions?: components["schemas"]["sessionResponse"][];
-            recent_sessions_has_more?: boolean;
-            recent_sessions_next_cursor?: string;
-            role?: string;
-            team_id?: string;
-            /**
-             * @description TeamName is the display name of the channel's owning team. Lets the
-             *     non-admin sidebar label team groups without a second round-trip; both
-             *     managers and members receive the name of teams their visible channels
-             *     belong to.
-             */
-            team_name?: string;
-            updated_at?: string;
-            vector_image_model?: string;
-            visibility?: string;
-        };
         commandResult: {
             command?: string;
             error?: string;
@@ -19043,11 +17291,11 @@ export interface components {
             scopes?: string[];
         };
         createAppRequest: {
-            channel_id?: string;
             description?: string;
             icon?: string;
             name?: string;
             sheet_id?: string;
+            team_id?: string;
         };
         createBrandAssetRequest: {
             bytes?: number;
@@ -19154,7 +17402,6 @@ export interface components {
         };
         createScheduleRequest: {
             agent_id?: string;
-            channel_id?: string;
             cron_expression?: string;
             description?: string;
             interval_seconds?: number;
@@ -19168,17 +17415,16 @@ export interface components {
         createSessionRequest: {
             agent_id?: string;
             attachment_ids?: string[];
-            channel_id?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             text?: string;
         };
         createSheetRequest: {
-            channel_id?: string;
             description?: string;
             icon?: string;
             name?: string;
             pages?: components["schemas"]["sheetPageSpecRequest"][];
             slug?: string;
+            team_id?: string;
         };
         createTeamEnvironmentVariableRequest: {
             description?: string;
@@ -19187,11 +17433,6 @@ export interface components {
         };
         createTriggerRequest: {
             agent_id?: string;
-            /**
-             * @description ChannelID is the Hivy channel the trigger runs in. Required for HTTP
-             *     triggers; the caller must have access to it.
-             */
-            channel_id?: string;
             connection_id?: string;
             external_resource_key?: string;
             external_resource_name?: string;
@@ -19319,27 +17560,6 @@ export interface components {
             ids?: string[];
             mutation_id?: string;
         };
-        directiveListResponse: {
-            data?: components["schemas"]["directiveResponse"][];
-        };
-        directiveMutationRequest: {
-            active?: boolean;
-            channel_id?: string;
-            content?: string;
-        };
-        directiveResponse: {
-            active?: boolean;
-            channel_id?: string;
-            content?: string;
-            created_at?: string;
-            created_by_user_id?: string;
-            id?: string;
-            source?: string;
-            updated_at?: string;
-        };
-        directiveUpdateRequest: {
-            active?: boolean;
-        };
         discoverWebsiteSectionsRequest: {
             url?: string;
         };
@@ -19360,6 +17580,35 @@ export interface components {
         execResponse: {
             results?: components["schemas"]["commandResult"][];
             success?: boolean;
+        };
+        externalResourceRouteRequest: {
+            agent_id?: string;
+            connection_id?: string;
+            metadata?: components["schemas"]["JSON"];
+            resource_key?: string;
+            resource_name?: string;
+            resource_type?: string;
+            resource_url?: string;
+        };
+        externalResourceRouteResponse: {
+            agent_id?: string;
+            connection_id?: string;
+            id?: string;
+            metadata?: components["schemas"]["JSON"];
+            resource_key?: string;
+            resource_name?: string;
+            resource_type?: string;
+            resource_url?: string;
+            team_id?: string;
+        };
+        externalResourceRouteUpdateRequest: {
+            agent_id?: string;
+            metadata?: components["schemas"]["JSON"];
+            resource_name?: string;
+            resource_url?: string;
+        };
+        externalResourceRoutesResponse: {
+            data?: components["schemas"]["externalResourceRouteResponse"][];
         };
         forgotPasswordRequest: {
             email?: string;
@@ -19451,20 +17700,6 @@ export interface components {
             id?: string;
             read_count?: number;
             write_count?: number;
-        };
-        joinSlackChannelFailure: {
-            channel_id?: string;
-            error?: string;
-        };
-        joinSlackChannelsRequest: {
-            all_public?: boolean;
-            channel_ids?: string[];
-        };
-        joinSlackChannelsResponse: {
-            already_member?: number;
-            failed?: number;
-            failures?: components["schemas"]["joinSlackChannelFailure"][];
-            joined?: number;
         };
         latencyStats: {
             avg_ttfb_ms?: number;
@@ -19566,43 +17801,6 @@ export interface components {
             orgs?: components["schemas"]["orgMemberDTO"][];
             user?: components["schemas"]["userResponse"];
         };
-        memoryGroupResponse: {
-            channel_id?: string;
-            channel_name?: string;
-            has_more?: boolean;
-            memories?: components["schemas"]["memoryResponse"][];
-            next_cursor?: string;
-            total?: number;
-        };
-        memoryGroupedResponse: {
-            groups?: components["schemas"]["memoryGroupResponse"][];
-        };
-        memoryListResponse: {
-            data?: components["schemas"]["memoryResponse"][];
-        };
-        memoryMutationRequest: {
-            channel_id?: string;
-            content?: string;
-            metadata?: components["schemas"]["JSON"];
-            tags?: string[];
-        };
-        memoryResponse: {
-            archived_at?: string;
-            channel_id?: string;
-            content?: string;
-            created_at?: string;
-            embedded_at?: string;
-            embedding_error?: string;
-            embedding_model?: string;
-            embedding_revision?: number;
-            embedding_status?: string;
-            id?: string;
-            metadata?: components["schemas"]["JSON"];
-            org_id?: string;
-            similarity?: number;
-            tags?: string[];
-            updated_at?: string;
-        };
         mintTokenRequest: {
             credential_id?: string;
             meta?: components["schemas"]["JSON"];
@@ -19637,27 +17835,6 @@ export interface components {
             status?: string;
             structured_output?: boolean;
             tool_call?: boolean;
-        };
-        observationCorrectRequest: {
-            content?: string;
-        };
-        observationListResponse: {
-            data?: components["schemas"]["observationResponse"][];
-            has_more?: boolean;
-        };
-        observationResponse: {
-            archived_at?: string;
-            channel_id?: string;
-            content?: string;
-            created_at?: string;
-            entities?: string[];
-            expires_at?: string;
-            human_verified?: boolean;
-            id?: string;
-            kind?: string;
-            last_mentioned_at?: string;
-            metadata?: components["schemas"]["JSON"];
-            proof_count?: number;
         };
         onboardingResponse: {
             step?: string;
@@ -19731,11 +17908,6 @@ export interface components {
             has_more?: boolean;
             next_cursor?: string;
         };
-        "paginatedResponse-channelResponse": {
-            data?: components["schemas"]["channelResponse"][];
-            has_more?: boolean;
-            next_cursor?: string;
-        };
         "paginatedResponse-connectionResponse": {
             data?: components["schemas"]["connectionResponse"][];
             has_more?: boolean;
@@ -19788,11 +17960,6 @@ export interface components {
         };
         "paginatedResponse-handler_tokenListItem": {
             data?: components["schemas"]["tokenListItem"][];
-            has_more?: boolean;
-            next_cursor?: string;
-        };
-        "paginatedResponse-memoryResponse": {
-            data?: components["schemas"]["memoryResponse"][];
             has_more?: boolean;
             next_cursor?: string;
         };
@@ -20103,7 +18270,6 @@ export interface components {
             agent_icon?: string;
             agent_id?: string;
             agent_name?: string;
-            channel_id?: string;
             created_at?: string;
             cron_expression?: string;
             description?: string;
@@ -20212,7 +18378,6 @@ export interface components {
             agent_turn_id?: string;
             agent_turn_started_at?: string;
             agent_turn_status?: string;
-            channel_id?: string;
             created_at?: string;
             created_by?: string;
             ended_at?: string;
@@ -20229,6 +18394,7 @@ export interface components {
             source?: string;
             source_resource_key?: string;
             status?: string;
+            team_id?: string;
             updated_at?: string;
             vector_image_model?: string;
         };
@@ -20421,22 +18587,6 @@ export interface components {
         skillsResponse: {
             skills?: components["schemas"]["skillResponse"][];
         };
-        slackChannelResponse: {
-            id?: string;
-            is_archived?: boolean;
-            is_member?: boolean;
-            is_private?: boolean;
-            name?: string;
-            num_members?: number;
-            purpose?: string;
-            topic?: string;
-        };
-        slackChannelsResponse: {
-            channels?: components["schemas"]["slackChannelResponse"][];
-        };
-        sourceChannelsResponse: {
-            channel_ids?: string[];
-        };
         spendOverTime: {
             date?: string;
             total_cost?: number;
@@ -20533,8 +18683,6 @@ export interface components {
         };
         teamResponse: {
             archived_at?: string;
-            channel_count?: number;
-            channels?: components["schemas"]["channelResponse"][];
             created_at?: string;
             created_by?: string;
             description?: string;
@@ -20613,8 +18761,6 @@ export interface components {
             agent_icon?: string;
             agent_id?: string;
             agent_name?: string;
-            channel_id?: string;
-            channel_name?: string;
             connection_id?: string;
             connection_name?: string;
             created_at?: string;
@@ -20627,6 +18773,7 @@ export interface components {
             last_run_session_id?: string;
             name?: string;
             provider?: string;
+            resource_type?: string;
             /**
              * @description SecretSet reports whether an HTTP trigger requires a shared secret. The
              *     secret itself is never returned.
@@ -20748,7 +18895,6 @@ export interface components {
             name?: string;
         };
         updateScheduleRequest: {
-            channel_id?: string;
             cron_expression?: string;
             description?: string;
             interval_seconds?: number;
@@ -20758,8 +18904,6 @@ export interface components {
             task_prompt?: string;
         };
         updateSessionRequest: {
-            agent_id?: string;
-            channel_id?: string;
             image_model?: string;
             name?: string;
             status?: string;
@@ -20777,7 +18921,6 @@ export interface components {
         };
         updateTriggerRequest: {
             agent_id?: string;
-            channel_id?: string;
             connection_id?: string;
             enabled?: boolean;
             external_resource_key?: string;

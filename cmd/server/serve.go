@@ -76,7 +76,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	}
 	setupAuthRoutes(r, ctx, cfg, rsaPub, h.authHandler, h.oauthHandler)
 	registerSheetLiveRoute(r, h.sheetsHandler)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.dashboardHandler, h.slackChannelHandler, h.channelHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, h.mcpServerHandler, orchestrator, h.auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, h.orgHandler, h.orgInviteHandler, h.brandHandler, h.teamHandler, h.usageHandler, h.auditHandler, h.reportingHandler, h.generationHandler, h.apiKeyHandler, h.billingHandler, h.dashboardHandler, h.sessionHandler, h.memoryHandler, h.credHandler, h.tokenHandler, h.sandboxTemplateHandler, h.databaseIntegrationHandler, h.ragRuntime.sourceHandler, h.ragRuntime.searchHandler, h.uploadsHandler, h.imageDescribeHandler, h.agentHandler, h.canvasHandler, h.sheetsHandler, h.appsHandler, h.transcriptionHandler, h.mcpServerHandler, orchestrator, h.auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, h.integrationHandler, h.connectionHandler, h.credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, h.proxyHandler, h.auditWriter, h.generationWriter, h.attributionCache, ctr, enqueuer, h.runtimeCompileDeps)

@@ -79,11 +79,10 @@ func appToolAgentID(token *model.Token) (uuid.UUID, error) {
 	return agentID, nil
 }
 
-// appToolSession resolves the agent's current channel and session from the
+// appToolSession resolves the agent's current team and session from the
 // runtime-injected _hivy_session_id. The value is server-controlled and cannot
-// be forged by the model. A session is mandatory: apps are channel-scoped and
-// the channel is derived from session.ChannelID (a NOT NULL column, so every
-// session has one). Returns (channelID, sessionID, error).
+// be forged by the model. A session is mandatory: apps are team-scoped and
+// the team is derived from session.TeamID. Returns (teamID, sessionID, error).
 func (s *Service) appToolSession(ctx context.Context, token *model.Token, rawSessionID string) (uuid.UUID, uuid.UUID, error) {
 	sessionIDText := strings.TrimSpace(rawSessionID)
 	if sessionIDText == "" {
@@ -95,18 +94,16 @@ func (s *Service) appToolSession(ctx context.Context, token *model.Token, rawSes
 	}
 	var session model.Session
 	if err := s.db.WithContext(ctx).
-		Select("id", "channel_id").
+		Select("id", "team_id").
 		Where("id = ? AND org_id = ?", sessionID, token.OrgID).
 		First(&session).Error; err != nil {
 		return uuid.Nil, uuid.Nil, fmt.Errorf("session not found in this org")
 	}
-	return session.ChannelID, sessionID, nil
+	return session.TeamID, sessionID, nil
 }
 
-// appForSession loads one app scoped to the caller's org AND session channel.
-// A cross-channel app returns the same "not found" as a missing one, so an
-// agent cannot probe another channel's apps (sheets channelGuard convention).
-func (s *Service) appForSession(ctx context.Context, token *model.Token, channelID uuid.UUID, rawAppID string) (*model.App, *mcp.CallToolResult) {
+// appForSession loads one app scoped to the caller's org AND session team.
+func (s *Service) appForSession(ctx context.Context, token *model.Token, teamID uuid.UUID, rawAppID string) (*model.App, *mcp.CallToolResult) {
 	appID, errResult := parseAppToolUUID(rawAppID, "app_id")
 	if errResult != nil {
 		return nil, errResult
@@ -114,12 +111,12 @@ func (s *Service) appForSession(ctx context.Context, token *model.Token, channel
 	app, err := s.GetApp(ctx, token.OrgID, appID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return nil, appToolError("app not found in this channel")
+			return nil, appToolError("app not found in this team")
 		}
 		return nil, appToolError(err.Error())
 	}
-	if app.ChannelID != channelID {
-		return nil, appToolError("app not found in this channel")
+	if app.TeamID != teamID {
+		return nil, appToolError("app not found in this team")
 	}
 	return app, nil
 }

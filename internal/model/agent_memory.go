@@ -14,12 +14,11 @@ const (
 )
 
 type AgentMemory struct {
-	ID    uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID uuid.UUID `gorm:"type:uuid;not null;index"`
-	Org   Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	// ChannelID scopes the memory: set = that channel's memory, NULL = org-wide.
-	ChannelID         *uuid.UUID     `gorm:"type:uuid;index"`
-	Channel           *Channel       `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	ID                uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID             uuid.UUID      `gorm:"type:uuid;not null;index"`
+	Org               Org            `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	AgentID           uuid.UUID      `gorm:"type:uuid;not null;index"`
+	Agent             Agent          `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
 	Content           string         `gorm:"type:text;not null"`
 	MemoryFingerprint string         `gorm:"type:text;not null;default:''"`
 	Tags              pq.StringArray `gorm:"type:text[];not null;default:'{}'"`

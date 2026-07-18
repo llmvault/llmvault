@@ -46,8 +46,6 @@ type serveHandlersRest struct {
 	imageDescribeHandler   *handler.ImageDescribeHandler
 	billingHandler         *handler.BillingHandler
 	dashboardHandler       *handler.DashboardHandler
-	slackChannelHandler    *handler.SlackChannelHandler
-	channelHandler         *handler.ChannelHandler
 	teamHandler            *handler.TeamHandler
 	runtimeStreamStore     *runtimestream.Store
 	sessionHandler         *handler.SessionHandler
@@ -187,12 +185,12 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 
 	billingHandler := handler.NewBillingHandler(database, deps.Purchases, deps.Credits)
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
-	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
-	channelHandler := handler.NewChannelHandler(database,
-		handler.WithChannelExternalProvisioner(slackChannelHandler),
-		handler.WithChannelEnqueuer(enqueuer),
+	slackResourceRouteValidator := handler.NewSlackResourceRouteValidator(database, nangoClient)
+	teamHandler := handler.NewTeamHandler(
+		database,
+		handler.WithTeamEnvEncryptionKey(sandboxEncKey),
+		handler.WithExternalResourceRouteValidator(slackResourceRouteValidator),
 	)
-	teamHandler := handler.NewTeamHandler(database, handler.WithTeamEnvEncryptionKey(sandboxEncKey))
 	mcpOAuthCallbackURL := strings.TrimSpace(cfg.MCPOAuthCallbackURL)
 	if mcpOAuthCallbackURL == "" {
 		mcpOAuthCallbackURL = strings.TrimRight(cfg.APIWebhookBaseURL, "/") + "/v1/mcp-servers/oauth/callback"
@@ -246,8 +244,6 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 		imageDescribeHandler:   imageDescribeHandler,
 		billingHandler:         billingHandler,
 		dashboardHandler:       dashboardHandler,
-		slackChannelHandler:    slackChannelHandler,
-		channelHandler:         channelHandler,
 		teamHandler:            teamHandler,
 		runtimeStreamStore:     runtimeStreamStore,
 		sessionHandler:         sessionHandler,

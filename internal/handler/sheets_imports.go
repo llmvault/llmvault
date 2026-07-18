@@ -62,7 +62,7 @@ func (h *SheetsHandler) CreateImport(w http.ResponseWriter, r *http.Request) {
 
 // GetImportJob handles GET /v1/sheets/imports/{jobID}.
 // @Summary Get a CSV import job
-// @Description Returns import job status. The caller must be able to use the job's sheet's channel.
+// @Description Returns import job status. The caller must be able to use the job's sheet's team.
 // @Tags sheets
 // @Produce json
 // @Param jobID path string true "Import job ID"
@@ -80,12 +80,12 @@ func (h *SheetsHandler) GetImportJob(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	channelID, err := h.svc.ChannelForImportJob(r.Context(), org.ID, jobID)
+	teamID, err := h.svc.TeamForImportJob(r.Context(), org.ID, jobID)
 	if err != nil {
 		writeSheetsError(w, r, err)
 		return
 	}
-	if !h.canUseSheetChannel(r.Context(), org.ID, channelID) {
+	if !h.canUseSheetTeam(r.Context(), org.ID, teamID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
 		return
 	}
@@ -247,16 +247,16 @@ func (h *SheetsHandler) RevertOperation(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	// RequireChannelAccess authorized the path sheet's channel, but RevertOperation
+	// RequireTeamAccess authorized the path sheet's team, but RevertOperation
 	// mutates by operationID scoped only by org — so a caller could pass a sheet
-	// they can access plus an operationID from a channel they cannot. Bind the
-	// operation to the path sheet's channel first (the guard the MCP path uses).
-	channelID, err := h.svc.ChannelForSheet(r.Context(), org.ID, sheetID)
+	// they can access plus an operationID from a team they cannot. Bind the
+	// operation to the path sheet's team first (the guard the MCP path uses).
+	teamID, err := h.svc.TeamForSheet(r.Context(), org.ID, sheetID)
 	if err != nil {
 		writeSheetsError(w, r, err)
 		return
 	}
-	if err := h.svc.OperationInChannel(r.Context(), org.ID, channelID, operationID); err != nil {
+	if err := h.svc.OperationInTeam(r.Context(), org.ID, teamID, operationID); err != nil {
 		writeSheetsError(w, r, err)
 		return
 	}

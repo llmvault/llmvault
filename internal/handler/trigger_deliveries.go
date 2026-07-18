@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/access"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -61,7 +60,7 @@ func (h *TriggerDeliveryHandler) agentVisibleToCaller(ctx context.Context, orgID
 	var count int64
 	if err := h.db.WithContext(ctx).Model(&model.Agent{}).
 		Where("id = ? AND org_id = ?", agentID, orgID).
-		Where("id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, orgID, userID)).
+		Where("team_id IN (?)", visibleTeamSubquery(h.db, userID)).
 		Count(&count).Error; err != nil {
 		return false, err
 	}

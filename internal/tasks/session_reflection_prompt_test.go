@@ -81,7 +81,7 @@ func TestBuildSessionReflectionSystemPromptStructureAndMissionSeam(t *testing.T)
 	}
 
 	withMission := buildSessionReflectionSystemPrompt("Retain everything durable about ACME.")
-	if !strings.Contains(withMission, "FOCUS — what to retain for this channel (takes priority over the general guidelines):\nRetain everything durable about ACME.") {
+	if !strings.Contains(withMission, "FOCUS — what to retain for this agent (takes priority over the general guidelines):\nRetain everything durable about ACME.") {
 		t.Fatalf("prompt with mission missing FOCUS section:\n%s", withMission)
 	}
 }

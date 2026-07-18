@@ -115,9 +115,6 @@ func (h *AgentHandler) archiveAgentWithSessions(ctx context.Context, orgID uuid.
 		return fmt.Errorf("archive agent sessions: %w", err)
 	}
 	return h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := repointChannelsFromArchivedAgent(tx, orgID, agent.ID); err != nil {
-			return err
-		}
 		if err := tx.Model(&model.Agent{}).
 			Where("id = ? AND org_id = ?", agent.ID, orgID).
 			Update("status", "archived").Error; err != nil {
@@ -125,35 +122,6 @@ func (h *AgentHandler) archiveAgentWithSessions(ctx context.Context, orgID uuid.
 		}
 		return reassignAgentTriggersToDefault(tx, orgID, []uuid.UUID{agent.ID})
 	})
-}
-
-// repointChannelsFromArchivedAgent moves every non-archived channel whose default
-// is agentID onto that channel's team Hivy (a team's undeletable default agent),
-// falling back to an org-level default Hivy when the team has none. It returns
-// errAgentChannelDefaultUnresolved when no replacement default agent exists, so
-// the archive fails closed rather than bricking the channel.
-func repointChannelsFromArchivedAgent(tx *gorm.DB, orgID, agentID uuid.UUID) error {
-	var channels []model.Channel
-	if err := tx.Where("org_id = ? AND default_agent_id = ? AND archived_at IS NULL", orgID, agentID).
-		Find(&channels).Error; err != nil {
-		return fmt.Errorf("load channels defaulting to agent: %w", err)
-	}
-	for i := range channels {
-		ch := &channels[i]
-		replacement, err := teamDefaultAgentID(tx, orgID, &ch.TeamID, agentID)
-		if err != nil {
-			return err
-		}
-		if replacement == uuid.Nil {
-			return errAgentChannelDefaultUnresolved
-		}
-		if err := tx.Model(&model.Channel{}).
-			Where("id = ? AND org_id = ?", ch.ID, orgID).
-			Update("default_agent_id", replacement).Error; err != nil {
-			return fmt.Errorf("re-point channel default agent: %w", err)
-		}
-	}
-	return nil
 }
 
 // teamDefaultAgentID finds a channel's replacement default: the team's Hivy when

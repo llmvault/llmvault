@@ -32,12 +32,12 @@ func (h *MemoryConsolidationSweepHandler) Handle(ctx context.Context, _ *asynq.T
 		return nil
 	}
 	svc := memory.NewService(memory.Config{DB: h.db})
-	channels, err := svc.ChannelsWithUnconsolidatedFacts(ctx, memoryConsolidationSweepLimit)
+	agents, err := svc.AgentsWithUnconsolidatedFacts(ctx, memoryConsolidationSweepLimit)
 	if err != nil {
 		return err
 	}
-	for _, ch := range channels {
-		if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, ch.OrgID, ch.ChannelID); err != nil {
+	for _, agent := range agents {
+		if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, agent.OrgID, agent.AgentID); err != nil {
 			return fmt.Errorf("enqueue memory consolidation: %w", err)
 		}
 	}
@@ -46,7 +46,7 @@ func (h *MemoryConsolidationSweepHandler) Handle(ctx context.Context, _ *asynq.T
 
 // MemoryObservationExpireHandler is the nightly lifecycle job: archive
 // observations whose expires_at has passed, then refresh every affected
-// channel memory digest.
+// agent memory digest.
 type MemoryObservationExpireHandler struct {
 	db           *gorm.DB
 	cacheManager *cache.Manager
@@ -79,29 +79,15 @@ func (h *MemoryObservationExpireHandler) Handle(ctx context.Context, _ *asynq.Ta
 	if len(expired) == 0 {
 		return nil
 	}
-	affected := map[uuid.UUID]uuid.UUID{} // channel -> org
+	affected := map[uuid.UUID]uuid.UUID{} // agent -> org
 	for _, obs := range expired {
-		if obs.ChannelID != nil {
-			affected[*obs.ChannelID] = obs.OrgID
-			continue
-		}
-		// Org-wide expiry touches every channel digest that folds org
-		// observations in; refresh all digests recorded for the org.
-		var digests []model.ChannelMemoryDigest
-		if err := h.db.WithContext(ctx).
-			Where("org_id = ?", obs.OrgID).
-			Find(&digests).Error; err != nil {
-			return fmt.Errorf("list org digests for expiry: %w", err)
-		}
-		for _, digest := range digests {
-			affected[digest.ChannelID] = digest.OrgID
-		}
+		affected[obs.AgentID] = obs.OrgID
 	}
 	logger := logging.FromContext(ctx)
-	for channelID, orgID := range affected {
-		if err := svc.RecomputeChannelDigest(ctx, orgID, channelID); err != nil {
+	for agentID, orgID := range affected {
+		if err := svc.RecomputeAgentDigest(ctx, orgID, agentID); err != nil {
 			logger.WarnContext(ctx, "digest recompute after expiry failed",
-				"org_id", orgID, "channel_id", channelID, "error", err)
+				"org_id", orgID, "agent_id", agentID, "error", err)
 		}
 	}
 	logger.InfoContext(ctx, "expired observations archived",

@@ -1,0 +1,149 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backend-redis-backup
+  labels:
+    hivy.io/apply-phase: data
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: backend-redis-backup
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: export-rdb
+              image: quay.io/opstree/redis@sha256:5f79911253cb74636e8e97555b08095902d46a835c6423adb123295b00ba70d7
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_time="$(date -u +%Y%m%dT%H%M%SZ)"
+                  backup_dir="/backup/${backup_time}"
+                  mkdir -p "${backup_dir}"
+                  for ordinal in 0 1 2; do
+                    host="backend-redis-leader-${ordinal}.backend-redis-leader-headless"
+                    redis-cli -h "${host}" -p 6379 -a "${REDIS_PASSWORD}" \
+                      --no-auth-warning --rdb "${backup_dir}/leader-${ordinal}.rdb"
+                  done
+                  redis-cli -h backend-redis-leader-0.backend-redis-leader-headless \
+                    -p 6379 -a "${REDIS_PASSWORD}" --no-auth-warning cluster nodes \
+                    > "${backup_dir}/cluster-nodes.txt"
+                  printf '%s\n' "${backup_time}" > /backup/latest-backup-time
+              env:
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backend-redis-auth
+                      key: password
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+            - name: validate-rdb
+              image: quay.io/opstree/redis@sha256:5f79911253cb74636e8e97555b08095902d46a835c6423adb123295b00ba70d7
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_time="$(cat /backup/latest-backup-time)"
+                  for ordinal in 0 1 2; do
+                    validation_dir="/tmp/redis-validation-${ordinal}"
+                    mkdir -p "${validation_dir}"
+                    cp "/backup/${backup_time}/leader-${ordinal}.rdb" "${validation_dir}/dump.rdb"
+                    redis-server --bind 127.0.0.1 --port 6380 \
+                      --dir "${validation_dir}" --dbfilename dump.rdb \
+                      --appendonly no --save "" --daemonize yes \
+                      --pidfile "${validation_dir}/redis.pid" \
+                      --logfile "${validation_dir}/redis.log"
+                    redis-cli -h 127.0.0.1 -p 6380 ping | grep -qx PONG
+                    redis-cli -h 127.0.0.1 -p 6380 shutdown nosave
+                    rm -rf "${validation_dir}"
+                  done
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: public.ecr.aws/aws-cli/aws-cli:2.27.49@sha256:bad3346a39098ab077be6ed58c7e1fe68321a4a844c7c740318100013e6c3581
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_time="$(cat /backup/latest-backup-time)"
+                  aws --endpoint-url "${S3_ENDPOINT}" s3 cp \
+                    "/backup/${backup_time}/" \
+                    "s3://${S3_BUCKET}/${S3_PREFIX}/${backup_time}/" \
+                    --recursive --only-show-errors
+                  aws --endpoint-url "${S3_ENDPOINT}" s3api head-object \
+                    --bucket "${S3_BUCKET}" \
+                    --key "${S3_PREFIX}/${backup_time}/leader-0.rdb" >/dev/null
+                  echo "Uploaded and verified Redis backup ${backup_time}."
+              envFrom:
+                - secretRef:
+                    name: backend-redis-backup-s3
+              env:
+                - name: AWS_EC2_METADATA_DISABLED
+                  value: "true"
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              emptyDir:
+                sizeLimit: 10Gi

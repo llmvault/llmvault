@@ -24,7 +24,7 @@ func WithTeamEnvEncryptionKey(key *crypto.SymmetricKey) TeamHandlerOption {
 
 // ListEnvironmentVariables handles GET /v1/orgs/current/teams/{id}/environment-variables.
 // @Summary List team environment variables
-// @Description Lists environment variables shared by all channels in a team. Values are not returned.
+// @Description Lists environment variables shared by agents in a team. Values are not returned.
 // @Tags teams
 // @Produce json
 // @Param id path string true "Team ID"
@@ -57,7 +57,7 @@ func (h *TeamHandler) ListEnvironmentVariables(w http.ResponseWriter, r *http.Re
 
 // CreateEnvironmentVariable handles POST /v1/orgs/current/teams/{id}/environment-variables.
 // @Summary Create a team environment variable
-// @Description Stores an environment variable shared by all channels in a team.
+// @Description Stores an environment variable shared by agents in a team.
 // @Tags teams
 // @Accept json
 // @Produce json

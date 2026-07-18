@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -34,7 +33,7 @@ func (h *SandboxHandler) authorizeSandboxOp(w http.ResponseWriter, r *http.Reque
 	id := chi.URLParam(r, "id")
 	q := h.db.Where("id = ? AND org_id = ?", id, org.ID)
 	if !orgWide {
-		q = q.Where("agent_id IN (?)", channelagents.VisibleAgentIDsSubquery(h.db, org.ID, userID))
+		q = q.Where("agent_id IN (SELECT id FROM agents WHERE team_id IN (?))", visibleTeamSubquery(h.db, userID))
 	}
 	var sb model.Sandbox
 	if err := q.First(&sb).Error; err != nil {

@@ -22,7 +22,7 @@ const PANEL_WIDTH = 288
 export function CellEditorOverlay({
   sheetId,
   pageId,
-  channelId,
+  teamId,
   target,
   value,
   relations,
@@ -31,7 +31,7 @@ export function CellEditorOverlay({
 }: {
   sheetId: string
   pageId: string
-  channelId: string
+  teamId: string
   target: CellEditorTarget
   value: unknown
   relations: Record<string, SheetRelationRef>
@@ -92,7 +92,7 @@ export function CellEditorOverlay({
           <RelationEditor
             field={target.field}
             value={value}
-            channelId={channelId}
+            teamId={teamId}
             relations={relations}
             onCommit={onCommit}
           />

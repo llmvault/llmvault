@@ -9,7 +9,7 @@ import type { components } from "@/lib/api/schema"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
 import { usePanelAppTargetStore } from "@/app/w/(chat)/_stores/panel-app-target-store"
 
-type Channel = components["schemas"]["channelResponse"]
+type Team = components["schemas"]["teamResponse"]
 type AppView = components["schemas"]["appView"]
 
 export default function AppsPage() {
@@ -20,10 +20,10 @@ export default function AppsPage() {
     (state) => state.target?.appId ?? null
   )
 
-  const channelsQuery = $api.useQuery("get", "/v1/channels", {
+  const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const channels = channelsQuery.data?.data ?? []
+  const teams = teamsQuery.data?.data ?? []
 
   // Open the clicked app in the shared right panel (the same one that slides
   // open for a session), not a bespoke panel.
@@ -45,7 +45,7 @@ export default function AppsPage() {
           <div>
             <h1 className="text-lg font-semibold text-foreground">Apps</h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Custom apps your agents build, organised by channel
+              Custom apps your agents build, organised by team
             </p>
           </div>
 
@@ -62,16 +62,16 @@ export default function AppsPage() {
             />
           </div>
 
-          {channelsQuery.isPending ? (
+          {teamsQuery.isPending ? (
             <ListSkeleton />
-          ) : channels.length === 0 ? (
-            <EmptyState message="No channels yet." />
+          ) : teams.length === 0 ? (
+            <EmptyState message="No teams yet." />
           ) : (
             <div className="flex flex-col gap-8">
-              {channels.map((channel) => (
-                <ChannelSection
-                  key={channel.id}
-                  channel={channel}
+              {teams.map((team) => (
+                <TeamSection
+                  key={team.id}
+                  team={team}
                   query={query}
                   activeAppId={activeAppId}
                   onOpen={handleOpen}
@@ -85,23 +85,23 @@ export default function AppsPage() {
   )
 }
 
-function ChannelSection({
-  channel,
+function TeamSection({
+  team,
   query,
   activeAppId,
   onOpen,
 }: {
-  channel: Channel
+  team: Team
   query: string
   activeAppId: string | null
   onOpen: (app: AppView) => void
 }) {
-  const channelId = channel.id ?? ""
+  const teamId = team.id ?? ""
   const appsQuery = $api.useQuery(
     "get",
     "/v1/apps",
-    { params: { query: { channel_id: channelId } } },
-    { enabled: Boolean(channelId) }
+    { params: { query: { team_id: teamId } } },
+    { enabled: Boolean(teamId) }
   )
 
   const normalized = query.trim().toLowerCase()
@@ -112,18 +112,18 @@ function ChannelSection({
       (app.description ?? "").toLowerCase().includes(normalized)
   )
 
-  // Keep the list quiet: channels with no (matching) apps are hidden.
+  // Keep the list quiet: teams with no (matching) apps are hidden.
   if (apps.length === 0) return null
 
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <AppIcon
-          icon="hash"
+          icon="users"
           className="text-muted-foreground h-3.5 w-3.5"
           aria-hidden="true"
         />
-        <h2 className="text-sm font-medium text-foreground">{channel.name}</h2>
+        <h2 className="text-sm font-medium text-foreground">{team.name}</h2>
         <span className="text-muted-foreground text-xs">{apps.length}</span>
       </div>
       <div className="bg-card flex flex-col">

@@ -15,7 +15,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentemail"
 	"github.com/usehivy/hivy/internal/agentruntime"
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -252,19 +251,11 @@ func (h *AgentEmailReceiveHandler) dispatchAutomation(ctx context.Context, agent
 }
 
 func (h *AgentEmailReceiveHandler) findOrCreateEmailSession(ctx context.Context, dispatcher *AgentTriggerDispatchHandler, agent *model.Agent, trigger model.AgentTrigger, resourceKey string) (*model.Session, error) {
-	channelID, err := dispatcher.resolveTriggerChannel(ctx, agent, trigger.ChannelID)
-	if err != nil {
-		return nil, err
-	}
-	acts, err := channelagents.ActsInChannel(ctx, h.db, *agent.OrgID, channelID, agent.ID)
-	if err != nil {
-		return nil, fmt.Errorf("check email trigger channel agent: %w", err)
-	}
-	if !acts {
-		return nil, fmt.Errorf("agent does not belong to this email trigger channel's team")
+	if agent.TeamID == uuid.Nil {
+		return nil, fmt.Errorf("email trigger agent has no team")
 	}
 	var session model.Session
-	err = h.db.WithContext(ctx).Where("org_id = ? AND agent_id = ? AND channel_id = ? AND source = ? AND source_resource_key = ? AND status = ?", *agent.OrgID, agent.ID, channelID, emailConversationSource, resourceKey, "active").First(&session).Error
+	err := h.db.WithContext(ctx).Where("org_id = ? AND agent_id = ? AND team_id = ? AND source = ? AND source_resource_key = ? AND status = ?", *agent.OrgID, agent.ID, agent.TeamID, emailConversationSource, resourceKey, "active").First(&session).Error
 	if err == nil {
 		return &session, nil
 	}
@@ -272,14 +263,14 @@ func (h *AgentEmailReceiveHandler) findOrCreateEmailSession(ctx context.Context,
 		return nil, fmt.Errorf("load email session: %w", err)
 	}
 	var generation int64
-	if err := h.db.WithContext(ctx).Model(&model.Session{}).Where("org_id = ? AND agent_id = ? AND channel_id = ? AND source = ? AND source_resource_key = ?", *agent.OrgID, agent.ID, channelID, emailConversationSource, resourceKey).Count(&generation).Error; err != nil {
+	if err := h.db.WithContext(ctx).Model(&model.Session{}).Where("org_id = ? AND agent_id = ? AND team_id = ? AND source = ? AND source_resource_key = ?", *agent.OrgID, agent.ID, agent.TeamID, emailConversationSource, resourceKey).Count(&generation).Error; err != nil {
 		return nil, fmt.Errorf("count email sessions: %w", err)
 	}
-	session = model.Session{ID: stableTriggerSessionID(trigger.ID, channelID, resourceKey, generation), OrgID: *agent.OrgID, ChannelID: channelID, AgentID: agent.ID, Model: agent.Model, ReasoningEffort: sessionReasoningEffort(*agent), Source: emailConversationSource, SourceID: &trigger.ID, SourceResourceKey: resourceKey, Status: "active", Name: "Email: " + resourceKey, IntegrationScopes: model.JSON{}}
+	session = model.Session{ID: stableTriggerSessionID(trigger.ID, agent.TeamID, resourceKey, generation), OrgID: *agent.OrgID, TeamID: agent.TeamID, AgentID: agent.ID, Model: agent.Model, ReasoningEffort: sessionReasoningEffort(*agent), Source: emailConversationSource, SourceID: &trigger.ID, SourceResourceKey: resourceKey, Status: "active", Name: "Email: " + resourceKey, IntegrationScopes: model.JSON{}}
 	if err := h.db.WithContext(ctx).Create(&session).Error; err != nil {
 		if isSessionDuplicateKey(err) {
 			var winner model.Session
-			if findErr := h.db.WithContext(ctx).Where("org_id = ? AND agent_id = ? AND channel_id = ? AND source = ? AND source_resource_key = ? AND status = ?", *agent.OrgID, agent.ID, channelID, emailConversationSource, resourceKey, "active").First(&winner).Error; findErr == nil {
+			if findErr := h.db.WithContext(ctx).Where("org_id = ? AND agent_id = ? AND team_id = ? AND source = ? AND source_resource_key = ? AND status = ?", *agent.OrgID, agent.ID, agent.TeamID, emailConversationSource, resourceKey, "active").First(&winner).Error; findErr == nil {
 				return &winner, nil
 			}
 		}

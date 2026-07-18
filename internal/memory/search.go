@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -46,10 +45,6 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]SearchHit, e
 		where = append(where, clause)
 		args = append(args, scopeArgs...)
 	}
-	if req.Visibility.Restrict {
-		where = append(where, "(channel_id IS NULL OR channel_id IN (?))")
-		args = append(args, channelagents.VisibleChannelIDsSubquery(s.cfg.DB, req.OrgID, req.Visibility.UserID))
-	}
 	if tags := NormalizeTags(req.Tags); len(tags) > 0 {
 		where = append(where, "tags && ?")
 		args = append(args, pq.StringArray(tags))
@@ -59,7 +54,7 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]SearchHit, e
 
 	var rows []searchRow
 	query := `
-SELECT id, org_id, channel_id, content, memory_fingerprint, tags, metadata,
+SELECT id, org_id, agent_id, content, memory_fingerprint, tags, metadata,
        embedding_model, embedding_status, embedding_revision, embedding_error,
        embedded_at, source_session_id, source_event_id, created_by_user_id,
        archived_at, created_at, updated_at,

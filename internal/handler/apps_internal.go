@@ -151,7 +151,7 @@ func (h *AppsInternalHandler) appPageID(w http.ResponseWriter, r *http.Request, 
 //     re-checked for live org membership).
 //   - present + invalid/forged token: 403.
 func (h *AppsInternalHandler) appActor(w http.ResponseWriter, r *http.Request, app *model.App) (sheets.Actor, bool) {
-	actor := sheets.Actor{ChannelID: app.ChannelID}
+	actor := sheets.Actor{TeamID: app.TeamID}
 	raw := strings.TrimSpace(r.Header.Get(appActorHeader))
 	if raw == "" {
 		actor.AgentID = app.CreatedByAgentID

@@ -25,7 +25,6 @@ type updateTriggerRequest struct {
 	ExternalResourceKey  *string `json:"external_resource_key,omitempty"`
 	ExternalResourceName *string `json:"external_resource_name,omitempty"`
 	AgentID              *string `json:"agent_id,omitempty"`
-	ChannelID            *string `json:"channel_id,omitempty"`
 	TriggerKey           *string `json:"trigger_key,omitempty"`
 	TriggerValue         *string `json:"trigger_value,omitempty"`
 	Enabled              *bool   `json:"enabled,omitempty"`
@@ -100,19 +99,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 		status, message := triggerCreateError(err)
 		return model.AgentTrigger{}, status, message, err
 	}
-	rawChannelID := ""
-	if req.ChannelID != nil {
-		rawChannelID = *req.ChannelID
-	}
-	channelID, status, message, err := h.resolveProviderTriggerChannel(
-		r, orgID, parsed.provider, conn, template, parsed.resourceKey, parsed.resourceName, parsed.agentID, rawChannelID,
-	)
-	if err != nil {
-		return model.AgentTrigger{}, status, message, err
-	}
-	// Re-binding the trigger to this channel is a manage-the-team action, not
-	// merely use-the-channel (Create enforces this too).
-	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, orgID, channelID); mErr != nil {
+	if mStatus, mMessage, mErr := requireAgentBindingManage(r, h.db, orgID, parsed.agentID); mErr != nil {
 		return model.AgentTrigger{}, mStatus, mMessage, mErr
 	}
 	name := current.Name
@@ -121,7 +108,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 	}
 	ctx := r.Context()
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(ctx, tx, orgID, parsed.agentID, channelID, template); err != nil {
+		if err := validateTriggerAgent(ctx, tx, orgID, parsed.agentID, template); err != nil {
 			return err
 		}
 		return tx.Model(&model.AgentTrigger{}).
@@ -129,8 +116,10 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 			Updates(map[string]any{
 				"agent_id":      parsed.agentID,
 				"name":          name,
-				"channel_id":    channelID,
 				"connection_id": conn.ID,
+				"resource_type": template.resourceType,
+				"resource_key":  parsed.resourceKey,
+				"resource_name": parsed.resourceName,
 				"trigger_keys":  pq.StringArray(template.triggerKeys),
 				"trigger_key":   parsed.triggerKey,
 				"trigger_value": parsed.triggerValue,
@@ -154,7 +143,7 @@ func (h *TriggerHandler) update(r *http.Request, orgID, id uuid.UUID, req update
 }
 
 // updateHTTP updates an inbound HTTP ("webhook") trigger: enable/disable and
-// instructions only. The channel/agent/secret are set at create time.
+// instructions only. The target agent and secret are set at create time.
 func (h *TriggerHandler) updateHTTP(r *http.Request, orgID, id uuid.UUID, current model.AgentTrigger, req updateTriggerRequest) (model.AgentTrigger, int, string, error) {
 	actor, err := access.Resolve(r.Context(), h.db, orgID, middleware.UserID(r.Context()))
 	if err != nil || !h.actorCanAccessTrigger(r.Context(), actor, current) {
@@ -219,10 +208,8 @@ func parseTriggerUpdate(current model.AgentTrigger, req updateTriggerRequest) (p
 	if current.ConnectionID != nil {
 		parsed.connectionID = *current.ConnectionID
 	}
-	if current.Channel != nil {
-		parsed.resourceKey = current.Channel.ExternalResourceKey
-		parsed.resourceName = current.Channel.ExternalResourceName
-	}
+	parsed.resourceKey = current.ResourceKey
+	parsed.resourceName = current.ResourceName
 	if req.Provider != nil {
 		parsed.provider = strings.ToLower(strings.TrimSpace(*req.Provider))
 	}

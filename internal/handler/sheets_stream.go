@@ -31,7 +31,7 @@ type sheetsLiveClaims struct {
 // connecting directly to /v1/sheets/{sheetID}/live (bypassing the Next proxy),
 // mirroring the canvas preview-token pattern.
 // @Summary Mint a sheet live-stream token
-// @Description Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.
+// @Description Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's team.
 // @Tags sheets
 // @Produce json
 // @Param sheetID path string true "Sheet ID"

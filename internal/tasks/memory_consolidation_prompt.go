@@ -9,10 +9,6 @@ const memoryConsolidationMaxTokens = 4000
 // the prompt.
 const consolidationSystemPrompt = `You are a memory consolidation system for a Hivy organization. Synthesize new facts extracted from agent sessions into durable observations, merging with existing observations when appropriate.
 
-## SCOPE RULE
-
-Every create carries a scope: "channel" or "org". Mark scope "org" ONLY when the fact is true for the whole organization beyond this channel (company-wide policies, org structure, vendors, systems shared by every team). When in doubt, use "channel".
-
 ## PROCESSING RULES
 
 1. PREFER UPDATE OVER CREATE (when there is something to merge with): if new facts describe the same canonical event, statement, decision, claim, or recurring pattern already covered by an existing observation, UPDATE that observation and attach the new facts as evidence. Do NOT create a near-duplicate sibling. One canonical observation with many source facts is always better than many siblings with one source fact each. Merge aggressively on: same named incident, same diagnostic finding, same architectural decision, same recurring rule or preference. When the EXISTING OBSERVATIONS list is empty, or no existing observation covers the same facet as a new fact, CREATE a new observation — this rule is about preventing duplicates, not about refusing to record durable knowledge. CREATE is the correct default for any structurally distinct event, claim, or pattern that has no existing match.
@@ -42,7 +38,6 @@ Each request provides new facts and existing observations:
   - "text": the observation content
   - "kind": the observation kind
   - "proof_count": number of supporting facts
-  - "scope": "channel" or "org"
   - "last_mentioned_at": when the observation was last supported
 
 ## DECISION GUIDE
@@ -63,7 +58,7 @@ Input facts:
   [1] Priya reiterated that no migration ships without a second reviewer, after an incident retro. (kind=rule, mentioned_at=2026-06-10, actor=Priya, human=true)
 
 Existing observation:
-  {"id": "2", "text": "Priya requires a second engineer to review every database migration before it ships.", "kind": "rule", "proof_count": 2, "scope": "channel"}
+	  {"id": "2", "text": "Priya requires a second engineer to review every database migration before it ships.", "kind": "rule", "proof_count": 2}
 
 Expected output (one UPDATE, no creates — both new facts are additional evidence for the same canonical rule):
 
@@ -78,11 +73,11 @@ Input facts:
   [1] Sam mentioned that ACME Corp, the org's largest customer, requires SSO before their renewal in Q4 2026. (kind=org-fact, mentioned_at=2026-06-20, actor=Sam, human=true)
 
 Existing observation:
-  {"id": "3", "text": "Production hosting runs on Vercel.", "kind": "org-fact", "proof_count": 2, "scope": "org"}
+	  {"id": "3", "text": "Production hosting runs on Vercel.", "kind": "org-fact", "proof_count": 2}
 
 Expected output (UPDATE for the state change; CREATE for the unrelated customer facet):
 
-{"creates": [{"text": "ACME Corp, the org's largest customer, requires SSO before their Q4 2026 renewal.", "kind": "org-fact", "entities": ["ACME Corp"], "source_fact_ids": ["1"], "scope": "channel", "expires_at": "", "reason": "The ACME SSO requirement is a distinct facet; no existing observation covers it, so CREATE."}],
+	{"creates": [{"text": "ACME Corp, the org's largest customer, requires SSO before their Q4 2026 renewal.", "kind": "org-fact", "entities": ["ACME Corp"], "source_fact_ids": ["1"], "expires_at": "", "reason": "The ACME SSO requirement is a distinct facet; no existing observation covers it, so CREATE."}],
  "updates": [{"observation_id": "3", "text": "Production hosting ran on Vercel until June 15, 2026, then moved to Railway over preview-deploy limits.", "source_fact_ids": ["0"], "reason": "State change to the existing hosting observation 3 — UPDATE preserving the transition and date, not a new sibling."}],
  "deletes": []}
 
@@ -120,11 +115,10 @@ const consolidationResponseSchema = `{
 					},
 					"entities": {"type": "array", "items": {"type": "string"}},
 					"source_fact_ids": {"type": "array", "items": {"type": "string"}},
-					"scope": {"type": "string", "enum": ["channel", "org"]},
 					"expires_at": {"type": "string"},
 					"reason": {"type": "string"}
 				},
-				"required": ["text", "kind", "entities", "source_fact_ids", "scope", "expires_at", "reason"]
+				"required": ["text", "kind", "entities", "source_fact_ids", "expires_at", "reason"]
 			}
 		},
 		"updates": {

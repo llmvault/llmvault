@@ -50,7 +50,6 @@ import {
 import {
   CHAT_QUERY_STALE_TIME_MS,
   invalidateSessionListQueries,
-  removeSessionFromChannelCache,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
@@ -103,9 +102,7 @@ export interface ChatSession {
 interface WorkspaceContextValue {
   session: ChatSession | null
   startNewChat: () => void
-  openChannel: (channelSlug: string) => void
   openChat: (
-    channelSlug: string,
     sessionId: string,
     session?: ChatSession,
     options?: { replace?: boolean }
@@ -580,23 +577,14 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     router.push("/w")
   }, [router])
 
-  const openChannel = useCallback(
-    (channelSlug: string) => {
-      setRoutePreviewSession(null)
-      router.push(`/w/channels/${channelSlug}`)
-    },
-    [router]
-  )
-
   const openChat = useCallback(
     (
-      channelSlug: string,
       sessionId: string,
       session?: ChatSession,
       options: { replace?: boolean } = {}
     ) => {
       setRoutePreviewSession(session ? { sessionId, session } : null)
-      const href = `/w/channels/${channelSlug}/${sessionId}`
+      const href = `/w/sessions/${sessionId}`
       if (options.replace) {
         router.replace(href)
       } else {
@@ -734,7 +722,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     () => ({
       session,
       startNewChat,
-      openChannel,
       openChat,
       openView,
       sandboxAccess,
@@ -745,7 +732,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     [
       session,
       startNewChat,
-      openChannel,
       openChat,
       openView,
       sandboxAccess,
@@ -777,11 +763,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         { params: { path: { id: sessionID } } },
         {
           onSuccess: (response) => {
-            removeSessionFromChannelCache(
-              queryClient,
-              response.session?.channel_id,
-              sessionID
-            )
             invalidateSessionListQueries(queryClient)
             toast.success("Chat archived")
             if (routeSessionID === sessionID) {
@@ -884,7 +865,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               <div className="h-full min-w-90">
                 <RightPanel
                   sessionId={routeSessionID}
-                  channelId={routeSessionQuery.data?.session?.channel_id}
+                  teamId={
+                    (routeSessionQuery.data?.session as
+                      | (SessionResponse & { team_id?: string })
+                      | undefined)?.team_id
+                  }
                   sandboxAccess={sandboxAccess}
                   sandboxAccessPending={sandboxAccessPendingForSession}
                   sandboxAccessError={sandboxRuntimeError}

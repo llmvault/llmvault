@@ -27,6 +27,10 @@ write-kubeconfig-mode: "0600"
 
 etcd-snapshot-schedule-cron: "{{ k3s_etcd_snapshot_schedule }}"
 etcd-snapshot-retention: {{ k3s_etcd_snapshot_retention }}
+{% if k3s_etcd_s3_enabled | bool %}
+etcd-s3: true
+etcd-s3-config-secret: {{ k3s_etcd_s3_config_secret }}
+{% endif %}
 
 node-label:
   - "hivy.io/public-ingress=true"

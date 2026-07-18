@@ -17,12 +17,6 @@ func (h *SessionHandler) buildInitialSessionContext(ctx context.Context, session
 		return nil
 	}
 	req := initialSessionContextRequest(session, actor, text, payload)
-	req.ChannelID = session.ChannelID
-	var ch model.Channel
-	if err := h.db.WithContext(ctx).Select("team_id", "expose_org_memories").First(&ch, "id = ? AND org_id = ?", session.ChannelID, session.OrgID).Error; err == nil {
-		req.TeamID = ch.TeamID
-		req.IncludeOrgMemories = ch.ExposeOrgMemories
-	}
 	sections, err := h.preContext.Build(ctx, req)
 	if err != nil {
 		logging.Capture(ctx, fmt.Errorf("build initial session context: %w", err))
@@ -47,6 +41,7 @@ func initialSessionContextRequest(session model.Session, actor *uuid.UUID, text 
 	return precontext.Request{
 		OrgID:            session.OrgID,
 		AgentID:          session.AgentID,
+		TeamID:           session.TeamID,
 		CurrentSessionID: session.ID,
 		Text:             strings.TrimSpace(text),
 		UserID:           strings.TrimSpace(user),

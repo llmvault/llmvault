@@ -15,10 +15,11 @@ type AgentTrigger struct {
 	AgentID      uuid.UUID      `gorm:"type:uuid;not null;index"`
 	Agent        Agent          `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
 	TriggerType  string         `gorm:"not null;default:'webhook';size:32;index"` // webhook or http
-	ChannelID    *uuid.UUID     `gorm:"type:uuid;index"`
-	Channel      *Channel       `gorm:"foreignKey:ChannelID;constraint:OnDelete:SET NULL"`
 	ConnectionID *uuid.UUID     `gorm:"type:uuid;index"`
 	Connection   *Connection    `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
+	ResourceType string         `gorm:"type:text;not null;default:''"`
+	ResourceKey  string         `gorm:"type:text;not null;default:''"`
+	ResourceName string         `gorm:"type:text;not null;default:''"`
 	Name         string         `gorm:"type:text"`                         // optional human label; nullable in DB
 	TriggerKeys  pq.StringArray `gorm:"type:text[];not null;default:'{}'"` // e.g. {"issues.opened","issues.reopened"}
 	TriggerKey   string         `gorm:"type:text;not null;default:'';index"`

@@ -68,22 +68,15 @@ func EncodeAuthPublicKeyPEM(pub *rsa.PublicKey) (string, error) {
 }
 
 // buildAppEnv assembles the full environment for the app process: the
-// channel team's user env vars first (decrypted, PLAIN names — app sandboxes have
+// team's user env vars first (decrypted, PLAIN names — app sandboxes have
 // no Rust runtime stripping an __ENV__ prefix), then the reserved HIVY_ keys,
 // which always win (team env var names may not start with HIVY_ anyway).
 func (s *Service) buildAppEnv(ctx context.Context, app *model.App, secret string) (map[string]string, error) {
 	env := map[string]string{}
 
-	var channel model.Channel
-	if err := s.db.WithContext(ctx).
-		Select("team_id").
-		Where("id = ? AND org_id = ?", app.ChannelID, app.OrgID).
-		First(&channel).Error; err != nil {
-		return nil, fmt.Errorf("load app channel team: %w", err)
-	}
 	var vars []model.TeamEnvVar
 	if err := s.db.WithContext(ctx).
-		Where("org_id = ? AND team_id = ?", app.OrgID, channel.TeamID).
+		Where("org_id = ? AND team_id = ?", app.OrgID, app.TeamID).
 		Find(&vars).Error; err != nil {
 		return nil, fmt.Errorf("load team env vars: %w", err)
 	}

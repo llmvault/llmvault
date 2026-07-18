@@ -55,24 +55,24 @@ const SheetWorkbench = dynamic(
   }
 )
 
-export function SheetsView({ channelId }: { channelId?: string }) {
+export function SheetsView({ teamId }: { teamId?: string }) {
   const target = usePanelSheetTargetStore((state) => state.target)
-  const effectiveChannelId = channelId ?? target?.channelId
-  const initialSheetId = channelId ? null : (target?.sheetId ?? null)
+  const effectiveTeamId = teamId ?? target?.teamId
+  const initialSheetId = teamId ? null : (target?.sheetId ?? null)
   return (
     <SheetsViewContent
-      key={`${effectiveChannelId ?? ""}:${initialSheetId ?? ""}`}
-      effectiveChannelId={effectiveChannelId}
+      key={`${effectiveTeamId ?? ""}:${initialSheetId ?? ""}`}
+      effectiveTeamId={effectiveTeamId}
       initialSheetId={initialSheetId}
     />
   )
 }
 
 function SheetsViewContent({
-  effectiveChannelId,
+  effectiveTeamId,
   initialSheetId,
 }: {
-  effectiveChannelId?: string
+  effectiveTeamId?: string
   initialSheetId: string | null
 }) {
   const queryClient = useQueryClient()
@@ -81,9 +81,9 @@ function SheetsViewContent({
   )
 
   const sheetsQuery = useQuery({
-    enabled: Boolean(effectiveChannelId),
-    queryKey: sheetKeys.list(effectiveChannelId ?? ""),
-    queryFn: ({ signal }) => fetchSheets(effectiveChannelId ?? "", signal),
+    enabled: Boolean(effectiveTeamId),
+    queryKey: sheetKeys.list(effectiveTeamId ?? ""),
+    queryFn: ({ signal }) => fetchSheets(effectiveTeamId ?? "", signal),
   })
   // Newest-updated first from the API; default to the most recent sheet.
   const sheets = sheetsQuery.data?.sheets ?? []
@@ -96,17 +96,17 @@ function SheetsViewContent({
   const activeSheet = sheets.find((sheet) => sheet.id === activeSheetId) ?? null
 
   const createNewSheet = async (name: string) => {
-    if (!effectiveChannelId) return
-    const created = await createSheet(effectiveChannelId, name)
+    if (!effectiveTeamId) return
+    const created = await createSheet(effectiveTeamId, name)
     await queryClient.invalidateQueries({
-      queryKey: sheetKeys.list(effectiveChannelId),
+      queryKey: sheetKeys.list(effectiveTeamId),
     })
     if (created.sheet?.id) {
       setSelectedSheetId(created.sheet.id)
     }
   }
 
-  if (!effectiveChannelId) {
+  if (!effectiveTeamId) {
     return <SheetGridSkeleton />
   }
 
@@ -217,7 +217,7 @@ function SheetsViewContent({
       {activeSheetId ? (
         <SheetPanel
           key={activeSheetId}
-          channelId={effectiveChannelId}
+          teamId={effectiveTeamId}
           sheetId={activeSheetId}
         />
       ) : null}
@@ -227,15 +227,15 @@ function SheetsViewContent({
 
 /**
  * Renders a single sheet — its pages, live grid, and page tabs — for a known
- * sheet id. Session-independent: it needs only the channel the sheet belongs
+ * sheet id. Session-independent: it needs only the team the sheet belongs
  * to (for grid mutations) and the sheet id. Reused by SheetsView (session
  * chat panel) and by the standalone /w/sheets dashboard right panel.
  */
 function SheetPanel({
-  channelId,
+  teamId,
   sheetId,
 }: {
-  channelId: string
+  teamId: string
   sheetId: string
 }) {
   const queryClient = useQueryClient()
@@ -292,7 +292,7 @@ function SheetPanel({
         <SheetWorkbench
           key={activePage.id}
           sheetId={sheetId}
-          channelId={channelId}
+          teamId={teamId}
           page={activePage}
           pages={pages}
         />

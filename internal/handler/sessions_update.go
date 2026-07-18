@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -72,7 +71,6 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Request, session *model.Session, userID *uuid.UUID, req updateSessionRequest, updates map[string]any) bool {
-	finalChannel := model.Channel{ID: session.ChannelID, OrgID: session.OrgID, DefaultAgentID: session.AgentID}
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		updates["name"] = name
@@ -97,46 +95,6 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 			updates["ended_at"] = &now
 			session.EndedAt = &now
 		}
-	}
-	if req.ChannelID != nil {
-		channel, ok := h.loadUsableChannel(w, r, session.OrgID, *req.ChannelID)
-		if !ok {
-			return false
-		}
-		if !h.canUseChannel(r.Context(), channel, userID) {
-			writeJSON(w, http.StatusForbidden, errorResponse{Error: "channel access denied"})
-			return false
-		}
-		updates["channel_id"] = channel.ID
-		session.ChannelID = channel.ID
-		finalChannel = channel
-		// The session keeps its current agent unless the caller reassigns it, so the
-		// existing agent must be allowed to act in the destination channel under the
-		// team-primary rule (channelagents.ActsInChannel). This is the same gate
-		// session create and agent reassignment apply — moving a session must not be
-		// a back door into a channel whose team excludes the agent.
-		if req.AgentID == nil {
-			acts, err := channelagents.ActsInChannel(r.Context(), h.db, session.OrgID, finalChannel.ID, session.AgentID)
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check channel agents"})
-				return false
-			}
-			if !acts {
-				writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent does not belong to this channel's team"})
-				return false
-			}
-		}
-	}
-	if req.AgentID != nil {
-		agent, ok := h.resolveSessionAgent(w, r, session.OrgID, finalChannel, *req.AgentID)
-		if !ok {
-			return false
-		}
-		updates["agent_id"] = agent.ID
-		session.AgentID = agent.ID
-		_ = h.writeSystemEvent(r, session, userID, "session.agent_reassigned", model.JSON{
-			"agent_id": agent.ID.String(),
-		})
 	}
 	if req.ImageModel != nil {
 		value := strings.TrimSpace(*req.ImageModel)

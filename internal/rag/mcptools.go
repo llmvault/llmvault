@@ -17,9 +17,9 @@ import (
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 )
 
-// NewKnowledgeToolsFunc registers channel-scoped knowledge-base tools on MCP
-// servers. The db is used to resolve the calling session's channel and the set
-// of sources that channel is allowed to search.
+// NewKnowledgeToolsFunc registers team-scoped knowledge-base tools on MCP
+// servers. The db is used to resolve the calling session's team and the set
+// of sources that team is allowed to search.
 func NewKnowledgeToolsFunc(db *gorm.DB, qd *qdrant.Client, embedder *embedclient.Embedder, reranker *embedclient.Reranker, collection string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if db == nil || qd == nil || embedder == nil || collection == "" || token == nil {
@@ -88,14 +88,14 @@ This is the FIRST place to search for company knowledge — reach for it before 
 			searchCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 			defer cancel()
 
-			// Knowledge access is channel-scoped: resolve the calling session's
-			// channel and the sources it may search. Deny-by-default — a channel
+			// Knowledge access is team-scoped: resolve the calling session's
+			// team and the sources it may search. Deny-by-default — a team
 			// with no granted sources returns zero results.
-			channelID, err := resolveKnowledgeChannel(searchCtx, db, token, params.SessionID)
+			teamID, err := resolveKnowledgeTeam(searchCtx, db, token, params.SessionID)
 			if err != nil {
 				return toolError(err.Error()), nil
 			}
-			sourceIDs, err := channelSourceIDs(searchCtx, db, token.OrgID, channelID)
+			sourceIDs, err := teamSourceIDs(searchCtx, db, token.OrgID, teamID)
 			if err != nil {
 				return toolError("knowledge source lookup failed: " + err.Error()), nil
 			}
@@ -143,11 +143,11 @@ This is the FIRST place to search for company knowledge — reach for it before 
 	)
 }
 
-// resolveKnowledgeChannel derives the calling agent's channel from the
+// resolveKnowledgeTeam derives the calling agent's team from the
 // runtime-injected _hivy_session_id. The value is server-controlled and cannot
-// be forged by the model. A session is mandatory; its channel_id is a NOT NULL
-// column, so every session resolves to exactly one channel.
-func resolveKnowledgeChannel(ctx context.Context, db *gorm.DB, token *model.Token, rawSessionID string) (uuid.UUID, error) {
+// be forged by the model. A session is mandatory; its team_id is a NOT NULL
+// column, so every session resolves to exactly one team.
+func resolveKnowledgeTeam(ctx context.Context, db *gorm.DB, token *model.Token, rawSessionID string) (uuid.UUID, error) {
 	sessionIDText := strings.TrimSpace(rawSessionID)
 	if sessionIDText == "" {
 		return uuid.Nil, fmt.Errorf("knowledge search must be called from within a session")
@@ -158,18 +158,17 @@ func resolveKnowledgeChannel(ctx context.Context, db *gorm.DB, token *model.Toke
 	}
 	var session model.Session
 	if err := db.WithContext(ctx).
-		Select("id", "channel_id").
+		Select("id", "team_id").
 		Where("id = ? AND org_id = ?", sessionID, token.OrgID).
 		First(&session).Error; err != nil {
 		return uuid.Nil, fmt.Errorf("session not found in this org")
 	}
-	return session.ChannelID, nil
+	return session.TeamID, nil
 }
 
-// channelSourceIDs returns the RAG source IDs the agent's channel is granted.
+// teamSourceIDs returns the RAG source IDs the agent's team is granted.
 //
-// Grants are TEAM-authoritative (team_rag_sources): a channel inherits exactly
-// the sources granted to its owning team. This mirrors the HTTP-side resolution
+// Grants are TEAM-authoritative (team_rag_sources). This mirrors the HTTP-side resolution
 // in handler.usableRagSourceIDs. A team with no grants has no knowledge access
 // (deny-by-default). Results are still further constrained to the caller's org
 // by the Qdrant scoped filter (qdrant.BuildScopedFilter) applied by the caller.
@@ -177,19 +176,12 @@ func resolveKnowledgeChannel(ctx context.Context, db *gorm.DB, token *model.Toke
 // Historically this read the now-removed channel_rag_sources table, which the
 // production grant writers never populated — so knowledge search returned zero
 // results. It now reads the table that team provisioning actually writes.
-func channelSourceIDs(ctx context.Context, db *gorm.DB, orgID, channelID uuid.UUID) ([]string, error) {
-	var channel model.Channel
-	if err := db.WithContext(ctx).
-		Select("id", "team_id").
-		Where("id = ? AND org_id = ?", channelID, orgID).
-		First(&channel).Error; err != nil {
-		return nil, err
-	}
+func teamSourceIDs(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUID) ([]string, error) {
 	var ids []uuid.UUID
 	if err := db.WithContext(ctx).
 		Model(&model.TeamRagSource{}).
 		Distinct("rag_source_id").
-		Where("org_id = ? AND team_id = ?", orgID, channel.TeamID).
+		Where("org_id = ? AND team_id = ?", orgID, teamID).
 		Pluck("rag_source_id", &ids).Error; err != nil {
 		return nil, err
 	}

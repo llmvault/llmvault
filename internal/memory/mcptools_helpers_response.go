@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -25,7 +24,7 @@ func observationToolResponse(obs model.AgentObservation, similarity *float64) ma
 		"proof_count":       obs.ProofCount,
 		"last_mentioned_at": obs.LastMentionedAt,
 		"human_verified":    obs.HumanVerified,
-		"channel_id":        channelIDValue(obs.ChannelID),
+		"agent_id":          obs.AgentID.String(),
 		"created_at":        obs.CreatedAt,
 		"updated_at":        obs.UpdatedAt,
 	}
@@ -46,7 +45,7 @@ func memoryToolMemoryResponse(mem model.AgentMemory, similarity *float64) map[st
 		"id":                 mem.ID.String(),
 		"content":            mem.Content,
 		"tags":               []string(mem.Tags),
-		"channel_id":         channelIDValue(mem.ChannelID),
+		"agent_id":           mem.AgentID.String(),
 		"embedding_status":   mem.EmbeddingStatus,
 		"embedding_revision": mem.EmbeddingRevision,
 		"created_at":         mem.CreatedAt,
@@ -56,14 +55,6 @@ func memoryToolMemoryResponse(mem model.AgentMemory, similarity *float64) map[st
 		out["similarity"] = *similarity
 	}
 	return out
-}
-
-// channelIDValue renders a nullable channel id: nil = org-wide.
-func channelIDValue(id *uuid.UUID) any {
-	if id == nil {
-		return nil
-	}
-	return id.String()
 }
 
 func normalizeMemoryToolSearchQuery(raw string) (string, error) {

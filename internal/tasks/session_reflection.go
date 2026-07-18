@@ -81,8 +81,7 @@ func (h *SessionReflectionHandler) Handle(ctx context.Context, task *asynq.Task)
 		return h.release(ctx, payload.SessionID)
 	}
 	userNames := h.loadReflectionUserNames(ctx, claim.Session, events)
-	channelName := h.loadReflectionChannelName(ctx, claim.Session)
-	transcript, identities := renderSessionReflectionTranscript(claim.Session, channelName, events, userNames)
+	transcript, identities := renderSessionReflectionTranscript(claim.Session, "", events, userNames)
 	existing := h.loadExistingMemories(ctx, claim.Session.ID)
 	cred, err := h.reflectionCredential(ctx)
 	if err != nil {
@@ -94,8 +93,8 @@ func (h *SessionReflectionHandler) Handle(ctx context.Context, task *asynq.Task)
 		return reflectionCredentialError(err)
 	}
 	client := h.completionClient(cred)
-	channelMission := h.loadChannelMission(ctx, claim.Session)
-	result, _, err := generateSessionReflection(ctx, client, cred.modelID, cred.temperature, transcript, existing, channelMission)
+	agentMission := h.loadAgentMission(ctx, claim.Session)
+	result, _, err := generateSessionReflection(ctx, client, cred.modelID, cred.temperature, transcript, existing, agentMission)
 	if err != nil {
 		_ = h.markFailed(ctx, payload.SessionID, err, nil)
 		return err
@@ -127,29 +126,17 @@ func (h *SessionReflectionHandler) loadEvents(ctx context.Context, claim session
 	return events, nil
 }
 
-func (h *SessionReflectionHandler) loadReflectionChannelName(ctx context.Context, session model.Session) string {
-	if session.ChannelID == uuid.Nil {
-		return ""
-	}
-	var channel model.Channel
-	if err := h.db.WithContext(ctx).Select("id", "name").
-		First(&channel, "id = ?", session.ChannelID).Error; err != nil {
-		return ""
-	}
-	return strings.TrimSpace(channel.Name)
-}
-
-// loadChannelMission fetches the channel's memory mission for the extraction
+// loadAgentMission fetches the agent's memory mission for the extraction
 // prompt. Errors degrade to the base guidelines ("" mission) — the reflection
 // run must not fail because the mission lookup did.
-func (h *SessionReflectionHandler) loadChannelMission(ctx context.Context, session model.Session) string {
-	if session.ChannelID == uuid.Nil {
+func (h *SessionReflectionHandler) loadAgentMission(ctx context.Context, session model.Session) string {
+	if session.AgentID == uuid.Nil {
 		return ""
 	}
-	mission, err := memory.ChannelMission(ctx, h.db, session.OrgID, session.ChannelID)
+	mission, err := memory.AgentMission(ctx, h.db, session.OrgID, session.AgentID)
 	if err != nil {
-		logging.FromContext(ctx).WarnContext(ctx, "load channel memory mission failed; using base guidelines",
-			"channel_id", session.ChannelID.String(), "error", err)
+		logging.FromContext(ctx).WarnContext(ctx, "load agent memory mission failed; using base guidelines",
+			"agent_id", session.AgentID.String(), "error", err)
 		return ""
 	}
 	return mission
@@ -158,12 +145,12 @@ func (h *SessionReflectionHandler) loadChannelMission(ctx context.Context, sessi
 // enqueueConsolidation chains a consolidation run after new memories were
 // stored. Log-and-continue: reflection success never depends on the enqueue.
 func (h *SessionReflectionHandler) enqueueConsolidation(ctx context.Context, session model.Session) {
-	if h.enqueuer == nil || session.ChannelID == uuid.Nil {
+	if h.enqueuer == nil || session.AgentID == uuid.Nil {
 		return
 	}
-	if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, session.OrgID, session.ChannelID); err != nil {
+	if err := EnqueueMemoryConsolidate(ctx, h.enqueuer, session.OrgID, session.AgentID); err != nil {
 		logging.FromContext(ctx).WarnContext(ctx, "enqueue memory consolidation after reflection failed",
-			"org_id", session.OrgID.String(), "channel_id", session.ChannelID.String(), "error", err)
+			"org_id", session.OrgID.String(), "agent_id", session.AgentID.String(), "error", err)
 	}
 }
 

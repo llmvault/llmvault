@@ -10,10 +10,7 @@ import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
-import {
-  ChannelSelect,
-  useHivyChannels,
-} from "@/app/w/(chat)/automations/_channel-select"
+import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
   FormSection,
   InlineNotice,
@@ -27,31 +24,24 @@ export default function NewWebhookTriggerPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const { channels, isLoading: channelsLoading } = useHivyChannels()
+  const { teams, isLoading: teamsLoading } = useTeams()
   const createTrigger = $api.useMutation("post", "/v1/triggers")
 
   const [name, setName] = useState("")
-  const [channelID, setChannelID] = useState("")
+  const [teamID, setTeamID] = useState("")
   const [agentID, setAgentID] = useState("")
   const [instructions, setInstructions] = useState(DEFAULT_INSTRUCTIONS)
   const [secret, setSecret] = useState("")
 
-  const activeChannelID = channelID || channels[0]?.id || ""
-  const activeChannel = channels.find((c) => c.id === activeChannelID)
-  const { agents, isLoading: agentsLoading } = useTeamAgents(
-    activeChannel?.team_id
-  )
-  const activeAgentID = resolveScopedAgentID(
-    agents,
-    agentID,
-    activeChannel?.default_agent_id
-  )
+  const activeTeamID = teamID || teams[0]?.id || ""
+  const { agents, isLoading: agentsLoading } = useTeamAgents(activeTeamID)
+  const activeAgentID = resolveScopedAgentID(agents, agentID, undefined)
 
   const isSaving = createTrigger.isPending
   const canSubmit = Boolean(
     !isSaving &&
     name.trim() &&
-    activeChannelID &&
+    activeTeamID &&
     activeAgentID &&
     instructions.trim()
   )
@@ -62,8 +52,8 @@ export default function NewWebhookTriggerPage() {
       toast.danger("Name is required")
       return
     }
-    if (!activeChannelID) {
-      toast.danger("Select a channel")
+    if (!activeTeamID) {
+      toast.danger("Select a team")
       return
     }
     if (!activeAgentID) {
@@ -80,7 +70,6 @@ export default function NewWebhookTriggerPage() {
         body: {
           trigger_type: "http",
           name: name.trim(),
-          channel_id: activeChannelID,
           agent_id: activeAgentID,
           instructions: trimmed,
           secret_key: secret.trim() || undefined,
@@ -148,41 +137,41 @@ export default function NewWebhookTriggerPage() {
             </FormSection>
 
             <FormSection
-              title="Channel"
-              description="The channel this webhook's agent runs in. You can only pick channels you have access to."
+              title="Team"
+              description="The team that owns the agent handling this webhook."
             >
-              {channelsLoading ? (
+              {teamsLoading ? (
                 <div className="h-9 animate-pulse rounded-md bg-default" />
-              ) : channels.length === 0 ? (
+              ) : teams.length === 0 ? (
                 <InlineNotice
-                  icon="hash"
-                  title="No channels"
-                  body="Create a channel before adding a webhook trigger."
+                  icon="users"
+                  title="No teams"
+                  body="Create a team before adding a webhook trigger."
                 />
               ) : (
-                <ChannelSelect
-                  channels={channels}
-                  value={activeChannelID}
-                  onChange={setChannelID}
+                <TeamSelect
+                  teams={teams}
+                  value={activeTeamID}
+                  onChange={setTeamID}
                 />
               )}
             </FormSection>
 
             <FormSection
               title="Agent"
-              description="Select the agent that should handle inbound webhook requests. Any agent on the chosen channel's team can run here."
+              description="Select the agent that should handle inbound webhook requests."
             >
-              {!activeChannelID ? (
+              {!activeTeamID ? (
                 <InlineNotice
                   icon="bot"
-                  title="Select a channel first"
-                  body="Agents are scoped to the team that owns this webhook's channel."
+                  title="Select a team first"
+                  body="Agents are scoped to teams."
                 />
               ) : agents.length === 0 && !agentsLoading ? (
                 <InlineNotice
                   icon="bot"
                   title="No agents on this team"
-                  body="Add an agent to the selected channel's team before adding a webhook trigger."
+                  body="Add an agent to this team before adding a webhook trigger."
                 />
               ) : (
                 <AgentSelect

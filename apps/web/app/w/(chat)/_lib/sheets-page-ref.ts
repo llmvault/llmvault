@@ -35,14 +35,14 @@ function pageRefFromStructure(
 /**
  * Resolves a page ID to its owning sheet + page structure. Checks every
  * cached sheet structure first, then falls back to fetching the sheets
- * list for the given channel and the structures that are not cached yet.
+ * list for the given team and the structures that are not cached yet.
  * Results flow through `ensureQueryData`, so every fetch also warms the
- * regular caches. Sheets are channel-scoped, so this can only resolve pages
- * belonging to sheets in `channelId`.
+ * regular caches. Sheets are team-scoped, so this can only resolve pages
+ * belonging to sheets in `teamId`.
  */
 export async function resolvePageRef(
   queryClient: QueryClient,
-  channelId: string,
+  teamId: string,
   pageId: string
 ): Promise<SheetPageRef | null> {
   if (!pageId) return null
@@ -57,11 +57,11 @@ export async function resolvePageRef(
     if (structure?.sheet?.id) cachedSheetIds.add(structure.sheet.id)
   }
 
-  if (!channelId) return null
+  if (!teamId) return null
 
   const list = await queryClient.ensureQueryData({
-    queryKey: sheetKeys.list(channelId),
-    queryFn: ({ signal }) => fetchSheets(channelId, signal),
+    queryKey: sheetKeys.list(teamId),
+    queryFn: ({ signal }) => fetchSheets(teamId, signal),
   })
   const candidates = (list.sheets ?? [])
     .map((sheet) => sheet.id)

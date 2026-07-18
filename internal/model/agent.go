@@ -55,8 +55,11 @@ type Agent struct {
 	AutoLoadSkills   AutoLoadSkills `gorm:"column:auto_load_skills;type:jsonb;not null;default:'[]'"`
 	ImageModel       string         `gorm:"type:text;not null;default:''"`
 	VectorImageModel string         `gorm:"type:text;not null;default:''"`
-	Tools            JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	McpServers       RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
+	// MemoryMission steers this agent's extraction and consolidation policy.
+	// Empty uses the installed catalog's category template.
+	MemoryMission *string `gorm:"type:text"`
+	Tools         JSON    `gorm:"type:jsonb;not null;default:'{}'"`
+	McpServers    RawJSON `gorm:"type:jsonb;not null;default:'[]'"`
 	// McpToolFilter records requested grants for managed MCP capabilities. The
 	// runtime compiler adds the universal floor; generated connection MCP servers
 	// use ConnectionMCPToolDeny instead.

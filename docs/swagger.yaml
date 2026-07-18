@@ -927,8 +927,6 @@ definitions:
     type: object
   agentTriggerResponse:
     properties:
-      channel_id:
-        type: string
       conditions: {}
       connection_id:
         type: string
@@ -939,6 +937,10 @@ definitions:
       instructions:
         type: string
       provider:
+        type: string
+      resource_key:
+        type: string
+      resource_type:
         type: string
       secret_set:
         description: |-
@@ -1053,8 +1055,6 @@ definitions:
     properties:
       active_version_id:
         type: string
-      channel_id:
-        type: string
       created_at:
         type: string
       description:
@@ -1070,6 +1070,8 @@ definitions:
       slug:
         type: string
       status:
+        type: string
+      team_id:
         type: string
       template_version:
         type: string
@@ -1312,155 +1314,6 @@ definitions:
       new_password:
         type: string
     type: object
-  channelDetailResponse:
-    properties:
-      channel:
-        $ref: '#/definitions/channelResponse'
-      members:
-        items:
-          $ref: '#/definitions/channelMemberResponse'
-        type: array
-    type: object
-  channelMemberRequest:
-    properties:
-      role:
-        type: string
-    type: object
-  channelMemberResponse:
-    properties:
-      created_at:
-        type: string
-      email:
-        type: string
-      name:
-        type: string
-      role:
-        type: string
-      user_id:
-        type: string
-    type: object
-  channelMutationRequest:
-    properties:
-      category:
-        type: string
-      default_agent_id:
-        type: string
-      description:
-        type: string
-      external_connection_id:
-        type: string
-      external_metadata:
-        $ref: '#/definitions/JSON'
-      external_provider:
-        type: string
-      external_resource_key:
-        type: string
-      external_resource_name:
-        type: string
-      external_resource_type:
-        type: string
-      external_resource_url:
-        type: string
-      external_workspace_key:
-        type: string
-      image_model:
-        type: string
-      memory_mission:
-        type: string
-      name:
-        type: string
-      origin:
-        type: string
-      team_id:
-        type: string
-      vector_image_model:
-        type: string
-      visibility:
-        type: string
-    type: object
-  channelMutationResponse:
-    properties:
-      channel:
-        $ref: '#/definitions/channelResponse'
-    type: object
-  channelResponse:
-    properties:
-      archived_at:
-        type: string
-      category:
-        type: string
-      created_at:
-        type: string
-      created_by:
-        type: string
-      default_agent_id:
-        type: string
-      default_memory_mission:
-        type: string
-      description:
-        type: string
-      external_connection_id:
-        type: string
-      external_metadata:
-        $ref: '#/definitions/JSON'
-      external_provider:
-        type: string
-      external_resource_key:
-        type: string
-      external_resource_name:
-        type: string
-      external_resource_type:
-        type: string
-      external_resource_url:
-        type: string
-      external_workspace_key:
-        type: string
-      id:
-        type: string
-      image_model:
-        type: string
-      is_default:
-        type: boolean
-      kind:
-        type: string
-      member_count:
-        type: integer
-      memory_mission:
-        description: |-
-          MemoryMission is the channel's stored mission; empty means the channel
-          follows DefaultMemoryMission (the curated template for its category,
-          empty for 'general'), which is what extraction actually uses then.
-        type: string
-      name:
-        type: string
-      origin:
-        type: string
-      recent_sessions:
-        items:
-          $ref: '#/definitions/sessionResponse'
-        type: array
-      recent_sessions_has_more:
-        type: boolean
-      recent_sessions_next_cursor:
-        type: string
-      role:
-        type: string
-      team_id:
-        type: string
-      team_name:
-        description: |-
-          TeamName is the display name of the channel's owning team. Lets the
-          non-admin sidebar label team groups without a second round-trip; both
-          managers and members receive the name of teams their visible channels
-          belong to.
-        type: string
-      updated_at:
-        type: string
-      vector_image_model:
-        type: string
-      visibility:
-        type: string
-    type: object
   commandResult:
     properties:
       command:
@@ -1557,8 +1410,6 @@ definitions:
     type: object
   createAppRequest:
     properties:
-      channel_id:
-        type: string
       description:
         type: string
       icon:
@@ -1566,6 +1417,8 @@ definitions:
       name:
         type: string
       sheet_id:
+        type: string
+      team_id:
         type: string
     type: object
   createBrandAssetRequest:
@@ -1777,8 +1630,6 @@ definitions:
     properties:
       agent_id:
         type: string
-      channel_id:
-        type: string
       cron_expression:
         type: string
       description:
@@ -1805,8 +1656,6 @@ definitions:
         items:
           type: string
         type: array
-      channel_id:
-        type: string
       model_definition:
         $ref: '#/definitions/sessionModelDefinitionRequest'
       text:
@@ -1814,8 +1663,6 @@ definitions:
     type: object
   createSheetRequest:
     properties:
-      channel_id:
-        type: string
       description:
         type: string
       icon:
@@ -1827,6 +1674,8 @@ definitions:
           $ref: '#/definitions/sheetPageSpecRequest'
         type: array
       slug:
+        type: string
+      team_id:
         type: string
     type: object
   createTeamEnvironmentVariableRequest:
@@ -1841,11 +1690,6 @@ definitions:
   createTriggerRequest:
     properties:
       agent_id:
-        type: string
-      channel_id:
-        description: |-
-          ChannelID is the Hivy channel the trigger runs in. Required for HTTP
-          triggers; the caller must have access to it.
         type: string
       connection_id:
         type: string
@@ -2074,46 +1918,6 @@ definitions:
       mutation_id:
         type: string
     type: object
-  directiveListResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/directiveResponse'
-        type: array
-    type: object
-  directiveMutationRequest:
-    properties:
-      active:
-        type: boolean
-      channel_id:
-        type: string
-      content:
-        type: string
-    type: object
-  directiveResponse:
-    properties:
-      active:
-        type: boolean
-      channel_id:
-        type: string
-      content:
-        type: string
-      created_at:
-        type: string
-      created_by_user_id:
-        type: string
-      id:
-        type: string
-      source:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  directiveUpdateRequest:
-    properties:
-      active:
-        type: boolean
-    type: object
   discoverWebsiteSectionsRequest:
     properties:
       url:
@@ -2153,6 +1957,62 @@ definitions:
         type: array
       success:
         type: boolean
+    type: object
+  externalResourceRouteRequest:
+    properties:
+      agent_id:
+        type: string
+      connection_id:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      resource_key:
+        type: string
+      resource_name:
+        type: string
+      resource_type:
+        type: string
+      resource_url:
+        type: string
+    type: object
+  externalResourceRouteResponse:
+    properties:
+      agent_id:
+        type: string
+      connection_id:
+        type: string
+      id:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      resource_key:
+        type: string
+      resource_name:
+        type: string
+      resource_type:
+        type: string
+      resource_url:
+        type: string
+      team_id:
+        type: string
+    type: object
+  externalResourceRouteUpdateRequest:
+    properties:
+      agent_id:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      resource_name:
+        type: string
+      resource_url:
+        type: string
+    type: object
+  externalResourceRoutesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/externalResourceRouteResponse'
+        type: array
     type: object
   forgotPasswordRequest:
     properties:
@@ -2319,35 +2179,6 @@ definitions:
       read_count:
         type: integer
       write_count:
-        type: integer
-    type: object
-  joinSlackChannelFailure:
-    properties:
-      channel_id:
-        type: string
-      error:
-        type: string
-    type: object
-  joinSlackChannelsRequest:
-    properties:
-      all_public:
-        type: boolean
-      channel_ids:
-        items:
-          type: string
-        type: array
-    type: object
-  joinSlackChannelsResponse:
-    properties:
-      already_member:
-        type: integer
-      failed:
-        type: integer
-      failures:
-        items:
-          $ref: '#/definitions/joinSlackChannelFailure'
-        type: array
-      joined:
         type: integer
     type: object
   latencyStats:
@@ -2544,85 +2375,6 @@ definitions:
       user:
         $ref: '#/definitions/userResponse'
     type: object
-  memoryGroupResponse:
-    properties:
-      channel_id:
-        type: string
-      channel_name:
-        type: string
-      has_more:
-        type: boolean
-      memories:
-        items:
-          $ref: '#/definitions/memoryResponse'
-        type: array
-      next_cursor:
-        type: string
-      total:
-        type: integer
-    type: object
-  memoryGroupedResponse:
-    properties:
-      groups:
-        items:
-          $ref: '#/definitions/memoryGroupResponse'
-        type: array
-    type: object
-  memoryListResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/memoryResponse'
-        type: array
-    type: object
-  memoryMutationRequest:
-    properties:
-      channel_id:
-        type: string
-      content:
-        type: string
-      metadata:
-        $ref: '#/definitions/JSON'
-      tags:
-        items:
-          type: string
-        type: array
-    type: object
-  memoryResponse:
-    properties:
-      archived_at:
-        type: string
-      channel_id:
-        type: string
-      content:
-        type: string
-      created_at:
-        type: string
-      embedded_at:
-        type: string
-      embedding_error:
-        type: string
-      embedding_model:
-        type: string
-      embedding_revision:
-        type: integer
-      embedding_status:
-        type: string
-      id:
-        type: string
-      metadata:
-        $ref: '#/definitions/JSON'
-      org_id:
-        type: string
-      similarity:
-        type: number
-      tags:
-        items:
-          type: string
-        type: array
-      updated_at:
-        type: string
-    type: object
   mintTokenRequest:
     properties:
       credential_id:
@@ -2692,49 +2444,6 @@ definitions:
         type: boolean
       tool_call:
         type: boolean
-    type: object
-  observationCorrectRequest:
-    properties:
-      content:
-        type: string
-    type: object
-  observationListResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/observationResponse'
-        type: array
-      has_more:
-        type: boolean
-    type: object
-  observationResponse:
-    properties:
-      archived_at:
-        type: string
-      channel_id:
-        type: string
-      content:
-        type: string
-      created_at:
-        type: string
-      entities:
-        items:
-          type: string
-        type: array
-      expires_at:
-        type: string
-      human_verified:
-        type: boolean
-      id:
-        type: string
-      kind:
-        type: string
-      last_mentioned_at:
-        type: string
-      metadata:
-        $ref: '#/definitions/JSON'
-      proof_count:
-        type: integer
     type: object
   onboardingResponse:
     properties:
@@ -2876,17 +2585,6 @@ definitions:
       next_cursor:
         type: string
     type: object
-  paginatedResponse-channelResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/channelResponse'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
   paginatedResponse-connectionResponse:
     properties:
       data:
@@ -3002,17 +2700,6 @@ definitions:
       data:
         items:
           $ref: '#/definitions/tokenListItem'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
-  paginatedResponse-memoryResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/memoryResponse'
         type: array
       has_more:
         type: boolean
@@ -3630,8 +3317,6 @@ definitions:
         type: string
       agent_name:
         type: string
-      channel_id:
-        type: string
       created_at:
         type: string
       cron_expression:
@@ -3839,8 +3524,6 @@ definitions:
         type: string
       agent_turn_status:
         type: string
-      channel_id:
-        type: string
       created_at:
         type: string
       created_by:
@@ -3872,6 +3555,8 @@ definitions:
       source_resource_key:
         type: string
       status:
+        type: string
+      team_id:
         type: string
       updated_at:
         type: string
@@ -4233,39 +3918,6 @@ definitions:
           $ref: '#/definitions/skillResponse'
         type: array
     type: object
-  slackChannelResponse:
-    properties:
-      id:
-        type: string
-      is_archived:
-        type: boolean
-      is_member:
-        type: boolean
-      is_private:
-        type: boolean
-      name:
-        type: string
-      num_members:
-        type: integer
-      purpose:
-        type: string
-      topic:
-        type: string
-    type: object
-  slackChannelsResponse:
-    properties:
-      channels:
-        items:
-          $ref: '#/definitions/slackChannelResponse'
-        type: array
-    type: object
-  sourceChannelsResponse:
-    properties:
-      channel_ids:
-        items:
-          type: string
-        type: array
-    type: object
   spendOverTime:
     properties:
       date:
@@ -4452,12 +4104,6 @@ definitions:
     properties:
       archived_at:
         type: string
-      channel_count:
-        type: integer
-      channels:
-        items:
-          $ref: '#/definitions/channelResponse'
-        type: array
       created_at:
         type: string
       created_by:
@@ -4605,10 +4251,6 @@ definitions:
         type: string
       agent_name:
         type: string
-      channel_id:
-        type: string
-      channel_name:
-        type: string
       connection_id:
         type: string
       connection_name:
@@ -4632,6 +4274,8 @@ definitions:
       name:
         type: string
       provider:
+        type: string
+      resource_type:
         type: string
       secret_set:
         description: |-
@@ -4847,8 +4491,6 @@ definitions:
     type: object
   updateScheduleRequest:
     properties:
-      channel_id:
-        type: string
       cron_expression:
         type: string
       description:
@@ -4866,10 +4508,6 @@ definitions:
     type: object
   updateSessionRequest:
     properties:
-      agent_id:
-        type: string
-      channel_id:
-        type: string
       image_model:
         type: string
       name:
@@ -4900,8 +4538,6 @@ definitions:
   updateTriggerRequest:
     properties:
       agent_id:
-        type: string
-      channel_id:
         type: string
       connection_id:
         type: string
@@ -6683,9 +6319,9 @@ paths:
   /v1/apps:
     get:
       parameters:
-      - description: Channel ID
+      - description: Team ID
         in: query
-        name: channel_id
+        name: team_id
         required: true
         type: string
       produces:
@@ -6705,15 +6341,14 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: List a channel's apps
+      summary: List a team's apps
       tags:
       - apps
     post:
       consumes:
       - application/json
-      description: Registers a new app bound to exactly one sheet in one channel.
-        Returns 409 when an active app in the org already uses the slug derived from
-        the name.
+      description: Registers a new app bound to exactly one sheet in one team. Returns
+        409 when an active app in the org already uses the slug derived from the name.
       parameters:
       - description: App to create
         in: body
@@ -7596,429 +7231,6 @@ paths:
       summary: List trigger automation catalog
       tags:
       - catalog
-  /v1/channels:
-    get:
-      description: Lists channels visible to the caller. Use discoverable=true to
-        include public channels the caller can join.
-      parameters:
-      - description: Include public discoverable channels
-        in: query
-        name: discoverable
-        type: boolean
-      - description: Comma-separated optional expansions. Supports recent_sessions.
-        in: query
-        name: include
-        type: string
-      - description: Recent sessions per channel when include=recent_sessions (default
-          5, max 20)
-        in: query
-        name: recent_sessions_limit
-        type: integer
-      - description: Page size (default 50, max 100)
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination cursor
-        in: query
-        name: cursor
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-channelResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List channels
-      tags:
-      - channels
-    post:
-      consumes:
-      - application/json
-      description: Creates a web-first channel. The creator becomes channel owner
-        when the caller is a user.
-      parameters:
-      - description: Channel create payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/channelMutationRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/channelMutationResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a channel
-      tags:
-      - channels
-  /v1/channels/{id}:
-    delete:
-      description: 'Deletes a non-default, non-personal channel: it archives the channel
-        and all its sessions, then queues deletion of the channel''s memories. Rejected
-        with 409 if any session has an in-progress agent turn.'
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelMutationResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete a channel
-      tags:
-      - channels
-    get:
-      description: Returns one visible channel and its members.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelDetailResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get a channel
-      tags:
-      - channels
-    patch:
-      consumes:
-      - application/json
-      description: Updates a channel when the caller is a channel owner, org admin,
-        or scoped API key.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Channel update payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/channelMutationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelMutationResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a channel
-      tags:
-      - channels
-  /v1/channels/{id}/join:
-    post:
-      description: Adds the authenticated user to a public channel.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelMutationResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Join a public channel
-      tags:
-      - channels
-  /v1/channels/{id}/members/{userID}:
-    delete:
-      description: Removes a user from a channel. Users may remove themselves; owners
-        and org admins may remove others.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: User ID
-        in: path
-        name: userID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelDetailResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Remove a channel member
-      tags:
-      - channels
-    put:
-      consumes:
-      - application/json
-      description: Adds a user to a channel or updates their channel role.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: User ID
-        in: path
-        name: userID
-        required: true
-        type: string
-      - description: Member role
-        in: body
-        name: body
-        schema:
-          $ref: '#/definitions/channelMemberRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/channelDetailResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Add or update a channel member
-      tags:
-      - channels
-  /v1/channels/{id}/sessions:
-    get:
-      description: Lists sessions in a visible channel.
-      parameters:
-      - description: Channel ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Page size
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination cursor
-        in: query
-        name: cursor
-        type: string
-      - description: 'Sort order: created_at or activity'
-        in: query
-        name: sort
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-sessionResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List channel sessions
-      tags:
-      - channels
   /v1/connections:
     get:
       description: Returns the authenticated user's non-revoked platform integration
@@ -8712,157 +7924,14 @@ paths:
       - database-integrations
   /v1/directives:
     get:
-      description: 'Lists agent directives. channel_id filters: a channel UUID returns
-        that channel''s directives plus org-wide ones (the injected set for the channel),
-        "org" returns org-wide only, omitted returns all.'
-      parameters:
-      - description: 'Filter: channel UUID (channel + org-wide), \'
-        in: query
-        name: channel_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/directiveListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List directives
-      tags:
-      - directives
+      responses: {}
     post:
-      consumes:
-      - application/json
-      description: Creates a manual (user-pinned) directive in a channel (channel_id)
-        or org-wide (omit channel_id). Requires an org admin/owner.
-      parameters:
-      - description: Directive content and optional channel_id
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/directiveMutationRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties:
-              $ref: '#/definitions/directiveResponse'
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a directive
-      tags:
-      - directives
+      responses: {}
   /v1/directives/{id}:
     delete:
-      description: Soft-deletes a directive so it is no longer injected into prompts
-        or listed. The row is retained as history for as-of temporal audits (rule
-        content is immutable, so the deleted wording is preserved verbatim). Requires
-        an org admin/owner.
-      parameters:
-      - description: Directive UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete a directive
-      tags:
-      - directives
+      responses: {}
     patch:
-      consumes:
-      - application/json
-      description: 'Updates a directive''s active flag. Directive content is immutable:
-        delete and re-create a directive to change its text. Requires an org admin/owner.'
-      parameters:
-      - description: Directive UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Fields to update
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/directiveUpdateRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              $ref: '#/definitions/directiveResponse'
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a directive
-      tags:
-      - directives
+      responses: {}
   /v1/generations:
     get:
       description: Returns generation records for the current organization with cursor
@@ -9574,240 +8643,14 @@ paths:
       - mcp-servers
   /v1/memories:
     get:
-      description: Lists memories, optionally filtered by channel_id ("org" for organization-wide,
-        a UUID for one channel, omitted for all). Pass q to semantic-search instead.
-      parameters:
-      - description: 'Filter: channel UUID, \'
-        in: query
-        name: channel_id
-        type: string
-      - description: Semantic search query
-        in: query
-        name: q
-        type: string
-      - description: Comma-separated tag filters
-        in: query
-        name: tags
-        type: string
-      - description: Max items (1-100, default 50)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/memoryListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List memories
-      tags:
-      - memories
+      responses: {}
     post:
-      consumes:
-      - application/json
-      description: Stores a memory in a channel (channel_id) or organization-wide
-        (omit channel_id). Requires an org admin/owner. Content is embedded asynchronously.
-      parameters:
-      - description: Memory content, optional channel_id and tags
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/memoryMutationRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties:
-              $ref: '#/definitions/memoryResponse'
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a memory
-      tags:
-      - memories
+      responses: {}
   /v1/memories/{id}:
     delete:
-      description: Archives a memory so agents no longer recall it. Requires an org
-        admin/owner.
-      parameters:
-      - description: Memory UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Forget a memory
-      tags:
-      - memories
+      responses: {}
     patch:
-      consumes:
-      - application/json
-      description: Updates a memory's content, tags, or metadata. Editing content
-        re-embeds it. Requires an org admin/owner.
-      parameters:
-      - description: Memory UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Fields to update
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/memoryMutationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              $ref: '#/definitions/memoryResponse'
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a memory
-      tags:
-      - memories
-  /v1/memories/channels/{channelId}:
-    get:
-      description: Cursor-paginated memories for a single channel, newest first. Use
-        channelId "global" for channel-less organization memories, or a channel UUID.
-        Pass the previous response's next_cursor to fetch the next page.
-      parameters:
-      - description: Channel UUID or \
-        in: path
-        name: channelId
-        required: true
-        type: string
-      - description: Pagination cursor from a previous response
-        in: query
-        name: cursor
-        type: string
-      - description: Max items per page (1-50, default 10)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-memoryResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Page one channel's memories
-      tags:
-      - memories
-  /v1/memories/grouped:
-    get:
-      description: Returns the newest memories for every channel in one call (default
-        10 per channel) with a per-channel has_more flag. Global (channel-less) memories
-        are the first group. Use the per-channel endpoint to page past the initial
-        slice.
-      parameters:
-      - description: Max memories per channel (1-50, default 10)
-        in: query
-        name: per_channel
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/memoryGroupedResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List memories grouped by channel
-      tags:
-      - memories
+      responses: {}
   /v1/models:
     get:
       description: Returns models from providers that have at least one active system
@@ -9824,202 +8667,6 @@ paths:
       summary: List user-selectable models across providers
       tags:
       - providers
-  /v1/observations:
-    get:
-      description: 'Lists consolidated memory observations, non-archived first. channel_id
-        filters: a channel UUID for that channel, "org" for org-wide, omitted for
-        all. Paginate with limit/offset.'
-      parameters:
-      - description: 'Filter: channel UUID, \'
-        in: query
-        name: channel_id
-        type: string
-      - description: Max items (1-100, default 50)
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination offset
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/observationListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List memory observations
-      tags:
-      - observations
-  /v1/observations/{id}:
-    delete:
-      description: Archives the observation and records its content fingerprint in
-        the per-channel suppression list so consolidation cannot resurrect it. Requires
-        an org admin/owner.
-      parameters:
-      - description: Observation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete an observation
-      tags:
-      - observations
-  /v1/observations/{id}/confirm:
-    post:
-      description: 'Human confirmation: increments proof_count and refreshes last_mentioned_at.
-        Requires an org admin/owner.'
-      parameters:
-      - description: Observation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              $ref: '#/definitions/observationResponse'
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Confirm an observation
-      tags:
-      - observations
-  /v1/observations/{id}/correct:
-    post:
-      consumes:
-      - application/json
-      description: 'Human edit: creates a new human-verified observation with the
-        corrected content (proof count carried over) and archives the old one with
-        a supersession link. Requires an org admin/owner.'
-      parameters:
-      - description: Observation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Corrected content
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/observationCorrectRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              $ref: '#/definitions/observationResponse'
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Correct an observation
-      tags:
-      - observations
-  /v1/observations/{id}/pin:
-    post:
-      description: Promotes the observation into an agent directive (source extracted-confirmed)
-        in the observation's scope, and marks the observation as pinned. Requires
-        an org admin/owner.
-      parameters:
-      - description: Observation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Pin an observation to a directive
-      tags:
-      - observations
   /v1/orgs:
     post:
       consumes:
@@ -10799,8 +9446,8 @@ paths:
       - teams
   /v1/orgs/current/teams/{id}:
     delete:
-      description: Archives an active team after all channels are removed from it.
-        Admin-only. Rejected if it is the org's last team.
+      description: Archives an active team. Admin-only. Rejected if it is the org's
+        last team.
       parameters:
       - description: Team ID
         in: path
@@ -10927,7 +9574,7 @@ paths:
       - teams
   /v1/orgs/current/teams/{id}/environment-variables:
     get:
-      description: Lists environment variables shared by all channels in a team. Values
+      description: Lists environment variables shared by agents in a team. Values
         are not returned.
       parameters:
       - description: Team ID
@@ -10962,7 +9609,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Stores an environment variable shared by all channels in a team.
+      description: Stores an environment variable shared by agents in a team.
       parameters:
       - description: Team ID
         in: path
@@ -11100,6 +9747,102 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a team environment variable
+      tags:
+      - teams
+  /v1/orgs/current/teams/{id}/external-resource-routes:
+    get:
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/externalResourceRoutesResponse'
+      summary: List external resource routes
+      tags:
+      - teams
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: External resource route
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/externalResourceRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/externalResourceRouteResponse'
+      summary: Create external resource route
+      tags:
+      - teams
+  /v1/orgs/current/teams/{id}/external-resource-routes/{routeID}:
+    delete:
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+      summary: Delete external resource route
+      tags:
+      - teams
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      - description: External resource route changes
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/externalResourceRouteUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/externalResourceRouteResponse'
+      summary: Update external resource route
       tags:
       - teams
   /v1/orgs/current/teams/{id}/members/{userID}:
@@ -11951,33 +10694,6 @@ paths:
       summary: Get an index-attempt with per-doc errors
       tags:
       - rag
-  /v1/rag/sources/{id}/channels:
-    get:
-      description: Returns the ids of the channels that can search this knowledge
-        source. Derived from team grants — a channel can search a source when its
-        team has been granted the source by an org admin.
-      parameters:
-      - description: RAG source ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/sourceChannelsResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List which channels can search a source
-      tags:
-      - rag
   /v1/rag/sources/{id}/documents:
     get:
       description: Lists the documents ingested into the knowledge base for a source,
@@ -12735,12 +11451,12 @@ paths:
       - schedules
   /v1/sessions:
     get:
-      description: Lists sessions visible to the caller, optionally filtered by channel
+      description: Lists sessions visible to the caller, optionally filtered by team
         or agent.
       parameters:
-      - description: Channel ID
+      - description: Team ID
         in: query
-        name: channel_id
+        name: team_id
         type: string
       - description: Agent ID
         in: query
@@ -13529,12 +12245,11 @@ paths:
       - sessions
   /v1/sheets:
     get:
-      description: Lists a channel's sheets, newest-updated first. Sheets are channel-scoped;
-        the caller must be able to use the channel.
+      description: Lists a team's sheets, newest-updated first.
       parameters:
-      - description: Channel ID to list sheets for
+      - description: Team ID to list sheets for
         in: query
-        name: channel_id
+        name: team_id
         required: true
         type: string
       - description: Case-insensitive name substring filter
@@ -13570,16 +12285,16 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: List sheets in a channel
+      summary: List sheets in a team
       tags:
       - sheets
     post:
       consumes:
       - application/json
-      description: Creates a sheet in a channel with optional inline pages and typed
-        fields. The caller must be able to use the channel.
+      description: Creates a sheet in a team with optional inline pages and typed
+        fields.
       parameters:
-      - description: Sheet to create (channel_id required)
+      - description: Sheet to create (team_id required)
         in: body
         name: body
         required: true
@@ -13612,7 +12327,7 @@ paths:
   /v1/sheets/{sheetID}:
     delete:
       description: Archives a sheet (soft delete). The caller must be able to use
-        the sheet's channel.
+        the sheet's team.
       parameters:
       - description: Sheet ID
         in: path
@@ -13641,7 +12356,7 @@ paths:
       - sheets
     get:
       description: Returns a sheet's full structure (pages, fields, row counts). The
-        caller must be able to use the sheet's channel.
+        caller must be able to use the sheet's team.
       parameters:
       - description: Sheet ID
         in: path
@@ -13672,7 +12387,7 @@ paths:
       consumes:
       - application/json
       description: Renames a sheet or updates its description/icon. The caller must
-        be able to use the sheet's channel.
+        be able to use the sheet's team.
       parameters:
       - description: Sheet ID
         in: path
@@ -13746,7 +12461,7 @@ paths:
   /v1/sheets/{sheetID}/live-token:
     post:
       description: Returns a short-lived JWT for the direct SSE stream. The caller
-        must be able to use the sheet's channel.
+        must be able to use the sheet's team.
       parameters:
       - description: Sheet ID
         in: path
@@ -14512,7 +13227,7 @@ paths:
   /v1/sheets/imports/{jobID}:
     get:
       description: Returns import job status. The caller must be able to use the job's
-        sheet's channel.
+        sheet's team.
       parameters:
       - description: Import job ID
         in: path
@@ -14612,71 +13327,6 @@ paths:
       summary: Update a skill
       tags:
       - skills
-  /v1/slack/channels:
-    get:
-      description: Returns public Slack channels plus private channels where Hivy
-        is already a member.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/slackChannelsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List Slack channels
-      tags:
-      - slack
-  /v1/slack/channels/join:
-    post:
-      consumes:
-      - application/json
-      description: Invites Hivy to all public channels or selected channels. Joined
-        private channels are treated as already available.
-      parameters:
-      - description: Join request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/joinSlackChannelsRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/joinSlackChannelsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Join Slack channels
-      tags:
-      - slack
   /v1/tokens:
     get:
       description: Returns tokens for the organization with cursor pagination. Supports

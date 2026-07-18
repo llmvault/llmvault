@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
@@ -23,18 +22,7 @@ func (h *NangoWebhookHandler) handleSlackReactionForward(w http.ResponseWriter, 
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
-	channel, ok, err := h.findSlackReactionChannel(ctx, wctx.connection, event.ItemChannel)
-	if err != nil {
-		fields["stage"] = "find_channel"
-		logging.CaptureWithFields(ctx, fmt.Errorf("slack reaction channel lookup: %w", err), fields)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to accept slack reaction"})
-		return
-	}
-	if !ok {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
-		return
-	}
-	trigger, ok, err := h.findSlackReactionTrigger(ctx, wctx.connection, channel.ID, event.Reaction)
+	trigger, ok, err := h.findSlackReactionTrigger(ctx, wctx.connection, event.ItemChannel, event.Reaction)
 	if err != nil {
 		fields["stage"] = "find_trigger"
 		logging.CaptureWithFields(ctx, fmt.Errorf("slack reaction trigger lookup: %w", err), fields)
@@ -46,7 +34,7 @@ func (h *NangoWebhookHandler) handleSlackReactionForward(w http.ResponseWriter, 
 		return
 	}
 	fields["trigger_id"] = trigger.ID.String()
-	claim, err := slackworkflow.ClaimReactionTrigger(ctx, h.db, wctx.connection.OrgID, wctx.connection.ID, trigger.ID, channel.ID, event)
+	claim, err := slackworkflow.ClaimReactionTrigger(ctx, h.db, wctx.connection.OrgID, wctx.connection.ID, trigger.ID, trigger.AgentID, event)
 	if err != nil {
 		fields["stage"] = "claim_reaction"
 		logging.CaptureWithFields(ctx, fmt.Errorf("slack reaction claim: %w", err), fields)
@@ -73,28 +61,12 @@ func (h *NangoWebhookHandler) handleSlackReactionForward(w http.ResponseWriter, 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "accepted"})
 }
 
-func (h *NangoWebhookHandler) findSlackReactionChannel(ctx context.Context, conn *model.Connection, slackChannelID string) (model.Channel, bool, error) {
-	var channel model.Channel
-	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND origin = ? AND external_provider = ?", conn.OrgID, "external", slackapp.Provider).
-		Where("external_connection_id = ? AND external_resource_type = ?", conn.ID, "slack_channel").
-		Where("external_resource_key = ? AND archived_at IS NULL", slackChannelID).
-		First(&channel).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Channel{}, false, nil
-	}
-	if err != nil {
-		return model.Channel{}, false, err
-	}
-	return channel, true, nil
-}
-
-func (h *NangoWebhookHandler) findSlackReactionTrigger(ctx context.Context, conn *model.Connection, channelID uuid.UUID, reaction string) (model.AgentTrigger, bool, error) {
+func (h *NangoWebhookHandler) findSlackReactionTrigger(ctx context.Context, conn *model.Connection, resourceKey, reaction string) (model.AgentTrigger, bool, error) {
 	var trigger model.AgentTrigger
 	err := h.db.WithContext(ctx).
 		Joins("JOIN agents ON agents.id = agent_triggers.agent_id").
 		Where("agent_triggers.org_id = ? AND agent_triggers.connection_id = ?", conn.OrgID, conn.ID).
-		Where("agent_triggers.channel_id = ? AND agent_triggers.enabled = true", channelID).
+		Where("agent_triggers.resource_type = ? AND agent_triggers.resource_key = ? AND agent_triggers.enabled = true", "slack_channel", resourceKey).
 		Where("agent_triggers.trigger_key = ? AND agent_triggers.trigger_value = ?", slackapp.EventReactionAdded, normalizeTriggerValue(reaction)).
 		Where("agents.status <> ?", "archived").
 		Order("agent_triggers.created_at ASC").

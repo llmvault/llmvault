@@ -28,8 +28,8 @@ type App struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID       uuid.UUID `gorm:"type:uuid;not null;index"`
 	Org         *Org      `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	ChannelID   uuid.UUID `gorm:"type:uuid;not null;index"`
-	Channel     *Channel  `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	TeamID      uuid.UUID `gorm:"type:uuid;not null;index"`
+	Team        *Team     `gorm:"foreignKey:TeamID;constraint:OnDelete:RESTRICT"`
 	SheetID     uuid.UUID `gorm:"type:uuid;not null;index"`
 	Sheet       *Sheet    `gorm:"foreignKey:SheetID;constraint:OnDelete:CASCADE"`
 	Slug        string    `gorm:"type:text;not null"`

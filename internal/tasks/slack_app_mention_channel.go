@@ -15,47 +15,65 @@ import (
 	"github.com/usehivy/hivy/internal/slackworkflow"
 )
 
-var errSlackChannelNotConfigured = errors.New("slack channel is not linked to a hivy team")
+var errSlackChannelNotConfigured = errors.New("slack channel is not routed to a hivy agent")
 
-const slackChannelNotConfiguredMessage = "This Slack channel isn't connected to a Hivy team yet. An admin can link it to a team from the Hivy dashboard to enable the assistant here."
+const slackChannelNotConfiguredMessage = "This Slack channel is not routed to a Hivy agent yet. An admin can configure an external resource route in the Hivy dashboard to enable the assistant here."
 
-func (h *SlackAppMentionHandler) resolveChannelAndAgent(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client, token string) (model.Channel, model.Agent, error) {
+// resolveTeamAndAgent preserves thread affinity before resolving a new inbound
+// Slack resource route. Resource routing is deterministic: no channel and no
+// LLM agent chooser are involved.
+func (h *SlackAppMentionHandler) resolveTeamAndAgent(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client) (model.Team, model.Agent, error) {
 	if row.SessionID != nil && *row.SessionID != uuid.Nil {
 		session, err := h.loadActiveSlackSession(ctx, row.OrgID, *row.SessionID)
 		if err != nil {
-			return model.Channel{}, model.Agent{}, fmt.Errorf("load slack continuation session: %w", err)
+			return model.Team{}, model.Agent{}, fmt.Errorf("load slack continuation session: %w", err)
 		}
-		channel, err := h.loadSlackSessionChannel(ctx, row.OrgID, session.ChannelID)
+		team, err := h.loadSlackSessionTeam(ctx, row.OrgID, session.TeamID)
 		if err != nil {
-			return model.Channel{}, model.Agent{}, err
+			return model.Team{}, model.Agent{}, err
 		}
 		agent, err := h.loadAgent(ctx, row.OrgID, session.AgentID)
 		if err != nil {
-			return model.Channel{}, model.Agent{}, err
+			return model.Team{}, model.Agent{}, err
 		}
-		row.ChannelID = &channel.ID
-		_ = slackworkflow.RecordChannelResolved(ctx, h.db, row.ID, channel.ID)
-		return channel, agent, nil
-	}
-	channel, found, err := h.findSlackChannel(ctx, *row)
-	if err != nil {
-		return model.Channel{}, model.Agent{}, err
+		row.ResolvedTeamID, row.AgentID = &team.ID, &agent.ID
+		_ = slackworkflow.RecordRouteResolved(ctx, h.db, row.ID, team.ID, agent.ID)
+		return team, agent, nil
 	}
 	if row.TriggerID != nil && *row.TriggerID != uuid.Nil {
-		if !found {
-			return model.Channel{}, model.Agent{}, fmt.Errorf("slack trigger channel not found")
+		agent, err := h.loadSlackTriggerAgent(ctx, row.OrgID, *row.TriggerID)
+		if err != nil {
+			return model.Team{}, model.Agent{}, err
 		}
-		agent, err := h.loadSlackTriggerAgent(ctx, row.OrgID, *row.TriggerID, channel.ID)
-		return channel, agent, err
+		team, err := h.loadSlackSessionTeam(ctx, row.OrgID, agent.TeamID)
+		if err != nil {
+			return model.Team{}, model.Agent{}, err
+		}
+		row.ResolvedTeamID, row.AgentID = &team.ID, &agent.ID
+		_ = slackworkflow.RecordRouteResolved(ctx, h.db, row.ID, team.ID, agent.ID)
+		return team, agent, nil
 	}
-	if found {
-		agent, err := h.routeChannelAgent(ctx, row, channel)
-		return channel, agent, err
+	route, found, err := h.findSlackExternalResourceRoute(ctx, *row)
+	if err != nil {
+		return model.Team{}, model.Agent{}, err
 	}
-	if err := h.replyChannelNotConfigured(ctx, row, client); err != nil {
-		return model.Channel{}, model.Agent{}, err
+	if !found {
+		if err := h.replyChannelNotConfigured(ctx, row, client); err != nil {
+			return model.Team{}, model.Agent{}, err
+		}
+		return model.Team{}, model.Agent{}, errSlackChannelNotConfigured
 	}
-	return model.Channel{}, model.Agent{}, errSlackChannelNotConfigured
+	team, err := h.loadSlackSessionTeam(ctx, row.OrgID, route.TeamID)
+	if err != nil {
+		return model.Team{}, model.Agent{}, err
+	}
+	agent, err := h.loadAgent(ctx, row.OrgID, route.AgentID)
+	if err != nil {
+		return model.Team{}, model.Agent{}, err
+	}
+	row.ResolvedTeamID, row.AgentID = &team.ID, &agent.ID
+	_ = slackworkflow.RecordRouteResolved(ctx, h.db, row.ID, team.ID, agent.ID)
+	return team, agent, nil
 }
 
 func (h *SlackAppMentionHandler) replyChannelNotConfigured(ctx context.Context, row *model.SlackThreadEvent, client slackapp.Client) error {
@@ -63,42 +81,33 @@ func (h *SlackAppMentionHandler) replyChannelNotConfigured(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("post slack channel-not-configured notice: %w", err)
 	}
-	if err := slackworkflow.RecordReplySent(ctx, h.db, row.ID, replyTS); err != nil {
-		return err
-	}
-	return nil
+	return slackworkflow.RecordReplySent(ctx, h.db, row.ID, replyTS)
 }
 
-func (h *SlackAppMentionHandler) loadSlackTriggerAgent(ctx context.Context, orgID, triggerID, channelID uuid.UUID) (model.Agent, error) {
+func (h *SlackAppMentionHandler) loadSlackTriggerAgent(ctx context.Context, orgID, triggerID uuid.UUID) (model.Agent, error) {
 	var trigger model.AgentTrigger
-	err := h.db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND channel_id = ? AND enabled = true", triggerID, orgID, channelID).
-		Where("trigger_key = ?", slackapp.EventReactionAdded).
-		First(&trigger).Error
+	err := h.db.WithContext(ctx).Where("id = ? AND org_id = ? AND enabled = true", triggerID, orgID).First(&trigger).Error
 	if err != nil {
 		return model.Agent{}, fmt.Errorf("load slack trigger: %w", err)
 	}
 	return h.loadAgent(ctx, orgID, trigger.AgentID)
 }
 
-func (h *SlackAppMentionHandler) findSlackChannel(ctx context.Context, row model.SlackThreadEvent) (model.Channel, bool, error) {
-	var channel model.Channel
+func (h *SlackAppMentionHandler) findSlackExternalResourceRoute(ctx context.Context, row model.SlackThreadEvent) (model.TeamExternalResourceRoute, bool, error) {
+	var route model.TeamExternalResourceRoute
 	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND origin = ? AND external_provider = ?", row.OrgID, "external", slackapp.Provider).
-		Where("external_connection_id = ? AND external_resource_type = ?", row.ConnectionID, "slack_channel").
-		Where("external_resource_key = ? AND archived_at IS NULL", row.SlackChannelID).
-		First(&channel).Error
+		Where("org_id = ? AND connection_id = ? AND resource_type = ? AND resource_key = ?", row.OrgID, row.ConnectionID, "slack_channel", row.SlackChannelID).
+		First(&route).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Channel{}, false, nil
+		return model.TeamExternalResourceRoute{}, false, nil
 	}
 	if err != nil {
-		return model.Channel{}, false, fmt.Errorf("load slack channel: %w", err)
+		return model.TeamExternalResourceRoute{}, false, fmt.Errorf("load slack external resource route: %w", err)
 	}
-	_ = slackworkflow.RecordChannelResolved(ctx, h.db, row.ID, channel.ID)
-	return channel, true, nil
+	return route, true, nil
 }
 
-func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, row *model.SlackThreadEvent, channel model.Channel, agent model.Agent) (model.Session, error) {
+func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, row *model.SlackThreadEvent, team model.Team, agent model.Agent) (model.Session, error) {
 	if row.SessionID != nil && *row.SessionID != uuid.Nil {
 		session, err := h.loadActiveSlackSession(ctx, row.OrgID, *row.SessionID)
 		if err != nil {
@@ -109,10 +118,7 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 	}
 	key := slackSessionResourceKey(*row)
 	var session model.Session
-	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
-			row.OrgID, model.SessionSourceExternal, row.ConnectionID, key, "active").
-		First(&session).Error
+	err := h.db.WithContext(ctx).Where("org_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?", row.OrgID, model.SessionSourceExternal, row.ConnectionID, key, "active").First(&session).Error
 	if err == nil {
 		_ = slackworkflow.RecordSessionResolved(ctx, h.db, row.ID, session.ID)
 		return session, nil
@@ -121,30 +127,11 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 		return model.Session{}, fmt.Errorf("load slack session: %w", err)
 	}
 	var generation int64
-	if err := h.db.WithContext(ctx).Model(&model.Session{}).
-		Where("org_id = ? AND source = ? AND source_id = ? AND source_resource_key = ?",
-			row.OrgID, model.SessionSourceExternal, row.ConnectionID, key).
-		Count(&generation).Error; err != nil {
+	if err := h.db.WithContext(ctx).Model(&model.Session{}).Where("org_id = ? AND source = ? AND source_id = ? AND source_resource_key = ?", row.OrgID, model.SessionSourceExternal, row.ConnectionID, key).Count(&generation).Error; err != nil {
 		return model.Session{}, fmt.Errorf("count slack sessions: %w", err)
 	}
 	connID := row.ConnectionID
-	session = model.Session{
-		ID:                stableSlackSessionID(*row, generation),
-		OrgID:             row.OrgID,
-		ChannelID:         channel.ID,
-		AgentID:           agent.ID,
-		Model:             agent.Model,
-		ReasoningEffort:   sessionReasoningEffort(agent),
-		Source:            model.SessionSourceExternal,
-		SourceID:          &connID,
-		SourceResourceKey: key,
-		// Name is left empty so Slack sessions follow the same naming strategy
-		// as web/API sessions: no name up front, then an async LLM title
-		// generated from the first message (enqueued after delivery commits it).
-		Status:            "active",
-		AgentTurnStatus:   model.SessionAgentTurnIdle,
-		IntegrationScopes: model.JSON{},
-	}
+	session = model.Session{ID: stableSlackSessionID(*row, generation), OrgID: row.OrgID, TeamID: team.ID, AgentID: agent.ID, Model: agent.Model, ReasoningEffort: sessionReasoningEffort(agent), Source: model.SessionSourceExternal, SourceID: &connID, SourceResourceKey: key, Status: "active", AgentTurnStatus: model.SessionAgentTurnIdle, IntegrationScopes: model.JSON{}}
 	if err := h.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&session).Error; err != nil {
 		return model.Session{}, fmt.Errorf("create slack session: %w", err)
 	}
@@ -157,38 +144,23 @@ func (h *SlackAppMentionHandler) findOrCreateSlackSession(ctx context.Context, r
 
 func (h *SlackAppMentionHandler) loadActiveSlackSession(ctx context.Context, orgID, sessionID uuid.UUID) (model.Session, error) {
 	var session model.Session
-	err := h.db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND source = ? AND status = ?", sessionID, orgID, model.SessionSourceExternal, "active").
-		First(&session).Error
-	if err != nil {
-		return model.Session{}, err
-	}
-	return session, nil
+	err := h.db.WithContext(ctx).Where("id = ? AND org_id = ? AND source = ? AND status = ?", sessionID, orgID, model.SessionSourceExternal, "active").First(&session).Error
+	return session, err
 }
 
-func (h *SlackAppMentionHandler) loadSlackSessionChannel(ctx context.Context, orgID, channelID uuid.UUID) (model.Channel, error) {
-	var channel model.Channel
-	err := h.db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND origin = ? AND external_provider = ? AND archived_at IS NULL",
-			channelID, orgID, "external", slackapp.Provider).
-		First(&channel).Error
+func (h *SlackAppMentionHandler) loadSlackSessionTeam(ctx context.Context, orgID, teamID uuid.UUID) (model.Team, error) {
+	var team model.Team
+	err := h.db.WithContext(ctx).Where("id = ? AND org_id = ? AND archived_at IS NULL", teamID, orgID).First(&team).Error
 	if err != nil {
-		return model.Channel{}, fmt.Errorf("load slack session channel: %w", err)
+		return model.Team{}, fmt.Errorf("load slack session team: %w", err)
 	}
-	return channel, nil
+	return team, nil
 }
 
 func slackSessionResourceKey(row model.SlackThreadEvent) string {
-	parts := []string{slackapp.Provider, row.ConnectionID.String(), row.TeamID, row.SlackChannelID, row.ThreadTS}
-	if row.TriggerID != nil && *row.TriggerID != uuid.Nil {
-		parts = append(parts, "trigger", row.TriggerID.String())
-	}
-	return strings.Join(parts, ":")
+	return strings.Join([]string{slackapp.Provider, row.ConnectionID.String(), row.SlackTeamID, row.SlackChannelID, row.ThreadTS}, ":")
 }
 
-// stableSlackSessionID is deterministic so concurrent deliveries collapse to
-// one session; the generation salts the id so an archived session's row never
-// blocks (or silently receives) a new conversation.
 func stableSlackSessionID(row model.SlackThreadEvent, generation int64) uuid.UUID {
 	key := "hivy:slack-session:" + slackSessionResourceKey(row)
 	if generation > 0 {

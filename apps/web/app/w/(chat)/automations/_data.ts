@@ -114,7 +114,7 @@ export function automationFromInstalledTrigger(
           : isGithubMention
             ? "Mentioned on GitHub"
             : humanizeSlug(triggerKey) || "Trigger")
-  const channel = trigger.external_resource_name || trigger.channel_name || ""
+  const channel = trigger.external_resource_name || ""
   const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
   const agent = trigger.agent_name || "Agent"
   const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
@@ -150,7 +150,7 @@ export function automationFromWebhookTrigger(
 ): AutomationItem {
   const agent = trigger.agent_name || "Agent"
   const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
-  const channel = trigger.channel_name ? ` in ${trigger.channel_name}` : ""
+  const channel = trigger.external_resource_name ? ` in ${trigger.external_resource_name}` : ""
 
   return {
     id: trigger.id || "",

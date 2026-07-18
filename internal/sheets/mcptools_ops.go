@@ -79,7 +79,7 @@ func importCSVStart(ctx context.Context, svc *Service, token *model.Token, agent
 	if err != nil {
 		return sheetToolError(err.Error()), nil
 	}
-	if errResult := sheetToolGuardResult(svc.PageInChannel(tctx, token.OrgID, actor.ChannelID, pageID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.PageInTeam(tctx, token.OrgID, actor.TeamID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	job, err := svc.CreateImportJob(tctx, token.OrgID, pageID, CreateImportJobRequest{
@@ -102,11 +102,11 @@ func importCSVStatus(ctx context.Context, svc *Service, token *model.Token, args
 	if errResult != nil {
 		return errResult, nil
 	}
-	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	channelID, errResult := sheetToolTeamResult(tctx, svc, token, args.HivySessionID)
 	if errResult != nil {
 		return errResult, nil
 	}
-	if errResult := sheetToolGuardResult(svc.ImportJobInChannel(tctx, token.OrgID, channelID, jobID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.ImportJobInTeam(tctx, token.OrgID, channelID, jobID)); errResult != nil {
 		return errResult, nil
 	}
 	job, err := svc.GetImportJob(tctx, token.OrgID, jobID)
@@ -178,11 +178,11 @@ func operationsList(ctx context.Context, svc *Service, token *model.Token, args 
 	if errResult != nil {
 		return errResult, nil
 	}
-	channelID, errResult := sheetToolChannelResult(ctx, svc, token, args.HivySessionID)
+	channelID, errResult := sheetToolTeamResult(ctx, svc, token, args.HivySessionID)
 	if errResult != nil {
 		return errResult, nil
 	}
-	if errResult := sheetToolGuardResult(svc.PageInChannel(ctx, token.OrgID, channelID, pageID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.PageInTeam(ctx, token.OrgID, channelID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	ops, err := svc.ListOperations(ctx, token.OrgID, pageID, OperationRetentionPerPage)
@@ -205,7 +205,7 @@ func operationsRevert(ctx context.Context, svc *Service, token *model.Token, age
 	if err != nil {
 		return sheetToolError(err.Error()), nil
 	}
-	if errResult := sheetToolGuardResult(svc.OperationInChannel(ctx, token.OrgID, actor.ChannelID, operationID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.OperationInTeam(ctx, token.OrgID, actor.TeamID, operationID)); errResult != nil {
 		return errResult, nil
 	}
 	if err := svc.RevertOperation(ctx, token.OrgID, operationID, actor); err != nil {

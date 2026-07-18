@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/channelagents"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -44,7 +42,7 @@ func validateAgentTriggers(db *gorm.DB, orgID uuid.UUID, triggers []agentTrigger
 			// No required fields.
 		case "email":
 			// Email is delivered through the shared Resend webhook; the trigger
-			// only supplies the agent, channel, and automation instructions.
+			// only supplies the agent and automation instructions.
 		default:
 			return fmt.Sprintf("triggers[%d]: invalid trigger_type %q", i, triggerType)
 		}
@@ -102,16 +100,12 @@ func createAgentTriggersWithExistingSecrets(tx *gorm.DB, orgID, agentID uuid.UUI
 			TriggerType:  triggerType,
 			SourceSlug:   strings.TrimSpace(input.SourceSlug),
 			Instructions: input.Instructions,
+			ResourceType: strings.TrimSpace(input.ResourceType),
+			ResourceKey:  strings.TrimSpace(input.ResourceKey),
 		}
 		if existingID != uuid.Nil {
 			trigger.ID = existingID
 		}
-		channelID, channelErr := resolveAgentTriggerChannel(tx, orgID, agentID, input.ChannelID)
-		if channelErr != nil {
-			return channelErr
-		}
-		trigger.ChannelID = channelID
-
 		switch triggerType {
 		case "webhook":
 			connectionID, parseErr := uuid.Parse(input.ConnectionID)
@@ -202,33 +196,4 @@ func reassignAgentTriggersToDefault(tx *gorm.DB, orgID uuid.UUID, fromAgentIDs [
 		return fmt.Errorf("reassign agent triggers to default: %w", err)
 	}
 	return nil
-}
-
-func resolveAgentTriggerChannel(db *gorm.DB, orgID, agentID uuid.UUID, raw string) (*uuid.UUID, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-	channelID, err := uuid.Parse(raw)
-	if err != nil || channelID == uuid.Nil {
-		return nil, fmt.Errorf("channel_id must be a uuid")
-	}
-	var channel model.Channel
-	err = db.
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
-		First(&channel).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("channel_id not found")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("load channel: %w", err)
-	}
-	acts, err := channelagents.ActsInChannel(context.Background(), db, orgID, channel.ID, agentID)
-	if err != nil {
-		return nil, err
-	}
-	if !acts {
-		return nil, fmt.Errorf("agent does not belong to this channel's team")
-	}
-	return &channelID, nil
 }

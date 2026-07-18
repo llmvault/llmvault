@@ -133,8 +133,8 @@ func printRun(run *tasks.ReflectionReplayRun, verbose, showTranscript bool) {
 	if run.SessionName != "" {
 		fmt.Printf(" (%s)", run.SessionName)
 	}
-	if run.ChannelName != "" {
-		fmt.Printf(" [channel: %s]", run.ChannelName)
+	if run.AgentName != "" {
+		fmt.Printf(" [agent: %s]", run.AgentName)
 	}
 	fmt.Printf(" — %d events ===\n", run.EventCount)
 	if showTranscript {

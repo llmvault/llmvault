@@ -1,6 +1,5 @@
 import type { components } from "@/lib/api/schema"
 
-export type SidebarChannelResponse = components["schemas"]["channelResponse"]
 export type SidebarSessionResponse = components["schemas"]["sessionResponse"]
 export type SidebarAgentResponse = components["schemas"]["agentListItem"]
 export type SidebarTeamResponse = components["schemas"]["teamResponse"]
@@ -10,56 +9,14 @@ export function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-  return slug || "channel"
-}
-
-export function channelDisplayName(channel: SidebarChannelResponse): string {
-  return channel.name?.trim() || "Untitled channel"
-}
-
-export function channelRouteSlug(channel: SidebarChannelResponse): string {
-  return slugify(channelDisplayName(channel))
-}
-
-export function sortChannelsByRecentSession(
-  channels: SidebarChannelResponse[],
-  latestSessionsByChannelID: Map<string, SidebarSessionResponse | null>
-): SidebarChannelResponse[] {
-  return channels
-    .map((channel, index) => {
-      const latestSession = channel.id
-        ? latestSessionsByChannelID.get(channel.id)
-        : undefined
-      return {
-        channel,
-        index,
-        hasSession: Boolean(latestSession),
-        timestamp:
-          timestampValue(latestSession?.last_activity_at) ??
-          timestampValue(latestSession?.updated_at) ??
-          timestampValue(latestSession?.created_at) ??
-          timestampValue(channel.updated_at) ??
-          timestampValue(channel.created_at) ??
-          0,
-      }
-    })
-    .sort((left, right) => {
-      if (left.hasSession !== right.hasSession) {
-        return left.hasSession ? -1 : 1
-      }
-      if (left.timestamp !== right.timestamp) {
-        return right.timestamp - left.timestamp
-      }
-      return left.index - right.index
-    })
-    .map(({ channel }) => channel)
+  return slug || "item"
 }
 
 interface SidebarTeamGroup {
   key: string
   teamId: string
   name: string
-  channels: SidebarChannelResponse[]
+  sessions: SidebarSessionResponse[]
 }
 
 function teamGroupFallbackLabel(teamId: string): string {
@@ -68,7 +25,7 @@ function teamGroupFallbackLabel(teamId: string): string {
 
 export function buildSidebarTeamGroups(
   teams: SidebarTeamResponse[],
-  latestSessionsByChannelID: Map<string, SidebarSessionResponse | null>
+  sessions: SidebarSessionResponse[]
 ): SidebarTeamGroup[] {
   const groups: SidebarTeamGroup[] = []
   for (const team of teams) {
@@ -78,37 +35,16 @@ export function buildSidebarTeamGroups(
       key: teamId,
       teamId,
       name: team.name?.trim() || teamGroupFallbackLabel(teamId),
-      channels: sortChannelsByRecentSession(
-        team.channels ?? [],
-        latestSessionsByChannelID
-      ),
+      sessions: sessions
+        .filter((session) => sessionTeamID(session) === teamId)
+        .sort((left, right) => sessionTimestamp(right) - sessionTimestamp(left)),
     })
   }
   return groups
 }
 
-export function channelRouteSlugCounts(channels: SidebarChannelResponse[]) {
-  const counts = new Map<string, number>()
-  for (const channel of channels) {
-    const slug = channelRouteSlug(channel)
-    counts.set(slug, (counts.get(slug) ?? 0) + 1)
-  }
-  return counts
-}
-
-export function isAmbiguousChannelRouteSlug(
-  channels: SidebarChannelResponse[],
-  slug: string
-): boolean {
-  return (channelRouteSlugCounts(channels).get(slug) ?? 0) > 1
-}
-
-export function findChannelByRouteSlug(
-  channels: SidebarChannelResponse[],
-  slug: string
-): SidebarChannelResponse | undefined {
-  if (isAmbiguousChannelRouteSlug(channels, slug)) return undefined
-  return channels.find((channel) => channelRouteSlug(channel) === slug)
+export function sessionTeamID(session: SidebarSessionResponse): string | undefined {
+  return (session as SidebarSessionResponse & { team_id?: string }).team_id
 }
 
 export function sessionDisplayName(session: SidebarSessionResponse): string {
@@ -169,6 +105,14 @@ function timestampValue(value?: string): number | undefined {
   return Number.isNaN(time) ? undefined : time
 }
 
+function sessionTimestamp(session: SidebarSessionResponse): number {
+  return (
+    timestampValue(
+      session.last_activity_at ?? session.updated_at ?? session.created_at
+    ) ?? 0
+  )
+}
+
 export function dedupeSessions(sessions: SidebarSessionResponse[]) {
   const seen = new Set<string>()
   const result: SidebarSessionResponse[] = []
@@ -182,11 +126,10 @@ export function dedupeSessions(sessions: SidebarSessionResponse[]) {
 
 export function sessionRouteFromPathname(
   pathname: string
-): { channelSlug: string; sessionId: string } | null {
-  const match = pathname.match(/^\/w\/channels\/([^/]+)\/([^/]+)$/)
+): { sessionId: string } | null {
+  const match = pathname.match(/^\/w\/sessions\/([^/]+)$/)
   if (!match) return null
   return {
-    channelSlug: decodeURIComponent(match[1]),
-    sessionId: decodeURIComponent(match[2]),
+    sessionId: decodeURIComponent(match[1]),
   }
 }

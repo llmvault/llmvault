@@ -124,11 +124,10 @@ export default function TeamDetailPage({
           <h1 className="truncate text-2xl font-semibold">{teamLabel(team)}</h1>
           <p className="mt-1 text-sm text-muted">
             {team.description ||
-              "Manage this team's members and channel access."}
+              "Manage this team's members and external resource routing."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Chip size="sm">{team.member_count ?? members.length} members</Chip>
-            <Chip size="sm">{team.channel_count ?? 0} channels</Chip>
             <Chip size="sm">Created {formatDate(team.created_at)}</Chip>
           </div>
         </div>

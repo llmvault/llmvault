@@ -6,12 +6,11 @@ import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { useTeamAgents } from "@/lib/api/team-agents"
 import { extractErrorMessage } from "@/lib/api/error"
-import { Composer } from "@/app/w/(chat)/_components/composer"
+import { Composer } from "./composer"
 import { LogoMark } from "@/components/logo"
-import type { ChatSession } from "@/app/w/(chat)/_components/shell"
+import type { ChatSession } from "./shell"
 import {
   CHAT_QUERY_STALE_TIME_MS,
-  insertSessionIntoChannelCache,
   invalidateSessionListQueries,
   seedSessionDetail,
 } from "@/app/w/(chat)/_lib/chat-cache"
@@ -22,32 +21,18 @@ import {
 } from "@/app/w/(chat)/_lib/image-attachments"
 import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
 import { watchGeneratedSessionName } from "@/app/w/(chat)/_lib/session-name-updates"
-import {
-  agentDisplayName,
-  channelRouteSlug,
-} from "@/app/w/(chat)/_lib/sidebar-data"
+import { agentDisplayName } from "@/app/w/(chat)/_lib/sidebar-data"
 
 interface SessionViewProps {
-  channelSlug?: string
   onSessionCreated: (
-    channelSlug: string,
     sessionId: string,
     session?: ChatSession,
     options?: { replace?: boolean }
   ) => void
 }
 
-export function SessionView({
-  channelSlug,
-  onSessionCreated,
-}: SessionViewProps) {
+export function SessionView({ onSessionCreated }: SessionViewProps) {
   const queryClient = useQueryClient()
-  const channelsQuery = $api.useQuery(
-    "get",
-    "/v1/channels",
-    { params: { query: { limit: 100 } } },
-    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
-  )
   const teamsQuery = $api.useQuery(
     "get",
     "/v1/orgs/current/teams",
@@ -61,52 +46,13 @@ export function SessionView({
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
   const createSession = $api.useMutation("post", "/v1/sessions")
-  const channels = useMemo(
-    () => channelsQuery.data?.data ?? [],
-    [channelsQuery.data?.data]
-  )
   const teams = useMemo(
     () => teamsQuery.data?.data ?? [],
     [teamsQuery.data?.data]
   )
-  const routeChannel = useMemo(
-    () =>
-      channelSlug
-        ? channels.find((channel) => channelRouteSlug(channel) === channelSlug)
-        : undefined,
-    [channelSlug, channels]
-  )
-  const defaultChannel =
-    routeChannel ??
-    channels.find((channel) => channel.is_default) ??
-    channels[0]
   const [selectedTeamID, setSelectedTeamID] = useState<string | null>(null)
-  const [selectedChannelChoice, setSelectedChannelChoice] = useState<{
-    routeSlug: string
-    channelID: string
-  } | null>(null)
-  const selectedRouteSlug = channelSlug ?? ""
-  const activeTeamID =
-    selectedTeamID ?? defaultChannel?.team_id?.trim() ?? teams[0]?.id ?? null
+  const activeTeamID = selectedTeamID ?? teams[0]?.id ?? null
   const activeTeam = teams.find((team) => team.id === activeTeamID)
-  const teamChannels = useMemo(
-    () => channels.filter((channel) => channel.team_id === activeTeamID),
-    [channels, activeTeamID]
-  )
-  const selectedChannel =
-    selectedChannelChoice?.routeSlug === selectedRouteSlug
-      ? teamChannels.find(
-          (channel) => channel.id === selectedChannelChoice.channelID
-        )
-      : undefined
-  const teamDefaultChannel =
-    teamChannels.find((channel) => channel.is_default) ?? teamChannels[0]
-  const activeChannel =
-    selectedChannel ??
-    (defaultChannel?.team_id === activeTeamID
-      ? defaultChannel
-      : teamDefaultChannel)
-
   const {
     agents,
     isLoading: agentsLoading,
@@ -114,9 +60,7 @@ export function SessionView({
   } = useTeamAgents(activeTeamID)
   const [selectedAgentID, setSelectedAgentID] = useState<string | null>(null)
   const selectedAgent =
-    agents.find((agent) => agent.id === selectedAgentID) ??
-    agents.find((agent) => agent.id === activeChannel?.default_agent_id) ??
-    agents[0]
+    agents.find((agent) => agent.id === selectedAgentID) ?? agents[0]
   const modelSummaries = useMemo(
     () => agentModelsQuery.data ?? [],
     [agentModelsQuery.data]
@@ -125,17 +69,17 @@ export function SessionView({
     () => composerModelIds(modelSummaries),
     [modelSummaries]
   )
-  const agentDefaultModelId = selectedAgent?.model?.trim()
-  const defaultModelId =
-    (agentDefaultModelId && modelIds.includes(agentDefaultModelId)
-      ? agentDefaultModelId
+  const agentDefaultModelID = selectedAgent?.model?.trim()
+  const defaultModelID =
+    (agentDefaultModelID && modelIds.includes(agentDefaultModelID)
+      ? agentDefaultModelID
       : modelIds[0]) ?? ""
   const [selectedModelID, setSelectedModelID] = useState<string | null>(null)
-  const modelId =
+  const modelID =
     selectedModelID && modelIds.includes(selectedModelID)
       ? selectedModelID
-      : defaultModelId
-  const draftKey = `new:${channelSlug ?? "root"}`
+      : defaultModelID
+  const draftKey = `new:${activeTeamID ?? "root"}`
   const setComposerUploads = useSessionWorkspaceStore(
     (state) => state.setComposerUploads
   )
@@ -146,27 +90,17 @@ export function SessionView({
     (state) => state.setComposerText
   )
 
-  const resetDraftAttachments = () => {
+  const resetDraft = () => {
     setComposerUploads(draftKey, () => [])
     setAttachmentDescriptions(draftKey, () => ({}))
+    setComposerText(draftKey, "")
   }
 
   const handleTeamChange = (teamID: string) => {
     setSelectedTeamID(teamID)
-    const nextTeamChannels = channels.filter(
-      (channel) => channel.team_id === teamID
-    )
-    const nextChannel =
-      nextTeamChannels.find((channel) => channel.is_default) ??
-      nextTeamChannels[0]
-    setSelectedChannelChoice(
-      nextChannel?.id
-        ? { routeSlug: selectedRouteSlug, channelID: nextChannel.id }
-        : null
-    )
     setSelectedAgentID(null)
     setSelectedModelID(null)
-    resetDraftAttachments()
+    resetDraft()
   }
 
   const createFirstSession = async (
@@ -174,42 +108,32 @@ export function SessionView({
     attachments: ImageAttachmentMetadata[],
     effort: string
   ) => {
-    if (!activeChannel?.id) {
-      toast.danger("Select a channel first")
+    if (!selectedAgent?.id) {
+      toast.danger("Select an agent first")
       return false
     }
-
     const attachmentIDs = imageAttachmentIDs(attachments)
     try {
       const response = await createSession.mutateAsync({
         body: {
-          channel_id: activeChannel.id,
-          agent_id: selectedAgent?.id,
+          agent_id: selectedAgent.id,
           text,
-          ...(attachmentIDs.length
-            ? { attachment_ids: attachmentIDs }
-            : {}),
-	          model_definition: {
-	            model_id: modelId,
-	            reasoning_effort: effort.toLowerCase(),
-	          },
-	        },
-	      })
-
+          ...(attachmentIDs.length ? { attachment_ids: attachmentIDs } : {}),
+          model_definition: {
+            model_id: modelID,
+            reasoning_effort: effort.toLowerCase(),
+          },
+        },
+      })
       const created = response.session
       if (!created?.id) {
         toast.danger("Session was created without an id")
         return false
       }
-
       seedSessionDetail(queryClient, created)
-      insertSessionIntoChannelCache(queryClient, created)
       invalidateSessionListQueries(queryClient)
       watchGeneratedSessionName(queryClient, created)
-
-      onSessionCreated(channelRouteSlug(activeChannel), created.id, undefined, {
-        replace: true,
-      })
+      onSessionCreated(created.id, undefined, { replace: true })
       return true
     } catch (error) {
       toast.danger(extractErrorMessage(error, "Could not create session"))
@@ -224,10 +148,7 @@ export function SessionView({
         <div className="flex flex-col items-center gap-4 text-center">
           <LogoMark className="h-16 w-16" />
           <div>
-            <h1
-              suppressHydrationWarning
-              className="text-2xl font-semibold tracking-tight text-foreground"
-            >
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               {timeGreeting()}
             </h1>
             <p className="mt-1 text-base text-muted">
@@ -238,7 +159,7 @@ export function SessionView({
         <Composer
           sessionId={draftKey}
           agentId={selectedAgent?.id ?? ""}
-          modelId={modelId}
+          modelId={modelID}
           sessionExists={false}
           spendVisible={false}
           teamSelectable
@@ -246,21 +167,7 @@ export function SessionView({
           teams={teams}
           teamsLoading={teamsQuery.isLoading}
           teamsError={teamsQuery.isError}
-          onTeamChange={(team) => {
-            if (team.id) handleTeamChange(team.id)
-          }}
-          channelSelectable
-          channel={activeChannel}
-          channels={teamChannels}
-          channelsLoading={channelsQuery.isLoading}
-          channelsError={channelsQuery.isError}
-          onChannelChange={(channel) =>
-            setSelectedChannelChoice(
-              channel.id
-                ? { routeSlug: selectedRouteSlug, channelID: channel.id }
-                : null
-            )
-          }
+          onTeamChange={(team) => team.id && handleTeamChange(team.id)}
           agentSelectable
           agent={selectedAgent}
           agents={agents}
@@ -269,7 +176,7 @@ export function SessionView({
           onAgentChange={(agent) => {
             setSelectedAgentID(agent.id ?? null)
             setSelectedModelID(null)
-            resetDraftAttachments()
+            resetDraft()
           }}
           modelSelectable
           modelIds={modelIds}
@@ -278,7 +185,7 @@ export function SessionView({
           modelsError={agentModelsQuery.isError}
           onModelChange={setSelectedModelID}
           isSubmitting={createSession.isPending}
-          onSend={(text, attachments, _codeLineComments, effort) =>
+          onSend={(text, attachments, _comments, effort) =>
             createFirstSession(text, attachments, effort)
           }
           placeholder={

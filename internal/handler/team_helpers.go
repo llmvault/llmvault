@@ -93,66 +93,23 @@ func (h *TeamHandler) teamResponses(ctx context.Context, teams []model.Team) []t
 	counts := h.teamCounts(ctx, teamIDs(teams))
 	out := make([]teamResponse, len(teams))
 	for i, team := range teams {
-		out[i] = teamToResponse(team, counts.members[team.ID], counts.channels[team.ID])
+		out[i] = teamToResponse(team, counts.members[team.ID])
 	}
 	return out
 }
 
 func (h *TeamHandler) teamResponse(ctx context.Context, team model.Team) teamResponse {
 	counts := h.teamCounts(ctx, []uuid.UUID{team.ID})
-	return teamToResponse(team, counts.members[team.ID], counts.channels[team.ID])
-}
-
-func (h *TeamHandler) attachTeamChannels(ctx context.Context, orgID uuid.UUID, out []teamResponse, orgWide bool, userID *uuid.UUID) {
-	if len(out) == 0 {
-		return
-	}
-	ids := make([]uuid.UUID, 0, len(out))
-	index := make(map[string]int, len(out))
-	for i, team := range out {
-		teamID, err := uuid.Parse(team.ID)
-		if err != nil {
-			continue
-		}
-		ids = append(ids, teamID)
-		index[team.ID] = i
-	}
-	if len(ids) == 0 {
-		return
-	}
-	q := h.db.WithContext(ctx).
-		Model(&model.Channel{}).
-		Where("org_id = ? AND archived_at IS NULL AND team_id IN ?", orgID, ids)
-	if !orgWide {
-		q = q.Where(
-			"(channels.visibility <> ? AND channels.team_id IN (?)) OR channels.id IN (?)",
-			"private", visibleTeamSubquery(h.db, userID), memberChannelIDSubquery(h.db, userID))
-	}
-	q = q.Order("channels.created_at DESC, channels.id DESC")
-	var channels []model.Channel
-	if err := q.Find(&channels).Error; err != nil {
-		return
-	}
-	responses := NewChannelHandler(h.db).channelListResponses(ctx, channels, userID, true, defaultChannelRecentSessionsLimit)
-	for _, resp := range responses {
-		if resp.TeamID == nil {
-			continue
-		}
-		if i, ok := index[*resp.TeamID]; ok {
-			out[i].Channels = append(out[i].Channels, resp)
-		}
-	}
+	return teamToResponse(team, counts.members[team.ID])
 }
 
 type teamCountMaps struct {
-	members  map[uuid.UUID]int64
-	channels map[uuid.UUID]int64
+	members map[uuid.UUID]int64
 }
 
 func (h *TeamHandler) teamCounts(ctx context.Context, ids []uuid.UUID) teamCountMaps {
 	out := teamCountMaps{
-		members:  make(map[uuid.UUID]int64, len(ids)),
-		channels: make(map[uuid.UUID]int64, len(ids)),
+		members: make(map[uuid.UUID]int64, len(ids)),
 	}
 	if len(ids) == 0 {
 		return out
@@ -171,16 +128,6 @@ func (h *TeamHandler) teamCounts(ctx context.Context, ids []uuid.UUID) teamCount
 	for _, row := range memberRows {
 		out.members[row.TeamID] = row.Count
 	}
-	var channelRows []countRow
-	_ = h.db.WithContext(ctx).
-		Model(&model.Channel{}).
-		Select("team_id, count(*) AS count").
-		Where("team_id IN ? AND archived_at IS NULL", ids).
-		Group("team_id").
-		Scan(&channelRows).Error
-	for _, row := range channelRows {
-		out.channels[row.TeamID] = row.Count
-	}
 	return out
 }
 
@@ -192,18 +139,16 @@ func teamIDs(teams []model.Team) []uuid.UUID {
 	return ids
 }
 
-func teamToResponse(team model.Team, memberCount, channelCount int64) teamResponse {
+func teamToResponse(team model.Team, memberCount int64) teamResponse {
 	return teamResponse{
-		ID:           team.ID.String(),
-		OrgID:        team.OrgID.String(),
-		Name:         team.Name,
-		Description:  team.Description,
-		CreatedBy:    formatUUIDPtr(team.CreatedBy),
-		MemberCount:  memberCount,
-		ChannelCount: channelCount,
-		Channels:     []channelResponse{},
-		ArchivedAt:   formatTimePtr(team.ArchivedAt),
-		CreatedAt:    team.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    team.UpdatedAt.Format(time.RFC3339),
+		ID:          team.ID.String(),
+		OrgID:       team.OrgID.String(),
+		Name:        team.Name,
+		Description: team.Description,
+		CreatedBy:   formatUUIDPtr(team.CreatedBy),
+		MemberCount: memberCount,
+		ArchivedAt:  formatTimePtr(team.ArchivedAt),
+		CreatedAt:   team.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   team.UpdatedAt.Format(time.RFC3339),
 	}
 }

@@ -20,7 +20,7 @@ type ReflectionMemoryCandidate = reflectionMemoryCandidate
 type ReflectionReplayRun struct {
 	SessionID    uuid.UUID
 	SessionName  string
-	ChannelName  string
+	AgentName    string
 	EventCount   int
 	Transcript   string
 	Existing     string
@@ -61,23 +61,22 @@ func ReplaySessionReflection(ctx context.Context, db *gorm.DB, client hivy.Compl
 		return nil, err
 	}
 	userNames := h.loadReflectionUserNames(ctx, session, events)
-	channelName := h.loadReflectionChannelName(ctx, session)
-	transcript, _ := renderSessionReflectionTranscript(session, channelName, events, userNames)
+	transcript, _ := renderSessionReflectionTranscript(session, "", events, userNames)
 	existing := h.loadExistingMemories(ctx, session.ID)
-	channelMission := ""
+	agentMission := h.loadAgentMission(ctx, session)
 	run := &ReflectionReplayRun{
 		SessionID:    session.ID,
 		SessionName:  session.Name,
-		ChannelName:  channelName,
+		AgentName:    "",
 		EventCount:   len(events),
 		Transcript:   transcript,
 		Existing:     existing,
-		SystemPrompt: buildSessionReflectionSystemPrompt(channelMission),
+		SystemPrompt: buildSessionReflectionSystemPrompt(agentMission),
 	}
 	if client == nil {
 		return run, nil
 	}
-	result, raw, err := generateSessionReflection(ctx, client, modelID, reflectionModelConfigFromEnv().Temperature, transcript, existing, channelMission)
+	result, raw, err := generateSessionReflection(ctx, client, modelID, reflectionModelConfigFromEnv().Temperature, transcript, existing, agentMission)
 	run.RawResponse = raw
 	if err != nil {
 		return run, err

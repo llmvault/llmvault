@@ -76,8 +76,7 @@ func (h *SessionHandler) WithTranscription(kms *crypto.KeyWrapper, reader storag
 }
 
 type createSessionRequest struct {
-	ChannelID       string                         `json:"channel_id"`
-	AgentID         string                         `json:"agent_id,omitempty"`
+	AgentID         string                         `json:"agent_id"`
 	Text            string                         `json:"text,omitempty"`
 	AttachmentIDs   []string                       `json:"attachment_ids,omitempty"`
 	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
@@ -118,8 +117,6 @@ func payloadArrayLen(payload model.JSON, key string) int {
 
 type updateSessionRequest struct {
 	Name             *string `json:"name,omitempty"`
-	ChannelID        *string `json:"channel_id,omitempty"`
-	AgentID          *string `json:"agent_id,omitempty"`
 	ImageModel       *string `json:"image_model,omitempty"`
 	VectorImageModel *string `json:"vector_image_model,omitempty"`
 	Status           *string `json:"status,omitempty"`
@@ -151,7 +148,7 @@ type sessionDetailResponse struct {
 
 type sessionResponse struct {
 	ID                 string  `json:"id"`
-	ChannelID          string  `json:"channel_id"`
+	TeamID             string  `json:"team_id"`
 	AgentID            string  `json:"agent_id"`
 	SandboxID          *string `json:"sandbox_id,omitempty"`
 	CreatedBy          *string `json:"created_by,omitempty"`

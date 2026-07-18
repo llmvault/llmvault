@@ -15,6 +15,8 @@ k3s_gateway_https_port: 10443
 
 k3s_etcd_snapshot_schedule: "0 */6 * * *"
 k3s_etcd_snapshot_retention: 14
+k3s_etcd_s3_enabled: true
+k3s_etcd_s3_config_secret: k3s-etcd-s3
 
 k3s_system_reserved: "cpu=1000m,memory=2Gi,ephemeral-storage=5Gi"
 k3s_kube_reserved: "cpu=1000m,memory=2Gi,ephemeral-storage=5Gi"

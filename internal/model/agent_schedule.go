@@ -27,7 +27,6 @@ type AgentSchedule struct {
 	Metadata        JSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	Status          string      `gorm:"not null;default:'active';size:64;index"`
 	ScheduleKind    string      `gorm:"type:text;not null;default:'interval';index"`
-	Channel         string      `gorm:"not null;default:'';size:255"`
 	Description     string      `gorm:"type:text;not null;default:''"`
 	TaskPrompt      string      `gorm:"type:text;not null;default:''"`
 	CronExpression  string      `gorm:"type:text"`

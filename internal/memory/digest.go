@@ -10,37 +10,30 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// ChannelMemoryDigest returns the channel's precomputed recall block: markdown
-// bullets ranked and byte-budgeted at write time by the consolidation worker
-// (org-wide observations already folded in per the channel's
-// expose_org_memories flag). One indexed point-read; "" means no digest yet —
-// callers fall back to TopObservations, then to the legacy fact listing.
-func (s *Service) ChannelMemoryDigest(ctx context.Context, orgID, channelID uuid.UUID) (string, error) {
+// AgentMemoryDigest returns one agent's precomputed recall block. One indexed
+// point-read; an empty result means consolidation has not produced a digest.
+func (s *Service) AgentMemoryDigest(ctx context.Context, orgID, agentID uuid.UUID) (string, error) {
 	if s == nil || s.cfg.DB == nil {
 		return "", fmt.Errorf("memory service is not configured")
 	}
-	if orgID == uuid.Nil || channelID == uuid.Nil {
-		return "", fmt.Errorf("org_id and channel_id are required")
+	if orgID == uuid.Nil || agentID == uuid.Nil {
+		return "", fmt.Errorf("org_id and agent_id are required")
 	}
 	var content string
 	err := s.cfg.DB.WithContext(ctx).
-		Raw(`SELECT content FROM channel_memory_digests WHERE channel_id = ? AND org_id = ?`, channelID, orgID).
+		Raw(`SELECT content FROM agent_memory_digests WHERE agent_id = ? AND org_id = ?`, agentID, orgID).
 		Scan(&content).Error
 	if err != nil {
 		if isUndefinedTable(err) {
 			return "", nil
 		}
-		return "", fmt.Errorf("load channel memory digest: %w", err)
+		return "", fmt.Errorf("load agent memory digest: %w", err)
 	}
 	return strings.TrimSpace(content), nil
 }
 
-// ActiveDirectives returns every active directive in scope, oldest first (all
-// of them: the bar for a directive is human approval, so recall never ranks or
-// samples them). Org-wide directives (channel_id IS NULL) fold in via the same
-// ChannelScope semantics as every other memory read. Before the directives
-// migration lands the table reads as empty.
-func (s *Service) ActiveDirectives(ctx context.Context, orgID uuid.UUID, scope ChannelScope) ([]model.AgentDirective, error) {
+// ActiveDirectives returns active, agent-owned directives oldest first.
+func (s *Service) ActiveDirectives(ctx context.Context, orgID uuid.UUID, scope AgentScope) ([]model.AgentDirective, error) {
 	if s == nil || s.cfg.DB == nil {
 		return nil, fmt.Errorf("memory service is not configured")
 	}

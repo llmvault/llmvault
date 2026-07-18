@@ -79,11 +79,11 @@ func handleRowsQuery(ctx context.Context, svc *Service, token *model.Token, args
 	if errResult != nil {
 		return errResult, nil
 	}
-	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	channelID, errResult := sheetToolTeamResult(tctx, svc, token, args.HivySessionID)
 	if errResult != nil {
 		return errResult, nil
 	}
-	if errResult := sheetToolGuardResult(svc.PageInChannel(tctx, token.OrgID, channelID, pageID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.PageInTeam(tctx, token.OrgID, channelID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	sorts, err := sheetToolSorts(args.Sorts)
@@ -203,7 +203,7 @@ func handleRowsWrite(ctx context.Context, svc *Service, token *model.Token, agen
 	if err != nil {
 		return sheetToolError(err.Error()), nil
 	}
-	if errResult := sheetToolGuardResult(svc.PageInChannel(tctx, token.OrgID, actor.ChannelID, pageID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.PageInTeam(tctx, token.OrgID, actor.TeamID, pageID)); errResult != nil {
 		return errResult, nil
 	}
 	switch strings.ToLower(strings.TrimSpace(args.Action)) {

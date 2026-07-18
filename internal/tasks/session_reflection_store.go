@@ -76,7 +76,6 @@ func (h *SessionReflectionHandler) memoryCreateRequest(
 	candidate reflectionMemoryCandidate,
 ) memory.CreateRequest {
 	sourceEventID, identity := strongestReflectionSource(events, identities, candidate.SourceEventIDs)
-	channelID := session.ChannelID
 	tags := append([]string{}, candidate.Tags...)
 	tags = append(tags, "reflection", candidate.Kind)
 	metadata := model.JSON{
@@ -89,10 +88,10 @@ func (h *SessionReflectionHandler) memoryCreateRequest(
 		"actor_display_name": firstNonEmptyString(candidate.ActorDisplayName, identity.DisplayName),
 		"actor_external_ref": firstNonEmptyString(candidate.ActorExternalRef, identity.ExternalRef),
 	}
-	fingerprint := reflectionMemoryFingerprint(session.OrgID, &channelID, candidate.Content)
+	fingerprint := reflectionMemoryFingerprint(session.OrgID, session.AgentID, candidate.Content)
 	return memory.CreateRequest{
 		OrgID:             session.OrgID,
-		ChannelID:         &channelID,
+		AgentID:           session.AgentID,
 		Content:           candidate.Content,
 		MemoryFingerprint: fingerprint,
 		Tags:              tags,
@@ -123,30 +122,19 @@ func strongestReflectionSource(
 func (h *SessionReflectionHandler) memoryExists(ctx context.Context, req memory.CreateRequest) bool {
 	q := h.db.WithContext(ctx).Model(&model.AgentMemory{}).
 		Where("org_id = ? AND memory_fingerprint = ? AND archived_at IS NULL", req.OrgID, req.MemoryFingerprint)
-	if req.ChannelID == nil {
-		q = q.Where("channel_id IS NULL")
-	} else {
-		q = q.Where("channel_id = ?", *req.ChannelID)
-	}
+	q = q.Where("agent_id = ?", req.AgentID)
 	var count int64
 	return q.Count(&count).Error == nil && count > 0
 }
 
-func reflectionMemoryFingerprint(orgID uuid.UUID, channelID *uuid.UUID, content string) string {
+func reflectionMemoryFingerprint(orgID, agentID uuid.UUID, content string) string {
 	parts := []string{
 		orgID.String(),
-		uuidPart(channelID),
+		agentID.String(),
 		strings.ToLower(strings.Join(strings.Fields(content), " ")),
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return hex.EncodeToString(sum[:])
-}
-
-func uuidPart(value *uuid.UUID) string {
-	if value == nil {
-		return ""
-	}
-	return value.String()
 }
 
 func isReflectionDuplicate(err error) bool {

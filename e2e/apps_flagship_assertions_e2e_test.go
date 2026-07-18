@@ -31,8 +31,8 @@ func appsFlagshipLoadDeployedApp(t *testing.T, ctx context.Context, db *gorm.DB,
 		t.Fatalf("expected exactly 1 active app in org, got %d: %+v", len(apps), apps)
 	}
 	app := apps[0]
-	if app.ChannelID.String() != channelID {
-		t.Fatalf("app channel_id=%s want %s", app.ChannelID, channelID)
+	if app.TeamID.String() != channelID {
+		t.Fatalf("app team_id=%s want %s", app.TeamID, channelID)
 	}
 	if app.Status != model.AppStatusRunning {
 		t.Fatalf("app status=%q want running", app.Status)

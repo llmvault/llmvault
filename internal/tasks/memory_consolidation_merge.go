@@ -158,18 +158,6 @@ func (d consolidationHeaderDoer) Do(req *http.Request) (*http.Response, error) {
 	return d.inner.Do(req)
 }
 
-// consolidationCreateChannelID applies the org-promotion gate: scope "org"
-// stores channel_id NULL only when proof_count >= 2 after merge OR a source
-// fact came from an explicit human actor statement; otherwise the observation
-// stays channel-scoped.
-func consolidationCreateChannelID(scope string, channelID uuid.UUID, proofCount int, humanSource bool) *uuid.UUID {
-	if scope == "org" && (proofCount >= 2 || humanSource) {
-		return nil
-	}
-	id := channelID
-	return &id
-}
-
 // factFromHumanActor reports whether a reflection fact was attributed to a
 // human actor statement (reflection sets these fields only for human
 // evidence).
@@ -260,5 +248,5 @@ func unionStrings(a, b []string) []string {
 }
 
 // MemoryConsolidationSweepHandler is the periodic stranded-facts sweep: any
-// channel holding reflection facts with consolidated_at IS NULL gets a
+// agent holding reflection facts with consolidated_at IS NULL gets a
 // consolidation run enqueued.

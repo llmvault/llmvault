@@ -148,7 +148,7 @@ func registerSheetList(server *mcp.Server, svc *Service, token *model.Token) {
 func handleSheetList(ctx context.Context, svc *Service, token *model.Token, args sheetListArgs) (*mcp.CallToolResult, error) {
 	tctx, cancel := sheetToolContext(ctx)
 	defer cancel()
-	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	channelID, errResult := sheetToolTeamResult(tctx, svc, token, args.HivySessionID)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -243,11 +243,11 @@ func handleSheetDescribe(ctx context.Context, svc *Service, token *model.Token, 
 	if errResult != nil {
 		return errResult, nil
 	}
-	channelID, errResult := sheetToolChannelResult(tctx, svc, token, args.HivySessionID)
+	channelID, errResult := sheetToolTeamResult(tctx, svc, token, args.HivySessionID)
 	if errResult != nil {
 		return errResult, nil
 	}
-	if errResult := sheetToolGuardResult(svc.SheetInChannel(tctx, token.OrgID, channelID, sheetID)); errResult != nil {
+	if errResult := sheetToolGuardResult(svc.SheetInTeam(tctx, token.OrgID, channelID, sheetID)); errResult != nil {
 		return errResult, nil
 	}
 	structure, err := svc.GetSheet(tctx, token.OrgID, sheetID)

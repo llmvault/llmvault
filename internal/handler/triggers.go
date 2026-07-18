@@ -16,9 +16,8 @@ import (
 )
 
 type TriggerHandler struct {
-	db                  *gorm.DB
-	externalProvisioner ChannelExternalProvisioner
-	webhookBaseURL      string
+	db             *gorm.DB
+	webhookBaseURL string
 }
 
 type TriggerHandlerOption func(*TriggerHandler)
@@ -31,12 +30,6 @@ func NewTriggerHandler(db *gorm.DB, opts ...TriggerHandlerOption) *TriggerHandle
 		}
 	}
 	return h
-}
-
-func WithTriggerExternalProvisioner(p ChannelExternalProvisioner) TriggerHandlerOption {
-	return func(h *TriggerHandler) {
-		h.externalProvisioner = p
-	}
 }
 
 // WithTriggerWebhookBaseURL sets the public API base used to build HTTP trigger
@@ -68,12 +61,9 @@ type createTriggerRequest struct {
 	ExternalResourceKey  string `json:"external_resource_key"`
 	ExternalResourceName string `json:"external_resource_name"`
 	AgentID              string `json:"agent_id"`
-	// ChannelID is the Hivy channel the trigger runs in. Required for HTTP
-	// triggers; the caller must have access to it.
-	ChannelID    string `json:"channel_id"`
-	TriggerKey   string `json:"trigger_key"`
-	TriggerValue string `json:"trigger_value"`
-	Instructions string `json:"instructions"`
+	TriggerKey           string `json:"trigger_key"`
+	TriggerValue         string `json:"trigger_value"`
+	Instructions         string `json:"instructions"`
 	// SecretKey is an optional shared secret for HTTP triggers. Stored bcrypt-
 	// hashed; never returned.
 	SecretKey string `json:"secret_key"`
@@ -166,26 +156,14 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 		status, message := triggerCreateError(err)
 		return model.AgentTrigger{}, provider, status, message, err
 	}
-	// The channel is where the agent's session runs. When the caller picks one
-	// (e.g. GitHub, where the channel is independent of the repo), use it after
-	// an access check. Otherwise auto-create it from the resource (e.g. Slack,
-	// where the channel IS the event source).
-	channelID, status, message, err := h.resolveProviderTriggerChannel(
-		r, orgID, provider, conn, template, resourceKey, resourceName, agentID, req.ChannelID,
-	)
-	if err != nil {
+	if status, message, err := requireAgentBindingManage(r, h.db, orgID, agentID); err != nil {
 		return model.AgentTrigger{}, provider, status, message, err
-	}
-	// Binding a trigger to this channel is a manage-the-team action, not merely
-	// use-the-channel: gate it on the caller managing the channel's team.
-	if mStatus, mMessage, mErr := requireChannelBindingManage(r, h.db, orgID, channelID); mErr != nil {
-		return model.AgentTrigger{}, provider, mStatus, mMessage, mErr
 	}
 
 	var trigger model.AgentTrigger
 	ctx := r.Context()
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateTriggerAgent(ctx, tx, orgID, agentID, channelID, template); err != nil {
+		if err := validateTriggerAgent(ctx, tx, orgID, agentID, template); err != nil {
 			return err
 		}
 		trigger = model.AgentTrigger{
@@ -193,8 +171,10 @@ func (h *TriggerHandler) create(r *http.Request, orgID uuid.UUID, req createTrig
 			AgentID:      agentID,
 			Name:         strings.TrimSpace(req.Name),
 			TriggerType:  "webhook",
-			ChannelID:    &channelID,
 			ConnectionID: &conn.ID,
+			ResourceType: template.resourceType,
+			ResourceKey:  resourceKey,
+			ResourceName: resourceName,
 			TriggerKeys:  pq.StringArray(template.triggerKeys),
 			TriggerKey:   triggerKey,
 			TriggerValue: triggerValue,

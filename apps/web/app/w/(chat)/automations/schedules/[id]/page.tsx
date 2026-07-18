@@ -10,22 +10,13 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
-import { useTeamAgents } from "@/lib/api/team-agents"
-import { slugify } from "@/app/w/(chat)/_lib/sidebar-data"
-import {
-  ChannelSelect,
-  useHivyChannels,
-} from "@/app/w/(chat)/automations/_channel-select"
 import {
   ScheduleCadenceFields,
   scheduleToCadenceState,
   type Cadence,
 } from "@/app/w/(chat)/automations/_schedule-cadence"
 import type { ScheduleItem } from "@/app/w/(chat)/automations/_data"
-import {
-  FormSection,
-  InlineNotice,
-} from "@/app/w/(chat)/automations/_trigger-form-sections"
+import { FormSection } from "@/app/w/(chat)/automations/_trigger-form-sections"
 import { TriggerDeleteConfirmModal } from "@/app/w/(chat)/automations/_trigger-delete-confirm-modal"
 
 export default function ScheduleDetailPage() {
@@ -83,12 +74,10 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
   // PATCH/DELETE /v1/schedules/{id}, which is admin-only on the backend.
   // Creating a schedule is a member action and isn't gated here.
   const isAdmin = useIsAdmin()
-  const { channels, isLoading: channelsLoading } = useHivyChannels()
   const updateSchedule = $api.useMutation("patch", "/v1/schedules/{id}")
   const deleteSchedule = $api.useMutation("delete", "/v1/schedules/{id}")
 
   const [name, setName] = useState(schedule.name ?? "")
-  const [channelID, setChannelID] = useState(schedule.channel_id ?? "")
   const [taskPrompt, setTaskPrompt] = useState(schedule.task_prompt ?? "")
   const [cadence, setCadence] = useState<Cadence | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -98,36 +87,17 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
     [schedule]
   )
   const active = schedule.status === "active"
-  const activeChannelID = channelID || channels[0]?.id || ""
-  const activeChannel = channels.find((c) => c.id === activeChannelID)
-
-  // The schedule's agent is fixed. When the user retargets it to a channel on a
-  // different team the backend rejects the save (409/422), since an agent can
-  // only run in its own team's channels. Pre-check the target channel's team
-  // agents so we can warn and block Save before the round-trip.
-  const { agents: teamAgents, isLoading: teamAgentsLoading } = useTeamAgents(
-    activeChannel?.team_id
-  )
-  const agentOnChannelTeam =
-    teamAgentsLoading ||
-    !schedule.agent_id ||
-    teamAgents.some((agent) => agent.id === schedule.agent_id)
-
-  const channel = channels.find((c) => c.id === schedule.channel_id)
-  const lastRunHref =
-    schedule.last_run_session_id && channel?.name
-      ? `/w/channels/${slugify(channel.name)}/${schedule.last_run_session_id}`
-      : null
+  const lastRunHref = schedule.last_run_session_id
+    ? `/w/sessions/${schedule.last_run_session_id}`
+    : null
 
   const cadenceValid = Boolean(cadence && "body" in cadence)
   const canSave = Boolean(
     isAdmin &&
     !updateSchedule.isPending &&
     name.trim() &&
-    activeChannelID &&
     taskPrompt.trim() &&
-    cadenceValid &&
-    agentOnChannelTeam
+    cadenceValid
   )
 
   function invalidate() {
@@ -136,8 +106,8 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
   }
 
   function handleSave() {
-    if (!name.trim() || !taskPrompt.trim() || !activeChannelID) {
-      toast.danger("Fill in name, channel and task")
+    if (!name.trim() || !taskPrompt.trim()) {
+      toast.danger("Fill in name and task")
       return
     }
     if (!cadence || !("body" in cadence)) {
@@ -151,7 +121,6 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
         params: { path: { id } },
         body: {
           name: name.trim(),
-          channel_id: activeChannelID,
           task_prompt: taskPrompt.trim(),
           ...cadence.body,
         },
@@ -273,27 +242,6 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
         </FormSection>
 
         <FormSection
-          title="Channel"
-          description="The channel this schedule's agent runs in. You can only pick channels you have access to."
-        >
-          {channelsLoading ? (
-            <div className="h-9 animate-pulse rounded-md bg-default" />
-          ) : channels.length === 0 ? (
-            <InlineNotice
-              icon="hash"
-              title="No channels"
-              body="No channels available."
-            />
-          ) : (
-            <ChannelSelect
-              channels={channels}
-              value={activeChannelID}
-              onChange={setChannelID}
-            />
-          )}
-        </FormSection>
-
-        <FormSection
           title="Agent"
           description="The agent that runs on this schedule. Create a new schedule to use a different agent."
         >
@@ -303,19 +251,6 @@ function ScheduleEditForm({ schedule }: { schedule: ScheduleItem }) {
               {schedule.agent_name || "Agent"}
             </span>
           </div>
-          {!agentOnChannelTeam ? (
-            <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-warning">
-              <AppIcon
-                icon="triangle-alert"
-                className="mt-0.5 h-4 w-4 shrink-0"
-              />
-              <span>
-                {schedule.agent_name || "This agent"} isn&apos;t on the selected
-                channel&apos;s team. Pick a channel on the agent&apos;s team
-                instead.
-              </span>
-            </p>
-          ) : null}
         </FormSection>
 
         <FormSection

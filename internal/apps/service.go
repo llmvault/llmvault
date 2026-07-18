@@ -50,7 +50,7 @@ var (
 	ErrNotDeployed = errors.New("apps: app is not deployed")
 )
 
-// ValidationError is a caller mistake (bad input, sheet not in channel).
+// ValidationError is a caller mistake (bad input, sheet not in team).
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return "apps: " + e.Message }
@@ -122,11 +122,11 @@ func (s *Service) GetApp(ctx context.Context, orgID, appID uuid.UUID) (*model.Ap
 	return &app, nil
 }
 
-// ListApps returns the channel's active apps, newest activity first.
-func (s *Service) ListApps(ctx context.Context, orgID, channelID uuid.UUID) ([]model.App, error) {
+// ListApps returns the team's active apps, newest activity first.
+func (s *Service) ListApps(ctx context.Context, orgID, teamID uuid.UUID) ([]model.App, error) {
 	var apps []model.App
 	err := s.db.WithContext(ctx).
-		Where("org_id = ? AND channel_id = ? AND archived_at IS NULL", orgID, channelID).
+		Where("org_id = ? AND team_id = ? AND archived_at IS NULL", orgID, teamID).
 		Order("updated_at DESC").
 		Find(&apps).Error
 	if err != nil {

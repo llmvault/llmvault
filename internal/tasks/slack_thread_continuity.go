@@ -36,10 +36,14 @@ func (h *SlackAppMentionHandler) resolveSlackThreadContinuation(ctx context.Cont
 		"updated_at":          now,
 	}
 	row.SessionID = outbound.SessionID
-	if outbound.ChannelID != nil && *outbound.ChannelID != uuid.Nil {
-		row.ChannelID = outbound.ChannelID
-		updates["channel_id"] = outbound.ChannelID
-		updates["channel_resolved_at"] = now
+	if outbound.ResolvedTeamID != nil && *outbound.ResolvedTeamID != uuid.Nil {
+		row.ResolvedTeamID = outbound.ResolvedTeamID
+		updates["team_id"] = outbound.ResolvedTeamID
+		updates["route_resolved_at"] = now
+	}
+	if outbound.AgentID != nil && *outbound.AgentID != uuid.Nil {
+		row.AgentID = outbound.AgentID
+		updates["agent_id"] = outbound.AgentID
 	}
 	if outbound.TriggerID != nil && *outbound.TriggerID != uuid.Nil {
 		row.TriggerID = outbound.TriggerID

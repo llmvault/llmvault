@@ -14,15 +14,15 @@ import (
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
-func ClaimReactionTrigger(ctx context.Context, db *gorm.DB, orgID, connectionID, triggerID, channelID uuid.UUID, event slackapp.ReactionAddedEvent) (ClaimResult, error) {
+func ClaimReactionTrigger(ctx context.Context, db *gorm.DB, orgID, connectionID, triggerID, agentID uuid.UUID, event slackapp.ReactionAddedEvent) (ClaimResult, error) {
 	if db == nil {
 		return ClaimResult{}, fmt.Errorf("db is required")
 	}
 	if triggerID == uuid.Nil {
 		return ClaimResult{}, fmt.Errorf("trigger id is required")
 	}
-	if channelID == uuid.Nil {
-		return ClaimResult{}, fmt.Errorf("channel id is required")
+	if agentID == uuid.Nil {
+		return ClaimResult{}, fmt.Errorf("agent id is required")
 	}
 	if strings.TrimSpace(event.EventID) == "" {
 		return ClaimResult{}, fmt.Errorf("slack reaction event id is required")
@@ -30,9 +30,9 @@ func ClaimReactionTrigger(ctx context.Context, db *gorm.DB, orgID, connectionID,
 	row := model.SlackThreadEvent{
 		OrgID:          orgID,
 		ConnectionID:   connectionID,
-		ChannelID:      &channelID,
+		AgentID:        &agentID,
 		TriggerID:      &triggerID,
-		TeamID:         event.TeamID,
+		SlackTeamID:    event.TeamID,
 		SlackChannelID: event.ItemChannel,
 		ThreadTS:       event.ItemTS,
 		MessageTS:      event.ItemTS,

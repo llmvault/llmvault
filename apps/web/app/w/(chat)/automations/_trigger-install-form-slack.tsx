@@ -246,7 +246,6 @@ export function SlackReactionInstallForm({
       )
       queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
       queryClient.invalidateQueries({ queryKey: queryKeys.agents() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
       if (triggerID) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.trigger(),
@@ -302,7 +301,6 @@ export function SlackReactionInstallForm({
           toast.success("Trigger deleted")
           queryClient.invalidateQueries({ queryKey: queryKeys.triggers() })
           queryClient.invalidateQueries({ queryKey: queryKeys.agents() })
-          queryClient.invalidateQueries({ queryKey: queryKeys.channels() })
           router.push("/w/automations")
         },
         onError: (error) =>

@@ -42,11 +42,11 @@ func registerAppStatus(server *mcp.Server, svc *Service, token *model.Token) {
 func handleAppStatus(ctx context.Context, svc *Service, token *model.Token, args appStatusArgs) (*mcp.CallToolResult, error) {
 	tctx, cancel := context.WithTimeout(ctx, appOpsTimeout)
 	defer cancel()
-	channelID, _, err := svc.appToolSession(tctx, token, args.HivySessionID)
+	teamID, _, err := svc.appToolSession(tctx, token, args.HivySessionID)
 	if err != nil {
 		return appToolError(err.Error()), nil
 	}
-	app, errResult := svc.appForSession(tctx, token, channelID, args.AppID)
+	app, errResult := svc.appForSession(tctx, token, teamID, args.AppID)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -135,11 +135,11 @@ func registerAppLogs(server *mcp.Server, svc *Service, token *model.Token) {
 func handleAppLogs(ctx context.Context, svc *Service, token *model.Token, args appLogsArgs) (*mcp.CallToolResult, error) {
 	tctx, cancel := context.WithTimeout(ctx, appOpsTimeout)
 	defer cancel()
-	channelID, _, err := svc.appToolSession(tctx, token, args.HivySessionID)
+	teamID, _, err := svc.appToolSession(tctx, token, args.HivySessionID)
 	if err != nil {
 		return appToolError(err.Error()), nil
 	}
-	app, errResult := svc.appForSession(tctx, token, channelID, args.AppID)
+	app, errResult := svc.appForSession(tctx, token, teamID, args.AppID)
 	if errResult != nil {
 		return errResult, nil
 	}
@@ -221,11 +221,11 @@ func handleAppRollback(ctx context.Context, svc *Service, token *model.Token, ar
 	// publish budget, not the quick one.
 	tctx, cancel := context.WithTimeout(ctx, appPublishTimeout)
 	defer cancel()
-	channelID, _, err := svc.appToolSession(tctx, token, args.HivySessionID)
+	teamID, _, err := svc.appToolSession(tctx, token, args.HivySessionID)
 	if err != nil {
 		return appToolError(err.Error()), nil
 	}
-	app, errResult := svc.appForSession(tctx, token, channelID, args.AppID)
+	app, errResult := svc.appForSession(tctx, token, teamID, args.AppID)
 	if errResult != nil {
 		return errResult, nil
 	}

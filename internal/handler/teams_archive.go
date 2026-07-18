@@ -11,7 +11,7 @@ import (
 )
 
 // @Summary Archive a team
-// @Description Archives an active team after all channels are removed from it. Admin-only. Rejected if it is the org's last team.
+// @Description Archives an active team. Admin-only. Rejected if it is the org's last team.
 // @Tags teams
 // @Produce json
 // @Param id path string true "Team ID"
@@ -29,7 +29,7 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// An organization must always keep at least one team (the floor that
-	// guarantees every org has a self-sufficient Hivy + #general).
+	// guarantees every org has a self-sufficient default Hivy agent).
 	var teamCount int64
 	if err := h.db.WithContext(r.Context()).
 		Model(&model.Team{}).
@@ -42,24 +42,11 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, errorResponse{Error: "an organization must keep at least one team"})
 		return
 	}
-	var channelCount int64
-	if err := h.db.WithContext(r.Context()).
-		Model(&model.Channel{}).
-		Where("org_id = ? AND team_id = ? AND archived_at IS NULL", team.OrgID, team.ID).
-		Count(&channelCount).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check team channels"})
-		return
-	}
-	if channelCount > 0 {
-		writeJSON(w, http.StatusConflict, errorResponse{Error: "remove channels from this team before archiving it"})
-		return
-	}
 	now := time.Now()
 	// Archive the team AND cascade its provisioning in one tx so no orphaned,
 	// still-active agent (the team's Hivy + catalog clones) is left org-listable
 	// behind the archived team, and no stale connection/skill/RAG/team-member
-	// team_members grants survive. Channels were already required to be removed
-	// above, so the team's agents have no live sessions to tear down here.
+	// grants survive.
 	if err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
 		var agentIDs []uuid.UUID
 		if err := tx.Model(&model.Agent{}).
@@ -90,6 +77,10 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).
 			Delete(&model.TeamRagSource{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("org_id = ? AND team_id = ?", team.OrgID, team.ID).
+			Delete(&model.TeamExternalResourceRoute{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("team_id = ?", team.ID).

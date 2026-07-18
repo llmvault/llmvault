@@ -13,7 +13,6 @@ func cronScheduleResponse(row model.AgentSchedule) map[string]any {
 		"job_id":           row.RuntimeJobID,
 		"status":           row.Status,
 		"schedule_kind":    row.ScheduleKind,
-		"channel_id":       row.Channel,
 		"description":      row.Description,
 		"task_prompt":      row.TaskPrompt,
 		"interval_seconds": row.IntervalSeconds,

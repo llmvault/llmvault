@@ -8,6 +8,7 @@ Helm releases and no GitOps controller.
 
 - Longhorn: `v1.12.0`
 - CloudNativePG: `v1.30.0`
+- Barman Cloud plugin: `v0.13.0`
 - OT Redis Operator: `v0.26.0`
 
 Generated upstream manifests and source archives live under the git-ignored
@@ -96,6 +97,27 @@ echo "f8bede43fe4ee0d478c2355b204a36876b2ae4faac60f2a9452280b293da3b88  ansible/
 
 kubectl apply --server-side=true --field-manager=hivy-operators \
   -f ansible/.secrets/k8s0/operators/cnpg-v1.30.0.yaml
+```
+
+## Apply the CloudNativePG Barman Cloud plugin
+
+CloudNativePG delegates native PostgreSQL base backups, continuous WAL
+archiving, retention, and recovery to the Barman Cloud plugin. Install the
+plugin after the CloudNativePG controller and before applying any Cluster that
+declares it as a WAL archiver:
+
+```sh
+curl -fsSL \
+  https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.13.0/manifest.yaml \
+  -o ansible/.secrets/k8s0/operators/barman-cloud-v0.13.0.yaml
+
+echo "d2e71e7b06822448f1a421f05781846cfdb9cc621e7ef32eef5e20c5133213b0  ansible/.secrets/k8s0/operators/barman-cloud-v0.13.0.yaml" \
+  | shasum -a 256 -c -
+
+kubectl apply --server-side=true --field-manager=hivy-operators \
+  -f ansible/.secrets/k8s0/operators/barman-cloud-v0.13.0.yaml
+
+kubectl -n cnpg-system rollout status deployment/barman-cloud --timeout=5m
 ```
 
 ## Render and apply OT Redis Operator

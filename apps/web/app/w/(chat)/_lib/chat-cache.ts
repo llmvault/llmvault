@@ -5,16 +5,10 @@ export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
 export const SESSION_HISTORY_PAGE_LIMIT = 100
 export const SIDEBAR_SESSION_PAGE_LIMIT = 5
 export const SIDEBAR_SESSION_SORT = "activity"
-export const CHANNEL_SESSIONS_INFINITE_KEY = "channel-sessions-infinite-v1"
 export const SESSION_EVENTS_INFINITE_KEY = "session-events-infinite-v1"
 
-type ChannelResponse = components["schemas"]["channelResponse"]
-type ChannelDetailResponse =
-  components["schemas"]["channelDetailResponse"]
 export type SessionResponse = components["schemas"]["sessionResponse"]
 export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
-export type PaginatedChannels =
-  components["schemas"]["paginatedResponse-channelResponse"]
 type SessionDetailResponse =
   components["schemas"]["sessionDetailResponse"]
 export type PaginatedSessions =
@@ -23,30 +17,6 @@ export type PaginatedSessionEvents =
   components["schemas"]["paginatedResponse-sessionEventResponse"]
 
 export const chatQueryKeys = {
-  channels: (limit = 100) =>
-    ["get", "/v1/channels", { params: { query: { limit } } }] as const,
-  channel: (channelID: string) =>
-    [
-      "get",
-      "/v1/channels/{id}",
-      { params: { path: { id: channelID } } },
-    ] as const,
-  channelSessions: (
-    channelID: string,
-    limit = SIDEBAR_SESSION_PAGE_LIMIT,
-    sort = SIDEBAR_SESSION_SORT
-  ) =>
-    [
-      "get",
-      "/v1/channels/{id}/sessions",
-      {
-        _hivyQueryKey: CHANNEL_SESSIONS_INFINITE_KEY,
-        params: {
-          path: { id: channelID },
-          query: { limit, sort },
-        },
-      },
-    ] as const,
   session: (sessionID: string) =>
     [
       "get",
@@ -70,14 +40,7 @@ export const chatQueryKeys = {
 }
 
 export function invalidateSessionListQueries(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
-  queryClient.invalidateQueries({
-    queryKey: ["get", "/v1/channels/{id}/sessions"],
-  })
   queryClient.invalidateQueries({ queryKey: ["get", "/v1/sessions"] })
-  queryClient.invalidateQueries({
-    queryKey: ["sidebar-channel-latest-session"],
-  })
 }
 
 export function seedSessionDetail(
@@ -101,84 +64,8 @@ export function patchSessionInChatCaches(
     })
   )
   queryClient.setQueriesData<unknown>(
-    { queryKey: ["get", "/v1/channels/{id}/sessions"] },
-    (current: unknown) => patchSessionInfiniteData(current, session)
-  )
-  queryClient.setQueriesData<unknown>(
     { queryKey: ["get", "/v1/sessions"] },
     (current: unknown) => patchSessionInfiniteData(current, session)
-  )
-  queryClient.setQueriesData<unknown>(
-    { queryKey: ["get", "/v1/channels"] },
-    (current: unknown) => patchChannelInfiniteData(current, session)
-  )
-}
-
-export function patchChannelInChatCaches(
-  queryClient: QueryClient,
-  channel: ChannelResponse
-) {
-  if (!channel.id) return
-  queryClient.setQueryData<ChannelDetailResponse>(
-    chatQueryKeys.channel(channel.id),
-    (current) =>
-      current
-        ? {
-            ...current,
-            channel: mergeChannel(current.channel, channel),
-          }
-        : current
-  )
-  queryClient.setQueriesData<unknown>(
-    { queryKey: ["get", "/v1/channels"] },
-    (current: unknown) => patchChannelListData(current, channel)
-  )
-}
-
-export function insertSessionIntoChannelCache(
-  queryClient: QueryClient,
-  session: SessionResponse
-) {
-  if (!session.id || !session.channel_id) return
-  queryClient.setQueryData<InfiniteData<PaginatedSessions>>(
-    chatQueryKeys.channelSessions(session.channel_id),
-    (current) => {
-      if (!current) {
-        return {
-          pageParams: ["0"],
-          pages: [{ data: [session], has_more: false }],
-        }
-      }
-      const pages = current.pages.map((page, index) => {
-        const data = page.data ?? []
-        const withoutDuplicate = data.filter((entry) => entry.id !== session.id)
-        return index === 0
-          ? { ...page, data: [session, ...withoutDuplicate] }
-          : { ...page, data: withoutDuplicate }
-      })
-      return { ...current, pages }
-    }
-  )
-}
-
-export function removeSessionFromChannelCache(
-  queryClient: QueryClient,
-  channelID: string | undefined,
-  sessionID: string
-) {
-  if (!channelID) return
-  queryClient.setQueryData<InfiniteData<PaginatedSessions>>(
-    chatQueryKeys.channelSessions(channelID),
-    (current) => {
-      if (!current) return current
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          data: (page.data ?? []).filter((session) => session.id !== sessionID),
-        })),
-      }
-    }
   )
 }
 
@@ -264,70 +151,6 @@ function patchSessionInfiniteData(
   return changed ? { ...current, pages } : current
 }
 
-function patchChannelInfiniteData(
-  current: unknown,
-  session: SessionResponse
-): unknown {
-  if (!isInfiniteData<PaginatedChannels>(current)) return current
-  let changed = false
-  const pages = current.pages.map((page) => {
-    const data = page.data
-    if (!data) return page
-    let pageChanged = false
-    const nextData = data.map((channel) => {
-      const recentSessions = patchSessionArray(channel.recent_sessions, session)
-      if (recentSessions === channel.recent_sessions) return channel
-      pageChanged = true
-      return { ...channel, recent_sessions: recentSessions }
-    })
-    if (!pageChanged) return page
-    changed = true
-    return { ...page, data: nextData }
-  })
-  return changed ? { ...current, pages } : current
-}
-
-function patchChannelListData(
-  current: unknown,
-  channel: ChannelResponse
-): unknown {
-  if (isInfiniteData<PaginatedChannels>(current)) {
-    let changed = false
-    const pages = current.pages.map((page) => {
-      const next = patchChannelPage(page, channel)
-      changed ||= next !== page
-      return next
-    })
-    return changed ? { ...current, pages } : current
-  }
-  if (isPaginatedChannels(current)) {
-    return patchChannelPage(current, channel)
-  }
-  return current
-}
-
-function patchChannelPage(
-  page: PaginatedChannels,
-  channel: ChannelResponse
-): PaginatedChannels {
-  const data = patchChannelArray(page.data, channel)
-  return data === page.data ? page : { ...page, data }
-}
-
-function patchChannelArray(
-  channels: ChannelResponse[] | undefined,
-  channel: ChannelResponse
-) {
-  if (!channels) return channels
-  let changed = false
-  const next = channels.map((entry) => {
-    if (entry.id !== channel.id) return entry
-    changed = true
-    return mergeChannel(entry, channel)
-  })
-  return changed ? next : channels
-}
-
 function patchSessionPage(
   page: PaginatedSessions,
   session: SessionResponse
@@ -355,21 +178,6 @@ function mergeSession(
   incoming: SessionResponse
 ): SessionResponse {
   return { ...current, ...incoming }
-}
-
-function mergeChannel(
-  current: ChannelResponse | undefined,
-  incoming: ChannelResponse
-): ChannelResponse {
-  return { ...current, ...incoming }
-}
-
-function isPaginatedChannels(value: unknown): value is PaginatedChannels {
-  return (
-    Boolean(value) &&
-    typeof value === "object" &&
-    Array.isArray((value as PaginatedChannels).data)
-  )
 }
 
 function isInfiniteData<T>(value: unknown): value is InfiniteData<T> {

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -16,10 +15,10 @@ const sessionSortActivity = "activity"
 
 // List handles GET /v1/sessions.
 // @Summary List sessions
-// @Description Lists sessions visible to the caller, optionally filtered by channel or agent.
+// @Description Lists sessions visible to the caller, optionally filtered by team or agent.
 // @Tags sessions
 // @Produce json
-// @Param channel_id query string false "Channel ID"
+// @Param team_id query string false "Team ID"
 // @Param agent_id query string false "Agent ID"
 // @Param limit query int false "Page size"
 // @Param cursor query string false "Pagination cursor"
@@ -33,32 +32,6 @@ const sessionSortActivity = "activity"
 // @Router /v1/sessions [get]
 func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	h.listSessions(w, r, uuid.Nil)
-}
-
-// ListChannelSessions handles GET /v1/channels/{id}/sessions.
-// @Summary List channel sessions
-// @Description Lists sessions in a visible channel.
-// @Tags channels
-// @Produce json
-// @Param id path string true "Channel ID"
-// @Param limit query int false "Page size"
-// @Param cursor query string false "Pagination cursor"
-// @Param sort query string false "Sort order: created_at or activity"
-// @Success 200 {object} paginatedResponse[sessionResponse]
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/channels/{id}/sessions [get]
-func (h *SessionHandler) ListChannelSessions(w http.ResponseWriter, r *http.Request) {
-	channelID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid channel id"})
-		return
-	}
-	h.listSessions(w, r, channelID)
 }
 
 // Get handles GET /v1/sessions/{id}.
@@ -87,7 +60,7 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, forcedChannelID uuid.UUID) {
+func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, forcedTeamID uuid.UUID) {
 	org, ok := sessionOrg(w, r)
 	if !ok {
 		return
@@ -117,24 +90,24 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "status must be active, archived, or ended"})
 		return
 	}
-	channelScoped := false
-	if forcedChannelID != uuid.Nil {
-		if !h.canListChannelSessions(w, r, org.ID, forcedChannelID, userID) {
+	teamScoped := false
+	if forcedTeamID != uuid.Nil {
+		if !h.canListTeamSessions(w, r, org.ID, forcedTeamID, userID) {
 			return
 		}
-		query = query.Where("channel_id = ?", forcedChannelID)
-		channelScoped = true
-	} else if channelID := strings.TrimSpace(r.URL.Query().Get("channel_id")); channelID != "" {
-		id, err := uuid.Parse(channelID)
+		query = query.Where("team_id = ?", forcedTeamID)
+		teamScoped = true
+	} else if teamID := strings.TrimSpace(r.URL.Query().Get("team_id")); teamID != "" {
+		id, err := uuid.Parse(teamID)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must be a uuid"})
 			return
 		}
-		if !h.canListChannelSessions(w, r, org.ID, id, userID) {
+		if !h.canListTeamSessions(w, r, org.ID, id, userID) {
 			return
 		}
-		query = query.Where("channel_id = ?", id)
-		channelScoped = true
+		query = query.Where("team_id = ?", id)
+		teamScoped = true
 	}
 	if agentID := strings.TrimSpace(r.URL.Query().Get("agent_id")); agentID != "" {
 		id, err := uuid.Parse(agentID)
@@ -144,7 +117,7 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 		}
 		query = query.Where("agent_id = ?", id)
 	}
-	query = h.applySessionListVisibility(r, query, org.ID, userID, sort, channelScoped)
+	query = h.applySessionListVisibility(r, query, org.ID, userID, sort, teamScoped)
 	if sort == sessionSortActivity {
 		query = applySessionActivityPagination(query, activityCursor, limit)
 	} else {
@@ -173,21 +146,21 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *SessionHandler) canListChannelSessions(w http.ResponseWriter, r *http.Request, orgID, channelID uuid.UUID, userID *uuid.UUID) bool {
-	var channel model.Channel
+func (h *SessionHandler) canListTeamSessions(w http.ResponseWriter, r *http.Request, orgID, teamID uuid.UUID, userID *uuid.UUID) bool {
+	var team model.Team
 	err := h.db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
-		First(&channel).Error
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", teamID, orgID).
+		First(&team).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "channel not found"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "team not found"})
 		return false
 	}
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load channel"})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load team"})
 		return false
 	}
-	if !h.canViewChannel(r.Context(), channel, userID) {
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: "channel access denied"})
+	if !h.canUseTeam(r.Context(), orgID, teamID, userID) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "team not found"})
 		return false
 	}
 	return true
@@ -198,15 +171,15 @@ func (h *SessionHandler) isOrgAdminForSession(r *http.Request, orgID uuid.UUID, 
 	return err == nil && isOrgManager(role)
 }
 
-func (h *SessionHandler) applySessionListVisibility(r *http.Request, query *gorm.DB, orgID uuid.UUID, userID *uuid.UUID, sort string, channelScoped bool) *gorm.DB {
+func (h *SessionHandler) applySessionListVisibility(r *http.Request, query *gorm.DB, orgID uuid.UUID, userID *uuid.UUID, sort string, teamScoped bool) *gorm.DB {
 	if isAPIKeyRequest(r.Context()) {
 		return query
 	}
 	if userID == nil {
 		return query.Where("1 = 0")
 	}
-	// Channel access was already checked; membership sees every session in it.
-	if channelScoped {
+	// Team access was already checked; membership sees every session in it.
+	if teamScoped {
 		return query
 	}
 	if sort != sessionSortActivity && h.isOrgAdminForSession(r, orgID, userID) {

@@ -9,7 +9,7 @@ import type { components } from "@/lib/api/schema"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
 import { usePanelSheetTargetStore } from "@/app/w/(chat)/_stores/panel-sheet-target-store"
 
-type Channel = components["schemas"]["channelResponse"]
+type Team = components["schemas"]["teamResponse"]
 type SheetSummary = components["schemas"]["sheetSummary"]
 
 export default function SheetsPage() {
@@ -20,15 +20,15 @@ export default function SheetsPage() {
     (state) => state.target?.sheetId ?? null
   )
 
-  const channelsQuery = $api.useQuery("get", "/v1/channels", {
+  const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const channels = channelsQuery.data?.data ?? []
+  const teams = teamsQuery.data?.data ?? []
 
   // Open the clicked sheet in the shared right panel (the same one that
   // slides open for a session), not a bespoke panel.
-  const handleOpen = (channelId: string, sheetId: string) => {
-    openSheet(channelId, sheetId)
+  const handleOpen = (teamId: string, sheetId: string) => {
+    openSheet(teamId, sheetId)
     openView("sheets")
   }
 
@@ -45,7 +45,7 @@ export default function SheetsPage() {
           <div>
             <h1 className="text-lg font-semibold text-foreground">Sheets</h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Structured data your agents keep, organised by channel
+              Structured data your agents keep, organised by team
             </p>
           </div>
 
@@ -62,16 +62,16 @@ export default function SheetsPage() {
             />
           </div>
 
-          {channelsQuery.isPending ? (
+          {teamsQuery.isPending ? (
             <ListSkeleton />
-          ) : channels.length === 0 ? (
-            <EmptyState message="No channels yet." />
+          ) : teams.length === 0 ? (
+            <EmptyState message="No teams yet." />
           ) : (
             <div className="flex flex-col gap-8">
-              {channels.map((channel) => (
-                <ChannelSection
-                  key={channel.id}
-                  channel={channel}
+              {teams.map((team) => (
+                <TeamSection
+                  key={team.id}
+                  team={team}
                   query={query}
                   activeSheetId={activeSheetId}
                   onOpen={handleOpen}
@@ -85,23 +85,23 @@ export default function SheetsPage() {
   )
 }
 
-function ChannelSection({
-  channel,
+function TeamSection({
+  team,
   query,
   activeSheetId,
   onOpen,
 }: {
-  channel: Channel
+  team: Team
   query: string
   activeSheetId: string | null
-  onOpen: (channelId: string, sheetId: string) => void
+  onOpen: (teamId: string, sheetId: string) => void
 }) {
-  const channelId = channel.id ?? ""
+  const teamId = team.id ?? ""
   const sheetsQuery = $api.useQuery(
     "get",
     "/v1/sheets",
-    { params: { query: { channel_id: channelId, limit: 200 } } },
-    { enabled: Boolean(channelId) }
+    { params: { query: { team_id: teamId, limit: 200 } } },
+    { enabled: Boolean(teamId) }
   )
 
   const normalized = query.trim().toLowerCase()
@@ -112,18 +112,18 @@ function ChannelSection({
       (sheet.description ?? "").toLowerCase().includes(normalized)
   )
 
-  // Keep the list quiet: channels with no (matching) sheets are hidden.
+  // Keep the list quiet: teams with no (matching) sheets are hidden.
   if (sheets.length === 0) return null
 
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <AppIcon
-          icon="hash"
+          icon="users"
           className="text-muted-foreground h-3.5 w-3.5"
           aria-hidden="true"
         />
-        <h2 className="text-sm font-medium text-foreground">{channel.name}</h2>
+        <h2 className="text-sm font-medium text-foreground">{team.name}</h2>
         <span className="text-muted-foreground text-xs">{sheets.length}</span>
       </div>
       <div className="bg-card flex flex-col">
@@ -132,7 +132,7 @@ function ChannelSection({
             key={sheet.id}
             sheet={sheet}
             active={activeSheetId === sheet.id}
-            onOpen={() => onOpen(channelId, sheet.id ?? "")}
+            onOpen={() => onOpen(teamId, sheet.id ?? "")}
           />
         ))}
       </div>

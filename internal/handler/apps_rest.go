@@ -14,8 +14,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// AppsHandler serves the org-facing /v1/apps surface. Channel authorization
-// uses the canUseChannel predicate family (like sheets): a denied app 404s so
+// AppsHandler serves the org-facing /v1/apps surface. Team authorization
+// makes a denied app 404 so
 // it is indistinguishable from a missing one.
 type AppsHandler struct {
 	db     *gorm.DB
@@ -28,7 +28,7 @@ func NewAppsHandler(db *gorm.DB, svc *apps.Service, rsaKey *rsa.PrivateKey) *App
 }
 
 type createAppRequest struct {
-	ChannelID   string `json:"channel_id"`
+	TeamID      string `json:"team_id"`
 	SheetID     string `json:"sheet_id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
@@ -37,7 +37,7 @@ type createAppRequest struct {
 
 type appView struct {
 	ID              string     `json:"id"`
-	ChannelID       string     `json:"channel_id"`
+	TeamID          string     `json:"team_id"`
 	SheetID         string     `json:"sheet_id"`
 	Slug            string     `json:"slug"`
 	Name            string     `json:"name"`
@@ -75,7 +75,7 @@ type appDetailResponse struct {
 func appViewFrom(m *model.App) appView {
 	return appView{
 		ID:              m.ID.String(),
-		ChannelID:       m.ChannelID.String(),
+		TeamID:          m.TeamID.String(),
 		SheetID:         m.SheetID.String(),
 		Slug:            m.Slug,
 		Name:            m.Name,
@@ -104,7 +104,7 @@ func appVersionViewFrom(m model.AppVersion) appVersionView {
 
 // Create handles POST /v1/apps.
 // @Summary Create an app
-// @Description Registers a new app bound to exactly one sheet in one channel. Returns 409 when an active app in the org already uses the slug derived from the name.
+// @Description Registers a new app bound to exactly one sheet in one team. Returns 409 when an active app in the org already uses the slug derived from the name.
 // @Tags apps
 // @Accept json
 // @Produce json
@@ -125,9 +125,9 @@ func (h *AppsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	channelID, err := uuid.Parse(req.ChannelID)
+	teamID, err := uuid.Parse(req.TeamID)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must be a uuid"})
 		return
 	}
 	sheetID, err := uuid.Parse(req.SheetID)
@@ -135,14 +135,14 @@ func (h *AppsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sheet_id must be a uuid"})
 		return
 	}
-	if !h.canUseAppChannel(r.Context(), org.ID, channelID) {
+	if !h.canUseAppTeam(r.Context(), org.ID, teamID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
 		return
 	}
 
 	params := apps.CreateAppParams{
 		OrgID:       org.ID,
-		ChannelID:   channelID,
+		TeamID:      teamID,
 		SheetID:     sheetID,
 		Name:        req.Name,
 		Description: req.Description,
@@ -160,10 +160,10 @@ func (h *AppsHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // List handles GET /v1/apps.
-// @Summary List a channel's apps
+// @Summary List a team's apps
 // @Tags apps
 // @Produce json
-// @Param channel_id query string true "Channel ID"
+// @Param team_id query string true "Team ID"
 // @Success 200 {object} appListResponse
 // @Failure 400 {object} errorResponse
 // @Failure 404 {object} errorResponse
@@ -174,16 +174,16 @@ func (h *AppsHandler) List(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	channelID, err := uuid.Parse(r.URL.Query().Get("channel_id"))
+	teamID, err := uuid.Parse(r.URL.Query().Get("team_id"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id query parameter must be a uuid"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id query parameter must be a uuid"})
 		return
 	}
-	if !h.canUseAppChannel(r.Context(), org.ID, channelID) {
+	if !h.canUseAppTeam(r.Context(), org.ID, teamID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
 		return
 	}
-	list, err := h.svc.ListApps(r.Context(), org.ID, channelID)
+	list, err := h.svc.ListApps(r.Context(), org.ID, teamID)
 	if err != nil {
 		writeAppsError(w, r, err)
 		return

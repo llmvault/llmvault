@@ -21,16 +21,12 @@ const (
 type Request struct {
 	OrgID            uuid.UUID
 	AgentID          uuid.UUID
-	ChannelID        uuid.UUID
 	TeamID           uuid.UUID
 	CurrentSessionID uuid.UUID
 	Text             string
 	UserID           string
 	UserDisplayName  string
 	Source           string
-	// IncludeOrgMemories folds org-wide memories into this channel's recall
-	// (the channel's expose_org_memories flag).
-	IncludeOrgMemories bool
 }
 
 type Builder interface {
@@ -39,13 +35,13 @@ type Builder interface {
 
 // MemoryLister is the recall source for the memories section. Recall reads, in
 // order of preference: directives (hard rules, always all of them), the
-// channel's precomputed memory digest, and top observations (digest missing).
-// A channel with none of these gets no memories section. Every method must
+// agent's precomputed memory digest, and top observations (digest missing).
+// An agent with none of these gets no memories section. Every method must
 // stay cheap and indexed — this runs on the synchronous session-create path.
 type MemoryLister interface {
-	ActiveDirectives(context.Context, uuid.UUID, memory.ChannelScope) ([]model.AgentDirective, error)
-	ChannelMemoryDigest(ctx context.Context, orgID, channelID uuid.UUID) (string, error)
-	TopObservations(ctx context.Context, orgID uuid.UUID, scope memory.ChannelScope, limit int) ([]model.AgentObservation, error)
+	ActiveDirectives(context.Context, uuid.UUID, memory.AgentScope) ([]model.AgentDirective, error)
+	AgentMemoryDigest(ctx context.Context, orgID, agentID uuid.UUID) (string, error)
+	TopObservations(ctx context.Context, orgID uuid.UUID, scope memory.AgentScope, limit int) ([]model.AgentObservation, error)
 }
 
 // EnvVarDoc is the awareness-only projection of a team environment

@@ -110,12 +110,12 @@ function SkeletonRows() {
  */
 export function SheetWorkbench({
   sheetId,
-  channelId,
+  teamId,
   page,
   pages,
 }: {
   sheetId: string
-  channelId: string
+  teamId: string
   page: SheetPage
   pages: SheetPage[]
 }) {
@@ -141,7 +141,7 @@ export function SheetWorkbench({
     <WorkbenchInner
       key={activeView?.id ?? "default"}
       sheetId={sheetId}
-      channelId={channelId}
+      teamId={teamId}
       page={page}
       pages={pages}
       views={views}
@@ -154,7 +154,7 @@ export function SheetWorkbench({
 
 function WorkbenchInner({
   sheetId,
-  channelId,
+  teamId,
   page,
   pages,
   views,
@@ -163,7 +163,7 @@ function WorkbenchInner({
   initialConfig,
 }: {
   sheetId: string
-  channelId: string
+  teamId: string
   page: SheetPage
   pages: SheetPage[]
   views: SheetView[]
@@ -492,7 +492,7 @@ function WorkbenchInner({
         <SheetGrid
           sheetId={sheetId}
           pageId={pageId}
-          channelId={channelId}
+          teamId={teamId}
           fields={visibleFields}
           controller={controller}
           columnWidths={columnWidths}

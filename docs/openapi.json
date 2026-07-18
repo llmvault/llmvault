@@ -3189,11 +3189,11 @@
         "tags": [
           "apps"
         ],
-        "summary": "List a channel's apps",
+        "summary": "List a team's apps",
         "parameters": [
           {
-            "description": "Channel ID",
-            "name": "channel_id",
+            "description": "Team ID",
+            "name": "team_id",
             "in": "query",
             "required": true,
             "schema": {
@@ -3240,7 +3240,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Registers a new app bound to exactly one sheet in one channel. Returns 409 when an active app in the org already uses the slug derived from the name.",
+        "description": "Registers a new app bound to exactly one sheet in one team. Returns 409 when an active app in the org already uses the slug derived from the name.",
         "tags": [
           "apps"
         ],
@@ -4940,865 +4940,6 @@
         }
       }
     },
-    "/v1/channels": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists channels visible to the caller. Use discoverable=true to include public channels the caller can join.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "List channels",
-        "parameters": [
-          {
-            "description": "Include public discoverable channels",
-            "name": "discoverable",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "description": "Comma-separated optional expansions. Supports recent_sessions.",
-            "name": "include",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Recent sessions per channel when include=recent_sessions (default 5, max 20)",
-            "name": "recent_sessions_limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Page size (default 50, max 100)",
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Pagination cursor",
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/paginatedResponse-channelResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Creates a web-first channel. The creator becomes channel owner when the caller is a user.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Create a channel",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/channelMutationRequest"
-              }
-            }
-          },
-          "description": "Channel create payload",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelMutationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Returns one visible channel and its members.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Get a channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelDetailResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Deletes a non-default, non-personal channel: it archives the channel and all its sessions, then queues deletion of the channel's memories. Rejected with 409 if any session has an in-progress agent turn.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Delete a channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelMutationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Updates a channel when the caller is a channel owner, org admin, or scoped API key.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Update a channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/channelMutationRequest"
-              }
-            }
-          },
-          "description": "Channel update payload",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelMutationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}/join": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Adds the authenticated user to a public channel.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Join a public channel",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelMutationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}/members/{userID}": {
-      "put": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Adds a user to a channel or updates their channel role.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Add or update a channel member",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "User ID",
-            "name": "userID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/channelMemberRequest"
-              }
-            }
-          },
-          "description": "Member role"
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelDetailResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Removes a user from a channel. Users may remove themselves; owners and org admins may remove others.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "Remove a channel member",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "User ID",
-            "name": "userID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/channelDetailResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/channels/{id}/sessions": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists sessions in a visible channel.",
-        "tags": [
-          "channels"
-        ],
-        "summary": "List channel sessions",
-        "parameters": [
-          {
-            "description": "Channel ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Page size",
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Pagination cursor",
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Sort order: created_at or activity",
-            "name": "sort",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/paginatedResponse-sessionResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/connections": {
       "get": {
         "security": [
@@ -7139,285 +6280,18 @@
     },
     "/v1/directives": {
       "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists agent directives. channel_id filters: a channel UUID returns that channel's directives plus org-wide ones (the injected set for the channel), \"org\" returns org-wide only, omitted returns all.",
-        "tags": [
-          "directives"
-        ],
-        "summary": "List directives",
-        "parameters": [
-          {
-            "description": "Filter: channel UUID (channel + org-wide), \\",
-            "name": "channel_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/directiveListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       },
       "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Creates a manual (user-pinned) directive in a channel (channel_id) or org-wide (omit channel_id). Requires an org admin/owner.",
-        "tags": [
-          "directives"
-        ],
-        "summary": "Create a directive",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/directiveMutationRequest"
-              }
-            }
-          },
-          "description": "Directive content and optional channel_id",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/directiveResponse"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       }
     },
     "/v1/directives/{id}": {
       "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Soft-deletes a directive so it is no longer injected into prompts or listed. The row is retained as history for as-of temporal audits (rule content is immutable, so the deleted wording is preserved verbatim). Requires an org admin/owner.",
-        "tags": [
-          "directives"
-        ],
-        "summary": "Delete a directive",
-        "parameters": [
-          {
-            "description": "Directive UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       },
       "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Updates a directive's active flag. Directive content is immutable: delete and re-create a directive to change its text. Requires an org admin/owner.",
-        "tags": [
-          "directives"
-        ],
-        "summary": "Update a directive",
-        "parameters": [
-          {
-            "description": "Directive UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/directiveUpdateRequest"
-              }
-            }
-          },
-          "description": "Fields to update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/directiveResponse"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       }
     },
     "/v1/generations": {
@@ -8848,448 +7722,18 @@
     },
     "/v1/memories": {
       "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists memories, optionally filtered by channel_id (\"org\" for organization-wide, a UUID for one channel, omitted for all). Pass q to semantic-search instead.",
-        "tags": [
-          "memories"
-        ],
-        "summary": "List memories",
-        "parameters": [
-          {
-            "description": "Filter: channel UUID, \\",
-            "name": "channel_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Semantic search query",
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Comma-separated tag filters",
-            "name": "tags",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Max items (1-100, default 50)",
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/memoryListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       },
       "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Stores a memory in a channel (channel_id) or organization-wide (omit channel_id). Requires an org admin/owner. Content is embedded asynchronously.",
-        "tags": [
-          "memories"
-        ],
-        "summary": "Create a memory",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/memoryMutationRequest"
-              }
-            }
-          },
-          "description": "Memory content, optional channel_id and tags",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/memoryResponse"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/memories/channels/{channelId}": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Cursor-paginated memories for a single channel, newest first. Use channelId \"global\" for channel-less organization memories, or a channel UUID. Pass the previous response's next_cursor to fetch the next page.",
-        "tags": [
-          "memories"
-        ],
-        "summary": "Page one channel's memories",
-        "parameters": [
-          {
-            "description": "Channel UUID or \\",
-            "name": "channelId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Pagination cursor from a previous response",
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Max items per page (1-50, default 10)",
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/paginatedResponse-memoryResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/memories/grouped": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Returns the newest memories for every channel in one call (default 10 per channel) with a per-channel has_more flag. Global (channel-less) memories are the first group. Use the per-channel endpoint to page past the initial slice.",
-        "tags": [
-          "memories"
-        ],
-        "summary": "List memories grouped by channel",
-        "parameters": [
-          {
-            "description": "Max memories per channel (1-50, default 10)",
-            "name": "per_channel",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/memoryGroupedResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       }
     },
     "/v1/memories/{id}": {
       "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Archives a memory so agents no longer recall it. Requires an org admin/owner.",
-        "tags": [
-          "memories"
-        ],
-        "summary": "Forget a memory",
-        "parameters": [
-          {
-            "description": "Memory UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       },
       "patch": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Updates a memory's content, tags, or metadata. Editing content re-embeds it. Requires an org admin/owner.",
-        "tags": [
-          "memories"
-        ],
-        "summary": "Update a memory",
-        "parameters": [
-          {
-            "description": "Memory UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/memoryMutationRequest"
-              }
-            }
-          },
-          "description": "Fields to update",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/memoryResponse"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
+        "responses": {}
       }
     },
     "/v1/models": {
@@ -9309,377 +7753,6 @@
                   "items": {
                     "$ref": "#/components/schemas/modelSummary"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/observations": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Lists consolidated memory observations, non-archived first. channel_id filters: a channel UUID for that channel, \"org\" for org-wide, omitted for all. Paginate with limit/offset.",
-        "tags": [
-          "observations"
-        ],
-        "summary": "List memory observations",
-        "parameters": [
-          {
-            "description": "Filter: channel UUID, \\",
-            "name": "channel_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Max items (1-100, default 50)",
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Pagination offset",
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/observationListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/observations/{id}": {
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Archives the observation and records its content fingerprint in the per-channel suppression list so consolidation cannot resurrect it. Requires an org admin/owner.",
-        "tags": [
-          "observations"
-        ],
-        "summary": "Delete an observation",
-        "parameters": [
-          {
-            "description": "Observation UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/observations/{id}/confirm": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Human confirmation: increments proof_count and refreshes last_mentioned_at. Requires an org admin/owner.",
-        "tags": [
-          "observations"
-        ],
-        "summary": "Confirm an observation",
-        "parameters": [
-          {
-            "description": "Observation UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/observationResponse"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/observations/{id}/correct": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Human edit: creates a new human-verified observation with the corrected content (proof count carried over) and archives the old one with a supersession link. Requires an org admin/owner.",
-        "tags": [
-          "observations"
-        ],
-        "summary": "Correct an observation",
-        "parameters": [
-          {
-            "description": "Observation UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/observationCorrectRequest"
-              }
-            }
-          },
-          "description": "Corrected content",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/observationResponse"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/observations/{id}/pin": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Promotes the observation into an agent directive (source extracted-confirmed) in the observation's scope, and marks the observation as pinned. Requires an org admin/owner.",
-        "tags": [
-          "observations"
-        ],
-        "summary": "Pin an observation to a directive",
-        "parameters": [
-          {
-            "description": "Observation UUID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
                 }
               }
             }
@@ -11241,7 +9314,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Archives an active team after all channels are removed from it. Admin-only. Rejected if it is the org's last team.",
+        "description": "Archives an active team. Admin-only. Rejected if it is the org's last team.",
         "tags": [
           "teams"
         ],
@@ -11416,7 +9489,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Lists environment variables shared by all channels in a team. Values are not returned.",
+        "description": "Lists environment variables shared by agents in a team. Values are not returned.",
         "tags": [
           "teams"
         ],
@@ -11481,7 +9554,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Stores an environment variable shared by all channels in a team.",
+        "description": "Stores an environment variable shared by agents in a team.",
         "tags": [
           "teams"
         ],
@@ -11756,6 +9829,166 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/teams/{id}/external-resource-routes": {
+      "get": {
+        "tags": [
+          "teams"
+        ],
+        "summary": "List external resource routes",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/externalResourceRoutesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "teams"
+        ],
+        "summary": "Create external resource route",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/externalResourceRouteRequest"
+              }
+            }
+          },
+          "description": "External resource route",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/externalResourceRouteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/teams/{id}/external-resource-routes/{routeID}": {
+      "delete": {
+        "tags": [
+          "teams"
+        ],
+        "summary": "Delete external resource route",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "teams"
+        ],
+        "summary": "Update external resource route",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/externalResourceRouteUpdateRequest"
+              }
+            }
+          },
+          "description": "External resource route changes",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/externalResourceRouteResponse"
                 }
               }
             }
@@ -13313,53 +11546,6 @@
         }
       }
     },
-    "/v1/rag/sources/{id}/channels": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Returns the ids of the channels that can search this knowledge source. Derived from team grants \u2014 a channel can search a source when its team has been granted the source by an org admin.",
-        "tags": [
-          "rag"
-        ],
-        "summary": "List which channels can search a source",
-        "parameters": [
-          {
-            "description": "RAG source ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/sourceChannelsResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/rag/sources/{id}/documents": {
       "get": {
         "security": [
@@ -14777,15 +12963,15 @@
             "BearerAuth": []
           }
         ],
-        "description": "Lists sessions visible to the caller, optionally filtered by channel or agent.",
+        "description": "Lists sessions visible to the caller, optionally filtered by team or agent.",
         "tags": [
           "sessions"
         ],
         "summary": "List sessions",
         "parameters": [
           {
-            "description": "Channel ID",
-            "name": "channel_id",
+            "description": "Team ID",
+            "name": "team_id",
             "in": "query",
             "schema": {
               "type": "string"
@@ -16388,15 +14574,15 @@
             "BearerAuth": []
           }
         ],
-        "description": "Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.",
+        "description": "Lists a team's sheets, newest-updated first.",
         "tags": [
           "sheets"
         ],
-        "summary": "List sheets in a channel",
+        "summary": "List sheets in a team",
         "parameters": [
           {
-            "description": "Channel ID to list sheets for",
-            "name": "channel_id",
+            "description": "Team ID to list sheets for",
+            "name": "team_id",
             "in": "query",
             "required": true,
             "schema": {
@@ -16477,7 +14663,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.",
+        "description": "Creates a sheet in a team with optional inline pages and typed fields.",
         "tags": [
           "sheets"
         ],
@@ -16490,7 +14676,7 @@
               }
             }
           },
-          "description": "Sheet to create (channel_id required)",
+          "description": "Sheet to create (team_id required)",
           "required": true
         },
         "responses": {
@@ -16544,7 +14730,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns import job status. The caller must be able to use the job's sheet's channel.",
+        "description": "Returns import job status. The caller must be able to use the job's sheet's team.",
         "tags": [
           "sheets"
         ],
@@ -16601,7 +14787,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.",
+        "description": "Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's team.",
         "tags": [
           "sheets"
         ],
@@ -16656,7 +14842,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Archives a sheet (soft delete). The caller must be able to use the sheet's channel.",
+        "description": "Archives a sheet (soft delete). The caller must be able to use the sheet's team.",
         "tags": [
           "sheets"
         ],
@@ -16711,7 +14897,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.",
+        "description": "Renames a sheet or updates its description/icon. The caller must be able to use the sheet's team.",
         "tags": [
           "sheets"
         ],
@@ -16850,7 +15036,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's channel.",
+        "description": "Returns a short-lived JWT for the direct SSE stream. The caller must be able to use the sheet's team.",
         "tags": [
           "sheets"
         ],
@@ -18377,129 +16563,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/skillEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/slack/channels": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Returns public Slack channels plus private channels where Hivy is already a member.",
-        "tags": [
-          "slack"
-        ],
-        "summary": "List Slack channels",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/slackChannelsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/slack/channels/join": {
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Invites Hivy to all public channels or selected channels. Joined private channels are treated as already available.",
-        "tags": [
-          "slack"
-        ],
-        "summary": "Join Slack channels",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/joinSlackChannelsRequest"
-              }
-            }
-          },
-          "description": "Join request",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/joinSlackChannelsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
                 }
               }
             }
@@ -20826,9 +18889,6 @@
       "agentTriggerResponse": {
         "type": "object",
         "properties": {
-          "channel_id": {
-            "type": "string"
-          },
           "conditions": {},
           "connection_id": {
             "type": "string"
@@ -20843,6 +18903,12 @@
             "type": "string"
           },
           "provider": {
+            "type": "string"
+          },
+          "resource_key": {
+            "type": "string"
+          },
+          "resource_type": {
             "type": "string"
           },
           "secret_set": {
@@ -21012,9 +19078,6 @@
           "active_version_id": {
             "type": "string"
           },
-          "channel_id": {
-            "type": "string"
-          },
           "created_at": {
             "type": "string"
           },
@@ -21037,6 +19100,9 @@
             "type": "string"
           },
           "status": {
+            "type": "string"
+          },
+          "team_id": {
             "type": "string"
           },
           "template_version": {
@@ -21408,221 +19474,6 @@
           }
         }
       },
-      "channelDetailResponse": {
-        "type": "object",
-        "properties": {
-          "channel": {
-            "$ref": "#/components/schemas/channelResponse"
-          },
-          "members": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/channelMemberResponse"
-            }
-          }
-        }
-      },
-      "channelMemberRequest": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string"
-          }
-        }
-      },
-      "channelMemberResponse": {
-        "type": "object",
-        "properties": {
-          "created_at": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      },
-      "channelMutationRequest": {
-        "type": "object",
-        "properties": {
-          "category": {
-            "type": "string"
-          },
-          "default_agent_id": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "external_connection_id": {
-            "type": "string"
-          },
-          "external_metadata": {
-            "$ref": "#/components/schemas/JSON"
-          },
-          "external_provider": {
-            "type": "string"
-          },
-          "external_resource_key": {
-            "type": "string"
-          },
-          "external_resource_name": {
-            "type": "string"
-          },
-          "external_resource_type": {
-            "type": "string"
-          },
-          "external_resource_url": {
-            "type": "string"
-          },
-          "external_workspace_key": {
-            "type": "string"
-          },
-          "image_model": {
-            "type": "string"
-          },
-          "memory_mission": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "origin": {
-            "type": "string"
-          },
-          "team_id": {
-            "type": "string"
-          },
-          "vector_image_model": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string"
-          }
-        }
-      },
-      "channelMutationResponse": {
-        "type": "object",
-        "properties": {
-          "channel": {
-            "$ref": "#/components/schemas/channelResponse"
-          }
-        }
-      },
-      "channelResponse": {
-        "type": "object",
-        "properties": {
-          "archived_at": {
-            "type": "string"
-          },
-          "category": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "created_by": {
-            "type": "string"
-          },
-          "default_agent_id": {
-            "type": "string"
-          },
-          "default_memory_mission": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "external_connection_id": {
-            "type": "string"
-          },
-          "external_metadata": {
-            "$ref": "#/components/schemas/JSON"
-          },
-          "external_provider": {
-            "type": "string"
-          },
-          "external_resource_key": {
-            "type": "string"
-          },
-          "external_resource_name": {
-            "type": "string"
-          },
-          "external_resource_type": {
-            "type": "string"
-          },
-          "external_resource_url": {
-            "type": "string"
-          },
-          "external_workspace_key": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "image_model": {
-            "type": "string"
-          },
-          "is_default": {
-            "type": "boolean"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "member_count": {
-            "type": "integer"
-          },
-          "memory_mission": {
-            "description": "MemoryMission is the channel's stored mission; empty means the channel\nfollows DefaultMemoryMission (the curated template for its category,\nempty for 'general'), which is what extraction actually uses then.",
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "origin": {
-            "type": "string"
-          },
-          "recent_sessions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/sessionResponse"
-            }
-          },
-          "recent_sessions_has_more": {
-            "type": "boolean"
-          },
-          "recent_sessions_next_cursor": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "team_id": {
-            "type": "string"
-          },
-          "team_name": {
-            "description": "TeamName is the display name of the channel's owning team. Lets the\nnon-admin sidebar label team groups without a second round-trip; both\nmanagers and members receive the name of teams their visible channels\nbelong to.",
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          },
-          "vector_image_model": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string"
-          }
-        }
-      },
       "commandResult": {
         "type": "object",
         "properties": {
@@ -21770,9 +19621,6 @@
       "createAppRequest": {
         "type": "object",
         "properties": {
-          "channel_id": {
-            "type": "string"
-          },
           "description": {
             "type": "string"
           },
@@ -21783,6 +19631,9 @@
             "type": "string"
           },
           "sheet_id": {
+            "type": "string"
+          },
+          "team_id": {
             "type": "string"
           }
         }
@@ -22106,9 +19957,6 @@
           "agent_id": {
             "type": "string"
           },
-          "channel_id": {
-            "type": "string"
-          },
           "cron_expression": {
             "type": "string"
           },
@@ -22149,9 +19997,6 @@
               "type": "string"
             }
           },
-          "channel_id": {
-            "type": "string"
-          },
           "model_definition": {
             "$ref": "#/components/schemas/sessionModelDefinitionRequest"
           },
@@ -22163,9 +20008,6 @@
       "createSheetRequest": {
         "type": "object",
         "properties": {
-          "channel_id": {
-            "type": "string"
-          },
           "description": {
             "type": "string"
           },
@@ -22182,6 +20024,9 @@
             }
           },
           "slug": {
+            "type": "string"
+          },
+          "team_id": {
             "type": "string"
           }
         }
@@ -22204,10 +20049,6 @@
         "type": "object",
         "properties": {
           "agent_id": {
-            "type": "string"
-          },
-          "channel_id": {
-            "description": "ChannelID is the Hivy channel the trigger runs in. Required for HTTP\ntriggers; the caller must have access to it.",
             "type": "string"
           },
           "connection_id": {
@@ -22550,68 +20391,6 @@
           }
         }
       },
-      "directiveListResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/directiveResponse"
-            }
-          }
-        }
-      },
-      "directiveMutationRequest": {
-        "type": "object",
-        "properties": {
-          "active": {
-            "type": "boolean"
-          },
-          "channel_id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          }
-        }
-      },
-      "directiveResponse": {
-        "type": "object",
-        "properties": {
-          "active": {
-            "type": "boolean"
-          },
-          "channel_id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "created_by_user_id": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        }
-      },
-      "directiveUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "active": {
-            "type": "boolean"
-          }
-        }
-      },
       "discoverWebsiteSectionsRequest": {
         "type": "object",
         "properties": {
@@ -22672,6 +20451,92 @@
           },
           "success": {
             "type": "boolean"
+          }
+        }
+      },
+      "externalResourceRouteRequest": {
+        "type": "object",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "resource_key": {
+            "type": "string"
+          },
+          "resource_name": {
+            "type": "string"
+          },
+          "resource_type": {
+            "type": "string"
+          },
+          "resource_url": {
+            "type": "string"
+          }
+        }
+      },
+      "externalResourceRouteResponse": {
+        "type": "object",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "resource_key": {
+            "type": "string"
+          },
+          "resource_name": {
+            "type": "string"
+          },
+          "resource_type": {
+            "type": "string"
+          },
+          "resource_url": {
+            "type": "string"
+          },
+          "team_id": {
+            "type": "string"
+          }
+        }
+      },
+      "externalResourceRouteUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "resource_name": {
+            "type": "string"
+          },
+          "resource_url": {
+            "type": "string"
+          }
+        }
+      },
+      "externalResourceRoutesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/externalResourceRouteResponse"
+            }
           }
         }
       },
@@ -22926,51 +20791,6 @@
             "type": "integer"
           },
           "write_count": {
-            "type": "integer"
-          }
-        }
-      },
-      "joinSlackChannelFailure": {
-        "type": "object",
-        "properties": {
-          "channel_id": {
-            "type": "string"
-          },
-          "error": {
-            "type": "string"
-          }
-        }
-      },
-      "joinSlackChannelsRequest": {
-        "type": "object",
-        "properties": {
-          "all_public": {
-            "type": "boolean"
-          },
-          "channel_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "joinSlackChannelsResponse": {
-        "type": "object",
-        "properties": {
-          "already_member": {
-            "type": "integer"
-          },
-          "failed": {
-            "type": "integer"
-          },
-          "failures": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/joinSlackChannelFailure"
-            }
-          },
-          "joined": {
             "type": "integer"
           }
         }
@@ -23275,127 +21095,6 @@
           }
         }
       },
-      "memoryGroupResponse": {
-        "type": "object",
-        "properties": {
-          "channel_id": {
-            "type": "string"
-          },
-          "channel_name": {
-            "type": "string"
-          },
-          "has_more": {
-            "type": "boolean"
-          },
-          "memories": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/memoryResponse"
-            }
-          },
-          "next_cursor": {
-            "type": "string"
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "memoryGroupedResponse": {
-        "type": "object",
-        "properties": {
-          "groups": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/memoryGroupResponse"
-            }
-          }
-        }
-      },
-      "memoryListResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/memoryResponse"
-            }
-          }
-        }
-      },
-      "memoryMutationRequest": {
-        "type": "object",
-        "properties": {
-          "channel_id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/JSON"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "memoryResponse": {
-        "type": "object",
-        "properties": {
-          "archived_at": {
-            "type": "string"
-          },
-          "channel_id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "embedded_at": {
-            "type": "string"
-          },
-          "embedding_error": {
-            "type": "string"
-          },
-          "embedding_model": {
-            "type": "string"
-          },
-          "embedding_revision": {
-            "type": "integer"
-          },
-          "embedding_status": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/JSON"
-          },
-          "org_id": {
-            "type": "string"
-          },
-          "similarity": {
-            "type": "number"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        }
-      },
       "mintTokenRequest": {
         "type": "object",
         "properties": {
@@ -23499,72 +21198,6 @@
           },
           "tool_call": {
             "type": "boolean"
-          }
-        }
-      },
-      "observationCorrectRequest": {
-        "type": "object",
-        "properties": {
-          "content": {
-            "type": "string"
-          }
-        }
-      },
-      "observationListResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/observationResponse"
-            }
-          },
-          "has_more": {
-            "type": "boolean"
-          }
-        }
-      },
-      "observationResponse": {
-        "type": "object",
-        "properties": {
-          "archived_at": {
-            "type": "string"
-          },
-          "channel_id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "entities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "expires_at": {
-            "type": "string"
-          },
-          "human_verified": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "last_mentioned_at": {
-            "type": "string"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/JSON"
-          },
-          "proof_count": {
-            "type": "integer"
           }
         }
       },
@@ -23783,23 +21416,6 @@
           }
         }
       },
-      "paginatedResponse-channelResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/channelResponse"
-            }
-          },
-          "has_more": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        }
-      },
       "paginatedResponse-connectionResponse": {
         "type": "object",
         "properties": {
@@ -23977,23 +21593,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/tokenListItem"
-            }
-          },
-          "has_more": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        }
-      },
-      "paginatedResponse-memoryResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/memoryResponse"
             }
           },
           "has_more": {
@@ -24939,9 +22538,6 @@
           "agent_name": {
             "type": "string"
           },
-          "channel_id": {
-            "type": "string"
-          },
           "created_at": {
             "type": "string"
           },
@@ -25258,9 +22854,6 @@
           "agent_turn_status": {
             "type": "string"
           },
-          "channel_id": {
-            "type": "string"
-          },
           "created_at": {
             "type": "string"
           },
@@ -25307,6 +22900,9 @@
             "type": "string"
           },
           "status": {
+            "type": "string"
+          },
+          "team_id": {
             "type": "string"
           },
           "updated_at": {
@@ -25862,57 +23458,6 @@
           }
         }
       },
-      "slackChannelResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "is_archived": {
-            "type": "boolean"
-          },
-          "is_member": {
-            "type": "boolean"
-          },
-          "is_private": {
-            "type": "boolean"
-          },
-          "name": {
-            "type": "string"
-          },
-          "num_members": {
-            "type": "integer"
-          },
-          "purpose": {
-            "type": "string"
-          },
-          "topic": {
-            "type": "string"
-          }
-        }
-      },
-      "slackChannelsResponse": {
-        "type": "object",
-        "properties": {
-          "channels": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/slackChannelResponse"
-            }
-          }
-        }
-      },
-      "sourceChannelsResponse": {
-        "type": "object",
-        "properties": {
-          "channel_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "spendOverTime": {
         "type": "object",
         "properties": {
@@ -26201,15 +23746,6 @@
           "archived_at": {
             "type": "string"
           },
-          "channel_count": {
-            "type": "integer"
-          },
-          "channels": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/channelResponse"
-            }
-          },
           "created_at": {
             "type": "string"
           },
@@ -26437,12 +23973,6 @@
           "agent_name": {
             "type": "string"
           },
-          "channel_id": {
-            "type": "string"
-          },
-          "channel_name": {
-            "type": "string"
-          },
           "connection_id": {
             "type": "string"
           },
@@ -26477,6 +24007,9 @@
             "type": "string"
           },
           "provider": {
+            "type": "string"
+          },
+          "resource_type": {
             "type": "string"
           },
           "secret_set": {
@@ -26802,9 +24335,6 @@
       "updateScheduleRequest": {
         "type": "object",
         "properties": {
-          "channel_id": {
-            "type": "string"
-          },
           "cron_expression": {
             "type": "string"
           },
@@ -26831,12 +24361,6 @@
       "updateSessionRequest": {
         "type": "object",
         "properties": {
-          "agent_id": {
-            "type": "string"
-          },
-          "channel_id": {
-            "type": "string"
-          },
           "image_model": {
             "type": "string"
           },
@@ -26883,9 +24407,6 @@
         "type": "object",
         "properties": {
           "agent_id": {
-            "type": "string"
-          },
-          "channel_id": {
             "type": "string"
           },
           "connection_id": {

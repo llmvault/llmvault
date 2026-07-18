@@ -137,63 +137,6 @@ func TestIsTeamMemberMatrix(t *testing.T) {
 	}
 }
 
-// TestCanUseChannelPrivate asserts the agent-path mirror gates private channels
-// to explicit channel members: a private channel is unusable by a non-member
-// member (regardless of team) but usable by a channel member; managers keep
-// org-wide access.
-func TestCanUseChannelPrivate(t *testing.T) {
-	db := connectAccessTestDB(t)
-	fx := seedPredicateFixture(t, db)
-	ctx := t.Context()
-
-	agent := model.Agent{ID: uuid.New(), OrgID: &fx.org.ID, Name: "a-" + uuid.NewString()[:8], Model: "test", Status: "active", TeamID: fx.teamIn.ID}
-	if err := db.Create(&agent).Error; err != nil {
-		t.Fatalf("create agent: %v", err)
-	}
-	// Private channel scoped to teamIn: gated to explicit channel members
-	// regardless of team.
-	priv := model.Channel{
-		ID: uuid.New(), OrgID: fx.org.ID, Name: "priv-" + uuid.NewString()[:8],
-		Kind: "standard", TeamID: fx.teamIn.ID, Visibility: "private", DefaultAgentID: agent.ID,
-	}
-	if err := db.Create(&priv).Error; err != nil {
-		t.Fatalf("create channel: %v", err)
-	}
-	// A second user who is a member of the channel but not of teamIn.
-	chMember := model.User{ID: uuid.New(), Email: "chm-" + uuid.NewString()[:8] + "@t.com", Name: "chm"}
-	if err := db.Create(&chMember).Error; err != nil {
-		t.Fatalf("create channel member user: %v", err)
-	}
-	if err := db.Create(&model.OrgMembership{UserID: chMember.ID, OrgID: fx.org.ID, Role: "member"}).Error; err != nil {
-		t.Fatalf("create membership: %v", err)
-	}
-	if err := db.Create(&model.ChannelMember{ChannelID: priv.ID, UserID: chMember.ID, Role: "member"}).Error; err != nil {
-		t.Fatalf("create channel member: %v", err)
-	}
-	t.Cleanup(func() {
-		db.Where("channel_id = ?", priv.ID).Delete(&model.ChannelMember{})
-		db.Where("id = ?", priv.ID).Delete(&model.Channel{})
-		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
-		db.Where("user_id = ?", chMember.ID).Delete(&model.OrgMembership{})
-		db.Where("id = ?", chMember.ID).Delete(&model.User{})
-	})
-
-	cases := []struct {
-		name  string
-		actor *access.Actor
-		want  bool
-	}{
-		{"non-member", actorFor(fx, fx.member, "member"), false},
-		{"channel-member", actorFor(fx, chMember, "member"), true},
-		{"manager", actorFor(fx, fx.admin, "admin"), true},
-	}
-	for _, c := range cases {
-		if got := c.actor.CanUseChannel(ctx, db, priv); got != c.want {
-			t.Errorf("%s: CanUseChannel=%v, want %v", c.name, got, c.want)
-		}
-	}
-}
-
 func TestCanManageTeamResourceMatrix(t *testing.T) {
 	db := connectAccessTestDB(t)
 	fx := seedPredicateFixture(t, db)

@@ -16,8 +16,9 @@ import (
 )
 
 type TeamHandler struct {
-	db        *gorm.DB
-	envEncKey *crypto.SymmetricKey
+	db                     *gorm.DB
+	envEncKey              *crypto.SymmetricKey
+	externalRouteValidator ExternalResourceRouteValidator
 }
 
 type TeamHandlerOption func(*TeamHandler)

@@ -417,9 +417,6 @@ async function refreshSessionQueries(
     queryClient.invalidateQueries({
       queryKey: chatQueryKeys.sessionEvents(sessionId),
     }),
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.channelSessions(),
-    }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sessions() }),
   ])
 }

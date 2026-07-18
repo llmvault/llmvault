@@ -28,7 +28,7 @@ func (h *UploadsHandler) generationRegistry() *registry.Registry {
 
 func (h *UploadsHandler) resolveGenerationModel(ctx context.Context, agent *model.Agent, vector bool, sessionID *uuid.UUID) (string, error) {
 	if sessionID == nil {
-		modelID, _ := resolveImageModelPreference(nil, nil, agent, vector)
+		modelID, _ := resolveImageModelPreference(nil, agent, vector)
 		return modelID, h.generationRegistry().ValidateImageGenerationModel(modelID, vector)
 	}
 	var session model.Session
@@ -37,18 +37,7 @@ func (h *UploadsHandler) resolveGenerationModel(ctx context.Context, agent *mode
 		First(&session).Error; err != nil {
 		return "", err
 	}
-	var channel model.Channel
-	err := h.db.WithContext(ctx).
-		Where("id = ? AND org_id = ?", session.ChannelID, *agent.OrgID).
-		First(&channel).Error
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return "", err
-	}
-	if err == gorm.ErrRecordNotFound {
-		modelID, _ := resolveImageModelPreference(&session, nil, agent, vector)
-		return modelID, h.generationRegistry().ValidateImageGenerationModel(modelID, vector)
-	}
-	modelID, _ := resolveImageModelPreference(&session, &channel, agent, vector)
+	modelID, _ := resolveImageModelPreference(&session, agent, vector)
 	return modelID, h.generationRegistry().ValidateImageGenerationModel(modelID, vector)
 }
 

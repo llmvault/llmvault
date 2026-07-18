@@ -13,7 +13,7 @@ func sessionToResponse(session model.Session, participantCount, eventCount int64
 	}
 	return sessionResponse{
 		ID:                 session.ID.String(),
-		ChannelID:          session.ChannelID.String(),
+		TeamID:             session.TeamID.String(),
 		AgentID:            session.AgentID.String(),
 		SandboxID:          formatUUIDPtr(session.SandboxID),
 		CreatedBy:          formatUUIDPtr(session.CreatedBy),

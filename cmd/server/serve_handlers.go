@@ -32,6 +32,7 @@ type serveHandlers struct {
 	memoryHandler              *handler.MemoryHandler
 	nangoWebhookHandler        *handler.NangoWebhookHandler
 	incomingWebhookHandler     *handler.IncomingWebhookHandler
+	resendWebhookHandler       *handler.ResendWebhookHandler
 	httpTriggerHandler         *handler.HTTPTriggerHandler
 	sandboxTemplateHandler     *handler.SandboxTemplateHandler
 	agentHandler               *handler.AgentHandler
@@ -41,8 +42,6 @@ type serveHandlers struct {
 	imageDescribeHandler       *handler.ImageDescribeHandler
 	billingHandler             *handler.BillingHandler
 	dashboardHandler           *handler.DashboardHandler
-	slackChannelHandler        *handler.SlackChannelHandler
-	channelHandler             *handler.ChannelHandler
 	teamHandler                *handler.TeamHandler
 	runtimeStreamStore         *runtimestream.Store
 	sessionHandler             *handler.SessionHandler
@@ -93,6 +92,7 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		memoryHandler:              rest.memoryHandler,
 		nangoWebhookHandler:        rest.nangoWebhookHandler,
 		incomingWebhookHandler:     rest.incomingWebhookHandler,
+		resendWebhookHandler:       rest.resendWebhookHandler,
 		httpTriggerHandler:         rest.httpTriggerHandler,
 		sandboxTemplateHandler:     rest.sandboxTemplateHandler,
 		agentHandler:               rest.agentHandler,
@@ -102,8 +102,6 @@ func buildServeHandlers(ctx context.Context, deps *bootstrap.Deps, enqueuer enqu
 		imageDescribeHandler:       rest.imageDescribeHandler,
 		billingHandler:             rest.billingHandler,
 		dashboardHandler:           rest.dashboardHandler,
-		slackChannelHandler:        rest.slackChannelHandler,
-		channelHandler:             rest.channelHandler,
 		teamHandler:                rest.teamHandler,
 		runtimeStreamStore:         rest.runtimeStreamStore,
 		sessionHandler:             rest.sessionHandler,

@@ -91,12 +91,6 @@ func (h *OrgMemberHandler) removeMemberTx(ctx context.Context, orgID, userID uui
 			Update("deactivated_at", now).Error; err != nil {
 			return err
 		}
-		channelIDs := tx.Model(&model.Channel{}).Select("id").Where("org_id = ?", orgID)
-		if err := tx.Model(&model.ChannelMember{}).
-			Where("user_id = ? AND channel_id IN (?) AND deactivated_at IS NULL", userID, channelIDs).
-			Update("deactivated_at", now).Error; err != nil {
-			return err
-		}
 		// Revoke API keys the member created for this org so a removed employee
 		// cannot retain org-wide access through a still-valid key.
 		if err := tx.Model(&model.APIKey{}).

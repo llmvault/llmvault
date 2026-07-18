@@ -14,15 +14,14 @@ const (
 	DirectiveSourceExtractedConfirmed = "extracted-confirmed"
 )
 
-// AgentDirective is a hard rule injected verbatim into every agent prompt in
-// scope — never ranked or trimmed, so the bar for existence is explicit human
-// action. ChannelID scopes it: set = that channel only, NULL = org-wide.
+// AgentDirective is a hard rule injected verbatim into one agent's prompt —
+// never ranked or trimmed, so the bar for existence is explicit human action.
 type AgentDirective struct {
 	ID              uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID           uuid.UUID  `gorm:"type:uuid;not null;index"`
 	Org             Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	ChannelID       *uuid.UUID `gorm:"type:uuid;index"`
-	Channel         *Channel   `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	AgentID         uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Agent           Agent      `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
 	Content         string     `gorm:"type:text;not null"`
 	CreatedByUserID *uuid.UUID `gorm:"type:uuid"`
 	CreatedBy       *User      `gorm:"foreignKey:CreatedByUserID;constraint:OnDelete:SET NULL"`

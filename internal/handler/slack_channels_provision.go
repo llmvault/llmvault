@@ -3,38 +3,43 @@ package handler
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
-
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/slackapp"
 )
 
-func (h *SlackChannelHandler) EnsureExternalChannel(ctx context.Context, orgID uuid.UUID, req ChannelExternalProvisionRequest) error {
-	if req.Provider != slackapp.Provider {
+// ValidateExternalResourceRoute prepares and validates the Slack-specific
+// representation of a generic team external-resource route. The database
+// stores no Slack-only columns: Slack channels are simply resource type
+// "slack_channel" keyed by Slack's stable channel ID.
+func (h *SlackResourceRouteValidator) ValidateExternalResourceRoute(ctx context.Context, conn model.Connection, resourceType, resourceKey string) error {
+	if conn.Integration.Provider != slackapp.Provider {
+		// The route table intentionally accepts arbitrary providers and resource
+		// types. Provider adapters opt into validation as they are added; the
+		// Slack adapter validates only Slack resources.
 		return nil
 	}
-	if req.ConnectionID == uuid.Nil {
-		return channelProvisionError(http.StatusBadRequest, "external_connection_id is required for Slack channels", nil)
+	if strings.TrimSpace(resourceType) != "slack_channel" {
+		return newExternalResourceRouteValidationError("resource_type is not supported for Slack")
 	}
-	channelID := strings.TrimSpace(req.ResourceKey)
+	channelID := strings.TrimSpace(resourceKey)
 	if channelID == "" {
-		return channelProvisionError(http.StatusBadRequest, "external_resource_key is required for Slack channels", nil)
+		return newExternalResourceRouteValidationError("resource_key is required")
 	}
-	token, err := h.loadSlackBotTokenForConnection(ctx, orgID, req.ConnectionID)
+	token, err := h.loadSlackBotTokenForConnection(ctx, conn.OrgID, conn.ID)
 	if err != nil {
-		return channelProvisionError(http.StatusBadRequest, "active Slack connection required", err)
+		return newExternalResourceRouteValidationError("active Slack connection required")
 	}
 	result, err := h.joinRequestedChannels(ctx, token, joinSlackChannelsRequest{ChannelIDs: []string{channelID}})
 	if err != nil {
-		return channelProvisionError(http.StatusInternalServerError, "failed to prepare Slack channel", err)
+		return fmt.Errorf("prepare Slack channel: %w", err)
 	}
 	if result.Failed > 0 {
-		return channelProvisionError(http.StatusBadRequest, slackChannelJoinFailureMessage(result), nil)
+		return newExternalResourceRouteValidationError("%s", slackChannelJoinFailureMessage(result))
 	}
 	if !result.allReady {
-		return channelProvisionError(http.StatusBadRequest, "Slack channel is not available", nil)
+		return newExternalResourceRouteValidationError("Slack channel is not available")
 	}
 	return nil
 }
@@ -48,8 +53,4 @@ func slackChannelJoinFailureMessage(result joinSlackChannelsResponse) string {
 		return fmt.Sprintf("Slack channel %s is not available", failure.ChannelID)
 	}
 	return fmt.Sprintf("Slack channel %s is not available: %s", failure.ChannelID, failure.Error)
-}
-
-func channelProvisionError(status int, message string, err error) error {
-	return &ChannelExternalProvisionError{StatusCode: status, Message: message, Err: err}
 }

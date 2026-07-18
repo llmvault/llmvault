@@ -44,10 +44,11 @@ func MarkFailed(ctx context.Context, db *gorm.DB, id uuid.UUID, err error) {
 	})
 }
 
-func RecordChannelResolved(ctx context.Context, db *gorm.DB, id, channelID uuid.UUID) error {
+func RecordRouteResolved(ctx context.Context, db *gorm.DB, id, teamID, agentID uuid.UUID) error {
 	return updateEvent(ctx, db, id, map[string]any{
-		"channel_id":          &channelID,
-		"channel_resolved_at": time.Now().UTC(),
+		"team_id":           &teamID,
+		"agent_id":          &agentID,
+		"route_resolved_at": time.Now().UTC(),
 	})
 }
 

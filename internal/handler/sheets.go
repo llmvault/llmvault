@@ -59,7 +59,7 @@ type sheetPageSpecRequest struct {
 }
 
 type createSheetRequest struct {
-	ChannelID   string                 `json:"channel_id"`
+	TeamID      string                 `json:"team_id"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
 	Icon        string                 `json:"icon,omitempty"`
@@ -78,11 +78,11 @@ func fieldSpecsFrom(specs []sheetFieldSpecRequest) []sheets.FieldSpec {
 }
 
 // ListSheets handles GET /v1/sheets.
-// @Summary List sheets in a channel
-// @Description Lists a channel's sheets, newest-updated first. Sheets are channel-scoped; the caller must be able to use the channel.
+// @Summary List sheets in a team
+// @Description Lists a team's sheets, newest-updated first.
 // @Tags sheets
 // @Produce json
-// @Param channel_id query string true "Channel ID to list sheets for"
+// @Param team_id query string true "Team ID to list sheets for"
 // @Param search query string false "Case-insensitive name substring filter"
 // @Param limit query int false "Page size (max 100)"
 // @Param cursor query string false "Pagination cursor"
@@ -97,17 +97,17 @@ func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	channelID, err := uuid.Parse(r.URL.Query().Get("channel_id"))
+	teamID, err := uuid.Parse(r.URL.Query().Get("team_id"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must be a uuid"})
 		return
 	}
-	if !h.canUseSheetChannel(r.Context(), org.ID, channelID) {
+	if !h.canUseSheetTeam(r.Context(), org.ID, teamID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	result, nextCursor, err := h.svc.ListSheets(r.Context(), org.ID, channelID, r.URL.Query().Get("search"), limit, r.URL.Query().Get("cursor"))
+	result, nextCursor, err := h.svc.ListSheets(r.Context(), org.ID, teamID, r.URL.Query().Get("search"), limit, r.URL.Query().Get("cursor"))
 	if err != nil {
 		writeSheetsError(w, r, err)
 		return
@@ -121,11 +121,11 @@ func (h *SheetsHandler) ListSheets(w http.ResponseWriter, r *http.Request) {
 
 // CreateSheet handles POST /v1/sheets.
 // @Summary Create a sheet
-// @Description Creates a sheet in a channel with optional inline pages and typed fields. The caller must be able to use the channel.
+// @Description Creates a sheet in a team with optional inline pages and typed fields.
 // @Tags sheets
 // @Accept json
 // @Produce json
-// @Param body body createSheetRequest true "Sheet to create (channel_id required)"
+// @Param body body createSheetRequest true "Sheet to create (team_id required)"
 // @Success 201 {object} sheetStructureResponse
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -146,12 +146,12 @@ func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
 		return
 	}
-	channelID, err := uuid.Parse(req.ChannelID)
+	teamID, err := uuid.Parse(req.TeamID)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel_id must be a uuid"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must be a uuid"})
 		return
 	}
-	if !h.canUseSheetChannel(r.Context(), org.ID, channelID) {
+	if !h.canUseSheetTeam(r.Context(), org.ID, teamID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
 		return
 	}
@@ -165,7 +165,7 @@ func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	actor := sheetsActor(r)
-	actor.ChannelID = channelID
+	actor.TeamID = teamID
 	structure, err := h.svc.CreateSheet(r.Context(), org.ID, create, actor)
 	if err != nil {
 		writeSheetsError(w, r, err)
@@ -176,7 +176,7 @@ func (h *SheetsHandler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 
 // GetSheet handles GET /v1/sheets/{sheetID}.
 // @Summary Get a sheet
-// @Description Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's channel.
+// @Description Returns a sheet's full structure (pages, fields, row counts). The caller must be able to use the sheet's team.
 // @Tags sheets
 // @Produce json
 // @Param sheetID path string true "Sheet ID"
@@ -210,7 +210,7 @@ type updateSheetRequest struct {
 
 // UpdateSheet handles PATCH /v1/sheets/{sheetID}.
 // @Summary Update a sheet
-// @Description Renames a sheet or updates its description/icon. The caller must be able to use the sheet's channel.
+// @Description Renames a sheet or updates its description/icon. The caller must be able to use the sheet's team.
 // @Tags sheets
 // @Accept json
 // @Produce json
@@ -248,7 +248,7 @@ func (h *SheetsHandler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
 
 // ArchiveSheet handles DELETE /v1/sheets/{sheetID}.
 // @Summary Archive a sheet
-// @Description Archives a sheet (soft delete). The caller must be able to use the sheet's channel.
+// @Description Archives a sheet (soft delete). The caller must be able to use the sheet's team.
 // @Tags sheets
 // @Produce json
 // @Param sheetID path string true "Sheet ID"

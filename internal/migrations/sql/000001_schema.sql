@@ -65,7 +65,7 @@ CREATE TABLE public.agent_catalog (
 CREATE TABLE public.agent_directives (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
-    channel_id uuid,
+    agent_id uuid NOT NULL,
     content text NOT NULL,
     created_by_user_id uuid,
     source text DEFAULT 'user-pinned'::text NOT NULL,
@@ -90,6 +90,7 @@ CREATE TABLE public.agent_mcp_servers (
 CREATE TABLE public.agent_memories (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    agent_id uuid NOT NULL,
     content text NOT NULL,
     tags text[] DEFAULT '{}'::text[] NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -106,7 +107,6 @@ CREATE TABLE public.agent_memories (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     memory_fingerprint text DEFAULT ''::text NOT NULL,
-    channel_id uuid,
     consolidated_at timestamp with time zone,
     CONSTRAINT agent_memories_embedding_status_check CHECK ((embedding_status = ANY (ARRAY['pending'::text, 'ready'::text, 'failed'::text])))
 );
@@ -114,7 +114,7 @@ CREATE TABLE public.agent_memories (
 CREATE TABLE public.agent_observations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
-    channel_id uuid,
+    agent_id uuid NOT NULL,
     content text NOT NULL,
     kind text NOT NULL,
     entities text[] DEFAULT '{}'::text[] NOT NULL,
@@ -228,7 +228,9 @@ CREATE TABLE public.agent_triggers (
     created_at timestamp with time zone,
     updated_at timestamp with time zone,
     source_slug text DEFAULT ''::text NOT NULL,
-    channel_id uuid,
+    resource_type text DEFAULT ''::text NOT NULL,
+    resource_key text DEFAULT ''::text NOT NULL,
+    resource_name text DEFAULT ''::text NOT NULL,
     trigger_key text DEFAULT ''::text NOT NULL,
     trigger_value text DEFAULT ''::text NOT NULL,
     name text
@@ -272,9 +274,63 @@ CREATE TABLE public.agents (
     team_id uuid NOT NULL,
     instructions_snapshot text,
     connection_mcp_tool_deny jsonb DEFAULT '{}'::jsonb NOT NULL,
+    email_inbox_local_part text DEFAULT ''::text NOT NULL,
+    memory_mission text,
     CONSTRAINT agents_sandbox_image_valid CHECK ((sandbox_image = ANY (ARRAY['default'::text, 'developer'::text]))),
     CONSTRAINT agents_sandbox_size_check CHECK ((sandbox_size = ANY (ARRAY['nano'::text, 'small'::text, 'medium'::text, 'large'::text, 'xlarge'::text]))),
     CONSTRAINT agents_type_check CHECK ((type = ANY (ARRAY['agent'::text, 'subagent'::text])))
+);
+
+CREATE TABLE public.agent_memory_digests (
+    agent_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    content text NOT NULL,
+    observation_count integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE TABLE public.agent_email_threads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    agent_id uuid NOT NULL,
+    session_id uuid,
+    root_message_id text DEFAULT ''::text NOT NULL,
+    reply_token text NOT NULL,
+    last_message_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE TABLE public.agent_email_messages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    agent_id uuid NOT NULL,
+    thread_id uuid NOT NULL,
+    direction text NOT NULL,
+    status text DEFAULT 'received'::text NOT NULL,
+    resend_email_id text DEFAULT ''::text NOT NULL,
+    message_id text DEFAULT ''::text NOT NULL,
+    in_reply_to text DEFAULT ''::text NOT NULL,
+    "references" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    from_address text DEFAULT ''::text NOT NULL,
+    to_addresses jsonb DEFAULT '[]'::jsonb NOT NULL,
+    cc_addresses jsonb DEFAULT '[]'::jsonb NOT NULL,
+    subject text DEFAULT ''::text NOT NULL,
+    text_body text DEFAULT ''::text NOT NULL,
+    html_body text DEFAULT ''::text NOT NULL,
+    headers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    provider_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE TABLE public.agent_email_webhook_receipts (
+    svix_id text NOT NULL,
+    event_type text NOT NULL,
+    resend_email_id text DEFAULT ''::text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    processed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE public.api_keys (
@@ -312,7 +368,7 @@ CREATE TABLE public.app_versions (
 CREATE TABLE public.apps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
-    channel_id uuid NOT NULL,
+    team_id uuid NOT NULL,
     sheet_id uuid NOT NULL,
     slug text NOT NULL,
     name text NOT NULL,
@@ -443,53 +499,6 @@ CREATE TABLE public.canvas_projects (
     archived_at timestamp with time zone
 );
 
-CREATE TABLE public.channel_members (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    channel_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    role text DEFAULT 'member'::text NOT NULL,
-    created_at timestamp with time zone,
-    deactivated_at timestamp with time zone
-);
-
-CREATE TABLE public.channel_memory_digests (
-    channel_id uuid NOT NULL,
-    org_id uuid NOT NULL,
-    content text NOT NULL,
-    observation_count integer DEFAULT 0 NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE TABLE public.channels (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    kind text DEFAULT 'standard'::text NOT NULL,
-    visibility text DEFAULT 'public'::text NOT NULL,
-    default_agent_id uuid NOT NULL,
-    is_default boolean DEFAULT false NOT NULL,
-    origin text DEFAULT 'native'::text NOT NULL,
-    external_provider text DEFAULT ''::text NOT NULL,
-    external_connection_id uuid,
-    external_workspace_key text DEFAULT ''::text NOT NULL,
-    external_resource_type text DEFAULT 'channel'::text NOT NULL,
-    external_resource_key text DEFAULT ''::text NOT NULL,
-    external_resource_name text DEFAULT ''::text NOT NULL,
-    external_resource_url text DEFAULT ''::text NOT NULL,
-    external_metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by uuid,
-    archived_at timestamp with time zone,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    team_id uuid,
-    image_model text DEFAULT ''::text NOT NULL,
-    vector_image_model text DEFAULT ''::text NOT NULL,
-    expose_org_memories boolean DEFAULT true NOT NULL,
-    category text DEFAULT 'general'::text NOT NULL,
-    memory_mission text
-);
-
 CREATE TABLE public.connections (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid,
@@ -504,6 +513,22 @@ CREATE TABLE public.connections (
     name text DEFAULT ''::text NOT NULL,
     slug text DEFAULT ''::text NOT NULL,
     needs_name boolean DEFAULT false NOT NULL
+);
+
+CREATE TABLE public.team_external_resource_routes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    team_id uuid NOT NULL,
+    connection_id uuid NOT NULL,
+    agent_id uuid NOT NULL,
+    resource_type text NOT NULL,
+    resource_key text NOT NULL,
+    resource_name text DEFAULT ''::text NOT NULL,
+    resource_url text DEFAULT ''::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE public.credentials (
@@ -695,7 +720,7 @@ CREATE TABLE public.mcp_servers (
 CREATE TABLE public.memory_suppressions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
-    channel_id uuid,
+    agent_id uuid NOT NULL,
     content_fingerprint text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -770,7 +795,59 @@ CREATE TABLE public.orgs (
     sandbox_exposed_ports integer[] DEFAULT '{3000,5173,8000,8080}'::integer[] NOT NULL,
     onboarding_step text DEFAULT 'complete'::text NOT NULL,
     mcp_config_version bigint DEFAULT 0 NOT NULL,
+    billing_currency character varying(3) DEFAULT ''::character varying NOT NULL,
+    CONSTRAINT orgs_billing_currency_check CHECK (((billing_currency)::text = ANY ((ARRAY[''::character varying, 'USD'::character varying, 'NGN'::character varying])::text[]))),
     CONSTRAINT orgs_onboarding_step_check CHECK ((onboarding_step = ANY (ARRAY['team'::text, 'connections'::text, 'welcome'::text, 'complete'::text])))
+);
+
+CREATE TABLE public.billing_payment_methods (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    provider character varying(32) NOT NULL,
+    provider_signature character varying(128) NOT NULL,
+    encrypted_authorization bytea NOT NULL,
+    wrapped_dek bytea NOT NULL,
+    card_type character varying(32) DEFAULT ''::character varying NOT NULL,
+    last4 character varying(4) DEFAULT ''::character varying NOT NULL,
+    exp_month character varying(2) DEFAULT ''::character varying NOT NULL,
+    exp_year character varying(4) DEFAULT ''::character varying NOT NULL,
+    bank character varying(128) DEFAULT ''::character varying NOT NULL,
+    country_code character varying(2) DEFAULT ''::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE TABLE public.credit_purchases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    created_by_user_id uuid,
+    pack_id character varying(32) NOT NULL,
+    idempotency_key character varying(64) NOT NULL,
+    payment_method_id uuid,
+    save_payment_method boolean DEFAULT false NOT NULL,
+    provider character varying(32) NOT NULL,
+    provider_reference character varying(128) DEFAULT ''::character varying NOT NULL,
+    checkout_access_code character varying(128) DEFAULT ''::character varying NOT NULL,
+    checkout_url text DEFAULT ''::text NOT NULL,
+    status character varying(32) DEFAULT 'pending'::character varying NOT NULL,
+    currency character varying(3) NOT NULL,
+    subtotal_minor bigint NOT NULL,
+    fee_basis_points bigint NOT NULL,
+    fee_minor bigint NOT NULL,
+    total_minor bigint NOT NULL,
+    credits bigint NOT NULL,
+    fx_minor_per_usd bigint,
+    provider_paid_minor bigint DEFAULT 0 NOT NULL,
+    provider_paid_currency character varying(3) DEFAULT ''::character varying NOT NULL,
+    paid_at timestamp with time zone,
+    credited_at timestamp with time zone,
+    failed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT credit_purchases_currency_check CHECK (((currency)::text = ANY ((ARRAY['USD'::character varying, 'NGN'::character varying])::text[]))),
+    CONSTRAINT credit_purchases_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'paid'::character varying, 'credited'::character varying, 'failed'::character varying, 'reversed'::character varying, 'refunded'::character varying])::text[]))),
+    CONSTRAINT credit_purchases_amounts_check CHECK (((subtotal_minor > 0) AND (fee_minor >= 0) AND (total_minor = (subtotal_minor + fee_minor)) AND (credits > 0)))
 );
 
 CREATE TABLE public.otp_codes (
@@ -1088,7 +1165,7 @@ CREATE TABLE public.session_reflection_states (
 CREATE TABLE public.sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
-    channel_id uuid NOT NULL,
+    team_id uuid NOT NULL,
     agent_id uuid NOT NULL,
     sandbox_id uuid,
     created_by uuid,
@@ -1214,7 +1291,7 @@ CREATE TABLE public.sheets (
     archived_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    channel_id uuid NOT NULL
+    team_id uuid NOT NULL
 );
 
 CREATE TABLE public.skills (
@@ -1246,11 +1323,12 @@ CREATE TABLE public.slack_thread_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
     connection_id uuid NOT NULL,
-    channel_id uuid,
+    team_id uuid,
+    agent_id uuid,
     session_id uuid,
     session_event_id uuid,
     session_message_queue_id uuid,
-    team_id text DEFAULT ''::text NOT NULL,
+    slack_team_id text DEFAULT ''::text NOT NULL,
     slack_channel_id text NOT NULL,
     thread_ts text NOT NULL,
     message_ts text NOT NULL,
@@ -1271,7 +1349,7 @@ CREATE TABLE public.slack_thread_events (
     status_set_at timestamp with time zone,
     enqueued_at timestamp with time zone,
     job_started_at timestamp with time zone,
-    channel_resolved_at timestamp with time zone,
+    route_resolved_at timestamp with time zone,
     session_resolved_at timestamp with time zone,
     runtime_posted_at timestamp with time zone,
     final_received_at timestamp with time zone,
@@ -1463,6 +1541,18 @@ ALTER TABLE ONLY public.agent_triggers
 ALTER TABLE ONLY public.agents
     ADD CONSTRAINT agents_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.agent_memory_digests
+    ADD CONSTRAINT agent_memory_digests_pkey PRIMARY KEY (agent_id);
+
+ALTER TABLE ONLY public.agent_email_threads
+    ADD CONSTRAINT agent_email_threads_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.agent_email_messages
+    ADD CONSTRAINT agent_email_messages_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.agent_email_webhook_receipts
+    ADD CONSTRAINT agent_email_webhook_receipts_pkey PRIMARY KEY (svix_id);
+
 ALTER TABLE ONLY public.api_keys
     ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
 
@@ -1471,6 +1561,9 @@ ALTER TABLE ONLY public.app_versions
 
 ALTER TABLE ONLY public.apps
     ADD CONSTRAINT apps_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.billing_payment_methods
+    ADD CONSTRAINT billing_payment_methods_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.audit_log
     ADD CONSTRAINT audit_log_pkey PRIMARY KEY (id);
@@ -1490,17 +1583,11 @@ ALTER TABLE ONLY public.canvas_artifacts
 ALTER TABLE ONLY public.canvas_projects
     ADD CONSTRAINT canvas_projects_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.channel_members
-    ADD CONSTRAINT channel_members_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.channel_memory_digests
-    ADD CONSTRAINT channel_memory_digests_pkey PRIMARY KEY (channel_id);
-
-ALTER TABLE ONLY public.channels
-    ADD CONSTRAINT channels_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY public.connections
     ADD CONSTRAINT connections_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT credit_purchases_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.credentials
     ADD CONSTRAINT credentials_pkey PRIMARY KEY (id);
@@ -1542,7 +1629,7 @@ ALTER TABLE ONLY public.memory_suppressions
     ADD CONSTRAINT memory_suppressions_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.memory_suppressions
-    ADD CONSTRAINT memory_suppressions_unique UNIQUE (org_id, channel_id, content_fingerprint);
+    ADD CONSTRAINT memory_suppressions_unique UNIQUE (org_id, agent_id, content_fingerprint);
 
 ALTER TABLE ONLY public.oauth_accounts
     ADD CONSTRAINT oauth_accounts_pkey PRIMARY KEY (id);
@@ -1646,6 +1733,9 @@ ALTER TABLE ONLY public.slack_thread_events
 ALTER TABLE ONLY public.team_connection_grants
     ADD CONSTRAINT team_connection_grants_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.team_external_resource_routes
+    ADD CONSTRAINT team_external_resource_routes_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.team_env_vars
     ADD CONSTRAINT team_env_vars_pkey PRIMARY KEY (id);
 
@@ -1698,7 +1788,7 @@ CREATE UNIQUE INDEX idx_agent_catalog_slug ON public.agent_catalog USING btree (
 
 CREATE INDEX idx_agent_catalog_status ON public.agent_catalog USING btree (status);
 
-CREATE INDEX idx_agent_directives_org_channel ON public.agent_directives USING btree (org_id, channel_id) WHERE active;
+CREATE INDEX idx_agent_directives_org_agent ON public.agent_directives USING btree (org_id, agent_id) WHERE active;
 
 CREATE INDEX idx_agent_mcp_servers_org ON public.agent_mcp_servers USING btree (org_id);
 
@@ -1710,17 +1800,17 @@ CREATE INDEX idx_agent_memories_embedding_status ON public.agent_memories USING 
 
 CREATE UNIQUE INDEX idx_agent_memories_fingerprint ON public.agent_memories USING btree (memory_fingerprint) WHERE ((archived_at IS NULL) AND (memory_fingerprint <> ''::text));
 
-CREATE INDEX idx_agent_memories_org_channel ON public.agent_memories USING btree (org_id, channel_id, created_at DESC) WHERE (archived_at IS NULL);
+CREATE INDEX idx_agent_memories_org_agent ON public.agent_memories USING btree (org_id, agent_id, created_at DESC) WHERE (archived_at IS NULL);
 
 CREATE INDEX idx_agent_memories_tags ON public.agent_memories USING gin (tags) WHERE (archived_at IS NULL);
 
-CREATE INDEX idx_agent_memories_unconsolidated ON public.agent_memories USING btree (org_id, channel_id, created_at) WHERE ((archived_at IS NULL) AND (consolidated_at IS NULL));
+CREATE INDEX idx_agent_memories_unconsolidated ON public.agent_memories USING btree (org_id, agent_id, created_at) WHERE ((archived_at IS NULL) AND (consolidated_at IS NULL));
 
 CREATE INDEX idx_agent_observations_embedding_hnsw ON public.agent_observations USING hnsw (embedding public.vector_cosine_ops) WHERE ((archived_at IS NULL) AND (embedding_status = 'ready'::text));
 
 CREATE INDEX idx_agent_observations_expires ON public.agent_observations USING btree (expires_at) WHERE ((archived_at IS NULL) AND (expires_at IS NOT NULL));
 
-CREATE INDEX idx_agent_observations_org_channel ON public.agent_observations USING btree (org_id, channel_id) WHERE (archived_at IS NULL);
+CREATE INDEX idx_agent_observations_org_agent ON public.agent_observations USING btree (org_id, agent_id) WHERE (archived_at IS NULL);
 
 CREATE INDEX idx_agent_org_id ON public.agents USING btree (org_id);
 
@@ -1788,11 +1878,9 @@ CREATE INDEX idx_agent_triggers_agent_id ON public.agent_triggers USING btree (a
 
 CREATE UNIQUE INDEX idx_agent_triggers_agent_source_active ON public.agent_triggers USING btree (agent_id, source_slug) WHERE ((source_slug <> ''::text) AND (enabled = true));
 
-CREATE INDEX idx_agent_triggers_channel_id ON public.agent_triggers USING btree (channel_id);
-
 CREATE INDEX idx_agent_triggers_connection_id ON public.agent_triggers USING btree (connection_id);
 
-CREATE UNIQUE INDEX idx_agent_triggers_enabled_key_value ON public.agent_triggers USING btree (org_id, connection_id, channel_id, trigger_key, trigger_value) WHERE ((enabled = true) AND (trigger_key <> ''::text) AND (trigger_value <> ''::text));
+CREATE UNIQUE INDEX idx_agent_triggers_enabled_key_value ON public.agent_triggers USING btree (org_id, connection_id, resource_type, resource_key, trigger_key, trigger_value) WHERE ((enabled = true) AND (trigger_key <> ''::text) AND (trigger_value <> ''::text));
 
 CREATE INDEX idx_agent_triggers_org_id ON public.agent_triggers USING btree (org_id);
 
@@ -1814,6 +1902,24 @@ CREATE UNIQUE INDEX idx_agents_parent_name ON public.agents USING btree (parent_
 
 CREATE INDEX idx_agents_team_id ON public.agents USING btree (team_id);
 
+CREATE UNIQUE INDEX idx_agents_default_team_active ON public.agents USING btree (team_id) WHERE ((is_default = true) AND (type = 'agent'::text) AND (status <> 'archived'::text));
+
+CREATE UNIQUE INDEX idx_agents_email_inbox_local_part ON public.agents USING btree (email_inbox_local_part) WHERE (email_inbox_local_part <> ''::text);
+
+CREATE INDEX idx_agent_email_threads_org_agent ON public.agent_email_threads USING btree (org_id, agent_id);
+
+CREATE INDEX idx_agent_email_threads_session ON public.agent_email_threads USING btree (session_id);
+
+CREATE UNIQUE INDEX idx_agent_email_threads_reply_token ON public.agent_email_threads USING btree (reply_token);
+
+CREATE UNIQUE INDEX idx_agent_email_messages_resend_id ON public.agent_email_messages USING btree (resend_email_id) WHERE (resend_email_id <> ''::text);
+
+CREATE INDEX idx_agent_email_messages_agent_message_id ON public.agent_email_messages USING btree (agent_id, message_id) WHERE (message_id <> ''::text);
+
+CREATE INDEX idx_agent_email_messages_thread_provider_at ON public.agent_email_messages USING btree (thread_id, provider_at);
+
+CREATE INDEX idx_agent_email_webhook_receipts_resend_email_id ON public.agent_email_webhook_receipts USING btree (resend_email_id);
+
 CREATE INDEX idx_api_keys_created_by ON public.api_keys USING btree (created_by);
 
 CREATE UNIQUE INDEX idx_api_keys_key_hash ON public.api_keys USING btree (key_hash);
@@ -1824,11 +1930,17 @@ CREATE INDEX idx_app_versions_app_created_active ON public.app_versions USING bt
 
 CREATE INDEX idx_app_versions_org ON public.app_versions USING btree (org_id);
 
-CREATE INDEX idx_apps_channel_updated_active ON public.apps USING btree (channel_id, updated_at DESC) WHERE (archived_at IS NULL);
+CREATE INDEX idx_apps_team_updated_active ON public.apps USING btree (team_id, updated_at DESC) WHERE (archived_at IS NULL);
 
 CREATE UNIQUE INDEX idx_apps_org_slug_active ON public.apps USING btree (org_id, slug) WHERE (archived_at IS NULL);
 
 CREATE INDEX idx_apps_sheet_active ON public.apps USING btree (sheet_id) WHERE (archived_at IS NULL);
+
+CREATE INDEX idx_billing_payment_methods_org_id ON public.billing_payment_methods USING btree (org_id);
+
+CREATE INDEX idx_billing_payment_methods_user_id ON public.billing_payment_methods USING btree (user_id);
+
+CREATE UNIQUE INDEX idx_billing_payment_methods_user_signature ON public.billing_payment_methods USING btree (org_id, user_id, provider, provider_signature);
 
 CREATE INDEX idx_audit_credential ON public.audit_log USING btree (credential_id);
 
@@ -1872,28 +1984,6 @@ CREATE UNIQUE INDEX idx_canvas_projects_org_slug_active ON public.canvas_project
 
 CREATE INDEX idx_canvas_projects_org_updated_active ON public.canvas_projects USING btree (org_id, updated_at DESC) WHERE (archived_at IS NULL);
 
-CREATE UNIQUE INDEX idx_channel_members_channel_user ON public.channel_members USING btree (channel_id, user_id);
-
-CREATE INDEX idx_channel_members_user_id ON public.channel_members USING btree (user_id);
-
-CREATE INDEX idx_channels_archived_at ON public.channels USING btree (archived_at);
-
-CREATE INDEX idx_channels_default_agent_id ON public.channels USING btree (default_agent_id);
-
-CREATE INDEX idx_channels_external_connection_id ON public.channels USING btree (external_connection_id);
-
-CREATE INDEX idx_channels_external_provider ON public.channels USING btree (org_id, external_provider);
-
-CREATE INDEX idx_channels_is_default ON public.channels USING btree (is_default);
-
-CREATE UNIQUE INDEX idx_channels_org_external_resource ON public.channels USING btree (org_id, external_provider, external_workspace_key, external_resource_type, external_resource_key) WHERE (external_resource_key <> ''::text);
-
-CREATE UNIQUE INDEX idx_channels_org_source_name ON public.channels USING btree (org_id, COALESCE(team_id, '00000000-0000-0000-0000-000000000000'::uuid), origin, external_provider, external_workspace_key, external_resource_type, name) WHERE (archived_at IS NULL);
-
-CREATE INDEX idx_channels_origin ON public.channels USING btree (origin);
-
-CREATE INDEX idx_channels_team_id ON public.channels USING btree (team_id);
-
 CREATE UNIQUE INDEX idx_connections_active_nango_id ON public.connections USING btree (integration_id, nango_connection_id) WHERE (revoked_at IS NULL);
 
 CREATE UNIQUE INDEX idx_connections_active_org_slug ON public.connections USING btree (org_id, slug) WHERE (revoked_at IS NULL);
@@ -1913,6 +2003,16 @@ CREATE UNIQUE INDEX idx_credit_ledger_entries_idem ON public.credit_ledger_entri
 CREATE INDEX idx_credit_ledger_entries_org_id ON public.credit_ledger_entries USING btree (org_id);
 
 CREATE INDEX idx_credit_ledger_entries_ref_id ON public.credit_ledger_entries USING btree (ref_id);
+
+CREATE INDEX idx_credit_purchases_created_by_user_id ON public.credit_purchases USING btree (created_by_user_id);
+
+CREATE UNIQUE INDEX idx_credit_purchases_org_id_idempotency_key ON public.credit_purchases USING btree (org_id, idempotency_key);
+
+CREATE INDEX idx_credit_purchases_payment_method_id ON public.credit_purchases USING btree (payment_method_id);
+
+CREATE INDEX idx_credit_purchases_org_id ON public.credit_purchases USING btree (org_id);
+
+CREATE UNIQUE INDEX idx_credit_purchases_provider_reference ON public.credit_purchases USING btree (provider, provider_reference) WHERE ((provider_reference)::text <> ''::text);
 
 CREATE INDEX idx_database_connections_active ON public.database_connections USING btree (org_id, provider) WHERE (revoked_at IS NULL);
 
@@ -2088,7 +2188,7 @@ CREATE INDEX idx_sessions_agent ON public.sessions USING btree (org_id, agent_id
 
 CREATE INDEX idx_sessions_agent_turn_status ON public.sessions USING btree (agent_turn_status) WHERE (agent_turn_status <> 'idle'::text);
 
-CREATE INDEX idx_sessions_channel ON public.sessions USING btree (channel_id, created_at DESC);
+CREATE INDEX idx_sessions_team ON public.sessions USING btree (team_id, created_at DESC);
 
 CREATE INDEX idx_sessions_runtime_mcp_actor_user_id ON public.sessions USING btree (runtime_mcp_actor_user_id);
 
@@ -2124,7 +2224,7 @@ CREATE INDEX idx_sheet_views_org ON public.sheet_views USING btree (org_id);
 
 CREATE INDEX idx_sheet_views_page_active ON public.sheet_views USING btree (page_id) WHERE (archived_at IS NULL);
 
-CREATE INDEX idx_sheets_channel_updated_active ON public.sheets USING btree (channel_id, updated_at DESC) WHERE (archived_at IS NULL);
+CREATE INDEX idx_sheets_team_updated_active ON public.sheets USING btree (team_id, updated_at DESC) WHERE (archived_at IS NULL);
 
 CREATE UNIQUE INDEX idx_sheets_org_slug_active ON public.sheets USING btree (org_id, slug) WHERE (archived_at IS NULL);
 
@@ -2153,6 +2253,14 @@ CREATE UNIQUE INDEX idx_slack_thread_events_connection_event ON public.slack_thr
 CREATE INDEX idx_slack_thread_events_session ON public.slack_thread_events USING btree (session_id);
 
 CREATE INDEX idx_slack_thread_events_thread_direction ON public.slack_thread_events USING btree (org_id, connection_id, slack_channel_id, thread_ts, direction, message_at DESC);
+
+CREATE INDEX idx_team_external_resource_routes_org ON public.team_external_resource_routes USING btree (org_id);
+
+CREATE INDEX idx_team_external_resource_routes_team ON public.team_external_resource_routes USING btree (team_id);
+
+CREATE INDEX idx_team_external_resource_routes_agent ON public.team_external_resource_routes USING btree (agent_id);
+
+CREATE UNIQUE INDEX idx_team_external_resource_routes_resource ON public.team_external_resource_routes USING btree (connection_id, resource_type, resource_key);
 
 CREATE INDEX idx_slack_thread_events_trigger_id ON public.slack_thread_events USING btree (trigger_id);
 
@@ -2239,7 +2347,7 @@ CREATE TRIGGER teams_mcp_config_version AFTER UPDATE OF archived_at ON public.te
 CREATE TRIGGER user_agent_mcp_servers_config_version AFTER INSERT OR DELETE OR UPDATE ON public.user_agent_mcp_servers FOR EACH ROW EXECUTE FUNCTION public.bump_mcp_config_version();
 
 ALTER TABLE ONLY public.agent_directives
-    ADD CONSTRAINT agent_directives_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT agent_directives_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.agent_directives
     ADD CONSTRAINT agent_directives_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
@@ -2287,7 +2395,7 @@ ALTER TABLE ONLY public.app_versions
     ADD CONSTRAINT app_versions_source_session_id_fkey FOREIGN KEY (source_session_id) REFERENCES public.sessions(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.apps
-    ADD CONSTRAINT apps_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT apps_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE RESTRICT;
 
 ALTER TABLE ONLY public.apps
     ADD CONSTRAINT apps_created_by_agent_id_fkey FOREIGN KEY (created_by_agent_id) REFERENCES public.agents(id) ON DELETE SET NULL;
@@ -2346,8 +2454,32 @@ ALTER TABLE ONLY public.agent_assets
 ALTER TABLE ONLY public.agent_assets
     ADD CONSTRAINT fk_agent_assets_sandbox FOREIGN KEY (sandbox_id) REFERENCES public.sandboxes(id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.agent_memory_digests
+    ADD CONSTRAINT fk_agent_memory_digests_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.agent_memory_digests
+    ADD CONSTRAINT fk_agent_memory_digests_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.agent_email_threads
+    ADD CONSTRAINT fk_agent_email_threads_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.agent_email_threads
+    ADD CONSTRAINT fk_agent_email_threads_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.agent_email_threads
+    ADD CONSTRAINT fk_agent_email_threads_session FOREIGN KEY (session_id) REFERENCES public.sessions(id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.agent_email_messages
+    ADD CONSTRAINT fk_agent_email_messages_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.agent_email_messages
+    ADD CONSTRAINT fk_agent_email_messages_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.agent_email_messages
+    ADD CONSTRAINT fk_agent_email_messages_thread FOREIGN KEY (thread_id) REFERENCES public.agent_email_threads(id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.agent_memories
-    ADD CONSTRAINT fk_agent_memories_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_agent_memories_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.agent_memories
     ADD CONSTRAINT fk_agent_memories_created_by FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
@@ -2362,7 +2494,7 @@ ALTER TABLE ONLY public.agent_memories
     ADD CONSTRAINT fk_agent_memories_source_session FOREIGN KEY (source_session_id) REFERENCES public.sessions(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.agent_observations
-    ADD CONSTRAINT fk_agent_observations_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_agent_observations_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.agent_observations
     ADD CONSTRAINT fk_agent_observations_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
@@ -2416,9 +2548,6 @@ ALTER TABLE ONLY public.agent_triggers
     ADD CONSTRAINT fk_agent_triggers_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.agent_triggers
-    ADD CONSTRAINT fk_agent_triggers_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.agent_triggers
     ADD CONSTRAINT fk_agent_triggers_connection FOREIGN KEY (connection_id) REFERENCES public.connections(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.agent_triggers
@@ -2442,6 +2571,21 @@ ALTER TABLE ONLY public.api_keys
 ALTER TABLE ONLY public.apps
     ADD CONSTRAINT fk_apps_active_version FOREIGN KEY (active_version_id) REFERENCES public.app_versions(id) ON DELETE SET NULL;
 
+ALTER TABLE ONLY public.billing_payment_methods
+    ADD CONSTRAINT fk_billing_payment_methods_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.billing_payment_methods
+    ADD CONSTRAINT fk_billing_payment_methods_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT fk_credit_purchases_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT fk_credit_purchases_created_by_user FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.credit_purchases
+    ADD CONSTRAINT fk_credit_purchases_payment_method FOREIGN KEY (payment_method_id) REFERENCES public.billing_payment_methods(id) ON DELETE SET NULL;
+
 ALTER TABLE ONLY public.brand_assets
     ADD CONSTRAINT fk_brand_assets_brand FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
 
@@ -2456,33 +2600,6 @@ ALTER TABLE ONLY public.brands
 
 ALTER TABLE ONLY public.brands
     ADD CONSTRAINT fk_brands_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.channel_members
-    ADD CONSTRAINT fk_channel_members_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.channel_members
-    ADD CONSTRAINT fk_channel_members_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.channel_memory_digests
-    ADD CONSTRAINT fk_channel_memory_digests_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.channel_memory_digests
-    ADD CONSTRAINT fk_channel_memory_digests_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.channels
-    ADD CONSTRAINT fk_channels_creator FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.channels
-    ADD CONSTRAINT fk_channels_default_agent FOREIGN KEY (default_agent_id) REFERENCES public.agents(id) ON DELETE RESTRICT;
-
-ALTER TABLE ONLY public.channels
-    ADD CONSTRAINT fk_channels_external_connection FOREIGN KEY (external_connection_id) REFERENCES public.connections(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.channels
-    ADD CONSTRAINT fk_channels_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.channels
-    ADD CONSTRAINT fk_channels_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.connections
     ADD CONSTRAINT fk_connections_integration FOREIGN KEY (integration_id) REFERENCES public.integrations(id) ON DELETE CASCADE;
@@ -2506,7 +2623,7 @@ ALTER TABLE ONLY public.drive_assets
     ADD CONSTRAINT fk_drive_assets_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.memory_suppressions
-    ADD CONSTRAINT fk_memory_suppressions_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_memory_suppressions_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.memory_suppressions
     ADD CONSTRAINT fk_memory_suppressions_org FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
@@ -2611,7 +2728,7 @@ ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT fk_sessions_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE RESTRICT;
 
 ALTER TABLE ONLY public.sessions
-    ADD CONSTRAINT fk_sessions_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_sessions_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE RESTRICT;
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT fk_sessions_created_by FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
@@ -2632,7 +2749,10 @@ ALTER TABLE ONLY public.skills
     ADD CONSTRAINT fk_skills_team FOREIGN KEY (team_id, org_id) REFERENCES public.teams(id, org_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.slack_thread_events
-    ADD CONSTRAINT fk_slack_thread_events_channel FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE SET NULL;
+    ADD CONSTRAINT fk_slack_thread_events_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.slack_thread_events
+    ADD CONSTRAINT fk_slack_thread_events_agent FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.slack_thread_events
     ADD CONSTRAINT fk_slack_thread_events_connection FOREIGN KEY (connection_id) REFERENCES public.connections(id) ON DELETE CASCADE;
@@ -2782,7 +2902,7 @@ ALTER TABLE ONLY public.sheet_views
     ADD CONSTRAINT sheet_views_page_id_fkey FOREIGN KEY (page_id) REFERENCES public.sheet_pages(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.sheets
-    ADD CONSTRAINT sheets_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channels(id) ON DELETE CASCADE;
+    ADD CONSTRAINT sheets_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE RESTRICT;
 
 ALTER TABLE ONLY public.sheets
     ADD CONSTRAINT sheets_created_by_agent_id_fkey FOREIGN KEY (created_by_agent_id) REFERENCES public.agents(id) ON DELETE SET NULL;
@@ -2807,6 +2927,21 @@ ALTER TABLE ONLY public.team_connection_grants
 
 ALTER TABLE ONLY public.team_connection_grants
     ADD CONSTRAINT team_connection_grants_team_org_fkey FOREIGN KEY (team_id, org_id) REFERENCES public.teams(id, org_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.team_external_resource_routes
+    ADD CONSTRAINT team_external_resource_routes_org_fkey FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.team_external_resource_routes
+    ADD CONSTRAINT team_external_resource_routes_team_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.team_external_resource_routes
+    ADD CONSTRAINT team_external_resource_routes_connection_fkey FOREIGN KEY (connection_id) REFERENCES public.connections(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.team_external_resource_routes
+    ADD CONSTRAINT team_external_resource_routes_agent_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE RESTRICT;
+
+ALTER TABLE ONLY public.team_external_resource_routes
+    ADD CONSTRAINT team_external_resource_routes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.team_env_vars
     ADD CONSTRAINT team_env_vars_team_org_fkey FOREIGN KEY (team_id, org_id) REFERENCES public.teams(id, org_id) ON DELETE CASCADE;

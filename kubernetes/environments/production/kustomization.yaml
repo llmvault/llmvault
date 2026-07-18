@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: production
+resources:
+  - namespace.yaml
+  - ../../apps/data-backups
+  - postgres.yaml
+  - redis.yaml
+  - resources.yaml
+  - network-policies.yaml
+patches:
+  - path: redis-backup-patch.yaml
+    target:
+      group: batch
+      version: v1
+      kind: CronJob
+      name: backend-redis-backup
+secretGenerator:
+  - name: backend-postgres-app
+    envs:
+      - secrets/postgres.env
+    type: kubernetes.io/basic-auth
+  - name: backend-redis-auth
+    envs:
+      - secrets/redis.env
+    type: Opaque
+  - name: qdrant-auth
+    envs:
+      - secrets/qdrant.env
+    type: Opaque
+  - name: backend-postgres-backup-s3
+    envs:
+      - secrets/postgres-backup.env
+    type: Opaque
+  - name: qdrant-backup-s3
+    envs:
+      - secrets/qdrant-backup.env
+    type: Opaque
+  - name: backend-redis-backup-s3
+    envs:
+      - secrets/redis-backup.env
+    type: Opaque
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    hivy.io/apply-phase: data
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: hivy
+      hivy.io/environment: production

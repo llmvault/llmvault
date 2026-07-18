@@ -62,7 +62,7 @@ func (h *AppsHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// requireApp resolves org + app and authorizes the app's channel; a denied or
+// requireApp resolves org + app and authorizes the app's team; a denied or
 // missing app 404s identically.
 func (h *AppsHandler) requireApp(w http.ResponseWriter, r *http.Request) (*model.Org, *model.App, bool) {
 	org, ok := h.requireAppsOrg(w, r)
@@ -79,7 +79,7 @@ func (h *AppsHandler) requireApp(w http.ResponseWriter, r *http.Request) (*model
 		writeAppsError(w, r, err)
 		return nil, nil, false
 	}
-	if !h.canUseAppChannel(r.Context(), org.ID, app.ChannelID) {
+	if !h.canUseAppTeam(r.Context(), org.ID, app.TeamID) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "not found"})
 		return nil, nil, false
 	}
@@ -99,18 +99,9 @@ func (h *AppsHandler) requireAppsOrg(w http.ResponseWriter, r *http.Request) (*m
 	return org, true
 }
 
-// canUseAppChannel mirrors canUseSheetChannel: access is strictly team-scoped.
-// Org managers and API-key callers pass; a human member must be able to use the
-// channel (team membership).
-func (h *AppsHandler) canUseAppChannel(ctx context.Context, orgID, channelID uuid.UUID) bool {
-	var channel model.Channel
-	if err := h.db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
-		First(&channel).Error; err != nil {
-		return false
-	}
+func (h *AppsHandler) canUseAppTeam(ctx context.Context, orgID, teamID uuid.UUID) bool {
 	if isAPIKeyRequest(ctx) {
-		return canUseChannel(ctx, h.db, channel, "", nil, true)
+		return true
 	}
 	var userID *uuid.UUID
 	if user, ok := middleware.UserFromContext(ctx); ok && user != nil {
@@ -123,7 +114,7 @@ func (h *AppsHandler) canUseAppChannel(ctx context.Context, orgID, channelID uui
 	if err != nil || role == "" {
 		return false
 	}
-	return canUseChannel(ctx, h.db, channel, role, userID, false)
+	return canManageTeamResource(ctx, h.db, orgID, userID, role, teamID)
 }
 
 func (h *AppsHandler) appsOrgRole(ctx context.Context, orgID, userID uuid.UUID) (string, error) {
