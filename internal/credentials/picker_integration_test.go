@@ -72,33 +72,33 @@ func TestIntegration_Picker_NoMatchReturnsSentinel(t *testing.T) {
 	}
 }
 
-func TestIntegration_Picker_PickByModelUsesCanonicalRoutes(t *testing.T) {
+func TestIntegration_Picker_PickByModelDefaultsToOpenRouterRoute(t *testing.T) {
 	db := connectTestDB(t)
-	anthropic := seedSystemCred(t, db, "anthropic", false)
-	seedSystemCred(t, db, "openrouter", false)
+	seedSystemCred(t, db, "anthropic", false)
+	openrouter := seedSystemCred(t, db, "openrouter", false)
 
 	picker := credentials.NewPicker(db)
 	got, err := picker.PickByModel(context.Background(), "claude-sonnet-4.6")
 	if err != nil {
 		t.Fatalf("PickByModel: %v", err)
 	}
-	if got.ID != anthropic.ID {
-		t.Fatalf("picked %s, want first matching anthropic credential %s", got.ID, anthropic.ID)
+	if got.ID != openrouter.ID {
+		t.Fatalf("picked %s, want OpenRouter credential %s", got.ID, openrouter.ID)
 	}
 }
 
-func TestIntegration_Picker_PickByModelHonorsRoutePreference(t *testing.T) {
+func TestIntegration_Picker_PickByModelDefaultsToOpenRouterForOpenAIModels(t *testing.T) {
 	db := connectTestDB(t)
-	seedSystemCred(t, db, "openrouter", false)
-	openai := seedSystemCred(t, db, "openai", false)
+	openrouter := seedSystemCred(t, db, "openrouter", false)
+	seedSystemCred(t, db, "openai", false)
 
 	picker := credentials.NewPicker(db)
 	got, err := picker.PickByModel(context.Background(), "gpt-4o-mini")
 	if err != nil {
 		t.Fatalf("PickByModel: %v", err)
 	}
-	if got.ID != openai.ID {
-		t.Fatalf("picked %s, want preferred openai credential %s", got.ID, openai.ID)
+	if got.ID != openrouter.ID {
+		t.Fatalf("picked %s, want preferred OpenRouter credential %s", got.ID, openrouter.ID)
 	}
 }
 

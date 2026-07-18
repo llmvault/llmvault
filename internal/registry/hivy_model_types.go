@@ -3,6 +3,10 @@ package registry
 type HivyModel struct {
 	ID     string
 	Routes []ModelRoute
+	// ProxyRoutes is the ordered, OpenAI-compatible provider chain used by
+	// the LLM proxy. A nil value keeps backwards-compatible routing and makes
+	// OpenRouter the default when it is present in Routes.
+	ProxyRoutes []ModelRoute
 }
 
 var hivyModelsByID = func() map[string]HivyModel {

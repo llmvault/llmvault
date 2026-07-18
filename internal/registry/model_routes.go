@@ -65,18 +65,43 @@ func (r *Registry) CanonicalModel(canonicalID string) (RoutedModel, bool) {
 }
 
 func (r *Registry) ProviderPreferenceForModel(canonicalID string) []string {
-	hivyModel, ok := hivyModelsByID[canonicalID]
-	if !ok {
-		return nil
-	}
-	providerIDs := make([]string, 0, len(hivyModel.Routes))
-	for _, route := range hivyModel.Routes {
+	routes := r.ProxyRoutesForModel(canonicalID)
+	providerIDs := make([]string, 0, len(routes))
+	for _, route := range routes {
 		if _, ok := r.providerModel(route.ProviderID, route.ModelID); !ok {
 			continue
 		}
 		providerIDs = appendIfMissing(providerIDs, route.ProviderID)
 	}
 	return providerIDs
+}
+
+// ProxyRoutesForModel returns the ordered routes used by the OpenAI-compatible
+// LLM proxy. Explicit ProxyRoutes take precedence. Until a model has an
+// explicit proxy chain, OpenRouter is the default whenever it supports the
+// model; this preserves a single platform route while allowing providers to be
+// added later without changing runtime configuration.
+func (r *Registry) ProxyRoutesForModel(canonicalID string) []ModelRoute {
+	hivyModel, ok := hivyModelsByID[canonicalID]
+	if !ok {
+		return nil
+	}
+	if len(hivyModel.ProxyRoutes) > 0 {
+		return append([]ModelRoute(nil), hivyModel.ProxyRoutes...)
+	}
+
+	routes := make([]ModelRoute, 0, len(hivyModel.Routes))
+	for _, route := range hivyModel.Routes {
+		if route.ProviderID == "openrouter" {
+			routes = append(routes, route)
+		}
+	}
+	for _, route := range hivyModel.Routes {
+		if route.ProviderID != "openrouter" {
+			routes = append(routes, route)
+		}
+	}
+	return routes
 }
 
 func (r *Registry) CanonicalModelsForProviders(providerIDs []string) []RoutedModel {

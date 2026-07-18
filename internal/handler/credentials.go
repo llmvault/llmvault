@@ -36,6 +36,7 @@ var providerAuthSchemes = map[string]string{
 	"anthropic":      "x-api-key",
 	"elevenlabs":     "xi-api-key",
 	"google":         "query_param",
+	"xiaomi":         "api-key",
 	"azure":          "api-key",
 	"amazon-bedrock": "bearer",
 }

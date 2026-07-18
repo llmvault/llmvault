@@ -17,6 +17,50 @@ func TestDefaultCredentialAuthScheme_ElevenLabs(t *testing.T) {
 	}
 }
 
+func TestDefaultCredentialAuthScheme_Xiaomi(t *testing.T) {
+	if got := defaultCredentialAuthScheme("xiaomi"); got != "api-key" {
+		t.Fatalf("defaultCredentialAuthScheme(xiaomi) = %q, want api-key", got)
+	}
+}
+
+func TestBuildSystemCredentialDefaultsXiaomiProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-xiaomi",
+		ProviderID: "xiaomi",
+		APIKey:     "xiaomi-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.xiaomimimo.com/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "api-key" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
+func TestBuildSystemCredentialDefaultsQuantisedProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-quantised",
+		ProviderID: "quantised",
+		APIKey:     "quantised-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://crof.ai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
 func TestBuildSystemCredentialDefaultsReveProvider(t *testing.T) {
 	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
 

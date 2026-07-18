@@ -20,6 +20,7 @@ type CapturedData struct {
 	Model          string // extracted from request body
 	GenerationID   string // upstream response id (OpenRouter generation id)
 	ProviderID     string // from credential
+	CredentialID   string // actual credential used after proxy routing
 	IsStreaming    bool
 	TTFBMs         int    // time to first byte in milliseconds
 	TotalMs        int    // total round-trip time in milliseconds

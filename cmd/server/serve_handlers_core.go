@@ -159,7 +159,7 @@ func buildServeHandlersCore(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	generationHandler := handler.NewGenerationHandler(database)
 	reportingHandler := handler.NewReportingHandler(database)
 	attributionCache := middleware.NewAttributionCache(50000, 20*time.Minute)
-	proxyHandler := handler.NewProxyHandler(cacheManager, attributionCache, &proxy.CaptureTransport{Inner: sentryobs.WrapTransport(proxy.NewTransport())})
+	proxyHandler := handler.NewProxyHandler(database, redisClient, cacheManager, attributionCache, &proxy.CaptureTransport{Inner: sentryobs.WrapTransport(proxy.NewTransport())})
 
 	return &serveHandlersCore{
 		providerHandler:            providerHandler,

@@ -207,7 +207,7 @@ func Generation(gw *GenerationWriter, db *gorm.DB, attrCache *AttributionCache) 
 
 			providerID := lookupProviderID(db, claims.CredentialID)
 
-			captured := &observe.CapturedData{ProviderID: providerID}
+			captured := &observe.CapturedData{ProviderID: providerID, CredentialID: claims.CredentialID}
 			r = r.WithContext(observe.WithCapturedData(ctx, captured))
 
 			next.ServeHTTP(w, r)
@@ -222,14 +222,25 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 	genID := "gen_" + ulid.Make().String()
 
 	orgID, _ := uuid.Parse(claims.OrgID)
-	credID, _ := uuid.Parse(claims.CredentialID)
+	credentialID := claims.CredentialID
+	if captured.CredentialID != "" {
+		credentialID = captured.CredentialID
+	}
+	credID, _ := uuid.Parse(credentialID)
+	actualProviderID := captured.ProviderID
+	if actualProviderID == "" {
+		actualProviderID = providerID
+	}
+	if actualProviderID == "" {
+		actualProviderID = lookupProviderID(db, credentialID)
+	}
 
 	gen := model.Generation{
 		ID:           genID,
 		OrgID:        orgID,
 		CredentialID: credID,
 		TokenJTI:     claims.JTI,
-		ProviderID:   providerID,
+		ProviderID:   actualProviderID,
 		Model:        captured.Model,
 		RequestPath:  r.URL.Path,
 		IsStreaming:  captured.IsStreaming,
@@ -250,7 +261,7 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 		CreatedAt: time.Now().UTC(),
 	}
 
-	gen.Cost = calculateCost(reg, providerID, captured.Model, captured.Usage)
+	gen.Cost = calculateCost(reg, actualProviderID, captured.Model, captured.Usage)
 	if gen.Cost > 0 {
 		gen.BillingCostSource = billing.CostSourceRegistry
 	}
