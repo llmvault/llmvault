@@ -15,3 +15,14 @@ internal/registry/models.go
 internal/agentruntime/compile.go
 internal/agentruntime/compile_model_test.go
 internal/sandbox/microsandbox/driver_test.go
+
+# Existing hand-written files already over the ceiling before the channel-removal
+# refactor. These need dedicated extraction work and are kept explicit so new
+# files remain subject to the limit.
+internal/handler/mcphandler.go
+internal/handler/billing.go
+internal/tasks/agent_email_receive.go
+internal/config/config.go
+internal/agentemail/mcptools.go
+internal/model/agent.go
+internal/billing/purchase/service.go

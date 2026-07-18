@@ -37,7 +37,7 @@ internal/spider/stream.go:34                   # channel producer; ctx embedded 
 # channel draining; no long-running unbounded risk.
 
 internal/rag/tasks/heartbeat.go:48             # hbCtx cancel + stoppedCh close strictly bound this ticker goroutine
-internal/sandbox/daytona/driver_snapshot.go:77 # drains external SDK log channel; channel close bounds the goroutine
+internal/sandbox/daytona/driver_snapshot.go:102 # drains external SDK log channel; channel close bounds the goroutine
 internal/sandbox/docker/exec.go:57             # goroutine to unblock stdcopy while ctx.Done() races; bounded by copyDone
 
 # --- Eval worker pool ---

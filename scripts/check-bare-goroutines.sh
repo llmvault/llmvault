@@ -37,7 +37,7 @@ trap 'rm -f "$allowlist_tmp" "$violations_tmp"' EXIT
 while IFS= read -r -d '' file; do
   # Skip generated/vendored/test files and the goroutine package itself.
   case "$file" in
-    ./vendor/*|./.ignored/*|./internal/goroutine/*|./cmd/fake-nango/*)
+    ./vendor/*|./.ignored/*|./ansible/.secrets/*|./internal/goroutine/*|./cmd/fake-nango/*)
       continue ;;
     *_test.go)
       continue ;;
