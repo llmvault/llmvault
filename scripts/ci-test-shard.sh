@@ -115,12 +115,12 @@ internal_core_shard_packages() {
 internal_extra_packages() {
   printf '%s\n' \
     github.com/usehivy/hivy/internal/agentcatalog \
+    github.com/usehivy/hivy/internal/agentemail \
     github.com/usehivy/hivy/internal/agentrouter \
     github.com/usehivy/hivy/internal/agentschedule \
     github.com/usehivy/hivy/internal/access \
     github.com/usehivy/hivy/internal/automationcatalog \
     github.com/usehivy/hivy/internal/canvasartifact \
-    github.com/usehivy/hivy/internal/channelagents \
     github.com/usehivy/hivy/internal/connectionaccess \
     github.com/usehivy/hivy/internal/databaseintegration \
     github.com/usehivy/hivy/internal/keyedlock \
@@ -129,7 +129,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/microsandbox/runner \
     github.com/usehivy/hivy/internal/microsandbox/security \
     github.com/usehivy/hivy/internal/netguard \
-	github.com/usehivy/hivy/internal/skillaccess \
+    github.com/usehivy/hivy/internal/skillaccess \
     github.com/usehivy/hivy/internal/precontext \
     github.com/usehivy/hivy/internal/quiver \
     github.com/usehivy/hivy/internal/railway \
