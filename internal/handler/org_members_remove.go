@@ -14,7 +14,7 @@ import (
 
 // Remove handles DELETE /v1/orgs/current/members/{userID}.
 // @Summary Deactivate a member of the organization
-// @Description Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org/team/channel membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.
+// @Description Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org and team membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.
 // @Tags org-members
 // @Produce json
 // @Param userID path string true "Target user ID"
@@ -71,7 +71,7 @@ func (h *OrgMemberHandler) Remove(w http.ResponseWriter, r *http.Request) {
 }
 
 // removeMemberTx soft-deactivates the user's org membership plus their team and
-// channel memberships within the org, atomically, and revokes the access those
+// team memberships within the org, atomically, and revokes the access those
 // memberships conferred. Nothing is hard-deleted: every row is retained with
 // deactivated_at set so the audit trail is preserved, and membership predicates
 // treat deactivated_at IS NOT NULL as "no longer a member". Channel members are

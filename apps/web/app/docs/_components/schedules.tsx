@@ -17,7 +17,7 @@ export function Schedules() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         A schedule gives an agent the same task at a recurring time. Each run
-        opens a fresh session in the team&apos;s channel, which suits work such
+        opens a fresh session for the team, which suits work such
         as a weekly report, a nightly data check, an hourly inbox review, or a
         monthly audit.
       </p>
@@ -25,7 +25,7 @@ export function Schedules() {
       <DocsMediaPlaceholder
         type="video"
         title="Create a recurring agent schedule"
-        description="Use Automations > Schedules > Add schedule to choose a channel and agent, set a weekly local time, write the task, and save. Open the first session once it runs."
+        description="Use Automations > Schedules > Add schedule to choose a team and agent, set a weekly local time, write the task, and save. Open the first session once it runs."
         className="mt-12"
       />
 
@@ -41,9 +41,8 @@ export function Schedules() {
             Give teammates a useful label in the Automations list, such as
             Weekly pipeline summary.
           </Step>
-          <Step number="2" title="Choose a channel and agent">
-            The channel sets the team boundary, so Hivy offers agents from that
-            team only.
+          <Step number="2" title="Choose a team and agent">
+            The team sets the access boundary, so Hivy offers its agents only.
           </Step>
           <Step number="3" title="Set the cadence">
             Pick a recurring option or enter a custom five-field cron
@@ -59,7 +58,7 @@ export function Schedules() {
       <DocsMediaPlaceholder
         type="image"
         title="Schedule fields and cadence preview"
-        description="The Add schedule frame needs a readable name, channel, agent, Repeat controls, timezone conversion preview, and task instructions."
+        description="The Add schedule frame needs a readable name, team, agent, Repeat controls, timezone conversion preview, and task instructions."
         className="mt-12"
       />
 
@@ -108,7 +107,7 @@ export function Schedules() {
         <DocSection title="Pause before you delete">
           <p>
             Pause a schedule when the work needs to stop for a while; Hivy keeps
-            its name, channel, agent, cadence, and task. Resume it later or
+            its name, team, agent, cadence, and task. Resume it later or
             delete it once the recurring task has ended.
           </p>
           <p className="mt-3">

@@ -19,13 +19,13 @@ const INSTALL_STEPS = [
     number: "03",
     title: "Install it for a team",
     description:
-      "Pick a team you belong to, and Hivy creates a separate copy for that team’s channels.",
+      "Pick a team you belong to, and Hivy creates a separate copy for that team's work.",
   },
   {
     number: "04",
     title: "Test the installed copy",
     description:
-      "Run one representative task in a team channel before changing the model, sandbox, or optional connections.",
+      "Run one representative task for the team before changing the model, sandbox, or optional connections.",
   },
 ]
 
@@ -89,7 +89,7 @@ export function AgentCatalog() {
         <DocSection title="Each team gets its own agent">
           <p>
             Hivy creates a separate copy for the selected team, limited to that
-            team&apos;s channels and capabilities. If another team needs the
+            team&apos;s capabilities. If another team needs the
             same specialist, install another copy; its access and settings
             remain separate.
           </p>

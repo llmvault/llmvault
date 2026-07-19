@@ -24,7 +24,7 @@ describe("documentation navigation", () => {
   })
 
   it("resolves every public documentation slug", () => {
-    expect(DOC_PAGES).toHaveLength(25)
+    expect(DOC_PAGES).toHaveLength(23)
     for (const page of DOC_PAGES) {
       expect(getDocPage(page.slug)).toEqual(page)
     }
@@ -37,9 +37,7 @@ describe("documentation navigation", () => {
   })
 
   it("searches titles, descriptions, and section names", () => {
-    expect(searchDocPages("Slack").map((page) => page.slug)).toContain(
-      "workspace-and-access/slack-channels"
-    )
+    expect(searchDocPages("Automations")).toHaveLength(5)
     expect(searchDocPages("Knowledge and memory")).toHaveLength(3)
     expect(searchDocPages("   ")).toEqual([])
   })

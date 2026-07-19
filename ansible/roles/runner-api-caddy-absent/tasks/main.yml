@@ -1,0 +1,52 @@
+---
+- name: Gather runner service state
+  ansible.builtin.service_facts:
+
+- name: Stop and disable retired runner API Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    state: stopped
+    enabled: false
+  when: "'caddy.service' in ansible_facts.services"
+
+- name: Remove the Caddy package
+  ansible.builtin.apt:
+    name: caddy
+    state: absent
+    purge: true
+
+- name: Remove retired runner Caddy files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/caddy
+    - /var/lib/caddy
+    - /etc/systemd/system/caddy.service.d
+    - /usr/local/bin/caddy
+    - /usr/local/bin/xcaddy
+    - /etc/apt/sources.list.d/caddy-stable.list
+    - /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Reload systemd after removing Caddy
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Remove retired public HTTP firewall access
+  ansible.builtin.command: ufw delete allow 80/tcp
+  register: runner_caddy_absent_ufw_http
+  changed_when: "'Rule deleted' in runner_caddy_absent_ufw_http.stdout"
+  failed_when: false
+
+- name: Remove retired public HTTPS firewall access
+  ansible.builtin.command: ufw delete allow 443/tcp
+  register: runner_caddy_absent_ufw_https
+  changed_when: "'Rule deleted' in runner_caddy_absent_ufw_https.stdout"
+  failed_when: false
+
+- name: Verify retired runner Caddy HTTP port is closed
+  ansible.builtin.wait_for:
+    host: "{{ runner_private_ip }}"
+    port: 80
+    state: stopped
+    timeout: 5

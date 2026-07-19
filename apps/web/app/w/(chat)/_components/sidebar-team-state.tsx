@@ -1,4 +1,4 @@
-export function ChannelSkeletonList() {
+export function TeamSkeletonList() {
   return (
     <div className="flex flex-col gap-0.5">
       {Array.from({ length: 6 }).map((_, index) => (

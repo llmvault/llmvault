@@ -17,7 +17,7 @@ const SOURCE_TYPES = [
   {
     title: "Slack",
     description:
-      "Keep decisions from selected channels available after the Slack thread has gone quiet.",
+      "Keep decisions from selected resources available after a Slack thread has gone quiet.",
   },
   {
     title: "Linear",
@@ -41,7 +41,7 @@ const ADD_SOURCE_STEPS = [
     number: "2",
     title: "Set a narrow scope",
     description:
-      "Select only the repositories, pages, databases, channels, Linear teams, or website paths that answer the questions you have in mind.",
+      "Select only the repositories, pages, databases, Slack channels, Linear teams, or website paths that answer the questions you have in mind.",
   },
   {
     number: "3",
@@ -158,7 +158,7 @@ export function KnowledgeSources() {
           <p className="mt-3">
             For a website, enter the URL and run discovery before selecting
             individual pages or complete sections. With a connected service,
-            Hivy lists the repositories, pages, channels, or Linear teams that
+            Hivy lists the repositories, pages, Slack channels, or Linear teams that
             the connection can read.
           </p>
         </DocSection>

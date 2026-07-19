@@ -10,7 +10,7 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { useIsAdmin } from "@/lib/auth/use-role"
-import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
+import { resolveTeamAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
@@ -87,7 +87,7 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
 
   const activeTeamID = teamID || teams[0]?.id || ""
   const { agents, isLoading: agentsLoading } = useTeamAgents(activeTeamID)
-  const activeAgentID = resolveScopedAgentID(agents, agentID, undefined)
+  const activeAgentID = resolveTeamAgentID(agents, agentID, undefined)
 
   const enabled = trigger.enabled ?? true
   const lastRunHref = trigger.last_run_session_id

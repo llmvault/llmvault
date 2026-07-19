@@ -29,14 +29,14 @@ export function AutomationsOverview() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         An automation starts agent work without waiting for someone to open
-        Hivy. It still runs a named agent inside a channel, where the
+        Hivy. It runs a named agent for a team, where the
         responsible team can see the request, result, follow-ups, and cost.
       </p>
 
       <DocsMediaPlaceholder
         type="video"
         title="Turn a repeated task into an automation"
-        description="Start in Automations and create a connected-app trigger, a schedule, and a webhook; finish on the channel session from one run. The form controls and session text need to remain readable."
+        description="Start in Automations and create a connected-app trigger, a schedule, and a webhook; finish on the resulting session from one run. The form controls and session text need to remain readable."
         className="mt-12"
       />
 
@@ -79,8 +79,8 @@ export function AutomationsOverview() {
       <div className="mt-16 space-y-14 border-t border-border pt-14">
         <DocSection title="Scope every run before you automate it">
           <p>
-            The channel puts every new session beside related team work and
-            limits the agent picker to that channel&apos;s team. Automated and
+            The team puts every new session beside related work and
+            limits the agent picker to that team&apos;s agents. Automated and
             manual sessions therefore follow the same access boundary.
           </p>
           <p className="mt-3">
@@ -106,7 +106,7 @@ export function AutomationsOverview() {
         <DocSection title="Each run becomes a session">
           <p>
             When an event arrives or a scheduled time comes due, Hivy creates a
-            session in the chosen channel and gives the task to the agent. Open
+            session for the chosen team and gives the task to the agent. Open
             the session to check its work and cost; if the result needs a
             change, ask there.
           </p>

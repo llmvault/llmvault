@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 import { AgentSessions } from "./agent-sessions"
 
 describe("AgentSessions", () => {
-  it("teaches the complete channel-scoped session workflow", () => {
+  it("teaches the complete team and agent-scoped session workflow", () => {
     const html = renderToString(React.createElement(AgentSessions))
 
     expect(html).toContain("Start with the right scope")

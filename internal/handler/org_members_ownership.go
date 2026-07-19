@@ -93,7 +93,7 @@ func (h *OrgMemberHandler) transferOwnershipTx(ctx context.Context, orgID, calle
 
 // DeleteOrg handles DELETE /v1/orgs/current.
 // @Summary Delete the organization
-// @Description Owner-only. Permanently deletes the organization and all of its data. Most child tables (agents, channels, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.
+// @Description Owner-only. Permanently deletes the organization and all of its data. Most child tables (teams, agents, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.
 // @Tags org-members
 // @Produce json
 // @Success 200 {object} statusResponse

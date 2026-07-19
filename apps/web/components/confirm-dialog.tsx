@@ -6,7 +6,7 @@ import { AppIcon } from "@/components/icon"
 /**
  * Shared danger-styled confirmation dialog. The parent owns the mutation and
  * passes the copy, so one component covers every "are you sure?" flow (delete
- * channel, remove agent, disconnect connection, …).
+ * archive team, remove agent, disconnect connection, …).
  */
 export function ConfirmDialog({
   open,

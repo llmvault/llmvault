@@ -44,6 +44,9 @@ type Config struct {
 	RunnerDiskOvercommit        float64
 	RunnerPreviewPortRangeStart int
 	RunnerPreviewPortRangeEnd   int
+	RunnerDNSNameserver         string
+	RunnerPrivateEgressCIDR     string
+	RunnerPrivateEgressPorts    string
 	ImageRegistry               string
 }
 
@@ -80,6 +83,9 @@ func Load() Config {
 		RunnerDiskOvercommit:        float("HIVY_MICROSANDBOX_RUNNER_DISK_OVERCOMMIT", 4),
 		RunnerPreviewPortRangeStart: integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_START", api.DefaultPreviewHostPortRangeStart),
 		RunnerPreviewPortRangeEnd:   integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_END", api.DefaultPreviewHostPortRangeEnd),
+		RunnerDNSNameserver:         strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_DNS_NAMESERVER")),
+		RunnerPrivateEgressCIDR:     strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PRIVATE_EGRESS_CIDR")),
+		RunnerPrivateEgressPorts:    strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PRIVATE_EGRESS_PORTS")),
 		ImageRegistry:               get("HIVY_MICROSANDBOX_IMAGE_REGISTRY", "10.80.0.3:5000"),
 	}
 }

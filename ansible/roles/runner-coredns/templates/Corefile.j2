@@ -1,0 +1,21 @@
+{% for name in runner_coredns_private_names %}{{ name }}:53{% if not loop.last %} {% endif %}{% endfor %} {
+    bind {{ runner_private_ip }}
+    errors
+    log
+    hosts {
+{% for name in runner_coredns_private_names %}
+        {{ runner_private_ip }} {{ name }}
+{% endfor %}
+    }
+    cache 30
+}
+
+.:53 {
+    bind {{ runner_private_ip }}
+    errors
+    health {{ runner_private_ip }}:8180
+    ready {{ runner_private_ip }}:8181
+    forward . /run/systemd/resolve/resolv.conf
+    cache 30
+    reload
+}

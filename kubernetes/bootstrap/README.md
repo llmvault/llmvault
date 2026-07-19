@@ -131,6 +131,16 @@ Cilium issue `#42950`, which remains open. Do not publish an `AAAA` record until
 that issue is fixed in a tested Cilium release or the edge design changes. IPv4
 PROXY protocol is healthy and preserves the original client IP.
 
+## Private application routing
+
+The same Cilium Gateway owns a private HTTPS listener on port `443`. Kubernetes
+CoreDNS rewrites `*.preview.usehivy.com` to the Gateway Service ClusterIP, so
+API and asynq Pods reach the in-cluster preview Caddy without leaving the
+cluster. Runner-local CoreDNS resolves `api.usehivy.com` and
+`staging.api.usehivy.com` to that runner's private HAProxy listener. HAProxy
+passes TLS through to a healthy private K3s ingress node. This path does not
+use the Hetzner load balancer.
+
 ## Gateway smoke test
 
 The smoke stack proves HTTP redirect, HTTPS termination, HTTP/2, Gateway API

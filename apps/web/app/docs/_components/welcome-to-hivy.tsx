@@ -47,7 +47,7 @@ export function WelcomeToHivy() {
             className="mt-6"
             type="image"
             title="Start a session with the right agent"
-            description="Capture the new-session composer at 100% zoom. Keep the team, channel, agent, and model selectors visible, with a short task ready to send."
+            description="Capture the new-session composer at 100% zoom. Keep the team, agent, and model selectors visible, with a short task ready to send."
           />
           <Link
             href="/docs/run-your-first-agent"
@@ -71,7 +71,7 @@ export function WelcomeToHivy() {
           <p className="mt-3 max-w-2xl text-muted">
             An automation doesn’t wait for someone to send a message. A
             connected-app event, schedule, or HTTP webhook starts the agent;
-            Hivy keeps the run in the chosen channel for the team to review.
+            Hivy keeps the run in the chosen team for review.
           </p>
           <DocsMediaPlaceholder
             className="mt-6"

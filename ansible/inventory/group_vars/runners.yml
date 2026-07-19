@@ -5,6 +5,12 @@ runner_memory_overcommit: 2
 runner_disk_overcommit: 4
 runner_preview_port_range_start: 30000
 runner_preview_port_range_end: 60999
+runner_coredns_private_names:
+  - api.usehivy.com
+  - staging.api.usehivy.com
+runner_sandbox_private_egress_cidr: "{{ runner_private_ip }}/32"
+runner_sandbox_private_egress_ports: "443"
+runner_haproxy_backend_group: k3s_ingress
 runner_preview_allowed_sources:
   - "{{ microsandbox_control_private_ip }}"
 runner_preview_retired_sources:

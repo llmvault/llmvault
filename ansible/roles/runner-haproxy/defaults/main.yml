@@ -1,0 +1,8 @@
+---
+runner_haproxy_service_name: haproxy
+runner_haproxy_config_path: /etc/haproxy/haproxy.cfg
+runner_haproxy_frontend_port: 443
+runner_haproxy_backend_port: 443
+runner_haproxy_backend_group: k3s_ingress
+runner_haproxy_guest_ipv4_cidr: "172.16.0.0/12"
+runner_haproxy_health_sni: preview.usehivy.com

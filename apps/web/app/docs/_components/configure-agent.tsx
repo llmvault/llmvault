@@ -13,7 +13,7 @@ const FIRST_DECISIONS = [
     number: "02",
     title: "Choose the owning team",
     description:
-      "Choose the team that owns the work because that choice controls the agent’s channels and connections.",
+      "Choose the team that owns the work because that choice controls the agent's connections and resources.",
   },
   {
     number: "03",
@@ -149,7 +149,7 @@ export function ConfigureAgent() {
         <DocSection title="Keep access with the owning team">
           <p>
             Every agent belongs to one team and works only in that team&apos;s
-            channels. Give ownership to the group that will review the results,
+            work. Give ownership to the group that will review the results,
             since the agent also receives resources approved for that team.
           </p>
           <DocLink href="/docs/workspace-and-access/teams">
@@ -181,7 +181,7 @@ export function ConfigureAgent() {
             Test one real task before automating it
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            Run one representative task in a team channel and inspect both the
+            Run one representative task for the team and inspect both the
             result and its cost. Fix the instructions or tool access before you
             put the agent into an automation.
           </p>

@@ -42,7 +42,7 @@ export function Sheets() {
       <DocsMediaPlaceholder
         type="video"
         title="Create a Sheet and update it with an agent"
-        description="Record a new Sheet in a channel. Ask an agent to add the fields and records, keep the live update visible, then open that Sheet from the main Sheets page."
+        description="Record a new Sheet for a team. Ask an agent to add the fields and records, keep the live update visible, then open that Sheet from the main Sheets page."
         className="mt-12"
       />
 
@@ -57,7 +57,7 @@ export function Sheets() {
           Keep a table in the session when you only need a quick answer. Choose
           a Sheet when the team will return to the data, filter or edit it, and
           ask an agent to continue the work later. Because the Sheet belongs to
-          a channel rather than one session, it stays near the work it supports.
+            a team rather than one session, it stays near the work it supports.
         </p>
 
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -88,7 +88,7 @@ export function Sheets() {
         <DocSection title="Create it yourself or ask an agent">
           <p>
             Open <strong className="text-foreground">Sheets</strong> from the
-            workspace sidebar; Hivy groups each database under its channel. If
+            workspace sidebar; Hivy groups each database under its team. If
             you know the columns you need, start with a blank Sheet. Otherwise,
             ask an agent with the Sheets connection to plan the structure and
             add the records.
@@ -160,7 +160,7 @@ export function Sheets() {
         </DocSection>
 
         <section
-          aria-labelledby="sheet-access-follows-channel"
+          aria-labelledby="sheet-access-follows-team"
           className="rounded-xl border border-border bg-surface-secondary p-6"
         >
           <div className="flex items-start gap-3">
@@ -169,14 +169,14 @@ export function Sheets() {
             </span>
             <div>
               <h2
-                id="sheet-access-follows-channel"
+                id="sheet-access-follows-team"
                 className="text-lg font-semibold tracking-tight text-foreground"
               >
-                Sheet access follows the channel
+                Sheet access follows the team
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-                Hivy keeps every Sheet inside the channel where someone created
-                it. A person needs access to that channel. An agent also needs a
+                Hivy keeps every Sheet inside the team where someone created
+                it. A person needs access to that team. An agent also needs a
                 session there and must have the Sheets connection before it can
                 read or change the records.
               </p>

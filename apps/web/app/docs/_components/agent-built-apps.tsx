@@ -155,13 +155,13 @@ export function AgentBuiltApps() {
         <DocSection title="Open apps from one place">
           <p>
             Select <strong className="text-foreground">Apps</strong> in the
-            workspace sidebar. Hivy groups the list by channel and lets you
+            workspace sidebar. Hivy groups the list by team and lets you
             search names or descriptions. Open a result in the right panel, or
             send it to a separate browser tab when you need more room.
           </p>
           <p className="mt-3">
-            App access follows its channel. A person must be able to use that
-            channel before Hivy lists the app or issues a launch session.
+            App access follows its team. A person must be able to use that
+            team before Hivy lists the app or issues a launch session.
           </p>
           <DocLink href="/w/apps">Open Apps</DocLink>
         </DocSection>
@@ -193,8 +193,8 @@ export function AgentBuiltApps() {
 
         <DocsMediaPlaceholder
           type="image"
-          title="The Apps page grouped by channel"
-          description="Frame the Apps page with demo entries under two channels and keep Search visible. Open one app in the right panel, make its interface readable, and remove personal data from the frame."
+          title="The Apps page grouped by team"
+          description="Frame the Apps page with demo entries under two teams and keep Search visible. Open one app in the right panel, make its interface readable, and remove personal data from the frame."
           bleed={false}
         />
       </div>

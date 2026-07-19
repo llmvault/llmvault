@@ -1,0 +1,10 @@
+---
+runner_coredns_version: "1.14.6"
+runner_coredns_archive_checksum: "sha256:4402578c8f7b95dac1d8258bfd13e7a9d30f70d7a53f396b02a6d6ca78d56152"
+runner_coredns_install_dir: /opt/hivy/coredns
+runner_coredns_config_dir: /etc/hivy/coredns
+runner_coredns_service_name: hivy-coredns
+runner_coredns_private_names:
+  - api.usehivy.com
+  - staging.api.usehivy.com
+runner_coredns_guest_ipv4_cidr: "172.16.0.0/12"

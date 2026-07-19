@@ -8,7 +8,7 @@ export function HttpWebhooks() {
         Any system that can send a POST request can start a Hivy agent through
         an HTTP webhook. The body carries request-specific data; the
         webhook&apos;s saved instructions tell the agent what to produce in its
-        channel.
+        team.
       </p>
 
       <DocsMediaPlaceholder
@@ -26,9 +26,8 @@ export function HttpWebhooks() {
           Create the webhook
         </h2>
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-          <Step number="1" title="Choose its home">
-            Pick the channel for new sessions and an agent from that
-            channel&apos;s team.
+          <Step number="1" title="Choose its team and agent">
+            Pick the team for new sessions and an agent from that team.
           </Step>
           <Step number="2" title="Write stable instructions">
             Explain what every request should make the agent do; each body
@@ -48,7 +47,7 @@ export function HttpWebhooks() {
       <DocsMediaPlaceholder
         type="image"
         title="Webhook URL, status, and last run"
-        description="Keep the webhook detail page readable, including the URL and Copy action, latest run link, channel, agent, instructions, and enabled status. No real shared secret should appear."
+        description="Keep the webhook detail page readable, including the URL and Copy action, latest run link, team, agent, instructions, and enabled status. No real shared secret should appear."
         className="mt-12"
       />
 

@@ -75,7 +75,7 @@ function AcceptInviteContents() {
     async (orgID?: string, fallback = "/w") => {
       // Route through auth-context's single org-switch writer: it sets the
       // active-org cookie and does a full queryClient.invalidateQueries() so
-      // the previous org's channels/sessions/agents never leak into the new
+      // the previous org's teams/sessions/agents never leak into the new
       // workspace (query keys aren't org-scoped). Navigate once it completes —
       // no arbitrary setTimeout, no hand-written cookie.
       await switchActiveOrg(queryClient, orgID)

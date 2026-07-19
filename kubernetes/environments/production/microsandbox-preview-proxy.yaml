@@ -156,6 +156,9 @@ spec:
     - name: public
       namespace: ingress-public
       sectionName: https
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
   hostnames:
     - preview.usehivy.com
     - "*.preview.usehivy.com"

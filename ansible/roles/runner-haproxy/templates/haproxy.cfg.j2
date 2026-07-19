@@ -1,0 +1,31 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+    maxconn 10000
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    timeout connect 5s
+    timeout client 1h
+    timeout server 1h
+    timeout tunnel 24h
+
+frontend hivy_private_https
+    bind {{ runner_private_ip }}:{{ runner_haproxy_frontend_port }}
+    default_backend k3s_private_gateway
+
+backend k3s_private_gateway
+    balance roundrobin
+    option tcp-check
+    default-server inter 2s fall 3 rise 2
+{% for node in groups[runner_haproxy_backend_group] %}
+    server {{ hostvars[node].k3s_node_name | default(node) }} {{ hostvars[node].k3s_node_ip }}:{{ runner_haproxy_backend_port }} check send-proxy-v2 check-send-proxy
+{% endfor %}

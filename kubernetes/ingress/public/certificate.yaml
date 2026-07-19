@@ -8,6 +8,8 @@ spec:
   dnsNames:
     - preview.usehivy.com
     - "*.preview.usehivy.com"
+    - api.usehivy.com
+    - staging.api.usehivy.com
   issuerRef:
     name: letsencrypt-production-vercel
     kind: ClusterIssuer

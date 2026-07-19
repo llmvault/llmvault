@@ -16,7 +16,7 @@ import {
   type InstalledTrigger,
 } from "@/app/w/(chat)/automations/_data"
 import { AgentSelect } from "@/components/agent-select"
-import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
+import { resolveTeamAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
   GithubConnectionSelect,
@@ -54,12 +54,12 @@ export type GithubMentionFormConfig = {
   // The following copy differs between the mention forms (which talk about
   // @mentions) and the auto-review form (which fires on every PR, no mention).
   // Each is optional and falls back to the mention wording.
-  channelDescription?: string
+  teamDescription?: string
   statusEnabledDescription?: string
   statusDisabledDescription?: string
 }
 
-const defaultChannelDescription =
+const defaultTeamDescription =
   "Choose the team that owns the agent this automation runs."
 const defaultStatusEnabledDescription =
   "Mentions in this repository will run this automation."
@@ -166,7 +166,7 @@ export function GithubMentionInstallFormBase({
   const { agents, isLoading: agentsLoading } = useTeamAgents(
     activeTeamID
   )
-  const activeAgentID = resolveScopedAgentID(
+  const activeAgentID = resolveTeamAgentID(
     agents,
     agentID,
     undefined
@@ -428,7 +428,7 @@ export function GithubMentionInstallFormBase({
 
         <FormSection
           title="Team"
-          description={config.channelDescription ?? defaultChannelDescription}
+          description={config.teamDescription ?? defaultTeamDescription}
         >
           {teamsLoading ? (
             <FieldSkeleton />

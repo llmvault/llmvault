@@ -20,7 +20,7 @@ type agentListItem struct {
 // @Summary List AI agents
 // @Description Returns the agents visible to the caller with skills (metadata only — no bundle content),
 // @Description and triggers. Org managers and API-key callers see every agent in the org; a regular
-// @Description member sees only agents assigned to channels they can use.
+// @Description member sees only agents in teams they can use.
 // @Tags agents
 // @Produce json
 // @Param status query string false "Filter by status (draft, active, archived)"
@@ -58,7 +58,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		Where("agents.parent_agent_id IS NULL")
 
 	// Managers and API-key callers see org-wide; a regular member sees only
-	// agents assigned to channels they can use (mirrors channel visibility).
+// agents in teams they can use.
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
 		q = q.Where("agents.team_id IN (?)", visibleTeamSubquery(h.db, userID))
 	}
@@ -108,7 +108,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 // Get handles GET /v1/agents/{id}.
 // @Summary Get an AI agent
 // @Description Returns one agent visible to the caller with skills (metadata only — no bundle content),
-// @Description and triggers. A regular member can only fetch agents assigned to channels they can use;
+// @Description and triggers. A regular member can only fetch agents in teams they can use;
 // @Description an agent they cannot see returns 404.
 // @Tags agents
 // @Produce json

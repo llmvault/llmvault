@@ -9,6 +9,9 @@ spec:
     - name: public
       namespace: ingress-public
       sectionName: https
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
   hostnames:
     - staging.api.usehivy.com
   rules:
@@ -27,6 +30,9 @@ spec:
     - name: public
       namespace: ingress-public
       sectionName: https
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
   hostnames:
     - staging.mcp.usehivy.com
   rules:
@@ -45,6 +51,9 @@ spec:
     - name: public
       namespace: ingress-public
       sectionName: https
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
   hostnames:
     - staging.proxy.usehivy.com
   rules:

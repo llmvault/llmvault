@@ -9,7 +9,6 @@ import { AgentBuiltApps } from "../_components/agent-built-apps"
 import { AgentSessions } from "../_components/agent-sessions"
 import { AutomationRuns } from "../_components/automation-runs"
 import { AutomationsOverview } from "../_components/automations-overview"
-import { Channels } from "../_components/channels"
 import { ConnectionsAccess } from "../_components/connections-access"
 import { ConnectTools } from "../_components/connect-tools"
 import { ConfigureAgent } from "../_components/configure-agent"
@@ -23,7 +22,6 @@ import { MemoriesAndRules } from "../_components/memories-and-rules"
 import { RunFirstAgent } from "../_components/run-first-agent"
 import { Schedules } from "../_components/schedules"
 import { Sheets } from "../_components/sheets"
-import { SlackChannels } from "../_components/slack-channels"
 import { Teams } from "../_components/teams"
 import { ToolsAndSubAgents } from "../_components/tools-and-sub-agents"
 import { UsageBilling } from "../_components/usage-billing"
@@ -39,9 +37,7 @@ const DOC_PAGE_COMPONENTS: Partial<Record<string, ComponentType>> = {
   "run-your-first-agent": RunFirstAgent,
   "how-hivy-organizes-work": HowHivyOrganizesWork,
   "workspace-and-access/teams": Teams,
-  "workspace-and-access/channels": Channels,
   "workspace-and-access/roles-and-invitations": AccessControl,
-  "workspace-and-access/slack-channels": SlackChannels,
   "agents/agent-catalog": AgentCatalog,
   "agents/configure-an-agent": ConfigureAgent,
   "agents/tools-and-sub-agents": ToolsAndSubAgents,

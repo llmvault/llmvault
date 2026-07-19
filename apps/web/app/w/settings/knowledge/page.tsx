@@ -118,7 +118,7 @@ export default function KnowledgeSettingsPage() {
           <h1 className="text-lg font-semibold text-foreground">Knowledge</h1>
           <p className="mt-1 max-w-lg text-sm text-muted-foreground">
             Connect sources so your agents can search company knowledge. Each
-            source ingests a scope you choose and is available to channels.
+            source ingests a scope you choose and is available to its teams.
           </p>
         </div>
         {isAdmin ? (

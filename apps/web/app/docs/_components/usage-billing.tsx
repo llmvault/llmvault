@@ -92,7 +92,7 @@ export function UsageBilling() {
             which gives you a clean way to compare models on the same job.
           </p>
           <p className="mt-3">
-            Members get this local cost only for sessions their channel access
+            Members get this local cost only for sessions their team access
             lets them open; Hivy shows the workspace bill only to admins and the
             owner.
           </p>

@@ -1,0 +1,89 @@
+---
+- name: Resolve private Kubernetes ingress backends
+  ansible.builtin.set_fact:
+    runner_haproxy_backend_hosts: "{{ groups[runner_haproxy_backend_group] | default([]) }}"
+
+- name: Validate runner HAProxy configuration
+  ansible.builtin.assert:
+    that:
+      - runner_private_ip is defined
+      - runner_private_ip is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+      - runner_haproxy_backend_hosts | length > 0
+    fail_msg: "Runner private IP and at least one host in {{ runner_haproxy_backend_group }} are required."
+
+- name: Validate private Kubernetes ingress node addresses
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].k3s_node_ip is defined
+      - hostvars[item].k3s_node_ip is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+    fail_msg: "Ingress node {{ item }} must define k3s_node_ip."
+  loop: "{{ runner_haproxy_backend_hosts }}"
+
+- name: Install HAProxy and its local administration client
+  ansible.builtin.apt:
+    name:
+      - haproxy
+      - socat
+    state: present
+    update_cache: true
+
+- name: Render runner HAProxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ runner_haproxy_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/haproxy -c -f %s
+  notify: Reload runner HAProxy
+
+- name: Allow sandbox guests to reach runner HAProxy
+  ansible.builtin.command: "ufw allow from {{ runner_haproxy_guest_ipv4_cidr }} to {{ runner_private_ip }} port {{ runner_haproxy_frontend_port }} proto tcp"
+  register: runner_haproxy_ufw_https
+  changed_when: "'Rule added' in runner_haproxy_ufw_https.stdout"
+
+- name: Enable and start runner HAProxy
+  ansible.builtin.systemd:
+    name: "{{ runner_haproxy_service_name }}"
+    enabled: true
+    state: started
+
+- name: Apply pending HAProxy reload
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for private HAProxy HTTPS listener
+  ansible.builtin.wait_for:
+    host: "{{ runner_private_ip }}"
+    port: "{{ runner_haproxy_frontend_port }}"
+    state: started
+    timeout: 30
+
+- name: Read HAProxy backend state
+  ansible.builtin.command:
+    argv:
+      - socat
+      - "-"
+      - UNIX-CONNECT:/run/haproxy/admin.sock
+    stdin: "show stat\n"
+  register: runner_haproxy_stats
+  changed_when: false
+
+- name: Require every Kubernetes ingress backend to be healthy
+  ansible.builtin.assert:
+    that:
+      - (',' ~ (hostvars[item].k3s_node_name | default(item)) ~ ',') in runner_haproxy_stats.stdout
+      - (',' ~ (hostvars[item].k3s_node_name | default(item)) ~ ',') in (runner_haproxy_stats.stdout_lines | select('search', ',UP,') | join('\n'))
+    fail_msg: "HAProxy backend {{ item }} is not UP."
+  loop: "{{ runner_haproxy_backend_hosts }}"
+
+- name: Verify TLS passes through HAProxy to Cilium Gateway
+  ansible.builtin.shell: |
+    set -o pipefail
+    timeout 10 openssl s_client \
+      -connect {{ runner_private_ip }}:{{ runner_haproxy_frontend_port }} \
+      -servername {{ runner_haproxy_health_sni }} \
+      -verify_return_error \
+      -brief </dev/null
+  args:
+    executable: /bin/bash
+  changed_when: false

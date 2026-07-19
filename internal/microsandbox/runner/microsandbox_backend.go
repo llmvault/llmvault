@@ -19,6 +19,7 @@ type MicrosandboxBackend struct {
 	sandboxes     map[string]sandboxState
 	allocator     *portAllocator
 	imageRegistry string
+	network       *microsandbox.NetworkConfig
 	lifecycle     keyedlock.Locker
 }
 
@@ -53,11 +54,16 @@ func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*Microsandb
 	if err != nil {
 		return nil, err
 	}
+	network, err := sandboxNetworkConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return &MicrosandboxBackend{
 		ports:         map[string]map[int]int{},
 		sandboxes:     map[string]sandboxState{},
 		allocator:     allocator,
 		imageRegistry: cfg.ImageRegistry,
+		network:       network,
 	}, nil
 }
 
@@ -210,6 +216,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		microsandbox.WithEnv(env),
 		microsandbox.WithLabels(labels),
 		microsandbox.WithPortBindings(msbBindings...),
+		microsandbox.WithNetwork(m.network),
 		microsandbox.WithDetached(),
 		microsandbox.WithMounts(map[string]microsandbox.MountConfig{
 			workspaceMountPath: microsandbox.Mount.Named(workspaceVolName, microsandbox.MountOptions{}),

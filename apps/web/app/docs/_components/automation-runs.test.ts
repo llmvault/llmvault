@@ -7,7 +7,7 @@ describe("AutomationRuns", () => {
   it("documents how to find and troubleshoot automated sessions", () => {
     const html = renderToString(React.createElement(AutomationRuns))
 
-    expect(html).toContain("Find the run in its channel")
+    expect(html).toContain("Find the run in its team")
     expect(html).toContain("Start with four checks")
     expect(html).toContain("If a connected event does not run")
     expect(html).toContain("If a schedule does not run")

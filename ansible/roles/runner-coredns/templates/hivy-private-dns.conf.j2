@@ -1,0 +1,3 @@
+[Resolve]
+DNS={{ runner_private_ip }}
+Domains={% for name in runner_coredns_private_names %}~{{ name }}{% if not loop.last %} {% endif %}{% endfor %}

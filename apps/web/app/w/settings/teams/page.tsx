@@ -59,7 +59,7 @@ export default function TeamsSettingsPage() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold">Teams</h1>
           <p className="text-sm text-muted">
-            Manage workspace members, invitations, and team-scoped channels.
+            Manage workspace members, invitations, and team-scoped resources.
           </p>
         </div>
         {isAdmin ? (
@@ -87,7 +87,7 @@ export default function TeamsSettingsPage() {
       <TutorialBanner
         tutorial="teams"
         title="Understand team permissions"
-        description="See how teams scope members, channels, agents, connections, skills, and knowledge access."
+        description="See how teams scope members, agents, connections, skills, and knowledge access."
         docsPath="teams-and-permissions"
       />
 
@@ -104,7 +104,7 @@ export default function TeamsSettingsPage() {
             <EmptyRow
               text={
                 isAdmin
-                  ? "Create a team to group members and private channels."
+                  ? "Create a team to group members and shared resources."
                   : "You're not a member of any teams yet."
               }
             />

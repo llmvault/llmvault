@@ -43,22 +43,10 @@ export const DOC_SECTIONS: DocSection[] = [
           "A team keeps its members and agents on the same work while limiting which tools and knowledge they can reach.",
       },
       {
-        slug: "workspace-and-access/channels",
-        title: "Channels",
-        description:
-          "Keep related agent sessions in one place, with the team and default agent already set.",
-      },
-      {
         slug: "workspace-and-access/roles-and-invitations",
         title: "Access control",
         description:
-          "Set a workspace role when you invite someone, then add the teams they need. Private channels keep their own member lists.",
-      },
-      {
-        slug: "workspace-and-access/slack-channels",
-        title: "Connect a Slack channel",
-        description:
-          "Link a public Slack channel to a Hivy team. Each @Hivy thread becomes a session, and the team's access limits still apply.",
+          "Set a workspace role when you invite someone, then add the teams they need.",
       },
     ],
   },
@@ -87,7 +75,7 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "agents/sessions",
         title: "Agent sessions",
         description:
-          "Send a task inside a channel and watch the agent work. Follow-up requests keep the original context.",
+          "Send a task to an agent and watch it work. Follow-up requests keep the original context.",
       },
       {
         slug: "agents/generated-work",
@@ -133,7 +121,7 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "knowledge-and-memory/memories-and-rules",
         title: "Memories and rules",
         description:
-          "See what a channel's sessions taught Hivy. Confirm or fix what it learned; pinned rules apply to every future session.",
+          "See what an agent's sessions taught Hivy. Confirm or fix what it learned; pinned rules apply to every future session.",
       },
     ],
   },
@@ -156,7 +144,7 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "automations/schedules",
         title: "Schedules",
         description:
-          "Give an agent a recurring task and choose when it runs. Hivy creates each result as a session in the selected channel.",
+          "Give an agent a recurring task and choose when it runs. Hivy creates each result as a session for that agent.",
       },
       {
         slug: "automations/http-webhooks",
@@ -179,7 +167,7 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "sheets-and-apps/sheets",
         title: "Sheets",
         description:
-          "Sheets are channel databases that agents can update across sessions. People can inspect and edit the same records.",
+          "Sheets are team databases that agents can update across sessions. People can inspect and edit the same records.",
       },
       {
         slug: "sheets-and-apps/agent-built-apps",

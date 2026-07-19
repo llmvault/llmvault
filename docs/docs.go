@@ -1243,7 +1243,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the agents visible to the caller with skills (metadata only — no bundle content),\nand triggers. Org managers and API-key callers see every agent in the org; a regular\nmember sees only agents assigned to channels they can use.",
+                "description": "Returns the agents visible to the caller with skills (metadata only — no bundle content),\nand triggers. Org managers and API-key callers see every agent in the org; a regular\nmember sees only agents in teams they can use.",
                 "produces": [
                     "application/json"
                 ],
@@ -2014,7 +2014,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns one agent visible to the caller with skills (metadata only — no bundle content),\nand triggers. A regular member can only fetch agents assigned to channels they can use;\nan agent they cannot see returns 404.",
+                "description": "Returns one agent visible to the caller with skills (metadata only — no bundle content),\nand triggers. A regular member can only fetch agents in teams they can use;\nan agent they cannot see returns 404.",
                 "produces": [
                     "application/json"
                 ],
@@ -6281,7 +6281,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Owner-only. Permanently deletes the organization and all of its data. Most child tables (agents, channels, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.",
+                "description": "Owner-only. Permanently deletes the organization and all of its data. Most child tables (teams, agents, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.",
                 "produces": [
                     "application/json"
                 ],
@@ -7059,7 +7059,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org/team/channel membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.",
+                "description": "Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org and team membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.",
                 "produces": [
                     "application/json"
                 ],
@@ -10546,7 +10546,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a channel-scoped session and optionally dispatches or queues the first user message.",
+                "description": "Creates a team-scoped session for an agent and optionally dispatches or queues the first user message.",
                 "consumes": [
                     "application/json"
                 ],

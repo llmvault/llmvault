@@ -20,7 +20,7 @@ const WORKSPACE_ROLES = [
     role: "Member",
     summary: "Works inside their teams.",
     details:
-      "Members use their teams' agents and channels. They can create and manage channels there, but they don't get workspace-wide admin controls.",
+      "Members use their teams' agents and shared resources, without workspace-wide admin controls.",
   },
 ]
 
@@ -29,7 +29,7 @@ export function AccessControl() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         Give people the access their jobs require, then stop. Workspace roles
-        control administration; team and private-channel membership decide where
+        control administration; team membership decides where
         someone can work.
       </p>
 
@@ -49,7 +49,7 @@ export function AccessControl() {
           <AccessLayer
             number="02"
             title="Team membership"
-            description="Team membership opens that team's agents and public channels. A private channel has its own member list."
+            description="Team membership opens that team's agents, sessions, and shared resources."
           />
         </div>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted">

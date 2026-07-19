@@ -17,7 +17,7 @@ import (
 
 // Create handles POST /v1/sessions.
 // @Summary Create a session
-// @Description Creates a channel-scoped session and optionally dispatches or queues the first user message.
+// @Description Creates a team-scoped session for an agent and optionally dispatches or queues the first user message.
 // @Tags sessions
 // @Accept json
 // @Produce json

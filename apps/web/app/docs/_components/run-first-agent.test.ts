@@ -10,7 +10,7 @@ describe("RunFirstAgent", () => {
     expect(html).toContain("Choose the agent for the job")
     expect(html).toContain("DeepSeek V4 Flash")
     expect(html).toContain("Ricky - App builder")
-    expect(html).toContain("Sheets are channel-scoped databases")
+    expect(html).toContain("Sheets are team-scoped databases")
     expect(html).toContain(
       "/docs/captures/model-picker-deepseek-reasoning-light.png"
     )

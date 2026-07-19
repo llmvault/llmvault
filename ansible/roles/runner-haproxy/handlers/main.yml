@@ -1,0 +1,5 @@
+---
+- name: Reload runner HAProxy
+  ansible.builtin.systemd:
+    name: "{{ runner_haproxy_service_name }}"
+    state: reloaded

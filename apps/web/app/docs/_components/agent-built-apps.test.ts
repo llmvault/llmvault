@@ -12,7 +12,7 @@ describe("AgentBuiltApps", () => {
     expect(html).toContain("external services")
     expect(html).toContain("Review the preview before you publish")
     expect(html).toContain("Approve each production deployment")
-    expect(html).toContain("App access follows its channel")
+    expect(html).toContain("App access follows its team")
     expect(html).toContain("Video placeholder")
     expect(html).toContain("/docs/captures/")
     expect(html).toContain("<img")

@@ -1,0 +1,106 @@
+---
+- name: Validate runner private DNS configuration
+  ansible.builtin.assert:
+    that:
+      - runner_private_ip is defined
+      - runner_private_ip | trim | length > 0
+      - runner_coredns_private_names | length > 0
+    fail_msg: "Runner private IP and private DNS names are required."
+
+- name: Create CoreDNS system user
+  ansible.builtin.user:
+    name: coredns
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ runner_coredns_install_dir }}"
+    create_home: false
+
+- name: Create CoreDNS directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ runner_coredns_install_dir }}"
+    - "{{ runner_coredns_config_dir }}"
+    - /etc/systemd/resolved.conf.d
+
+- name: Download pinned CoreDNS archive
+  ansible.builtin.get_url:
+    url: "https://github.com/coredns/coredns/releases/download/v{{ runner_coredns_version }}/coredns_{{ runner_coredns_version }}_linux_amd64.tgz"
+    dest: "/tmp/hivy-coredns-{{ runner_coredns_version }}.tgz"
+    checksum: "{{ runner_coredns_archive_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install pinned CoreDNS binary
+  ansible.builtin.unarchive:
+    src: "/tmp/hivy-coredns-{{ runner_coredns_version }}.tgz"
+    dest: "{{ runner_coredns_install_dir }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart runner CoreDNS
+
+- name: Render runner CoreDNS configuration
+  ansible.builtin.template:
+    src: Corefile.j2
+    dest: "{{ runner_coredns_config_dir }}/Corefile"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart runner CoreDNS
+
+- name: Install runner CoreDNS systemd unit
+  ansible.builtin.template:
+    src: hivy-coredns.service.j2
+    dest: "/etc/systemd/system/{{ runner_coredns_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart runner CoreDNS
+
+- name: Route Hivy API names through runner CoreDNS
+  ansible.builtin.template:
+    src: hivy-private-dns.conf.j2
+    dest: /etc/systemd/resolved.conf.d/hivy-private-dns.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart systemd-resolved
+
+- name: Allow sandbox guests to query runner CoreDNS over UDP
+  ansible.builtin.command: "ufw allow from {{ runner_coredns_guest_ipv4_cidr }} to {{ runner_private_ip }} port 53 proto udp"
+  register: runner_coredns_ufw_udp
+  changed_when: "'Rule added' in runner_coredns_ufw_udp.stdout"
+
+- name: Allow sandbox guests to query runner CoreDNS over TCP
+  ansible.builtin.command: "ufw allow from {{ runner_coredns_guest_ipv4_cidr }} to {{ runner_private_ip }} port 53 proto tcp"
+  register: runner_coredns_ufw_tcp
+  changed_when: "'Rule added' in runner_coredns_ufw_tcp.stdout"
+
+- name: Enable and start runner CoreDNS
+  ansible.builtin.systemd:
+    name: "{{ runner_coredns_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Flush DNS service handlers before validation
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify production API resolves to runner HAProxy
+  ansible.builtin.command: "resolvectl query {{ runner_coredns_private_names[0] }}"
+  register: runner_coredns_production_lookup
+  changed_when: false
+  failed_when: runner_private_ip not in runner_coredns_production_lookup.stdout
+
+- name: Verify staging API resolves to runner HAProxy
+  ansible.builtin.command: "resolvectl query {{ runner_coredns_private_names[1] }}"
+  register: runner_coredns_staging_lookup
+  changed_when: false
+  failed_when: runner_private_ip not in runner_coredns_staging_lookup.stdout

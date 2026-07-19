@@ -32,8 +32,10 @@ etcd-s3: true
 etcd-s3-config-secret: {{ k3s_etcd_s3_config_secret }}
 {% endif %}
 
+{% if inventory_hostname in (groups['k3s_ingress'] | default([])) %}
 node-label:
   - "hivy.io/public-ingress=true"
+{% endif %}
 
 kubelet-arg:
   - "system-reserved={{ k3s_system_reserved }}"

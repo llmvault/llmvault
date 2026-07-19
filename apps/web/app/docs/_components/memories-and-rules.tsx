@@ -20,7 +20,7 @@ const MEMORY_FLOW = [
     number: "03",
     title: "Later sessions receive it",
     description:
-      "A new session gets the channel's active rules before relevant memories from earlier work.",
+      "A new session gets the agent's active rules before relevant memories from earlier work.",
   },
 ]
 
@@ -32,7 +32,7 @@ const MEMORY_ACTIONS = [
   ],
   [
     "Pin as rule",
-    "Copy the memory into an active rule that every session in the channel must follow.",
+    "Copy the memory into an active rule that every session for the agent must follow.",
   ],
   [
     "Delete",
@@ -77,7 +77,7 @@ export function MemoriesAndRules() {
             </span>
             <h3 className="mt-4 font-semibold text-foreground">Rules</h3>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Instructions for the whole channel, such as “Always request
+              Instructions for the agent, such as “Always request
               approval before issuing a refund.” Hivy sends every active rule
               into each session before learned context.
             </p>
@@ -89,7 +89,7 @@ export function MemoriesAndRules() {
         className="mt-12"
         type="video"
         title="Review and correct what an agent remembers"
-        description="Capture an admin opening Settings > Memories and selecting a channel. Show Confirm on one memory, Edit on another, Pin as rule, and Delete on an outdated item. The memory kind, verification state, active rules, and each action label must remain readable."
+        description="Capture an admin opening Settings > Memories and selecting an agent. Show Confirm on one memory, Edit on another, Pin as rule, and Delete on an outdated item. The memory kind, verification state, active rules, and each action label must remain readable."
         bleed={false}
       />
 
@@ -98,7 +98,7 @@ export function MemoriesAndRules() {
           id="how-memory-builds"
           className="text-xl font-semibold tracking-tight text-foreground"
         >
-          How channel memory builds
+          How agent memory builds
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
           Hivy ignores routine output, temporary progress, machine details,
@@ -123,38 +123,38 @@ export function MemoriesAndRules() {
       </section>
 
       <div className="mt-16 space-y-14 border-t border-border pt-14">
-        <DocSection title="Tell Hivy what this channel should remember">
+        <DocSection title="Tell Hivy what an agent should remember">
           <p>
-            A channel&apos;s <strong>Category</strong> tells Hivy which
-            information belongs in memory. When you create a channel, choose{" "}
+            An agent&apos;s <strong>Category</strong> tells Hivy which
+            information belongs in memory. When you create an agent, choose{" "}
             Customer Support, Account / Client, Engineering, Operations, Sales,
             Marketing, People / HR, or General.
           </p>
           <p className="mt-3">
             Every specialized category starts with a memory mission. Open the
-            channel under <strong>Settings</strong> to read or change its{" "}
+            agent under <strong>Settings</strong> to read or change its{" "}
             <strong>Memory mission</strong>. The Engineering mission, for
             example, asks Hivy to keep decisions, conventions, incident causes,
             and reusable fixes while ignoring temporary sandbox output.
           </p>
-          <DocLink href="/w/settings/channels">Open Channels settings</DocLink>
+          <DocLink href="/w/agents">Open Agents</DocLink>
         </DocSection>
 
         <DocsMediaPlaceholder
           type="image"
-          title="Channel category and memory mission"
-          description="Capture one channel's settings with Category and Memory mission in the same frame. Use Engineering or Account / Client, and make the mission's keep and ignore instructions readable."
+          title="Agent memory mission"
+          description="Capture one agent's settings with Category and Memory mission in the same frame. Use Engineering or Account / Client, and make the mission's keep and ignore instructions readable."
         />
 
-        <DocSection title="Review one channel at a time">
+        <DocSection title="Review one agent at a time">
           <p>
             Open <strong>Settings</strong>, select <strong>Memories</strong>,
-            then choose a channel. Active rules appear above learned memories.
+            then choose an agent. Active rules appear above learned memories.
             Each memory shows its kind, evidence count, related entities,
             verification state, and an expiry date when it has one.
           </p>
           <p className="mt-3">
-            Members may read memory for channels they can access. Only workspace
+            Members may read memory for agents they can access. Only workspace
             owners and admins may change memories or rules.
           </p>
           <DocLink href="/w/settings/memories">Open Memories</DocLink>
@@ -178,7 +178,7 @@ export function MemoriesAndRules() {
 
         <DocSection title="Reserve rules for standing instructions">
           <p>
-            Add a rule only when every session in the channel should follow it.
+            Add a rule only when every session for the agent should follow it.
             Write an instruction that someone can verify, and leave temporary
             task details out. You cannot edit a rule in place; delete it and add
             a replacement when the wording changes.
@@ -193,8 +193,8 @@ export function MemoriesAndRules() {
 
         <DocsMediaPlaceholder
           type="image"
-          title="Rules and memories for one channel"
-          description="Capture Settings > Memories with one channel selected. Include two active rules plus memories of different kinds; one memory must show Verified and another must show more than one confirmation. Use fictional company information and keep the action menus out of the frame."
+          title="Rules and memories for one agent"
+          description="Capture Settings > Memories with one agent selected. Include two active rules plus memories of different kinds; one memory must show Verified and another must show more than one confirmation. Use fictional company information and keep the action menus out of the frame."
         />
 
         <section
@@ -217,7 +217,7 @@ export function MemoriesAndRules() {
                 avoids details about individual customers; Account / Client may
                 keep client-specific context. People / HR excludes personal,
                 medical, compensation, and performance information. Read the
-                Memory mission before anyone uses the channel for sensitive
+                Memory mission before anyone uses the agent for sensitive
                 work.
               </p>
             </div>

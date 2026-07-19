@@ -16,8 +16,7 @@ export function RunFirstAgent() {
         <DocStep number="1" title="Choose the agent for the job">
           <p>
             Select <strong>New chat</strong> in the workspace, then choose the
-            team that owns the work. Pick a channel for the session; the agent
-            menu will contain only agents from that team.
+            team that owns the work, then choose the agent from that team.
           </p>
           <p className="mt-3">
             Match the agent’s job and tools to the result. A specialist won’t
@@ -75,9 +74,9 @@ export function RunFirstAgent() {
             continues with the context already there.
           </p>
           <p className="mt-3">
-            Sheets are channel-scoped databases that hold information beyond a
+            Sheets are team-scoped databases that hold information beyond a
             single session. People can edit the rows directly, and agents in
-            that channel can work with the data later.
+            that team can work with the data later.
           </p>
           <DocsMediaPlaceholder
             className="mt-6"

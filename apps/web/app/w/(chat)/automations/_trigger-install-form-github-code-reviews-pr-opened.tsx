@@ -24,8 +24,8 @@ const githubCodeReviewsPrOpenedConfig: GithubMentionFormConfig = {
     "These instructions are added to the agent run when a pull request is opened in this repository.",
   existingWarning:
     "This agent already has an auto-review trigger for this repository.",
-  channelDescription:
-    "The channel this agent's review session runs in. You can only pick channels you have access to.",
+  teamDescription:
+    "The team where this agent's review session runs. You can only pick teams you have access to.",
   statusEnabledDescription:
     "New pull requests in this repository will be reviewed automatically.",
   statusDisabledDescription:

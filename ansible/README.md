@@ -66,8 +66,8 @@ runners:
     runner1:
       ansible_host: 203.0.113.10
       runner_name: runner-1
-      runner_api_domain: runner-1.sandboxes.usehivy.com
-      runner_public_url: https://runner-1.sandboxes.usehivy.com
+      runner_private_ip: 10.80.1.2
+      runner_public_url: http://10.80.1.2:8081
       runner_preview_base_url: http://10.80.1.2
 ```
 
@@ -78,26 +78,31 @@ Run phases from the `ansible/` directory:
 ```sh
 ansible-playbook playbooks/phase1-prepare.yml
 ansible-playbook playbooks/phase2-install.yml
-ansible-playbook playbooks/phase2b-runner-caddy.yml
 ansible-playbook playbooks/phase2c-registry-proxy.yml
 ansible-playbook playbooks/phase3-deploy.yml
 ansible-playbook playbooks/phase4-validate.yml
 ```
 
-Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, configures UFW, and creates `/etc/hivy`.
+Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, removes the retired runner API Caddy proxy, configures UFW, creates `/etc/hivy`, and installs runner-local HAProxy and CoreDNS. CoreDNS resolves the production and staging API hostnames to that runner's private HAProxy listener. HAProxy passes TLS through to healthy nodes listed in the explicit `k3s_ingress` inventory group. Runner hosts and sandbox DNS proxies use the same resolver on standard DNS port 53.
 
 Phase 2 copies `dist/microsandbox-linux-amd64` to `/usr/local/bin/microsandbox`.
 
-Phase 2b provisions Caddy on each runner for the HTTPS runner control API. It verifies that `runner_api_domain` has an A record pointing at the runner public IP before requesting a certificate with the Vercel DNS provider.
-
 Phase 2c provisions Caddy on the private Zot registry host. Caddy serves `registry.usehivy.com:5000` with a public ACME certificate on the private registry IP and proxies to Zot on localhost. Phase 1 maps that registry hostname to the private registry IP on runner hosts.
 
-Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds to `127.0.0.1:8081`; public control-plane traffic reaches it through runner-local Caddy over HTTPS.
+Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds to its private vSwitch address on port `8081`; the Kubernetes control plane reaches it directly over the private network.
 
-Phase 4 validates systemd, local health, and public runner health.
+Phase 4 validates systemd, private health, and that port `8081` is not publicly reachable.
+
+Every Kubernetes node that should accept private Gateway traffic must be a
+member of the `k3s_ingress` inventory group and define `k3s_node_ip`. That one
+membership both labels the node for Cilium host-network ingress and adds it to
+the HAProxy backend pool on every runner. After changing that group, apply the
+runner pool directly with `ansible-playbook playbooks/runner-haproxy.yml`.
 
 Wildcard preview traffic is served by the Kubernetes Gateway API, Cilium Envoy,
 the in-cluster Caddy proxy, and the in-cluster Microsandbox preview cache.
+Kubernetes CoreDNS rewrites `*.preview.usehivy.com` to the Gateway's ClusterIP,
+so API and asynq Pods use the same public HTTPS URLs without leaving the cluster.
 
 ## Control-plane requirements
 
@@ -124,8 +129,10 @@ sandboxes per runner before host-port exhaustion.
 ## Preview proxy
 
 The preview cache, Redis, and Caddy proxy run in the production Kubernetes
-namespace. Cilium Gateway API exposes them through the Hetzner load balancer;
-the proxy reaches runner preview ports over the private vSwitch only. Their
+namespace. Cilium Gateway API exposes the public path through the Hetzner load
+balancer, while in-cluster callers resolve preview names directly to the Gateway
+Service ClusterIP. The proxy reaches runner preview ports over the private
+vSwitch only. Their
 manifests and operating notes live in `../kubernetes/environments/production/`.
 
 ## Flagship E2E

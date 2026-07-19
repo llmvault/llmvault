@@ -1613,7 +1613,7 @@ export interface paths {
          * List AI agents
          * @description Returns the agents visible to the caller with skills (metadata only — no bundle content),
          *     and triggers. Org managers and API-key callers see every agent in the org; a regular
-         *     member sees only agents assigned to channels they can use.
+         *     member sees only agents in teams they can use.
          */
         get: {
             parameters: {
@@ -2559,7 +2559,7 @@ export interface paths {
         /**
          * Get an AI agent
          * @description Returns one agent visible to the caller with skills (metadata only — no bundle content),
-         *     and triggers. A regular member can only fetch agents assigned to channels they can use;
+         *     and triggers. A regular member can only fetch agents in teams they can use;
          *     an agent they cannot see returns 404.
          */
         get: {
@@ -7891,7 +7891,7 @@ export interface paths {
         post?: never;
         /**
          * Delete the organization
-         * @description Owner-only. Permanently deletes the organization and all of its data. Most child tables (agents, channels, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.
+         * @description Owner-only. Permanently deletes the organization and all of its data. Most child tables (teams, agents, sessions, API keys, credentials, …) are removed by database ON DELETE CASCADE; org_invites, org_memberships and usage rows lack cascade and are deleted explicitly first. This is irreversible.
          */
         delete: {
             parameters: {
@@ -8819,7 +8819,7 @@ export interface paths {
         post?: never;
         /**
          * Deactivate a member of the organization
-         * @description Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org/team/channel membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.
+         * @description Deactivates (archives) a member of the org. Requires org admin. Only an owner may remove an owner, the last owner cannot be removed. Deactivation is a soft operation: the org and team membership rows are retained with deactivated_at set (preserving the audit trail), the member's API keys are revoked, and the member is treated as no longer a member by all membership checks. The users row is never deleted. Sessions the user created are retained.
          */
         delete: {
             parameters: {
@@ -12707,7 +12707,7 @@ export interface paths {
         put?: never;
         /**
          * Create a session
-         * @description Creates a channel-scoped session and optionally dispatches or queues the first user message.
+         * @description Creates a team-scoped session for an agent and optionally dispatches or queues the first user message.
          */
         post: {
             parameters: {

@@ -15,7 +15,7 @@ import {
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { ThemeModeToggle } from "@/components/theme-mode-toggle"
 import { AccountMenu } from "./sidebar-account-menu"
-import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
+import { TeamSkeletonList, SidebarStatusRow } from "./sidebar-team-state"
 import { NavRow } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
@@ -159,7 +159,7 @@ export const Sidebar = memo(function Sidebar({
 
         <div className="flex flex-col gap-0.5">
           {teamsQuery.isLoading || sessionsQuery.isLoading ? (
-            <ChannelSkeletonList />
+            <TeamSkeletonList />
           ) : teamsQuery.isError || sessionsQuery.isError ? (
             <SidebarStatusRow
               label="Could not load chats"

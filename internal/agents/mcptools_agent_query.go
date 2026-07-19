@@ -97,7 +97,7 @@ func handleGetAgent(ctx context.Context, db *gorm.DB, token *model.Token, fronte
 	if err != nil || agentID == uuid.Nil {
 		return toolError("agent_id must be a valid UUID"), nil
 	}
-	// A non-manager human can only inspect agents assigned to channels they can
+	// A non-manager human can only inspect agents in teams they can
 	// use; a hidden agent is reported as not found so its existence never leaks.
 	// No actor (automated run) or a manager keeps org-wide access.
 	actor, err := access.Resolve(ctx, db, token.OrgID, actorRaw)

@@ -12,6 +12,7 @@ k3s_bind_address: "{{ k3s_node_ip }}"
 k3s_load_balancer_private_ip: "10.80.0.4"
 k3s_gateway_http_port: 10080
 k3s_gateway_https_port: 10443
+k3s_private_gateway_https_port: 443
 
 # The Microsandbox control plane is private. Only the runner nodes may enter
 # its Cilium NodePort.

@@ -7,7 +7,7 @@ const WORK_VIEWS = [
   ["Browser", "Load the session’s live preview and refresh it in place."],
   ["Files", "Browse repositories and open files from the session sandbox."],
   ["Canvas", "Open a visual artifact and comment on the preview itself."],
-  ["Sheets", "Edit channel databases that remain available across sessions."],
+  ["Sheets", "Edit team databases that remain available across sessions."],
   ["Apps", "Run an agent-built app inside Hivy or open it in another tab."],
   [
     "Subagents",
@@ -102,8 +102,8 @@ export function GeneratedWork() {
 
         <DocSection title="Keep long-term information in Sheets">
           <p>
-            A Hivy Sheet is a channel database shared by agents and people.
-            Because the Sheet belongs to the channel instead of one session,
+            A Hivy Sheet is a team database shared by agents and people.
+            Because the Sheet belongs to the team instead of one session,
             later tasks can read and update the same records.
           </p>
           <p className="mt-3">

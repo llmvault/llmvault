@@ -4,11 +4,7 @@ import { DocsMediaPlaceholder } from "./docs-media-placeholder"
 const START_CHOICES = [
   {
     label: "Team",
-    detail: "Limits the channels and agents you can choose for this task.",
-  },
-  {
-    label: "Channel",
-    detail: "Stores the session beside related work for the same team.",
+    detail: "Limits the agents and resources you can choose for this task.",
   },
   {
     label: "Agent",
@@ -25,7 +21,7 @@ export function AgentSessions() {
   return (
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
-        A session holds one task with one agent inside a channel. The request,
+        A session holds one task with one agent in a team. The request,
         follow-ups, generated work, and cost stay together, so someone can
         reopen the task without reconstructing what happened.
       </p>
@@ -64,7 +60,7 @@ export function AgentSessions() {
       <DocsMediaPlaceholder
         type="image"
         title="The New chat composer with session choices"
-        description="Show the team, channel, agent, model, reasoning effort, attachment, voice, and send controls at readable scale."
+        description="Show the team, agent, model, reasoning effort, attachment, voice, and send controls at readable scale."
         className="mt-12"
       />
 
@@ -117,7 +113,7 @@ export function AgentSessions() {
           </p>
           <p className="mt-3">
             A different goal belongs in a new session, where unrelated history
-            can&apos;t steer the answer and the channel list stays easier to
+            can&apos;t steer the answer and the session list stays easier to
             scan.
           </p>
         </DocSection>
@@ -135,7 +131,7 @@ export function AgentSessions() {
           <p>
             A specific name helps teammates find the session later. Add
             workspace members as participants when they need access, and archive
-            finished work that no longer belongs in the active channel list.
+            finished work that no longer belongs in the active session list.
           </p>
         </DocSection>
 
@@ -147,12 +143,11 @@ export function AgentSessions() {
             id="session-boundary"
             className="text-lg font-semibold tracking-tight text-foreground"
           >
-            Sessions inherit the channel boundary
+            Sessions inherit the team boundary
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            The channel accepts agents from its own team only. Sharing or
-            reopening a session doesn&apos;t bypass the team boundary or a
-            private channel&apos;s membership rules.
+            A session can use only its team&apos;s agents. Sharing or reopening a
+            session doesn&apos;t bypass the team boundary or participant access.
           </p>
         </section>
       </div>

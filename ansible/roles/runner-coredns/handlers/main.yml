@@ -1,0 +1,12 @@
+---
+- name: Restart runner CoreDNS
+  ansible.builtin.systemd:
+    name: "{{ runner_coredns_service_name }}"
+    state: restarted
+    daemon_reload: true
+
+- name: Restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+    daemon_reload: true

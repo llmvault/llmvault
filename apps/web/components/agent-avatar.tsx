@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
  * one is present, falling back to `fallback` (or an icon) both when there is no
  * URL and when the image fails to load. Size and shape are driven entirely by
  * `className` so one component covers every call site — the agents catalog tile,
- * the sidebar channel logo, and the sidebar session dot all delegate here
+ * sidebar team and session displays all delegate here
  * instead of hand-rolling the same img + onError + icon-fallback markup.
  */
 export function AgentAvatar({

@@ -114,18 +114,18 @@ export function automationFromInstalledTrigger(
           : isGithubMention
             ? "Mentioned on GitHub"
             : humanizeSlug(triggerKey) || "Trigger")
-  const channel = trigger.external_resource_name || ""
+  const resourceName = trigger.external_resource_name || ""
   const value = trigger.trigger_value ? `:${trigger.trigger_value}:` : "event"
   const agent = trigger.agent_name || "Agent"
   const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
-  const repo = trigger.external_resource_key || channel
+  const repo = trigger.external_resource_key || resourceName
 
   return {
     id: trigger.id || "",
     type: "Triggers",
     name,
     description: isSlackReaction
-      ? `${statusPrefix}${agent} runs when ${value} is added${channel ? ` in ${channel}` : ""}.`
+      ? `${statusPrefix}${agent} runs when ${value} is added${resourceName ? ` in ${resourceName}` : ""}.`
       : isGithubPrOpened
         ? `${statusPrefix}${agent} reviews new pull requests${repo ? ` in ${repo}` : ""}.`
         : isGithubMention
@@ -150,7 +150,9 @@ export function automationFromWebhookTrigger(
 ): AutomationItem {
   const agent = trigger.agent_name || "Agent"
   const statusPrefix = trigger.enabled === false ? "Disabled. " : ""
-  const channel = trigger.external_resource_name ? ` in ${trigger.external_resource_name}` : ""
+  const resourceName = trigger.external_resource_name
+    ? ` in ${trigger.external_resource_name}`
+    : ""
 
   return {
     id: trigger.id || "",
@@ -158,7 +160,7 @@ export function automationFromWebhookTrigger(
     name: trigger.name?.trim() || agent,
     description:
       trigger.instructions?.trim() ||
-      `${statusPrefix}Runs ${agent}${channel} when the webhook URL is called.`,
+      `${statusPrefix}Runs ${agent}${resourceName} when the webhook URL is called.`,
     category: "Webhooks",
     icon: "globe",
     iconColor: "#0EA5E9",
@@ -327,9 +329,9 @@ export function automationDefaultAgent(automation: AutomationItem): string {
 }
 
 export function automationDefaultChannel(automation: AutomationItem): string {
-  const channel = automation.catalog?.install?.default_channel
-  if (!channel || channel === "workspace") return "Workspace thread"
-  return humanizeSlug(channel) || channel
+  const resourceKey = automation.catalog?.install?.default_channel
+  if (!resourceKey || resourceKey === "workspace") return "Workspace thread"
+  return humanizeSlug(resourceKey) || resourceKey
 }
 
 export function automationRequiredConnections(

@@ -12,9 +12,9 @@ const TEAM_SCOPE = [
   },
   {
     number: "02",
-    title: "Channels",
+    title: "Agents and sessions",
     description:
-      "A channel stays with one team, along with its sessions and results.",
+      "Agents and their sessions stay within one team.",
   },
   {
     number: "03",
@@ -35,7 +35,7 @@ export function Teams() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         Teams separate one group&apos;s work from another. Give Sales or Support
-        its own people, channels, agents, connections, and knowledge without
+        its own people, agents, connections, and knowledge without
         opening the rest of the workspace.
       </p>
 
@@ -84,8 +84,8 @@ export function Teams() {
             group, such as Sales or Engineering.
           </p>
           <p className="mt-3">
-            Hivy creates a <strong>general</strong> channel, adds the default
-            Hivy agent, and puts the creator on the team. There&apos;s nothing
+            Hivy adds the default Hivy agent and puts the creator on the team.
+            There&apos;s nothing
             else to prepare before the first session.
           </p>
           <DocLink href="/w/settings/teams">Open team settings</DocLink>
@@ -125,9 +125,8 @@ export function Teams() {
         <DocSection title="Give the team agents for its jobs">
           <p>
             Build agents for the jobs a team handles, then run them in any of
-            that team&apos;s channels. Every agent belongs to one team, so Hivy
-            won&apos;t let an agent from another team become the channel&apos;s
-            default.
+            that team&apos;s sessions. Every agent belongs to one team, so Hivy
+            won&apos;t let an agent from another team run its work.
           </p>
           <DocLink href="/docs/agents/configure-an-agent">
             Create and configure an agent
@@ -137,7 +136,7 @@ export function Teams() {
         <DocsMediaPlaceholder
           type="video"
           title="Create a team and set its access"
-          description="Record a 60 to 90 second walkthrough at 4K and 100% browser zoom. Create a team from Settings, open its general channel and Hivy agent, add one member, enable one connection, then grant one knowledge source; use demo names and hide email addresses."
+          description="Record a 60 to 90 second walkthrough at 4K and 100% browser zoom. Create a team from Settings, open its Hivy agent, add one member, enable one connection, then grant one knowledge source; use demo names and hide email addresses."
           bleed={false}
         />
 
@@ -159,7 +158,7 @@ export function Teams() {
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
                 Make teams match groups that will still own the work next
                 quarter. Projects and customer accounts usually belong in
-                channels, since a new team for every task makes access harder to
+                sessions, since a new team for every task makes access harder to
                 follow.
               </p>
             </div>

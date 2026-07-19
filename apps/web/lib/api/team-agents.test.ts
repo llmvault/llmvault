@@ -12,7 +12,7 @@ vi.mock("@/lib/api/hooks", () => ({
 
 import {
   agentsForTeam,
-  resolveScopedAgentID,
+  resolveTeamAgentID,
   useTeamAgents,
   type TeamAgent,
   type TeamAgents,
@@ -30,7 +30,7 @@ describe("agentsForTeam", () => {
     { name: "no id", team_id: "team-1" } as TeamAgent,
   ]
 
-  it("returns only the agents whose team owns the channel", () => {
+  it("returns only the agents owned by the selected team", () => {
     expect(agentsForTeam(agents, "team-1").map((a) => a.id)).toEqual([
       "a1",
       "a3",
@@ -74,7 +74,7 @@ describe("useTeamAgents", () => {
     mocks.useQuery.mockReset()
   })
 
-  it("filters the visible agents to the selected channel's team", () => {
+  it("filters the visible agents to the selected team", () => {
     mocks.useQuery.mockReturnValue({
       data: { data: [agent("a1", "team-1"), agent("a2", "team-2")] },
       isError: false,
@@ -116,27 +116,27 @@ describe("useTeamAgents", () => {
   })
 })
 
-describe("resolveScopedAgentID", () => {
+describe("resolveTeamAgentID", () => {
   const agents = [{ id: "a1" }, { id: "a2" }, { id: "a3" }]
 
   it("preserves the current pick while it belongs to the team", () => {
-    expect(resolveScopedAgentID(agents, "a2", "a1")).toBe("a2")
+    expect(resolveTeamAgentID(agents, "a2", "a1")).toBe("a2")
   })
 
-  it("falls back to the channel default when the pick is gone", () => {
-    expect(resolveScopedAgentID(agents, "gone", "a3")).toBe("a3")
+  it("falls back to the preferred agent when the pick is gone", () => {
+    expect(resolveTeamAgentID(agents, "gone", "a3")).toBe("a3")
   })
 
   it("falls back to the first agent when there is no valid default", () => {
-    expect(resolveScopedAgentID(agents, "gone", "also-gone")).toBe("a1")
-    expect(resolveScopedAgentID(agents, "", null)).toBe("a1")
+    expect(resolveTeamAgentID(agents, "gone", "also-gone")).toBe("a1")
+    expect(resolveTeamAgentID(agents, "", null)).toBe("a1")
   })
 
   it("returns empty string when the team has no agents", () => {
-    expect(resolveScopedAgentID([], "a1", "a1")).toBe("")
+    expect(resolveTeamAgentID([], "a1", "a1")).toBe("")
   })
 
   it("ignores an empty current pick even if listed defaults are absent", () => {
-    expect(resolveScopedAgentID(agents, "", "a2")).toBe("a2")
+    expect(resolveTeamAgentID(agents, "", "a2")).toBe("a2")
   })
 })

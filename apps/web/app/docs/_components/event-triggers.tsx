@@ -21,7 +21,7 @@ export function EventTriggers() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         A Slack reaction or GitHub event can hand work to an agent as soon as it
-        happens. Set the account, event source, channel, agent, and instructions
+        happens. Set the account, event source, team, agent, and instructions
         once; each match starts a new session.
       </p>
 
@@ -59,7 +59,7 @@ export function EventTriggers() {
       <DocsMediaPlaceholder
         type="image"
         title="A complete event trigger configuration"
-        description="Frame the entire trigger form at a readable size: connection, external resource, Hivy channel, agent, instructions, and the event value when the form has one."
+        description="Frame the entire trigger form at a readable size: connection, external resource, team, agent, instructions, and the event value when the form has one."
         className="mt-12"
       />
 
@@ -79,10 +79,9 @@ export function EventTriggers() {
 
         <DocSection title="Choose where the agent works">
           <p>
-            GitHub triggers ask for a Hivy channel, which sets the team and the
-            available agents. A Slack reaction trigger uses its selected Slack
-            channel as the event source, then creates or reuses the matching
-            Hivy channel.
+            GitHub triggers ask for a team, which determines the available
+            agents. A Slack reaction trigger uses its selected Slack channel as
+            the event source, then creates or reuses the matching session.
           </p>
           <p className="mt-3">
             A Slack reaction trigger also needs the emoji that counts as its
@@ -102,7 +101,7 @@ export function EventTriggers() {
 
         <DocSection title="Disable a trigger without losing its setup">
           <p>
-            Open an installed trigger to change its name, resource, channel,
+            Open an installed trigger to change its name, resource, team,
             agent, event settings, or instructions. Turn its status off to
             ignore matches without losing the setup; delete it when you
             won&apos;t use it again.
@@ -110,7 +109,7 @@ export function EventTriggers() {
           <p className="mt-3">
             Workspace owners and admins can edit, disable, or delete an
             installed trigger. Other members see only triggers attached to
-            agents and channels they can access.
+            agents and teams they can access.
           </p>
         </DocSection>
       </div>

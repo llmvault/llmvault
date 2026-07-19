@@ -185,7 +185,7 @@ export function WorkspaceDangerZone() {
         open={deleteOpen}
         pending={deleteOrg.isPending}
         heading="Delete this workspace?"
-        description="This permanently deletes the workspace and all of its agents, channels, sessions, and data. This cannot be undone."
+        description="This permanently deletes the workspace and all of its teams, agents, sessions, and data. This cannot be undone."
         confirmLabel="Delete workspace"
         icon="trash-2"
         onOpenChange={setDeleteOpen}

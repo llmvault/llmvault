@@ -23,6 +23,7 @@ import {
 import { TeamMembersSection } from "./team-sections"
 import { TeamProvisioningSection } from "./team-provisioning"
 import { TeamEnvironmentVariablesPanel } from "./team-environment-variables"
+import { TeamExternalResourceRoutes } from "./team-external-resource-routes"
 
 export default function TeamDetailPage({
   params,
@@ -162,6 +163,8 @@ export default function TeamDetailPage({
 
       <TeamEnvironmentVariablesPanel teamId={teamId} />
 
+      <TeamExternalResourceRoutes teamId={teamId} />
+
       <TeamProvisioningSection teamId={teamId} />
 
       {inviteOpen ? (
@@ -185,7 +188,7 @@ export default function TeamDetailPage({
         open={archiveOpen}
         pending={archiveTeam.isPending}
         heading={`Archive ${teamLabel(team)}?`}
-        description="Remove channels from this team first. Archiving does not delete the team's channels."
+        description="Archiving a team removes access to its shared resources. This cannot be undone."
         confirmLabel="Archive team"
         icon="archive"
         onOpenChange={setArchiveOpen}

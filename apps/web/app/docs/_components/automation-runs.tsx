@@ -11,7 +11,7 @@ const FIRST_CHECKS = [
   ],
   [
     "Scope",
-    "Check that the agent still belongs to the channel's team and can use the provider connection.",
+      "Check that the agent still belongs to the team and can use the provider connection.",
   ],
   [
     "Instructions",
@@ -24,14 +24,14 @@ export function AutomationRuns() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         A successful automation handoff creates a regular Hivy session in the
-        scoped channel. That session is the run record, with the request, agent
+        configured team. That session is the run record, with the request, agent
         work, tool calls, result, artifacts, and cost together.
       </p>
 
       <DocsMediaPlaceholder
         type="video"
         title="Trace an automation from signal to result"
-        description="Compare all three run paths in one video: a connected-app event, a schedule, and an HTTP webhook call. Open each channel session, expand the agent's work, check the result and cost, then point out any latest-run link."
+        description="Compare all three run paths in one video: a connected-app event, a schedule, and an HTTP webhook call. Open each resulting session, expand the agent's work, check the result and cost, then point out any latest-run link."
         className="mt-12"
       />
 
@@ -40,11 +40,11 @@ export function AutomationRuns() {
           id="find-the-run"
           className="text-xl font-semibold tracking-tight text-foreground"
         >
-          Find the run in its channel
+          Find the run in its team
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
-          Open the channel chosen during setup. Hivy places automated sessions
-          beside the channel&apos;s other work, where teammates with access can
+          Open the team chosen during setup. Hivy places automated sessions
+          beside the team&apos;s other work, where teammates with access can
           read the context or continue from the result.
         </p>
         <p className="mt-3 max-w-2xl text-muted">
@@ -58,7 +58,7 @@ export function AutomationRuns() {
       <DocsMediaPlaceholder
         type="image"
         title="An automated session and its source"
-        description="Place one automated session in a readable frame with its channel, source, original task or event data, result, work duration, and cost visible."
+        description="Place one automated session in a readable frame with its team, source, original task or event data, result, work duration, and cost visible."
         className="mt-12"
       />
 
@@ -103,7 +103,7 @@ export function AutomationRuns() {
           <p className="mt-3">
             Open the schedule for its latest status. If someone moved its agent
             to another team or archived it, create or retarget the automation
-            until the agent and channel share a team boundary again.
+            until the agent belongs to the selected team again.
           </p>
         </DocSection>
 
@@ -126,7 +126,7 @@ export function AutomationRuns() {
           </ul>
           <p className="mt-3">
             A 200 response means Hivy accepted the request for asynchronous
-            processing; check the channel session for the agent&apos;s final
+            processing; check the resulting session for the agent&apos;s final
             result.
           </p>
         </DocSection>
@@ -134,7 +134,7 @@ export function AutomationRuns() {
         <DocSection title="Fix the automation or refine the session">
           <p>
             Change the automation when future runs need another source, cadence,
-            agent, channel, or instruction. If only one result is wrong, correct
+            agent, team, or instruction. If only one result is wrong, correct
             it with a follow-up in that session and leave the saved automation
             alone.
           </p>

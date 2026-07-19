@@ -44,10 +44,10 @@ export function externalProviderLabel(provider: string) {
 function slackThreadURL(parts: string[]) {
   if (parts.length < 5) return undefined
   const teamID = parts[2]?.trim()
-  const channelID = parts[3]?.trim()
+  const slackChannelID = parts[3]?.trim()
   const threadTS = parts.slice(4).join(":").trim()
-  if (!teamID || !channelID || !threadTS) return undefined
+  if (!teamID || !slackChannelID || !threadTS) return undefined
 
   const messageID = `p${threadTS.replaceAll(".", "")}`
-  return `https://app.slack.com/client/${encodeURIComponent(teamID)}/${encodeURIComponent(channelID)}/${encodeURIComponent(messageID)}`
+  return `https://app.slack.com/client/${encodeURIComponent(teamID)}/${encodeURIComponent(slackChannelID)}/${encodeURIComponent(messageID)}`
 }

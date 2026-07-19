@@ -4,11 +4,10 @@ import { DocsScreenshot } from "./docs-screenshot"
 const SCREENSHOTS_BY_TITLE: Record<string, string> = {
   "Members, roles, and pending invitations": "members-roles-invitations",
   "Ricky beside a running app preview": "apps-dashboard-preview",
-  "The Apps page grouped by channel": "apps-dashboard",
+  "The Apps page grouped by team": "apps-dashboard",
   "A catalog agent’s team installation screen": "agent-catalog-installation",
   "The New chat composer with session choices": "new-session-composer",
   "An automated session and its source": "event-trigger-configuration",
-  "Create channel form": "channel-create-form",
   "The custom agent configuration form": "custom-agent-configuration",
   "Choose a connection and review its requirements":
     "connection-requirements-access",
@@ -25,8 +24,8 @@ const SCREENSHOTS_BY_TITLE: Record<string, string> = {
   "Webhook URL, status, and last run": "webhook-url-status",
   "Source scope and team grants": "knowledge-source-scope",
   "Select a focused source scope": "knowledge-source-scope",
-  "Channel category and memory mission": "channel-category-memory-mission",
-  "Rules and memories for one channel": "channel-category-memory-mission",
+  "Agent memory mission": "agent-memory-mission",
+  "Rules and memories for one agent": "agent-memory-mission",
   "Choose DeepSeek V4 Flash": "model-picker-deepseek-reasoning",
   "Review the session and its sheet": "sheet-pages-fields-rows",
   "Schedule fields and cadence preview": "schedule-fields-cadence",

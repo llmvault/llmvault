@@ -22,3 +22,16 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: preview-usehivy-tls
+    # Cluster Pods enter through this listener's ClusterIP Service, while
+    # private-network hosts enter through the K3s node address. Neither path
+    # traverses the Hetzner load balancer.
+    - name: private-https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: preview-usehivy-tls

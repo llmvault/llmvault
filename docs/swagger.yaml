@@ -5455,7 +5455,7 @@ paths:
       description: |-
         Returns the agents visible to the caller with skills (metadata only — no bundle content),
         and triggers. Org managers and API-key callers see every agent in the org; a regular
-        member sees only agents assigned to channels they can use.
+        member sees only agents in teams they can use.
       parameters:
       - description: Filter by status (draft, active, archived)
         in: query
@@ -5838,7 +5838,7 @@ paths:
     get:
       description: |-
         Returns one agent visible to the caller with skills (metadata only — no bundle content),
-        and triggers. A regular member can only fetch agents assigned to channels they can use;
+        and triggers. A regular member can only fetch agents in teams they can use;
         an agent they cannot see returns 404.
       parameters:
       - description: Agent agent ID
@@ -8707,9 +8707,9 @@ paths:
   /v1/orgs/current:
     delete:
       description: Owner-only. Permanently deletes the organization and all of its
-        data. Most child tables (agents, channels, sessions, API keys, credentials,
-        …) are removed by database ON DELETE CASCADE; org_invites, org_memberships
-        and usage rows lack cascade and are deleted explicitly first. This is irreversible.
+        data. Most child tables (teams, agents, sessions, API keys, credentials, …)
+        are removed by database ON DELETE CASCADE; org_invites, org_memberships and
+        usage rows lack cascade and are deleted explicitly first. This is irreversible.
       produces:
       - application/json
       responses:
@@ -9227,10 +9227,10 @@ paths:
     delete:
       description: 'Deactivates (archives) a member of the org. Requires org admin.
         Only an owner may remove an owner, the last owner cannot be removed. Deactivation
-        is a soft operation: the org/team/channel membership rows are retained with
-        deactivated_at set (preserving the audit trail), the member''s API keys are
-        revoked, and the member is treated as no longer a member by all membership
-        checks. The users row is never deleted. Sessions the user created are retained.'
+        is a soft operation: the org and team membership rows are retained with deactivated_at
+        set (preserving the audit trail), the member''s API keys are revoked, and
+        the member is treated as no longer a member by all membership checks. The
+        users row is never deleted. Sessions the user created are retained.'
       parameters:
       - description: Target user ID
         in: path
@@ -11505,8 +11505,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a channel-scoped session and optionally dispatches or queues
-        the first user message.
+      description: Creates a team-scoped session for an agent and optionally dispatches
+        or queues the first user message.
       parameters:
       - description: Session create payload
         in: body

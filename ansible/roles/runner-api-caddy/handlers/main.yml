@@ -1,6 +1,0 @@
----
-- name: Reload runner caddy
-  ansible.builtin.systemd:
-    name: "{{ runner_api_caddy_service_name }}"
-    state: restarted
-    daemon_reload: true

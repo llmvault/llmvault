@@ -8,7 +8,7 @@ const ACCESS_PATH = [
     number: "01",
     title: "Source scope",
     description:
-      "Sets the repositories, pages, channels, Linear teams, or website URLs that enter the index.",
+      "Sets the repositories, pages, Slack channels, Linear teams, or website URLs that enter the index.",
   },
   {
     number: "02",
@@ -17,7 +17,7 @@ const ACCESS_PATH = [
   },
   {
     number: "03",
-    title: "Channel",
+    title: "Agent",
     description: "Uses its team's approved sources in every session.",
   },
 ]
@@ -62,7 +62,7 @@ export function KnowledgeAccessControl() {
           Access follows the team
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
-          Sources belong to teams, not individual sessions. Every channel uses
+          Sources belong to teams, not individual sessions. Every agent uses
           the sources granted to its team, which keeps one access boundary in
           place for all agents working there.
         </p>
@@ -95,7 +95,7 @@ export function KnowledgeAccessControl() {
           <p>
             A connection may read far more than an agent needs. Keep each source
             to the smallest useful set of repositories, pages, databases,
-            channels, Linear teams, or website URLs because everything in one
+            Slack channels, Linear teams, or website URLs because everything in one
             source shares the same team grants.
           </p>
           <p className="mt-3">
@@ -109,12 +109,12 @@ export function KnowledgeAccessControl() {
           <p>
             Open the source, choose <strong>Edit source</strong>, then update
             the <strong>Teams</strong> field. A grant makes the source
-            searchable in every channel owned by that team, while revoking it
+            searchable in every session owned by that team, while revoking it
             leaves other teams unchanged.
           </p>
           <p className="mt-3">
-            On every search, Hivy checks the active session&apos;s channel and
-            its team grants. The agent cannot switch the channel behind the
+            On every search, Hivy checks the active session&apos;s team and
+            its grants. The agent cannot switch teams behind the
             search or cross that boundary.
           </p>
           <DocLink href="/w/settings/knowledge">
@@ -186,7 +186,7 @@ export function KnowledgeAccessControl() {
               "Check the content the connection can read.",
               "Cut the source scope down to what agents need.",
               "Grant the source only to teams that own this work.",
-              "Inspect View documents, then test a search from one granted channel and one ungranted channel.",
+              "Inspect View documents, then test a search from one granted team and one ungranted team.",
             ].map((item) => (
               <li key={item} className="flex gap-3">
                 <AppIcon

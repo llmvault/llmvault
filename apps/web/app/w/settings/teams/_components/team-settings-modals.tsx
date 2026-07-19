@@ -270,7 +270,7 @@ export function TeamFormModal({
                   {editing ? "Edit team" : "New team"}
                 </Modal.Heading>
                 <p className="text-sm text-muted">
-                  Teams group members and restrict assigned channels.
+                  Teams group members and scope shared resources.
                 </p>
               </div>
             </Modal.Header>
@@ -291,7 +291,7 @@ export function TeamFormModal({
                   <Input
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    placeholder="People and channels for this group"
+                    placeholder="People and resources for this group"
                     className="w-full"
                   />
                 </label>

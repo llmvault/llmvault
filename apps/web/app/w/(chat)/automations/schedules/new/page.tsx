@@ -8,7 +8,7 @@ import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
-import { resolveScopedAgentID, useTeamAgents } from "@/lib/api/team-agents"
+import { resolveTeamAgentID, useTeamAgents } from "@/lib/api/team-agents"
 import { AgentSelect } from "@/components/agent-select"
 import { TeamSelect, useTeams } from "@/app/w/(chat)/automations/_team-select"
 import {
@@ -39,7 +39,7 @@ export default function NewSchedulePage() {
 
   const activeTeamID = teamID || teams[0]?.id || ""
   const { agents, isLoading: agentsLoading } = useTeamAgents(activeTeamID)
-  const activeAgentID = resolveScopedAgentID(agents, agentID, undefined)
+  const activeAgentID = resolveTeamAgentID(agents, agentID, undefined)
 
   const isSaving = createSchedule.isPending
   const cadenceValid = Boolean(cadence && "body" in cadence)

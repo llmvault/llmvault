@@ -59,7 +59,7 @@ export function TeamEnvironmentVariablesPanel({ teamId }: { teamId: string }) {
             Environment variables
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Available to sessions started in this team&apos;s channels. Values
+            Available to sessions started for this team. Values
             are encrypted and hidden once saved.
           </p>
         </div>
@@ -131,7 +131,7 @@ export function TeamEnvironmentVariablesPanel({ teamId }: { teamId: string }) {
             No environment variables yet
           </p>
           <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-            Add variables for sessions started in this team&apos;s channels.
+            Add variables for sessions started for this team.
           </p>
         </div>
       ) : null}

@@ -248,7 +248,7 @@ export function EnvironmentVariableRow({
                   <div className="flex flex-col gap-1">
                     <AlertDialog.Heading>Delete “{name}”</AlertDialog.Heading>
                     <p className="text-sm text-muted">
-                      Sessions started in this team&apos;s channels will no
+                      Sessions started for this team will no
                       longer receive this variable. This can&apos;t be undone.
                     </p>
                   </div>

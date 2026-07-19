@@ -57,7 +57,7 @@ const DATABASES: DatabaseCatalogEntry[] = [
 ]
 
 const DESCRIPTIONS: Record<string, string> = {
-  slack: "Work with channels, messages, and your team in Slack.",
+  slack: "Work with Slack channels, messages, and your team in Slack.",
   "github-app": "Read repositories, issues, and pull requests.",
   "github-app-code-reviews":
     "Review pull requests and respond to code changes.",

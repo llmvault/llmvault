@@ -13,21 +13,21 @@
 
         - name: Check local runner health
           ansible.builtin.uri:
-            url: "http://127.0.0.1:{{ runner_api_port | default(8081) }}/health"
+            url: "http://{{ runner_private_ip }}:{{ runner_api_port | default(8081) }}/health"
             method: GET
             return_content: true
             status_code: 200
             timeout: 10
           register: microsandbox_local_health
 
-        - name: Check HTTPS runner health from runner
+        - name: Check configured private runner URL from runner
           ansible.builtin.uri:
             url: "{{ runner_public_url | trim | regex_replace('/+$', '') }}/health"
             method: GET
             return_content: true
             status_code: 200
             timeout: 15
-          register: microsandbox_public_health
+          register: microsandbox_configured_health
 
         - name: Verify runner API port is not publicly reachable
           ansible.builtin.wait_for:
@@ -43,7 +43,7 @@
             msg:
               - "Runner {{ runner_name }} is active."
               - "Local health: {{ microsandbox_local_health.content | default('') | trim }}"
-              - "Public health: {{ microsandbox_public_health.content | default('') | trim }}"
+              - "Configured private health: {{ microsandbox_configured_health.content | default('') | trim }}"
 
       rescue:
         - name: Print runner journal tail
