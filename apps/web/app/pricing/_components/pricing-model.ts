@@ -1,7 +1,7 @@
-export const CREDIT_USD_VALUE = 0.001
-export const DEPOSIT_FEE_RATE = 0.12
+const CREDIT_USD_VALUE = 0.001
+const DEPOSIT_FEE_RATE = 0.12
 
-export type DepositEstimate = {
+type DepositEstimate = {
   creditValue: number
   creditsAdded: number
   depositFee: number

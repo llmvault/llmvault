@@ -4,7 +4,7 @@ import { NavigationMenu } from "@base-ui/react/navigation-menu"
 import { Button, Link } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 
-export const platformLinks = [
+const platformLinks = [
   {
     title: "Knowledge base",
     description: "Ground agents in approved organizational knowledge.",
@@ -43,7 +43,7 @@ export const platformLinks = [
   },
 ] as const
 
-export const resourceLinks = [
+const resourceLinks = [
   {
     title: "Docs",
     description: "Learn how to build and operate Hivy.",

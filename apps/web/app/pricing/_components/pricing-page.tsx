@@ -4,7 +4,7 @@ import { LandingHeader } from "../../home/_components/landing-header"
 import { LandingFooter } from "../../home/_components/landing-shared"
 import { PricingCalculator, type CalculatorMode } from "./pricing-calculator"
 
-export type PricingVariant = CalculatorMode
+type PricingVariant = CalculatorMode
 
 const variantLinks = [
   { href: "/pricing", label: "One fee", value: "plain" },
