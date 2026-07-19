@@ -16,7 +16,7 @@ runner_preview_allowed_sources:
 runner_preview_retired_sources:
   - 10.80.0.2
 zot_registry_domain: registry.usehivy.com
-zot_registry_private_ip: 10.80.0.3
+zot_registry_private_ip: "{{ runner_private_ip }}"
 buildkit_registry: "{{ zot_registry_domain }}:5000"
 
 microsandbox_binary_local_path: "{{ playbook_dir }}/../../dist/microsandbox-linux-amd64"

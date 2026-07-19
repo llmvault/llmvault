@@ -1,0 +1,91 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/project-zot/zot
+  tag: v2.1.17@sha256:48b0c11c8c61a07246e047f22e02aad615816683fd8d8073b2862fb7ed0a3cc0
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 5000
+  nodePort: 32500
+  externalTrafficPolicy: Cluster
+
+ingress:
+  enabled: false
+
+httproute:
+  enabled: false
+
+httpGet:
+  scheme: HTTPS
+  port: 5000
+
+mountConfig: true
+configFiles:
+  config.json: |-
+    {
+      "distSpecVersion": "1.1.1",
+      "storage": {
+        "rootDirectory": "/var/lib/registry",
+        "dedupe": true,
+        "gc": true,
+        "gcDelay": "1h",
+        "gcInterval": "24h",
+        "commit": true
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5000",
+        "readTimeout": "60s",
+        "writeTimeout": "15m",
+        "tls": {
+          "cert": "/tls/tls.crt",
+          "key": "/tls/tls.key"
+        }
+      },
+      "log": {
+        "level": "info"
+      }
+    }
+
+externalSecrets:
+  - secretName: zot-registry-tls
+    mountPath: /tls
+
+persistence: true
+pvc:
+  create: true
+  name: zot-data
+  accessModes:
+    - ReadWriteOnce
+  storage: 10Gi
+  storageClassName: longhorn
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "2"
+    memory: 1Gi
+
+podLabels:
+  hivy.io/environment: production
+  hivy.io/component: registry

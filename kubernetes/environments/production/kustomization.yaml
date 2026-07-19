@@ -9,6 +9,7 @@ resources:
   - microsandbox-control.yaml
   - microsandbox-preview-cache.yaml
   - microsandbox-preview-proxy.yaml
+  - zot-exposure.yaml
   - redis.yaml
   - resources.yaml
   - network-policies.yaml

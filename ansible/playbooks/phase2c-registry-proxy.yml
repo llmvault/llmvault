@@ -1,8 +1,0 @@
----
-- name: Deploy private Zot registry TLS proxy
-  hosts: registry
-  become: true
-  vars_files:
-    - ../group_vars/registry.yml
-  roles:
-    - zot-registry-proxy

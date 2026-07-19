@@ -42,6 +42,20 @@
   register: runner_haproxy_ufw_https
   changed_when: "'Rule added' in runner_haproxy_ufw_https.stdout"
 
+- name: Route registry name to runner-local HAProxy
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "(^|\\s){{ runner_haproxy_registry_health_sni | regex_escape }}(\\s|$)"
+    line: "{{ runner_private_ip }} {{ runner_haproxy_registry_health_sni }} registry"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Allow runner host to reach its local registry HAProxy
+  ansible.builtin.command: "ufw allow from {{ runner_private_ip }} to {{ runner_private_ip }} port {{ runner_haproxy_registry_frontend_port }} proto tcp"
+  register: runner_haproxy_ufw_registry
+  changed_when: "'Rule added' in runner_haproxy_ufw_registry.stdout"
+
 - name: Enable and start runner HAProxy
   ansible.builtin.systemd:
     name: "{{ runner_haproxy_service_name }}"
@@ -55,6 +69,13 @@
   ansible.builtin.wait_for:
     host: "{{ runner_private_ip }}"
     port: "{{ runner_haproxy_frontend_port }}"
+    state: started
+    timeout: 30
+
+- name: Wait for private HAProxy registry listener
+  ansible.builtin.wait_for:
+    host: "{{ runner_private_ip }}"
+    port: "{{ runner_haproxy_registry_frontend_port }}"
     state: started
     timeout: 30
 
@@ -82,6 +103,18 @@
     timeout 10 openssl s_client \
       -connect {{ runner_private_ip }}:{{ runner_haproxy_frontend_port }} \
       -servername {{ runner_haproxy_health_sni }} \
+      -verify_return_error \
+      -brief </dev/null
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Verify registry TLS passes through HAProxy to Zot
+  ansible.builtin.shell: |
+    set -o pipefail
+    timeout 10 openssl s_client \
+      -connect {{ runner_private_ip }}:{{ runner_haproxy_registry_frontend_port }} \
+      -servername {{ runner_haproxy_registry_health_sni }} \
       -verify_return_error \
       -brief </dev/null
   args:

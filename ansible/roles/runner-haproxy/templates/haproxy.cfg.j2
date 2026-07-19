@@ -22,10 +22,22 @@ frontend hivy_private_https
     bind {{ runner_private_ip }}:{{ runner_haproxy_frontend_port }}
     default_backend k3s_private_gateway
 
+frontend hivy_private_registry
+    bind {{ runner_private_ip }}:{{ runner_haproxy_registry_frontend_port }}
+    default_backend k3s_private_registry
+
 backend k3s_private_gateway
     balance roundrobin
     option tcp-check
     default-server inter 2s fall 3 rise 2
 {% for node in groups[runner_haproxy_backend_group] %}
     server {{ hostvars[node].k3s_node_name | default(node) }} {{ hostvars[node].k3s_node_ip }}:{{ runner_haproxy_backend_port }} check send-proxy-v2 check-send-proxy
+{% endfor %}
+
+backend k3s_private_registry
+    balance roundrobin
+    option tcp-check
+    default-server inter 2s fall 3 rise 2
+{% for node in groups[runner_haproxy_backend_group] %}
+    server {{ hostvars[node].k3s_node_name | default(node) }} {{ hostvars[node].k3s_node_ip }}:{{ runner_haproxy_registry_backend_port }} check
 {% endfor %}

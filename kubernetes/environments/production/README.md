@@ -11,6 +11,8 @@ does not deploy the API, workers, Nango, or Microsandbox workloads.
   volume and 256 MiB node-configuration volume per Pod;
 - Qdrant 1.18.2: three peers, with a 10 GiB Longhorn volume and a 10 GiB memory
   limit per peer;
+- Zot 2.1.17: one private registry instance with an initial, expandable 10 GiB
+  Longhorn volume. Runner-local HAProxy is the only client entry path;
 - native daily backups for all three data services, plus continuous PostgreSQL
   WAL archiving.
 
@@ -41,6 +43,12 @@ output filename to their production counterparts.
 ## Apply
 
 ```sh
+helm upgrade --install zot oci://ghcr.io/project-zot/helm-charts/zot \
+  --version 0.1.116 \
+  --namespace production \
+  --values kubernetes/environments/production/zot-values.yaml \
+  --wait --timeout 10m
+
 kubectl apply -k kubernetes/environments/production
 kubectl apply -f ansible/.secrets/k8s0/apps/qdrant-production-v1.18.2.yaml
 
@@ -49,5 +57,11 @@ kubectl wait -n production --for=condition=Ready \
 kubectl rollout status -n production statefulset/qdrant --timeout=10m
 kubectl get rediscluster.redis.redis.opstreelabs.in/backend-redis -n production
 ```
+
+The Zot listener is deliberately absent from the Hetzner load balancer. The K3s
+host firewall accepts Zot's NodePort `32500` only from runner private IPs, and
+each runner resolves `registry.usehivy.com` to its own private HAProxy listener
+on port `5000`. Zot terminates TLS itself. Add future runners to the Ansible
+inventory and to `k3s_private_registry_clients` before deploying them.
 
 See `../BACKUPS.md` for schedules and verification procedures.
