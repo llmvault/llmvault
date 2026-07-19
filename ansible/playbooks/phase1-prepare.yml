@@ -5,6 +5,7 @@
   gather_facts: true
   roles:
     - runner-base
+    - runner-firewall
     - runner-api-caddy-absent
     - runner-haproxy
     - runner-coredns

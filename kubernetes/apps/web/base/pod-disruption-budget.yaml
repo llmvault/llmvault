@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+  labels:
+    app.kubernetes.io/name: hivy-web
+    app.kubernetes.io/component: frontend
+    hivy.io/apply-phase: workload
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-web
+      app.kubernetes.io/component: frontend

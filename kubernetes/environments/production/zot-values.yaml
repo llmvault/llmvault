@@ -9,7 +9,10 @@ service:
   type: NodePort
   port: 5000
   nodePort: 32500
-  externalTrafficPolicy: Cluster
+  # HAProxy health-checks every Kubernetes node and sends registry traffic only
+  # to the node currently hosting Zot. This preserves the runner source address
+  # and avoids cross-node NodePort SNAT weakening the Cilium ingress policy.
+  externalTrafficPolicy: Local
 
 ingress:
   enabled: false

@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backend-redis-backup
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: export-rdb
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_time="$(date -u +%Y%m%dT%H%M%SZ)"
+                  backup_dir="/backup/${backup_time}"
+                  mkdir -p "${backup_dir}"
+                  redis-cli -h backend-redis -p 6379 -a "${REDIS_PASSWORD}" \
+                    --no-auth-warning --rdb "${backup_dir}/standalone.rdb"
+                  printf '%s\n' "${backup_time}" > /backup/latest-backup-time
+            - name: validate-rdb
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_time="$(cat /backup/latest-backup-time)"
+                  validation_dir=/tmp/redis-validation
+                  mkdir -p "${validation_dir}"
+                  cp "/backup/${backup_time}/standalone.rdb" "${validation_dir}/dump.rdb"
+                  redis-server --bind 127.0.0.1 --port 6380 \
+                    --dir "${validation_dir}" --dbfilename dump.rdb \
+                    --appendonly no --save "" --daemonize yes \
+                    --pidfile "${validation_dir}/redis.pid" \
+                    --logfile "${validation_dir}/redis.log"
+                  redis-cli -h 127.0.0.1 -p 6380 ping | grep -qx PONG
+                  redis-cli -h 127.0.0.1 -p 6380 shutdown nosave
+                  rm -rf "${validation_dir}"
+          containers:
+            - name: upload
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_time="$(cat /backup/latest-backup-time)"
+                  aws --endpoint-url "${S3_ENDPOINT}" s3 cp \
+                    "/backup/${backup_time}/" \
+                    "s3://${S3_BUCKET}/${S3_PREFIX}/${backup_time}/" \
+                    --recursive --only-show-errors
+                  aws --endpoint-url "${S3_ENDPOINT}" s3api head-object \
+                    --bucket "${S3_BUCKET}" \
+                    --key "${S3_PREFIX}/${backup_time}/standalone.rdb" >/dev/null
+                  echo "Uploaded and verified Redis backup ${backup_time}."

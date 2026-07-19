@@ -7,7 +7,39 @@
       - ansible_facts["architecture"] == "x86_64"
       - k3s_node_name | length > 0
       - k3s_node_ip is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+      - k3s_bootstrap_host in groups['k3s_servers']
     fail_msg: "K3s requires a supported Ubuntu amd64 host and explicit node identity."
+
+- name: Install the Hetzner vSwitch netplan
+  ansible.builtin.template:
+    src: hetzner-vswitch.yaml.j2
+    dest: /etc/netplan/90-hetzner-vswitch.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  register: k3s_vswitch_netplan
+  when: k3s_configure_vswitch | bool
+
+- name: Validate the Hetzner vSwitch netplan
+  ansible.builtin.command: netplan generate
+  changed_when: false
+  when:
+    - k3s_configure_vswitch | bool
+    - k3s_vswitch_netplan.changed
+
+- name: Apply the Hetzner vSwitch netplan
+  ansible.builtin.command: netplan apply
+  changed_when: true
+  when:
+    - k3s_configure_vswitch | bool
+    - k3s_vswitch_netplan.changed
+
+- name: Wait for the Hetzner vSwitch address
+  ansible.builtin.wait_for:
+    host: "{{ k3s_node_ip }}"
+    port: 22
+    timeout: 60
+  when: k3s_configure_vswitch | bool
 
 - name: Set the permanent node hostname
   ansible.builtin.hostname:
@@ -109,7 +141,9 @@
   register: k3s_generated_server_token
   changed_when: true
   no_log: true
-  when: not k3s_server_token_file.stat.exists
+  when:
+    - inventory_hostname == k3s_bootstrap_host
+    - not k3s_server_token_file.stat.exists
 
 - name: Store the K3s server token
   ansible.builtin.copy:
@@ -119,7 +153,35 @@
     group: root
     mode: "0600"
   no_log: true
-  when: not k3s_server_token_file.stat.exists
+  when:
+    - inventory_hostname == k3s_bootstrap_host
+    - not k3s_server_token_file.stat.exists
+
+- name: Check the exported bootstrap server token
+  ansible.builtin.stat:
+    path: "{{ k3s_bootstrap_token_path }}"
+  register: k3s_bootstrap_token_file
+  delegate_to: localhost
+  become: false
+  when: inventory_hostname != k3s_bootstrap_host
+
+- name: Require the exported bootstrap server token
+  ansible.builtin.assert:
+    that:
+      - k3s_bootstrap_token_file.stat.exists
+      - k3s_bootstrap_token_file.stat.isreg
+    fail_msg: "Export the bootstrap K3s server token before joining another server."
+  when: inventory_hostname != k3s_bootstrap_host
+
+- name: Install the shared bootstrap server token
+  ansible.builtin.copy:
+    src: "{{ k3s_bootstrap_token_path }}"
+    dest: /etc/rancher/k3s/server-token
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: inventory_hostname != k3s_bootstrap_host
 
 - name: Install the pinned K3s binary
   ansible.builtin.get_url:

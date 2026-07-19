@@ -35,6 +35,7 @@ ansible/.secrets/
 # Plaintext inputs rendered by Kustomize into environment-specific Kubernetes
 # Secrets. Commit only the adjacent *.example templates and generator scripts.
 kubernetes/environments/*/secrets/*.env
+kubernetes/observability/secrets/*.env
 
 # binary outputs (not the source in cmd/)
 /buildtemplates

@@ -1,9 +1,4 @@
 ---
-runner_api_port: 8081
-runner_preview_port_range_start: 30000
-runner_preview_port_range_end: 60999
-runner_preview_allowed_sources: []
-runner_preview_retired_sources: []
 buildkit_version: v0.31.0
 zot_registry_domain: registry.usehivy.com
 zot_registry_private_ip: 10.80.0.3

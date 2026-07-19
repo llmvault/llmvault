@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+spec:
+  replicas: 2
+  template:
+    spec:
+      initContainers:
+        - name: migrate
+          resources:
+            requests:
+              cpu: 5m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      containers:
+        - name: api
+          env:
+            - name: HIVY_NANGO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nango-backend-credentials
+                  key: HIVY_NANGO_SECRET_KEY
+            - name: HIVY_NANGO_WEBHOOKS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: nango-backend-credentials
+                  key: HIVY_NANGO_WEBHOOKS_SECRET
+          resources:
+            requests:
+              cpu: 10m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi

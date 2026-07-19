@@ -33,7 +33,6 @@ EXCLUDE_DIRS=(
   -path './cmd/sandbox-exec' -o
   -path './cmd/verify-devbox' -o
   -path './cmd/buildtemplates' -o
-  -path './cmd/fake-nango' -o
   -path './cmd/fetchactions-graphql' -o
   -path './cmd/fetchactions-oas2' -o
   -path './cmd/fetchactions-oas3'

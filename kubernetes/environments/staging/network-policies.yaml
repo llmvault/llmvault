@@ -66,7 +66,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      redis_setup_type: cluster
+      redis_setup_type: standalone
   policyTypes:
     - Ingress
   ingress:
@@ -75,16 +75,12 @@ spec:
       ports:
         - port: 6379
           protocol: TCP
-        - port: 16379
-          protocol: TCP
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: redis-operator
       ports:
         - port: 6379
-          protocol: TCP
-        - port: 16379
           protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
@@ -116,8 +112,8 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Qdrant peers require all three ports for consensus, shard transfers,
-    # and distributed request routing when staging is scaled later.
+    # Keep peer traffic permitted so distributed mode can be re-enabled by
+    # changing the staging Qdrant values without another policy migration.
     - from:
         - podSelector:
             matchLabels:
@@ -176,4 +172,57 @@ spec:
             cidr: 0.0.0.0/0
       ports:
         - port: 443
+          protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: nango-ingress
+  labels:
+    app.kubernetes.io/name: nango
+    hivy.io/apply-phase: workload
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: nango
+      app.kubernetes.io/component: connections
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "3003"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: hivy-backend
+      toPorts:
+        - ports:
+            - port: "3003"
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nango-postgres-ingress
+  labels:
+    app.kubernetes.io/name: nango-postgres
+    hivy.io/apply-phase: data
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: nango-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - port: 8000
           protocol: TCP

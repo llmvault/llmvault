@@ -5,5 +5,8 @@ metadata:
   namespace: kube-system
 data:
   preview.override: |
-    rewrite stop name exact preview.usehivy.com cilium-gateway-public.ingress-public.svc.cluster.local
-    rewrite stop name regex (.*)\.preview\.usehivy\.com cilium-gateway-public.ingress-public.svc.cluster.local answer auto
+    # Cilium's Gateway listeners require PROXY v2 because the public Hetzner
+    # load balancer uses it. Cluster clients speak ordinary TLS, so send private
+    # preview traffic through HAProxy to prepend the required header.
+    rewrite stop name exact preview.usehivy.com microsandbox-preview-tls-bridge.production.svc.cluster.local
+    rewrite stop name regex (.*)\.preview\.usehivy\.com microsandbox-preview-tls-bridge.production.svc.cluster.local answer auto

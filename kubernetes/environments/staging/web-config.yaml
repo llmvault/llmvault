@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  labels:
+    app.kubernetes.io/name: hivy-web
+    hivy.io/apply-phase: data
+data:
+  NODE_ENV: production
+  HIVY_LOG_LEVEL: info
+  HIVY_ADMIN_ENABLED: "true"
+
+  HIVY_API_URL: http://backend-api.staging.svc.cluster.local:8080
+  HIVY_PUBLIC_API_URL: https://staging.api.usehivy.com
+  HIVY_CONNECTIONS_HOST: https://staging.connections.usehivy.com
+  HIVY_PREVIEW_BASE_DOMAIN: preview.usehivy.com
+
+  HIVY_SENTRY_ENABLE_LOGS: "true"
+  HIVY_SENTRY_URL: https://glitch.usehivy.com
+  HIVY_SENTRY_ORG: hivy
+  HIVY_SENTRY_PROJECT: webusehivycom
+  HIVY_SENTRY_TRACES_SAMPLE_RATE: "0.01"

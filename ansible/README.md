@@ -9,6 +9,13 @@ Ansible does not install cluster add-ons or apply application workloads. Once
 the Kubernetes API is available, those resources are managed as ordinary
 Kustomize manifests and applied directly with `kubectl`.
 
+Install the operator-side collection dependencies once before running the
+playbooks:
+
+```sh
+ansible-galaxy collection install -r requirements.yml
+```
+
 ## K3s server
 
 The production K3s inventory group and pinned settings live in
@@ -20,8 +27,19 @@ ansible-playbook playbooks/k3s/install.yml --limit k8s0
 ansible-playbook playbooks/k3s/validate.yml --limit k8s0
 ```
 
-The install playbook exports the administrator kubeconfig, K3s server token,
-and node token to `.secrets/k8s0/`. This entire directory is git-ignored. Once
+`k8s0` is the bootstrap embedded-etcd server. To add another combined
+control-plane/worker node, add it to both `k3s_servers` and `k3s_ingress`, give
+it a unique `k3s_node_ip`, then limit the same playbooks to the new inventory
+host. The role configures its Hetzner vSwitch VLAN, copies the exported shared
+server token, and joins it to the bootstrap API instead of initializing another
+cluster. Re-apply `playbooks/runner-haproxy.yml` and add the node's private IP to
+the Hetzner load balancer after validation. Runner UFW rules cover the complete
+`10.80.1.0/24` vSwitch subnet, so adding a node in that subnet does not require
+another firewall rule.
+
+The install playbook exports each server's administrator kubeconfig, K3s server
+token, and node token to `.secrets/<inventory-host>/`. This entire directory is
+git-ignored. Once
 cluster add-ons or workloads have created Kubernetes Secrets, export those
 separately from the repository root:
 
@@ -84,6 +102,9 @@ ansible-playbook playbooks/phase4-validate.yml
 
 Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, removes the retired runner API Caddy proxy, configures UFW, creates `/etc/hivy`, and installs runner-local HAProxy and CoreDNS. CoreDNS resolves the production and staging API hostnames to that runner's private HAProxy listener. HAProxy passes TLS through to healthy nodes listed in the explicit `k3s_ingress` inventory group. Runner hosts and sandbox DNS proxies use the same resolver on standard DNS port 53.
 
+To reconcile only runner firewall rules, including after changing the private
+vSwitch subnet, run `ansible-playbook playbooks/runner-firewall.yml`.
+
 Phase 2 copies `dist/microsandbox-linux-amd64` to `/usr/local/bin/microsandbox`.
 
 Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds to its private vSwitch address on port `8081`; the Kubernetes control plane reaches it directly over the private network.
@@ -105,8 +126,9 @@ values and operating instructions live in
 
 Wildcard preview traffic is served by the Kubernetes Gateway API, Cilium Envoy,
 the in-cluster Caddy proxy, and the in-cluster Microsandbox preview cache.
-Kubernetes CoreDNS rewrites `*.preview.usehivy.com` to the Gateway's ClusterIP,
-so API and asynq Pods use the same public HTTPS URLs without leaving the cluster.
+Kubernetes CoreDNS rewrites `*.preview.usehivy.com` to a private HAProxy bridge.
+The bridge prepends PROXY v2 before forwarding to Cilium, so API and asynq Pods
+use the same public HTTPS URLs without leaving the cluster.
 
 ## Control-plane requirements
 
@@ -122,20 +144,23 @@ The control plane must accept runner registration at `/v1/runners/register`.
 ## Runner Network Ports
 
 Runner APIs bind to their private vSwitch addresses on port `8081`; UFW allows
-that port only from the Kubernetes node. UFW opens SSH, HTTP, and HTTPS, then
-denies other inbound traffic.
+that port only from the Kubernetes bare-metal vSwitch subnet. UFW opens SSH,
+HTTP, and HTTPS, then denies other inbound traffic.
 
 Preview traffic is separate. Each runner publishes sandbox guest ports onto
 host ports in `30000-60999`, and UFW allows that range only from the Kubernetes
-node. With the default 5 preview ports per sandbox, that range supports 6,200
-sandboxes per runner before host-port exhaustion.
+bare-metal vSwitch subnet. This automatically covers future nodes without
+opening the ports to the public network. With the default 5 preview ports per
+sandbox, that range supports 6,200 sandboxes per runner before host-port
+exhaustion.
 
 ## Preview proxy
 
 The preview cache, Redis, and Caddy proxy run in the production Kubernetes
 namespace. Cilium Gateway API exposes the public path through the Hetzner load
-balancer, while in-cluster callers resolve preview names directly to the Gateway
-Service ClusterIP. The proxy reaches runner preview ports over the private
+balancer, while in-cluster callers resolve preview names to the production
+preview TLS bridge. The bridge forwards to Cilium with PROXY v2, and the proxy
+reaches runner preview ports over the private
 vSwitch only. Their
 manifests and operating notes live in `../kubernetes/environments/production/`.
 

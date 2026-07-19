@@ -1,0 +1,15 @@
+# Managed by Ansible.
+network:
+  version: 2
+  renderer: networkd
+  vlans:
+    {{ k3s_private_interface }}:
+      id: {{ k3s_vswitch_vlan_id }}
+      link: {{ k3s_public_interface }}
+      mtu: {{ k3s_vswitch_mtu }}
+      addresses:
+        - {{ k3s_node_ip }}/{{ k3s_vswitch_prefix }}
+      routes:
+        - to: {{ k3s_vswitch_route_cidr }}
+          via: {{ k3s_vswitch_gateway }}
+          on-link: true

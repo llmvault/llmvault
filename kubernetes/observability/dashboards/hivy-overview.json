@@ -1,0 +1,338 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "icon": "apps",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Service details",
+      "tooltip": "Drill into a Hivy service",
+      "type": "link",
+      "url": "/d/hivy-service-details/hivy-service-details"
+    },
+    {
+      "icon": "cloud",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Cluster nodes",
+      "type": "link",
+      "url": "/d/k8s_views_nodes/kubernetes-views-nodes"
+    }
+  ],
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All API pods must be Ready. Click to inspect API metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open API", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=backend-api-.*" }],
+          "mappings": [
+            { "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 2 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"backend-api-.*\"}) or vector(0)", "instant": true, "legendFormat": "API", "range": false, "refId": "A" }],
+      "title": "API",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All Next.js web pods must be Ready. Click to inspect Web metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Web", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=web-.*" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 2 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"web-.*\"}) or vector(0)", "instant": true, "legendFormat": "Web", "range": false, "refId": "A" }],
+      "title": "Web",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All asynchronous worker pods must be Ready. Click to inspect Asynq metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Asynq", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=backend-worker-.*" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 2 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"backend-worker-.*\"}) or vector(0)", "instant": true, "legendFormat": "Asynq", "range": false, "refId": "A" }],
+      "title": "Asynq",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All Nango application pods must be Ready. Click to inspect Nango metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Nango", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=nango-%5Ba-f0-9%5D%7B8%2C10%7D-.*" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 2 },
+      "id": 4,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"nango-[a-f0-9]{8,10}-.*\"}) or vector(0)", "instant": true, "legendFormat": "Nango", "range": false, "refId": "A" }],
+      "title": "Nango",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All CloudNativePG instances must be Ready. Click to inspect PostgreSQL metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open PostgreSQL", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=.*-postgres-%5B0-9%5D%2B" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 2 },
+      "id": 5,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\".*-postgres-[0-9]+\"}) or vector(0)", "instant": true, "legendFormat": "PostgreSQL", "range": false, "refId": "A" }],
+      "title": "PostgreSQL",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All Redis data pods must be Ready. Click to inspect Redis metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Redis", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=%28backend-redis-%28leader%7Cfollower%29-%5B0-9%5D%2B%7Cbackend-redis-%5B0-9%5D%2B%7Cmicrosandbox-preview-redis-.*%29" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 2 },
+      "id": 6,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"(backend-redis-(leader|follower)-[0-9]+|backend-redis-[0-9]+|microsandbox-preview-redis-.*)\"}) or vector(0)", "instant": true, "legendFormat": "Redis", "range": false, "refId": "A" }],
+      "title": "Redis",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All Qdrant peers must be Ready. Click to inspect Qdrant metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Qdrant", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=qdrant-%5B0-9%5D%2B" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 6 },
+      "id": 7,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"qdrant-[0-9]+\"}) or vector(0)", "instant": true, "legendFormat": "Qdrant", "range": false, "refId": "A" }],
+      "title": "Qdrant",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All Microsandbox control and preview-routing pods must be Ready. Click to inspect their metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Microsandbox", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=microsandbox-%28control%7Cpreview-%28cache%7Cproxy%7Credis%29%29-.*" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "NOT DEPLOYED / DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 6 },
+      "id": 8,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"microsandbox-(control|preview-(cache|proxy|redis))-.*\"}) or vector(0)", "instant": true, "legendFormat": "Microsandbox", "range": false, "refId": "A" }],
+      "title": "Microsandbox",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "description": "All Zot registry pods must be Ready. Click to inspect registry metrics and logs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "links": [{ "title": "Open Zot", "url": "/d/hivy-service-details/hivy-service-details?var-environment=$environment&var-service=zot-%5B0-9%5D%2B" }],
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "NOT DEPLOYED / DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 6 },
+      "id": 9,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "value_and_name", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "min(kube_pod_status_ready{namespace=\"$environment\",condition=\"true\",pod=~\"zot-[0-9]+\"}) or vector(0)", "instant": true, "legendFormat": "Zot", "range": false, "refId": "A" }],
+      "title": "Zot Registry",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 10 },
+      "id": 10,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(kube_pod_status_phase{namespace=\"$environment\",phase=\"Running\"})", "instant": true, "legendFormat": "Running pods", "range": false, "refId": "A" }],
+      "title": "Running Pods",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 10 },
+      "id": 11,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(kube_pod_status_ready{namespace=\"$environment\",condition=\"false\"} * on(namespace,pod) group_left() kube_pod_status_phase{namespace=\"$environment\",phase=\"Running\"})", "instant": true, "legendFormat": "Not ready", "range": false, "refId": "A" }],
+      "title": "Pods Not Ready",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "decimals": 0, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 10 },
+      "id": 12,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$environment\"}[1h]))", "instant": true, "legendFormat": "Restarts", "range": false, "refId": "A" }],
+      "title": "Container Restarts (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" }, "decimals": 2, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "cores" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 10 },
+      "id": 13,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$environment\",container!=\"\",image!=\"\"}[$__rate_interval]))", "instant": true, "legendFormat": "CPU", "range": false, "refId": "A" }],
+      "title": "CPU Usage",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 10 },
+      "id": 14,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(container_memory_working_set_bytes{namespace=\"$environment\",container!=\"\",image!=\"\"})", "instant": true, "legendFormat": "Memory", "range": false, "refId": "A" }],
+      "title": "Memory Usage",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 10 },
+      "id": 15,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(kubelet_volume_stats_used_bytes{namespace=\"$environment\"})", "instant": true, "legendFormat": "Storage", "range": false, "refId": "A" }],
+      "title": "Persistent Storage Used",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 15, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 3, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": true, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "cores" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 16,
+      "options": { "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" } },
+      "targets": [{ "editorMode": "code", "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$environment\",container!=\"\",image!=\"\"}[$__rate_interval]))", "legendFormat": "{{pod}}", "range": true, "refId": "A" }],
+      "title": "CPU by Pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "VictoriaMetrics" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 15, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 3, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": true, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 17,
+      "options": { "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" } },
+      "targets": [{ "editorMode": "code", "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$environment\",container!=\"\",image!=\"\"})", "legendFormat": "{{pod}}", "range": true, "refId": "A" }],
+      "title": "Memory by Pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "VictoriaLogs" },
+      "description": "Most recent application and data-service logs in the selected environment. Click a service card for a focused stream.",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 22 },
+      "id": 18,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "targets": [{ "datasource": { "type": "victoriametrics-logs-datasource", "uid": "VictoriaLogs" }, "direction": "desc", "editorMode": "code", "expr": "kubernetes.pod_namespace:=\"$environment\" | fields _time, level, _msg, kubernetes.pod_name, kubernetes.container_name | limit 500", "maxLines": 500, "queryType": "instant", "refId": "A" }],
+      "title": "Recent Logs — $environment",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": ["hivy", "production", "staging", "operations"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "production", "value": "production" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [
+          { "selected": true, "text": "production", "value": "production" },
+          { "selected": false, "text": "staging", "value": "staging" }
+        ],
+        "query": "production,staging",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"], "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"] },
+  "timezone": "browser",
+  "title": "Hivy / Environment Overview",
+  "uid": "hivy-overview",
+  "version": 1,
+  "weekStart": ""
+}

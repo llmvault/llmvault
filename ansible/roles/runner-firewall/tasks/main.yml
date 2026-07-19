@@ -1,0 +1,69 @@
+---
+- name: Validate runner firewall configuration
+  ansible.builtin.assert:
+    that:
+      - runner_kubernetes_private_cidr | trim | length > 0
+      - runner_kubernetes_private_cidr is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$')
+      - runner_api_port | int > 0
+      - runner_preview_port_range_start | int > 0
+      - runner_preview_port_range_end | int >= runner_preview_port_range_start | int
+    fail_msg: "Configure the private Kubernetes vSwitch CIDR and valid runner ports before enabling UFW."
+
+- name: Allow SSH through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ ansible_port | default(22) }}"
+    proto: tcp
+
+- name: Remove old public Microsandbox runner API UFW rule
+  community.general.ufw:
+    rule: allow
+    port: "{{ runner_api_port }}"
+    proto: tcp
+    delete: true
+
+- name: Allow Kubernetes vSwitch nodes to call the private runner API
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ runner_kubernetes_private_cidr }}"
+    port: "{{ runner_api_port }}"
+    proto: tcp
+
+- name: Allow Kubernetes vSwitch nodes to reach sandbox preview ports
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ runner_kubernetes_private_cidr }}"
+    port: "{{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }}"
+    proto: tcp
+
+- name: Remove retired per-host runner API rules
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+    port: "{{ runner_api_port }}"
+    proto: tcp
+    delete: true
+  loop: "{{ runner_firewall_retired_sources }}"
+
+- name: Remove retired per-host preview port rules
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+    port: "{{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }}"
+    proto: tcp
+    delete: true
+  loop: "{{ runner_firewall_retired_sources }}"
+
+- name: Deny inbound traffic by default
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Allow outbound traffic by default
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled

@@ -22,9 +22,9 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: preview-usehivy-tls
-    # Cluster Pods enter through this listener's ClusterIP Service, while
-    # private-network hosts enter through the K3s node address. Neither path
-    # traverses the Hetzner load balancer.
+    # Cluster Pods enter through the private preview HAProxy bridge, which
+    # prepends the PROXY v2 header this listener requires. Private-network
+    # hosts use runner-local HAProxy. Neither path traverses the Hetzner LB.
     - name: private-https
       port: 443
       protocol: HTTPS

@@ -7,85 +7,87 @@ reviewed and brought up before the API and workers.
 ## Contents
 
 - namespace `staging`, with a bounded resource quota and default limits;
-- one CloudNativePG PostgreSQL 18.4 cluster with one primary, two streaming
-  replicas, and a separate 10 GiB Longhorn volume per instance;
-- a three-leader Redis 8.6 cluster with no followers and persistent Longhorn
-  data/node-configuration volumes;
-- three cluster-enabled Qdrant 1.18.2 peers, with six collection shards,
-  replication factor two, API-key authentication, and a separate 1 GiB
-  expandable Longhorn volume per peer;
+- one single-instance CloudNativePG PostgreSQL 18.4 database with a 10 GiB
+  expandable Longhorn volume;
+- one persistent standalone Redis 8.6 instance with a 2 GiB Longhorn volume;
+- one Qdrant 1.18.2 instance with replication factor one, API-key
+  authentication, and a 1 GiB expandable Longhorn volume;
 - native daily PostgreSQL base backups with continuous WAL archiving, daily
-  Redis Cluster RDB exports, and daily per-peer Qdrant snapshots in Hetzner
+  Redis RDB exports, and daily Qdrant snapshots in Hetzner
   Object Storage;
-- two API replicas, exposed only through the shared Gateway and internally by a
+- one API replica, exposed only through the shared Gateway and internally by a
   ClusterIP Service;
-- two Asynq worker replicas with no Service and ingress denied;
+- one Asynq worker replica with no Service and ingress denied;
+- one Next.js web replica, exposed through the shared Gateway and configured to
+  proxy server-side API traffic over the cluster-local backend Service;
 - a migration init container on every API and worker Pod, serialized by Goose's
   PostgreSQL advisory lock;
-- HTTPRoutes for `staging.api.usehivy.com`, `staging.mcp.usehivy.com`, and
-  `staging.proxy.usehivy.com`.
+- HTTPRoutes for `staging.usehivy.com`, `staging.api.usehivy.com`,
+  `staging.mcp.usehivy.com`, and `staging.proxy.usehivy.com`.
 
-All application credentials are independent staging or test credentials. The
-generated plaintext input files are ignored by Git; only examples, validation,
-and generation scripts are committed. See `CREDENTIALS.md` for the external
-credential setup checklist.
+The imported database is a production snapshot. Cryptographic, authentication,
+OAuth, delivery, and Nango credentials therefore match production so encrypted
+rows and existing sessions remain usable. Paystack stays in test mode, and the
+PostgreSQL, Redis, Qdrant, and application-storage credentials remain isolated.
+All plaintext secret inputs are ignored by Git.
 
 ## Known prerequisites
 
 The backend treats Nango as a hard startup dependency and fetches its provider
-catalog during bootstrap. The API and workers will not start until a staging
-Nango Service exists at `nango.staging.svc.cluster.local:3003` and uses the same
-newly generated Nango credentials as `secrets/backend.env`.
+catalog through the private `nango:3003` Service during bootstrap. Nango has its
+own single-instance PostgreSQL database and a public HTTPS OAuth callback domain.
 
 RAG uses the internal Qdrant gRPC Service at
 `qdrant.staging.svc.cluster.local:6334`. The Qdrant authentication Secret and
 NetworkPolicy are included in the Kustomize data phase; Qdrant itself is
 rendered from the official Helm chart and applied as a separate manifest. The
-backend workload phase must wait for all three peers to become Ready. Nango is
-not part of this package yet, so the API and workers must not be applied until
-its staging Service is approved and ready.
+backend workload phase must wait for the StatefulSet to become Ready.
 
-Staging runs three Qdrant peers on the current single physical node. Each peer
-is capped at 1 GiB of memory and has its own 1 GiB Longhorn volume. New
-collections default to six shards, replication factor two, and write
-consistency factor one. The replicas protect against a Qdrant process or Pod
-failure, but not loss of the physical node; they become node-redundant after
-more Kubernetes nodes are added. Production will use a separate values file
-with a 10 GiB memory cap per peer.
+Staging runs one Qdrant process capped at 1 GiB of memory with a 1 GiB
+Longhorn volume. New collections default to two shards, replication factor
+one, and write consistency factor one. Production continues to use three
+peers with a 10 GiB memory cap per peer.
 
 Staging and production share the Microsandbox control plane, runners, image
 versions, and current control API token. The backend reaches the control plane
-through the internal `microsandbox-control.microsandbox.svc.cluster.local`
-Service; there is no `msb.usehivy.com` dependency. The KMS, JWT, RSA,
-sandbox-encryption, PostgreSQL, Redis, Nango, billing, OAuth, and delivery
-credentials remain independent from production.
+through the internal `microsandbox-control.production.svc.cluster.local`
+Service; there is no `msb.usehivy.com` dependency. Staging begins from the
+requested production database snapshot and shares continuity secrets, while
+Paystack, application storage, and Kubernetes data-plane credentials remain
+environment-specific.
 
 Sandbox runtime URLs must keep using `*.preview.usehivy.com` because browsers
 connect to them directly for streams and repository reads. Private transport is
 provided by split-horizon DNS: public clients resolve the wildcard to the
-public Gateway, while cluster Pods resolve it to the internal preview-proxy
-Service. That proxy reaches runner host ports over the Hetzner vSwitch. The
+public Gateway, while cluster Pods resolve it to the production preview TLS
+bridge. The bridge prepends PROXY v2 for Cilium, after which the preview proxy
+reaches runner host ports over the Hetzner vSwitch. The
 Microsandbox manifests must include this CoreDNS/private-preview path before
 the backend is deployed.
 
-All PostgreSQL workloads added later (including Nango and Microsandbox) must
-use three-instance CloudNativePG clusters. On the current single node, the
-replicas protect against PostgreSQL process/instance failure but not loss of
-the physical node; they will become node-redundant when more Kubernetes nodes
-are added.
+Production PostgreSQL workloads use three-instance CloudNativePG clusters.
+Staging deliberately uses one instance per database to conserve resources and
+therefore has no database failover.
 
-The current `public` Gateway is still the smoke-test Gateway and its listener is
-restricted to `gateway-check.usehivy.com`. Before these routes can attach, the
-shared Gateway and trusted certificate must be replaced with the real
-multi-host ingress configuration. No staging DNS record should be created until
-that is ready.
+The shared Cilium Gateway serves the staging API over public and private HTTPS.
+HTTP redirects to HTTPS, and cert-manager's DNS-01 certificate includes
+`staging.api.usehivy.com` and `staging.usehivy.com`.
 
 ## Secret inputs
 
-Generate the initial independent credentials once:
+Generate or refresh backend continuity secrets from Railway, the production
+Microsandbox control Secret, and the environment-specific Hetzner bucket:
 
 ```sh
-kubernetes/environments/staging/secrets/generate.sh
+kubernetes/environments/generate-backend-secrets.sh --refresh
+```
+
+Generate the ignored web Secret input separately. Production reuses its
+Railway session secret for login continuity; staging receives an independent
+session secret:
+
+```sh
+kubernetes/environments/generate-web-secrets.sh
 ```
 
 The script refuses to overwrite existing files. Secret rotation is deliberate:
@@ -135,8 +137,8 @@ rm -f "$rendered"
 ```
 
 The pinned backend image is commit
-`9cd953b24170610d4ddf656524b2b76d313ee652`, manifest digest
-`sha256:d310bffaf541e05837a4740f2280f50588bf99816a2e5d889894eab0b7a2cbba`.
+`5f93ab690c85fd277ace24e45048ec328f21ff77`, linux/amd64 manifest digest
+`sha256:59071935749eebb9b79634e96b7f880e29e0b75e5d799bab1c25e4623bed880c`.
 Every newly created API or worker Pod runs the migrations embedded in that
 same image before its application process starts. Concurrent Pod starts are
 safe because the migration command uses Goose's PostgreSQL session lock.
@@ -185,8 +187,8 @@ kubectl apply -k kubernetes/environments/staging \
 
 kubectl wait -n staging --for=condition=Ready \
   cluster.postgresql.cnpg.io/backend-postgres --timeout=10m
-kubectl wait -n staging --for=jsonpath='{.status.state}'=Ready \
-  rediscluster.redis.redis.opstreelabs.in/backend-redis --timeout=10m
+kubectl rollout status -n staging \
+  statefulset/backend-redis --timeout=10m
 kubectl apply --dry-run=server \
   -f ansible/.secrets/k8s0/apps/qdrant-staging-v1.18.2.yaml
 kubectl apply \

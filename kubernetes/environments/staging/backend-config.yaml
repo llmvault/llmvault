@@ -18,8 +18,8 @@ data:
   HIVY_DB_NAME: hivy
   HIVY_DB_SSLMODE: require
 
-  HIVY_REDIS_CLUSTER: "true"
-  HIVY_REDIS_CLUSTER_ADDRS: backend-redis-leader:6379
+  HIVY_REDIS_CLUSTER: "false"
+  HIVY_REDIS_ADDR: backend-redis:6379
   HIVY_REDIS_DB: "0"
   HIVY_REDIS_CACHE_TTL: 30m
   HIVY_MEM_CACHE_TTL: 5m
@@ -42,8 +42,8 @@ data:
   HIVY_API_WEBHOOK_BASE_URL: https://staging.api.usehivy.com
   HIVY_PROXY_HOST: staging.proxy.usehivy.com
 
-  # Nango is a hard startup dependency in the current backend. Its staging
-  # Service will use this name when its manifests are added.
+  # Nango is a hard startup dependency. API and worker calls stay inside the
+  # namespace through its ClusterIP Service; OAuth callbacks use the public URL.
   HIVY_NANGO_ENDPOINT: http://nango:3003
 
   HIVY_SMTP_HOST: smtp.resend.com
@@ -58,8 +58,9 @@ data:
   HIVY_ASYNQMON_ENABLED: "false"
   HIVY_ASYNQ_CONCURRENCY: "5"
   HIVY_ASYNQ_SHUTDOWN_TIMEOUT: 120s
+  HIVY_AGENT_SCHEDULE_SCAN_INTERVAL: 5s
   HIVY_SENTRY_ENABLED: "true"
-  HIVY_SENTRY_RELEASE: sha-9cd953b24170610d4ddf656524b2b76d313ee652
+  HIVY_SENTRY_RELEASE: sha-5f93ab690c85fd277ace24e45048ec328f21ff77
   HIVY_SENTRY_TRACES_SAMPLE_RATE: "0.1"
   HIVY_SENTRY_PROFILES_SAMPLE_RATE: "0"
 
@@ -70,9 +71,16 @@ data:
   HIVY_LLM_API_URL: https://openrouter.ai/api/v1
   HIVY_LLM_MODEL: openai/text-embedding-3-small
   HIVY_LLM_EMBEDDING_DIM: "1024"
+  HIVY_MEMORY_EMBEDDING_MODEL: qwen/qwen3-embedding-8b
+  HIVY_MEMORY_EMBEDDING_DIM: "1024"
   HIVY_RERANKER_BASE_URL: https://openrouter.ai/api/v1
   HIVY_RERANKER_MODEL: cohere/rerank-v3.5
   HIVY_RAG_BATCH_SIZE: "100"
+
+  HIVY_AWS_DEFAULT_REGION: hel1
+  HIVY_AWS_ENDPOINT_URL: https://hel1.your-objectstorage.com
+  HIVY_AWS_PRESIGN_ENDPOINT_URL: https://hel1.your-objectstorage.com
+  HIVY_AWS_S3_BUCKET_NAME: usehivy-staging-app
 
   HIVY_BILLING_NGN_MINOR_PER_USD: "160000"
   HIVY_PREVIEW_BASE_DOMAIN: preview.usehivy.com
@@ -81,8 +89,10 @@ data:
   # continue to use the preview domain; in-cluster split DNS keeps pod traffic
   # on the private preview-proxy path.
   HIVY_SANDBOX_PROVIDER_ID: microsandbox
-  HIVY_MICROSANDBOX_CONTROL_URL: http://microsandbox-control.microsandbox.svc.cluster.local:8080
+  HIVY_MICROSANDBOX_CONTROL_URL: http://microsandbox-control.production.svc.cluster.local:8080
   HIVY_SANDBOX_WARM_POOL_DEFAULT_SIZE: "0"
   HIVY_SANDBOX_WARM_POOL_DEVELOPER_SIZE: "0"
+  HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL: 30m
+  HIVY_SANDBOX_IDLE_TIMEOUT: 5m
   HIVY_SANDBOXES_RUNTIME_IMAGE_TAG: v7.2.3-amd64
   HIVY_SANDBOXES_APP_IMAGE_TAG: v7.2.3-amd64

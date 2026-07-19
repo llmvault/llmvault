@@ -1,6 +1,54 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: worker-deny-ingress
+  labels:
+    app.kubernetes.io/name: hivy-backend
+    hivy.io/apply-phase: workload
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-backend
+      app.kubernetes.io/component: worker
+  policyTypes:
+    - Ingress
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: backend-api-ingress
+  labels:
+    app.kubernetes.io/name: hivy-backend
+    hivy.io/apply-phase: workload
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-backend
+      app.kubernetes.io/component: api
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: production
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: postgres-ingress
   labels:
     hivy.io/apply-phase: data
@@ -123,4 +171,56 @@ spec:
       ports:
         - port: 443
           protocol: TCP
-
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: nango-ingress
+  labels:
+    app.kubernetes.io/name: nango
+    hivy.io/apply-phase: workload
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: nango
+      app.kubernetes.io/component: connections
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "3003"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: hivy-backend
+      toPorts:
+        - ports:
+            - port: "3003"
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nango-postgres-ingress
+  labels:
+    app.kubernetes.io/name: nango-postgres
+    hivy.io/apply-phase: data
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: nango-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - port: 8000
+          protocol: TCP

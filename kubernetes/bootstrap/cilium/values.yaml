@@ -1,8 +1,10 @@
 # Cilium is rendered from the pinned OCI Helm chart into a local, git-ignored
 # manifest and then installed with kubectl apply. Helm does not own the release.
 kubeProxyReplacement: true
-k8sServiceHost: 10.80.1.4
-k8sServicePort: 6443
+# K3s exposes its supervisor/API load balancer on every server and agent. Keep
+# Cilium node-local so no individual control-plane address is a dependency.
+k8sServiceHost: 127.0.0.1
+k8sServicePort: 6444
 
 ipam:
   mode: cluster-pool
@@ -19,7 +21,7 @@ bpf:
   masquerade: true
 
 operator:
-  replicas: 1
+  replicas: 2
 
 rollOutCiliumPods: true
 policyEnforcementMode: default

@@ -40,7 +40,6 @@ linters-settings:
           - "!**/cmd/agent-debug-pack/**"
           - "!**/cmd/agent-env-doctor/**"
           - "!**/cmd/buildtemplates/**"
-          - "!**/cmd/fake-nango/**"
           - "!**/cmd/fetchactions-*/**"
           - "!**/skills/upload/**"
           - "!**/internal/rag/vectorstore/spike/**"
@@ -104,8 +103,6 @@ issues:
     - path: cmd/msb/
       linters: [forbidigo, sloglint]
     - path: cmd/buildtemplates/
-      linters: [forbidigo, depguard, sloglint]
-    - path: cmd/fake-nango/
       linters: [forbidigo, depguard, sloglint]
     - path: cmd/reflect-replay/
       linters: [forbidigo, depguard, sloglint]

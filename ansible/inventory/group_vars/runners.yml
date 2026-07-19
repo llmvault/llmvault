@@ -11,10 +11,10 @@ runner_coredns_private_names:
 runner_sandbox_private_egress_cidr: "{{ runner_private_ip }}/32"
 runner_sandbox_private_egress_ports: "443"
 runner_haproxy_backend_group: k3s_ingress
-runner_preview_allowed_sources:
-  - "{{ microsandbox_control_private_ip }}"
-runner_preview_retired_sources:
+runner_kubernetes_private_cidr: 10.80.1.0/24
+runner_firewall_retired_sources:
   - 10.80.0.2
+  - 10.80.1.4
 zot_registry_domain: registry.usehivy.com
 zot_registry_private_ip: "{{ runner_private_ip }}"
 buildkit_registry: "{{ zot_registry_domain }}:5000"
@@ -23,7 +23,6 @@ microsandbox_binary_local_path: "{{ playbook_dir }}/../../dist/microsandbox-linu
 microsandbox_binary_remote_path: /usr/local/bin/microsandbox
 microsandbox_env_file: "{{ playbook_dir }}/../.env"
 microsandbox_runner_addr: "{{ runner_private_ip }}:{{ runner_api_port }}"
-microsandbox_control_private_ip: 10.80.1.4
 microsandbox_runner_env_path: /etc/hivy/microsandbox-runner.env
 microsandbox_runner_service_name: microsandbox-runner
 microsandbox_runner_backend: microsandbox

@@ -1,6 +1,10 @@
-# Managed by Ansible. Cluster-wide values must remain identical on every
-# future K3s server node.
+# Managed by Ansible. Cluster-wide values must remain identical on every K3s
+# server node. Only the first inventory host initializes embedded etcd.
+{% if inventory_hostname == k3s_bootstrap_host %}
 cluster-init: true
+{% else %}
+server: {{ k3s_bootstrap_server_url }}
+{% endif %}
 token-file: /etc/rancher/k3s/server-token
 
 node-name: {{ k3s_node_name }}
@@ -8,7 +12,9 @@ node-ip: {{ k3s_node_ip }}
 advertise-address: {{ k3s_node_ip }}
 bind-address: {{ k3s_bind_address }}
 tls-san:
-  - {{ k3s_node_ip }}
+{% for server_host in groups['k3s_servers'] %}
+  - {{ hostvars[server_host].k3s_node_ip }}
+{% endfor %}
 
 cluster-cidr: {{ k3s_cluster_cidr }}
 service-cidr: {{ k3s_service_cidr }}

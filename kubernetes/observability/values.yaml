@@ -1,0 +1,278 @@
+global:
+  clusterLabel: cluster
+  extraLabels:
+    app.kubernetes.io/part-of: hivy-observability
+
+victoria-metrics-operator:
+  enabled: true
+  # Info-level reconciliation logs embed entire generated rule ConfigMaps and
+  # can exceed VictoriaLogs' hard 2,000-field ceiling. Errors retain the useful
+  # operational signal without producing pathological 20,000-field records.
+  logLevel: error
+  operator:
+    disable_prometheus_converter: true
+  resources:
+    requests:
+      cpu: 80m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+defaultDashboards:
+  enabled: true
+
+defaultRules:
+  enabled: true
+  rules:
+    CPUThrottlingHigh:
+      spec:
+        for: 15m
+
+vmsingle:
+  enabled: true
+  spec:
+    retentionPeriod: 30d
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+    storage:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 15Gi
+
+vmagent:
+  enabled: true
+  rbac:
+    namespaced: false
+  spec:
+    selectAllByDefault: true
+    scrapeInterval: 15s
+    externalLabels:
+      cluster: usehivy
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    extraArgs:
+      promscrape.streamParse: "true"
+
+vlsingle:
+  enabled: true
+  spec:
+    retentionPeriod: 14d
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1536Mi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+    storage:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 30Gi
+
+vlagent:
+  enabled: true
+  rbac:
+    namespaced: false
+  spec:
+    logFormat: json
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    k8sCollector:
+      enabled: true
+      checkpointsPath: /var/lib/vlagent/checkpoints
+      includePodLabels: true
+      includePodAnnotations: false
+      includeNodeLabels: true
+      includeNodeAnnotations: false
+      extraFields: '{"cluster":"usehivy"}'
+      streamFields:
+        - kubernetes.pod_namespace
+        - kubernetes.pod_name
+        - kubernetes.container_name
+      ignoreFields:
+        - authorization
+        - Authorization
+        - cookie
+        - Cookie
+        - password
+        - token
+        - access_token
+        - refresh_token
+    remoteWriteSettings:
+      flushInterval: 1s
+      maxDiskUsagePerURL: 1GB
+      tmpDataPath: /var/lib/vlagent
+    volumeMounts:
+      - name: vlagent-buffer
+        mountPath: /var/lib/vlagent
+    volumes:
+      - name: vlagent-buffer
+        hostPath:
+          path: /var/lib/vlagent
+          type: DirectoryOrCreate
+
+vmalert:
+  enabled: true
+  spec:
+    selectAllByDefault: true
+    evaluationInterval: 20s
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+alertmanager:
+  enabled: true
+  spec:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  config:
+    route:
+      receiver: dashboard-only
+      group_by:
+        - alertname
+        - namespace
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+    receivers:
+      - name: dashboard-only
+
+grafana:
+  enabled: true
+  admin:
+    existingSecret: observability-grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  plugins:
+    - victoriametrics-metrics-datasource
+    - victoriametrics-logs-datasource
+  persistence:
+    enabled: true
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  grafana.ini:
+    server:
+      domain: monitor.usehivy.com
+      root_url: https://monitor.usehivy.com
+      enforce_domain: false
+    dashboards:
+      default_home_dashboard_path: /var/lib/grafana/dashboards/Kubernetes/hivy-overview.json
+    users:
+      allow_sign_up: false
+      allow_org_create: false
+    auth.anonymous:
+      enabled: false
+    security:
+      cookie_secure: true
+      cookie_samesite: strict
+      disable_gravatar: true
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      check_for_plugin_updates: false
+  sidecar:
+    datasources:
+      enabled: true
+      label: grafana_datasource
+      labelValue: "1"
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      provider:
+        name: default
+        orgid: 1
+      folder: /var/lib/grafana/dashboards
+      defaultFolderName: Kubernetes
+
+prometheus-node-exporter:
+  enabled: true
+  # Keep the exporter in the Pod network so cross-node scrapes traverse Cilium
+  # rather than requiring a host-firewall exception on every future node.
+  hostNetwork: false
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+kube-state-metrics:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+kubelet:
+  enabled: true
+  vmScrape:
+    spec:
+      interval: 15s
+
+kubeApiServer:
+  enabled: true
+
+coreDns:
+  enabled: true
+
+# K3s embeds these control-plane components in the server process rather than
+# exposing the standalone Pods and Services expected by this chart.
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false

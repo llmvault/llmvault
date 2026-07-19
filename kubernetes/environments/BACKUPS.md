@@ -9,8 +9,8 @@ volume snapshots are not the database backup mechanism.
 | --- | --- | --- | --- |
 | PostgreSQL base backup | daily 03:00 WAT (02:00 UTC) | daily 02:00 WAT (01:00 UTC) | environment backend PostgreSQL bucket under `postgres/` |
 | PostgreSQL WAL | continuous | continuous | same bucket under `postgres/` |
-| Redis Cluster RDB | daily 04:00 WAT (03:00 UTC) | daily 04:00 WAT (03:00 UTC) | environment backend PostgreSQL bucket under `redis/` |
-| Qdrant peer snapshots | daily 03:30 WAT (02:30 UTC) | daily 03:30 WAT (02:30 UTC) | environment Qdrant bucket |
+| Redis RDB | daily 04:00 WAT (03:00 UTC) | daily 04:00 WAT (03:00 UTC) | environment backend PostgreSQL bucket under `redis/` |
+| Qdrant snapshots | daily 03:30 WAT (02:30 UTC) | daily 03:30 WAT (02:30 UTC) | environment Qdrant bucket |
 | K3s etcd | every 6 hours | shared control plane | `usehivy-k3s-etcd` |
 
 PostgreSQL retention is managed by Barman: 14 days in staging and 30 days in
@@ -23,11 +23,11 @@ days in staging and 30 days in production; non-current versions expire after
 - CloudNativePG writes compressed base backups and WAL needed for point-in-time
   recovery. A backup is not considered restorable until its required ending WAL
   segment has been archived.
-- Redis exports one RDB from every leader, records `CLUSTER NODES`, loads every
-  RDB into a temporary Redis process, and verifies the process before upload.
-- Qdrant creates a collection snapshot on every peer. Distributed Qdrant
-  recovery must restore the matching peer snapshots; a single peer snapshot is
-  not a complete distributed backup.
+- Staging exports and validates one standalone Redis RDB. Production exports
+  one RDB from every cluster leader and also records `CLUSTER NODES`.
+- Staging creates one Qdrant collection snapshot. Production creates a
+  collection snapshot on every peer; distributed recovery must restore the
+  matching peer snapshots because one peer snapshot is not a complete backup.
 - K3s uploads encrypted-in-transit etcd snapshots through its native S3 support.
 
 ## Manual verification
@@ -53,9 +53,9 @@ For PostgreSQL, create a `Backup` using method `plugin` and plugin name
 ending WAL exists, and recover into a temporary one-instance CloudNativePG
 Cluster. Query a known canary row before declaring the backup verified.
 
-For Qdrant, download each peer snapshot, upload each one to the corresponding
-peer under a temporary collection name with `priority=snapshot`, and query a
-known canary point. Delete only the temporary collection after validation.
+For Qdrant, download the staging snapshot or every production peer snapshot,
+restore under a temporary collection name with `priority=snapshot`, and query
+a known canary point. Delete only the temporary collection after validation.
 
 Test restores should be repeated after operator upgrades and at least monthly.
 Production recovery must use a new Cluster or collection first; never overwrite

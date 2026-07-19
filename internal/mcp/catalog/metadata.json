@@ -19,6 +19,10 @@
       }
     }
   },
+  "posthog": {
+    "display_name": "PostHog",
+    "resources": {}
+  },
   "slack": {
     "display_name": "Slack",
     "resources": {

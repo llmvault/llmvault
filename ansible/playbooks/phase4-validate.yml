@@ -29,6 +29,29 @@
             timeout: 15
           register: microsandbox_configured_health
 
+        - name: Read runner firewall status
+          ansible.builtin.command: ufw status
+          register: microsandbox_ufw_status
+          changed_when: false
+
+        - name: Require subnet-wide Kubernetes runner access rules
+          ansible.builtin.assert:
+            that:
+              - microsandbox_ufw_status.stdout_lines | select('search', '^' ~ runner_api_port ~ '/tcp') | select('search', 'ALLOW') | select('search', runner_kubernetes_private_cidr | regex_escape) | list | length == 1
+              - microsandbox_ufw_status.stdout_lines | select('search', '^' ~ runner_preview_port_range_start ~ ':' ~ runner_preview_port_range_end ~ '/tcp') | select('search', 'ALLOW') | select('search', runner_kubernetes_private_cidr | regex_escape) | list | length == 1
+            fail_msg: "Runner firewall does not allow the complete Kubernetes vSwitch subnet."
+
+        - name: Verify every Kubernetes server can reach the runner API
+          ansible.builtin.uri:
+            url: "http://{{ runner_private_ip }}:{{ runner_api_port }}/health"
+            method: GET
+            status_code: 200
+            timeout: 10
+          delegate_to: "{{ item }}"
+          loop: "{{ groups['k3s_servers'] }}"
+          loop_control:
+            label: "{{ item }} -> {{ inventory_hostname }}"
+
         - name: Verify runner API port is not publicly reachable
           ansible.builtin.wait_for:
             host: "{{ ansible_host }}"

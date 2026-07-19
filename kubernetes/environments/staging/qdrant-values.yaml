@@ -1,6 +1,6 @@
 # Rendered with the official qdrant/qdrant Helm chart. Helm is a renderer only;
 # the generated manifest is applied directly with kubectl.
-replicaCount: 3
+replicaCount: 1
 
 image:
   repository: docker.io/qdrant/qdrant
@@ -166,8 +166,7 @@ snapshotPersistence:
 podManagementPolicy: Parallel
 
 podDisruptionBudget:
-  enabled: true
-  maxUnavailable: 1
+  enabled: false
 
 apiKey: false
 readOnlyApiKey: false
@@ -184,7 +183,7 @@ config:
     on_disk_payload: true
     collection:
       shard_number_per_node: 2
-      replication_factor: 2
+      replication_factor: 1
       write_consistency_factor: 1
       vectors:
         on_disk: true
@@ -198,7 +197,7 @@ config:
     enable_snapshot_url_recovery: false
     metrics_prefix: qdrant_
   cluster:
-    enabled: true
+    enabled: false
     p2p:
       port: 6335
       enable_tls: false

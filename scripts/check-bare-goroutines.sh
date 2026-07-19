@@ -9,7 +9,6 @@
 # Exclusions:
 #   * internal/goroutine/ — the implementation itself.
 #   * *_test.go files — tests may use bare goroutines freely.
-#   * cmd/fake-nango/ — excluded from all lint (see .golangci.yml).
 #   * scripts/goroutine-allowlist.txt — legitimate exceptions:
 #       - channel-producer goroutines whose lifecycle is bounded by channel
 #         close and whose callers propagate cancellation via ctx.Done();
@@ -37,7 +36,7 @@ trap 'rm -f "$allowlist_tmp" "$violations_tmp"' EXIT
 while IFS= read -r -d '' file; do
   # Skip generated/vendored/test files and the goroutine package itself.
   case "$file" in
-    ./vendor/*|./.ignored/*|./ansible/.secrets/*|./internal/goroutine/*|./cmd/fake-nango/*)
+    ./vendor/*|./.ignored/*|./ansible/.secrets/*|./internal/goroutine/*)
       continue ;;
     *_test.go)
       continue ;;

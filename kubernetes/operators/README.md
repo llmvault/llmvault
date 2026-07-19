@@ -32,28 +32,33 @@ longhornctl --kubeconfig "$KUBECONFIG" \
 longhornctl --kubeconfig "$KUBECONFIG" check preflight
 ```
 
-The current bare-metal node uses local NVMe RAID1 and has no multipath maps.
+The current bare-metal nodes use local NVMe RAID1 and have no multipath maps.
 `multipathd.service` and `multipathd.socket` are masked because Longhorn devices
 must not be claimed by the unused multipath daemon. `iscsid` is enabled and
 running. The preflight installer provides `nfs-common`, `nfs`, and `dm_crypt`.
 
-Persist the required modules and services without adding them to Ansible:
+Persist the required modules and services on every storage node:
 
 ```sh
-scp -i ~/.ssh/usehivy \
-  kubernetes/operators/longhorn/host-modules.conf \
-  root@95.216.118.156:/etc/modules-load.d/longhorn.conf
+for host in 95.216.118.156 95.216.224.189; do
+  scp -i ~/.ssh/usehivy \
+    kubernetes/operators/longhorn/host-modules.conf \
+    "root@$host:/etc/modules-load.d/longhorn.conf"
 
-ssh -i ~/.ssh/usehivy root@95.216.118.156 \
-  'modprobe nfs && modprobe dm_crypt && modprobe iscsi_tcp && \
-   systemctl enable --now iscsid && \
-   systemctl disable --now multipathd.service multipathd.socket && \
-   systemctl mask multipathd.service multipathd.socket'
+  ssh -i ~/.ssh/usehivy "root@$host" \
+    'modprobe nfs && modprobe dm_crypt && modprobe iscsi_tcp && \
+     systemctl enable --now iscsid && \
+     systemctl disable --now multipathd.service multipathd.socket && \
+     systemctl mask multipathd.service multipathd.socket'
+done
 ```
 
-The only expected preflight warning on the one-node cluster is that CoreDNS has
-one replica. Increase CoreDNS to at least two replicas after adding another
-node.
+CoreDNS and the Cilium operator run two replicas so both nodes retain DNS and
+CNI control-plane coverage:
+
+```sh
+kubectl -n kube-system scale deployment/coredns --replicas=2
+```
 
 ## Render and apply Longhorn
 
@@ -81,9 +86,10 @@ kubectl apply --server-side=true --field-manager=hivy-operators \
   -f ansible/.secrets/k8s0/operators/longhorn-v1.12.0.yaml
 ```
 
-The default StorageClass has one replica while the cluster has one node. When
-nodes are added, raise both replica-count settings and the CSI controller
-replicas before provisioning production volumes that need node redundancy.
+The default StorageClass creates two replicas, one per current storage node.
+After a new storage node becomes schedulable, expand existing Longhorn volumes
+to the desired replica count and wait until every volume reports `healthy`
+before moving stateful Pods.
 
 ## Apply CloudNativePG
 

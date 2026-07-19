@@ -41,7 +41,8 @@ func parseSpec(specData []byte, cfg ServiceConfig) (*ParseResult, error) {
 	useResources := len(cfg.Resources) > 0
 
 	for pair := model.Model.Paths.PathItems.First(); pair != nil; pair = pair.Next() {
-		path := pair.Key()
+		rawPath := pair.Key()
+		path := rawPath
 		pathItem := pair.Value()
 
 		if useResources {
@@ -60,6 +61,10 @@ func parseSpec(specData []byte, cfg ServiceConfig) (*ParseResult, error) {
 
 		ops := getOperations(pathItem)
 		for method, op := range ops {
+			if !matchesOperationSelector(rawPath, method, cfg.OperationSelectors) {
+				continue
+			}
+
 			if op.Deprecated != nil && *op.Deprecated {
 				continue
 			}

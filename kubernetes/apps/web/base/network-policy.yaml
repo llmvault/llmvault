@@ -1,0 +1,22 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: web-ingress
+  labels:
+    app.kubernetes.io/name: hivy-web
+    app.kubernetes.io/component: frontend
+    hivy.io/apply-phase: workload
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-web
+      app.kubernetes.io/component: frontend
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

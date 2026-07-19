@@ -1,0 +1,7 @@
+---
+- name: Configure private Microsandbox runner firewall
+  hosts: runners
+  become: true
+  gather_facts: false
+  roles:
+    - runner-firewall

@@ -3,14 +3,34 @@ kind: Deployment
 metadata:
   name: backend-worker
 spec:
-  replicas: 2
+  replicas: 1
   template:
     spec:
-      containers:
-        - name: worker
+      initContainers:
+        - name: migrate
           resources:
             requests:
-              cpu: 150m
+              cpu: 5m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      containers:
+        - name: worker
+          env:
+            - name: HIVY_NANGO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nango-backend-credentials
+                  key: HIVY_NANGO_SECRET_KEY
+            - name: HIVY_NANGO_WEBHOOKS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: nango-backend-credentials
+                  key: HIVY_NANGO_WEBHOOKS_SECRET
+          resources:
+            requests:
+              cpu: 10m
               memory: 384Mi
             limits:
               cpu: "1"

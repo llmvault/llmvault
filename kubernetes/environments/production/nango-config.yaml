@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nango-config
+  labels:
+    app.kubernetes.io/name: nango
+    hivy.io/apply-phase: workload
+data:
+  NANGO_PORT: "3003"
+  SERVER_PORT: "3003"
+  NANGO_DB_HOST: nango-postgres-rw
+  NANGO_DB_PORT: "5432"
+  NANGO_DB_USER: nango
+  NANGO_DB_NAME: nango
+  NANGO_DB_SSL: "true"
+  RECORDS_DATABASE_SSL: "true"
+  NANGO_DB_POOL_MIN: "2"
+  NANGO_DB_POOL_MAX: "30"
+  RECORDS_DATABASE_POOL_MIN: "2"
+  RECORDS_DATABASE_POOL_MAX: "30"
+  NANGO_DB_APPLICATION_NAME: nango-production
+  NANGO_SERVER_URL: https://connections.usehivy.com
+  NANGO_PUBLIC_SERVER_URL: https://connections.usehivy.com
+  NANGO_MIGRATE_AT_START: "true"
+  FLAG_AUTH_ENABLED: "true"
+  FLAG_SERVE_CONNECT_UI: "false"
+  FLAG_API_RATE_LIMIT_ENABLED: "false"
+  NANGO_LOGS_ENABLED: "false"
+  NANGO_OUTBOUND_URL_POLICY: '{"mode":"permissive","blockPrivateIps":false,"blockLinkLocal":false}'
+  CSP_REPORT_ONLY: "true"
+  TELEMETRY: "true"
+  HOME: /tmp

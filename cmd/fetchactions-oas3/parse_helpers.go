@@ -28,6 +28,19 @@ func matchesFilters(path string, includes, excludes []string) bool {
 	return true
 }
 
+// matchesOperationSelector checks an operation against an optional exact allowlist.
+func matchesOperationSelector(path, method string, selectors []OperationSelector) bool {
+	if len(selectors) == 0 {
+		return true
+	}
+	for _, selector := range selectors {
+		if selector.Path == path && strings.EqualFold(selector.Method, method) {
+			return true
+		}
+	}
+	return false
+}
+
 // matchesTags checks if an operation has at least one of the required tags.
 func matchesTags(op *v3high.Operation, tagFilters []string) bool {
 	if len(tagFilters) == 0 {

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  labels:
+    app.kubernetes.io/name: hivy-web
+    hivy.io/apply-phase: data
+data:
+  NODE_ENV: production
+  HIVY_LOG_LEVEL: info
+  HIVY_ADMIN_ENABLED: "true"
+
+  # Server-rendering and the authenticated proxy stay inside the namespace.
+  # The browser-facing runtime config continues to advertise public HTTPS.
+  HIVY_API_URL: http://backend-api.production.svc.cluster.local:8080
+  HIVY_PUBLIC_API_URL: https://api.usehivy.com
+  HIVY_CONNECTIONS_HOST: https://connections.usehivy.com
+  HIVY_PREVIEW_BASE_DOMAIN: preview.usehivy.com
+
+  HIVY_SENTRY_ENABLE_LOGS: "true"
+  HIVY_SENTRY_URL: https://glitch.usehivy.com
+  HIVY_SENTRY_ORG: hivy
+  HIVY_SENTRY_PROJECT: webusehivycom
+  HIVY_SENTRY_TRACES_SAMPLE_RATE: "0.01"

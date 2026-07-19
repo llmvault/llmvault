@@ -10,6 +10,11 @@ spec:
     - "*.preview.usehivy.com"
     - api.usehivy.com
     - staging.api.usehivy.com
+    - connections.usehivy.com
+    - staging.connections.usehivy.com
+    - usehivy.com
+    - staging.usehivy.com
+    - monitor.usehivy.com
   issuerRef:
     name: letsencrypt-production-vercel
     kind: ClusterIssuer

@@ -6,6 +6,17 @@ k3s_cluster_cidr: "10.42.0.0/16"
 k3s_service_cidr: "10.43.0.0/16"
 k3s_private_network_cidr: "10.80.0.0/16"
 k3s_bind_address: "{{ k3s_node_ip }}"
+k3s_bootstrap_host: k8s0
+k3s_bootstrap_server_url: "https://{{ hostvars[k3s_bootstrap_host].k3s_node_ip }}:6443"
+k3s_bootstrap_token_path: "{{ playbook_dir }}/../../.secrets/{{ k3s_bootstrap_host }}/server-token"
+
+k3s_configure_vswitch: true
+k3s_public_interface: enp0s31f6
+k3s_vswitch_vlan_id: 4000
+k3s_vswitch_mtu: 1400
+k3s_vswitch_prefix: 24
+k3s_vswitch_route_cidr: "10.80.0.0/16"
+k3s_vswitch_gateway: 10.80.1.1
 
 # Hetzner Load Balancer k8s-public-ingress (ID 7249812). Only this private
 # address may reach the host-network Gateway listeners.

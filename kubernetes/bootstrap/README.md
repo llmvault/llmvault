@@ -104,7 +104,7 @@ termination, and certificates. The current smallest Hetzner load balancer is:
 - public IPv4: `65.109.40.68`
 - public IPv6: `2a01:4f9:c01d:2cf::1` (allocated, but do not publish)
 - private IPv4: `10.80.0.4`
-- target: bare-metal node `10.80.1.4`
+- targets: bare-metal nodes `10.80.1.4` and `10.80.1.5`
 
 Its services are intentionally simple:
 
@@ -117,6 +117,11 @@ Both services use TCP health checks against their target port. The host
 firewall permits those target ports only from `10.80.0.4`. Cilium is configured
 to consume PROXY protocol, so Envoy preserves the original client address in
 `X-Forwarded-For` while TLS remains end-to-end from the client to Envoy.
+
+Both nodes run the K3s server, embedded-etcd, and worker roles. The load
+balancer should contain every host in Ansible's `k3s_ingress` group. The current
+two-member etcd cluster requires both members for quorum; add a third server
+before treating the control plane itself as highly available.
 
 Do not configure TLS certificates on the Hetzner load balancer. Do not point
 production DNS at its public addresses until the application migration is
@@ -134,9 +139,10 @@ PROXY protocol is healthy and preserves the original client IP.
 ## Private application routing
 
 The same Cilium Gateway owns a private HTTPS listener on port `443`. Kubernetes
-CoreDNS rewrites `*.preview.usehivy.com` to the Gateway Service ClusterIP, so
-API and asynq Pods reach the in-cluster preview Caddy without leaving the
-cluster. Runner-local CoreDNS resolves `api.usehivy.com` and
+CoreDNS rewrites `*.preview.usehivy.com` to the production preview TLS bridge.
+The bridge prepends PROXY v2 before forwarding ordinary Pod HTTPS to the Cilium
+Gateway, so API and asynq Pods reach preview Caddy without leaving the cluster.
+Runner-local CoreDNS resolves `api.usehivy.com` and
 `staging.api.usehivy.com` to that runner's private HAProxy listener. HAProxy
 passes TLS through to a healthy private K3s ingress node. This path does not
 use the Hetzner load balancer.

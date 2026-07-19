@@ -4,20 +4,36 @@ namespace: staging
 resources:
   - namespace.yaml
   - ../../apps/backend/base
+  - ../../apps/nango/base
   - ../../apps/data-backups
+  - ../../apps/web/base
   - backend-config.yaml
+  - nango-config.yaml
+  - nango-postgres.yaml
+  - nango-routes.yaml
   - postgres.yaml
   - redis.yaml
   - resources.yaml
   - network-policies.yaml
   - routes.yaml
+  - web-config.yaml
+  - web-routes.yaml
 patches:
   - path: api-patch.yaml
+  - path: qdrant-backup-patch.yaml
+  - path: redis-backup-patch.yaml
   - path: worker-patch.yaml
+  - path: web-patch.yaml
 images:
   - name: ghcr.io/usehivy/hivy
     newName: ghcr.io/usehivy/hivy
-    digest: sha256:d310bffaf541e05837a4740f2280f50588bf99816a2e5d889894eab0b7a2cbba
+    digest: sha256:59071935749eebb9b79634e96b7f880e29e0b75e5d799bab1c25e4623bed880c
+  - name: ghcr.io/usehivy/integrations
+    newName: ghcr.io/usehivy/integrations
+    digest: sha256:75a2e6e31b1d1ec3e798e334c84ec5aff776c23c30a50847a19f7abde1f17334
+  - name: ghcr.io/usehivy/web
+    newName: ghcr.io/usehivy/web
+    digest: sha256:fdef9f5a488e4465a24e93d21f3e6b8a7fd2532b3527c816ae1cb97f5eb7f903
 secretGenerator:
   - name: backend-secrets
     envs:
@@ -48,6 +64,29 @@ secretGenerator:
     envs:
       - secrets/redis-backup.env
     type: Opaque
+  - name: nango-runtime-secrets
+    envs:
+      - secrets/nango-runtime.env
+    type: Opaque
+  - name: nango-backend-credentials
+    envs:
+      - secrets/nango-backend.env
+    type: Opaque
+  - name: nango-postgres-app
+    envs:
+      - secrets/nango-postgres.env
+    type: kubernetes.io/basic-auth
+  - name: nango-postgres-backup-s3
+    envs:
+      - secrets/nango-postgres-backup.env
+    type: Opaque
+  - name: web-secrets
+    envs:
+      - secrets/web.env
+    type: Opaque
+    options:
+      labels:
+        app.kubernetes.io/name: hivy-web
 generatorOptions:
   disableNameSuffixHash: true
   labels:

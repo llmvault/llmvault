@@ -2,14 +2,16 @@ package main
 
 // ServiceConfig defines how to fetch and parse an OpenAPI spec for a service.
 type ServiceConfig struct {
-	Name           string            // service name (maps to metadata.json key)
-	SpecSource     string            // URL to the OpenAPI spec file
-	NangoProviders []string          // nango provider IDs that share this API surface
-	PathFilters    []string          // include only paths matching these prefixes (empty = all)
-	PathExcludes   []string          // exclude paths matching these prefixes
-	TagFilters     []string          // include only operations with these tags (empty = all)
-	BasePathStrip  string            // strip this prefix from paths before output
-	ExtraHeaders   map[string]string // added to every action's execution.headers
+	Name           string   // service name (maps to metadata.json key)
+	SpecSource     string   // URL to the OpenAPI spec file
+	NangoProviders []string // nango provider IDs that share this API surface
+	PathFilters    []string // include only paths matching these prefixes (empty = all)
+	PathExcludes   []string // exclude paths matching these prefixes
+	TagFilters     []string // include only operations with these tags (empty = all)
+	// OperationSelectors limits generation to exact method/path pairs when set.
+	OperationSelectors []OperationSelector
+	BasePathStrip      string            // strip this prefix from paths before output
+	ExtraHeaders       map[string]string // added to every action's execution.headers
 	// TagResourceMap maps OpenAPI tags to resource_type values.
 	// e.g. {"Issues": "repo", "Pull Requests": "repo"}
 	// Ignored when Resources is set.
@@ -19,6 +21,13 @@ type ServiceConfig struct {
 	// When set, replaces PathFilters, PathExcludes, and TagResourceMap entirely.
 	// Only actions matching a resource's path patterns are included.
 	Resources map[string]ResourceFilterConfig
+}
+
+// OperationSelector identifies one OpenAPI operation by its original path and HTTP method.
+// It is used for APIs where a curated, small action surface is preferable to every endpoint.
+type OperationSelector struct {
+	Method string
+	Path   string
 }
 
 // ResourceFilterConfig defines a resource and the path patterns used to filter actions for it.
@@ -150,6 +159,35 @@ func AllServices() []ServiceConfig {
 			Name:           "discord",
 			SpecSource:     "https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json",
 			NangoProviders: []string{"discord"},
+		},
+		{
+			Name:           "posthog",
+			SpecSource:     "https://eu.posthog.com/api/schema/",
+			NangoProviders: []string{"posthog"},
+			// A focused, read-only analytics surface. Keep this list explicit so
+			// changes to PostHog's very large schema cannot expand it unexpectedly.
+			OperationSelectors: []OperationSelector{
+				{Method: "GET", Path: "/api/projects/{project_id}/dashboards/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/dashboards/{id}/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/dashboards/{id}/run_insights/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/dashboards/{id}/run_widgets/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/events/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/events/values/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/insights/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/insights/{id}/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/insights/{id}/analyze/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/insights/trending/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/persons/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/persons/{id}/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/persons/{id}/activity/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/persons/funnel/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/persons/lifecycle/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/persons/trends/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/web_analytics/recap/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/cohorts/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/cohorts/{id}/"},
+				{Method: "GET", Path: "/api/projects/{project_id}/experiments/"},
+			},
 		},
 	}
 }

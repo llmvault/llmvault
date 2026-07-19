@@ -1,0 +1,1537 @@
+{
+  "display_name": "PostHog",
+  "resources": {},
+  "actions": {
+    "cohorts_list": {
+      "display_name": "Cohorts List",
+      "description": "",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "basic": {
+            "type": "boolean",
+            "description": "Return a basic payload that omits the heavy `filters`, `query`, and `groups` fields. Useful for pickers that only need id/name/count."
+          },
+          "hide_behavioral_cohorts": {
+            "type": "boolean",
+            "description": "Set true to exclude behavioral (event-based) cohorts, which can't be used in feature flags or batch workflow audiences."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return per page."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The initial index from which to return the results."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "search": {
+            "type": "string",
+            "description": "Optional. Match against cohort `name`. Returns exact (case-insensitive substring) matches only; if no exact match exists, returns similar (fuzzy trigram — typos, transpositions, prefix-as-you-typ..."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/cohorts/",
+        "query_mapping": {
+          "basic": "basic",
+          "hide_behavioral_cohorts": "hide_behavioral_cohorts",
+          "limit": "limit",
+          "offset": "offset",
+          "search": "search"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedCohortList"
+    },
+    "cohorts_retrieve": {
+      "display_name": "Cohorts Retrieve",
+      "description": "",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "A unique integer value identifying this cohort."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/cohorts/{id}/"
+      },
+      "response_schema": "Cohort"
+    },
+    "dashboards_list": {
+      "display_name": "Dashboards List",
+      "description": "",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "Optional. Return only dashboards filed directly in this project-tree folder, e.g. 'Unfiled/Dashboards'. An empty string matches dashboards at the project root. Nested sub-folders are not included."
+          },
+          "format": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return per page."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The initial index from which to return the results."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "search": {
+            "type": "string",
+            "description": "Optional. Match against dashboard `name`, `description`, and tag names. Returns exact (case-insensitive substring) matches only; if no exact match exists, returns similar (fuzzy trigram — typos, ..."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/dashboards/",
+        "query_mapping": {
+          "folder": "folder",
+          "format": "format",
+          "limit": "limit",
+          "offset": "offset",
+          "search": "search"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedDashboardBasicList"
+    },
+    "dashboards_retrieve": {
+      "display_name": "Dashboards Retrieve",
+      "description": "",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "filters_override": {
+            "type": "string",
+            "description": "Object (or pre-encoded JSON string) to override dashboard filters for this request only (not persisted). Top-level keys replace; nested values are not deep-merged — pass the complete value for an..."
+          },
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "A unique integer value identifying this dashboard."
+          },
+          "include_dashboards": {
+            "type": "boolean",
+            "description": "Opt in to receiving the deprecated `dashboards` field in insight payloads. Once opt-in enforcement is enabled, API-token callers stop receiving it by default; use `dashboard_tiles` instead."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "variables_override": {
+            "type": "string",
+            "description": "Object (or pre-encoded JSON string) to override dashboard variables for this request only (not persisted). Format: {\"\u003cvariable_id\u003e\": {\"code_name\": \"\u003ccode_name\u003e\", \"variableId\": \"\u003cvariable_id\u003e\", \"val..."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/dashboards/{id}/",
+        "query_mapping": {
+          "filters_override": "filters_override",
+          "format": "format",
+          "include_dashboards": "include_dashboards",
+          "variables_override": "variables_override"
+        }
+      },
+      "response_schema": "Dashboard"
+    },
+    "dashboards_run_insights_retrieve": {
+      "display_name": "Dashboards Run Insights Retrieve",
+      "description": "Run all insights on a dashboard and return their results.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "filters_override": {
+            "type": "string",
+            "description": "Object (or pre-encoded JSON string) to override dashboard filters for this request only (not persisted). Top-level keys replace; nested values are not deep-merged — pass the complete value for an..."
+          },
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "A unique integer value identifying this dashboard."
+          },
+          "output_format": {
+            "type": "string",
+            "description": "'optimized' (default) returns LLM-friendly formatted text per insight. 'json' returns the raw query result objects."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Cache behavior. 'force_cache' (default) serves from cache even if stale. 'blocking' uses cache if fresh, otherwise recalculates. 'force_blocking' always recalculates."
+          },
+          "variables_override": {
+            "type": "string",
+            "description": "Object (or pre-encoded JSON string) to override dashboard variables for this request only (not persisted). Format: {\"\u003cvariable_id\u003e\": {\"code_name\": \"\u003ccode_name\u003e\", \"variableId\": \"\u003cvariable_id\u003e\", \"val..."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/dashboards/{id}/run_insights/",
+        "query_mapping": {
+          "filters_override": "filters_override",
+          "format": "format",
+          "output_format": "output_format",
+          "refresh": "refresh",
+          "variables_override": "variables_override"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "RunInsightsResponse"
+    },
+    "dashboards_run_widgets_retrieve": {
+      "display_name": "Dashboards Run Widgets Retrieve",
+      "description": "",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "A unique integer value identifying this dashboard."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "tile_ids": {
+            "type": "string",
+            "description": "Comma-separated dashboard tile IDs to run widgets for."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/dashboards/{id}/run_widgets/",
+        "query_mapping": {
+          "format": "format",
+          "tile_ids": "tile_ids"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "RunWidgetsResponse"
+    },
+    "events_list": {
+      "display_name": "Events List",
+      "description": "This endpoint allows you to list and filter events. It is effectively deprecated and is kept only for backwards compatibility. If you ever ask about it you will be advised to not use it... If you w...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Only return events with a timestamp after this time. Default: now() - 24 hours."
+          },
+          "before": {
+            "type": "string",
+            "description": "Only return events with a timestamp before this time. Default: now() + 5 seconds."
+          },
+          "distinct_id": {
+            "type": "integer",
+            "description": "Filter list by distinct id."
+          },
+          "event": {
+            "type": "string",
+            "description": "Filter list by event. For example `user sign up` or `$pageview`."
+          },
+          "format": {
+            "type": "string"
+          },
+          "include_person": {
+            "type": "boolean",
+            "description": "Include person details for each event. Default: false."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum number of results to return"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Allows to skip first offset rows. Will fail for value larger than 100000. Read about proper way of paginating: https://posthog.com/docs/api/queries#5-use-timestamp-based-pagination-instead-of-offset"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Filter list by person id."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "properties": {
+            "type": "array",
+            "description": "Filter events by event property, person property, cohort, groups and more."
+          },
+          "select": {
+            "type": "array",
+            "description": "(Experimental) JSON-serialized array of HogQL expressions to return"
+          },
+          "where": {
+            "type": "array",
+            "description": "(Experimental) JSON-serialized array of HogQL expressions that must pass"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/events/",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "distinct_id": "distinct_id",
+          "event": "event",
+          "format": "format",
+          "include_person": "include_person",
+          "limit": "limit",
+          "offset": "offset",
+          "person_id": "person_id",
+          "properties": "properties",
+          "select": "select",
+          "where": "where"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedClickhouseEventList"
+    },
+    "events_values_retrieve": {
+      "display_name": "Events Values Retrieve",
+      "description": "",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/events/values/",
+        "query_mapping": {
+          "format": "format"
+        }
+      }
+    },
+    "experiments_list": {
+      "display_name": "Experiments List",
+      "description": "List experiments for the current project. Supports filtering by status and archival state.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Filter by archived state. Defaults to non-archived experiments only."
+          },
+          "created_by_id": {
+            "type": "string",
+            "description": "Filter to experiments created by the given user(s). Accepts a single user ID, or a JSON-encoded / comma-separated list of user IDs to match any of them."
+          },
+          "event": {
+            "type": "string",
+            "description": "Filter to experiments whose metrics reference this event name. Matches events used directly in metric queries as well as events behind any actions those metrics reference."
+          },
+          "feature_flag_id": {
+            "type": "integer",
+            "description": "Filter to experiments linked to the given feature flag ID."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return per page."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The initial index from which to return the results."
+          },
+          "order": {
+            "type": "string",
+            "description": "Field to order by. Prefix with '-' for descending. Allowlisted fields include name, created_at, updated_at, start_date, end_date, duration, and status."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "prompt_name": {
+            "type": "string",
+            "description": "Filter to experiments created from an LLM prompt with this name. Matches experiments whose parameters.prompt_metadata.name equals the given value."
+          },
+          "search": {
+            "type": "string",
+            "description": "Free-text search applied to the experiment name (case-insensitive)."
+          },
+          "status": {
+            "type": "string",
+            "description": "Filter by experiment status. \"running\", \"paused\", and \"exposure_frozen\" are mutually exclusive: \"running\" returns launched experiments with an active feature flag, \"paused\" returns launched experim..."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/experiments/",
+        "query_mapping": {
+          "archived": "archived",
+          "created_by_id": "created_by_id",
+          "event": "event",
+          "feature_flag_id": "feature_flag_id",
+          "limit": "limit",
+          "offset": "offset",
+          "order": "order",
+          "prompt_name": "prompt_name",
+          "search": "search",
+          "status": "status"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedExperimentBasicList"
+    },
+    "insights_analyze_retrieve": {
+      "display_name": "Insights Analyze Retrieve",
+      "description": "DRF ViewSet mixin that gates coalesced responses behind permission checks. The QueryCoalescingMiddleware attaches cached response data to request.META[\"_coalesced_response\"] for followers. This mix...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "A unique integer value identifying this insight."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/insights/{id}/analyze/",
+        "query_mapping": {
+          "format": "format"
+        }
+      }
+    },
+    "insights_list": {
+      "display_name": "Insights List",
+      "description": "DRF ViewSet mixin that gates coalesced responses behind permission checks. The QueryCoalescingMiddleware attaches cached response data to request.META[\"_coalesced_response\"] for followers. This mix...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "basic": {
+            "type": "boolean",
+            "description": "Return basic insight metadata only (no results, faster)."
+          },
+          "created_by": {
+            "type": "string",
+            "description": "JSON-encoded array of user IDs. Only returns insights whose `created_by` is in the list, e.g. `[1,42]`."
+          },
+          "created_date_from": {
+            "type": "string",
+            "description": "Filter by `created_at \u003e created_date_from`. Accepts absolute or relative dates."
+          },
+          "created_date_to": {
+            "type": "string",
+            "description": "Filter by `created_at \u003c created_date_to`. Accepts absolute or relative dates."
+          },
+          "dashboards": {
+            "type": "string",
+            "description": "JSON-encoded array of dashboard IDs. Returns insights attached to every listed dashboard (AND)."
+          },
+          "date_from": {
+            "type": "string",
+            "description": "Filter by `last_modified_at \u003e date_from`. Accepts absolute dates (`2025-04-23`) or relative strings (`-7d`, `-1m`)."
+          },
+          "date_to": {
+            "type": "string",
+            "description": "Filter by `last_modified_at \u003c date_to`. Accepts absolute dates or relative strings."
+          },
+          "favorited": {
+            "type": "boolean",
+            "description": "Include this parameter (any value) to restrict results to insights marked as favorited."
+          },
+          "format": {
+            "type": "string"
+          },
+          "include_dashboards": {
+            "type": "boolean",
+            "description": "Opt in to receiving the deprecated `dashboards` field in insight payloads. Once opt-in enforcement is enabled, API-token callers stop receiving it by default; use `dashboard_tiles` instead."
+          },
+          "insight": {
+            "type": "string",
+            "description": "Restrict to a single insight type. `JSON` matches non-wrapper query insights; `SQL` matches HogQL queries."
+          },
+          "last_viewed_date_from": {
+            "type": "string",
+            "description": "Filter by `last_viewed_at \u003e last_viewed_date_from`. Accepts absolute or relative dates."
+          },
+          "last_viewed_date_to": {
+            "type": "string",
+            "description": "Filter by `last_viewed_at \u003c last_viewed_date_to`. Accepts absolute or relative dates."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return per page."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The initial index from which to return the results."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "refresh": {
+            "type": "string",
+            "description": "\nWhether to refresh the retrieved insights, how aggressively, and if sync or async:\n- `'force_cache'` - return cached data or a cache miss; always completes immediately as it never calculates\n- `'b..."
+          },
+          "saved": {
+            "type": "boolean",
+            "description": "When truthy, restricts results to insights that are saved (or attached to a visible dashboard). When falsy, only unsaved insights."
+          },
+          "search": {
+            "type": "string",
+            "description": "Search term matched across name, derived_name, description, and tag names. Returns exact (case-insensitive substring) matches only; if no exact match exists, returns similar (fuzzy trigram) matches..."
+          },
+          "short_id": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "string",
+            "description": "JSON-encoded array of tag names. Returns insights with any of the listed tags."
+          },
+          "user": {
+            "type": "boolean",
+            "description": "Include this parameter (any value) to restrict results to insights created by the authenticated user."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/insights/",
+        "query_mapping": {
+          "basic": "basic",
+          "created_by": "created_by",
+          "created_date_from": "created_date_from",
+          "created_date_to": "created_date_to",
+          "dashboards": "dashboards",
+          "date_from": "date_from",
+          "date_to": "date_to",
+          "favorited": "favorited",
+          "format": "format",
+          "include_dashboards": "include_dashboards",
+          "insight": "insight",
+          "last_viewed_date_from": "last_viewed_date_from",
+          "last_viewed_date_to": "last_viewed_date_to",
+          "limit": "limit",
+          "offset": "offset",
+          "refresh": "refresh",
+          "saved": "saved",
+          "search": "search",
+          "short_id": "short_id",
+          "tags": "tags",
+          "user": "user"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedInsightList"
+    },
+    "insights_retrieve": {
+      "display_name": "Insights Retrieve",
+      "description": "DRF ViewSet mixin that gates coalesced responses behind permission checks. The QueryCoalescingMiddleware attaches cached response data to request.META[\"_coalesced_response\"] for followers. This mix...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "filters_override": {
+            "type": "string",
+            "description": "Object (or pre-encoded JSON string) to override the insight's filters for this request only (not persisted). Top-level keys replace; nested values are not deep-merged — pass the complete value fo..."
+          },
+          "format": {
+            "type": "string"
+          },
+          "from_dashboard": {
+            "type": "integer",
+            "description": "\nOnly if loading an insight in the context of a dashboard: The relevant dashboard's ID.\nWhen set, the specified dashboard's filters and date range override will be applied."
+          },
+          "id": {
+            "type": "string",
+            "description": "Numeric primary key or 8-character `short_id` (for example `AaVQ8Ijw`) identifying the insight."
+          },
+          "include_dashboards": {
+            "type": "boolean",
+            "description": "Opt in to receiving the deprecated `dashboards` field in insight payloads. Once opt-in enforcement is enabled, API-token callers stop receiving it by default; use `dashboard_tiles` instead."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "refresh": {
+            "type": "string",
+            "description": "\nWhether to refresh the insight, how aggresively, and if sync or async:\n- `'force_cache'` - return cached data or a cache miss; always completes immediately as it never calculates\n- `'blocking'` - ..."
+          },
+          "variables_override": {
+            "type": "string",
+            "description": "Object (or pre-encoded JSON string) to override the insight's HogQL variables for this request only (not persisted). Format: {\"\u003cvariable_id\u003e\": {\"code_name\": \"\u003ccode_name\u003e\", \"variableId\": \"\u003cvariable_..."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/insights/{id}/",
+        "query_mapping": {
+          "filters_override": "filters_override",
+          "format": "format",
+          "from_dashboard": "from_dashboard",
+          "include_dashboards": "include_dashboards",
+          "refresh": "refresh",
+          "variables_override": "variables_override"
+        }
+      },
+      "response_schema": "Insight"
+    },
+    "insights_trending_retrieve": {
+      "display_name": "Insights Trending Retrieve",
+      "description": "Returns insights ranked by view count over the last N days (default 7), highest first. Each result includes the same metadata as the standard insights list, plus a `view_count` and up to 3 recent `...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "description": "Time window in days to compute view counts over. Defaults to 7. Larger windows surface consistently popular insights; smaller windows surface what's hot right now."
+          },
+          "format": {
+            "type": "string"
+          },
+          "include_dashboards": {
+            "type": "boolean",
+            "description": "Opt in to receiving the deprecated `dashboards` field in insight payloads. Once opt-in enforcement is enabled, API-token callers stop receiving it by default; use `dashboard_tiles` instead."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of insights to return. Defaults to 10. Capped at 100."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The initial index from which to return the results."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/insights/trending/",
+        "query_mapping": {
+          "days": "days",
+          "format": "format",
+          "include_dashboards": "include_dashboards",
+          "limit": "limit",
+          "offset": "offset"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedTrendingInsightList"
+    },
+    "persons_activity_retrieve": {
+      "display_name": "Persons Activity Retrieve",
+      "description": "This endpoint is meant for reading and deleting persons. To create or update persons, we recommend using the [capture API](https://posthog.com/docs/api/capture), the `$set` and `$unset` [properties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "A unique integer value identifying this person."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/persons/{id}/activity/",
+        "query_mapping": {
+          "format": "format"
+        }
+      }
+    },
+    "persons_funnel_retrieve": {
+      "display_name": "Persons Funnel Retrieve",
+      "description": "This endpoint is meant for reading and deleting persons. To create or update persons, we recommend using the [capture API](https://posthog.com/docs/api/capture), the `$set` and `$unset` [properties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/persons/funnel/",
+        "query_mapping": {
+          "format": "format"
+        }
+      }
+    },
+    "persons_lifecycle_retrieve": {
+      "display_name": "Persons Lifecycle Retrieve",
+      "description": "This endpoint is meant for reading and deleting persons. To create or update persons, we recommend using the [capture API](https://posthog.com/docs/api/capture), the `$set` and `$unset` [properties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/persons/lifecycle/",
+        "query_mapping": {
+          "format": "format"
+        }
+      }
+    },
+    "persons_list": {
+      "display_name": "Persons List",
+      "description": "This endpoint is meant for reading and deleting persons. To create or update persons, we recommend using the [capture API](https://posthog.com/docs/api/capture), the `$set` and `$unset` [properties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "distinct_id": {
+            "type": "string",
+            "description": "Filter list by distinct id."
+          },
+          "email": {
+            "type": "string",
+            "description": "Filter persons by email (exact match)"
+          },
+          "format": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return per page."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The initial index from which to return the results."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          },
+          "properties": {
+            "type": "array",
+            "description": "Filter Persons by person properties."
+          },
+          "search": {
+            "type": "string",
+            "description": "Search persons, either by email (full text search) or distinct_id (exact match)."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/persons/",
+        "query_mapping": {
+          "distinct_id": "distinct_id",
+          "email": "email",
+          "format": "format",
+          "limit": "limit",
+          "offset": "offset",
+          "properties": "properties",
+          "search": "search"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "PaginatedPersonRecordList"
+    },
+    "persons_retrieve": {
+      "display_name": "Persons Retrieve",
+      "description": "This endpoint is meant for reading and deleting persons. To create or update persons, we recommend using the [capture API](https://posthog.com/docs/api/capture), the `$set` and `$unset` [properties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "A unique value identifying this person. Accepts both numeric ID and UUID."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/persons/{id}/",
+        "query_mapping": {
+          "format": "format"
+        }
+      },
+      "response_schema": "PersonRecord"
+    },
+    "persons_trends_retrieve": {
+      "display_name": "Persons Trends Retrieve",
+      "description": "This endpoint is meant for reading and deleting persons. To create or update persons, we recommend using the [capture API](https://posthog.com/docs/api/capture), the `$set` and `$unset` [properties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/persons/trends/",
+        "query_mapping": {
+          "format": "format"
+        }
+      }
+    },
+    "web_analytics_recap": {
+      "display_name": "Weekly web analytics recap",
+      "description": "The 'Wrapped'-style weekly recap: everything in the weekly digest (visitors, pageviews, sessions, bounce rate, average session duration with period-over-period comparisons, top pages, top sources, ...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "compare": {
+            "type": "boolean",
+            "description": "When true (default), include period-over-period change for each metric comparing against the prior equal-length period. Set to false to skip the comparison query."
+          },
+          "days": {
+            "type": "integer",
+            "description": "Lookback window in days (1–90). Defaults to 7."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID of the project you're trying to access. To find the ID of the project, make a call to /api/projects/."
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/projects/{project_id}/web_analytics/recap/",
+        "query_mapping": {
+          "compare": "compare",
+          "days": "days"
+        }
+      },
+      "response_schema": "WebAnalyticsRecapResponse"
+    }
+  },
+  "schemas": {
+    "Cohort": {
+      "type": "object",
+      "properties": {
+        "_create_in_folder": {
+          "type": "string"
+        },
+        "_create_static_person_ids": {
+          "type": "array"
+        },
+        "cohort_type": {
+          "type": "string",
+          "description": "Type of cohort based on filter complexity\n\n* `static` - static\n* `person_property` - person_property\n* `behavioral` - behavioral\n* `realtime` - realtime\n* `analytical` - analytical"
+        },
+        "condition_type": {
+          "type": "string",
+          "description": "Flags describing which kinds of conditions the cohort's filters contain. Null when the cohort has no filters to classify."
+        },
+        "count": {
+          "type": "integer"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "errors_calculating": {
+          "type": "integer"
+        },
+        "experiment_set": {
+          "type": "array"
+        },
+        "filters": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "is_calculating": {
+          "type": "boolean"
+        },
+        "is_static": {
+          "type": "boolean"
+        },
+        "last_backfill_person_properties_at": {
+          "type": "string"
+        },
+        "last_calculation": {
+          "type": "string"
+        },
+        "last_error_message": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pending_version": {
+          "type": "integer"
+        },
+        "query": {
+          "type": "string"
+        },
+        "search_match_type": {
+          "type": "string",
+          "description": "How this row matched the `search` query parameter: `exact` (the term is a case-insensitive substring of a searched field) or `similar` (a fuzzy trigram match, returned only when no exact match exists). Null when the list is not filtered by `search`."
+        },
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "Dashboard": {
+      "type": "object",
+      "properties": {
+        "_create_in_folder": {
+          "type": "string"
+        },
+        "access_control_version": {
+          "type": "string"
+        },
+        "breakdown_colors": {
+          "type": "string",
+          "description": "Custom color mapping for breakdown values."
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "creation_mode": {
+          "type": "string"
+        },
+        "data_color_theme_id": {
+          "type": "integer",
+          "description": "ID of the color theme used for chart visualizations."
+        },
+        "delete_insights": {
+          "type": "boolean",
+          "description": "When deleting, also delete insights that are only on this dashboard."
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "effective_privilege_level": {
+          "type": "string"
+        },
+        "effective_restriction_level": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "object"
+        },
+        "folder": {
+          "type": "string",
+          "description": "Path of the project-tree folder this dashboard is filed under in the file system, e.g. 'Unfiled/Dashboards'. An empty string means the project root; null means the dashboard has no file system entry. The dashboard's own name is not part of the path."
+        },
+        "id": {
+          "type": "integer"
+        },
+        "is_shared": {
+          "type": "boolean"
+        },
+        "last_accessed_at": {
+          "type": "string"
+        },
+        "last_refresh": {
+          "type": "string"
+        },
+        "last_viewed_at": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "persisted_filters": {
+          "type": "object"
+        },
+        "persisted_variables": {
+          "type": "object"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "quick_filter_ids": {
+          "type": "array",
+          "description": "List of quick filter IDs associated with this dashboard"
+        },
+        "restriction_level": {
+          "type": "integer",
+          "description": "* `21` - Everyone in the project can edit\n* `37` - Only those invited to this dashboard can edit"
+        },
+        "tags": {
+          "type": "array"
+        },
+        "team_id": {
+          "type": "integer"
+        },
+        "tiles": {
+          "type": "array"
+        },
+        "use_dashboard": {
+          "type": "integer",
+          "description": "ID of an existing dashboard to duplicate."
+        },
+        "use_template": {
+          "type": "string",
+          "description": "Template key to create the dashboard from a predefined template."
+        },
+        "user_access_level": {
+          "type": "string",
+          "description": "The effective access level the user has for this object"
+        },
+        "variables": {
+          "type": "object"
+        }
+      }
+    },
+    "Insight": {
+      "type": "object",
+      "properties": {
+        "_create_in_folder": {
+          "type": "string"
+        },
+        "alerts": {
+          "type": "array"
+        },
+        "cache_target_age": {
+          "type": "string",
+          "description": "The target age of the cached results for this insight."
+        },
+        "columns": {
+          "type": "array"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "dashboard_tiles": {
+          "type": "array",
+          "description": "\n    A dashboard tile ID and dashboard_id for each of the dashboards that this insight is displayed on.\n    "
+        },
+        "dashboards": {
+          "type": "array",
+          "description": "\n        DEPRECATED. Will be removed in a future release. Use dashboard_tiles instead.\n        A dashboard ID for each of the dashboards that this insight is displayed on.\n        This field may be omitted from responses: once opt-in enforcement is enabled, API-token\n        callers (personal API keys, OAuth) only receive it when passing the\n        `include_dashboards=true` query parameter. Do not rely on it being present.\n        "
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "derived_name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "effective_privilege_level": {
+          "type": "string"
+        },
+        "effective_restriction_level": {
+          "type": "string"
+        },
+        "favorited": {
+          "type": "boolean"
+        },
+        "filter_override_context": {
+          "type": "string",
+          "description": "Resolved dashboard and tile filter layers used to explain filter precedence in the UI."
+        },
+        "hasMore": {
+          "type": "boolean"
+        },
+        "hogql": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "is_cached": {
+          "type": "boolean"
+        },
+        "is_sample": {
+          "type": "boolean"
+        },
+        "last_modified_at": {
+          "type": "string"
+        },
+        "last_modified_by": {
+          "type": "string"
+        },
+        "last_refresh": {
+          "type": "string",
+          "description": "\n    The datetime this insight's results were generated.\n    If added to one or more dashboards the insight can be refreshed separately on each.\n    Returns the appropriate last_refresh datetime for the context the insight is viewed in\n    (see from_dashboard query parameter).\n    "
+        },
+        "last_viewed_at": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "next_allowed_client_refresh": {
+          "type": "string",
+          "description": "\n    The earliest possible datetime at which we'll allow the cached results for this insight to be refreshed\n    by querying the database.\n    "
+        },
+        "order": {
+          "type": "integer"
+        },
+        "query": {
+          "type": "string"
+        },
+        "query_status": {
+          "type": "string"
+        },
+        "resolved_date_range": {
+          "type": "object"
+        },
+        "result": {
+          "type": "string"
+        },
+        "search_match_type": {
+          "type": "string",
+          "description": "How this row matched the `search` query parameter: `exact` (the term is a case-insensitive substring of a searched field) or `similar` (a fuzzy trigram match, returned only when no exact match exists). Null when the list is not filtered by `search`."
+        },
+        "short_id": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "The timezone this chart is displayed in."
+        },
+        "types": {
+          "type": "array"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "user_access_level": {
+          "type": "string",
+          "description": "The effective access level the user has for this object"
+        }
+      }
+    },
+    "PaginatedClickhouseEventList": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PaginatedCohortList": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "next": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PaginatedDashboardBasicList": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "next": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PaginatedExperimentBasicList": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "next": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PaginatedInsightList": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "next": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PaginatedPersonRecordList": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "next": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PaginatedTrendingInsightList": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "next": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "PersonRecord": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "description": "When this person was first seen (ISO 8601)."
+        },
+        "distinct_ids": {
+          "type": "array"
+        },
+        "id": {
+          "type": "integer",
+          "description": "Numeric person ID."
+        },
+        "last_seen_at": {
+          "type": "string",
+          "description": "Timestamp of the last event from this person, or null."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name derived from person properties (email, name, or username)."
+        },
+        "properties": {
+          "type": "string",
+          "description": "Key-value map of person properties set via $set and $set_once operations."
+        },
+        "uuid": {
+          "type": "string",
+          "description": "Unique identifier (UUID) for this person."
+        }
+      }
+    },
+    "RunInsightsResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "description": "Results for each insight tile on the dashboard."
+        }
+      }
+    },
+    "RunWidgetsResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "description": "Per-tile widget run results."
+        }
+      }
+    },
+    "WebAnalyticsRecapResponse": {
+      "type": "object",
+      "properties": {
+        "avg_session_duration": {
+          "type": "string",
+          "description": "Average session duration."
+        },
+        "bounce_rate": {
+          "type": "string",
+          "description": "Bounce rate (0–100)."
+        },
+        "dashboard_url": {
+          "type": "string",
+          "description": "Link to the Web analytics dashboard for this project."
+        },
+        "goals": {
+          "type": "array",
+          "description": "Goal conversions."
+        },
+        "highlights": {
+          "type": "array",
+          "description": "Up to three screenshot-worthy superlatives for the week."
+        },
+        "pageviews": {
+          "type": "string",
+          "description": "Total pageviews."
+        },
+        "period_end": {
+          "type": "string",
+          "description": "Final date included in the recap period, in the project timezone."
+        },
+        "period_label": {
+          "type": "string",
+          "description": "Human-readable period label, e.g. 'Last 7 days'."
+        },
+        "period_start": {
+          "type": "string",
+          "description": "First date included in the recap period, in the project timezone."
+        },
+        "persona": {
+          "type": "string",
+          "description": "The single weekly persona assigned from this week's data."
+        },
+        "project_name": {
+          "type": "string",
+          "description": "Name of the project this recap is for."
+        },
+        "recap_url": {
+          "type": "string",
+          "description": "Canonical link to this project's weekly recap."
+        },
+        "sessions": {
+          "type": "string",
+          "description": "Total sessions."
+        },
+        "top_pages": {
+          "type": "array",
+          "description": "Top 5 pages by unique visitors."
+        },
+        "top_sources": {
+          "type": "array",
+          "description": "Top 5 traffic sources by unique visitors."
+        },
+        "visitors": {
+          "type": "string",
+          "description": "Unique visitors."
+        }
+      }
+    }
+  }
+}
