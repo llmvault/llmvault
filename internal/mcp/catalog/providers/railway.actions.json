@@ -1,6 +1,5 @@
 {
   "display_name": "Railway",
-  "push_to_mcp": true,
   "resources": {
     "deployment": {
       "display_name": "Deployments",
@@ -3523,5 +3522,5 @@
       }
     }
   },
-  "push_to_mcp": false
+  "push_to_mcp": true
 }
