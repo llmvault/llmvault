@@ -92,8 +92,8 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal definition: %v", err)
 	}
-	if !strings.Contains(string(body), `"tools":[]`) {
-		t.Fatalf("runtime config should preserve explicit empty tools: %s", string(body))
+	if !strings.Contains(string(body), `"type":"builtin.drive_upload"`) || !strings.Contains(string(body), `"type":"builtin.drive_download"`) {
+		t.Fatalf("runtime config should include locked drive tools: %s", string(body))
 	}
 	if def.Model.CanonicalModelID != DefaultAgentModel ||
 		def.Model.ProviderID == "" ||
@@ -157,7 +157,7 @@ func TestCompile_EmitsConfiguredRuntimeToolsAndIgnoresRetiredTools(t *testing.T)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file", "builtin.drive_upload", "builtin.drive_download"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime tool types = %#v, want %#v", got, want)
 	}
 	bash := def.Tools[0]["config"].(map[string]any)
@@ -195,7 +195,7 @@ func TestCompile_EmitsCatalogAndSubAgentRuntimeTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file", "builtin.drive_upload", "builtin.drive_download"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("parent runtime tools = %#v, want %#v", got, want)
 	}
 	subAgent := def.SubAgents["codebase-explorer"]
@@ -254,7 +254,7 @@ func TestCompile_LoadsCatalogRuntimeToolsByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.bash", "builtin.read_file", "builtin.drive_upload", "builtin.drive_download"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime tools = %#v, want %#v", got, want)
 	}
 }
@@ -304,8 +304,8 @@ func TestCompile_IncludesCatalogSubAgents(t *testing.T) {
 	if !strings.Contains(instructionsContent, "<instructions>\nTrace code paths with evidence.\n</instructions>") {
 		t.Fatalf("subagent instructions missing: %q", instructionsContent)
 	}
-	if def.Tools == nil || len(def.Tools) != 0 {
-		t.Fatalf("parent tools should be explicit empty tools: %#v", def.Tools)
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.drive_upload", "builtin.drive_download"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("parent locked drive tools = %#v, want %#v", got, want)
 	}
 	// A sub-agent with no configured tools defaults to read_file instead of
 	// compiling tool-less (see buildSubAgentRuntimeTools).

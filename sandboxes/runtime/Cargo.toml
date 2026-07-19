@@ -26,6 +26,7 @@ rust-version = "1.81"
 tokio = { version = "1.40", features = ["full"] }
 async-trait = "0.1"
 futures = "0.3"
+tokio-util = { version = "0.7", features = ["io"] }
 
 # serde
 serde = { version = "1", features = ["derive"] }

@@ -2,6 +2,7 @@ package agentruntime
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -24,8 +25,8 @@ func TestCompileBashToolPassesRuntimeControlPlaneEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if len(def.Tools) != 1 {
-		t.Fatalf("runtime tools = %#v, want one bash tool", def.Tools)
+	if len(def.Tools) != 3 {
+		t.Fatalf("runtime tools = %#v, want bash plus locked drive tools", def.Tools)
 	}
 	config, ok := def.Tools[0]["config"].(map[string]any)
 	if !ok {
@@ -86,8 +87,8 @@ func TestCompileIgnoresLegacyImageGenerationToolKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if len(def.Tools) != 0 {
-		t.Fatalf("runtime tools = %#v, want image keys ignored", def.Tools)
+	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.drive_upload", "builtin.drive_download"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("runtime tools = %#v, want only locked drive tools", got)
 	}
 }
 

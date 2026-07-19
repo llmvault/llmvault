@@ -43,13 +43,13 @@ func TestCreditsForSubtotalRejectsAmountsTooSmallForOneCredit(t *testing.T) {
 	}
 }
 
-func TestPercentageCeilAddsTenPercent(t *testing.T) {
+func TestPercentageCeilAddsTwelvePercent(t *testing.T) {
 	fee, err := percentageCeil(1_001, DepositFeeBasisPoints)
 	if err != nil {
 		t.Fatalf("percentageCeil: %v", err)
 	}
-	if fee != 101 {
-		t.Fatalf("fee = %d, want 101", fee)
+	if fee != 121 {
+		t.Fatalf("fee = %d, want 121", fee)
 	}
 }
 
@@ -64,10 +64,10 @@ func TestCreditPacksEnforceCurrencyMinimumsAndFee(t *testing.T) {
 	svc := &Service{ngnMinorPerUSD: 160_000}
 	usd := svc.Packs(billing.CurrencyUSD)
 	ngn := svc.Packs(billing.CurrencyNGN)
-	if len(usd) == 0 || usd[0].SubtotalMinor != 1_000 || usd[0].TotalMinor != 1_100 {
+	if len(usd) == 0 || usd[0].SubtotalMinor != 1_000 || usd[0].TotalMinor != 1_120 {
 		t.Fatalf("first USD pack = %#v", usd)
 	}
-	if len(ngn) == 0 || ngn[0].SubtotalMinor != 500_000 || ngn[0].TotalMinor != 550_000 {
+	if len(ngn) == 0 || ngn[0].SubtotalMinor != 500_000 || ngn[0].TotalMinor != 560_000 {
 		t.Fatalf("first NGN pack = %#v", ngn)
 	}
 	if _, ok := findPack("usd_10", billing.CurrencyNGN); ok {

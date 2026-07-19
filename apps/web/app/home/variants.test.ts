@@ -8,7 +8,7 @@ import HomeVariantFourPage from "./variant-4/page"
 import HomeVariantFivePage from "./variant-5/page"
 import HomeVariantSixPage from "./variant-6/page"
 
-const sharedHeroCopy = "Hivy is the AI workspace"
+const sharedHeroCopy = "Productive ai agents for your entire team."
 const sharedHeroPlaceholder =
   "Main Hivy workspace product screenshot, placeholder"
 

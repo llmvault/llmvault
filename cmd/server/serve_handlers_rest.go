@@ -171,6 +171,7 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	}
 	if uploadsHandler != nil {
 		mcpHandler.SetImageGenerationTools(uploadsHandler.RegisterImageGenerationMCPTools)
+		mcpHandler.SetDriveTools(uploadsHandler.RegisterDriveMCPTools)
 	}
 	imageDescribeHandler := buildImageDescribeHandler(database, cfg, deps)
 	if imageDescribeHandler != nil {

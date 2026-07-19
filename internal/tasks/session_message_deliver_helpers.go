@@ -14,10 +14,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func runtimeMessageFromEvent(session model.Session, event model.SessionEvent) agentruntime.HTTPMessageRequest {
-	return runtimeMessageFromCommand(session, commandFromLegacyEvent(event))
-}
-
 func commandFromLegacyEvent(event model.SessionEvent) SessionMessageCommand {
 	text, _ := event.Payload["text"].(string)
 	eventID := event.ID

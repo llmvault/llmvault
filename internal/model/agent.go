@@ -209,6 +209,8 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "search_sessions", Name: "Search sessions", Description: "Search prior sessions for relevant context.", Category: "runtime.orchestration"},
 	{ID: "request_user_input", Name: "Ask user", Description: "Ask the user a question and wait for their reply.", Category: "runtime.orchestration"},
 	{ID: "update_plan", Name: "Update plan", Description: "Create or update a concise visible plan for multi-step work.", Category: "runtime.orchestration"},
+	{ID: "drive_upload", Name: "Upload to drive", Description: "Upload a sandbox file to this agent's drive.", Category: "runtime.drive", Locked: true},
+	{ID: "drive_download", Name: "Download from drive", Description: "Download an agent-drive asset into the sandbox.", Category: "runtime.drive", Locked: true},
 
 	// Hivy MCP tools surfaced to the agent runtime (AssignableMCPTools).
 	{ID: "web_search", Name: "Web search", Description: "Search the web and return results with titles, descriptions, and URLs.", Category: "mcp.web"},
@@ -235,6 +237,7 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "send_email", Name: "Send email", Description: "Send an email from the agent's inbox.", Category: "mcp.email"},
 	{ID: "email_read", Name: "Read email", Description: "Read an email from the agent's inbox.", Category: "mcp.email"},
 	{ID: "email_search", Name: "Search email", Description: "Search the agent's inbox.", Category: "mcp.email"},
+	{ID: "drive_search", Name: "Search drive", Description: "Search this agent's drive assets.", Category: "mcp.drive", Locked: true},
 }
 
 // validBuiltInToolIDs is a set for fast validation lookups.
@@ -283,6 +286,8 @@ var RuntimeBuiltInToolIDs = []string{
 	"search_sessions",
 	"request_user_input",
 	"update_plan",
+	"drive_upload",
+	"drive_download",
 }
 
 // BaselineRuntimeToolIDs is the subset of RuntimeBuiltInToolIDs every
@@ -299,13 +304,23 @@ var BaselineRuntimeToolIDs = []string{
 	"update_plan",
 	"search_sessions",
 	"request_user_input",
+	"drive_upload",
+	"drive_download",
 }
 
-// ReadOnlyMCPToolFloor lists the universal MCP tools. Every compiled agent
-// filter includes these tools; all other MCP tools require an explicit allow.
+// ReadOnlyMCPToolFloor lists the universal MCP tools for parent agents. All
+// other MCP tools require an explicit allow.
 // Skill availability is rendered into the system prompt, so skill_view alone is
 // sufficient to load a selected skill.
 var ReadOnlyMCPToolFloor = []string{
+	"skill_view",
+	"drive_search",
+}
+
+// SubAgentReadOnlyMCPToolFloor is the universal MCP surface for sub-agents.
+// Drive assets belong to the parent sandbox, so sub-agents may load skills but
+// cannot search the parent's Drive.
+var SubAgentReadOnlyMCPToolFloor = []string{
 	"skill_view",
 }
 

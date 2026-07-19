@@ -1,6 +1,7 @@
 mod apply_patch;
 mod bash;
 mod diff;
+mod drive;
 mod edit;
 mod image_description;
 mod lsp;
@@ -23,6 +24,7 @@ pub use truncate::*;
 
 pub use apply_patch::ApplyPatchTool;
 pub use bash::BashTool;
+pub use drive::{DriveDownloadTool, DriveUploadTool};
 pub use edit::EditTool;
 pub use lsp::{LspService, LspTool};
 pub use read::ReadTool;
@@ -163,6 +165,26 @@ pub fn build_builtin_tools(
                         config.clone(),
                         context.workspace_root.clone(),
                         context.lsp.clone(),
+                    )
+                    .into_tool(),
+                );
+            }
+            ToolSpec::DriveUpload(config) => {
+                tools.push(
+                    DriveUploadTool::new(
+                        config.clone(),
+                        context.workspace_root.clone(),
+                        context.runtime_env.clone(),
+                    )
+                    .into_tool(),
+                );
+            }
+            ToolSpec::DriveDownload(config) => {
+                tools.push(
+                    DriveDownloadTool::new(
+                        config.clone(),
+                        context.workspace_root.clone(),
+                        context.runtime_env.clone(),
                     )
                     .into_tool(),
                 );

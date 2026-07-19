@@ -58,9 +58,9 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 	}
 }
 
-func TestSubAgentEnumIsFullUnion(t *testing.T) {
-	sub := AssignableToolIDs()
-	want := len(model.RuntimeBuiltInToolIDs) + len(AssignableMCPTools)
+func TestSubAgentEnumExcludesParentDriveTools(t *testing.T) {
+	sub := SubAgentAssignableToolIDs()
+	want := len(model.RuntimeBuiltInToolIDs) + len(AssignableMCPTools) - 2
 	if len(sub) != want {
 		t.Fatalf("sub-agent enum length = %d, want %d", len(sub), want)
 	}
@@ -69,6 +69,12 @@ func TestSubAgentEnumIsFullUnion(t *testing.T) {
 		set[id] = true
 	}
 	for _, id := range model.RuntimeBuiltInToolIDs {
+		if id == "drive_upload" || id == "drive_download" {
+			if set[id] {
+				t.Fatalf("sub-agent enum must not contain parent drive tool %q", id)
+			}
+			continue
+		}
 		if !set[id] {
 			t.Fatalf("sub-agent enum missing runtime tool %q", id)
 		}
@@ -95,6 +101,15 @@ func TestValidBuiltInToolsMatchesRuntimeAndMCP(t *testing.T) {
 	}
 	for _, id := range AssignableMCPTools {
 		want[id] = true
+	}
+	// Most universal tools are intentionally UI-invisible. drive_search is an
+	// always-on agent-drive capability and remains part of the permission
+	// registry so persisted permissions validate, even though it cannot be
+	// selected or removed through the agent-builder schema.
+	for _, id := range model.ReadOnlyMCPToolFloor {
+		if id != "skill_view" {
+			want[id] = true
+		}
 	}
 
 	got := map[string]bool{}

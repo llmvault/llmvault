@@ -57,6 +57,23 @@ func compileMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 	return normalizeToolFilter(filter)
 }
 
+// compileSubAgentMCPToolFilter applies the sub-agent-specific universal floor.
+// In particular, Drive search is parent-scoped alongside Drive upload/download.
+func compileSubAgentMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
+	compiled := normalizeToolFilter(filter)
+	if compiled == nil {
+		return nil
+	}
+	allow := make([]string, 0, len(compiled.Allow))
+	for _, id := range compiled.Allow {
+		if id != "drive_search" {
+			allow = append(allow, id)
+		}
+	}
+	compiled.Allow = allow
+	return compiled
+}
+
 func mcpToolFilterFromCatalogManifest(raw model.RawJSON) *model.ToolFilter {
 	if strings.TrimSpace(string(raw)) == "" {
 		return nil
@@ -108,10 +125,10 @@ func normalizeToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 	return applyReadOnlyMCPToolFloor(&model.ToolFilter{Allow: filtered})
 }
 
-// applyReadOnlyMCPToolFloor adds the small universal MCP surface to every
-// compiled filter. Today that surface is only skill_view: the available-skill
-// inventory is already rendered into the system prompt, so skills_list is not
-// needed, and channel/automation tools stay explicit Hivy-default grants.
+// applyReadOnlyMCPToolFloor adds the small universal MCP surface to parent
+// filters. The available-skill inventory is already rendered into the system
+// prompt, so skills_list is not needed, and channel/automation tools stay
+// explicit Hivy-default grants.
 func applyReadOnlyMCPToolFloor(filter *model.ToolFilter) *model.ToolFilter {
 	if filter == nil {
 		return filter

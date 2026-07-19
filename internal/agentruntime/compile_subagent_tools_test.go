@@ -20,13 +20,27 @@ func TestBuildSubAgentRuntimeTools_EmptyDefaultsToReadFile(t *testing.T) {
 	}
 }
 
-// A non-empty selection is compiled unchanged (no read-only defaulting).
+// A non-empty selection preserves its requested tools.
 func TestBuildSubAgentRuntimeTools_NonEmptyUnchanged(t *testing.T) {
 	tools, err := buildSubAgentRuntimeTools(model.JSON{"read_file": true})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if got := runtimeToolTypes(tools); !reflect.DeepEqual(got, []string{"builtin.read_file"}) {
-		t.Fatalf("tools = %#v, want [builtin.read_file]", got)
+		t.Fatalf("tools = %#v, want read_file", got)
+	}
+}
+
+func TestBuildSubAgentRuntimeTools_StripsDriveTools(t *testing.T) {
+	tools, err := buildSubAgentRuntimeTools(model.JSON{
+		"read_file":      true,
+		"drive_upload":   true,
+		"drive_download": true,
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if got := runtimeToolTypes(tools); !reflect.DeepEqual(got, []string{"builtin.read_file"}) {
+		t.Fatalf("tools = %#v, want drive tools excluded", got)
 	}
 }

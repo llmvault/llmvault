@@ -24,25 +24,25 @@ func TestNormalizeToolFilter_AppliesReadOnlyFloor(t *testing.T) {
 		{
 			name:      "allow list gains universal skill view",
 			in:        &model.ToolFilter{Allow: []string{"web_search"}},
-			wantAllow: []string{"skill_view", "web_search"},
+			wantAllow: []string{"drive_search", "skill_view", "web_search"},
 			wantDeny:  nil,
 		},
 		{
 			name:      "explicit deny removes explicit grant",
 			in:        &model.ToolFilter{Allow: []string{"web_search"}, Deny: []string{"web_search"}},
-			wantAllow: []string{"skill_view"},
+			wantAllow: []string{"drive_search", "skill_view"},
 			wantDeny:  nil,
 		},
 		{
 			name:      "pure deny list grants no optional capability",
 			in:        &model.ToolFilter{Deny: []string{"generate_image"}},
-			wantAllow: []string{"skill_view"},
+			wantAllow: []string{"drive_search", "skill_view"},
 			wantDeny:  nil,
 		},
 		{
 			name:      "nil filter grants only universal tool",
 			in:        nil,
-			wantAllow: []string{"skill_view"},
+			wantAllow: []string{"drive_search", "skill_view"},
 		},
 	}
 	for _, tc := range tests {
@@ -83,5 +83,18 @@ func TestResolveAgentMCPToolFilter_AppliesFloorForUserAgent(t *testing.T) {
 	}
 	if !containsString(filter.Allow, "web_search") {
 		t.Fatalf("allow = %#v, want original web_search entry", filter.Allow)
+	}
+}
+
+func TestCompileSubAgentMCPToolFilter_ExcludesDriveSearch(t *testing.T) {
+	filter := compileSubAgentMCPToolFilter(&model.ToolFilter{Allow: []string{"drive_search", "web_search"}})
+	if filter == nil {
+		t.Fatal("filter = nil")
+	}
+	if containsString(filter.Allow, "drive_search") {
+		t.Fatalf("sub-agent allow list contains drive_search: %#v", filter.Allow)
+	}
+	if !reflect.DeepEqual(filter.Allow, []string{"skill_view", "web_search"}) {
+		t.Fatalf("allow = %#v, want skill_view+web_search", filter.Allow)
 	}
 }

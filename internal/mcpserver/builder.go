@@ -40,6 +40,10 @@ type AppsToolsFunc func(server *mcp.Server, token *model.Token)
 // EmailToolsFunc registers agent inbox read, search, and send tools.
 type EmailToolsFunc func(server *mcp.Server, token *model.Token)
 
+// DriveToolsFunc registers agent-drive search tools. File transfer stays in
+// the sandbox runtime because the MCP server cannot access its local filesystem.
+type DriveToolsFunc func(server *mcp.Server, token *model.Token)
+
 const universalSkillViewTool = "skill_view"
 
 // hivyMCPToolNames is the complete native Hivy MCP surface. BuildServer uses
@@ -55,6 +59,7 @@ var hivyMCPToolNames = []string{
 	"sheet_create", "sheet_list", "sheet_describe", "sheet_manage", "rows_query", "rows_write", "sheet_import_csv", "sheet_operations",
 	"app_create", "app_publish", "app_status", "app_logs", "app_rollback",
 	"send_email", "email_read", "email_search",
+	"drive_search",
 	"cron", "create_http_trigger",
 }
 
@@ -123,6 +128,7 @@ func BuildServer(
 	addSheetTools SheetToolsFunc,
 	addAppsTools AppsToolsFunc,
 	addEmailTools EmailToolsFunc,
+	addDriveTools DriveToolsFunc,
 	toolFilters ...*model.ToolFilter,
 ) (*mcp.Server, error) {
 	var toolFilter *model.ToolFilter
@@ -167,6 +173,9 @@ func BuildServer(
 	}
 	if addEmailTools != nil && hasAllowedHivyMCPTool(toolFilter, "send_email", "email_read", "email_search") {
 		addEmailTools(server, token)
+	}
+	if addDriveTools != nil && hasAllowedHivyMCPTool(toolFilter, "drive_search") {
+		addDriveTools(server, token)
 	}
 
 	if hasAllowedHivyMCPTool(toolFilter, "cron") {

@@ -3876,6 +3876,7 @@ dependencies = [
  "similar",
  "thiserror 1.0.69",
  "tokio",
+ "tokio-util",
  "tracing",
  "unicode-normalization",
  "url",

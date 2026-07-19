@@ -20,6 +20,7 @@
     "knip": "knip"
   },
   "dependencies": {
+    "@base-ui/react": "^1.6.0",
     "@emoji-mart/data": "^1.2.1",
     "@glideapps/glide-data-grid": "6.0.4-alpha24",
     "@heroui/react": "^3.1.0",

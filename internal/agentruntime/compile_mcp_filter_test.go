@@ -68,16 +68,16 @@ func TestCompile_DeniesMCPToolsWithoutExplicitFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	assertMCPToolsDeniedByDefault(t, def.McpToolFilter)
+	assertMCPToolsDeniedByDefault(t, def.McpToolFilter, model.ReadOnlyMCPToolFloor)
 
 	subDef := def.SubAgents[sub.ID.String()]
 	if subDef == nil {
 		t.Fatalf("missing sub-agent def: %#v", def.SubAgents)
 	}
-	assertMCPToolsDeniedByDefault(t, subDef.McpToolFilter)
+	assertMCPToolsDeniedByDefault(t, subDef.McpToolFilter, model.SubAgentReadOnlyMCPToolFloor)
 }
 
-func assertMCPToolsDeniedByDefault(t *testing.T, filter *model.ToolFilter) {
+func assertMCPToolsDeniedByDefault(t *testing.T, filter *model.ToolFilter, wantFloor []string) {
 	t.Helper()
 	if filter == nil {
 		t.Fatal("mcp tool filter = nil, which grants every MCP tool")
@@ -85,10 +85,10 @@ func assertMCPToolsDeniedByDefault(t *testing.T, filter *model.ToolFilter) {
 	if filter.Allow == nil {
 		t.Fatalf("mcp allow list = nil, want explicit allow list: %#v", filter)
 	}
-	if len(filter.Allow) != len(model.ReadOnlyMCPToolFloor) {
+	if len(filter.Allow) != len(wantFloor) {
 		t.Fatalf("mcp allow list = %#v, want only universal MCP tools", filter.Allow)
 	}
-	for _, id := range model.ReadOnlyMCPToolFloor {
+	for _, id := range wantFloor {
 		if !containsString(filter.Allow, id) {
 			t.Fatalf("mcp allow list = %#v, want universal tool %q", filter.Allow, id)
 		}

@@ -258,6 +258,11 @@ pub(super) async fn render_dynamic_system_prompt(
                 .is_empty()
         })
         .unwrap_or(false);
+    let has_native_tools = snapshot
+        .tools
+        .as_ref()
+        .map(|tools| !tools.is_empty())
+        .unwrap_or(true);
     // Names are intentionally cheap enough to expose in the prompt. Full
     // schemas remain host-side until the agent activates an exact tool.
     let mcp_tools = mcp_registry
@@ -271,12 +276,16 @@ pub(super) async fn render_dynamic_system_prompt(
     if !renders_legacy_context_segment {
         append_rendered_segment(&mut prompt, render_session_context(session_context));
     }
-    if has_mcp_tools {
+    if has_mcp_tools || has_native_tools {
         append_rendered_segment(
             &mut prompt,
             Some(
-                "## MCP progressive discovery\nThe MCP tool names listed below are available capabilities. Their full schemas are intentionally hidden to preserve context. Use `search_tools` to narrow the list, then call `get_tool_details` with an exact name to inspect and activate that tool. Activating a tool starts its dormant MCP server and makes the definition directly callable on the next model request."
-                    .to_string(),
+                if has_mcp_tools {
+                "## Progressive tool discovery\nNative runtime and MCP capabilities use progressive discovery; full schemas are intentionally hidden to preserve context. Use `search_tools` to narrow the catalog, then call `get_tool_details` with an exact name to inspect and activate a tool. An activated tool becomes directly callable on the next model request; MCP activation also starts its dormant server."
+            } else {
+                "## Progressive tool discovery\nNative runtime capabilities use progressive discovery; full schemas are intentionally hidden to preserve context. Use `search_tools` to narrow the catalog, then call `get_tool_details` with an exact name to inspect and activate a tool. The activated tool becomes directly callable on the next model request."
+            }
+                .to_string(),
             ),
         );
     }

@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"path/filepath"
@@ -82,6 +83,52 @@ func (h *UploadsHandler) authAgent(w http.ResponseWriter, r *http.Request) (*mod
 	}
 
 	return &agent, &sandbox, true
+}
+
+// DownloadAgentAsset streams one exact agent-drive asset back to an authenticated
+// sandbox for that same agent.
+// The asset ID is intentionally required so the runtime never resolves a
+// user-controlled storage key or public URL.
+//
+//	GET /internal/agents/{agentID}/sandboxes/{sandboxID}/drive/assets/{assetID}
+func (h *UploadsHandler) DownloadAgentAsset(w http.ResponseWriter, r *http.Request) {
+	reader := h.AssetReader()
+	if reader == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "drive downloads not configured"})
+		return
+	}
+	agent, _, ok := h.authAgent(w, r)
+	if !ok {
+		return
+	}
+	assetID, err := uuid.Parse(chi.URLParam(r, "assetID"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid asset_id"})
+		return
+	}
+	var asset model.AgentAsset
+	if err := h.db.WithContext(r.Context()).Where("id = ? AND agent_id = ?", assetID, agent.ID).First(&asset).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "asset not found"})
+			return
+		}
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load agent drive asset", "error", err, "agent_id", agent.ID, "asset_id", assetID)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load asset"})
+		return
+	}
+	body, err := reader.Open(r.Context(), asset.Key)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "open agent drive asset", "error", err, "agent_id", agent.ID, "asset_id", assetID)
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to download asset"})
+		return
+	}
+	defer body.Close()
+	w.Header().Set("Content-Type", asset.ContentType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", asset.Bytes))
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": asset.Filename}))
+	if _, err := io.Copy(w, body); err != nil {
+		logging.FromContext(r.Context()).WarnContext(r.Context(), "stream agent drive asset", "error", err, "agent_id", agent.ID, "asset_id", assetID)
+	}
 }
 
 func buildAgentAssetKey(agentID uuid.UUID, folder, filename string) string {

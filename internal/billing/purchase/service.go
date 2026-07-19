@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	DepositFeeBasisPoints int64 = 1000
+	DepositFeeBasisPoints int64 = 1200
 	WelcomeCredits        int64 = 1000
 	providerName                = "paystack"
 )

@@ -1459,6 +1459,51 @@
           }
         }
       },
+      "DriveDownloadConfig": {
+        "type": "object",
+        "required": [
+          "allowed_roots",
+          "max_file_size_bytes"
+        ],
+        "properties": {
+          "allowed_roots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deny_globs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_file_size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "DriveUploadConfig": {
+        "type": "object",
+        "required": [
+          "max_file_size_bytes"
+        ],
+        "properties": {
+          "deny_globs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_file_size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "DynamicContextPromptSegment": {
         "type": "object",
         "properties": {
@@ -3270,6 +3315,42 @@
                 "type": "string",
                 "enum": [
                   "builtin.update_plan"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "config",
+              "type"
+            ],
+            "properties": {
+              "config": {
+                "$ref": "#/components/schemas/DriveUploadConfig"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "builtin.drive_upload"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "config",
+              "type"
+            ],
+            "properties": {
+              "config": {
+                "$ref": "#/components/schemas/DriveDownloadConfig"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "builtin.drive_download"
                 ]
               }
             }

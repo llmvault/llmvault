@@ -22,6 +22,10 @@ pub enum ToolSpec {
     RequestUserInput,
     #[serde(rename = "builtin.update_plan")]
     UpdatePlan,
+    #[serde(rename = "builtin.drive_upload")]
+    DriveUpload(DriveUploadConfig),
+    #[serde(rename = "builtin.drive_download")]
+    DriveDownload(DriveDownloadConfig),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +64,23 @@ pub struct WriteFileConfig {
     pub deny_globs: Vec<String>,
     #[serde(default = "default_atomic")]
     pub atomic: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct DriveUploadConfig {
+    pub max_file_size_bytes: u64,
+    #[serde(default)]
+    pub deny_globs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct DriveDownloadConfig {
+    pub allowed_roots: Vec<String>,
+    pub max_file_size_bytes: u64,
+    #[serde(default)]
+    pub deny_globs: Vec<String>,
 }
 
 fn default_atomic() -> bool {
@@ -151,6 +172,15 @@ pub struct SubagentTaskConfig {
 pub fn default_parent_builtin_tool_specs() -> Vec<ToolSpec> {
     let mut specs = default_subagent_builtin_tool_specs();
     specs.extend([
+        ToolSpec::DriveUpload(DriveUploadConfig {
+            max_file_size_bytes: 100 * 1024 * 1024,
+            deny_globs: vec![],
+        }),
+        ToolSpec::DriveDownload(DriveDownloadConfig {
+            allowed_roots: vec![],
+            max_file_size_bytes: 100 * 1024 * 1024,
+            deny_globs: vec![],
+        }),
         ToolSpec::SubagentTask(Default::default()),
         ToolSpec::RequestUserInput,
     ]);
@@ -209,7 +239,7 @@ pub fn default_subagent_builtin_tool_specs() -> Vec<ToolSpec> {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_subagent_builtin_tool_specs, ToolSpec};
+    use super::{default_parent_builtin_tool_specs, default_subagent_builtin_tool_specs, ToolSpec};
 
     #[test]
     fn default_bash_env_passthrough_keeps_storage_defaults() {
@@ -238,5 +268,24 @@ mod tests {
                 "missing {key} from bash env passthrough"
             );
         }
+    }
+
+    #[test]
+    fn drive_tools_are_parent_only_defaults() {
+        let subagent_specs = default_subagent_builtin_tool_specs();
+        assert!(
+            !subagent_specs
+                .iter()
+                .any(|spec| matches!(spec, ToolSpec::DriveUpload(_) | ToolSpec::DriveDownload(_))),
+            "sub-agent defaults must not include parent Drive tools"
+        );
+
+        let parent_specs = default_parent_builtin_tool_specs();
+        assert!(parent_specs
+            .iter()
+            .any(|spec| matches!(spec, ToolSpec::DriveUpload(_))));
+        assert!(parent_specs
+            .iter()
+            .any(|spec| matches!(spec, ToolSpec::DriveDownload(_))));
     }
 }

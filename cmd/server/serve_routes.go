@@ -103,6 +103,7 @@ func setupPublicRoutes(
 	r.Post("/incoming/webhooks/{provider}/{connectionID}", incomingWebhookHandler.Handle)
 
 	if uploadsHandler != nil {
+		r.Get("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/assets/{assetID}", uploadsHandler.DownloadAgentAsset)
 		r.Put("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", uploadsHandler.StreamAgentAsset)
 		r.Post("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/move", uploadsHandler.MoveAgentAsset)
 		r.Delete("/internal/agents/{agentID}/sandboxes/{sandboxID}/drive/*", uploadsHandler.DeleteAgentAsset)

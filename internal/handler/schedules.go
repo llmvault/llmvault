@@ -120,7 +120,9 @@ func (h *ScheduleHandler) actorCanAccessSchedule(ctx context.Context, actor *acc
 		return true
 	}
 	var agent model.Agent
-	err := h.db.WithContext(ctx).Select("team_id").Where("id = ? AND org_id = ?", schedule.AgentID, schedule.OrgID).First(&agent).Error
+	if err := h.db.WithContext(ctx).Select("team_id").Where("id = ? AND org_id = ?", schedule.AgentID, schedule.OrgID).First(&agent).Error; err != nil {
+		return false
+	}
 	allowed, err := actor.IsTeamMember(ctx, h.db, agent.TeamID)
 	return err == nil && allowed
 }

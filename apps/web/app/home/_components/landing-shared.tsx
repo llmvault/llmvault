@@ -1,5 +1,6 @@
 import { Button, Link, Separator, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { LandingHeader } from "./landing-header"
 
 export const pillars = [
   {
@@ -254,70 +255,17 @@ export function FeatureCopy({
   )
 }
 
-function LandingHeader() {
-  return (
-    <header className="mx-auto flex h-16 w-[calc(100%-2rem)] max-w-[1300px] items-center justify-between">
-      <div className="flex items-center gap-7">
-        <Link
-          href="/home"
-          aria-label="Hivy home"
-          className="text-[1.05rem] font-semibold tracking-[-0.05em] text-foreground"
-        >
-          hivy
-        </Link>
-        <nav
-          className="hidden items-center gap-7 text-[0.82rem] md:flex"
-          aria-label="Main navigation"
-        >
-          <Link href="#product" className="gap-1.5 text-foreground/80">
-            Platform <AppIcon icon="chevron-down" size={12} />
-          </Link>
-          <Link href="#capabilities" className="gap-1.5 text-foreground/80">
-            Solutions <AppIcon icon="chevron-down" size={12} />
-          </Link>
-          <Link href="#resources" className="gap-1.5 text-foreground/80">
-            Resources <AppIcon icon="chevron-down" size={12} />
-          </Link>
-          <Link href="#" className="text-foreground/80">
-            Pricing
-          </Link>
-          <Link
-            href="https://github.com/usehivy/hivy"
-            className="gap-1.5 text-foreground/80"
-          >
-            <AppIcon icon="github" size={14} /> 29.2k
-          </Link>
-        </nav>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Link href="/auth/login" className="hidden sm:inline-flex">
-          <Button size="sm" variant="ghost">
-            Log in
-          </Button>
-        </Link>
-        <Link href="#contact" className="hidden sm:inline-flex">
-          <Button size="sm" variant="secondary">
-            Contact sales
-          </Button>
-        </Link>
-        <Link href="/auth/signup">
-          <Button size="sm">Sign up</Button>
-        </Link>
-      </div>
-    </header>
-  )
-}
-
 export function LandingHero() {
   return (
     <>
       <LandingHeader />
       <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-28">
         <div>
-          <h1 className="max-w-[760px] text-[clamp(3rem,4.3vw,3.65rem)] leading-[0.98] font-medium tracking-[-0.055em] text-balance">
-            Hivy is the AI workspace
-            <br className="hidden sm:block" /> for building AI agents.
+          <h1 className="max-w-[980px] text-[clamp(2.35rem,4vw,3rem)] leading-[1.02] font-medium tracking-[-0.045em] text-balance">
+            <span className="block md:whitespace-nowrap">
+              Productive ai agents for your entire team.
+            </span>
+            <span className="block">With no monthly subscriptions</span>
           </h1>
           <p className="mt-7 max-w-[630px] text-[1rem] leading-6 text-muted">
             Open source, with 1,000+ integrations and every major LLM. Build,
@@ -325,11 +273,11 @@ export function LandingHero() {
           </p>
           <div className="mt-8 flex items-center gap-2">
             <Link href="#contact">
-              <Button size="sm">Request a demo</Button>
+              <Button size="sm">Watch a 2min demo</Button>
             </Link>
             <Link href="/auth/signup">
               <Button size="sm" variant="ghost">
-                Sign up
+                Start for free
               </Button>
             </Link>
           </div>

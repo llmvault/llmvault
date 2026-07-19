@@ -4,7 +4,7 @@ mod prompt;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_stream::stream;
 use domain::{
@@ -185,27 +185,36 @@ impl AgentRunner for RigAgentRunner {
         let subagent_task_repo = self.subagent_task_repo.clone();
         let event_repo_for_tools = self.event_repo.clone();
         let mcp_registry = self.mcp_registry.clone();
+        let question_requester = self.question_requester.clone();
+        let plan_updater = self.plan_updater.clone();
+        let outbound_emitter = self.outbound_emitter.clone();
+        let agent_registry = self.config.agent_registry();
 
         let tool_specs =
             effective_tool_specs(&snapshot, is_subagent_definition, actor_user_id.is_some());
+        let native_tool_activations = Arc::new(Mutex::new(HashSet::new()));
+        let tool_catalog_context = ToolCatalogContext {
+            session_id: session_id.clone(),
+            actor_user_id: actor_user_id.clone(),
+            mcp_registry: mcp_registry.clone(),
+            mcp_tool_filter: mcp_tool_filter.clone(),
+            native_tool_activations: native_tool_activations.clone(),
+        };
         let mut available_tools = build_all_tools(
             &tool_specs,
-            session_id,
-            actor_user_id.clone(),
             &tool_context,
             &ToolContext {
                 subagent_task_repo: subagent_task_repo.clone(),
-                question_requester: self.question_requester.clone(),
-                plan_updater: self.plan_updater.clone(),
+                question_requester: question_requester.clone(),
+                plan_updater: plan_updater.clone(),
                 event_repo: event_repo_for_tools.clone(),
                 mcp_registry: mcp_registry.clone(),
                 workspace_root: tool_context.workspace_root.clone(),
-                outbound_emitter: self.outbound_emitter.clone(),
-                agent_registry: self.config.agent_registry(),
-                session_stream_id,
+                outbound_emitter: outbound_emitter.clone(),
+                agent_registry: agent_registry.clone(),
+                session_stream_id: session_stream_id.clone(),
             },
-            mcp_registry.clone(),
-            mcp_tool_filter.as_ref(),
+            &tool_catalog_context,
         );
         let mut tool_executor = ToolExecutor::new(
             available_tools.clone(),
@@ -962,20 +971,29 @@ impl AgentRunner for RigAgentRunner {
                     }
                 }
 
-                // `get_tool_details` activates an MCP definition in the
-                // session-scoped registry. Append newly activated tools after
-                // the existing definitions so provider prompt-cache prefixes
-                // remain stable; never re-sort or remove earlier definitions.
-                if let Some(registry) = mcp_registry.as_ref() {
+                // `get_tool_details` activates either a native runtime or MCP
+                // definition. Append newly activated tools after the existing
+                // definitions so provider prompt-cache prefixes remain stable.
+                {
                     let known_names: HashSet<String> = available_tools
                         .iter()
                         .map(|tool| tool.definition().name)
                         .collect();
-                    let activated = build_mcp_tools(
-                        registry.clone(),
-                        &session_id,
-                        actor_user_id.clone(),
-                        mcp_tool_filter.as_ref(),
+                    let activated = build_all_tools(
+                        &tool_specs,
+                        &tool_context,
+                        &ToolContext {
+                            subagent_task_repo: subagent_task_repo.clone(),
+                            question_requester: question_requester.clone(),
+                            plan_updater: plan_updater.clone(),
+                            event_repo: event_repo_for_tools.clone(),
+                            mcp_registry: mcp_registry.clone(),
+                            workspace_root: tool_context.workspace_root.clone(),
+                            outbound_emitter: outbound_emitter.clone(),
+                            agent_registry: agent_registry.clone(),
+                            session_stream_id: session_stream_id.clone(),
+                        },
+                        &tool_catalog_context,
                     );
                     let mut appended = 0usize;
                     for tool in activated {
@@ -994,7 +1012,7 @@ impl AgentRunner for RigAgentRunner {
                             snapshot.limits.tool_call_timeout_seconds,
                         );
                         yield AgentEvent::RunEvent {
-                            event: "mcp_tools_activated".to_string(),
+                            event: "tools_activated".to_string(),
                             payload: serde_json::json!({
                                 "session_id": session_id.as_str(),
                                 "turn_id": turn_id,
@@ -1407,6 +1425,8 @@ mod tests {
             ToolSpec::SearchSessions => "search_sessions",
             ToolSpec::RequestUserInput => "request_user_input",
             ToolSpec::UpdatePlan => "update_plan",
+            ToolSpec::DriveUpload(_) => "drive_upload",
+            ToolSpec::DriveDownload(_) => "drive_download",
         }
     }
 
@@ -1450,7 +1470,12 @@ mod tests {
         ] {
             assert!(has_tool(&specs, kind), "missing {kind}");
         }
-        for kind in ["subagent_task", "request_user_input"] {
+        for kind in [
+            "subagent_task",
+            "request_user_input",
+            "drive_upload",
+            "drive_download",
+        ] {
             assert!(!has_tool(&specs, kind), "unexpected {kind}");
         }
     }
@@ -1462,6 +1487,15 @@ mod tests {
             ToolSpec::SearchSessions,
             ToolSpec::SubagentTask(Default::default()),
             ToolSpec::RequestUserInput,
+            ToolSpec::DriveUpload(domain::DriveUploadConfig {
+                max_file_size_bytes: 100,
+                deny_globs: Vec::new(),
+            }),
+            ToolSpec::DriveDownload(domain::DriveDownloadConfig {
+                allowed_roots: Vec::new(),
+                max_file_size_bytes: 100,
+                deny_globs: Vec::new(),
+            }),
             ToolSpec::UpdatePlan,
         ]);
 
@@ -1469,7 +1503,12 @@ mod tests {
 
         assert!(has_tool(&specs, "search_sessions"));
         assert!(has_tool(&specs, "update_plan"));
-        for kind in ["subagent_task", "request_user_input"] {
+        for kind in [
+            "subagent_task",
+            "request_user_input",
+            "drive_upload",
+            "drive_download",
+        ] {
             assert!(!has_tool(&specs, kind), "unexpected {kind}");
         }
     }
@@ -2279,15 +2318,14 @@ mod tests {
                 request_number
             };
 
-            let tool_call = |id: &str, plan: serde_json::Value| {
-                let arguments = serde_json::json!({ "plan": plan }).to_string();
+            let tool_call = |id: &str, name: &str, arguments: serde_json::Value| {
                 let chunk = serde_json::json!({
                     "choices": [{
                         "delta": {
                             "tool_calls": [{
                                 "index": 0,
                                 "id": id,
-                                "function": { "name": "update_plan", "arguments": arguments }
+                                "function": { "name": name, "arguments": arguments.to_string() }
                             }]
                         }
                     }]
@@ -2308,20 +2346,23 @@ mod tests {
             };
 
             let body = match request_number {
-                1 => tool_call(
+                1 => tool_call("details-plan", "get_tool_details", serde_json::json!({"name": "update_plan"})),
+                2 => tool_call(
                     "call_plan_1",
-                    serde_json::json!([
+                    "update_plan",
+                    serde_json::json!({"plan": [
                         {"step": "write logout test", "status": "completed"},
                         {"step": "fix import and run test", "status": "pending"}
-                    ]),
+                    ]}),
                 ),
-                2 => final_text("Progress so far. Next step: I need to fix the import."),
-                3 => tool_call(
+                3 => final_text("Progress so far. Next step: I need to fix the import."),
+                4 => tool_call(
                     "call_plan_2",
-                    serde_json::json!([
+                    "update_plan",
+                    serde_json::json!({"plan": [
                         {"step": "write logout test", "status": "completed"},
                         {"step": "fix import and run test", "status": "completed"}
-                    ]),
+                    ]}),
                 ),
                 _ => final_text(
                     "Done. I wrote the logout test, fixed the import, and the run passed — full summary.",
@@ -2404,7 +2445,7 @@ mod tests {
 
         let requests = requests.lock().await;
         let after_premature = requests
-            .get(2)
+            .get(3)
             .expect("model request after the premature completion");
         let messages_text = after_premature["messages"].to_string();
         assert!(
@@ -2644,7 +2685,7 @@ mod tests {
         assert!(events.iter().any(|event| matches!(
             event,
             AgentEvent::RunEvent { event, payload }
-                if event == "mcp_tools_activated" && payload["activated_count"] == 1
+                if event == "tools_activated" && payload["activated_count"] == 1
         )));
         assert!(events.iter().any(|event| matches!(
             event,
@@ -2724,25 +2765,35 @@ fn build_model_client(
     ChatModelClient::from_model_config(model, runtime_env)
 }
 
+struct ToolCatalogContext {
+    session_id: SessionId,
+    actor_user_id: Option<String>,
+    mcp_registry: Option<Arc<McpRegistry>>,
+    mcp_tool_filter: Option<domain::ToolFilter>,
+    native_tool_activations: Arc<Mutex<HashSet<String>>>,
+}
+
 fn build_all_tools(
     specs: &[domain::ToolSpec],
-    session_id: &SessionId,
-    actor_user_id: Option<String>,
     context: &ToolBuildContext,
     tool_context: &ToolContext,
-    mcp_registry: Option<Arc<McpRegistry>>,
-    mcp_tool_filter: Option<&domain::ToolFilter>,
+    catalog_context: &ToolCatalogContext,
 ) -> Vec<Arc<dyn JsonTool>> {
-    let mut tools = tools::build_builtin_tools(specs, context, session_id);
-    tools.extend(build_agent_tools(specs, session_id, tool_context));
-    if let Some(registry) = mcp_registry {
-        tools.extend(build_mcp_tools(
-            registry,
-            session_id,
-            actor_user_id,
-            mcp_tool_filter,
-        ));
-    }
+    let mut native_catalog =
+        tools::build_builtin_tools(specs, context, &catalog_context.session_id);
+    native_catalog.extend(build_agent_tools(
+        specs,
+        &catalog_context.session_id,
+        tool_context,
+    ));
+    let tools = build_discovery_tools(
+        native_catalog,
+        catalog_context.native_tool_activations.clone(),
+        catalog_context.mcp_registry.clone(),
+        &catalog_context.session_id,
+        catalog_context.actor_user_id.clone(),
+        catalog_context.mcp_tool_filter.as_ref(),
+    );
     let mut seen = HashSet::new();
     let mut unique = Vec::with_capacity(tools.len());
     for tool in tools {
@@ -2753,26 +2804,31 @@ fn build_all_tools(
     unique
 }
 
-fn build_mcp_tools(
-    registry: Arc<McpRegistry>,
+fn build_discovery_tools(
+    native_catalog: Vec<Arc<dyn JsonTool>>,
+    native_tool_activations: Arc<Mutex<HashSet<String>>>,
+    registry: Option<Arc<McpRegistry>>,
     session_id: &SessionId,
     actor_user_id: Option<String>,
     mcp_tool_filter: Option<&domain::ToolFilter>,
 ) -> Vec<Arc<dyn JsonTool>> {
-    if registry
-        .available_tool_names_filtered(mcp_tool_filter)
-        .is_empty()
-    {
+    let has_mcp_tools = registry.as_ref().is_some_and(|value| {
+        !value
+            .available_tool_names_filtered(mcp_tool_filter)
+            .is_empty()
+    });
+    if native_catalog.is_empty() && !has_mcp_tools {
         return Vec::new();
     }
 
     let mut tools: Vec<Arc<dyn JsonTool>> = Vec::new();
     let search_registry = registry.clone();
     let search_filter = mcp_tool_filter.cloned();
+    let search_native_catalog = native_catalog.clone();
     tools.push(Arc::new(DynamicTool::new(
         tools::ToolDefinition {
             name: "search_tools".to_string(),
-            description: "Search the complete MCP tool catalog by keyword. Results are grouped by server. Use name detail for a compact catalog, summary for one-line descriptions, or full only when schemas are genuinely needed. After choosing an exact name, call get_tool_details to activate it.".to_string(),
+            description: "Search the complete tool catalog, including native runtime and MCP tools. Use name detail for a compact catalog, summary for one-line descriptions, or full only when schemas are genuinely needed. After choosing an exact name, call get_tool_details to activate it.".to_string(),
             parameters: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
@@ -2797,8 +2853,9 @@ fn build_mcp_tools(
             }),
         },
         move |args| {
-            let registry = search_registry.clone();
-            let filter = search_filter.clone();
+                let registry = search_registry.clone();
+                let filter = search_filter.clone();
+                let native_catalog = search_native_catalog.clone();
             Box::pin(async move {
                 let query = args
                     .get("query")
@@ -2812,12 +2869,13 @@ fn build_mcp_tools(
                     .get("limit")
                     .and_then(serde_json::Value::as_u64)
                     .map(|value| value as usize);
-                Ok(registry.search_tools_filtered(
-                    query,
-                    detail_level,
-                    limit,
-                    filter.as_ref(),
-                ))
+                let native = search_native_tools(&native_catalog, query, detail_level, limit);
+                let mcp = registry.map(|value| value.search_tools_filtered(query, detail_level, limit, filter.as_ref()));
+                Ok(serde_json::json!({
+                    "native_tools": native,
+                    "mcp": mcp,
+                    "next": "Call get_tool_details with an exact tool name to inspect its full schema and activate it for the next model request."
+                }))
             })
         },
     )));
@@ -2825,10 +2883,12 @@ fn build_mcp_tools(
     let details_registry = registry.clone();
     let details_filter = mcp_tool_filter.cloned();
     let details_session_id = session_id.clone();
+    let details_native_catalog = native_catalog.clone();
+    let details_native_activations = native_tool_activations.clone();
     tools.push(Arc::new(DynamicTool::new(
         tools::ToolDefinition {
             name: "get_tool_details".to_string(),
-            description: "Inspect one MCP tool's full input/output schema and activate that exact definition. The activated tool becomes directly callable on the next model request and remains appended for this session.".to_string(),
+            description: "Inspect one native runtime or MCP tool's full schema and activate that exact definition. The activated tool becomes directly callable on the next model request and remains appended for this session.".to_string(),
             parameters: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
@@ -2842,21 +2902,40 @@ fn build_mcp_tools(
             }),
         },
         move |args| {
-            let registry = details_registry.clone();
-            let filter = details_filter.clone();
-            let session_id = details_session_id.clone();
+                let registry = details_registry.clone();
+                let filter = details_filter.clone();
+                let session_id = details_session_id.clone();
+                let native_catalog = details_native_catalog.clone();
+                let native_activations = details_native_activations.clone();
             Box::pin(async move {
                 let name = args
                     .get("name")
                     .and_then(serde_json::Value::as_str)
                     .ok_or_else(|| anyhow::anyhow!("name required"))?;
-                registry
-                    .activate_tool_filtered(session_id.as_str(), name, filter.as_ref())
-                    .await
+                if let Some(tool) = native_catalog.iter().find(|tool| tool.definition().name == name) {
+                    native_activations.lock().map_err(|_| anyhow::anyhow!("native tool activation lock failed"))?.insert(name.to_string());
+                    let definition = tool.definition();
+                    return Ok(serde_json::json!({"kind": "native", "tool": definition, "activated": true}));
+                }
+                let registry = registry.ok_or_else(|| anyhow::anyhow!("tool not found"))?;
+                registry.activate_tool_filtered(session_id.as_str(), name, filter.as_ref()).await
             })
         },
     )));
 
+    let active_names = native_tool_activations
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+    for tool in native_catalog {
+        if active_names.contains(&tool.definition().name) {
+            tools.push(tool);
+        }
+    }
+
+    let Some(registry) = registry else {
+        return tools;
+    };
     for definition in registry.activated_tools_filtered(session_id.as_str(), mcp_tool_filter) {
         let tool_registry = registry.clone();
         let prefixed = definition.prefixed_name.clone();
@@ -2887,6 +2966,41 @@ fn build_mcp_tools(
     tools
 }
 
+fn search_native_tools(
+    catalog: &[Arc<dyn JsonTool>],
+    query: &str,
+    detail_level: &str,
+    limit: Option<usize>,
+) -> Vec<serde_json::Value> {
+    let query = query.trim().to_ascii_lowercase();
+    let limit = limit.unwrap_or(12).clamp(1, 50);
+    catalog
+        .iter()
+        .filter_map(|tool| {
+            let definition = tool.definition();
+            let matches = query == "*"
+                || definition.name.to_ascii_lowercase().contains(&query)
+                || definition.description.to_ascii_lowercase().contains(&query);
+            if !matches {
+                return None;
+            }
+            Some(match detail_level {
+                "name" => serde_json::json!({"name": definition.name}),
+                "full" => serde_json::json!({
+                    "name": definition.name,
+                    "description": definition.description,
+                    "parameters": definition.parameters,
+                }),
+                _ => serde_json::json!({
+                    "name": definition.name,
+                    "description": definition.description,
+                }),
+            })
+        })
+        .take(limit)
+        .collect()
+}
+
 fn effective_tool_specs(
     snapshot: &AgentDefinition,
     is_subagent_definition: bool,
@@ -2901,7 +3015,15 @@ fn effective_tool_specs(
     if is_subagent_definition {
         return specs
             .into_iter()
-            .filter(|spec| !matches!(spec, ToolSpec::SubagentTask(_) | ToolSpec::RequestUserInput))
+            .filter(|spec| {
+                !matches!(
+                    spec,
+                    ToolSpec::SubagentTask(_)
+                        | ToolSpec::RequestUserInput
+                        | ToolSpec::DriveUpload(_)
+                        | ToolSpec::DriveDownload(_)
+                )
+            })
             .collect();
     }
 

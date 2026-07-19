@@ -243,9 +243,9 @@ func buildSubAgentToolInputs(ctx context.Context, deps Deps, orgID, teamID uuid.
 			runtime = model.JSON{"read_file": true}
 		}
 		// A non-empty allow list keeps allow-list semantics but must never lock the
-		// sub-agent out of the read-only MCP floor.
+		// sub-agent out of its skill-loading MCP floor.
 		if len(mcpAllow) > 0 {
-			mcpAllow = unionReadOnlyFloor(mcpAllow)
+			mcpAllow = unionSubAgentReadOnlyFloor(mcpAllow)
 		}
 		skillSlugs, err := validateSkillSlugs(ctx, deps.DB, orgID, teamID, sub.Skills)
 		if err != nil {

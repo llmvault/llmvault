@@ -126,6 +126,21 @@ func AssignableToolIDs() []string {
 	return out
 }
 
+// SubAgentAssignableToolIDs is the tool catalog available to a sub-agent.
+// Drive files belong to the parent sandbox and are intentionally never exposed
+// to sub-agents.
+func SubAgentAssignableToolIDs() []string {
+	out := make([]string, 0, len(model.RuntimeBuiltInToolIDs)+len(AssignableMCPTools)-2)
+	for _, id := range model.RuntimeBuiltInToolIDs {
+		if id == "drive_upload" || id == "drive_download" {
+			continue
+		}
+		out = append(out, id)
+	}
+	out = append(out, AssignableMCPTools...)
+	return out
+}
+
 // enumValues converts a list of ids to []any for a JSON schema enum.
 func enumValues(ids []string) []any {
 	out := make([]any, len(ids))
@@ -133,11 +148,6 @@ func enumValues(ids []string) []any {
 		out[i] = id
 	}
 	return out
-}
-
-// toolEnumValues returns AssignableToolIDs as []any for a JSON schema enum.
-func toolEnumValues() []any {
-	return enumValues(AssignableToolIDs())
 }
 
 // SplitTools routes a provided list of tool identifiers into the runtime Tools

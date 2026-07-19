@@ -67,6 +67,17 @@ func defaultRuntimeToolConfig(id string) (map[string]any, bool) {
 		return map[string]any{
 			"agents": []any{},
 		}, true
+	case "drive_upload":
+		return map[string]any{
+			"max_file_size_bytes": 100 * 1024 * 1024,
+			"deny_globs":          []any{},
+		}, true
+	case "drive_download":
+		return map[string]any{
+			"allowed_roots":       []any{},
+			"max_file_size_bytes": 100 * 1024 * 1024,
+			"deny_globs":          []any{},
+		}, true
 	default:
 		return nil, false
 	}

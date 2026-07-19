@@ -177,12 +177,12 @@ func parentAllowFilter(mcpAllow []string) *model.ToolFilter {
 	return allowFilter(mcpAllow)
 }
 
-// unionReadOnlyFloor adds the universal MCP floor to a sub-agent allow list so
-// it can still load the skills listed in its system prompt.
-func unionReadOnlyFloor(allow []string) []string {
+// unionSubAgentReadOnlyFloor adds the sub-agent MCP floor so it can still load
+// the skills listed in its system prompt without gaining parent Drive access.
+func unionSubAgentReadOnlyFloor(allow []string) []string {
 	seen := stringSet(allow)
 	out := append([]string(nil), allow...)
-	for _, id := range model.ReadOnlyMCPToolFloor {
+	for _, id := range model.SubAgentReadOnlyMCPToolFloor {
 		if !seen[id] {
 			seen[id] = true
 			out = append(out, id)

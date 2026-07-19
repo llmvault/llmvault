@@ -157,7 +157,7 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       []any{},
-		McpToolFilter:    compileMCPToolFilter(spec.McpToolFilter),
+		McpToolFilter:    compileSubAgentMCPToolFilter(spec.McpToolFilter),
 		AutoLoadSkills:   compileAutoLoadSkills(ctx, deps.DB, parent, spec.AutoLoadSkills),
 		OutboundChannels: []any{},
 		SubAgents:        map[string]*AgentDefinition{},
@@ -174,7 +174,25 @@ func buildSubAgentRuntimeTools(selection model.JSON) ([]map[string]any, error) {
 	if len(selection) == 0 {
 		selection = defaultSubAgentToolSelection()
 	}
+	selection = withoutSubAgentDriveRuntimeTools(selection)
 	return buildRuntimeToolsFromSelection(selection)
+}
+
+// withoutSubAgentDriveRuntimeTools prevents a saved or hand-authored sub-agent
+// configuration from granting access to the parent agent's Drive. Drive files
+// are scoped to the parent sandbox, so only the parent may upload or download
+// them.
+func withoutSubAgentDriveRuntimeTools(selection model.JSON) model.JSON {
+	out := make(model.JSON, len(selection))
+	for key, value := range selection {
+		switch key {
+		case "drive_upload", "builtin.drive_upload", "drive_download", "builtin.drive_download":
+			continue
+		default:
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func defaultSubAgentToolSelection() model.JSON {

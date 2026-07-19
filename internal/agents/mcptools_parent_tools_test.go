@@ -197,7 +197,8 @@ func TestCreateAgent_SubAgentToolShapes(t *testing.T) {
 	}
 	allow := append([]string(nil), web.McpToolFilter.Allow...)
 	sort.Strings(allow)
-	want := []string{"skill_view", "web_search"}
+	want := append(append([]string(nil), model.SubAgentReadOnlyMCPToolFloor...), "web_search")
+	sort.Strings(want)
 	if !reflect.DeepEqual(allow, want) {
 		t.Fatalf("WebPick allow = %v, want %v", allow, want)
 	}
@@ -216,7 +217,7 @@ func assertReadOnlyMCPFloor(t *testing.T, name string, f *model.ToolFilter) {
 	}
 	allow := append([]string(nil), f.Allow...)
 	sort.Strings(allow)
-	want := append([]string(nil), model.ReadOnlyMCPToolFloor...)
+	want := append([]string(nil), model.SubAgentReadOnlyMCPToolFloor...)
 	sort.Strings(want)
 	if !reflect.DeepEqual(allow, want) {
 		t.Fatalf("%s sub allow = %v, want read-only floor %v", name, allow, want)

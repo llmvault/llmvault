@@ -29,6 +29,8 @@ var runtimeToolOrder = []string{
 	"search_sessions",
 	"request_user_input",
 	"update_plan",
+	"drive_upload",
+	"drive_download",
 }
 
 func buildRuntimeTools(ctx context.Context, db *gorm.DB, agent *model.Agent) ([]map[string]any, error) {
@@ -36,7 +38,21 @@ func buildRuntimeTools(ctx context.Context, db *gorm.DB, agent *model.Agent) ([]
 	if err != nil {
 		return nil, err
 	}
+	selection = mergeLockedDriveRuntimeTools(selection)
 	return buildRuntimeToolsFromSelection(selection)
+}
+
+// mergeLockedDriveRuntimeTools guarantees that the agent-drive transfer
+// boundary is available even for agents created before these baseline tools
+// existed. A stored false value cannot disable a locked platform capability.
+func mergeLockedDriveRuntimeTools(selection model.JSON) model.JSON {
+	merged := make(model.JSON, len(selection)+2)
+	for key, value := range selection {
+		merged[key] = value
+	}
+	merged["drive_upload"] = true
+	merged["drive_download"] = true
+	return merged
 }
 
 func agentRuntimeToolSelection(ctx context.Context, db *gorm.DB, agent *model.Agent) (model.JSON, error) {
