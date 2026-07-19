@@ -19,7 +19,7 @@ import type { components } from "@/lib/api/schema"
 
 type MemoryResponse = components["schemas"]["memoryResponse"]
 
-export type AgentMemoryCardData = {
+type AgentMemoryCardData = {
   id: string
   content: string
   tags: string[]

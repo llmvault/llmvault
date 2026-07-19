@@ -10,7 +10,7 @@ import {
   pillars,
 } from "./landing-shared"
 
-export type VariantMode =
+type VariantMode =
   | "canvas"
   | "chapters"
   | "timeline"
@@ -75,7 +75,7 @@ function WorkflowCard() {
   )
 }
 
-export function VariantWorkflow({ mode }: { mode: VariantMode }) {
+function VariantWorkflow({ mode }: { mode: VariantMode }) {
   if (mode === "ledger") {
     return (
       <section className="mx-auto mt-28 w-[calc(100%-2rem)] max-w-[1300px] border-y border-border py-16">
@@ -217,7 +217,7 @@ export function VariantWorkflow({ mode }: { mode: VariantMode }) {
   )
 }
 
-export function VariantOverview({ mode }: { mode: VariantMode }) {
+function VariantOverview({ mode }: { mode: VariantMode }) {
   const copy = modeCopy[mode]
   const isNight = mode === "night"
   const isLedger = mode === "ledger"
@@ -307,7 +307,7 @@ function FeatureAction({ action }: { action?: string }) {
   ) : null
 }
 
-export function VariantFeatureSections({ mode }: { mode: VariantMode }) {
+function VariantFeatureSections({ mode }: { mode: VariantMode }) {
   return (
     <>
       {features.map((feature, index) => {

@@ -254,7 +254,7 @@ export function FeatureCopy({
   )
 }
 
-export function LandingHeader() {
+function LandingHeader() {
   return (
     <header className="mx-auto flex h-16 w-[calc(100%-2rem)] max-w-[1300px] items-center justify-between">
       <div className="flex items-center gap-7">
