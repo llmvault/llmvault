@@ -5,3 +5,4 @@
   gather_facts: true
   roles:
     - k3s-server
+    - k3s-deploy-tunnel

@@ -1,0 +1,44 @@
+---
+- name: Validate Kubernetes deployment tunnel accounts
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^hivy-deploy-[a-z0-9-]+$')
+      - item.public_key is match('^ssh-ed25519 [A-Za-z0-9+/=]+$')
+    fail_msg: "Deployment tunnel accounts require a safe Unix name and an Ed25519 public key."
+  loop: "{{ k3s_deploy_tunnel_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create Kubernetes deployment tunnel users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    home: "/var/lib/{{ item.name }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: true
+    password_lock: true
+  loop: "{{ k3s_deploy_tunnel_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create deployment tunnel SSH directories
+  ansible.builtin.file:
+    path: "/var/lib/{{ item.name }}/.ssh"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0700"
+  loop: "{{ k3s_deploy_tunnel_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install restricted deployment tunnel keys
+  ansible.builtin.template:
+    src: authorized_keys.j2
+    dest: "/var/lib/{{ item.name }}/.ssh/authorized_keys"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0600"
+  loop: "{{ k3s_deploy_tunnel_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"

@@ -8,6 +8,7 @@ resources:
   - ../../apps/data-backups
   - ../../apps/web/base
   - backend-config.yaml
+  - deployment-service-account.yaml
   - nango-config.yaml
   - nango-postgres.yaml
   - nango-routes.yaml

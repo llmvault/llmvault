@@ -27,6 +27,15 @@ ansible-playbook playbooks/k3s/install.yml --limit k8s0
 ansible-playbook playbooks/k3s/validate.yml --limit k8s0
 ```
 
+GitHub Actions reaches the otherwise-private Kubernetes API through dedicated
+SSH accounts that can only forward TCP connections to `127.0.0.1:6443`. The
+accounts are installed on every current and future K3s server by the normal
+install playbook. Reconcile only those accounts with:
+
+```sh
+ansible-playbook playbooks/k3s/deploy-tunnel.yml
+```
+
 `k8s0` is the bootstrap embedded-etcd server. To add another combined
 control-plane/worker node, add it to both `k3s_servers` and `k3s_ingress`, give
 it a unique `k3s_node_ip`, then limit the same playbooks to the new inventory

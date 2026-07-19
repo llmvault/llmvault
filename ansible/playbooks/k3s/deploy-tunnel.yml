@@ -1,0 +1,7 @@
+---
+- name: Configure restricted GitHub Actions deployment tunnels
+  hosts: k3s_servers
+  become: true
+  gather_facts: false
+  roles:
+    - k3s-deploy-tunnel

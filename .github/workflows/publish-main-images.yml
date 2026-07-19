@@ -17,6 +17,8 @@ jobs:
     name: Go API image
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     env:
       IMAGE: ghcr.io/usehivy/hivy
     steps:
@@ -33,6 +35,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: build
         uses: useblacksmith/build-push-action@v2
         with:
           context: .
@@ -55,6 +58,8 @@ jobs:
     name: Next.js web image
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     env:
       IMAGE: ghcr.io/usehivy/web
     steps:
@@ -71,6 +76,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: build
         uses: useblacksmith/build-push-action@v2
         with:
           context: apps/web
@@ -158,3 +164,33 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=main
+
+  deploy-staging:
+    name: Deploy staging application images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - api
+      - web
+    environment: staging
+    env:
+      K8S_NAMESPACE: staging
+      BACKEND_IMAGE: ghcr.io/usehivy/hivy@${{ needs.api.outputs.digest }}
+      WEB_IMAGE: ghcr.io/usehivy/web@${{ needs.web.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Connect to the private Kubernetes API
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
+          K8S_TUNNEL_SSH_KEY_B64: ${{ secrets.K8S_TUNNEL_SSH_KEY_B64 }}
+          K8S_TUNNEL_KNOWN_HOSTS_B64: ${{ secrets.K8S_TUNNEL_KNOWN_HOSTS_B64 }}
+          K8S_TUNNEL_HOSTS: ${{ vars.K8S_TUNNEL_HOSTS }}
+          K8S_TUNNEL_USER: ${{ vars.K8S_TUNNEL_USER }}
+        run: |
+          export KUBECONFIG="${RUNNER_TEMP}/hivy-kubeconfig"
+          bash ./scripts/deploy/setup-kubernetes-tunnel.sh
+          echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+
+      - name: Deploy immutable images and wait for rollout
+        run: bash ./scripts/deploy/kubernetes-images.sh

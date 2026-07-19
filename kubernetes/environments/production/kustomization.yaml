@@ -8,6 +8,7 @@ resources:
   - ../../apps/nango/base
   - ../../apps/web/base
   - backend-config.yaml
+  - deployment-service-account.yaml
   - postgres.yaml
   - nango-config.yaml
   - nango-postgres.yaml
