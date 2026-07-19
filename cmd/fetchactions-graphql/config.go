@@ -10,6 +10,7 @@ type ServiceConfig struct {
 	MutationFilters  []string          // include only mutation fields matching these prefixes (empty = all)
 	ResourcePrefixes map[string]string // GraphQL field name prefix → resource_type (longest match wins)
 	IncludeFields    []string          // exact GraphQL field names to include (empty = all); takes precedence over filters
+	PushToMCP        *bool             // nil defaults to enabled; set explicitly for durable catalog intent
 }
 
 // AllServices returns the registry of GraphQL providers.
@@ -110,6 +111,7 @@ func AllServices() []ServiceConfig {
 			SchemaURL:        "https://raw.githubusercontent.com/railwayapp/cli/master/src/gql/schema.json",
 			IntrospectionURL: "https://backboard.railway.com/graphql/v2",
 			NangoProviders:   []string{"railway"},
+			PushToMCP:        boolPtr(true),
 			ResourcePrefixes: map[string]string{
 				"project":            "project",
 				"projects":           "project",
@@ -237,4 +239,8 @@ func AllServices() []ServiceConfig {
 			NangoProviders:   []string{"braintree", "braintree-sandbox"},
 		},
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

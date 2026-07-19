@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-kubeconfig="${KUBECONFIG:-${repo_root}/ansible/.secrets/k8s0/kubeconfig-local.yaml}"
+kubeconfig="${KUBECONFIG:-${repo_root}/kubernetes/config/kubeconfigs/k8s0/local.yaml}"
 expected_project_id="55776e03-e6c2-4a9b-828b-4e759495aa70"
 mkdir -p "${repo_root}/tmp"
 work_dir="$(mktemp -d "${repo_root}/tmp/backend-migrate.XXXXXX")"

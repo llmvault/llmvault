@@ -3,6 +3,7 @@ package agentruntime
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -44,6 +45,10 @@ func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agen
 	}
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	env[AgentEnvCloudControlPlaneURL] = controlPlaneBaseURL
+	delete(env, AgentEnvTrustedPrivateMCPHosts)
+	if host := trustedPrivateMCPHost(cfg.MCPBaseURL); host != "" {
+		env[AgentEnvTrustedPrivateMCPHosts] = host
+	}
 	if agent.ID != uuid.Nil {
 		env[AgentEnvGitCredentialsURL] = fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID)
 		if opts.SandboxID != uuid.Nil {
@@ -69,6 +74,17 @@ func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agen
 		env[AgentEnvGlitchTipDashboardBaseURL] = strings.TrimSpace(opts.GlitchTipDashboardBaseURL)
 	}
 	ApplySandboxSentryEnv(env, cfg, cfg.AgentSandboxSentryDSN)
+}
+
+// trustedPrivateMCPHost derives the host configured for Hivy's generated MCP
+// servers. It runs after team env values are merged, so untrusted agent
+// configuration cannot broaden the sandbox SSRF exception.
+func trustedPrivateMCPHost(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || !parsed.IsAbs() || parsed.Hostname() == "" {
+		return ""
+	}
+	return strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
 }
 
 func ApplySandboxSentryEnv(env map[string]string, cfg *config.Config, dsn string) {

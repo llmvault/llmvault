@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-kubeconfig="${KUBECONFIG:-${repo_root}/ansible/.secrets/k8s0/kubeconfig-local.yaml}"
+kubeconfig="${KUBECONFIG:-${repo_root}/kubernetes/config/kubeconfigs/k8s0/local.yaml}"
 preview_host="${HIVY_SMOKE_PREVIEW_HOST:-preview.usehivy.com}"
 
 export KUBECONFIG="${kubeconfig}"

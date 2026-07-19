@@ -2,7 +2,49 @@
   "display_name": "HubSpot",
   "resources": {},
   "actions": {
-    "delete_crm_v3_objects_contacts_contact_id": {
+    "delete_crm_v3_objects_0_3_deal_id_archive": {
+      "display_name": "Archive",
+      "description": "Move an Object identified by `{dealId}` to the recycling bin.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dealId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dealId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/crm/v3/objects/0-3/{dealId}"
+      }
+    },
+    "delete_crm_v3_objects_companies_company_id_archive": {
+      "display_name": "Archive a company",
+      "description": "Delete a company by ID. Deleted companies can be restored within 90 days of deletion. Learn more about [restoring records](https://knowledge.hubspot.com/records/restore-deleted-records).",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "companyId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "companyId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/crm/v3/objects/companies/{companyId}"
+      }
+    },
+    "delete_crm_v3_objects_contacts_contact_id_archive": {
       "display_name": "Archive a contact",
       "description": "Delete a contact by ID. Deleted contacts can be restored within 90 days of deletion. Learn more about the [data impacted by contact deletions](https://knowledge.hubspot.com/privacy-and-consent/unde...",
       "access": "write",
@@ -23,9 +65,100 @@
         "path": "/crm/v3/objects/contacts/{contactId}"
       }
     },
-    "get_crm_v3_objects_contacts": {
-      "display_name": "Retrieve contacts",
-      "description": "Retrieve all contacts, using query parameters to specify the information that gets returned.",
+    "delete_crm_v3_objects_products_product_id_archive": {
+      "display_name": "Archive",
+      "description": "Move an Object identified by `{productId}` to the recycling bin.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "productId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/crm/v3/objects/products/{productId}"
+      }
+    },
+    "delete_crm_v3_objects_tickets_ticket_id_archive": {
+      "display_name": "Archive",
+      "description": "Move an Object identified by `{ticketId}` to the recycling bin.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "ticketId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticketId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/crm/v3/objects/tickets/{ticketId}"
+      }
+    },
+    "get_crm_v3_objects_0_3_deal_id_get_by_id": {
+      "display_name": "Read",
+      "description": "Read an Object identified by `{dealId}`. `{dealId}` refers to the internal object ID by default, or optionally any unique property value as specified by the `idProperty` query param. Control what i...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "dealId": {
+            "type": "string"
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "required": [
+          "dealId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/0-3/{dealId}",
+        "query_mapping": {
+          "archived": "archived",
+          "associations": "associations",
+          "idProperty": "idProperty",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        }
+      },
+      "response_schema": "hubspot_3_SimplePublicObjectWithAssociations"
+    },
+    "get_crm_v3_objects_0_3_get_page": {
+      "display_name": "List",
+      "description": "Read a page of deals. Control what is returned via the `properties` query param.",
       "access": "read",
       "resource_type": "",
       "parameters": {
@@ -59,7 +192,7 @@
       },
       "execution": {
         "method": "GET",
-        "path": "/crm/v3/objects/contacts",
+        "path": "/crm/v3/objects/0-3",
         "query_mapping": {
           "after": "after",
           "archived": "archived",
@@ -70,9 +203,107 @@
         },
         "response_path": "results"
       },
-      "response_schema": "CollectionResponseSimplePublicObjectWithAssociationsForwardPaging"
+      "response_schema": "hubspot_3_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging"
     },
-    "get_crm_v3_objects_contacts_contact_id": {
+    "get_crm_v3_objects_companies_company_id_get_by_id": {
+      "display_name": "Retrieve a company",
+      "description": "Retrieve a company by its ID (`companyId`) or by a unique property (`idProperty`). You can specify what is returned using the `properties` query parameter.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "companyId": {
+            "type": "string"
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "required": [
+          "companyId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/companies/{companyId}",
+        "query_mapping": {
+          "archived": "archived",
+          "associations": "associations",
+          "idProperty": "idProperty",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        }
+      },
+      "response_schema": "hubspot_2_SimplePublicObjectWithAssociations"
+    },
+    "get_crm_v3_objects_companies_get_page": {
+      "display_name": "Retrieve companies",
+      "description": "Retrieve all companies, using query parameters to control the information that gets returned.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "The paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum number of results to display per page."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/companies",
+        "query_mapping": {
+          "after": "after",
+          "archived": "archived",
+          "associations": "associations",
+          "limit": "limit",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_2_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging"
+    },
+    "get_crm_v3_objects_contacts_contact_id_get_by_id": {
       "display_name": "Retrieve a contact",
       "description": "Retrieve a contact by its ID (`contactId`) or by a unique property (`idProperty`). You can specify what is returned using the `properties` query parameter.",
       "access": "read",
@@ -119,9 +350,328 @@
           "propertiesWithHistory": "propertiesWithHistory"
         }
       },
-      "response_schema": "SimplePublicObjectWithAssociations"
+      "response_schema": "hubspot_1_SimplePublicObjectWithAssociations"
     },
-    "patch_crm_v3_objects_contacts_contact_id": {
+    "get_crm_v3_objects_contacts_get_page": {
+      "display_name": "Retrieve contacts",
+      "description": "Retrieve all contacts, using query parameters to specify the information that gets returned.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "The paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum number of results to display per page."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/contacts",
+        "query_mapping": {
+          "after": "after",
+          "archived": "archived",
+          "associations": "associations",
+          "limit": "limit",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_1_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging"
+    },
+    "get_crm_v3_objects_products_get_page": {
+      "display_name": "List",
+      "description": "Read a page of products. Control what is returned via the `properties` query param.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "The paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum number of results to display per page."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/products",
+        "query_mapping": {
+          "after": "after",
+          "archived": "archived",
+          "associations": "associations",
+          "limit": "limit",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_5_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging"
+    },
+    "get_crm_v3_objects_products_product_id_get_by_id": {
+      "display_name": "Read",
+      "description": "Read an Object identified by `{productId}`. `{productId}` refers to the internal object ID by default, or optionally any unique property value as specified by the `idProperty` query param. Control ...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "required": [
+          "productId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/products/{productId}",
+        "query_mapping": {
+          "archived": "archived",
+          "associations": "associations",
+          "idProperty": "idProperty",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        }
+      },
+      "response_schema": "hubspot_5_SimplePublicObjectWithAssociations"
+    },
+    "get_crm_v3_objects_tickets_get_page": {
+      "display_name": "List",
+      "description": "Read a page of tickets. Control what is returned via the `properties` query param.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "The paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum number of results to display per page."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/tickets",
+        "query_mapping": {
+          "after": "after",
+          "archived": "archived",
+          "associations": "associations",
+          "limit": "limit",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_4_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging"
+    },
+    "get_crm_v3_objects_tickets_ticket_id_get_by_id": {
+      "display_name": "Read",
+      "description": "Read an Object identified by `{ticketId}`. `{ticketId}` refers to the internal object ID by default, or optionally any unique property value as specified by the `idProperty` query param. Control wh...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "associations": {
+            "type": "array",
+            "description": "A comma separated list of object types to retrieve associated IDs for. If any of the specified associations do not exist, they will be ignored."
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "properties": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned in the response. If any of the specified properties are not present on the requested object(s), they will be ignored."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "A comma separated list of the properties to be returned along with their history of previous values. If any of the specified properties are not present on the requested object(s), they will be igno..."
+          },
+          "ticketId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticketId"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/crm/v3/objects/tickets/{ticketId}",
+        "query_mapping": {
+          "archived": "archived",
+          "associations": "associations",
+          "idProperty": "idProperty",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        }
+      },
+      "response_schema": "hubspot_4_SimplePublicObjectWithAssociations"
+    },
+    "patch_crm_v3_objects_0_3_deal_id_update": {
+      "display_name": "Update",
+      "description": "Perform a partial update of an Object identified by `{dealId}`or optionally a unique property value as specified by the `idProperty` query param. `{dealId}` refers to the internal object ID by defa...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dealId": {
+            "type": "string"
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Key value pairs representing the properties of the object."
+          }
+        },
+        "required": [
+          "dealId",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/crm/v3/objects/0-3/{dealId}",
+        "body_mapping": {
+          "properties": "properties"
+        },
+        "query_mapping": {
+          "idProperty": "idProperty"
+        }
+      },
+      "response_schema": "hubspot_3_SimplePublicObject"
+    },
+    "patch_crm_v3_objects_companies_company_id_update": {
+      "display_name": "Update a company",
+      "description": "Update a company by ID (`companyId`) or unique property value (`idProperty`). Provided property values will be overwritten. Read-only and non-existent properties will result in an error. Properties...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "companyId": {
+            "type": "string"
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "properties": {
+            "type": "object",
+            "description": "The company property values to set."
+          }
+        },
+        "required": [
+          "companyId",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/crm/v3/objects/companies/{companyId}",
+        "body_mapping": {
+          "properties": "properties"
+        },
+        "query_mapping": {
+          "idProperty": "idProperty"
+        }
+      },
+      "response_schema": "hubspot_2_SimplePublicObject"
+    },
+    "patch_crm_v3_objects_contacts_contact_id_update": {
       "display_name": "Update a contact",
       "description": "Update an existing contact, identified by ID or email/unique property value. To identify a contact by ID, include the ID in the request URL path. To identify a contact by their email or other uniqu...",
       "access": "write",
@@ -156,11 +706,211 @@
           "idProperty": "idProperty"
         }
       },
-      "response_schema": "SimplePublicObject"
+      "response_schema": "hubspot_1_SimplePublicObject"
     },
-    "post_crm_v3_objects_contacts": {
-      "display_name": "Create a contact",
-      "description": "Create a single contact. Include a `properties` object to define [property values](https://developers.hubspot.com/docs/guides/api/crm/properties) for the contact, along with an `associations` array...",
+    "patch_crm_v3_objects_products_product_id_update": {
+      "display_name": "Update",
+      "description": "Perform a partial update of an Object identified by `{productId}`or optionally a unique property value as specified by the `idProperty` query param. `{productId}` refers to the internal object ID b...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Key value pairs representing the properties of the object."
+          }
+        },
+        "required": [
+          "productId",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/crm/v3/objects/products/{productId}",
+        "body_mapping": {
+          "properties": "properties"
+        },
+        "query_mapping": {
+          "idProperty": "idProperty"
+        }
+      },
+      "response_schema": "hubspot_5_SimplePublicObject"
+    },
+    "patch_crm_v3_objects_tickets_ticket_id_update": {
+      "display_name": "Update",
+      "description": "Perform a partial update of an Object identified by `{ticketId}`or optionally a unique property value as specified by the `idProperty` query param. `{ticketId}` refers to the internal object ID by ...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "idProperty": {
+            "type": "string",
+            "description": "The name of a property whose values are unique for this object type"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Key value pairs representing the properties of the object."
+          },
+          "ticketId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticketId",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/crm/v3/objects/tickets/{ticketId}",
+        "body_mapping": {
+          "properties": "properties"
+        },
+        "query_mapping": {
+          "idProperty": "idProperty"
+        }
+      },
+      "response_schema": "hubspot_4_SimplePublicObject"
+    },
+    "post_crm_v3_objects_0_3_batch_archive_archive": {
+      "display_name": "Archive a batch of deals by ID",
+      "description": "Archive multiple deals using their IDs.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/0-3/batch/archive",
+        "body_mapping": {
+          "inputs": "inputs"
+        }
+      }
+    },
+    "post_crm_v3_objects_0_3_batch_create_create": {
+      "display_name": "Create a batch of deals",
+      "description": "Create multiple deals in a single request.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/0-3/batch/create",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_3_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_0_3_batch_read_read": {
+      "display_name": "Read a batch of deals by internal ID, or unique property values",
+      "description": "Retrieve records by record ID or include the `idProperty` parameter to retrieve records by a custom unique value property.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "When using a custom unique value property to retrieve records, the name of the property. Do not include this parameter if retrieving by record ID."
+          },
+          "inputs": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object and their histories."
+          }
+        },
+        "required": [
+          "inputs",
+          "properties",
+          "propertiesWithHistory"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/0-3/batch/read",
+        "body_mapping": {
+          "idProperty": "idProperty",
+          "inputs": "inputs",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "query_mapping": {
+          "archived": "archived"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_3_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_0_3_batch_update_update": {
+      "display_name": "Update a batch of deals by internal ID, or unique property values",
+      "description": "Update multiple deals using their internal IDs or unique property values.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/0-3/batch/update",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_3_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_0_3_create": {
+      "display_name": "Create",
+      "description": "Create a deal with the given properties and return a copy of the object, including the ID. Documentation and examples for creating standard deals is provided.",
       "access": "write",
       "resource_type": "",
       "parameters": {
@@ -181,15 +931,284 @@
       },
       "execution": {
         "method": "POST",
-        "path": "/crm/v3/objects/contacts",
+        "path": "/crm/v3/objects/0-3",
         "body_mapping": {
           "associations": "associations",
           "properties": "properties"
         }
       },
-      "response_schema": "SimplePublicObject"
+      "response_schema": "hubspot_3_SimplePublicObject"
     },
-    "post_crm_v3_objects_contacts_batch_archive": {
+    "post_crm_v3_objects_0_3_search_do_search": {
+      "display_name": "Search for deals using various filters and criteria to retrieve specific reco...",
+      "description": "Search for deals using specified criteria and filters.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "A paging cursor token for retrieving subsequent pages."
+          },
+          "filterGroups": {
+            "type": "array",
+            "description": "Up to 6 groups of filters defining additional query criteria."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum results to return, up to 200 objects."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A list of property names to include in the response."
+          },
+          "query": {
+            "type": "string",
+            "description": "The search query string, up to 3000 characters."
+          },
+          "sorts": {
+            "type": "array",
+            "description": "Specifies sorting order based on object properties."
+          }
+        },
+        "required": [
+          "after",
+          "filterGroups",
+          "limit",
+          "properties",
+          "sorts"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/0-3/search",
+        "body_mapping": {
+          "after": "after",
+          "filterGroups": "filterGroups",
+          "limit": "limit",
+          "properties": "properties",
+          "query": "query",
+          "sorts": "sorts"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_3_CollectionResponseWithTotalSimplePublicObject"
+    },
+    "post_crm_v3_objects_companies_batch_archive_archive": {
+      "display_name": "Archive a batch of companies",
+      "description": "Delete a batch of companies by ID. Deleted companies can be restored within 90 days of deletion. Learn more about [restoring records](https://knowledge.hubspot.com/records/restore-deleted-records).",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/companies/batch/archive",
+        "body_mapping": {
+          "inputs": "inputs"
+        }
+      }
+    },
+    "post_crm_v3_objects_companies_batch_create_create": {
+      "display_name": "Create a batch of companies",
+      "description": "Create a batch of companies. The `inputs` array can contain a `properties` object to define property values for each company, along with an `associations` array to define [associations](https://dev...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/companies/batch/create",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_2_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_companies_batch_read_read": {
+      "display_name": "Retrieve a batch of companies",
+      "description": "Retrieve a batch of companies by ID (`companyId`) or by a unique property (`idProperty`). You can specify what is returned using the `properties` query parameter.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "When using a custom unique value property to retrieve records, the name of the property. Do not include this parameter if retrieving by record ID."
+          },
+          "inputs": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object and their histories."
+          }
+        },
+        "required": [
+          "inputs",
+          "properties",
+          "propertiesWithHistory"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/companies/batch/read",
+        "body_mapping": {
+          "idProperty": "idProperty",
+          "inputs": "inputs",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "query_mapping": {
+          "archived": "archived"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_2_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_companies_batch_update_update": {
+      "display_name": "Update a batch of companies",
+      "description": "Update a batch of companies by ID.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/companies/batch/update",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_2_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_companies_create": {
+      "display_name": "Create a company",
+      "description": "Create a single company. Include a `properties` object to define [property values](https://developers.hubspot.com/docs/guides/api/crm/properties) for the company, along with an `associations` array...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "associations": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "object",
+            "description": "The company property values to set."
+          }
+        },
+        "required": [
+          "associations",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/companies",
+        "body_mapping": {
+          "associations": "associations",
+          "properties": "properties"
+        }
+      },
+      "response_schema": "hubspot_2_SimplePublicObject"
+    },
+    "post_crm_v3_objects_companies_search_do_search": {
+      "display_name": "Search for companies",
+      "description": "Search for companies by filtering on properties, searching through associations, and sorting results. Learn more about [CRM search](https://developers.hubspot.com/docs/guides/api/crm/search#make-a-...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "A paging cursor token for retrieving subsequent pages."
+          },
+          "filterGroups": {
+            "type": "array",
+            "description": "Up to 6 groups of filters defining additional query criteria."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum results to return, up to 200 objects."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A list of property names to include in the response."
+          },
+          "query": {
+            "type": "string",
+            "description": "The search query string, up to 3000 characters."
+          },
+          "sorts": {
+            "type": "array",
+            "description": "Specifies sorting order based on object properties."
+          }
+        },
+        "required": [
+          "after",
+          "filterGroups",
+          "limit",
+          "properties",
+          "sorts"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/companies/search",
+        "body_mapping": {
+          "after": "after",
+          "filterGroups": "filterGroups",
+          "limit": "limit",
+          "properties": "properties",
+          "query": "query",
+          "sorts": "sorts"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_2_CollectionResponseWithTotalSimplePublicObject"
+    },
+    "post_crm_v3_objects_contacts_batch_archive_archive": {
       "display_name": "Archive a batch of contacts",
       "description": "Archive a batch of contacts by ID. Archived contacts can be restored within 90 days of deletion. Learn more about the [data impacted by contact deletions](https://knowledge.hubspot.com/privacy-and-...",
       "access": "write",
@@ -213,7 +1232,7 @@
         }
       }
     },
-    "post_crm_v3_objects_contacts_batch_create": {
+    "post_crm_v3_objects_contacts_batch_create_create": {
       "display_name": "Create a batch of contacts",
       "description": "Create a batch of contacts. The `inputs` array can contain a `properties` object to define property values for each record, along with an `associations` array to define [associations](https://devel...",
       "access": "write",
@@ -237,12 +1256,12 @@
         },
         "response_path": "results"
       },
-      "response_schema": "BatchResponseSimplePublicObject"
+      "response_schema": "hubspot_1_BatchResponseSimplePublicObject"
     },
-    "post_crm_v3_objects_contacts_batch_read": {
+    "post_crm_v3_objects_contacts_batch_read_read": {
       "display_name": "Retrieve a batch of contacts",
       "description": "Retrieve a batch of contacts by ID (`contactId`) or unique property value (`idProperty`).",
-      "access": "read",
+      "access": "write",
       "resource_type": "",
       "parameters": {
         "properties": {
@@ -287,9 +1306,9 @@
         },
         "response_path": "results"
       },
-      "response_schema": "BatchResponseSimplePublicObject"
+      "response_schema": "hubspot_1_BatchResponseSimplePublicObject"
     },
-    "post_crm_v3_objects_contacts_batch_update": {
+    "post_crm_v3_objects_contacts_batch_update_update": {
       "display_name": "Update a batch of contacts",
       "description": "Update a batch of contacts by ID (`contactId`) or unique property value (`idProperty`). Provided property values will be overwritten. Read-only and non-existent properties will result in an error. ...",
       "access": "write",
@@ -313,97 +1332,40 @@
         },
         "response_path": "results"
       },
-      "response_schema": "BatchResponseSimplePublicObject"
+      "response_schema": "hubspot_1_BatchResponseSimplePublicObject"
     },
-    "post_crm_v3_objects_contacts_batch_upsert": {
-      "display_name": "Create or update a batch of contacts",
-      "description": "Upsert a batch of contacts. The `inputs` array can contain a `properties` object to define property values for each record.",
+    "post_crm_v3_objects_contacts_create": {
+      "display_name": "Create a contact",
+      "description": "Create a single contact. Include a `properties` object to define [property values](https://developers.hubspot.com/docs/guides/api/crm/properties) for the contact, along with an `associations` array...",
       "access": "write",
       "resource_type": "",
       "parameters": {
         "properties": {
-          "inputs": {
+          "associations": {
             "type": "array"
-          }
-        },
-        "required": [
-          "inputs"
-        ],
-        "type": "object"
-      },
-      "execution": {
-        "method": "POST",
-        "path": "/crm/v3/objects/contacts/batch/upsert",
-        "body_mapping": {
-          "inputs": "inputs"
-        },
-        "response_path": "results"
-      },
-      "response_schema": "BatchResponseSimplePublicUpsertObject"
-    },
-    "post_crm_v3_objects_contacts_gdpr_delete": {
-      "display_name": "Permanently delete a contact (GDPR-compliant)",
-      "description": "Permanently delete a contact and all associated content to follow GDPR. Use optional property `idProperty` set to `email` to identify contact by email address. If email address is not found, the em...",
-      "access": "write",
-      "resource_type": "",
-      "parameters": {
-        "properties": {
-          "idProperty": {
-            "type": "string",
-            "description": "The name of a property whose values are unique for this object. An alternative to identifying a contact by ID."
           },
-          "objectId": {
-            "type": "string",
-            "description": "The ID of the contact to permanently delete."
+          "properties": {
+            "type": "object",
+            "description": "Key-value pairs for setting properties for the new object."
           }
         },
         "required": [
-          "objectId"
+          "associations",
+          "properties"
         ],
         "type": "object"
       },
       "execution": {
         "method": "POST",
-        "path": "/crm/v3/objects/contacts/gdpr-delete",
+        "path": "/crm/v3/objects/contacts",
         "body_mapping": {
-          "idProperty": "idProperty",
-          "objectId": "objectId"
-        }
-      }
-    },
-    "post_crm_v3_objects_contacts_merge": {
-      "display_name": "Merge two contacts",
-      "description": "Merge two contact records. Learn more about [merging records](https://knowledge.hubspot.com/records/merge-records).",
-      "access": "write",
-      "resource_type": "",
-      "parameters": {
-        "properties": {
-          "objectIdToMerge": {
-            "type": "string",
-            "description": "The object ID of the record that the merge will not set as the current value after the merge."
-          },
-          "primaryObjectId": {
-            "type": "string",
-            "description": "The object ID of the record that the merge will generally set as the current value after the merge."
-          }
-        },
-        "required": [
-          "objectIdToMerge",
-          "primaryObjectId"
-        ],
-        "type": "object"
-      },
-      "execution": {
-        "method": "POST",
-        "path": "/crm/v3/objects/contacts/merge",
-        "body_mapping": {
-          "objectIdToMerge": "objectIdToMerge",
-          "primaryObjectId": "primaryObjectId"
+          "associations": "associations",
+          "properties": "properties"
         }
       },
-      "response_schema": "SimplePublicObject"
+      "response_schema": "hubspot_1_SimplePublicObject"
     },
-    "post_crm_v3_objects_contacts_search": {
+    "post_crm_v3_objects_contacts_search_do_search": {
       "display_name": "Search for contacts",
       "description": "Search for contacts by filtering on properties, searching through associations, and sorting results. Learn more about [CRM search](https://developers.hubspot.com/docs/guides/api/crm/search#make-a-s...",
       "access": "read",
@@ -457,11 +1419,437 @@
         },
         "response_path": "results"
       },
-      "response_schema": "CollectionResponseWithTotalSimplePublicObject"
+      "response_schema": "hubspot_1_CollectionResponseWithTotalSimplePublicObject"
+    },
+    "post_crm_v3_objects_products_batch_archive_archive": {
+      "display_name": "Archive a batch of products by ID",
+      "description": "Archive multiple products at once by providing their IDs. This operation moves the specified products to the recycling bin, effectively removing them from active use without permanently deleting them.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/products/batch/archive",
+        "body_mapping": {
+          "inputs": "inputs"
+        }
+      }
+    },
+    "post_crm_v3_objects_products_batch_create_create": {
+      "display_name": "Create a batch of products",
+      "description": "Create multiple products in a single request by specifying their properties, and receive a response containing the details of the created products.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/products/batch/create",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_5_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_products_batch_read_read": {
+      "display_name": "Read a batch of products by internal ID, or unique property values",
+      "description": "Retrieve records by record ID or include the `idProperty` parameter to retrieve records by a custom unique value property.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "When using a custom unique value property to retrieve records, the name of the property. Do not include this parameter if retrieving by record ID."
+          },
+          "inputs": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object and their histories."
+          }
+        },
+        "required": [
+          "inputs",
+          "properties",
+          "propertiesWithHistory"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/products/batch/read",
+        "body_mapping": {
+          "idProperty": "idProperty",
+          "inputs": "inputs",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "query_mapping": {
+          "archived": "archived"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_5_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_products_batch_update_update": {
+      "display_name": "Update a batch of products by internal ID, or unique property values",
+      "description": "Update multiple products in a single request using their internal IDs or unique property values. This batch operation allows for efficient modifications of product records by specifying the propert...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/products/batch/update",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_5_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_products_create": {
+      "display_name": "Create",
+      "description": "Create a product with the given properties and return a copy of the object, including the ID. Documentation and examples for creating standard products is provided.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "associations": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Key-value pairs for setting properties for the new object."
+          }
+        },
+        "required": [
+          "associations",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/products",
+        "body_mapping": {
+          "associations": "associations",
+          "properties": "properties"
+        }
+      },
+      "response_schema": "hubspot_5_SimplePublicObject"
+    },
+    "post_crm_v3_objects_products_search_do_search": {
+      "display_name": "Search for products using specified criteria.",
+      "description": "Execute a search for products based on defined filters, properties, and sorting options. This endpoint allows for detailed querying of product data within the CRM, enabling users to retrieve specif...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "A paging cursor token for retrieving subsequent pages."
+          },
+          "filterGroups": {
+            "type": "array",
+            "description": "Up to 6 groups of filters defining additional query criteria."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum results to return, up to 200 objects."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A list of property names to include in the response."
+          },
+          "query": {
+            "type": "string",
+            "description": "The search query string, up to 3000 characters."
+          },
+          "sorts": {
+            "type": "array",
+            "description": "Specifies sorting order based on object properties."
+          }
+        },
+        "required": [
+          "after",
+          "filterGroups",
+          "limit",
+          "properties",
+          "sorts"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/products/search",
+        "body_mapping": {
+          "after": "after",
+          "filterGroups": "filterGroups",
+          "limit": "limit",
+          "properties": "properties",
+          "query": "query",
+          "sorts": "sorts"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_5_CollectionResponseWithTotalSimplePublicObject"
+    },
+    "post_crm_v3_objects_tickets_batch_archive_archive": {
+      "display_name": "Archive a batch of tickets by ID",
+      "description": "Delete a batch of tickets by ID. Deleted tickets can be restored within 90 days of deletion. Learn more about [restoring records](https://knowledge.hubspot.com/records/restore-deleted-records).",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/tickets/batch/archive",
+        "body_mapping": {
+          "inputs": "inputs"
+        }
+      }
+    },
+    "post_crm_v3_objects_tickets_batch_create_create": {
+      "display_name": "Create a batch of tickets",
+      "description": "Create a batch of tickets. The `inputs` array can contain a `properties` object to define property values for the ticket, along with an `associations` array to define [associations](https://develop...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/tickets/batch/create",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_4_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_tickets_batch_read_read": {
+      "display_name": "Read a batch of tickets by internal ID, or unique property values",
+      "description": "Retrieve a batch of tickets by ID (`ticketId`) or unique property value (`idProperty`).",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Whether to return only results that have been archived."
+          },
+          "idProperty": {
+            "type": "string",
+            "description": "When using a custom unique value property to retrieve records, the name of the property. Do not include this parameter if retrieving by record ID."
+          },
+          "inputs": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object."
+          },
+          "propertiesWithHistory": {
+            "type": "array",
+            "description": "Key-value pairs for setting properties for the new object and their histories."
+          }
+        },
+        "required": [
+          "inputs",
+          "properties",
+          "propertiesWithHistory"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/tickets/batch/read",
+        "body_mapping": {
+          "idProperty": "idProperty",
+          "inputs": "inputs",
+          "properties": "properties",
+          "propertiesWithHistory": "propertiesWithHistory"
+        },
+        "query_mapping": {
+          "archived": "archived"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_4_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_tickets_batch_update_update": {
+      "display_name": "Update a batch of tickets by internal ID, or unique property values",
+      "description": "Update a batch of tickets by ID (`ticketId`) or unique property value (`idProperty`). Provided property values will be overwritten. Read-only and non-existent properties will result in an error. Pr...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "inputs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/tickets/batch/update",
+        "body_mapping": {
+          "inputs": "inputs"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_4_BatchResponseSimplePublicObject"
+    },
+    "post_crm_v3_objects_tickets_create": {
+      "display_name": "Create",
+      "description": "Create a ticket with the given properties and return a copy of the object, including the ID. Documentation and examples for creating standard tickets is provided.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "associations": {
+            "type": "array"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Key-value pairs for setting properties for the new object."
+          }
+        },
+        "required": [
+          "associations",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/tickets",
+        "body_mapping": {
+          "associations": "associations",
+          "properties": "properties"
+        }
+      },
+      "response_schema": "hubspot_4_SimplePublicObject"
+    },
+    "post_crm_v3_objects_tickets_search_do_search": {
+      "display_name": "Search for tickets",
+      "description": "Search for tickets by filtering on properties, searching through associations, and sorting results. Learn more about [CRM search](https://developers.hubspot.com/docs/guides/api/crm/search#make-a-se...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "A paging cursor token for retrieving subsequent pages."
+          },
+          "filterGroups": {
+            "type": "array",
+            "description": "Up to 6 groups of filters defining additional query criteria."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum results to return, up to 200 objects."
+          },
+          "properties": {
+            "type": "array",
+            "description": "A list of property names to include in the response."
+          },
+          "query": {
+            "type": "string",
+            "description": "The search query string, up to 3000 characters."
+          },
+          "sorts": {
+            "type": "array",
+            "description": "Specifies sorting order based on object properties."
+          }
+        },
+        "required": [
+          "after",
+          "filterGroups",
+          "limit",
+          "properties",
+          "sorts"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/crm/v3/objects/tickets/search",
+        "body_mapping": {
+          "after": "after",
+          "filterGroups": "filterGroups",
+          "limit": "limit",
+          "properties": "properties",
+          "query": "query",
+          "sorts": "sorts"
+        },
+        "response_path": "results"
+      },
+      "response_schema": "hubspot_4_CollectionResponseWithTotalSimplePublicObject"
     }
   },
   "schemas": {
-    "BatchResponseSimplePublicObject": {
+    "hubspot_1_BatchResponseSimplePublicObject": {
       "type": "object",
       "properties": {
         "completedAt": {
@@ -489,50 +1877,24 @@
         }
       }
     },
-    "BatchResponseSimplePublicUpsertObject": {
+    "hubspot_1_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging": {
       "type": "object",
       "properties": {
-        "completedAt": {
-          "type": "string",
-          "description": "The timestamp when the batch process was completed, in ISO 8601 format."
-        },
-        "links": {
+        "paging": {
           "type": "object",
-          "description": "An object containing relevant links related to the batch request."
-        },
-        "requestedAt": {
-          "type": "string",
-          "description": "The timestamp when the batch process was initiated, in ISO 8601 format."
-        },
-        "results": {
-          "type": "array"
-        },
-        "startedAt": {
-          "type": "string",
-          "description": "The timestamp when the batch process began execution, in ISO 8601 format."
-        },
-        "status": {
-          "type": "string",
-          "description": "The status of the batch processing request. Can be: \"PENDING\", \"PROCESSING\", \"CANCELED\", or \"COMPLETE\"."
-        }
-      }
-    },
-    "CollectionResponseSimplePublicObjectWithAssociationsForwardPaging": {
-      "type": "object",
-      "properties": {
-        "paging": {
-          "type": "object"
+          "schema_ref": "hubspot_1_ForwardPaging"
         },
         "results": {
           "type": "array"
         }
       }
     },
-    "CollectionResponseWithTotalSimplePublicObject": {
+    "hubspot_1_CollectionResponseWithTotalSimplePublicObject": {
       "type": "object",
       "properties": {
         "paging": {
-          "type": "object"
+          "type": "object",
+          "schema_ref": "hubspot_1_Paging"
         },
         "results": {
           "type": "array"
@@ -543,7 +1905,58 @@
         }
       }
     },
-    "SimplePublicObject": {
+    "hubspot_1_ForwardPaging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_1_NextPage"
+        }
+      }
+    },
+    "hubspot_1_NextPage": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving subsequent pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the next page results."
+        }
+      }
+    },
+    "hubspot_1_Paging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_1_NextPage"
+        },
+        "prev": {
+          "type": "object",
+          "description": "specifies the paging information needed to retrieve the previous set of results in a paginated API response",
+          "schema_ref": "hubspot_1_PreviousPage"
+        }
+      }
+    },
+    "hubspot_1_PreviousPage": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving previous pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the previous pages' results."
+        }
+      }
+    },
+    "hubspot_1_SimplePublicObject": {
       "type": "object",
       "properties": {
         "archived": {
@@ -581,10 +1994,13 @@
         "url": {
           "type": "string",
           "description": "The URL associated with the object."
+        },
+        "warnings": {
+          "type": "array"
         }
       }
     },
-    "SimplePublicObjectWithAssociations": {
+    "hubspot_1_SimplePublicObjectWithAssociations": {
       "type": "object",
       "properties": {
         "archived": {
@@ -626,6 +2042,805 @@
         "url": {
           "type": "string",
           "description": "The URL on the API that provide direct navigation to the corresponding UI pages for the connectors."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_2_BatchResponseSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "completedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing was completed, in ISO 8601 format."
+        },
+        "links": {
+          "type": "object",
+          "description": "An object containing relevant links related to the batch request."
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch request was initially made, in ISO 8601 format."
+        },
+        "results": {
+          "type": "array"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing began, in ISO 8601 format."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the batch processing request. The expected value is \"COMPLETE\"."
+        }
+      }
+    },
+    "hubspot_2_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_2_ForwardPaging"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_2_CollectionResponseWithTotalSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_2_Paging"
+        },
+        "results": {
+          "type": "array"
+        },
+        "total": {
+          "type": "integer",
+          "description": "The number of available results"
+        }
+      }
+    },
+    "hubspot_2_ForwardPaging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_2_NextPage"
+        }
+      }
+    },
+    "hubspot_2_NextPage": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving subsequent pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the next page results."
+        }
+      }
+    },
+    "hubspot_2_Paging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_2_NextPage"
+        },
+        "prev": {
+          "type": "object",
+          "description": "specifies the paging information needed to retrieve the previous set of results in a paginated API response",
+          "schema_ref": "hubspot_2_PreviousPage"
+        }
+      }
+    },
+    "hubspot_2_PreviousPage": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving previous pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the previous pages' results."
+        }
+      }
+    },
+    "hubspot_2_SimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the write request for the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL associated with the object."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_2_SimplePublicObjectWithAssociations": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "associations": {
+          "type": "object",
+          "description": "A list defining relationships with other objects."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the creation or update request of the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL on the API that provide direct navigation to the corresponding UI pages for the connectors."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_3_BatchResponseSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "completedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing was completed, in ISO 8601 format."
+        },
+        "links": {
+          "type": "object",
+          "description": "An object containing relevant links related to the batch request."
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch request was initially made, in ISO 8601 format."
+        },
+        "results": {
+          "type": "array"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing began, in ISO 8601 format."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the batch processing request. The expected value is \"COMPLETE\"."
+        }
+      }
+    },
+    "hubspot_3_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_3_ForwardPaging"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_3_CollectionResponseWithTotalSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_3_Paging"
+        },
+        "results": {
+          "type": "array"
+        },
+        "total": {
+          "type": "integer",
+          "description": "The number of available results"
+        }
+      }
+    },
+    "hubspot_3_ForwardPaging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_3_NextPage"
+        }
+      }
+    },
+    "hubspot_3_NextPage": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving subsequent pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the next page results."
+        }
+      }
+    },
+    "hubspot_3_Paging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_3_NextPage"
+        },
+        "prev": {
+          "type": "object",
+          "description": "specifies the paging information needed to retrieve the previous set of results in a paginated API response",
+          "schema_ref": "hubspot_3_PreviousPage"
+        }
+      }
+    },
+    "hubspot_3_PreviousPage": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving previous pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the previous pages' results."
+        }
+      }
+    },
+    "hubspot_3_SimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the creation or update request of the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL associated with the object."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_3_SimplePublicObjectWithAssociations": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "associations": {
+          "type": "object",
+          "description": "A list defining relationships with other objects."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the creation or update request of the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL on the API that provide direct navigation to the corresponding UI pages for the connectors."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_4_BatchResponseSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "completedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing was completed, in ISO 8601 format."
+        },
+        "links": {
+          "type": "object",
+          "description": "An object containing relevant links related to the batch request."
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch request was initially made, in ISO 8601 format."
+        },
+        "results": {
+          "type": "array"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing began, in ISO 8601 format."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the batch processing request. The expected value is \"COMPLETE\"."
+        }
+      }
+    },
+    "hubspot_4_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_4_ForwardPaging"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_4_CollectionResponseWithTotalSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_4_Paging"
+        },
+        "results": {
+          "type": "array"
+        },
+        "total": {
+          "type": "integer",
+          "description": "The number of available results"
+        }
+      }
+    },
+    "hubspot_4_ForwardPaging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_4_NextPage"
+        }
+      }
+    },
+    "hubspot_4_NextPage": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving subsequent pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the next page results."
+        }
+      }
+    },
+    "hubspot_4_Paging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_4_NextPage"
+        },
+        "prev": {
+          "type": "object",
+          "description": "specifies the paging information needed to retrieve the previous set of results in a paginated API response",
+          "schema_ref": "hubspot_4_PreviousPage"
+        }
+      }
+    },
+    "hubspot_4_PreviousPage": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving previous pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the previous pages' results."
+        }
+      }
+    },
+    "hubspot_4_SimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the write request for the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL associated with the object."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_4_SimplePublicObjectWithAssociations": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "associations": {
+          "type": "object",
+          "description": "A list defining relationships with other objects."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the creation or update request of the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL on the API that provide direct navigation to the corresponding UI pages for the connectors."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_5_BatchResponseSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "completedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing was completed, in ISO 8601 format."
+        },
+        "links": {
+          "type": "object",
+          "description": "An object containing relevant links related to the batch request."
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch request was initially made, in ISO 8601 format."
+        },
+        "results": {
+          "type": "array"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "The timestamp when the batch processing began, in ISO 8601 format."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the batch processing request: \"PENDING\", \"PROCESSING\", \"CANCELLED\", or \"COMPLETE\""
+        }
+      }
+    },
+    "hubspot_5_CollectionResponseSimplePublicObjectWithAssociationsForwardPaging": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_5_ForwardPaging"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_5_CollectionResponseWithTotalSimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "paging": {
+          "type": "object",
+          "schema_ref": "hubspot_5_Paging"
+        },
+        "results": {
+          "type": "array"
+        },
+        "total": {
+          "type": "integer",
+          "description": "The number of available results"
+        }
+      }
+    },
+    "hubspot_5_ForwardPaging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_5_NextPage"
+        }
+      }
+    },
+    "hubspot_5_NextPage": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving subsequent pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the next page results."
+        }
+      }
+    },
+    "hubspot_5_Paging": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "type": "object",
+          "description": "Specifies the paging information needed to retrieve the next set of results in a paginated API response",
+          "schema_ref": "hubspot_5_NextPage"
+        },
+        "prev": {
+          "type": "object",
+          "description": "specifies the paging information needed to retrieve the previous set of results in a paginated API response",
+          "schema_ref": "hubspot_5_PreviousPage"
+        }
+      }
+    },
+    "hubspot_5_PreviousPage": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "string",
+          "description": "A paging cursor token for retrieving previous pages."
+        },
+        "link": {
+          "type": "string",
+          "description": "A URL that can be used to retrieve the previous pages' results."
+        }
+      }
+    },
+    "hubspot_5_SimplePublicObject": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the write request for the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL associated with the object."
+        },
+        "warnings": {
+          "type": "array"
+        }
+      }
+    },
+    "hubspot_5_SimplePublicObjectWithAssociations": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the object is archived."
+        },
+        "archivedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was archived, in ISO 8601 format."
+        },
+        "associations": {
+          "type": "object",
+          "description": "A list defining relationships with other objects."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the object was created, in ISO 8601 format."
+        },
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the object."
+        },
+        "objectWriteTraceId": {
+          "type": "string",
+          "description": "An identifier used for tracing the creation or update request of the object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Key value pairs representing the properties of the object."
+        },
+        "propertiesWithHistory": {
+          "type": "object",
+          "description": "Key-value pairs representing the properties of the object along with their history."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the object was last updated, in ISO 8601 format."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL on the API that provide direct navigation to the corresponding UI pages for the connectors."
+        },
+        "warnings": {
+          "type": "array"
         }
       }
     }

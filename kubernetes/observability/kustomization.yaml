@@ -5,6 +5,7 @@ namespace: observability
 
 resources:
   - namespace.yaml
+  - ../config/env/observability
   - routes.yaml
   - network-policy.yaml
 

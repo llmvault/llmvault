@@ -1,0 +1,3729 @@
+{
+  "display_name": "Datadog",
+  "resources": {},
+  "actions": {
+    "check_can_delete_monitor": {
+      "display_name": "Check if a monitor can be deleted",
+      "description": "Check if the given monitors can be deleted.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "monitor_ids": {
+            "type": "array",
+            "description": "The IDs of the monitor to check."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/monitor/can_delete",
+        "query_mapping": {
+          "monitor_ids": "monitor_ids"
+        }
+      },
+      "response_schema": "CheckCanDeleteMonitorResponse"
+    },
+    "create_dashboard": {
+      "display_name": "Create a new dashboard",
+      "description": "Create a dashboard using the specified options. When defining queries in your widgets, take note of which queries should have the `as_count()` or `as_rate()` modifiers appended. Refer to the follow...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "author_handle": {
+            "type": "string",
+            "description": "Identifier of the dashboard author."
+          },
+          "author_name": {
+            "type": "string",
+            "description": "Name of the dashboard author."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Creation date of the dashboard."
+          },
+          "default_timeframe": {
+            "type": "string",
+            "description": "The default timeframe applied when opening the dashboard. Set to `null` to clear the dashboard's default timeframe."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the dashboard."
+          },
+          "id": {
+            "type": "string",
+            "description": "ID of the dashboard."
+          },
+          "is_read_only": {
+            "type": "boolean",
+            "description": "Whether this dashboard is read-only. If True, only the author and admins can make changes to it.\n\nThis property is deprecated; please use the [Restriction Policies API](https://docs.datadoghq.com/a..."
+          },
+          "layout_type": {
+            "type": "string",
+            "description": "Layout type of the dashboard."
+          },
+          "modified_at": {
+            "type": "string",
+            "description": "Modification date of the dashboard."
+          },
+          "notify_list": {
+            "type": "array",
+            "description": "List of handles of users to notify when changes are made to this dashboard."
+          },
+          "reflow_type": {
+            "type": "string",
+            "description": "Reflow type for a **new dashboard layout** dashboard. Set this only when layout type is 'ordered'.\nIf set to 'fixed', the dashboard expects all widgets to have a layout, and if it's set to 'auto',\n..."
+          },
+          "restricted_roles": {
+            "type": "array",
+            "description": "A list of role identifiers. Only the author and users associated with at least one of these roles can edit this dashboard."
+          },
+          "tabs": {
+            "type": "array",
+            "description": "List of tabs for organizing dashboard widgets into groups."
+          },
+          "tags": {
+            "type": "array",
+            "description": "List of team names representing ownership of a dashboard."
+          },
+          "template_variable_presets": {
+            "type": "array",
+            "description": "Array of template variables saved views."
+          },
+          "template_variables": {
+            "type": "array",
+            "description": "List of template variables for this dashboard."
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the dashboard."
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the dashboard."
+          },
+          "widgets": {
+            "type": "array",
+            "description": "List of widgets to display on the dashboard."
+          }
+        },
+        "required": [
+          "title",
+          "layout_type",
+          "widgets"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/dashboard",
+        "body_mapping": {
+          "author_handle": "author_handle",
+          "author_name": "author_name",
+          "created_at": "created_at",
+          "default_timeframe": "default_timeframe",
+          "description": "description",
+          "id": "id",
+          "is_read_only": "is_read_only",
+          "layout_type": "layout_type",
+          "modified_at": "modified_at",
+          "notify_list": "notify_list",
+          "reflow_type": "reflow_type",
+          "restricted_roles": "restricted_roles",
+          "tabs": "tabs",
+          "tags": "tags",
+          "template_variable_presets": "template_variable_presets",
+          "template_variables": "template_variables",
+          "title": "title",
+          "url": "url",
+          "widgets": "widgets"
+        }
+      },
+      "response_schema": "Dashboard"
+    },
+    "create_dashboard_list": {
+      "display_name": "Create a dashboard list",
+      "description": "Create an empty dashboard list.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "author": {
+            "type": "object",
+            "description": "Object describing the creator of the shared element."
+          },
+          "created": {
+            "type": "string",
+            "description": "Date of creation of the dashboard list."
+          },
+          "dashboard_count": {
+            "type": "integer",
+            "description": "The number of dashboards in the list."
+          },
+          "id": {
+            "type": "integer",
+            "description": "The ID of the dashboard list."
+          },
+          "is_favorite": {
+            "type": "boolean",
+            "description": "Whether or not the list is in the favorites."
+          },
+          "modified": {
+            "type": "string",
+            "description": "Date of last edition of the dashboard list."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the dashboard list."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of dashboard list."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/dashboard/lists/manual",
+        "body_mapping": {
+          "author": "author",
+          "created": "created",
+          "dashboard_count": "dashboard_count",
+          "id": "id",
+          "is_favorite": "is_favorite",
+          "modified": "modified",
+          "name": "name",
+          "type": "type"
+        }
+      },
+      "response_schema": "DashboardList"
+    },
+    "create_logs_index": {
+      "display_name": "Create an index",
+      "description": "Creates a new index. Returns the Index object passed in the request body when the request is successful.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "daily_limit": {
+            "type": "integer",
+            "description": "The number of log events you can send in this index per day before you are rate-limited."
+          },
+          "daily_limit_reset": {
+            "type": "object",
+            "description": "Object containing options to override the default daily limit reset time."
+          },
+          "daily_limit_warning_threshold_percentage": {
+            "type": "number",
+            "description": "A percentage threshold of the daily quota at which a Datadog warning event is generated."
+          },
+          "exclusion_filters": {
+            "type": "array",
+            "description": "An array of exclusion objects. The logs are tested against the query of each filter,\nfollowing the order of the array. Only the first matching active exclusion matters,\nothers (if any) are ignored."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Filter for logs."
+          },
+          "is_rate_limited": {
+            "type": "boolean",
+            "description": "A boolean stating if the index is rate limited, meaning more logs than the daily limit have been sent.\nRate limit is reset every-day at 2pm UTC."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the index."
+          },
+          "num_flex_logs_retention_days": {
+            "type": "integer",
+            "description": "The total number of days logs are stored in Standard and Flex Tier before being deleted from the index.\nIf Standard Tier is enabled on this index, logs are first retained in Standard Tier for the n..."
+          },
+          "num_retention_days": {
+            "type": "integer",
+            "description": "The number of days logs are stored in Standard Tier before aging into the Flex Tier or being deleted from the index.\nThe available values depend on retention plans specified in your organization's ..."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags associated with the index. Tags must be in `key:value` format."
+          }
+        },
+        "required": [
+          "name",
+          "filter"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/logs/config/indexes",
+        "body_mapping": {
+          "daily_limit": "daily_limit",
+          "daily_limit_reset": "daily_limit_reset",
+          "daily_limit_warning_threshold_percentage": "daily_limit_warning_threshold_percentage",
+          "exclusion_filters": "exclusion_filters",
+          "filter": "filter",
+          "is_rate_limited": "is_rate_limited",
+          "name": "name",
+          "num_flex_logs_retention_days": "num_flex_logs_retention_days",
+          "num_retention_days": "num_retention_days",
+          "tags": "tags"
+        }
+      },
+      "response_schema": "LogsIndex"
+    },
+    "create_logs_pipeline": {
+      "display_name": "Create a pipeline",
+      "description": "Create a pipeline in your organization.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A description of the pipeline."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Filter for logs."
+          },
+          "id": {
+            "type": "string",
+            "description": "ID of the pipeline."
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "description": "Whether or not the pipeline is enabled."
+          },
+          "is_read_only": {
+            "type": "boolean",
+            "description": "Whether or not the pipeline can be edited."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the pipeline."
+          },
+          "processors": {
+            "type": "array",
+            "description": "Ordered list of processors in this pipeline."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags associated with the pipeline."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of pipeline."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/logs/config/pipelines",
+        "body_mapping": {
+          "description": "description",
+          "filter": "filter",
+          "id": "id",
+          "is_enabled": "is_enabled",
+          "is_read_only": "is_read_only",
+          "name": "name",
+          "processors": "processors",
+          "tags": "tags",
+          "type": "type"
+        }
+      },
+      "response_schema": "LogsPipeline"
+    },
+    "create_monitor": {
+      "display_name": "Create a monitor",
+      "description": "Create a monitor using the specified options. #### Monitor Types The type of monitor chosen from: - anomaly: `query alert` - APM: `query alert` or `trace-analytics alert` - composite: `composite` -...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "assets": {
+            "type": "array",
+            "description": "The list of monitor assets tied to a monitor, which represents key links for users to take action on monitor alerts (for example, runbooks)."
+          },
+          "created": {
+            "type": "string",
+            "description": "Timestamp of the monitor creation."
+          },
+          "creator": {
+            "type": "object",
+            "description": "Object describing the creator of the shared element."
+          },
+          "deleted": {
+            "type": "string",
+            "description": "Whether or not the monitor is deleted. (Always `null`)"
+          },
+          "draft_status": {
+            "type": "string",
+            "description": "Indicates whether the monitor is in a draft or published state.\n\n`draft`: The monitor appears as Draft and does not send notifications.\n`published`: The monitor is active and evaluates conditions a..."
+          },
+          "id": {
+            "type": "integer",
+            "description": "ID of this monitor."
+          },
+          "matching_downtimes": {
+            "type": "array",
+            "description": "A list of active v1 downtimes that match this monitor."
+          },
+          "message": {
+            "type": "string",
+            "description": "A message to include with notifications for this monitor."
+          },
+          "modified": {
+            "type": "string",
+            "description": "Last timestamp when the monitor was edited."
+          },
+          "multi": {
+            "type": "boolean",
+            "description": "Whether or not the monitor is broken down on different groups."
+          },
+          "name": {
+            "type": "string",
+            "description": "The monitor name."
+          },
+          "options": {
+            "type": "object",
+            "description": "List of options associated with your monitor."
+          },
+          "overall_state": {
+            "type": "string",
+            "description": "The different states your monitor can be in."
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Integer from 1 (high) to 5 (low) indicating alert severity."
+          },
+          "query": {
+            "type": "string",
+            "description": "The monitor query."
+          },
+          "restricted_roles": {
+            "type": "array",
+            "description": "A list of unique role identifiers to define which roles are allowed to edit the monitor. The unique identifiers for all roles can be pulled from the [Roles API](https://docs.datadoghq.com/api/lates..."
+          },
+          "state": {
+            "type": "object",
+            "description": "Wrapper object with the different monitor states."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags associated to your monitor."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the monitor. For more information about `type`, see the [monitor options](https://docs.datadoghq.com/monitors/guide/monitor_api_options/) docs."
+          }
+        },
+        "required": [
+          "type",
+          "query"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/monitor",
+        "body_mapping": {
+          "assets": "assets",
+          "created": "created",
+          "creator": "creator",
+          "deleted": "deleted",
+          "draft_status": "draft_status",
+          "id": "id",
+          "matching_downtimes": "matching_downtimes",
+          "message": "message",
+          "modified": "modified",
+          "multi": "multi",
+          "name": "name",
+          "options": "options",
+          "overall_state": "overall_state",
+          "priority": "priority",
+          "query": "query",
+          "restricted_roles": "restricted_roles",
+          "state": "state",
+          "tags": "tags",
+          "type": "type"
+        }
+      },
+      "response_schema": "Monitor"
+    },
+    "create_notebook": {
+      "display_name": "Create a notebook",
+      "description": "Create a notebook using the specified options.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "The data for a notebook create request."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/notebooks",
+        "body_mapping": {
+          "data": "data"
+        }
+      },
+      "response_schema": "NotebookResponse"
+    },
+    "create_slo": {
+      "display_name": "Create an SLO object",
+      "description": "Create a service level objective object.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A user-defined description of the service level objective.\n\nAlways included in service level objective responses (but may be `null`).\nOptional in create/update requests."
+          },
+          "groups": {
+            "type": "array",
+            "description": "A list of (up to 100) monitor groups that narrow the scope of a monitor service level objective.\n\nIncluded in service level objective responses if it is not empty. Optional in\ncreate/update request..."
+          },
+          "monitor_ids": {
+            "type": "array",
+            "description": "A list of monitor IDs that defines the scope of a monitor service level\nobjective. **Required if type is `monitor`**."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the service level objective object."
+          },
+          "query": {
+            "type": "object",
+            "description": "A count-based (metric) SLO query. This field is superseded by `sli_specification` but is retained for backwards compatibility. Note that Datadog only allows the sum by aggregator\nto be used because..."
+          },
+          "sli_specification": {
+            "type": "string",
+            "description": "A generic SLI specification. This is used for time-slice and count-based (metric) SLOs only."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags associated with this service level objective.\nAlways included in service level objective responses (but may be empty).\nOptional in create/update requests."
+          },
+          "target_threshold": {
+            "type": "number",
+            "description": "The target threshold such that when the service level indicator is above this\nthreshold over the given timeframe, the objective is being met."
+          },
+          "thresholds": {
+            "type": "array",
+            "description": "The thresholds (timeframes and associated targets) for this service level\nobjective object."
+          },
+          "timeframe": {
+            "type": "string",
+            "description": "The SLO time window options. Note that \"custom\" is not a valid option for creating\nor updating SLOs. It is only used when querying SLO history over custom timeframes."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the service level objective."
+          },
+          "warning_threshold": {
+            "type": "number",
+            "description": "The optional warning threshold such that when the service level indicator is\nbelow this value for the given threshold, but above the target threshold, the\nobjective appears in a \"warning\" state. Th..."
+          }
+        },
+        "required": [
+          "name",
+          "thresholds",
+          "type"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/slo",
+        "body_mapping": {
+          "description": "description",
+          "groups": "groups",
+          "monitor_ids": "monitor_ids",
+          "name": "name",
+          "query": "query",
+          "sli_specification": "sli_specification",
+          "tags": "tags",
+          "target_threshold": "target_threshold",
+          "thresholds": "thresholds",
+          "timeframe": "timeframe",
+          "type": "type",
+          "warning_threshold": "warning_threshold"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "SLOListResponse"
+    },
+    "delete_dashboard": {
+      "display_name": "Delete a dashboard",
+      "description": "Delete a dashboard using the specified ID.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "description": "The ID of the dashboard."
+          }
+        },
+        "required": [
+          "dashboard_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/dashboard/{dashboard_id}"
+      },
+      "response_schema": "DashboardDeleteResponse"
+    },
+    "delete_dashboard_list": {
+      "display_name": "Delete a dashboard list",
+      "description": "Delete a dashboard list.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "ID of the dashboard list to delete."
+          }
+        },
+        "required": [
+          "list_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/dashboard/lists/manual/{list_id}"
+      },
+      "response_schema": "DashboardListDeleteResponse"
+    },
+    "delete_logs_index": {
+      "display_name": "Delete an index",
+      "description": "Delete an existing index from your organization. Index deletions are permanent and cannot be reverted. You cannot recreate an index with the same name as deleted ones.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the log index."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/logs/config/indexes/{name}"
+      }
+    },
+    "delete_logs_pipeline": {
+      "display_name": "Delete a pipeline",
+      "description": "Delete a given pipeline from your organization. This endpoint takes no JSON arguments.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "pipeline_id": {
+            "type": "string",
+            "description": "ID of the pipeline to delete."
+          }
+        },
+        "required": [
+          "pipeline_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/logs/config/pipelines/{pipeline_id}"
+      }
+    },
+    "delete_monitor": {
+      "display_name": "Delete a monitor",
+      "description": "Delete the specified monitor",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "force": {
+            "type": "string",
+            "description": "Delete the monitor even if it's referenced by other resources (for example SLO, composite monitor)."
+          },
+          "monitor_id": {
+            "type": "integer",
+            "description": "The ID of the monitor."
+          }
+        },
+        "required": [
+          "monitor_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/monitor/{monitor_id}",
+        "query_mapping": {
+          "force": "force"
+        }
+      },
+      "response_schema": "DeletedMonitor"
+    },
+    "delete_notebook": {
+      "display_name": "Delete a notebook",
+      "description": "Delete a notebook using the specified ID.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "notebook_id": {
+            "type": "integer",
+            "description": "Unique ID, assigned when you create the notebook."
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/notebooks/{notebook_id}"
+      }
+    },
+    "delete_slo": {
+      "display_name": "Delete an SLO",
+      "description": "Permanently delete the specified service level objective object. If an SLO is used in a dashboard, the `DELETE /v1/slo/` endpoint returns a 409 conflict error because the SLO is referenced in a das...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "force": {
+            "type": "string",
+            "description": "Delete the monitor even if it's referenced by other resources (for example SLO, composite monitor)."
+          },
+          "slo_id": {
+            "type": "string",
+            "description": "The ID of the service level objective."
+          }
+        },
+        "required": [
+          "slo_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/v1/slo/{slo_id}",
+        "query_mapping": {
+          "force": "force"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "SLODeleteResponse"
+    },
+    "get_dashboard": {
+      "display_name": "Get a dashboard",
+      "description": "Get a dashboard using the specified ID.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "description": "The ID of the dashboard."
+          }
+        },
+        "required": [
+          "dashboard_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/dashboard/{dashboard_id}"
+      },
+      "response_schema": "Dashboard"
+    },
+    "get_dashboard_list": {
+      "display_name": "Get a dashboard list",
+      "description": "Fetch an existing dashboard list's definition.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "ID of the dashboard list to fetch."
+          }
+        },
+        "required": [
+          "list_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/dashboard/lists/manual/{list_id}"
+      },
+      "response_schema": "DashboardList"
+    },
+    "get_event": {
+      "display_name": "Get an event",
+      "description": "This endpoint allows you to query for event details. **Note**: If the event you’re querying contains markdown formatting of any kind, you may see characters such as `%`,`\\`,`n` in your output.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "event_id": {
+            "type": "integer",
+            "description": "The ID of the event."
+          }
+        },
+        "required": [
+          "event_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/events/{event_id}"
+      },
+      "response_schema": "EventResponse"
+    },
+    "get_host_totals": {
+      "display_name": "Get the total number of active hosts",
+      "description": "This endpoint returns the total number of active and up hosts in your Datadog account. Active means the host has reported in the past hour, and up means it has reported in the past two hours.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "from": {
+            "type": "integer",
+            "description": "Number of seconds from which you want to get total number of active hosts."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/hosts/totals",
+        "query_mapping": {
+          "from": "from"
+        }
+      },
+      "response_schema": "HostTotals"
+    },
+    "get_logs_index": {
+      "display_name": "Get an index",
+      "description": "Get one log index from your organization. This endpoint takes no JSON arguments.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the log index."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/logs/config/indexes/{name}"
+      },
+      "response_schema": "LogsIndex"
+    },
+    "get_logs_pipeline": {
+      "display_name": "Get a pipeline",
+      "description": "Get a specific pipeline from your organization. This endpoint takes no JSON arguments.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "pipeline_id": {
+            "type": "string",
+            "description": "ID of the pipeline to get."
+          }
+        },
+        "required": [
+          "pipeline_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/logs/config/pipelines/{pipeline_id}"
+      },
+      "response_schema": "LogsPipeline"
+    },
+    "get_metric_metadata": {
+      "display_name": "Get metric metadata",
+      "description": "Get metadata about a specific metric.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "metric_name": {
+            "type": "string",
+            "description": "Name of the metric for which to get metadata."
+          }
+        },
+        "required": [
+          "metric_name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/metrics/{metric_name}"
+      },
+      "response_schema": "MetricMetadata"
+    },
+    "get_monitor": {
+      "display_name": "Get a monitor's details",
+      "description": "Get details about the specified monitor from your organization.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "group_states": {
+            "type": "string",
+            "description": "When specified, shows additional information about the group states. Choose one or more from `all`, `alert`, `warn`, and `no data`."
+          },
+          "monitor_id": {
+            "type": "integer",
+            "description": "The ID of the monitor"
+          },
+          "with_assets": {
+            "type": "boolean",
+            "description": "If this argument is set to `true`, the returned data includes all assets tied to this monitor."
+          },
+          "with_downtimes": {
+            "type": "boolean",
+            "description": "If this argument is set to true, then the returned data includes all current active downtimes for the monitor."
+          }
+        },
+        "required": [
+          "monitor_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/monitor/{monitor_id}",
+        "query_mapping": {
+          "group_states": "group_states",
+          "with_assets": "with_assets",
+          "with_downtimes": "with_downtimes"
+        }
+      },
+      "response_schema": "Monitor"
+    },
+    "get_notebook": {
+      "display_name": "Get a notebook",
+      "description": "Get a notebook using the specified notebook ID.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "notebook_id": {
+            "type": "integer",
+            "description": "Unique ID, assigned when you create the notebook."
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/notebooks/{notebook_id}"
+      },
+      "response_schema": "NotebookResponse"
+    },
+    "get_slo": {
+      "display_name": "Get an SLO's details",
+      "description": "Get a service level objective object.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "slo_id": {
+            "type": "string",
+            "description": "The ID of the service level objective object."
+          },
+          "with_configured_alert_ids": {
+            "type": "boolean",
+            "description": "Get the IDs of SLO monitors that reference this SLO."
+          }
+        },
+        "required": [
+          "slo_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/slo/{slo_id}",
+        "query_mapping": {
+          "with_configured_alert_ids": "with_configured_alert_ids"
+        }
+      },
+      "response_schema": "SLOResponse"
+    },
+    "get_usage_billable_summary": {
+      "display_name": "Get billable usage across your account",
+      "description": "Get billable usage across your account. This endpoint is only accessible for [parent-level organizations](https://docs.datadoghq.com/account_management/multi_organization/).",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "include_connected_accounts": {
+            "type": "boolean",
+            "description": "Boolean to specify whether to include accounts connected to the current account as partner customers in the Datadog partner network program. Defaults to `false`."
+          },
+          "month": {
+            "type": "string",
+            "description": "Datetime in ISO-8601 format, UTC, precise to month: `[YYYY-MM]` for usage starting this month."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/usage/billable-summary",
+        "query_mapping": {
+          "include_connected_accounts": "include_connected_accounts",
+          "month": "month"
+        }
+      }
+    },
+    "get_usage_summary": {
+      "display_name": "Get usage across your account",
+      "description": "Get all usage across your account. For SDK users only: all fields on `UsageSummaryResponse`, `UsageSummaryDate`, and `UsageSummaryDateOrg` are accessible through each object's `additionalProperties...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end_month": {
+            "type": "string",
+            "description": "Datetime in ISO-8601 format, UTC, precise to month: `[YYYY-MM]` for usage ending this month."
+          },
+          "include_connected_accounts": {
+            "type": "boolean",
+            "description": "Boolean to specify whether to include accounts connected to the current account as partner customers in the Datadog partner network program. Defaults to `false`."
+          },
+          "include_org_details": {
+            "type": "boolean",
+            "description": "Include usage summaries for each sub-org."
+          },
+          "start_month": {
+            "type": "string",
+            "description": "Datetime in ISO-8601 format, UTC, precise to month: `[YYYY-MM]` for usage beginning in this month.\nMaximum of 15 months ago."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/usage/summary",
+        "query_mapping": {
+          "end_month": "end_month",
+          "include_connected_accounts": "include_connected_accounts",
+          "include_org_details": "include_org_details",
+          "start_month": "start_month"
+        }
+      }
+    },
+    "get_usage_top_avg_metrics": {
+      "display_name": "Get all custom metrics by hourly average",
+      "description": "Get all [custom metrics](https://docs.datadoghq.com/developers/metrics/custom_metrics/) by hourly average. Use the month parameter to get a month-to-date data resolution or use the day parameter to...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "Datetime in ISO-8601 format, UTC, precise to day: [YYYY-MM-DD] for usage beginning at this hour. (Either month or day should be specified, but not both)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of results to return (between 1 and 5000) - defaults to 500 results if limit not specified."
+          },
+          "month": {
+            "type": "string",
+            "description": "Datetime in ISO-8601 format, UTC, precise to month: [YYYY-MM] for usage beginning at this hour. (Either month or day should be specified, but not both)"
+          },
+          "names": {
+            "type": "array",
+            "description": "Comma-separated list of metric names."
+          },
+          "next_record_id": {
+            "type": "string",
+            "description": "List following results with a next_record_id provided in the previous query."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/usage/top_avg_metrics",
+        "query_mapping": {
+          "day": "day",
+          "limit": "limit",
+          "month": "month",
+          "names": "names",
+          "next_record_id": "next_record_id"
+        }
+      }
+    },
+    "list_active_metrics": {
+      "display_name": "Get active metrics list",
+      "description": "Get the list of actively reporting metrics from a given time until now.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "from": {
+            "type": "integer",
+            "description": "Seconds since the Unix epoch."
+          },
+          "host": {
+            "type": "string",
+            "description": "Hostname for filtering the list of metrics returned.\nIf set, metrics retrieved are those with the corresponding hostname tag."
+          },
+          "tag_filter": {
+            "type": "string",
+            "description": "Filter metrics that have been submitted with the given tags. Supports boolean and wildcard expressions.\nCannot be combined with other filters."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/metrics",
+        "query_mapping": {
+          "from": "from",
+          "host": "host",
+          "tag_filter": "tag_filter"
+        }
+      },
+      "response_schema": "MetricsListResponse"
+    },
+    "list_dashboard_lists": {
+      "display_name": "Get all dashboard lists",
+      "description": "Fetch all of your existing dashboard list definitions.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/dashboard/lists/manual"
+      },
+      "response_schema": "DashboardListListResponse"
+    },
+    "list_dashboards": {
+      "display_name": "Get all dashboards",
+      "description": "Get all dashboards. **Note**: This query will only return custom created or cloned dashboards. This query will not return preset dashboards.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "The maximum number of dashboards returned in the list."
+          },
+          "filter[deleted]": {
+            "type": "boolean",
+            "description": "When `true`, this query returns only deleted custom-created\nor cloned dashboards. This parameter is incompatible with `filter[shared]`."
+          },
+          "filter[shared]": {
+            "type": "boolean",
+            "description": "When `true`, this query only returns shared custom created\nor cloned dashboards."
+          },
+          "start": {
+            "type": "integer",
+            "description": "The specific offset to use as the beginning of the returned response."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/dashboard",
+        "query_mapping": {
+          "count": "count",
+          "filter[deleted]": "filter[deleted]",
+          "filter[shared]": "filter[shared]",
+          "start": "start"
+        }
+      },
+      "response_schema": "DashboardSummary"
+    },
+    "list_events": {
+      "display_name": "Get a list of events",
+      "description": "The event stream can be queried and filtered by time, priority, sources and tags. **Notes**: - If the event you’re querying contains markdown formatting of any kind, you may see characters such a...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "integer",
+            "description": "POSIX timestamp."
+          },
+          "exclude_aggregate": {
+            "type": "boolean",
+            "description": "Set `exclude_aggregate` to `true` to only return unaggregated events where `is_aggregate=false` in the response. If the `exclude_aggregate` parameter is set to `true`,\nthen the unaggregated paramet..."
+          },
+          "page": {
+            "type": "integer",
+            "description": "By default 1000 results are returned per request. Set page to the number of the page to return with `0` being the first page. The page parameter can only be used\nwhen either unaggregated or exclude..."
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority of your events, either `low` or `normal`."
+          },
+          "sources": {
+            "type": "string",
+            "description": "A comma separated string of sources."
+          },
+          "start": {
+            "type": "integer",
+            "description": "POSIX timestamp."
+          },
+          "tags": {
+            "type": "string",
+            "description": "A comma separated list indicating what tags, if any, should be used to filter the list of events."
+          },
+          "unaggregated": {
+            "type": "boolean",
+            "description": "Set unaggregated to `true` to return all events within the specified [`start`,`end`] timeframe.\nOtherwise if an event is aggregated to a parent event with a timestamp outside of the timeframe,\nit w..."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/events",
+        "query_mapping": {
+          "end": "end",
+          "exclude_aggregate": "exclude_aggregate",
+          "page": "page",
+          "priority": "priority",
+          "sources": "sources",
+          "start": "start",
+          "tags": "tags",
+          "unaggregated": "unaggregated"
+        }
+      },
+      "response_schema": "EventListResponse"
+    },
+    "list_hosts": {
+      "display_name": "Get all hosts for your organization",
+      "description": "This endpoint allows searching for hosts by name, alias, or tag. Hosts live within the past 3 hours are included by default. Retention is 7 days. Results are paginated with a max of 1000 results at...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of hosts to return. Max 1000."
+          },
+          "filter": {
+            "type": "string",
+            "description": "String to filter search results."
+          },
+          "from": {
+            "type": "integer",
+            "description": "Number of seconds since UNIX epoch from which you want to search your hosts."
+          },
+          "include_hosts_metadata": {
+            "type": "boolean",
+            "description": "Include additional metadata about the hosts (agent_version, machine, platform, processor, etc.)."
+          },
+          "include_muted_hosts_data": {
+            "type": "boolean",
+            "description": "Include information on the muted status of hosts and when the mute expires."
+          },
+          "sort_dir": {
+            "type": "string",
+            "description": "Direction of sort. Options include `asc` and `desc`."
+          },
+          "sort_field": {
+            "type": "string",
+            "description": "Sort hosts by this field."
+          },
+          "start": {
+            "type": "integer",
+            "description": "Specify the starting point for the host search results. For example, if you set `count` to 100 and the first 100 results have already been returned, you can set `start` to `101` to get the next 100..."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/hosts",
+        "query_mapping": {
+          "count": "count",
+          "filter": "filter",
+          "from": "from",
+          "include_hosts_metadata": "include_hosts_metadata",
+          "include_muted_hosts_data": "include_muted_hosts_data",
+          "sort_dir": "sort_dir",
+          "sort_field": "sort_field",
+          "start": "start"
+        }
+      },
+      "response_schema": "HostListResponse"
+    },
+    "list_log_indexes": {
+      "display_name": "Get all indexes",
+      "description": "The Index object describes the configuration of a log index. This endpoint returns an array of the `LogIndex` objects of your organization.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/logs/config/indexes"
+      },
+      "response_schema": "LogsIndexListResponse"
+    },
+    "list_logs": {
+      "display_name": "Search logs",
+      "description": "List endpoint returns logs that match a log search query. [Results are paginated][1]. **If you are considering archiving logs for your organization, consider use of the Datadog archive capabilities...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "The log index on which the request is performed. For multi-index organizations,\nthe default is all live indexes. Historical indexes of rehydrated logs must be specified."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of logs return in the response."
+          },
+          "query": {
+            "type": "string",
+            "description": "The search query - following the log search syntax."
+          },
+          "sort": {
+            "type": "string",
+            "description": "Time-ascending `asc` or time-descending `desc` results."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "Hash identifier of the first log to return in the list, available in a log `id` attribute.\nThis parameter is used for the pagination feature.\n\n**Note**: This parameter is ignored if the correspondi..."
+          },
+          "time": {
+            "type": "object",
+            "description": "Timeframe to retrieve the log from."
+          }
+        },
+        "required": [
+          "time"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/logs-queries/list",
+        "body_mapping": {
+          "index": "index",
+          "limit": "limit",
+          "query": "query",
+          "sort": "sort",
+          "startAt": "startAt",
+          "time": "time"
+        }
+      },
+      "response_schema": "LogsListResponse"
+    },
+    "list_logs_pipelines": {
+      "display_name": "Get all pipelines",
+      "description": "Get all pipelines from your organization. This endpoint takes no JSON arguments.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/logs/config/pipelines"
+      },
+      "response_schema": "LogsPipelineList"
+    },
+    "list_monitors": {
+      "display_name": "Get all monitors",
+      "description": "Get all monitors from your organization.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "group_states": {
+            "type": "string",
+            "description": "When specified, shows additional information about the group states.\nChoose one or more from `all`, `alert`, `warn`, and `no data`."
+          },
+          "id_offset": {
+            "type": "integer",
+            "description": "Use this parameter for paginating through large sets of monitors. Start with a value of zero, make a request, set the value to the last ID of result set, and then repeat until the response is empty."
+          },
+          "monitor_tags": {
+            "type": "string",
+            "description": "A comma separated list indicating what service and/or custom tags, if any, should be used to filter the list of monitors.\nTags created in the Datadog UI automatically have the service key prepended..."
+          },
+          "name": {
+            "type": "string",
+            "description": "A string to filter monitors by name."
+          },
+          "page": {
+            "type": "integer",
+            "description": "The page to start paginating from. If this argument is not specified, the request returns all monitors without pagination."
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "The number of monitors to return per page. If the page argument is not specified, the default behavior returns all monitors without a `page_size` limit. However, if page is specified and `page_size..."
+          },
+          "tags": {
+            "type": "string",
+            "description": "A comma separated list indicating what tags, if any, should be used to filter the list of monitors by scope.\nFor example, `host:host0`."
+          },
+          "with_downtimes": {
+            "type": "boolean",
+            "description": "If this argument is set to true, then the returned data includes all current active downtimes for each monitor."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/monitor",
+        "query_mapping": {
+          "group_states": "group_states",
+          "id_offset": "id_offset",
+          "monitor_tags": "monitor_tags",
+          "name": "name",
+          "page": "page",
+          "page_size": "page_size",
+          "tags": "tags",
+          "with_downtimes": "with_downtimes"
+        }
+      },
+      "response_schema": "Monitor_list"
+    },
+    "list_notebooks": {
+      "display_name": "Get all notebooks",
+      "description": "Get all notebooks. This can also be used to search for notebooks with a particular `query` in the notebook `name` or author `handle`.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "author_handle": {
+            "type": "string",
+            "description": "Return notebooks created by the given `author_handle`."
+          },
+          "count": {
+            "type": "integer",
+            "description": "The number of notebooks to be returned."
+          },
+          "exclude_author_handle": {
+            "type": "string",
+            "description": "Return notebooks not created by the given `author_handle`."
+          },
+          "include_cells": {
+            "type": "boolean",
+            "description": "Value of `false` excludes the `cells` and global `time` for each notebook."
+          },
+          "is_template": {
+            "type": "boolean",
+            "description": "True value returns only template notebooks. Default is false (returns only non-template notebooks)."
+          },
+          "query": {
+            "type": "string",
+            "description": "Return only notebooks with `query` string in notebook name or author handle."
+          },
+          "sort_dir": {
+            "type": "string",
+            "description": "Sort by direction `asc` or `desc`."
+          },
+          "sort_field": {
+            "type": "string",
+            "description": "Sort by field `modified`, `name`, or `created`."
+          },
+          "start": {
+            "type": "integer",
+            "description": "The index of the first notebook you want returned."
+          },
+          "type": {
+            "type": "string",
+            "description": "If type is provided, returns only notebooks with that metadata type. Default does not have type filtering."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/notebooks",
+        "query_mapping": {
+          "author_handle": "author_handle",
+          "count": "count",
+          "exclude_author_handle": "exclude_author_handle",
+          "include_cells": "include_cells",
+          "is_template": "is_template",
+          "query": "query",
+          "sort_dir": "sort_dir",
+          "sort_field": "sort_field",
+          "start": "start",
+          "type": "type"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "NotebooksResponse"
+    },
+    "list_sl_os": {
+      "display_name": "Get all SLOs",
+      "description": "Get a list of service level objective objects for your organization.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "ids": {
+            "type": "string",
+            "description": "A comma separated list of the IDs of the service level objectives objects."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The number of SLOs to return in the response."
+          },
+          "metrics_query": {
+            "type": "string",
+            "description": "The query string to filter results based on SLO numerator and denominator."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The specific offset to use as the beginning of the returned response."
+          },
+          "query": {
+            "type": "string",
+            "description": "The query string to filter results based on SLO names."
+          },
+          "tags_query": {
+            "type": "string",
+            "description": "The query string to filter results based on a single SLO tag."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/slo",
+        "query_mapping": {
+          "ids": "ids",
+          "limit": "limit",
+          "metrics_query": "metrics_query",
+          "offset": "offset",
+          "query": "query",
+          "tags_query": "tags_query"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "SLOListResponse"
+    },
+    "search_monitor_groups": {
+      "display_name": "Monitors group search",
+      "description": "Search and filter your monitor groups details.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Page to start paginating from."
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Number of monitors to return per page."
+          },
+          "query": {
+            "type": "string",
+            "description": "After entering a search query on the [Triggered Monitors page][1], use the query parameter value in the\nURL of the page as a value for this parameter. For more information, see the [Manage Monitors..."
+          },
+          "sort": {
+            "type": "string",
+            "description": "String for sort order, composed of field and sort order separate by a comma, for example `name,asc`. Supported sort directions: `asc`, `desc`. Supported fields:\n\n* `name`\n* `status`\n* `tags`"
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/monitor/groups/search",
+        "query_mapping": {
+          "page": "page",
+          "per_page": "per_page",
+          "query": "query",
+          "sort": "sort"
+        }
+      },
+      "response_schema": "MonitorGroupSearchResponse"
+    },
+    "search_monitors": {
+      "display_name": "Monitors search",
+      "description": "Search and filter your monitors details.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Page to start paginating from."
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Number of monitors to return per page."
+          },
+          "query": {
+            "type": "string",
+            "description": "After entering a search query in your [Manage Monitor page][1] use the query parameter value in the\nURL of the page as value for this parameter. Consult the dedicated [manage monitor documentation]..."
+          },
+          "sort": {
+            "type": "string",
+            "description": "String for sort order, composed of field and sort order separate by a comma, for example `name,asc`. Supported sort directions: `asc`, `desc`. Supported fields:\n\n* `name`\n* `status`\n* `tags`"
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/v1/monitor/search",
+        "query_mapping": {
+          "page": "page",
+          "per_page": "per_page",
+          "query": "query",
+          "sort": "sort"
+        }
+      },
+      "response_schema": "MonitorSearchResponse"
+    },
+    "update_dashboard": {
+      "display_name": "Update a dashboard",
+      "description": "Update a dashboard using the specified ID.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "author_handle": {
+            "type": "string",
+            "description": "Identifier of the dashboard author."
+          },
+          "author_name": {
+            "type": "string",
+            "description": "Name of the dashboard author."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Creation date of the dashboard."
+          },
+          "dashboard_id": {
+            "type": "string",
+            "description": "The ID of the dashboard."
+          },
+          "default_timeframe": {
+            "type": "string",
+            "description": "The default timeframe applied when opening the dashboard. Set to `null` to clear the dashboard's default timeframe."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the dashboard."
+          },
+          "id": {
+            "type": "string",
+            "description": "ID of the dashboard."
+          },
+          "is_read_only": {
+            "type": "boolean",
+            "description": "Whether this dashboard is read-only. If True, only the author and admins can make changes to it.\n\nThis property is deprecated; please use the [Restriction Policies API](https://docs.datadoghq.com/a..."
+          },
+          "layout_type": {
+            "type": "string",
+            "description": "Layout type of the dashboard."
+          },
+          "modified_at": {
+            "type": "string",
+            "description": "Modification date of the dashboard."
+          },
+          "notify_list": {
+            "type": "array",
+            "description": "List of handles of users to notify when changes are made to this dashboard."
+          },
+          "reflow_type": {
+            "type": "string",
+            "description": "Reflow type for a **new dashboard layout** dashboard. Set this only when layout type is 'ordered'.\nIf set to 'fixed', the dashboard expects all widgets to have a layout, and if it's set to 'auto',\n..."
+          },
+          "restricted_roles": {
+            "type": "array",
+            "description": "A list of role identifiers. Only the author and users associated with at least one of these roles can edit this dashboard."
+          },
+          "tabs": {
+            "type": "array",
+            "description": "List of tabs for organizing dashboard widgets into groups."
+          },
+          "tags": {
+            "type": "array",
+            "description": "List of team names representing ownership of a dashboard."
+          },
+          "template_variable_presets": {
+            "type": "array",
+            "description": "Array of template variables saved views."
+          },
+          "template_variables": {
+            "type": "array",
+            "description": "List of template variables for this dashboard."
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the dashboard."
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the dashboard."
+          },
+          "widgets": {
+            "type": "array",
+            "description": "List of widgets to display on the dashboard."
+          }
+        },
+        "required": [
+          "dashboard_id",
+          "title",
+          "layout_type",
+          "widgets"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/dashboard/{dashboard_id}",
+        "body_mapping": {
+          "author_handle": "author_handle",
+          "author_name": "author_name",
+          "created_at": "created_at",
+          "default_timeframe": "default_timeframe",
+          "description": "description",
+          "id": "id",
+          "is_read_only": "is_read_only",
+          "layout_type": "layout_type",
+          "modified_at": "modified_at",
+          "notify_list": "notify_list",
+          "reflow_type": "reflow_type",
+          "restricted_roles": "restricted_roles",
+          "tabs": "tabs",
+          "tags": "tags",
+          "template_variable_presets": "template_variable_presets",
+          "template_variables": "template_variables",
+          "title": "title",
+          "url": "url",
+          "widgets": "widgets"
+        }
+      },
+      "response_schema": "Dashboard"
+    },
+    "update_dashboard_list": {
+      "display_name": "Update a dashboard list",
+      "description": "Update the name of a dashboard list.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "author": {
+            "type": "object",
+            "description": "Object describing the creator of the shared element."
+          },
+          "created": {
+            "type": "string",
+            "description": "Date of creation of the dashboard list."
+          },
+          "dashboard_count": {
+            "type": "integer",
+            "description": "The number of dashboards in the list."
+          },
+          "id": {
+            "type": "integer",
+            "description": "The ID of the dashboard list."
+          },
+          "is_favorite": {
+            "type": "boolean",
+            "description": "Whether or not the list is in the favorites."
+          },
+          "list_id": {
+            "type": "integer",
+            "description": "ID of the dashboard list to update."
+          },
+          "modified": {
+            "type": "string",
+            "description": "Date of last edition of the dashboard list."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the dashboard list."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of dashboard list."
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/dashboard/lists/manual/{list_id}",
+        "body_mapping": {
+          "author": "author",
+          "created": "created",
+          "dashboard_count": "dashboard_count",
+          "id": "id",
+          "is_favorite": "is_favorite",
+          "modified": "modified",
+          "name": "name",
+          "type": "type"
+        }
+      },
+      "response_schema": "DashboardList"
+    },
+    "update_logs_index": {
+      "display_name": "Update an index",
+      "description": "Update an index as identified by its name. Returns the Index object passed in the request body when the request is successful. Using the `PUT` method updates your index's configuration by **replaci...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "daily_limit": {
+            "type": "integer",
+            "description": "The number of log events you can send in this index per day before you are rate-limited."
+          },
+          "daily_limit_reset": {
+            "type": "object",
+            "description": "Object containing options to override the default daily limit reset time."
+          },
+          "daily_limit_warning_threshold_percentage": {
+            "type": "number",
+            "description": "A percentage threshold of the daily quota at which a Datadog warning event is generated."
+          },
+          "disable_daily_limit": {
+            "type": "boolean",
+            "description": "If true, sets the `daily_limit` value to null and the index is not limited on a daily basis (any\nspecified `daily_limit` value in the request is ignored). If false or omitted, the index's current\n`..."
+          },
+          "exclusion_filters": {
+            "type": "array",
+            "description": "An array of exclusion objects. The logs are tested against the query of each filter,\nfollowing the order of the array. Only the first matching active exclusion matters,\nothers (if any) are ignored."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Filter for logs."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the log index."
+          },
+          "num_flex_logs_retention_days": {
+            "type": "integer",
+            "description": "The total number of days logs are stored in Standard and Flex Tier before being deleted from the index.\nIf Standard Tier is enabled on this index, logs are first retained in Standard Tier for the n..."
+          },
+          "num_retention_days": {
+            "type": "integer",
+            "description": "The number of days logs are stored in Standard Tier before aging into the Flex Tier or being deleted from the index.\nThe available values depend on retention plans specified in your organization's ..."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags associated with the index. Tags must be in `key:value` format."
+          }
+        },
+        "required": [
+          "name",
+          "filter"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/logs/config/indexes/{name}",
+        "body_mapping": {
+          "daily_limit": "daily_limit",
+          "daily_limit_reset": "daily_limit_reset",
+          "daily_limit_warning_threshold_percentage": "daily_limit_warning_threshold_percentage",
+          "disable_daily_limit": "disable_daily_limit",
+          "exclusion_filters": "exclusion_filters",
+          "filter": "filter",
+          "num_flex_logs_retention_days": "num_flex_logs_retention_days",
+          "num_retention_days": "num_retention_days",
+          "tags": "tags"
+        }
+      },
+      "response_schema": "LogsIndex"
+    },
+    "update_logs_pipeline": {
+      "display_name": "Update a pipeline",
+      "description": "Update a given pipeline configuration to change it’s processors or their order. **Note**: Using this method updates your pipeline configuration by **replacing** your current configuration with th...",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A description of the pipeline."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Filter for logs."
+          },
+          "id": {
+            "type": "string",
+            "description": "ID of the pipeline."
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "description": "Whether or not the pipeline is enabled."
+          },
+          "is_read_only": {
+            "type": "boolean",
+            "description": "Whether or not the pipeline can be edited."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the pipeline."
+          },
+          "pipeline_id": {
+            "type": "string",
+            "description": "ID of the pipeline to delete."
+          },
+          "processors": {
+            "type": "array",
+            "description": "Ordered list of processors in this pipeline."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags associated with the pipeline."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of pipeline."
+          }
+        },
+        "required": [
+          "pipeline_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/logs/config/pipelines/{pipeline_id}",
+        "body_mapping": {
+          "description": "description",
+          "filter": "filter",
+          "id": "id",
+          "is_enabled": "is_enabled",
+          "is_read_only": "is_read_only",
+          "name": "name",
+          "processors": "processors",
+          "tags": "tags",
+          "type": "type"
+        }
+      },
+      "response_schema": "LogsPipeline"
+    },
+    "update_metric_metadata": {
+      "display_name": "Edit metric metadata",
+      "description": "Edit metadata of a specific metric. Find out more about [supported types](https://docs.datadoghq.com/developers/metrics).",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Metric description."
+          },
+          "integration": {
+            "type": "string",
+            "description": "Name of the integration that sent the metric if applicable."
+          },
+          "metric_name": {
+            "type": "string",
+            "description": "Name of the metric for which to edit metadata."
+          },
+          "per_unit": {
+            "type": "string",
+            "description": "Per unit of the metric such as `second` in `bytes per second`."
+          },
+          "short_name": {
+            "type": "string",
+            "description": "A more human-readable and abbreviated version of the metric name."
+          },
+          "statsd_interval": {
+            "type": "integer",
+            "description": "StatsD flush interval of the metric in seconds if applicable."
+          },
+          "type": {
+            "type": "string",
+            "description": "Metric type such as `gauge` or `rate`."
+          },
+          "unit": {
+            "type": "string",
+            "description": "Primary unit of the metric such as `byte` or `operation`."
+          }
+        },
+        "required": [
+          "metric_name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/metrics/{metric_name}",
+        "body_mapping": {
+          "description": "description",
+          "integration": "integration",
+          "per_unit": "per_unit",
+          "short_name": "short_name",
+          "statsd_interval": "statsd_interval",
+          "type": "type",
+          "unit": "unit"
+        }
+      },
+      "response_schema": "MetricMetadata"
+    },
+    "update_monitor": {
+      "display_name": "Edit a monitor",
+      "description": "Edit the specified monitor.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "assets": {
+            "type": "array",
+            "description": "The list of monitor assets tied to a monitor, which represents key links for users to take action on monitor alerts (for example, runbooks)."
+          },
+          "created": {
+            "type": "string",
+            "description": "Timestamp of the monitor creation."
+          },
+          "creator": {
+            "type": "object",
+            "description": "Object describing the creator of the shared element."
+          },
+          "deleted": {
+            "type": "string",
+            "description": "Whether or not the monitor is deleted. (Always `null`)"
+          },
+          "draft_status": {
+            "type": "string",
+            "description": "Indicates whether the monitor is in a draft or published state.\n\n`draft`: The monitor appears as Draft and does not send notifications.\n`published`: The monitor is active and evaluates conditions a..."
+          },
+          "id": {
+            "type": "integer",
+            "description": "ID of this monitor."
+          },
+          "message": {
+            "type": "string",
+            "description": "A message to include with notifications for this monitor."
+          },
+          "modified": {
+            "type": "string",
+            "description": "Last timestamp when the monitor was edited."
+          },
+          "monitor_id": {
+            "type": "integer",
+            "description": "The ID of the monitor."
+          },
+          "multi": {
+            "type": "boolean",
+            "description": "Whether or not the monitor is broken down on different groups."
+          },
+          "name": {
+            "type": "string",
+            "description": "The monitor name."
+          },
+          "options": {
+            "type": "object",
+            "description": "List of options associated with your monitor."
+          },
+          "overall_state": {
+            "type": "string",
+            "description": "The different states your monitor can be in."
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Integer from 1 (high) to 5 (low) indicating alert severity."
+          },
+          "query": {
+            "type": "string",
+            "description": "The monitor query."
+          },
+          "restricted_roles": {
+            "type": "array",
+            "description": "A list of unique role identifiers to define which roles are allowed to edit the monitor. The unique identifiers for all roles can be pulled from the [Roles API](https://docs.datadoghq.com/api/lates..."
+          },
+          "state": {
+            "type": "object",
+            "description": "Wrapper object with the different monitor states."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags associated to your monitor."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the monitor. For more information about `type`, see the [monitor options](https://docs.datadoghq.com/monitors/guide/monitor_api_options/) docs."
+          }
+        },
+        "required": [
+          "monitor_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/monitor/{monitor_id}",
+        "body_mapping": {
+          "assets": "assets",
+          "created": "created",
+          "creator": "creator",
+          "deleted": "deleted",
+          "draft_status": "draft_status",
+          "id": "id",
+          "message": "message",
+          "modified": "modified",
+          "multi": "multi",
+          "name": "name",
+          "options": "options",
+          "overall_state": "overall_state",
+          "priority": "priority",
+          "query": "query",
+          "restricted_roles": "restricted_roles",
+          "state": "state",
+          "tags": "tags",
+          "type": "type"
+        }
+      },
+      "response_schema": "Monitor"
+    },
+    "update_notebook": {
+      "display_name": "Update a notebook",
+      "description": "Update a notebook using the specified ID.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "The data for a notebook update request."
+          },
+          "notebook_id": {
+            "type": "integer",
+            "description": "Unique ID, assigned when you create the notebook."
+          }
+        },
+        "required": [
+          "notebook_id",
+          "data"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/notebooks/{notebook_id}",
+        "body_mapping": {
+          "data": "data"
+        }
+      },
+      "response_schema": "NotebookResponse"
+    },
+    "update_slo": {
+      "display_name": "Update an SLO",
+      "description": "Update the specified service level objective object.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "created_at": {
+            "type": "integer",
+            "description": "Creation timestamp (UNIX time in seconds)\n\nAlways included in service level objective responses."
+          },
+          "creator": {
+            "type": "object",
+            "description": "Object describing the creator of the shared element."
+          },
+          "description": {
+            "type": "string",
+            "description": "A user-defined description of the service level objective.\n\nAlways included in service level objective responses (but may be `null`).\nOptional in create/update requests."
+          },
+          "groups": {
+            "type": "array",
+            "description": "A list of (up to 100) monitor groups that narrow the scope of a monitor service level objective.\n\nIncluded in service level objective responses if it is not empty. Optional in\ncreate/update request..."
+          },
+          "id": {
+            "type": "string",
+            "description": "A unique identifier for the service level objective object.\n\nAlways included in service level objective responses."
+          },
+          "modified_at": {
+            "type": "integer",
+            "description": "Modification timestamp (UNIX time in seconds)\n\nAlways included in service level objective responses."
+          },
+          "monitor_ids": {
+            "type": "array",
+            "description": "A list of monitor ids that defines the scope of a monitor service level\nobjective. **Required if type is `monitor`**."
+          },
+          "monitor_tags": {
+            "type": "array",
+            "description": "The union of monitor tags for all monitors referenced by the `monitor_ids`\nfield.\nAlways included in service level objective responses for monitor-based service level\nobjectives (but may be empty)...."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the service level objective object."
+          },
+          "query": {
+            "type": "object",
+            "description": "A count-based (metric) SLO query. This field is superseded by `sli_specification` but is retained for backwards compatibility. Note that Datadog only allows the sum by aggregator\nto be used because..."
+          },
+          "sli_specification": {
+            "type": "string",
+            "description": "A generic SLI specification. This is used for time-slice and count-based (metric) SLOs only."
+          },
+          "slo_id": {
+            "type": "string",
+            "description": "The ID of the service level objective object."
+          },
+          "tags": {
+            "type": "array",
+            "description": "A list of tags associated with this service level objective.\nAlways included in service level objective responses (but may be empty).\nOptional in create/update requests."
+          },
+          "target_threshold": {
+            "type": "number",
+            "description": "The target threshold such that when the service level indicator is above this\nthreshold over the given timeframe, the objective is being met."
+          },
+          "thresholds": {
+            "type": "array",
+            "description": "The thresholds (timeframes and associated targets) for this service level\nobjective object."
+          },
+          "timeframe": {
+            "type": "string",
+            "description": "The SLO time window options. Note that \"custom\" is not a valid option for creating\nor updating SLOs. It is only used when querying SLO history over custom timeframes."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the service level objective."
+          },
+          "warning_threshold": {
+            "type": "number",
+            "description": "The optional warning threshold such that when the service level indicator is\nbelow this value for the given threshold, but above the target threshold, the\nobjective appears in a \"warning\" state. Th..."
+          }
+        },
+        "required": [
+          "slo_id",
+          "name",
+          "thresholds",
+          "type"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/v1/slo/{slo_id}",
+        "body_mapping": {
+          "created_at": "created_at",
+          "creator": "creator",
+          "description": "description",
+          "groups": "groups",
+          "id": "id",
+          "modified_at": "modified_at",
+          "monitor_ids": "monitor_ids",
+          "monitor_tags": "monitor_tags",
+          "name": "name",
+          "query": "query",
+          "sli_specification": "sli_specification",
+          "tags": "tags",
+          "target_threshold": "target_threshold",
+          "thresholds": "thresholds",
+          "timeframe": "timeframe",
+          "type": "type",
+          "warning_threshold": "warning_threshold"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "SLOListResponse"
+    },
+    "validate_monitor": {
+      "display_name": "Validate a monitor",
+      "description": "Validate the monitor provided in the request. **Note**: Log monitors require an unscoped App Key and `logs_read_data` permission.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "assets": {
+            "type": "array",
+            "description": "The list of monitor assets tied to a monitor, which represents key links for users to take action on monitor alerts (for example, runbooks)."
+          },
+          "created": {
+            "type": "string",
+            "description": "Timestamp of the monitor creation."
+          },
+          "creator": {
+            "type": "object",
+            "description": "Object describing the creator of the shared element."
+          },
+          "deleted": {
+            "type": "string",
+            "description": "Whether or not the monitor is deleted. (Always `null`)"
+          },
+          "draft_status": {
+            "type": "string",
+            "description": "Indicates whether the monitor is in a draft or published state.\n\n`draft`: The monitor appears as Draft and does not send notifications.\n`published`: The monitor is active and evaluates conditions a..."
+          },
+          "id": {
+            "type": "integer",
+            "description": "ID of this monitor."
+          },
+          "matching_downtimes": {
+            "type": "array",
+            "description": "A list of active v1 downtimes that match this monitor."
+          },
+          "message": {
+            "type": "string",
+            "description": "A message to include with notifications for this monitor."
+          },
+          "modified": {
+            "type": "string",
+            "description": "Last timestamp when the monitor was edited."
+          },
+          "multi": {
+            "type": "boolean",
+            "description": "Whether or not the monitor is broken down on different groups."
+          },
+          "name": {
+            "type": "string",
+            "description": "The monitor name."
+          },
+          "options": {
+            "type": "object",
+            "description": "List of options associated with your monitor."
+          },
+          "overall_state": {
+            "type": "string",
+            "description": "The different states your monitor can be in."
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Integer from 1 (high) to 5 (low) indicating alert severity."
+          },
+          "query": {
+            "type": "string",
+            "description": "The monitor query."
+          },
+          "restricted_roles": {
+            "type": "array",
+            "description": "A list of unique role identifiers to define which roles are allowed to edit the monitor. The unique identifiers for all roles can be pulled from the [Roles API](https://docs.datadoghq.com/api/lates..."
+          },
+          "state": {
+            "type": "object",
+            "description": "Wrapper object with the different monitor states."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags associated to your monitor."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the monitor. For more information about `type`, see the [monitor options](https://docs.datadoghq.com/monitors/guide/monitor_api_options/) docs."
+          }
+        },
+        "required": [
+          "type",
+          "query"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/monitor/validate",
+        "body_mapping": {
+          "assets": "assets",
+          "created": "created",
+          "creator": "creator",
+          "deleted": "deleted",
+          "draft_status": "draft_status",
+          "id": "id",
+          "matching_downtimes": "matching_downtimes",
+          "message": "message",
+          "modified": "modified",
+          "multi": "multi",
+          "name": "name",
+          "options": "options",
+          "overall_state": "overall_state",
+          "priority": "priority",
+          "query": "query",
+          "restricted_roles": "restricted_roles",
+          "state": "state",
+          "tags": "tags",
+          "type": "type"
+        }
+      }
+    }
+  },
+  "schemas": {
+    "CheckCanDeleteMonitorResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "description": "Wrapper object with the list of monitor IDs.",
+          "schema_ref": "CheckCanDeleteMonitorResponseData"
+        },
+        "errors": {
+          "type": "object",
+          "description": "A mapping of Monitor ID to strings denoting where it's used.",
+          "nullable": true
+        }
+      }
+    },
+    "CheckCanDeleteMonitorResponseData": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "array",
+          "description": "An array of Monitor IDs that can be safely deleted."
+        }
+      }
+    },
+    "Creator": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Email of the creator."
+        },
+        "handle": {
+          "type": "string",
+          "description": "Handle of the creator."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the creator.",
+          "nullable": true
+        }
+      }
+    },
+    "Dashboard": {
+      "type": "object",
+      "properties": {
+        "author_handle": {
+          "type": "string",
+          "description": "Identifier of the dashboard author."
+        },
+        "author_name": {
+          "type": "string",
+          "description": "Name of the dashboard author.",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Creation date of the dashboard."
+        },
+        "default_timeframe": {
+          "type": "object",
+          "description": "The default timeframe applied when opening the dashboard. Set to `null` to clear the dashboard's default timeframe.",
+          "schema_ref": "DashboardDefaultTimeframeSetting"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the dashboard.",
+          "nullable": true
+        },
+        "id": {
+          "type": "string",
+          "description": "ID of the dashboard."
+        },
+        "is_read_only": {
+          "type": "boolean",
+          "description": "Whether this dashboard is read-only. If True, only the author and admins can make changes to it.\n\nThis property is deprecated; please use the [Restriction Policies API](https://docs.datadoghq.com/api/latest/restriction-policies/) instead to manage write authorization for individual dashboards."
+        },
+        "layout_type": {
+          "type": "string",
+          "description": "Layout type of the dashboard."
+        },
+        "modified_at": {
+          "type": "string",
+          "description": "Modification date of the dashboard."
+        },
+        "notify_list": {
+          "type": "array",
+          "description": "List of handles of users to notify when changes are made to this dashboard.",
+          "nullable": true
+        },
+        "reflow_type": {
+          "type": "string",
+          "description": "Reflow type for a **new dashboard layout** dashboard. Set this only when layout type is 'ordered'.\nIf set to 'fixed', the dashboard expects all widgets to have a layout, and if it's set to 'auto',\nwidgets should not have layouts."
+        },
+        "restricted_roles": {
+          "type": "array",
+          "description": "A list of role identifiers. Only the author and users associated with at least one of these roles can edit this dashboard."
+        },
+        "tabs": {
+          "type": "array",
+          "description": "List of tabs for organizing dashboard widgets into groups.",
+          "nullable": true
+        },
+        "tags": {
+          "type": "array",
+          "description": "List of team names representing ownership of a dashboard.",
+          "nullable": true
+        },
+        "template_variable_presets": {
+          "type": "array",
+          "description": "Array of template variables saved views.",
+          "nullable": true
+        },
+        "template_variables": {
+          "type": "array",
+          "description": "List of template variables for this dashboard.",
+          "nullable": true
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the dashboard."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL of the dashboard."
+        },
+        "widgets": {
+          "type": "array",
+          "description": "List of widgets to display on the dashboard."
+        }
+      }
+    },
+    "DashboardDefaultTimeframeSetting": {
+      "type": "object"
+    },
+    "DashboardDeleteResponse": {
+      "type": "object",
+      "properties": {
+        "deleted_dashboard_id": {
+          "type": "string",
+          "description": "ID of the deleted dashboard."
+        }
+      }
+    },
+    "DashboardList": {
+      "type": "object",
+      "properties": {
+        "author": {
+          "type": "object",
+          "description": "Object describing the creator of the shared element.",
+          "schema_ref": "Creator"
+        },
+        "created": {
+          "type": "string",
+          "description": "Date of creation of the dashboard list."
+        },
+        "dashboard_count": {
+          "type": "integer",
+          "description": "The number of dashboards in the list."
+        },
+        "id": {
+          "type": "integer",
+          "description": "The ID of the dashboard list."
+        },
+        "is_favorite": {
+          "type": "boolean",
+          "description": "Whether or not the list is in the favorites."
+        },
+        "modified": {
+          "type": "string",
+          "description": "Date of last edition of the dashboard list."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the dashboard list."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of dashboard list."
+        }
+      }
+    },
+    "DashboardListDeleteResponse": {
+      "type": "object",
+      "properties": {
+        "deleted_dashboard_list_id": {
+          "type": "integer",
+          "description": "ID of the deleted dashboard list."
+        }
+      }
+    },
+    "DashboardListListResponse": {
+      "type": "object",
+      "properties": {
+        "dashboard_lists": {
+          "type": "array",
+          "description": "List of all your dashboard lists."
+        }
+      }
+    },
+    "DashboardSummary": {
+      "type": "object",
+      "properties": {
+        "dashboards": {
+          "type": "array",
+          "description": "List of dashboard definitions."
+        }
+      }
+    },
+    "DeletedMonitor": {
+      "type": "object",
+      "properties": {
+        "deleted_monitor_id": {
+          "type": "integer",
+          "description": "ID of the deleted monitor."
+        }
+      }
+    },
+    "Event": {
+      "type": "object",
+      "properties": {
+        "alert_type": {
+          "type": "string",
+          "description": "If an alert event is enabled, set its type.\nFor example, `error`, `warning`, `info`, `success`, `user_update`,\n`recommendation`, and `snapshot`."
+        },
+        "date_happened": {
+          "type": "integer",
+          "description": "POSIX timestamp of the event. Must be sent as an integer (that is no quotes).\nLimited to events up to 18 hours in the past and two hours in the future."
+        },
+        "device_name": {
+          "type": "string",
+          "description": "A device name."
+        },
+        "host": {
+          "type": "string",
+          "description": "Host name to associate with the event.\nAny tags associated with the host are also applied to this event."
+        },
+        "id": {
+          "type": "integer",
+          "description": "Integer ID of the event."
+        },
+        "id_str": {
+          "type": "string",
+          "description": "Handling IDs as large 64-bit numbers can cause loss of accuracy issues with some programming languages.\nInstead, use the string representation of the Event ID to avoid losing accuracy."
+        },
+        "payload": {
+          "type": "string",
+          "description": "Payload of the event."
+        },
+        "priority": {
+          "type": "string",
+          "description": "The priority of the event. For example, `normal` or `low`.",
+          "nullable": true
+        },
+        "source_type_name": {
+          "type": "string",
+          "description": "The type of event being posted. Option examples include nagios, hudson, jenkins, my_apps, chef, puppet, git, bitbucket, etc.\nThe list of standard source attribute values [available here](https://docs.datadoghq.com/integrations/faq/list-of-api-source-attribute-value)."
+        },
+        "tags": {
+          "type": "array",
+          "description": "A list of tags to apply to the event."
+        },
+        "text": {
+          "type": "string",
+          "description": "The body of the event. Limited to 4000 characters. The text supports markdown.\nTo use markdown in the event text, start the text block with `%%% \\n` and end the text block with `\\n %%%`.\nUse `msg_text` with the Datadog Ruby library."
+        },
+        "title": {
+          "type": "string",
+          "description": "The event title."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL of the event."
+        }
+      }
+    },
+    "EventListResponse": {
+      "type": "object",
+      "properties": {
+        "events": {
+          "type": "array",
+          "description": "An array of events."
+        },
+        "status": {
+          "type": "string",
+          "description": "A status."
+        }
+      }
+    },
+    "EventResponse": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "object",
+          "description": "Object representing an event.",
+          "schema_ref": "Event"
+        },
+        "status": {
+          "type": "string",
+          "description": "A status."
+        }
+      }
+    },
+    "HostListResponse": {
+      "type": "object",
+      "properties": {
+        "host_list": {
+          "type": "array",
+          "description": "Array of hosts."
+        },
+        "total_matching": {
+          "type": "integer",
+          "description": "Number of host matching the query."
+        },
+        "total_returned": {
+          "type": "integer",
+          "description": "Number of host returned."
+        }
+      }
+    },
+    "HostTotals": {
+      "type": "object",
+      "properties": {
+        "total_active": {
+          "type": "integer",
+          "description": "Total number of active host (UP and ???) reporting to Datadog."
+        },
+        "total_up": {
+          "type": "integer",
+          "description": "Number of host that are UP and reporting to Datadog."
+        }
+      }
+    },
+    "LogsDailyLimitReset": {
+      "type": "object",
+      "properties": {
+        "reset_time": {
+          "type": "string",
+          "description": "String in `HH:00` format representing the time of day the daily limit should be reset. The hours must be between 00 and 23 (inclusive)."
+        },
+        "reset_utc_offset": {
+          "type": "string",
+          "description": "String in `(-|+)HH:00` format representing the UTC offset to apply to the given reset time. The hours must be between -12 and +14 (inclusive)."
+        }
+      }
+    },
+    "LogsFilter": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The filter query."
+        }
+      }
+    },
+    "LogsIndex": {
+      "type": "object",
+      "properties": {
+        "daily_limit": {
+          "type": "integer",
+          "description": "The number of log events you can send in this index per day before you are rate-limited."
+        },
+        "daily_limit_reset": {
+          "type": "object",
+          "description": "Object containing options to override the default daily limit reset time.",
+          "schema_ref": "LogsDailyLimitReset"
+        },
+        "daily_limit_warning_threshold_percentage": {
+          "type": "number",
+          "description": "A percentage threshold of the daily quota at which a Datadog warning event is generated."
+        },
+        "exclusion_filters": {
+          "type": "array",
+          "description": "An array of exclusion objects. The logs are tested against the query of each filter,\nfollowing the order of the array. Only the first matching active exclusion matters,\nothers (if any) are ignored."
+        },
+        "filter": {
+          "type": "object",
+          "description": "Filter for logs.",
+          "schema_ref": "LogsFilter"
+        },
+        "is_rate_limited": {
+          "type": "boolean",
+          "description": "A boolean stating if the index is rate limited, meaning more logs than the daily limit have been sent.\nRate limit is reset every-day at 2pm UTC."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the index."
+        },
+        "num_flex_logs_retention_days": {
+          "type": "integer",
+          "description": "The total number of days logs are stored in Standard and Flex Tier before being deleted from the index.\nIf Standard Tier is enabled on this index, logs are first retained in Standard Tier for the number of days specified through `num_retention_days`,\nand then stored in Flex Tier until the number of days specified in `num_flex_logs_retention_days` is reached.\nThe available values depend on retention plans specified in your organization's contract/subscriptions."
+        },
+        "num_retention_days": {
+          "type": "integer",
+          "description": "The number of days logs are stored in Standard Tier before aging into the Flex Tier or being deleted from the index.\nThe available values depend on retention plans specified in your organization's contract/subscriptions."
+        },
+        "tags": {
+          "type": "array",
+          "description": "A list of tags associated with the index. Tags must be in `key:value` format."
+        }
+      }
+    },
+    "LogsIndexListResponse": {
+      "type": "object",
+      "properties": {
+        "indexes": {
+          "type": "array",
+          "description": "Array of Log index configurations."
+        }
+      }
+    },
+    "LogsListResponse": {
+      "type": "object",
+      "properties": {
+        "logs": {
+          "type": "array",
+          "description": "Array of logs matching the request and the `nextLogId` if sent."
+        },
+        "nextLogId": {
+          "type": "string",
+          "description": "Hash identifier of the next log to return in the list.\nThis parameter is used for the pagination feature.",
+          "nullable": true
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the response."
+        }
+      }
+    },
+    "LogsPipeline": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "A description of the pipeline."
+        },
+        "filter": {
+          "type": "object",
+          "description": "Filter for logs.",
+          "schema_ref": "LogsFilter"
+        },
+        "id": {
+          "type": "string",
+          "description": "ID of the pipeline."
+        },
+        "is_enabled": {
+          "type": "boolean",
+          "description": "Whether or not the pipeline is enabled."
+        },
+        "is_read_only": {
+          "type": "boolean",
+          "description": "Whether or not the pipeline can be edited."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the pipeline."
+        },
+        "processors": {
+          "type": "array",
+          "description": "Ordered list of processors in this pipeline."
+        },
+        "tags": {
+          "type": "array",
+          "description": "A list of tags associated with the pipeline."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of pipeline."
+        }
+      }
+    },
+    "LogsPipelineList": {
+      "type": "array",
+      "items": {
+        "$ref": "LogsPipeline"
+      }
+    },
+    "MetricMetadata": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Metric description."
+        },
+        "integration": {
+          "type": "string",
+          "description": "Name of the integration that sent the metric if applicable."
+        },
+        "per_unit": {
+          "type": "string",
+          "description": "Per unit of the metric such as `second` in `bytes per second`."
+        },
+        "short_name": {
+          "type": "string",
+          "description": "A more human-readable and abbreviated version of the metric name."
+        },
+        "statsd_interval": {
+          "type": "integer",
+          "description": "StatsD flush interval of the metric in seconds if applicable."
+        },
+        "type": {
+          "type": "string",
+          "description": "Metric type such as `gauge` or `rate`."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Primary unit of the metric such as `byte` or `operation`."
+        }
+      }
+    },
+    "MetricsListResponse": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Time when the metrics were active, seconds since the Unix epoch."
+        },
+        "metrics": {
+          "type": "array",
+          "description": "List of metric names."
+        }
+      }
+    },
+    "Monitor": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "type": "array",
+          "description": "The list of monitor assets tied to a monitor, which represents key links for users to take action on monitor alerts (for example, runbooks)."
+        },
+        "created": {
+          "type": "string",
+          "description": "Timestamp of the monitor creation."
+        },
+        "creator": {
+          "type": "object",
+          "description": "Object describing the creator of the shared element.",
+          "schema_ref": "Creator"
+        },
+        "deleted": {
+          "type": "string",
+          "description": "Whether or not the monitor is deleted. (Always `null`)",
+          "nullable": true
+        },
+        "draft_status": {
+          "type": "string",
+          "description": "Indicates whether the monitor is in a draft or published state.\n\n`draft`: The monitor appears as Draft and does not send notifications.\n`published`: The monitor is active and evaluates conditions and notify as configured.\n\nThis field is in preview. The draft value is only available to customers with the feature enabled."
+        },
+        "id": {
+          "type": "integer",
+          "description": "ID of this monitor."
+        },
+        "matching_downtimes": {
+          "type": "array",
+          "description": "A list of active v1 downtimes that match this monitor."
+        },
+        "message": {
+          "type": "string",
+          "description": "A message to include with notifications for this monitor."
+        },
+        "modified": {
+          "type": "string",
+          "description": "Last timestamp when the monitor was edited."
+        },
+        "multi": {
+          "type": "boolean",
+          "description": "Whether or not the monitor is broken down on different groups."
+        },
+        "name": {
+          "type": "string",
+          "description": "The monitor name."
+        },
+        "options": {
+          "type": "object",
+          "description": "List of options associated with your monitor.",
+          "schema_ref": "MonitorOptions"
+        },
+        "overall_state": {
+          "type": "string",
+          "description": "The different states your monitor can be in."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Integer from 1 (high) to 5 (low) indicating alert severity.",
+          "nullable": true
+        },
+        "query": {
+          "type": "string",
+          "description": "The monitor query."
+        },
+        "restricted_roles": {
+          "type": "array",
+          "description": "A list of unique role identifiers to define which roles are allowed to edit the monitor. The unique identifiers for all roles can be pulled from the [Roles API](https://docs.datadoghq.com/api/latest/roles/#list-roles) and are located in the `data.id` field. Editing a monitor includes any updates to the monitor configuration, monitor deletion, and muting of the monitor for any amount of time. You can use the [Restriction Policies API](https://docs.datadoghq.com/api/latest/restriction-policies/) to manage write authorization for individual monitors by teams and users, in addition to roles.",
+          "nullable": true
+        },
+        "state": {
+          "type": "object",
+          "description": "Wrapper object with the different monitor states.",
+          "schema_ref": "MonitorState"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags associated to your monitor."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of the monitor. For more information about `type`, see the [monitor options](https://docs.datadoghq.com/monitors/guide/monitor_api_options/) docs."
+        }
+      }
+    },
+    "MonitorGroupSearchResponse": {
+      "type": "object",
+      "properties": {
+        "counts": {
+          "type": "object",
+          "description": "The counts of monitor groups per different criteria.",
+          "schema_ref": "MonitorGroupSearchResponseCounts"
+        },
+        "groups": {
+          "type": "array",
+          "description": "The list of found monitor groups."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Metadata about the response.",
+          "schema_ref": "MonitorSearchResponseMetadata"
+        }
+      }
+    },
+    "MonitorGroupSearchResponseCounts": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "array",
+          "description": "Search facets."
+        },
+        "type": {
+          "type": "array",
+          "description": "Search facets."
+        }
+      }
+    },
+    "MonitorOptions": {
+      "type": "object",
+      "properties": {
+        "aggregation": {
+          "type": "object",
+          "description": "Type of aggregation performed in the monitor query.",
+          "schema_ref": "MonitorOptionsAggregation"
+        },
+        "device_ids": {
+          "type": "array",
+          "description": "IDs of the device the Synthetics monitor is running on."
+        },
+        "enable_logs_sample": {
+          "type": "boolean",
+          "description": "Whether or not to send a log sample when the log monitor triggers."
+        },
+        "enable_samples": {
+          "type": "boolean",
+          "description": "Whether or not to send a list of samples when the monitor triggers. This is only used by CI Test and Pipeline monitors."
+        },
+        "escalation_message": {
+          "type": "string",
+          "description": "We recommend using the [is_renotify](https://docs.datadoghq.com/monitors/notify/?tab=is_alert#renotify),\nblock in the original message instead.\nA message to include with a re-notification. Supports the `@username` notification we allow elsewhere.\nNot applicable if `renotify_interval` is `None`."
+        },
+        "evaluation_delay": {
+          "type": "integer",
+          "description": "Time (in seconds) to delay evaluation, as a non-negative integer. For example, if the value is set to `300` (5min),\nthe timeframe is set to `last_5m` and the time is 7:00, the monitor evaluates data from 6:50 to 6:55.\nThis is useful for AWS CloudWatch and other backfilled metrics to ensure the monitor always has data during evaluation.",
+          "nullable": true
+        },
+        "group_retention_duration": {
+          "type": "string",
+          "description": "The time span after which groups with missing data are dropped from the monitor state.\nThe minimum value is one hour, and the maximum value is 72 hours.\nExample values are: \"60m\", \"1h\", and \"2d\".\nThis option is only available for APM Trace Analytics, Audit Trail, CI, Error Tracking, Event, Logs, and RUM monitors."
+        },
+        "groupby_simple_monitor": {
+          "type": "boolean",
+          "description": "Whether the log alert monitor triggers a single alert or multiple alerts when any group breaches a threshold. Use `notify_by` instead."
+        },
+        "include_tags": {
+          "type": "boolean",
+          "description": "A Boolean indicating whether notifications from this monitor automatically inserts its triggering tags into the title.\n\n**Examples**\n- If `True`, `[Triggered on {host:h1}] Monitor Title`\n- If `False`, `[Triggered] Monitor Title`"
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "Whether or not the monitor is locked (only editable by creator and admins). Use `restricted_roles` instead."
+        },
+        "min_failure_duration": {
+          "type": "integer",
+          "description": "How long the test should be in failure before alerting (integer, number of seconds, max 7200).",
+          "nullable": true
+        },
+        "min_location_failed": {
+          "type": "integer",
+          "description": "The minimum number of locations in failure at the same time during\nat least one moment in the `min_failure_duration` period (`min_location_failed` and `min_failure_duration`\nare part of the advanced alerting rules - integer, \u003e= 1).",
+          "nullable": true
+        },
+        "new_group_delay": {
+          "type": "integer",
+          "description": "Time (in seconds) to skip evaluations for new groups.\n\nFor example, this option can be used to skip evaluations for new hosts while they initialize.\n\nMust be a non negative integer.",
+          "nullable": true
+        },
+        "new_host_delay": {
+          "type": "integer",
+          "description": "Time (in seconds) to allow a host to boot and applications\nto fully start before starting the evaluation of monitor results.\nShould be a non negative integer.\n\nUse new_group_delay instead.",
+          "nullable": true
+        },
+        "no_data_timeframe": {
+          "type": "integer",
+          "description": "The number of minutes before a monitor notifies after data stops reporting.\nDatadog recommends at least 2x the monitor timeframe for query alerts or 2 minutes for service checks.\nIf omitted, 2x the evaluation timeframe is used for query alerts, and 24 hours is used for service checks.",
+          "nullable": true
+        },
+        "notification_preset_name": {
+          "type": "string",
+          "description": "Toggles the display of additional content sent in the monitor notification."
+        },
+        "notify_audit": {
+          "type": "boolean",
+          "description": "A Boolean indicating whether tagged users is notified on changes to this monitor."
+        },
+        "notify_by": {
+          "type": "array",
+          "description": "Controls what granularity a monitor alerts on. Only available for monitors with groupings.\nFor instance, a monitor grouped by `cluster`, `namespace`, and `pod` can be configured to only notify on each\nnew `cluster` violating the alert conditions by setting `notify_by` to `[\"cluster\"]`. Tags mentioned\nin `notify_by` must be a subset of the grouping tags in the query.\nFor example, a query grouped by `cluster` and `namespace` cannot notify on `region`.\nSetting `notify_by` to `[\"*\"]` configures the monitor to notify as a simple-alert."
+        },
+        "notify_no_data": {
+          "type": "boolean",
+          "description": "A Boolean indicating whether this monitor notifies when data stops reporting. Defaults to `false`."
+        },
+        "on_missing_data": {
+          "type": "string",
+          "description": "Controls how groups or monitors are treated if an evaluation does not return any data points.\nThe default option results in different behavior depending on the monitor query type.\nFor monitors using Count queries, an empty monitor evaluation is treated as 0 and is compared to the threshold conditions.\nFor monitors using any query type other than Count, for example Gauge, Measure, or Rate, the monitor shows the last known status.\nThis option is available for APM Trace Analytics, Audit Trail, CI, Error Tracking, Event, Logs, and RUM monitors.\nIt is also required for metric monitors that use `scheduling_options.custom_schedule`."
+        },
+        "renotify_interval": {
+          "type": "integer",
+          "description": "The number of minutes after the last notification before a monitor re-notifies on the current status.\nIt only re-notifies if it’s not resolved.",
+          "nullable": true
+        },
+        "renotify_occurrences": {
+          "type": "integer",
+          "description": "The number of times re-notification messages should be sent on the current status at the provided re-notification interval.",
+          "nullable": true
+        },
+        "renotify_statuses": {
+          "type": "array",
+          "description": "The types of monitor statuses for which re-notification messages are sent.\nDefault: **null** if `renotify_interval` is **null**.\nIf `renotify_interval` is set, defaults to renotify on `Alert` and `No Data`.",
+          "nullable": true
+        },
+        "require_full_window": {
+          "type": "boolean",
+          "description": "A Boolean indicating whether this monitor needs a full window of data before it’s evaluated.\nWe highly recommend you set this to `false` for sparse metrics,\notherwise some evaluations are skipped. Default is false. This setting only applies to\nmetric monitors."
+        },
+        "scheduling_options": {
+          "type": "object",
+          "description": "Configuration options for scheduling.",
+          "schema_ref": "MonitorOptionsSchedulingOptions"
+        },
+        "silenced": {
+          "type": "object",
+          "description": "Information about the downtime applied to the monitor. Only shows v1 downtimes."
+        },
+        "synthetics_check_id": {
+          "type": "string",
+          "description": "ID of the corresponding Synthetic check.",
+          "nullable": true
+        },
+        "threshold_windows": {
+          "type": "object",
+          "description": "Alerting time window options.",
+          "schema_ref": "MonitorThresholdWindowOptions"
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "List of the different monitor threshold available.",
+          "schema_ref": "MonitorThresholds"
+        },
+        "timeout_h": {
+          "type": "integer",
+          "description": "The number of hours of the monitor not reporting data before it automatically resolves from a triggered state. The minimum allowed value is 0 hours. The maximum allowed value is 24 hours.",
+          "nullable": true
+        },
+        "variables": {
+          "type": "array",
+          "description": "List of requests that can be used in the monitor query. **This feature is currently in beta.**"
+        }
+      }
+    },
+    "MonitorOptionsAggregation": {
+      "type": "object",
+      "properties": {
+        "group_by": {
+          "type": "string",
+          "description": "Group to break down the monitor on."
+        },
+        "metric": {
+          "type": "string",
+          "description": "Metric name used in the monitor."
+        },
+        "type": {
+          "type": "string",
+          "description": "Metric type used in the monitor."
+        }
+      }
+    },
+    "MonitorOptionsCustomSchedule": {
+      "type": "object",
+      "properties": {
+        "recurrences": {
+          "type": "array",
+          "description": "Array of custom schedule recurrences."
+        }
+      }
+    },
+    "MonitorOptionsSchedulingOptions": {
+      "type": "object",
+      "properties": {
+        "custom_schedule": {
+          "type": "object",
+          "description": "Configuration options for the custom schedule. **This feature is in private beta.**",
+          "schema_ref": "MonitorOptionsCustomSchedule"
+        },
+        "evaluation_window": {
+          "type": "object",
+          "description": "Configuration options for the evaluation window. If `hour_starts` is set, no other fields may be set. Otherwise, `day_starts` and `month_starts` must be set together.",
+          "schema_ref": "MonitorOptionsSchedulingOptionsEvaluationWindow"
+        }
+      }
+    },
+    "MonitorOptionsSchedulingOptionsEvaluationWindow": {
+      "type": "object",
+      "properties": {
+        "day_starts": {
+          "type": "string",
+          "description": "The time of the day at which a one day cumulative evaluation window starts."
+        },
+        "hour_starts": {
+          "type": "integer",
+          "description": "The minute of the hour at which a one hour cumulative evaluation window starts."
+        },
+        "month_starts": {
+          "type": "integer",
+          "description": "The day of the month at which a one month cumulative evaluation window starts."
+        },
+        "timezone": {
+          "type": "string",
+          "description": "The timezone of the time of the day of the cumulative evaluation window start."
+        }
+      }
+    },
+    "MonitorSearchResponse": {
+      "type": "object",
+      "properties": {
+        "counts": {
+          "type": "object",
+          "description": "The counts of monitors per different criteria.",
+          "schema_ref": "MonitorSearchResponseCounts"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Metadata about the response.",
+          "schema_ref": "MonitorSearchResponseMetadata"
+        },
+        "monitors": {
+          "type": "array",
+          "description": "The list of found monitors."
+        }
+      }
+    },
+    "MonitorSearchResponseCounts": {
+      "type": "object",
+      "properties": {
+        "muted": {
+          "type": "array",
+          "description": "Search facets."
+        },
+        "status": {
+          "type": "array",
+          "description": "Search facets."
+        },
+        "tag": {
+          "type": "array",
+          "description": "Search facets."
+        },
+        "type": {
+          "type": "array",
+          "description": "Search facets."
+        }
+      }
+    },
+    "MonitorSearchResponseMetadata": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "description": "The page to start paginating from."
+        },
+        "page_count": {
+          "type": "integer",
+          "description": "The number of pages."
+        },
+        "per_page": {
+          "type": "integer",
+          "description": "The number of monitors to return per page."
+        },
+        "total_count": {
+          "type": "integer",
+          "description": "The total number of monitors."
+        }
+      }
+    },
+    "MonitorState": {
+      "type": "object",
+      "properties": {
+        "groups": {
+          "type": "object",
+          "description": "Dictionary where the keys are groups (comma separated lists of tags) and the values are\nthe list of groups your monitor is broken down on."
+        }
+      }
+    },
+    "MonitorThresholdWindowOptions": {
+      "type": "object",
+      "properties": {
+        "recovery_window": {
+          "type": "string",
+          "description": "Describes how long an anomalous metric must be normal before the alert recovers.",
+          "nullable": true
+        },
+        "trigger_window": {
+          "type": "string",
+          "description": "Describes how long a metric must be anomalous before an alert triggers.",
+          "nullable": true
+        }
+      }
+    },
+    "MonitorThresholds": {
+      "type": "object",
+      "properties": {
+        "critical": {
+          "type": "number",
+          "description": "The monitor `CRITICAL` threshold."
+        },
+        "critical_query": {
+          "type": "string",
+          "description": "Query evaluated as a dynamic `CRITICAL` threshold. Only supported on metric monitors with a formula query and options['variables']. Cannot be combined with static thresholds. This field is in preview."
+        },
+        "critical_recovery": {
+          "type": "number",
+          "description": "The monitor `CRITICAL` recovery threshold.",
+          "nullable": true
+        },
+        "critical_recovery_query": {
+          "type": "string",
+          "description": "Query evaluated as a dynamic `CRITICAL` recovery threshold. Only supported on metric monitors with a formula query and options['variables']. Cannot be combined with static thresholds. This field is in preview."
+        },
+        "ok": {
+          "type": "number",
+          "description": "The monitor `OK` threshold.",
+          "nullable": true
+        },
+        "unknown": {
+          "type": "number",
+          "description": "The monitor UNKNOWN threshold.",
+          "nullable": true
+        },
+        "warning": {
+          "type": "number",
+          "description": "The monitor `WARNING` threshold.",
+          "nullable": true
+        },
+        "warning_recovery": {
+          "type": "number",
+          "description": "The monitor `WARNING` recovery threshold.",
+          "nullable": true
+        }
+      }
+    },
+    "Monitor_list": {
+      "type": "array",
+      "items": {
+        "$ref": "Monitor"
+      }
+    },
+    "NotebookAuthor": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "description": "Creation time of the user."
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "Whether the user is disabled."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email of the user."
+        },
+        "handle": {
+          "type": "string",
+          "description": "Handle of the user."
+        },
+        "icon": {
+          "type": "string",
+          "description": "URL of the user's icon."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the user.",
+          "nullable": true
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the user."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the user.",
+          "nullable": true
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Whether the user is verified."
+        }
+      }
+    },
+    "NotebookGlobalTime": {
+      "type": "object"
+    },
+    "NotebookMetadata": {
+      "type": "object",
+      "properties": {
+        "is_template": {
+          "type": "boolean",
+          "description": "Whether or not the notebook is a template."
+        },
+        "take_snapshots": {
+          "type": "boolean",
+          "description": "Whether or not the notebook takes snapshot image backups of the notebook's fixed-time graphs."
+        },
+        "type": {
+          "type": "string",
+          "description": "Metadata type of the notebook.",
+          "nullable": true
+        }
+      }
+    },
+    "NotebookResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "description": "The data for a notebook.",
+          "schema_ref": "NotebookResponseData"
+        }
+      }
+    },
+    "NotebookResponseData": {
+      "type": "object",
+      "properties": {
+        "attributes": {
+          "type": "object",
+          "description": "The attributes of a notebook.",
+          "schema_ref": "NotebookResponseDataAttributes"
+        },
+        "id": {
+          "type": "integer",
+          "description": "Unique notebook ID, assigned when you create the notebook."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the Notebook resource."
+        }
+      }
+    },
+    "NotebookResponseDataAttributes": {
+      "type": "object",
+      "properties": {
+        "author": {
+          "type": "object",
+          "description": "Attributes of user object returned by the API.",
+          "schema_ref": "NotebookAuthor"
+        },
+        "cells": {
+          "type": "array",
+          "description": "List of cells to display in the notebook."
+        },
+        "created": {
+          "type": "string",
+          "description": "UTC time stamp for when the notebook was created."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Metadata associated with the notebook.",
+          "schema_ref": "NotebookMetadata"
+        },
+        "modified": {
+          "type": "string",
+          "description": "UTC time stamp for when the notebook was last modified."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the notebook."
+        },
+        "status": {
+          "type": "string",
+          "description": "Publication status of the notebook. For now, always \"published\"."
+        },
+        "template_variables": {
+          "type": "array",
+          "description": "List of template variables for this notebook.",
+          "nullable": true
+        },
+        "time": {
+          "type": "object",
+          "description": "Notebook global timeframe.",
+          "schema_ref": "NotebookGlobalTime"
+        }
+      }
+    },
+    "NotebooksResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "List of notebook definitions."
+        },
+        "meta": {
+          "type": "object",
+          "description": "Searches metadata returned by the API.",
+          "schema_ref": "NotebooksResponseMeta"
+        }
+      }
+    },
+    "NotebooksResponseMeta": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "object",
+          "description": "Pagination metadata returned by the API.",
+          "schema_ref": "NotebooksResponsePage"
+        }
+      }
+    },
+    "NotebooksResponsePage": {
+      "type": "object",
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "description": "The total number of notebooks that would be returned if the request was not filtered by `start` and `count` parameters."
+        },
+        "total_filtered_count": {
+          "type": "integer",
+          "description": "The total number of notebooks returned."
+        }
+      }
+    },
+    "SLODeleteResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "An array containing the ID of the deleted service level objective object."
+        },
+        "errors": {
+          "type": "object",
+          "description": "An dictionary containing the ID of the SLO as key and a deletion error as value."
+        }
+      }
+    },
+    "SLOListResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "An array of service level objective objects."
+        },
+        "errors": {
+          "type": "array",
+          "description": "An array of error messages. Each endpoint documents how/whether this field is\nused."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "The metadata object containing additional information about the list of SLOs.",
+          "schema_ref": "SLOListResponseMetadata"
+        }
+      }
+    },
+    "SLOListResponseMetadata": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "object",
+          "description": "The object containing information about the pages of the list of SLOs.",
+          "schema_ref": "SLOListResponseMetadataPage"
+        }
+      }
+    },
+    "SLOListResponseMetadataPage": {
+      "type": "object",
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "description": "The total number of resources that could be retrieved ignoring the parameters and filters in the request."
+        },
+        "total_filtered_count": {
+          "type": "integer",
+          "description": "The total number of resources that match the parameters and filters in the request. This attribute can be used by a client to determine the total number of pages."
+        }
+      }
+    },
+    "SLOResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "description": "A service level objective object includes a service level indicator, thresholds\nfor one or more timeframes, and metadata (`name`, `description`, `tags`, etc.).",
+          "schema_ref": "SLOResponseData"
+        },
+        "errors": {
+          "type": "array",
+          "description": "An array of error messages. Each endpoint documents how/whether this field is\nused."
+        }
+      }
+    },
+    "SLOResponseData": {
+      "type": "object",
+      "properties": {
+        "configured_alert_ids": {
+          "type": "array",
+          "description": "A list of SLO monitors IDs that reference this SLO. This field is returned only when `with_configured_alert_ids` parameter is true in query."
+        },
+        "created_at": {
+          "type": "integer",
+          "description": "Creation timestamp (UNIX time in seconds)\n\nAlways included in service level objective responses."
+        },
+        "creator": {
+          "type": "object",
+          "description": "Object describing the creator of the shared element.",
+          "schema_ref": "Creator"
+        },
+        "description": {
+          "type": "string",
+          "description": "A user-defined description of the service level objective.\n\nAlways included in service level objective responses (but may be `null`).\nOptional in create/update requests.",
+          "nullable": true
+        },
+        "groups": {
+          "type": "array",
+          "description": "A list of (up to 20) monitor groups that narrow the scope of a monitor service level objective.\n\nIncluded in service level objective responses if it is not empty. Optional in\ncreate/update requests for monitor service level objectives, but may only be\nused when then length of the `monitor_ids` field is one."
+        },
+        "id": {
+          "type": "string",
+          "description": "A unique identifier for the service level objective object.\n\nAlways included in service level objective responses."
+        },
+        "modified_at": {
+          "type": "integer",
+          "description": "Modification timestamp (UNIX time in seconds)\n\nAlways included in service level objective responses."
+        },
+        "monitor_ids": {
+          "type": "array",
+          "description": "A list of monitor ids that defines the scope of a monitor service level\nobjective. **Required if type is `monitor`**."
+        },
+        "monitor_tags": {
+          "type": "array",
+          "description": "The union of monitor tags for all monitors referenced by the `monitor_ids`\nfield.\nAlways included in service level objective responses for monitor service level\nobjectives (but may be empty). Ignored in create/update requests. Does not\naffect which monitors are included in the service level objective (that is\ndetermined entirely by the `monitor_ids` field)."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the service level objective object."
+        },
+        "query": {
+          "type": "object",
+          "description": "A count-based (metric) SLO query. This field is superseded by `sli_specification` but is retained for backwards compatibility. Note that Datadog only allows the sum by aggregator\nto be used because this will sum up all request counts instead of averaging them, or taking the max or\nmin of all of those requests.",
+          "schema_ref": "ServiceLevelObjectiveQuery"
+        },
+        "sli_specification": {
+          "type": "object",
+          "description": "A generic SLI specification. This is used for time-slice and count-based (metric) SLOs only.",
+          "schema_ref": "SLOSliSpec"
+        },
+        "tags": {
+          "type": "array",
+          "description": "A list of tags associated with this service level objective.\nAlways included in service level objective responses (but may be empty).\nOptional in create/update requests."
+        },
+        "target_threshold": {
+          "type": "number",
+          "description": "The target threshold such that when the service level indicator is above this\nthreshold over the given timeframe, the objective is being met."
+        },
+        "thresholds": {
+          "type": "array",
+          "description": "The thresholds (timeframes and associated targets) for this service level\nobjective object."
+        },
+        "timeframe": {
+          "type": "string",
+          "description": "The SLO time window options. Note that \"custom\" is not a valid option for creating\nor updating SLOs. It is only used when querying SLO history over custom timeframes."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of the service level objective."
+        },
+        "warning_threshold": {
+          "type": "number",
+          "description": "The optional warning threshold such that when the service level indicator is\nbelow this value for the given threshold, but above the target threshold, the\nobjective appears in a \"warning\" state. This value must be greater than the target\nthreshold."
+        }
+      }
+    },
+    "SLOSliSpec": {
+      "type": "object"
+    },
+    "ServiceLevelObjectiveQuery": {
+      "type": "object",
+      "properties": {
+        "denominator": {
+          "type": "string",
+          "description": "A Datadog metric query for total (valid) events."
+        },
+        "numerator": {
+          "type": "string",
+          "description": "A Datadog metric query for good events."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Live infrastructure environment files. Commit only the adjacent templates.
+env/**/*.env
+!env/**/*.env.example
+!env/**/*.config.env
+
+# Cluster access and recovery material.
+kubeconfigs/**
+credentials/**
+
+# Downloaded charts and locally rendered manifests are reproducible artifacts.
+generated/**

@@ -2,8 +2,9 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-secret_dir="$repo_root/kubernetes/environments/production/secrets"
-s3_env="$repo_root/.env.hetzner-s3"
+config_root="$repo_root/kubernetes/config"
+secret_dir="$config_root/env/production"
+s3_env="$config_root/env/infrastructure/hetzner-s3.env"
 railway_project="55776e03-e6c2-4a9b-828b-4e759495aa70"
 railway_environment="3c177170-0fb2-4dcb-a034-12676bb242c6"
 railway_service="a9b4e563-a9a6-4e69-92d4-fc8819435f80"

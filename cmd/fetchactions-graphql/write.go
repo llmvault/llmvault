@@ -43,6 +43,7 @@ type ServiceMetadata struct {
 // ProviderFile is the output format for each <provider>.actions.json.
 type ProviderFile struct {
 	DisplayName string                      `json:"display_name"`
+	PushToMCP   *bool                       `json:"push_to_mcp,omitempty"`
 	Resources   map[string]ResourceDef      `json:"resources"`
 	Actions     map[string]ActionDef        `json:"actions"`
 	Schemas     map[string]SchemaDefinition `json:"schemas,omitempty"`
@@ -77,6 +78,7 @@ func writeProviderFiles(cfg ServiceConfig, actions map[string]ActionDef, schemas
 
 	providerFile := ProviderFile{
 		DisplayName: meta.DisplayName,
+		PushToMCP:   cfg.PushToMCP,
 		Resources:   meta.Resources,
 		Actions:     actions,
 		Schemas:     schemas,

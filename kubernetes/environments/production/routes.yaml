@@ -40,3 +40,55 @@ spec:
     - backendRefs:
         - name: backend-api
           port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backend-mcp
+  labels:
+    hivy.io/apply-phase: workload
+spec:
+  parentRefs:
+    - name: public
+      namespace: ingress-public
+      sectionName: https
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
+  hostnames:
+    - mcp.usehivy.com
+  rules:
+    - backendRefs:
+        - name: backend-api
+          port: 8081
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backend-proxy
+  labels:
+    hivy.io/apply-phase: workload
+spec:
+  parentRefs:
+    - name: public
+      namespace: ingress-public
+      sectionName: https
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
+  hostnames:
+    - proxy.usehivy.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /v1/proxy/
+      backendRefs:
+        - name: backend-api
+          port: 8080

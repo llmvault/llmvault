@@ -148,16 +148,14 @@ export function MemoriesAndRules() {
 
         <DocSection title="Review one agent at a time">
           <p>
-            Open <strong>Settings</strong>, select <strong>Memories</strong>,
-            then choose an agent. Active rules appear above learned memories.
-            Each memory shows its kind, evidence count, related entities,
-            verification state, and an expiry date when it has one.
+            Open <strong>Agents</strong>, choose an installed agent, then select
+            its <strong>Memories</strong> tab. Each memory shows the durable fact,
+            its tags, and when the agent learned it.
           </p>
           <p className="mt-3">
-            Members may read memory for agents they can access. Only workspace
-            owners and admins may change memories or rules.
+            Members may read memories for agents they can access.
           </p>
-          <DocLink href="/w/settings/memories">Open Memories</DocLink>
+          <DocLink href="/w/agents">Open Agents</DocLink>
         </DocSection>
 
         <DocSection title="Fix a bad memory at the source">

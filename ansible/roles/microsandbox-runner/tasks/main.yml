@@ -22,26 +22,26 @@
       - microsandbox_remote_binary.stat.isreg
     fail_msg: "Run phase2-install.yml before phase3-deploy.yml."
 
-- name: Check local ansible .env exists
+- name: Check local Microsandbox runner env exists
   ansible.builtin.stat:
     path: "{{ microsandbox_env_file }}"
   delegate_to: localhost
   become: false
   register: microsandbox_env_file_stat
 
-- name: Require ansible .env
+- name: Require Microsandbox runner env
   ansible.builtin.assert:
     that:
       - microsandbox_env_file_stat.stat.exists
       - microsandbox_env_file_stat.stat.isreg
-    fail_msg: "Create ansible/.env from ansible/.env.example before deploying runners."
+    fail_msg: "Create kubernetes/config/env/ansible/runners.env from its adjacent example before deploying runners."
 
-- name: Read ansible .env
+- name: Read Microsandbox runner env
   ansible.builtin.set_fact:
     microsandbox_env_lines: "{{ lookup('ansible.builtin.file', microsandbox_env_file).splitlines() }}"
   no_log: true
 
-- name: Parse ansible .env
+- name: Parse Microsandbox runner env
   ansible.builtin.set_fact:
     microsandbox_env: "{{ microsandbox_env | default({}) | combine({(item.split('=', 1)[0] | trim): (item.split('=', 1)[1] | trim | regex_replace('^\"(.*)\"$', '\\1') | regex_replace(\"^'(.*)'$\", '\\1'))}) }}"
   loop: "{{ microsandbox_env_lines }}"
@@ -53,7 +53,7 @@
     that:
       - microsandbox_env[item] is defined
       - microsandbox_env[item] | string | trim | length > 0
-    fail_msg: "Required value {{ item }} is missing from ansible/.env."
+    fail_msg: "Required value {{ item }} is missing from kubernetes/config/env/ansible/runners.env."
   loop: "{{ microsandbox_required_env }}"
   no_log: true
 

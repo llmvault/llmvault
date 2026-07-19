@@ -2375,6 +2375,56 @@ definitions:
       user:
         $ref: '#/definitions/userResponse'
     type: object
+  memoryListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/memoryResponse'
+        type: array
+    type: object
+  memoryMutationRequest:
+    properties:
+      agent_id:
+        type: string
+      content:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  memoryMutationResponse:
+    properties:
+      memory:
+        $ref: '#/definitions/memoryResponse'
+    type: object
+  memoryResponse:
+    properties:
+      agent_id:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      embedding_status:
+        type: string
+      id:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      org_id:
+        type: string
+      similarity:
+        type: number
+      tags:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+    type: object
   mintTokenRequest:
     properties:
       credential_id:
@@ -8643,14 +8693,162 @@ paths:
       - mcp-servers
   /v1/memories:
     get:
-      responses: {}
+      description: Lists memories for one agent, or for every agent when agent_id
+        is omitted by an organization manager. Pass q to semantic-search instead.
+      parameters:
+      - description: Agent UUID; omit for every agent
+        in: query
+        name: agent_id
+        type: string
+      - description: Semantic search query
+        in: query
+        name: q
+        type: string
+      - description: Comma- or space-separated tag filters
+        in: query
+        name: tags
+        type: string
+      - description: Max items (1-100, default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memoryListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List agent memories
+      tags:
+      - memories
     post:
-      responses: {}
+      consumes:
+      - application/json
+      description: Stores a memory for one active agent. Content is embedded asynchronously.
+      parameters:
+      - description: Agent memory
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/memoryMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/memoryMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an agent memory
+      tags:
+      - memories
   /v1/memories/{id}:
     delete:
-      responses: {}
+      description: Archives a memory so the agent no longer recalls it.
+      parameters:
+      - description: Memory UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive an agent memory
+      tags:
+      - memories
     patch:
-      responses: {}
+      consumes:
+      - application/json
+      description: Updates a memory's content, tags, or metadata. Editing content
+        re-embeds it.
+      parameters:
+      - description: Memory UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/memoryMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memoryMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an agent memory
+      tags:
+      - memories
   /v1/models:
     get:
       description: Returns models from providers that have at least one active system

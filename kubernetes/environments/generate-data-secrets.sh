@@ -2,9 +2,10 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-s3_env="${repo_root}/.env.hetzner-s3"
-staging_dir="${repo_root}/kubernetes/environments/staging/secrets"
-production_dir="${repo_root}/kubernetes/environments/production/secrets"
+config_root="${repo_root}/kubernetes/config"
+s3_env="${config_root}/env/infrastructure/hetzner-s3.env"
+staging_dir="${config_root}/env/staging"
+production_dir="${config_root}/env/production"
 mode="${1:-initial}"
 
 if [[ "${mode}" != "initial" && "${mode}" != "--refresh-backups" ]]; then

@@ -23,6 +23,14 @@
     "display_name": "PostHog",
     "resources": {}
   },
+  "datadog": {
+    "display_name": "Datadog",
+    "resources": {}
+  },
+  "resend": {
+    "display_name": "Resend",
+    "resources": {}
+  },
   "slack": {
     "display_name": "Slack",
     "resources": {

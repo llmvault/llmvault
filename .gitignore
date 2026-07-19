@@ -28,15 +28,6 @@ strix_runs/
 examples/
 certs/
 
-# Local Kubernetes administrator credentials and bootstrap tokens.
-# These are fetched from production hosts by the K3s Ansible playbook.
-ansible/.secrets/
-
-# Plaintext inputs rendered by Kustomize into environment-specific Kubernetes
-# Secrets. Commit only the adjacent *.example templates and generator scripts.
-kubernetes/environments/*/secrets/*.env
-kubernetes/observability/secrets/*.env
-
 # binary outputs (not the source in cmd/)
 /buildtemplates
 /msb

@@ -1,0 +1,3065 @@
+{
+  "display_name": "Resend",
+  "resources": {},
+  "actions": {
+    "delete_broadcasts_id": {
+      "display_name": "Remove an existing broadcast that is in the draft status",
+      "description": "Remove an existing broadcast that is in the draft status",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Broadcast ID."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/broadcasts/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "RemoveBroadcastResponseSuccess"
+    },
+    "delete_contacts_id": {
+      "display_name": "Remove an existing contact by ID or email",
+      "description": "Remove an existing contact by ID or email",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Contact ID or email address."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/contacts/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "RemoveContactResponseSuccess"
+    },
+    "delete_domains_domain_id": {
+      "display_name": "Remove an existing domain",
+      "description": "Remove an existing domain",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "description": "The ID of the domain."
+          }
+        },
+        "required": [
+          "domain_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/domains/{domain_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "DeleteDomainResponse"
+    },
+    "delete_segments_id": {
+      "display_name": "Remove an existing segment",
+      "description": "Remove an existing segment",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Segment ID."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/segments/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "RemoveSegmentResponseSuccess"
+    },
+    "delete_templates_id": {
+      "display_name": "Remove an existing template",
+      "description": "Remove an existing template",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Template ID or alias."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/templates/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "RemoveTemplateResponseSuccess"
+    },
+    "delete_webhooks_webhook_id": {
+      "display_name": "Remove an existing webhook",
+      "description": "Remove an existing webhook",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "webhook_id": {
+            "type": "string",
+            "description": "The Webhook ID."
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/webhooks/{webhook_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "DeleteWebhookResponse"
+    },
+    "get_broadcasts": {
+      "display_name": "Retrieve a list of broadcasts",
+      "description": "Retrieve a list of broadcasts",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/broadcasts",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListBroadcastsResponseSuccess"
+    },
+    "get_broadcasts_id": {
+      "display_name": "Retrieve a single broadcast",
+      "description": "Retrieve a single broadcast",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Broadcast ID."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/broadcasts/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetBroadcastResponseSuccess"
+    },
+    "get_contacts": {
+      "display_name": "Retrieve a list of contacts",
+      "description": "Retrieve a list of contacts",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          },
+          "segment_id": {
+            "type": "string",
+            "description": "Filter contacts by segment ID."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/contacts",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit",
+          "segment_id": "segment_id"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListContactsResponseSuccess"
+    },
+    "get_contacts_id": {
+      "display_name": "Retrieve a single contact by ID or email",
+      "description": "Retrieve a single contact by ID or email",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Contact ID or email address."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/contacts/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetContactResponseSuccess"
+    },
+    "get_contacts_imports": {
+      "display_name": "Retrieve a list of contact imports",
+      "description": "Retrieve a list of contact imports",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          },
+          "status": {
+            "type": "string",
+            "description": "Filter contact imports by status."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/contacts/imports",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit",
+          "status": "status"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListContactImportsResponseSuccess"
+    },
+    "get_contacts_imports_id": {
+      "display_name": "Retrieve a single contact import",
+      "description": "Retrieve a single contact import",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Contact Import ID."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/contacts/imports/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetContactImportResponseSuccess"
+    },
+    "get_domains": {
+      "display_name": "Retrieve a list of domains",
+      "description": "Retrieve a list of domains",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/domains",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListDomainsResponse"
+    },
+    "get_domains_domain_id": {
+      "display_name": "Retrieve a single domain",
+      "description": "Retrieve a single domain",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "description": "The ID of the domain."
+          }
+        },
+        "required": [
+          "domain_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/domains/{domain_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "records"
+      },
+      "response_schema": "Domain"
+    },
+    "get_emails": {
+      "display_name": "Retrieve a list of emails",
+      "description": "Retrieve a list of emails",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListEmailsResponse"
+    },
+    "get_emails_email_id": {
+      "display_name": "Retrieve a single email",
+      "description": "Retrieve a single email",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the email."
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails/{email_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "Email"
+    },
+    "get_emails_email_id_attachments": {
+      "display_name": "Retrieve a list of attachments for a sent email",
+      "description": "Retrieve a list of attachments for a sent email",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results after this attachment ID. Cannot be used with 'before'."
+          },
+          "before": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results before this attachment ID. Cannot be used with 'after'."
+          },
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the email."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of attachments to return."
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails/{email_id}/attachments",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListAttachmentsResponse"
+    },
+    "get_emails_email_id_attachments_attachment_id": {
+      "display_name": "Retrieve a single attachment for a sent email",
+      "description": "Retrieve a single attachment for a sent email",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "attachment_id": {
+            "type": "string",
+            "description": "The ID of the attachment."
+          },
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the email."
+          }
+        },
+        "required": [
+          "email_id",
+          "attachment_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails/{email_id}/attachments/{attachment_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "RetrievedAttachment"
+    },
+    "get_emails_receiving": {
+      "display_name": "Retrieve a list of received emails",
+      "description": "Retrieve a list of received emails",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results after this email ID. Cannot be used with 'before'."
+          },
+          "before": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results before this email ID. Cannot be used with 'after'."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of received emails to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails/receiving",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListReceivedEmailsResponse"
+    },
+    "get_emails_receiving_email_id": {
+      "display_name": "Retrieve a single received email",
+      "description": "Retrieve a single received email",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the received email."
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails/receiving/{email_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetReceivedEmailResponse"
+    },
+    "get_emails_receiving_email_id_attachments": {
+      "display_name": "Retrieve a list of attachments for a received email",
+      "description": "Retrieve a list of attachments for a received email",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results after this attachment ID. Cannot be used with 'before'."
+          },
+          "before": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results before this attachment ID. Cannot be used with 'after'."
+          },
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the received email."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of attachments to return."
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/emails/receiving/{email_id}/attachments",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListAttachmentsResponse"
+    },
+    "get_segments": {
+      "display_name": "Retrieve a list of segments",
+      "description": "Retrieve a list of segments",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/segments",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListSegmentsResponseSuccess"
+    },
+    "get_segments_id": {
+      "display_name": "Retrieve a single segment",
+      "description": "Retrieve a single segment",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Segment ID."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/segments/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetSegmentResponseSuccess"
+    },
+    "get_templates": {
+      "display_name": "Retrieve a list of templates",
+      "description": "Retrieve a list of templates",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/templates",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListTemplatesResponseSuccess"
+    },
+    "get_templates_id": {
+      "display_name": "Retrieve a single template",
+      "description": "Retrieve a single template",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Template ID or alias."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/templates/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "Template"
+    },
+    "get_topics": {
+      "display_name": "Retrieve a list of topics",
+      "description": "Retrieve a list of topics",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Return items after this cursor."
+          },
+          "before": {
+            "type": "string",
+            "description": "Return items before this cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/topics",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListTopicsResponseSuccess"
+    },
+    "get_topics_id": {
+      "display_name": "Retrieve a single topic",
+      "description": "Retrieve a single topic",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Topic ID."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/topics/{id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetTopicResponseSuccess"
+    },
+    "get_webhooks": {
+      "display_name": "Retrieve a list of webhooks",
+      "description": "Retrieve a list of webhooks",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results after this webhook ID. Cannot be used with 'before'."
+          },
+          "before": {
+            "type": "string",
+            "description": "Pagination cursor to fetch results before this webhook ID. Cannot be used with 'after'."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of webhooks to return."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/webhooks",
+        "query_mapping": {
+          "after": "after",
+          "before": "before",
+          "limit": "limit"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "ListWebhooksResponse"
+    },
+    "get_webhooks_webhook_id": {
+      "display_name": "Retrieve a single webhook",
+      "description": "Retrieve a single webhook",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "webhook_id": {
+            "type": "string",
+            "description": "The Webhook ID."
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/webhooks/{webhook_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "GetWebhookResponse"
+    },
+    "patch_broadcasts_id": {
+      "display_name": "Update an existing broadcast",
+      "description": "Update an existing broadcast",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "Use `segment_id` instead. Unique identifier of the audience this broadcast will be sent to."
+          },
+          "from": {
+            "type": "string",
+            "description": "The email address of the sender."
+          },
+          "html": {
+            "type": "string",
+            "description": "The HTML version of the message."
+          },
+          "id": {
+            "type": "string",
+            "description": "The Broadcast ID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the broadcast."
+          },
+          "preview_text": {
+            "type": "string",
+            "description": "The preview text of the email."
+          },
+          "reply_to": {
+            "type": "array",
+            "description": "The email addresses to which replies should be sent."
+          },
+          "segment_id": {
+            "type": "string",
+            "description": "Unique identifier of the segment this broadcast will be sent to."
+          },
+          "subject": {
+            "type": "string",
+            "description": "The subject line of the email."
+          },
+          "text": {
+            "type": "string",
+            "description": "The plain text version of the message."
+          },
+          "topic_id": {
+            "type": "string",
+            "description": "The topic ID that the broadcast will be scoped to."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/broadcasts/{id}",
+        "body_mapping": {
+          "audience_id": "audience_id",
+          "from": "from",
+          "html": "html",
+          "name": "name",
+          "preview_text": "preview_text",
+          "reply_to": "reply_to",
+          "segment_id": "segment_id",
+          "subject": "subject",
+          "text": "text",
+          "topic_id": "topic_id"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "UpdateBroadcastResponseSuccess"
+    },
+    "patch_contacts_id": {
+      "display_name": "Update a single contact by ID or email",
+      "description": "Update a single contact by ID or email",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address of the contact."
+          },
+          "first_name": {
+            "type": "string",
+            "description": "First name of the contact."
+          },
+          "id": {
+            "type": "string",
+            "description": "The Contact ID or email address."
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Last name of the contact."
+          },
+          "properties": {
+            "type": "object",
+            "description": "A map of custom property keys and values to update."
+          },
+          "unsubscribed": {
+            "type": "boolean",
+            "description": "The Contact's global subscription status. If set to true, the contact will be unsubscribed from all Broadcasts."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/contacts/{id}",
+        "body_mapping": {
+          "email": "email",
+          "first_name": "first_name",
+          "last_name": "last_name",
+          "properties": "properties",
+          "unsubscribed": "unsubscribed"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "UpdateContactResponseSuccess"
+    },
+    "patch_domains_domain_id": {
+      "display_name": "Update an existing domain",
+      "description": "Update an existing domain",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "capabilities": {
+            "type": "object",
+            "description": "Configure the domain capabilities for sending and receiving emails. At least one capability must be enabled."
+          },
+          "click_tracking": {
+            "type": "boolean",
+            "description": "Track clicks within the body of each HTML email."
+          },
+          "domain_id": {
+            "type": "string",
+            "description": "The ID of the domain."
+          },
+          "open_tracking": {
+            "type": "boolean",
+            "description": "Track the open rate of each email."
+          },
+          "tls": {
+            "type": "string",
+            "description": "enforced | opportunistic."
+          },
+          "tracking_subdomain": {
+            "type": "string",
+            "description": "The subdomain to use for click and open tracking."
+          }
+        },
+        "required": [
+          "domain_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/domains/{domain_id}",
+        "body_mapping": {
+          "capabilities": "capabilities",
+          "click_tracking": "click_tracking",
+          "open_tracking": "open_tracking",
+          "tls": "tls",
+          "tracking_subdomain": "tracking_subdomain"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "UpdateDomainResponseSuccess"
+    },
+    "patch_emails_email_id": {
+      "display_name": "Update a single email",
+      "description": "Update a single email",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the email."
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/emails/{email_id}",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "UpdateEmailOptions"
+    },
+    "patch_templates_id": {
+      "display_name": "Update an existing template",
+      "description": "Update an existing template",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "alias": {
+            "type": "string",
+            "description": "The alias of the template."
+          },
+          "from": {
+            "type": "string",
+            "description": "Sender email address. To include a friendly name, use the format \"Your Name \u003csender@domain.com\u003e\"."
+          },
+          "html": {
+            "type": "string",
+            "description": "The HTML version of the template."
+          },
+          "id": {
+            "type": "string",
+            "description": "The Template ID or alias."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the template."
+          },
+          "reply_to": {
+            "type": "array",
+            "description": "Reply-to email addresses."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject."
+          },
+          "text": {
+            "type": "string",
+            "description": "The plain text version of the template."
+          },
+          "variables": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/templates/{id}",
+        "body_mapping": {
+          "alias": "alias",
+          "from": "from",
+          "html": "html",
+          "name": "name",
+          "reply_to": "reply_to",
+          "subject": "subject",
+          "text": "text",
+          "variables": "variables"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "UpdateTemplateResponseSuccess"
+    },
+    "patch_webhooks_webhook_id": {
+      "display_name": "Update an existing webhook",
+      "description": "Update an existing webhook",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The URL where webhook events will be sent."
+          },
+          "events": {
+            "type": "array",
+            "description": "Array of event types to subscribe to."
+          },
+          "status": {
+            "type": "string",
+            "description": "The status of the webhook."
+          },
+          "webhook_id": {
+            "type": "string",
+            "description": "The Webhook ID."
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PATCH",
+        "path": "/webhooks/{webhook_id}",
+        "body_mapping": {
+          "endpoint": "endpoint",
+          "events": "events",
+          "status": "status"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "UpdateWebhookResponse"
+    },
+    "post_broadcasts": {
+      "display_name": "Create a broadcast",
+      "description": "Create a broadcast",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "Use `segment_id` instead. Unique identifier of the segment this broadcast will be sent to."
+          },
+          "from": {
+            "type": "string",
+            "description": "The email address of the sender."
+          },
+          "html": {
+            "type": "string",
+            "description": "The HTML version of the message."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the broadcast."
+          },
+          "preview_text": {
+            "type": "string",
+            "description": "The preview text of the email."
+          },
+          "reply_to": {
+            "type": "array",
+            "description": "The email addresses to which replies should be sent."
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Schedule time to send the broadcast. Can only be used if `send` is true.\n"
+          },
+          "segment_id": {
+            "type": "string",
+            "description": "Unique identifier of the segment this broadcast will be sent to."
+          },
+          "send": {
+            "type": "boolean",
+            "description": "Whether to send the broadcast immediately or keep it as a draft.\n"
+          },
+          "subject": {
+            "type": "string",
+            "description": "The subject line of the email."
+          },
+          "text": {
+            "type": "string",
+            "description": "The plain text version of the message."
+          },
+          "topic_id": {
+            "type": "string",
+            "description": "The topic ID that the broadcast will be scoped to."
+          }
+        },
+        "required": [
+          "from",
+          "subject",
+          "segment_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/broadcasts",
+        "body_mapping": {
+          "audience_id": "audience_id",
+          "from": "from",
+          "html": "html",
+          "name": "name",
+          "preview_text": "preview_text",
+          "reply_to": "reply_to",
+          "scheduled_at": "scheduled_at",
+          "segment_id": "segment_id",
+          "send": "send",
+          "subject": "subject",
+          "text": "text",
+          "topic_id": "topic_id"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "CreateBroadcastResponseSuccess"
+    },
+    "post_broadcasts_id_send": {
+      "display_name": "Send or schedule a broadcast",
+      "description": "Send or schedule a broadcast",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Broadcast ID."
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Schedule email to be sent later. The date should be in ISO 8601 format."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/broadcasts/{id}/send",
+        "body_mapping": {
+          "scheduled_at": "scheduled_at"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "SendBroadcastResponseSuccess"
+    },
+    "post_contacts": {
+      "display_name": "Create a new contact",
+      "description": "Create a new contact",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "Unique identifier of the audience to which the contact belongs."
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address of the contact."
+          },
+          "first_name": {
+            "type": "string",
+            "description": "First name of the contact."
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Last name of the contact."
+          },
+          "properties": {
+            "type": "object",
+            "description": "A map of custom property keys and values to create."
+          },
+          "segments": {
+            "type": "array",
+            "description": "Array of segment IDs to add the contact to."
+          },
+          "topics": {
+            "type": "array",
+            "description": "Array of topic subscriptions for the contact."
+          },
+          "unsubscribed": {
+            "type": "boolean",
+            "description": "The Contact's global subscription status. If set to true, the contact will be unsubscribed from all Broadcasts."
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/contacts",
+        "body_mapping": {
+          "audience_id": "audience_id",
+          "email": "email",
+          "first_name": "first_name",
+          "last_name": "last_name",
+          "properties": "properties",
+          "segments": "segments",
+          "topics": "topics",
+          "unsubscribed": "unsubscribed"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "CreateContactResponseSuccess"
+    },
+    "post_domains": {
+      "display_name": "Create a new domain",
+      "description": "Create a new domain",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "capabilities": {
+            "type": "object",
+            "description": "Configure the domain capabilities for sending and receiving emails. At least one capability must be enabled."
+          },
+          "click_tracking": {
+            "type": "boolean",
+            "description": "Track clicks within the body of each HTML email."
+          },
+          "custom_return_path": {
+            "type": "string",
+            "description": "For advanced use cases, choose a subdomain for the Return-Path address. Defaults to 'send' (i.e., send.yourdomain.tld)."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the domain you want to create."
+          },
+          "open_tracking": {
+            "type": "boolean",
+            "description": "Track the open rate of each email."
+          },
+          "region": {
+            "type": "string",
+            "description": "The region where emails will be sent from. Possible values are us-east-1 | eu-west-1 | sa-east-1 | ap-northeast-1"
+          },
+          "tls": {
+            "type": "string",
+            "description": "TLS mode. Opportunistic attempts secure connection but falls back to unencrypted. Enforced requires TLS or email won't be sent."
+          },
+          "tracking_subdomain": {
+            "type": "string",
+            "description": "The subdomain to use for click and open tracking."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/domains",
+        "body_mapping": {
+          "capabilities": "capabilities",
+          "click_tracking": "click_tracking",
+          "custom_return_path": "custom_return_path",
+          "name": "name",
+          "open_tracking": "open_tracking",
+          "region": "region",
+          "tls": "tls",
+          "tracking_subdomain": "tracking_subdomain"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "records"
+      },
+      "response_schema": "CreateDomainResponse"
+    },
+    "post_domains_claim": {
+      "display_name": "Claim a domain",
+      "description": "Start a claim for a domain that another Resend account has already verified. The domain is recreated under your account with fresh DKIM keys, so the previous account's DNS records cannot be reused....",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "click_tracking": {
+            "type": "boolean",
+            "description": "Track clicks within the body of each HTML email."
+          },
+          "custom_return_path": {
+            "type": "string",
+            "description": "For advanced use cases, choose a subdomain for the Return-Path address. Defaults to 'send' (i.e., send.yourdomain.tld)."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the domain you want to claim."
+          },
+          "open_tracking": {
+            "type": "boolean",
+            "description": "Track the open rate of each email."
+          },
+          "region": {
+            "type": "string",
+            "description": "The region where emails will be sent from. Possible values are us-east-1 | eu-west-1 | sa-east-1 | ap-northeast-1"
+          },
+          "tracking_subdomain": {
+            "type": "string",
+            "description": "The subdomain to use for click and open tracking."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/domains/claim",
+        "body_mapping": {
+          "click_tracking": "click_tracking",
+          "custom_return_path": "custom_return_path",
+          "name": "name",
+          "open_tracking": "open_tracking",
+          "region": "region",
+          "tracking_subdomain": "tracking_subdomain"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "DomainClaim"
+    },
+    "post_domains_domain_id_verify": {
+      "display_name": "Verify an existing domain",
+      "description": "Triggers verification of the domain's DNS records including DKIM, SPF, and the tracking CNAME (if a tracking subdomain is configured).",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "description": "The ID of the domain."
+          }
+        },
+        "required": [
+          "domain_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/domains/{domain_id}/verify",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "VerifyDomainResponse"
+    },
+    "post_emails": {
+      "display_name": "Send an email",
+      "description": "Send an email",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "Idempotency-Key": {
+            "type": "string",
+            "description": "A unique identifier for the request to ensure emails are only sent once. [Learn more](https://resend.com/docs/dashboard/emails/idempotency-keys)"
+          },
+          "attachments": {
+            "type": "array"
+          },
+          "bcc": {
+            "type": "string",
+            "description": "Bcc recipient email address. For multiple addresses, send as an array of strings."
+          },
+          "cc": {
+            "type": "string",
+            "description": "Cc recipient email address. For multiple addresses, send as an array of strings."
+          },
+          "from": {
+            "type": "string",
+            "description": "Sender email address. To include a friendly name, use the format \"Your Name \u003csender@domain.com\u003e\"."
+          },
+          "headers": {
+            "type": "object",
+            "description": "Custom headers to add to the email."
+          },
+          "html": {
+            "type": "string",
+            "description": "The HTML version of the message."
+          },
+          "reply_to": {
+            "type": "string",
+            "description": "Reply-to email address. For multiple addresses, send as an array of strings."
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Schedule email to be sent later. The date should be in ISO 8601 format."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject."
+          },
+          "tags": {
+            "type": "array"
+          },
+          "template": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "The plain text version of the message."
+          },
+          "to": {
+            "type": "string",
+            "description": "Recipient email address. For multiple addresses, send as an array of strings. Max 50."
+          },
+          "topic_id": {
+            "type": "string",
+            "description": "The topic ID to scope the email to. If the recipient is a contact and opted-in to the topic, the email is sent. If opted-out, the email is not sent. If the recipient is not a contact, the email is ..."
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "subject"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/emails",
+        "body_mapping": {
+          "attachments": "attachments",
+          "bcc": "bcc",
+          "cc": "cc",
+          "from": "from",
+          "headers": "headers",
+          "html": "html",
+          "reply_to": "reply_to",
+          "scheduled_at": "scheduled_at",
+          "subject": "subject",
+          "tags": "tags",
+          "template": "template",
+          "text": "text",
+          "to": "to",
+          "topic_id": "topic_id"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "SendEmailResponse"
+    },
+    "post_emails_batch": {
+      "display_name": "Trigger up to 100 batch emails at once.",
+      "description": "Trigger up to 100 batch emails at once.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "Idempotency-Key": {
+            "type": "string",
+            "description": "A unique identifier for the request to ensure emails are only sent once. [Learn more](https://resend.com/docs/dashboard/emails/idempotency-keys)"
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/emails/batch",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        },
+        "response_path": "data"
+      },
+      "response_schema": "CreateBatchEmailsResponse"
+    },
+    "post_emails_email_id_cancel": {
+      "display_name": "Cancel the schedule of the e-mail.",
+      "description": "Cancel the schedule of the e-mail.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "The ID of the email."
+          }
+        },
+        "required": [
+          "email_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/emails/{email_id}/cancel",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "Email"
+    },
+    "post_segments": {
+      "display_name": "Create a new segment",
+      "description": "Create a new segment",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "The ID of the audience this segment belongs to."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Filter conditions for the segment."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the segment."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/segments",
+        "body_mapping": {
+          "audience_id": "audience_id",
+          "filter": "filter",
+          "name": "name"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "CreateSegmentResponseSuccess"
+    },
+    "post_templates": {
+      "display_name": "Create a template",
+      "description": "Create a template",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "alias": {
+            "type": "string",
+            "description": "The alias of the template."
+          },
+          "from": {
+            "type": "string",
+            "description": "Sender email address. To include a friendly name, use the format \"Your Name \u003csender@domain.com\u003e\"."
+          },
+          "html": {
+            "type": "string",
+            "description": "The HTML version of the template."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the template."
+          },
+          "reply_to": {
+            "type": "array",
+            "description": "Reply-to email addresses."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject."
+          },
+          "text": {
+            "type": "string",
+            "description": "The plain text version of the template."
+          },
+          "variables": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "html"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/templates",
+        "body_mapping": {
+          "alias": "alias",
+          "from": "from",
+          "html": "html",
+          "name": "name",
+          "reply_to": "reply_to",
+          "subject": "subject",
+          "text": "text",
+          "variables": "variables"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "CreateTemplateResponseSuccess"
+    },
+    "post_templates_id_duplicate": {
+      "display_name": "Duplicate a template",
+      "description": "Duplicate a template",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Template ID or alias."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/templates/{id}/duplicate",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "DuplicateTemplateResponseSuccess"
+    },
+    "post_templates_id_publish": {
+      "display_name": "Publish a template",
+      "description": "Publish a template",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Template ID or alias."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/templates/{id}/publish",
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "PublishTemplateResponseSuccess"
+    },
+    "post_topics": {
+      "display_name": "Create a new topic",
+      "description": "Create a new topic",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "default_subscription": {
+            "type": "string",
+            "description": "The default subscription status for the topic. Cannot be changed after creation."
+          },
+          "description": {
+            "type": "string",
+            "description": "A description of the topic. Max 200 characters."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the topic. Max 50 characters."
+          },
+          "visibility": {
+            "type": "string",
+            "description": "The visibility of the topic. Public topics are visible to all contacts on the unsubscribe page. Private topics are only visible to opted-in contacts."
+          }
+        },
+        "required": [
+          "name",
+          "default_subscription"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/topics",
+        "body_mapping": {
+          "default_subscription": "default_subscription",
+          "description": "description",
+          "name": "name",
+          "visibility": "visibility"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "CreateTopicResponseSuccess"
+    },
+    "post_webhooks": {
+      "display_name": "Create a new webhook",
+      "description": "Create a new webhook",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The URL where webhook events will be sent."
+          },
+          "events": {
+            "type": "array",
+            "description": "Array of event types to subscribe to."
+          }
+        },
+        "required": [
+          "endpoint",
+          "events"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/webhooks",
+        "body_mapping": {
+          "endpoint": "endpoint",
+          "events": "events"
+        },
+        "headers": {
+          "User-Agent": "Hivy MCP"
+        }
+      },
+      "response_schema": "CreateWebhookResponse"
+    }
+  },
+  "schemas": {
+    "CreateBatchEmailsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array"
+        }
+      }
+    },
+    "CreateBroadcastResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the broadcast."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "CreateContactResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the created contact."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "CreateDomainResponse": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "object",
+          "description": "Configure the domain capabilities for sending and receiving emails. At least one capability must be enabled.",
+          "schema_ref": "DomainCapabilities"
+        },
+        "click_tracking": {
+          "type": "boolean",
+          "description": "Whether click tracking is enabled for this domain."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "The date and time the domain was created."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the domain."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the domain."
+        },
+        "open_tracking": {
+          "type": "boolean",
+          "description": "Whether open tracking is enabled for this domain."
+        },
+        "records": {
+          "type": "array"
+        },
+        "region": {
+          "type": "string",
+          "description": "The region where the domain is hosted."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the domain."
+        },
+        "tracking_subdomain": {
+          "type": "string",
+          "description": "The subdomain used for click and open tracking."
+        }
+      }
+    },
+    "CreateSegmentResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the segment."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "CreateTemplateResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the template."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "CreateTopicResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the topic."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "CreateWebhookResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the webhook."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "signing_secret": {
+          "type": "string",
+          "description": "The secret key used to verify webhook payloads."
+        }
+      }
+    },
+    "DeleteDomainResponse": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "description": "Indicates whether the domain was deleted successfully."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the domain."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        }
+      }
+    },
+    "DeleteWebhookResponse": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "description": "Indicates whether the webhook was successfully deleted."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the deleted webhook."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        }
+      }
+    },
+    "Domain": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "object",
+          "description": "Configure the domain capabilities for sending and receiving emails. At least one capability must be enabled.",
+          "schema_ref": "DomainCapabilities"
+        },
+        "click_tracking": {
+          "type": "boolean",
+          "description": "Whether click tracking is enabled for this domain."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "The date and time the domain was created."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the domain."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the domain."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "open_tracking": {
+          "type": "boolean",
+          "description": "Whether open tracking is enabled for this domain."
+        },
+        "records": {
+          "type": "array"
+        },
+        "region": {
+          "type": "string",
+          "description": "The region where the domain is hosted."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the domain."
+        },
+        "tracking_subdomain": {
+          "type": "string",
+          "description": "The subdomain used for click and open tracking."
+        }
+      }
+    },
+    "DomainCapabilities": {
+      "type": "object",
+      "properties": {
+        "receiving": {
+          "type": "string",
+          "description": "Enable or disable receiving emails to this domain."
+        },
+        "sending": {
+          "type": "string",
+          "description": "Enable or disable sending emails from this domain."
+        }
+      }
+    },
+    "DomainClaim": {
+      "type": "object",
+      "properties": {
+        "blocked_reason": {
+          "type": "string",
+          "description": "Why the claim is currently blocked, if applicable."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "The date and time the claim was created."
+        },
+        "domain_id": {
+          "type": "string",
+          "description": "The ID of the placeholder domain created for the claim."
+        },
+        "expires_at": {
+          "type": "string",
+          "description": "The date and time the claim expires if not verified."
+        },
+        "failure_reason": {
+          "type": "string",
+          "description": "Why the claim failed, if applicable."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the claim."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the domain being claimed."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "record": {
+          "type": "object",
+          "description": "The TXT record to add to your DNS to prove ownership of the claimed domain.",
+          "schema_ref": "DomainClaimRecord"
+        },
+        "region": {
+          "type": "string",
+          "description": "The region where the claimed domain will send from."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the claim."
+        }
+      }
+    },
+    "DomainClaimRecord": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the DNS record (the domain being claimed)."
+        },
+        "ttl": {
+          "type": "string",
+          "description": "The time to live for the record."
+        },
+        "type": {
+          "type": "string",
+          "description": "The DNS record type. Always TXT for domain claims."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value of the TXT record."
+        }
+      }
+    },
+    "DuplicateTemplateResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the duplicated template."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "Email": {
+      "type": "object",
+      "properties": {
+        "bcc": {
+          "type": "array",
+          "description": "The email addresses of the blind carbon copy recipients."
+        },
+        "cc": {
+          "type": "array",
+          "description": "The email addresses of the carbon copy recipients."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "The date and time the email was created."
+        },
+        "from": {
+          "type": "string",
+          "description": "The email address of the sender."
+        },
+        "html": {
+          "type": "string",
+          "description": "The HTML body of the email."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the email."
+        },
+        "last_event": {
+          "type": "string",
+          "description": "The status of the email."
+        },
+        "message_id": {
+          "type": "string",
+          "description": "The Message-ID header value of the email."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "reply_to": {
+          "type": "array",
+          "description": "The email addresses to which replies should be sent."
+        },
+        "subject": {
+          "type": "string",
+          "description": "The subject line of the email."
+        },
+        "text": {
+          "type": "string",
+          "description": "The plain text body of the email."
+        },
+        "to": {
+          "type": "array"
+        }
+      }
+    },
+    "GetBroadcastResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "audience_id": {
+          "type": "string",
+          "description": "Deprecated: use `segment_id` instead. Unique identifier of the segment this broadcast will be sent to."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the broadcast was created."
+        },
+        "from": {
+          "type": "string",
+          "description": "The email address of the sender."
+        },
+        "html": {
+          "type": "string",
+          "description": "The HTML version of the broadcast content."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the broadcast."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the broadcast."
+        },
+        "preview_text": {
+          "type": "string",
+          "description": "The preview text of the email."
+        },
+        "reply_to": {
+          "type": "array",
+          "description": "The email addresses to which replies should be sent."
+        },
+        "scheduled_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the broadcast is scheduled to be sent."
+        },
+        "segment_id": {
+          "type": "string",
+          "description": "Unique identifier of the segment this broadcast will be sent to."
+        },
+        "sent_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the broadcast was sent."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the broadcast."
+        },
+        "subject": {
+          "type": "string",
+          "description": "The subject line of the email."
+        },
+        "text": {
+          "type": "string",
+          "description": "The plain text version of the broadcast content."
+        },
+        "topic_id": {
+          "type": "string",
+          "description": "The topic ID that the broadcast is scoped to."
+        }
+      }
+    },
+    "GetContactImportResponseSuccess": {
+      "type": "object"
+    },
+    "GetContactResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the contact was created."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the contact."
+        },
+        "first_name": {
+          "type": "string",
+          "description": "First name of the contact."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the contact."
+        },
+        "last_name": {
+          "type": "string",
+          "description": "Last name of the contact."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        },
+        "properties": {
+          "type": "object",
+          "description": "A map of custom property keys and values."
+        },
+        "unsubscribed": {
+          "type": "boolean",
+          "description": "Indicates if the contact is unsubscribed."
+        }
+      }
+    },
+    "GetReceivedEmailResponse": {
+      "type": "object",
+      "properties": {
+        "attachments": {
+          "type": "array",
+          "description": "Array of attachments."
+        },
+        "bcc": {
+          "type": "array",
+          "description": "The BCC recipients."
+        },
+        "cc": {
+          "type": "array",
+          "description": "The CC recipients."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp when the email was received."
+        },
+        "from": {
+          "type": "string",
+          "description": "The sender email address."
+        },
+        "headers": {
+          "type": "object",
+          "description": "The email headers."
+        },
+        "html": {
+          "type": "string",
+          "description": "The HTML content of the email."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the received email."
+        },
+        "message_id": {
+          "type": "string",
+          "description": "The unique message ID from the email headers."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "reply_to": {
+          "type": "array",
+          "description": "The reply-to addresses."
+        },
+        "subject": {
+          "type": "string",
+          "description": "The email subject."
+        },
+        "text": {
+          "type": "string",
+          "description": "The plain text content of the email."
+        },
+        "to": {
+          "type": "array",
+          "description": "The recipient email addresses."
+        }
+      }
+    },
+    "GetSegmentResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "audience_id": {
+          "type": "string",
+          "description": "The ID of the audience this segment belongs to."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the segment was created."
+        },
+        "filter": {
+          "type": "object",
+          "description": "Filter conditions for the segment."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the segment."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the segment."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type."
+        }
+      }
+    },
+    "GetTopicResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the topic was created."
+        },
+        "default_subscription": {
+          "type": "string",
+          "description": "The default subscription status for the topic."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the topic."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the topic."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the topic."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type."
+        },
+        "visibility": {
+          "type": "string",
+          "description": "The visibility of the topic."
+        }
+      }
+    },
+    "GetWebhookResponse": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the webhook was created."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "The URL where webhook events are sent."
+        },
+        "events": {
+          "type": "array",
+          "description": "Array of event types subscribed to."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the webhook."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "signing_secret": {
+          "type": "string",
+          "description": "The secret key used to verify webhook payloads."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the webhook."
+        }
+      }
+    },
+    "ListAttachmentsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing attachment information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListBroadcastsResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing broadcast information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListContactImportsResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing contact imports."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListContactsResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing contact information."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListDomainsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array"
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListEmailsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing email information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListReceivedEmailsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing received email information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListSegmentsResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing segment information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListTemplatesResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing templates information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more templates to retrieve."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListTopicsResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing topic information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "ListWebhooksResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "description": "Array containing webhook information."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Indicates if there are more results available."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "PublishTemplateResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the template."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "RemoveBroadcastResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "description": "The deleted attribute indicates that the corresponding broadcast has been deleted."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the broadcast."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "RemoveContactResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "description": "Indicates whether the contact was successfully deleted."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the removed contact."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "RemoveSegmentResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "description": "Indicates whether the segment was successfully deleted."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the segment."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type."
+        }
+      }
+    },
+    "RemoveTemplateResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "description": "Indicates whether the template was successfully deleted."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the template."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "RetrievedAttachment": {
+      "type": "object",
+      "properties": {
+        "content_disposition": {
+          "type": "string",
+          "description": "How the attachment should be displayed.",
+          "nullable": true
+        },
+        "content_id": {
+          "type": "string",
+          "description": "The content ID for inline attachments."
+        },
+        "content_type": {
+          "type": "string",
+          "description": "The MIME type of the attachment."
+        },
+        "download_url": {
+          "type": "string",
+          "description": "Signed URL to download the attachment content."
+        },
+        "expires_at": {
+          "type": "string",
+          "description": "Timestamp when the download URL expires."
+        },
+        "filename": {
+          "type": "string",
+          "description": "The filename of the attachment.",
+          "nullable": true
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the attachment."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "size": {
+          "type": "integer",
+          "description": "Size of the attachment in bytes."
+        }
+      }
+    },
+    "SendBroadcastResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the broadcast."
+        }
+      }
+    },
+    "SendEmailResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the sent email."
+        }
+      }
+    },
+    "Template": {
+      "type": "object",
+      "properties": {
+        "alias": {
+          "type": "string",
+          "description": "The alias of the template."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the template was created."
+        },
+        "current_version_id": {
+          "type": "string",
+          "description": "The ID of the current version of the template."
+        },
+        "from": {
+          "type": "string",
+          "description": "Sender email address. To include a friendly name, use the format \"Your Name \u003csender@domain.com\u003e\"."
+        },
+        "has_unpublished_versions": {
+          "type": "boolean",
+          "description": "Indicates whether the template has unpublished versions."
+        },
+        "html": {
+          "type": "string",
+          "description": "The HTML version of the template."
+        },
+        "id": {
+          "type": "string",
+          "description": "The ID of the template."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the template."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        },
+        "published_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the template was published."
+        },
+        "reply_to": {
+          "type": "array",
+          "description": "Reply-to email addresses."
+        },
+        "status": {
+          "type": "string",
+          "description": "The publication status of the template."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject."
+        },
+        "text": {
+          "type": "string",
+          "description": "The plain text version of the template."
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Timestamp indicating when the template was last updated."
+        },
+        "variables": {
+          "type": "array"
+        }
+      }
+    },
+    "UpdateBroadcastResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the broadcast."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "UpdateContactResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the updated contact."
+        },
+        "object": {
+          "type": "string",
+          "description": "Type of the response object."
+        }
+      }
+    },
+    "UpdateDomainResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the updated domain."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type representing the updated domain."
+        }
+      }
+    },
+    "UpdateEmailOptions": {
+      "type": "object",
+      "properties": {
+        "scheduled_at": {
+          "type": "string",
+          "description": "Schedule email to be sent later. The date should be in ISO 8601 format."
+        }
+      }
+    },
+    "UpdateTemplateResponseSuccess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the template."
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type of the response."
+        }
+      }
+    },
+    "UpdateWebhookResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the updated webhook."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        }
+      }
+    },
+    "VerifyDomainResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the domain."
+        },
+        "object": {
+          "type": "string",
+          "description": "The type of object."
+        }
+      }
+    }
+  }
+}

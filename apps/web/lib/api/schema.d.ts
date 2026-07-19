@@ -7676,17 +7676,80 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List agent memories
+         * @description Lists memories for one agent, or for every agent when agent_id is omitted by an organization manager. Pass q to semantic-search instead.
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Agent UUID; omit for every agent */
+                    agent_id?: string;
+                    /** @description Semantic search query */
+                    q?: string;
+                    /** @description Comma- or space-separated tag filters */
+                    tags?: string;
+                    /** @description Max items (1-100, default 50) */
+                    limit?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
-            responses: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["memoryListResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
         };
         put?: never;
+        /**
+         * Create an agent memory
+         * @description Stores a memory for one active agent. Content is embedded asynchronously.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -7694,8 +7757,50 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
-            responses: never;
+            /** @description Agent memory */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["memoryMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["memoryMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
         };
         delete?: never;
         options?: never;
@@ -7713,27 +7818,120 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /**
+         * Archive an agent memory
+         * @description Archives a memory so the agent no longer recalls it.
+         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    /** @description Memory UUID */
+                    id: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
-            responses: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
         };
         options?: never;
         head?: never;
+        /**
+         * Update an agent memory
+         * @description Updates a memory's content, tags, or metadata. Editing content re-embeds it.
+         */
         patch: {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    /** @description Memory UUID */
+                    id: string;
+                };
                 cookie?: never;
             };
-            requestBody?: never;
-            responses: never;
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["memoryMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["memoryMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
         };
         trace?: never;
     };
@@ -17800,6 +17998,30 @@ export interface components {
         meResponse: {
             orgs?: components["schemas"]["orgMemberDTO"][];
             user?: components["schemas"]["userResponse"];
+        };
+        memoryListResponse: {
+            data?: components["schemas"]["memoryResponse"][];
+        };
+        memoryMutationRequest: {
+            agent_id?: string;
+            content?: string;
+            metadata?: components["schemas"]["JSON"];
+            tags?: string[];
+        };
+        memoryMutationResponse: {
+            memory?: components["schemas"]["memoryResponse"];
+        };
+        memoryResponse: {
+            agent_id?: string;
+            content?: string;
+            created_at?: string;
+            embedding_status?: string;
+            id?: string;
+            metadata?: components["schemas"]["JSON"];
+            org_id?: string;
+            similarity?: number;
+            tags?: string[];
+            updated_at?: string;
         };
         mintTokenRequest: {
             credential_id?: string;

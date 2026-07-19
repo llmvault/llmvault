@@ -41,6 +41,7 @@ const DEFAULT_SEARCH_LIMIT: usize = 12;
 const MAX_SEARCH_LIMIT: usize = 50;
 const MAX_MODEL_TOOL_NAME_BYTES: usize = 64;
 const MODEL_TOOL_HASH_CHARS: usize = 43;
+const TRUSTED_PRIVATE_MCP_HOSTS_ENV: &str = "HIVY_TRUSTED_PRIVATE_MCP_HOSTS";
 
 struct McpServerState {
     server_name: String,
@@ -214,9 +215,21 @@ impl McpRegistry {
             specs,
             runtime_env,
             workspace_root,
-            OutboundNetworkPolicy::PublicOnly,
+            Self::production_network_policy(runtime_env),
         )
         .await
+    }
+
+    fn production_network_policy(runtime_env: &HashMap<String, String>) -> OutboundNetworkPolicy {
+        let trusted_hosts = runtime_env
+            .get(TRUSTED_PRIVATE_MCP_HOSTS_ENV)
+            .into_iter()
+            .flat_map(|hosts| hosts.split(','))
+            .map(str::trim)
+            .map(|host| host.trim_end_matches('.').to_ascii_lowercase())
+            .filter(|host| !host.is_empty() && host.parse::<std::net::IpAddr>().is_err())
+            .collect::<HashSet<_>>();
+        OutboundNetworkPolicy::public_with_trusted_private_hosts(trusted_hosts)
     }
 
     /// Allows HTTP loopback targets for local integration fixtures only.
@@ -245,7 +258,7 @@ impl McpRegistry {
         workspace_root: PathBuf,
         network_policy: OutboundNetworkPolicy,
     ) -> Self {
-        let (servers, statuses) = discover_specs(specs, runtime_env, network_policy).await;
+        let (servers, statuses) = discover_specs(specs, runtime_env, network_policy.clone()).await;
         Self {
             servers: ArcSwap::from_pointee(servers),
             live_entries: DashMap::new(),
@@ -310,7 +323,7 @@ impl McpRegistry {
         let runtime_env = runtime_env.clone();
         tokio::spawn(async move {
             let (servers, statuses) =
-                discover_specs(&specs, &runtime_env, registry.network_policy).await;
+                discover_specs(&specs, &runtime_env, registry.network_policy.clone()).await;
             if registry.discovery_generation.load(Ordering::SeqCst) != generation {
                 return;
             }
@@ -597,7 +610,7 @@ impl McpRegistry {
             connect_and_discover_with_state(
                 &config.spec,
                 &runtime_env,
-                self.network_policy,
+                self.network_policy.clone(),
                 Some(config.state),
             )
             .await?,
@@ -624,12 +637,13 @@ async fn discover_specs(
     let mut outcomes: Vec<ConnectOutcome> = stream::iter(specs.iter().cloned().enumerate())
         .map(|(index, spec)| {
             let runtime_env = runtime_env.clone();
+            let network_policy = network_policy.clone();
             async move {
                 let server_name = spec.name().to_string();
                 let timeout_duration = startup_timeout(&spec);
                 match tokio::time::timeout(
                     timeout_duration,
-                    connect_and_discover(&spec, runtime_env.as_ref(), network_policy),
+                    connect_and_discover(&spec, runtime_env.as_ref(), network_policy.clone()),
                 )
                 .await
                 {

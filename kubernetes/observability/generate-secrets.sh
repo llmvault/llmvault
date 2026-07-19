@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-target="$repo_root/kubernetes/observability/secrets/grafana-admin.env"
+target="$repo_root/kubernetes/config/env/observability/grafana-admin.env"
 
 if [[ -e "$target" && "${1:-}" != "--refresh" ]]; then
   echo "refusing to overwrite $target; pass --refresh to rotate it" >&2

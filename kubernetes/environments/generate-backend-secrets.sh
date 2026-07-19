@@ -2,10 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-kubeconfig="${KUBECONFIG:-${repo_root}/ansible/.secrets/k8s0/kubeconfig-local.yaml}"
-s3_env="${repo_root}/.env.hetzner-s3"
-local_env="${repo_root}/.env"
-extra_env="/tmp/hivy-backend-new.env"
+config_root="${repo_root}/kubernetes/config"
+kubeconfig="${KUBECONFIG:-${config_root}/kubeconfigs/k8s0/local.yaml}"
+s3_env="${config_root}/env/infrastructure/hetzner-s3.env"
+staging_env="${config_root}/env/staging/backend.env"
+extra_env="${config_root}/env/infrastructure/backend-overrides.env"
 expected_project_id="55776e03-e6c2-4a9b-828b-4e759495aa70"
 refresh="false"
 
@@ -24,7 +25,7 @@ for command_name in railway jq kubectl awk openssl; do
 done
 
 if [[ ! -f "${kubeconfig}" || ! -f "${s3_env}" ]]; then
-  echo "missing kubeconfig or .env.hetzner-s3" >&2
+  echo "missing centralized kubeconfig or Hetzner S3 environment file" >&2
   exit 1
 fi
 
@@ -67,10 +68,7 @@ done
 unset api_value worker_value
 
 microsandbox_token="$(kubectl --kubeconfig "${kubeconfig}" -n production get secret microsandbox-control-secrets -o jsonpath='{.data.HIVY_MICROSANDBOX_API_TOKEN}' | base64 -d)"
-preview_activity_token=""
-if [[ -f "${local_env}" ]]; then
-  preview_activity_token="$(read_env_value "${local_env}" HIVY_PREVIEW_ACTIVITY_TOKEN 2>/dev/null || true)"
-fi
+preview_activity_token="$(read_env_value "${staging_env}" HIVY_PREVIEW_ACTIVITY_TOKEN 2>/dev/null || true)"
 if [[ -z "${preview_activity_token}" ]]; then
   preview_activity_token="$(openssl rand -hex 32)"
 fi
@@ -102,7 +100,7 @@ write_environment() {
   local environment_name="$1"
   local s3_prefix="$2"
   local paystack_key="$3"
-  local destination="${repo_root}/kubernetes/environments/${environment_name}/secrets/backend.env"
+  local destination="${config_root}/env/${environment_name}/backend.env"
   local temp_file
   temp_file="$(mktemp)"
   chmod 600 "${temp_file}"
@@ -153,11 +151,11 @@ if [[ "${production_paystack}" != sk_live_* ]]; then
   exit 1
 fi
 
-if [[ ! -f "${local_env}" ]]; then
-  echo "missing ${local_env} containing the staging Paystack test key" >&2
+if [[ ! -f "${staging_env}" ]]; then
+  echo "missing ${staging_env} containing the staging Paystack test key" >&2
   exit 1
 fi
-staging_paystack="$(read_env_value "${local_env}" HIVY_PAYSTACK_SECRET_KEY)"
+staging_paystack="$(read_env_value "${staging_env}" HIVY_PAYSTACK_SECRET_KEY)"
 if [[ "${staging_paystack}" != sk_test_* ]]; then
   echo "staging Paystack key is not a test key" >&2
   exit 1

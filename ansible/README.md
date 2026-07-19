@@ -46,21 +46,22 @@ the Hetzner load balancer after validation. Runner UFW rules cover the complete
 `10.80.1.0/24` vSwitch subnet, so adding a node in that subnet does not require
 another firewall rule.
 
-The install playbook exports each server's administrator kubeconfig, K3s server
-token, and node token to `.secrets/<inventory-host>/`. This entire directory is
-git-ignored. Once
+The install playbook exports each server's administrator kubeconfig under
+`../kubernetes/config/kubeconfigs/` and its K3s tokens under
+`../kubernetes/config/credentials/k3s/`. These paths are git-ignored. Once
 cluster add-ons or workloads have created Kubernetes Secrets, export those
 separately from the repository root:
 
 ```sh
 kubectl get secrets --all-namespaces -o yaml \
-  > ansible/.secrets/k8s0/cluster-secrets.yaml
-chmod 600 ansible/.secrets/k8s0/*
+  > kubernetes/config/credentials/k3s/k8s0/cluster-secrets.yaml
+chmod 600 kubernetes/config/credentials/k3s/k8s0/*
 ```
 
 Keep these files in an encrypted operator backup. They are sensitive recovery
 material, not a declarative secret-management system. The post-K3s bootstrap
-and access procedure is documented in `../kubernetes/bootstrap/README.md`.
+and access procedure is documented in
+[`../kubernetes/docs/cluster-bootstrap.md`](../kubernetes/docs/cluster-bootstrap.md).
 
 ## Microsandbox runners
 
@@ -79,11 +80,13 @@ make microsandbox-release-linux-amd64
 Create the local Ansible env file:
 
 ```sh
-cp ansible/.env.example ansible/.env
+cp kubernetes/config/env/ansible/runners.env.example \
+  kubernetes/config/env/ansible/runners.env
 ```
 
-Fill `ansible/.env` with the private Kubernetes control URL, runner secrets, and
-the private Zot registry host used for template images.
+Fill `kubernetes/config/env/ansible/runners.env` with the private Kubernetes
+control URL, runner secrets, and the private Zot registry host used for template
+images.
 
 Update `ansible/inventory/hosts.yml` with each runner host:
 
@@ -109,7 +112,7 @@ ansible-playbook playbooks/phase3-deploy.yml
 ansible-playbook playbooks/phase4-validate.yml
 ```
 
-Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, removes the retired runner API Caddy proxy, configures UFW, creates `/etc/hivy`, and installs runner-local HAProxy and CoreDNS. CoreDNS resolves the production and staging API hostnames to that runner's private HAProxy listener. HAProxy passes TLS through to healthy nodes listed in the explicit `k3s_ingress` inventory group. Runner hosts and sandbox DNS proxies use the same resolver on standard DNS port 53.
+Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, removes the retired runner API Caddy proxy, configures UFW, creates `/etc/hivy`, and installs runner-local HAProxy and CoreDNS. CoreDNS resolves the production and staging API and LLM proxy hostnames to that runner's private HAProxy listener. HAProxy passes TLS through to healthy nodes listed in the explicit `k3s_ingress` inventory group. Runner hosts and sandbox DNS proxies use the same resolver on standard DNS port 53.
 
 To reconcile only runner firewall rules, including after changing the private
 vSwitch subnet, run `ansible-playbook playbooks/runner-firewall.yml`.

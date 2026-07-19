@@ -38,14 +38,6 @@ test.describe('Authenticated navigation', () => {
     await expect(page.getByRole('heading', { name: /Teams/ }).first()).toBeVisible();
   });
 
-  test('navigates to Memories settings', async ({ authenticatedPage: page }) => {
-    await page.getByRole('button', { name: 'Account and settings' }).click();
-    await page.getByRole('button', { name: 'Settings' }).last().click();
-    await page.getByRole('link', { name: 'Memories' }).click();
-    await expect(page).toHaveURL(/\/w\/settings\/memories/);
-    await expect(page.getByRole('heading', { name: /Memories/ }).first()).toBeVisible();
-  });
-
   test('navigates to Knowledge settings', async ({ authenticatedPage: page }) => {
     await page.getByRole('button', { name: 'Account and settings' }).click();
     await page.getByRole('button', { name: 'Settings' }).last().click();

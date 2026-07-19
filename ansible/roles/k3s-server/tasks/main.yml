@@ -237,32 +237,35 @@
     port: 6443
     timeout: 180
 
-- name: Create the local secret export directory
+- name: Create the local K3s export directories
   ansible.builtin.file:
-    path: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}"
+    path: "{{ item }}"
     state: directory
     mode: "0700"
+  loop:
+    - "{{ k3s_local_config_root }}/kubeconfigs/{{ inventory_hostname }}"
+    - "{{ k3s_local_config_root }}/credentials/k3s/{{ inventory_hostname }}"
   delegate_to: localhost
   become: false
 
 - name: Export the administrator kubeconfig
   ansible.builtin.fetch:
     src: /etc/rancher/k3s/k3s.yaml
-    dest: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/kubeconfig.yaml"
+    dest: "{{ k3s_local_config_root }}/kubeconfigs/{{ inventory_hostname }}/admin.yaml"
     flat: true
   no_log: true
 
 - name: Export the K3s server token
   ansible.builtin.fetch:
     src: /etc/rancher/k3s/server-token
-    dest: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/server-token"
+    dest: "{{ k3s_local_config_root }}/credentials/k3s/{{ inventory_hostname }}/server-token"
     flat: true
   no_log: true
 
 - name: Export the K3s node token
   ansible.builtin.fetch:
     src: /var/lib/rancher/k3s/server/node-token
-    dest: "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/node-token"
+    dest: "{{ k3s_local_config_root }}/credentials/k3s/{{ inventory_hostname }}/node-token"
     flat: true
   no_log: true
 
@@ -271,8 +274,8 @@
     path: "{{ item }}"
     mode: "0600"
   loop:
-    - "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/kubeconfig.yaml"
-    - "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/server-token"
-    - "{{ playbook_dir }}/../../.secrets/{{ inventory_hostname }}/node-token"
+    - "{{ k3s_local_config_root }}/kubeconfigs/{{ inventory_hostname }}/admin.yaml"
+    - "{{ k3s_local_config_root }}/credentials/k3s/{{ inventory_hostname }}/server-token"
+    - "{{ k3s_local_config_root }}/credentials/k3s/{{ inventory_hostname }}/node-token"
   delegate_to: localhost
   become: false

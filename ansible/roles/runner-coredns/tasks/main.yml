@@ -64,7 +64,7 @@
     mode: "0644"
   notify: Restart runner CoreDNS
 
-- name: Route Hivy API names through runner CoreDNS
+- name: Route Hivy private names through runner CoreDNS
   ansible.builtin.template:
     src: hivy-private-dns.conf.j2
     dest: /etc/systemd/resolved.conf.d/hivy-private-dns.conf
@@ -93,14 +93,9 @@
 - name: Flush DNS service handlers before validation
   ansible.builtin.meta: flush_handlers
 
-- name: Verify production API resolves to runner HAProxy
-  ansible.builtin.command: "resolvectl query {{ runner_coredns_private_names[0] }}"
-  register: runner_coredns_production_lookup
+- name: Verify private names resolve to runner HAProxy
+  ansible.builtin.command: "resolvectl query {{ item }}"
+  register: runner_coredns_private_lookup
   changed_when: false
-  failed_when: runner_private_ip not in runner_coredns_production_lookup.stdout
-
-- name: Verify staging API resolves to runner HAProxy
-  ansible.builtin.command: "resolvectl query {{ runner_coredns_private_names[1] }}"
-  register: runner_coredns_staging_lookup
-  changed_when: false
-  failed_when: runner_private_ip not in runner_coredns_staging_lookup.stdout
+  failed_when: runner_private_ip not in runner_coredns_private_lookup.stdout
+  loop: "{{ runner_coredns_private_names }}"

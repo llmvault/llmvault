@@ -56,7 +56,8 @@ func matchesTags(op *v3high.Operation, tagFilters []string) bool {
 	return false
 }
 
-// isFileUpload checks if the operation accepts multipart/form-data or octet-stream.
+// isFileUpload checks whether an operation only accepts upload-oriented bodies.
+// Operations that also accept application/json remain usable by the direct proxy.
 func isFileUpload(op *v3high.Operation) bool {
 	if op.RequestBody == nil {
 		return false
@@ -65,13 +66,17 @@ func isFileUpload(op *v3high.Operation) bool {
 	if rb.Content == nil {
 		return false
 	}
+	hasJSON := false
+	hasUploadBody := false
 	for pair := rb.Content.First(); pair != nil; pair = pair.Next() {
-		ct := pair.Key()
-		if ct == "multipart/form-data" || ct == "application/octet-stream" {
-			return true
+		switch pair.Key() {
+		case "application/json":
+			hasJSON = true
+		case "multipart/form-data", "application/octet-stream":
+			hasUploadBody = true
 		}
 	}
-	return false
+	return hasUploadBody && !hasJSON
 }
 
 // deriveActionKey produces the snake_case action key and display name.

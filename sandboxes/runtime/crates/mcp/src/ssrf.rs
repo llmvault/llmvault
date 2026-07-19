@@ -4,10 +4,28 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use reqwest::redirect::Policy;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) enum OutboundNetworkPolicy {
     PublicOnly,
+    /// Allows RFC1918/unique-local targets only for exact, control-plane
+    /// configured hostnames. Loopback, link-local, metadata, and every other
+    /// special-purpose address remain blocked.
+    AllowTrustedPrivateHosts(HashSet<String>),
     AllowLoopbackForTests,
+}
+
+impl OutboundNetworkPolicy {
+    pub(crate) fn public_with_trusted_private_hosts(hosts: HashSet<String>) -> Self {
+        if hosts.is_empty() {
+            Self::PublicOnly
+        } else {
+            Self::AllowTrustedPrivateHosts(hosts)
+        }
+    }
+
+    fn allows_trusted_private_host(&self, host: &str) -> bool {
+        matches!(self, Self::AllowTrustedPrivateHosts(hosts) if hosts.contains(host))
+    }
 }
 
 pub(crate) struct PinnedHttpTarget {
@@ -57,12 +75,13 @@ pub(crate) async fn prepare_http_target(
     let host = url
         .host_str()
         .ok_or(OutboundTargetError::MissingAuthority)?
-        .to_string();
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
     let port = url
         .port_or_known_default()
         .ok_or(OutboundTargetError::MissingAuthority)?;
     let addresses = resolve_once(&host, port).await?;
-    validate_addresses(&addresses, policy)?;
+    validate_addresses(&host, &addresses, &policy)?;
 
     // Plain HTTP exists solely for loopback integration fixtures. Even the
     // injected test policy must never allow cleartext traffic to a public or
@@ -100,14 +119,17 @@ async fn resolve_once(host: &str, port: u16) -> Result<Vec<SocketAddr>, Outbound
 }
 
 fn validate_addresses(
+    host: &str,
     addresses: &[SocketAddr],
-    policy: OutboundNetworkPolicy,
+    policy: &OutboundNetworkPolicy,
 ) -> Result<(), OutboundTargetError> {
     for address in addresses {
         let ip = address.ip();
         let loopback_test_exception =
             matches!(policy, OutboundNetworkPolicy::AllowLoopbackForTests) && ip.is_loopback();
-        if is_forbidden_ip(ip) && !loopback_test_exception {
+        let trusted_private_host_exception =
+            policy.allows_trusted_private_host(host) && is_routable_private_ip(ip);
+        if is_forbidden_ip(ip) && !loopback_test_exception && !trusted_private_host_exception {
             return Err(OutboundTargetError::BlockedAddress(ip));
         }
     }
@@ -118,6 +140,20 @@ fn is_forbidden_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(address) => is_forbidden_ipv4(address),
         IpAddr::V6(address) => is_forbidden_ipv6(address),
+    }
+}
+
+fn is_routable_private_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(address) => {
+            ipv4_in_prefix(address, Ipv4Addr::new(10, 0, 0, 0), 8)
+                || ipv4_in_prefix(address, Ipv4Addr::new(172, 16, 0, 0), 12)
+                || ipv4_in_prefix(address, Ipv4Addr::new(192, 168, 0, 0), 16)
+        }
+        IpAddr::V6(address) => address
+            .to_ipv4_mapped()
+            .map(|mapped| is_routable_private_ip(IpAddr::V4(mapped)))
+            .unwrap_or_else(|| ipv6_in_prefix(address, ipv6([0xfc00, 0, 0, 0, 0, 0, 0, 0]), 7)),
     }
 }
 
@@ -196,6 +232,7 @@ fn ipv6_in_prefix(address: Ipv6Addr, network: Ipv6Addr, prefix: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{is_forbidden_ip, validate_addresses, OutboundNetworkPolicy, OutboundTargetError};
+    use std::collections::HashSet;
     use std::net::{IpAddr, SocketAddr};
 
     #[test]
@@ -242,7 +279,11 @@ mod tests {
             SocketAddr::new(IpAddr::V4("127.0.0.1".parse().unwrap()), 443),
         ];
         assert!(matches!(
-            validate_addresses(&addresses, OutboundNetworkPolicy::PublicOnly),
+            validate_addresses(
+                "mcp.example.com",
+                &addresses,
+                &OutboundNetworkPolicy::PublicOnly
+            ),
             Err(OutboundTargetError::BlockedAddress(_))
         ));
     }
@@ -253,16 +294,51 @@ mod tests {
             IpAddr::V4("127.0.0.1".parse().unwrap()),
             8080,
         )];
-        assert!(
-            validate_addresses(&loopback, OutboundNetworkPolicy::AllowLoopbackForTests).is_ok()
-        );
+        assert!(validate_addresses(
+            "localhost",
+            &loopback,
+            &OutboundNetworkPolicy::AllowLoopbackForTests,
+        )
+        .is_ok());
 
         let metadata = [SocketAddr::new(
             IpAddr::V4("169.254.169.254".parse().unwrap()),
             80,
         )];
-        assert!(
-            validate_addresses(&metadata, OutboundNetworkPolicy::AllowLoopbackForTests).is_err()
-        );
+        assert!(validate_addresses(
+            "metadata.example.com",
+            &metadata,
+            &OutboundNetworkPolicy::AllowLoopbackForTests,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn allows_private_addresses_only_for_trusted_exact_hosts() {
+        let private_runner = [SocketAddr::new(
+            IpAddr::V4("10.80.1.3".parse().unwrap()),
+            443,
+        )];
+        let trusted_hosts = HashSet::from(["staging.mcp.usehivy.com".to_string()]);
+        let policy = OutboundNetworkPolicy::public_with_trusted_private_hosts(trusted_hosts);
+
+        assert!(validate_addresses("staging.mcp.usehivy.com", &private_runner, &policy).is_ok());
+        assert!(matches!(
+            validate_addresses("untrusted.example.com", &private_runner, &policy),
+            Err(OutboundTargetError::BlockedAddress(_))
+        ));
+    }
+
+    #[test]
+    fn trusted_hosts_do_not_bypass_metadata_or_loopback_protection() {
+        let trusted_hosts = HashSet::from(["staging.mcp.usehivy.com".to_string()]);
+        let policy = OutboundNetworkPolicy::public_with_trusted_private_hosts(trusted_hosts);
+        for blocked in ["127.0.0.1", "169.254.169.254"] {
+            let addresses = [SocketAddr::new(blocked.parse().unwrap(), 443)];
+            assert!(matches!(
+                validate_addresses("staging.mcp.usehivy.com", &addresses, &policy),
+                Err(OutboundTargetError::BlockedAddress(_))
+            ));
+        }
     }
 }

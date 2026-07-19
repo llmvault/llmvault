@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+config_root="${repo_root}/kubernetes/config"
 expected_project_id="55776e03-e6c2-4a9b-828b-4e759495aa70"
 refresh="false"
 
@@ -40,7 +41,7 @@ read_optional() {
 write_secret() {
   local environment_name="$1"
   local session_secret="$2"
-  local destination="${repo_root}/kubernetes/environments/${environment_name}/secrets/web.env"
+  local destination="${config_root}/env/${environment_name}/web.env"
   local temp_file
   temp_file="$(mktemp)"
   chmod 600 "${temp_file}"

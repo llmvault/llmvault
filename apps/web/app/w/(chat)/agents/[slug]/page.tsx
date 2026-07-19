@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useCallback, useMemo } from "react"
+import { use, useCallback, useMemo, useState, type ReactNode } from "react"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Skeleton, toast } from "@heroui/react"
@@ -29,7 +29,10 @@ import {
   SandboxSizeSection,
 } from "./_agent-settings-section"
 import { AgentTeamsSection } from "./_agent-teams-section"
+import { AgentMemoriesSection } from "./_agent-memories-section"
 import { AgentConnectionsField } from "../new/_connections-field"
+
+type AgentDetailTab = "overview" | "memories"
 
 export default function AgentDetailPage({
   params,
@@ -37,6 +40,7 @@ export default function AgentDetailPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = use(params)
+  const [activeTab, setActiveTab] = useState<AgentDetailTab>("overview")
   const queryClient = useQueryClient()
   const agentQuery = $api.useQuery("get", "/v1/agents/catalog/{slug}", {
     params: { path: { slug } },
@@ -102,7 +106,114 @@ export default function AgentDetailPage({
           <p className="mt-1 text-sm text-muted">{agentDescription(agent)}</p>
         </div>
       </header>
-      {!agent.is_default ? (
+      {installed ? (
+        <>
+          <div
+            role="tablist"
+            aria-label="Agent details"
+            className="flex gap-6 border-b border-border"
+          >
+            <DetailTab
+              id="overview"
+              activeTab={activeTab}
+              onSelect={setActiveTab}
+            >
+              Overview
+            </DetailTab>
+            <DetailTab
+              id="memories"
+              activeTab={activeTab}
+              onSelect={setActiveTab}
+            >
+              Memories
+            </DetailTab>
+          </div>
+
+          {activeTab === "overview" ? (
+            <div
+              id="agent-overview-panel"
+              role="tabpanel"
+              aria-labelledby="agent-overview-tab"
+              className="flex flex-col gap-6"
+            >
+              {!agent.is_default ? (
+                <AgentTeamsSection
+                  slug={slug}
+                  agent={agent}
+                  teams={teams}
+                  isLoading={teamsQuery.isLoading}
+                  onChanged={refresh}
+                />
+              ) : null}
+              <AgentSettingsSection
+                availableModels={models}
+                selectedModel={
+                  installed.model || agent.model || models[0] || ""
+                }
+                isBusy={updateModel.isPending}
+                onModelChange={(model) =>
+                  updateModel.mutate(
+                    { params: { path: { id: installedID } }, body: { model } },
+                    { onSuccess: refresh }
+                  )
+                }
+              />
+              <SandboxImageSection
+                selectedSandboxImage={normalizeAgentSandboxImage(
+                  installed.sandbox_image
+                )}
+                isBusy={update.isPending}
+                onSandboxImageChange={(value: AgentSandboxImage) =>
+                  mutate({ sandbox_image: value }, "Image template updated")
+                }
+              />
+              <SandboxSizeSection
+                selectedSandboxSize={normalizeAgentSandboxSize(
+                  installed.sandbox_size
+                )}
+                isBusy={update.isPending}
+                onSandboxSizeChange={(value: AgentSandboxSize) =>
+                  mutate({ sandbox_size: value }, "Sandbox size updated")
+                }
+              />
+              <AgentConnectionsField
+                teamId={installed.team_id ?? ""}
+                value={installed.connection_mcp_tool_deny ?? {}}
+                disabled={update.isPending}
+                lockedProviders={requiredProviders}
+                onChange={(connectionMCPToolDeny) =>
+                  update.mutate(
+                    {
+                      params: { path: { id: installedID } },
+                      body: {
+                        connection_mcp_tool_deny: connectionMCPToolDeny,
+                      },
+                    },
+                    {
+                      onSuccess: () => {
+                        toast.success("Agent connections updated")
+                        refresh()
+                      },
+                      onError: (error) =>
+                        toast.danger(
+                          extractErrorMessage(error, "Could not update agent")
+                        ),
+                    }
+                  )
+                }
+              />
+            </div>
+          ) : (
+            <div
+              id="agent-memories-panel"
+              role="tabpanel"
+              aria-labelledby="agent-memories-tab"
+            >
+              <AgentMemoriesSection agentId={installedID} />
+            </div>
+          )}
+        </>
+      ) : !agent.is_default ? (
         <AgentTeamsSection
           slug={slug}
           agent={agent}
@@ -111,66 +222,53 @@ export default function AgentDetailPage({
           onChanged={refresh}
         />
       ) : null}
-      {installed ? (
-        <div className="flex flex-col gap-6">
-          <AgentSettingsSection
-            availableModels={models}
-            selectedModel={installed.model || agent.model || models[0] || ""}
-            isBusy={updateModel.isPending}
-            onModelChange={(model) =>
-              updateModel.mutate(
-                { params: { path: { id: installedID } }, body: { model } },
-                { onSuccess: refresh }
-              )
-            }
-          />
-          <SandboxImageSection
-            selectedSandboxImage={normalizeAgentSandboxImage(
-              installed.sandbox_image
-            )}
-            isBusy={update.isPending}
-            onSandboxImageChange={(value: AgentSandboxImage) =>
-              mutate({ sandbox_image: value }, "Image template updated")
-            }
-          />
-          <SandboxSizeSection
-            selectedSandboxSize={normalizeAgentSandboxSize(
-              installed.sandbox_size
-            )}
-            isBusy={update.isPending}
-            onSandboxSizeChange={(value: AgentSandboxSize) =>
-              mutate({ sandbox_size: value }, "Sandbox size updated")
-            }
-          />
-          <AgentConnectionsField
-            teamId={installed.team_id ?? ""}
-            value={installed.connection_mcp_tool_deny ?? {}}
-            disabled={update.isPending}
-            lockedProviders={requiredProviders}
-            onChange={(connectionMCPToolDeny) =>
-              update.mutate(
-                {
-                  params: { path: { id: installedID } },
-                  body: {
-                    connection_mcp_tool_deny: connectionMCPToolDeny,
-                  },
-                },
-                {
-                  onSuccess: () => {
-                    toast.success("Agent connections updated")
-                    refresh()
-                  },
-                  onError: (error) =>
-                    toast.danger(
-                      extractErrorMessage(error, "Could not update agent")
-                    ),
-                }
-              )
-            }
-          />
-        </div>
-      ) : null}
     </div>
+  )
+}
+
+function DetailTab({
+  id,
+  activeTab,
+  onSelect,
+  children,
+}: {
+  id: AgentDetailTab
+  activeTab: AgentDetailTab
+  onSelect: (tab: AgentDetailTab) => void
+  children: ReactNode
+}) {
+  const selected = id === activeTab
+  const selectAndFocus = (tab: AgentDetailTab) => {
+    onSelect(tab)
+    document.getElementById(`agent-${tab}-tab`)?.focus()
+  }
+  return (
+    <button
+      id={`agent-${id}-tab`}
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      aria-controls={`agent-${id}-panel`}
+      tabIndex={selected ? 0 : -1}
+      onClick={() => onSelect(id)}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft" || event.key === "Home") {
+          event.preventDefault()
+          selectAndFocus("overview")
+        }
+        if (event.key === "ArrowRight" || event.key === "End") {
+          event.preventDefault()
+          selectAndFocus("memories")
+        }
+      }}
+      className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium transition-colors ${
+        selected
+          ? "border-foreground text-foreground"
+          : "text-muted-foreground border-transparent hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
