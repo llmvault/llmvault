@@ -14,25 +14,26 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-// autoSleepIdleThreshold is how long a session must have gone without events
-// (and be off the agent's turn) before its sandbox is put to sleep.
-const autoSleepIdleThreshold = 5 * time.Minute
+const defaultAutoSleepIdleThreshold = 15 * time.Second
 
-// SandboxAutoSleepHandler sleeps sandboxes whose sessions are idle and have not
-// received events within autoSleepIdleThreshold. It stops them at the control
-// plane and marks them 'stopped' locally; they wake transparently on the next
-// request (and the mark-running path flips their status back).
+// SandboxAutoSleepHandler sleeps sandboxes whose sessions have had no events
+// within the configured idle timeout. It stops them at the control plane and
+// marks them 'stopped' locally; they wake transparently on the next request.
 type SandboxAutoSleepHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
+	idleTimeout  time.Duration
 }
 
-func NewSandboxAutoSleepHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator) *SandboxAutoSleepHandler {
-	return &SandboxAutoSleepHandler{db: db, orchestrator: orchestrator}
+func NewSandboxAutoSleepHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, idleTimeout time.Duration) *SandboxAutoSleepHandler {
+	if idleTimeout <= 0 {
+		idleTimeout = defaultAutoSleepIdleThreshold
+	}
+	return &SandboxAutoSleepHandler{db: db, orchestrator: orchestrator, idleTimeout: idleTimeout}
 }
 
 func (h *SandboxAutoSleepHandler) Handle(ctx context.Context, _ *asynq.Task) error {
-	cutoff := time.Now().Add(-autoSleepIdleThreshold)
+	cutoff := time.Now().Add(-h.idleTimeout)
 
 	// Agents and apps are disjoint and measure idle differently, so two queries
 	// feed one sleep loop.
@@ -89,7 +90,7 @@ func (h *SandboxAutoSleepHandler) Handle(ctx context.Context, _ *asynq.Task) err
 }
 
 // idleAgentSandboxes returns running agent sandboxes whose session is idle with
-// neither session events nor preview-gateway traffic inside the threshold.
+// neither session events nor preview-gateway traffic inside the configured timeout.
 func (h *SandboxAutoSleepHandler) idleAgentSandboxes(ctx context.Context, cutoff time.Time) ([]model.Sandbox, error) {
 	var sandboxes []model.Sandbox
 	err := h.idleAgentSandboxesQuery(ctx, cutoff).

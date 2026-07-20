@@ -171,8 +171,8 @@ type Provider interface {
 	GetTemplateLogs(ctx context.Context, externalID string) (string, error)
 	DeleteTemplate(ctx context.Context, externalID string) error
 
-	// Auto-management. intervalMinutes=0 disables the policy.
-	SetAutoStop(ctx context.Context, externalID string, intervalMinutes int) error
+	// Auto-management. A zero idle timeout disables the policy.
+	SetAutoStop(ctx context.Context, externalID string, idleTimeout time.Duration) error
 	SetAutoArchive(ctx context.Context, externalID string, intervalMinutes int) error
 
 	// Execution — run a command inside the sandbox.

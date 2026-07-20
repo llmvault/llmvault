@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -45,6 +46,7 @@ type WorkerDeps struct {
 	SessionEventNotices SessionEventsNoticePublisher // nil disables session.events.appended notices from trigger/schedule injection
 	AgentEmail          *agentemail.Client           // nil disables Resend agent inbox processing
 	AgentInboxDomain    string                       // required to send from agent inboxes
+	SandboxIdleTimeout  time.Duration                // configured idle cutoff for sandbox auto-sleep
 
 	Rag          *ragtasks.Deps
 	RagScheduler *scheduler.Deps
@@ -76,7 +78,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSandboxReap, NewSandboxReapHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
-		mux.HandleFunc(TypeSandboxAutoSleep, NewSandboxAutoSleepHandler(deps.DB, deps.Orchestrator).Handle)
+		mux.HandleFunc(TypeSandboxAutoSleep, NewSandboxAutoSleepHandler(deps.DB, deps.Orchestrator, deps.SandboxIdleTimeout).Handle)
 		mux.HandleFunc(TypeSandboxReconcile, NewSandboxReconcileHandler(deps.DB, deps.Orchestrator).Handle)
 		// Tears down a single session's sandbox after the session is archived.
 		mux.HandleFunc(TypeSandboxDelete, NewSandboxDeleteHandler(deps.DB, deps.Orchestrator).Handle)

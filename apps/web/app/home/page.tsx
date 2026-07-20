@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <main className="light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
       <LandingHero />
       <TrustStrip />
       <WorkflowPrompt className="mt-28" />

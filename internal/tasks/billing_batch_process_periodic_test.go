@@ -42,12 +42,16 @@ func TestPeriodicTaskConfigs_RegistersSandboxTasksWhenProviderComplete(t *testin
 		SandboxEncryptionKey:              "present",
 		SandboxDockerRuntimeOrigin:        "http://192.0.2.10",
 		SandboxResourceCheckInterval:      30 * time.Minute,
+		SandboxIdleTimeout:                15 * time.Second,
 		SandboxDockerContainerLabelPrefix: "hivy",
 	}, nil)
 
 	seen := map[string]bool{}
 	for _, c := range configs {
 		seen[c.Task.Type()] = true
+		if c.Task.Type() == tasks.TypeSandboxAutoSleep && c.Cronspec != "@every 15s" {
+			t.Fatalf("sandbox auto-sleep cronspec = %q, want @every 15s", c.Cronspec)
+		}
 	}
 	if !seen[tasks.TypeSandboxResourceCheck] || !seen[tasks.TypeSandboxReap] || !seen[tasks.TypeAgentScheduleScan] {
 		t.Fatalf("sandbox maintenance tasks missing: %#v", seen)

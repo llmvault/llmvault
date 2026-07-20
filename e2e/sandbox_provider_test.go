@@ -60,7 +60,7 @@ func (p *e2eSandboxProvider) GetTemplateLogs(context.Context, string) (string, e
 
 func (p *e2eSandboxProvider) DeleteTemplate(context.Context, string) error { return nil }
 
-func (p *e2eSandboxProvider) SetAutoStop(context.Context, string, int) error { return nil }
+func (p *e2eSandboxProvider) SetAutoStop(context.Context, string, time.Duration) error { return nil }
 
 func (p *e2eSandboxProvider) SetAutoArchive(context.Context, string, int) error { return nil }
 

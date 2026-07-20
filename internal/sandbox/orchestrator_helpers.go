@@ -9,6 +9,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+const defaultAgentSandboxIdleTimeout = 15 * time.Second
+
 func disableProviderLifecycle(ctx context.Context, provider Provider, sb *model.Sandbox, externalID string) {
 	if err := provider.SetAutoStop(ctx, externalID, 0); err != nil {
 		logging.Capture(ctx, fmt.Errorf("disable provider auto-stop sandbox %s: %w", sb.ID, err))
@@ -20,14 +22,10 @@ func disableProviderLifecycle(ctx context.Context, provider Provider, sb *model.
 
 func configureAgentSandboxLifecycle(ctx context.Context, provider Provider, sb *model.Sandbox, externalID string, idleTimeout time.Duration) {
 	if provider.ID() == ProviderMicrosandbox {
-		minutes := 5
-		if idleTimeout > 0 {
-			minutes = int((idleTimeout + time.Minute - 1) / time.Minute)
-			if minutes < 1 {
-				minutes = 1
-			}
+		if idleTimeout <= 0 {
+			idleTimeout = defaultAgentSandboxIdleTimeout
 		}
-		if err := provider.SetAutoStop(ctx, externalID, minutes); err != nil {
+		if err := provider.SetAutoStop(ctx, externalID, idleTimeout); err != nil {
 			logging.Capture(ctx, fmt.Errorf("set microsandbox auto-stop sandbox %s: %w", sb.ID, err))
 		}
 		return

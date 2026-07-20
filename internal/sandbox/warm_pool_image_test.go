@@ -226,7 +226,9 @@ func (p warmSlotImageTestProvider) GetTemplateLogs(context.Context, string) (str
 
 func (p warmSlotImageTestProvider) DeleteTemplate(context.Context, string) error { return nil }
 
-func (p warmSlotImageTestProvider) SetAutoStop(context.Context, string, int) error { return nil }
+func (p warmSlotImageTestProvider) SetAutoStop(context.Context, string, time.Duration) error {
+	return nil
+}
 
 func (p warmSlotImageTestProvider) SetAutoArchive(context.Context, string, int) error { return nil }
 

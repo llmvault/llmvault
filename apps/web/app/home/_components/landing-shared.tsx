@@ -255,29 +255,49 @@ export function FeatureCopy({
   )
 }
 
-export function LandingHero() {
+type LandingHeroProps = {
+  titleLines?: readonly [string, string]
+  description?: string
+  primaryAction?: {
+    label: string
+    href: string
+  }
+  secondaryAction?: {
+    label: string
+    href: string
+  }
+  placeholderLabel?: string
+}
+
+export function LandingHero({
+  titleLines = [
+    "Productive ai agents for your entire team.",
+    "With no monthly subscriptions",
+  ],
+  description = "Open source, with 1,000+ integrations and every major LLM. Build, deploy, and manage agents visually, conversationally, or with code.",
+  primaryAction = { label: "Watch a 2min demo", href: "#contact" },
+  secondaryAction = { label: "Start for free", href: "/auth/signup" },
+  placeholderLabel = "Main Hivy workspace product screenshot",
+}: LandingHeroProps = {}) {
   return (
     <>
       <LandingHeader />
       <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-28">
         <div>
           <h1 className="max-w-[980px] text-[clamp(2.35rem,4vw,3rem)] leading-[1.02] font-medium tracking-[-0.045em] text-balance">
-            <span className="block md:whitespace-nowrap">
-              Productive ai agents for your entire team.
-            </span>
-            <span className="block">With no monthly subscriptions</span>
+            <span className="block md:whitespace-nowrap">{titleLines[0]}</span>
+            <span className="block">{titleLines[1]}</span>
           </h1>
           <p className="mt-7 max-w-[630px] text-[1rem] leading-6 text-muted">
-            Open source, with 1,000+ integrations and every major LLM. Build,
-            deploy, and manage agents visually, conversationally, or with code.
+            {description}
           </p>
           <div className="mt-8 flex items-center gap-2">
-            <Link href="#contact">
-              <Button size="sm">Watch a 2min demo</Button>
+            <Link href={primaryAction.href}>
+              <Button size="sm">{primaryAction.label}</Button>
             </Link>
-            <Link href="/auth/signup">
+            <Link href={secondaryAction.href}>
               <Button size="sm" variant="ghost">
-                Start for free
+                {secondaryAction.label}
               </Button>
             </Link>
           </div>
@@ -287,7 +307,7 @@ export function LandingHero() {
           id="product"
           className="mt-16 aspect-[1.82/1] overflow-hidden rounded-sm bg-surface-tertiary p-[7%]"
         >
-          <ProductPlaceholder label="Main Hivy workspace product screenshot" />
+          <ProductPlaceholder label={placeholderLabel} />
         </div>
       </section>
     </>

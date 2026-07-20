@@ -196,7 +196,7 @@ func (d *Driver) GetTemplateLogs(context.Context, string) (string, error) {
 
 func (d *Driver) DeleteTemplate(context.Context, string) error { return nil }
 
-func (d *Driver) SetAutoStop(context.Context, string, int) error { return nil }
+func (d *Driver) SetAutoStop(context.Context, string, time.Duration) error { return nil }
 
 func (d *Driver) SetAutoArchive(context.Context, string, int) error { return nil }
 

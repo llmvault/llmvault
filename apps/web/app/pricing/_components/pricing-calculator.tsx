@@ -1,12 +1,11 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Button, Input } from "@heroui/react"
+import { Slider } from "@heroui/react"
 import { calculateDeposit } from "./pricing-model"
 
-export type CalculatorMode = "plain" | "unlimited" | "receipt" | "manifesto"
-
-const depositPresets = [10, 25, 50, 100] as const
+const depositMarkers = [0, 5, 10, 20, 50, 100, 200, 500] as const
+const minimumDepositIndex = 1
 
 function money(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -30,46 +29,114 @@ function DepositForm({
   value: number
   onChange: (value: number) => void
 }) {
+  const selectedStop = depositMarkers.indexOf(
+    value as (typeof depositMarkers)[number]
+  )
+
   return (
-    <div className="p-6 md:p-8">
+    <div className="py-6 pr-6 md:py-8 md:pr-8">
       <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-        Choose a deposit
+        Choose a balance
       </p>
       <h3 className="mt-3 text-2xl font-medium tracking-[-0.04em]">
-        How much credit value do you want?
+        How much should your agents have to spend?
       </h3>
       <p className="mt-3 max-w-[52ch] text-sm leading-6 text-muted">
-        This balance pays for agent costs at the underlying model or provider
-        price. Hivy adds no markup when your agents use it.
+        Every dollar stays available for model and provider costs. Hivy’s 12%
+        deposit fee appears separately.
       </p>
 
-      <label className="mt-8 block">
-        <span className="text-xs font-medium text-muted">Credit value</span>
-        <div className="mt-2 flex items-center gap-3">
-          <span className="text-lg text-muted">$</span>
-          <Input
-            aria-label="Credit value"
-            type="number"
-            min="0"
-            step="1"
-            value={String(value)}
-            onChange={(event) => onChange(Number(event.target.value))}
-            className="max-w-[260px]"
-          />
-        </div>
-      </label>
+      <div className="mt-10">
+        <Slider
+          aria-label="Agent credit balance"
+          minValue={0}
+          maxValue={depositMarkers.length - 1}
+          step={1}
+          value={selectedStop}
+          onChange={(nextValue) => {
+            const nextIndex = Array.isArray(nextValue)
+              ? nextValue[0]
+              : nextValue
+            const clampedIndex = Math.max(minimumDepositIndex, nextIndex)
 
-      <div className="mt-5 flex flex-wrap gap-2" aria-label="Deposit presets">
-        {depositPresets.map((amount) => (
-          <Button
-            key={amount}
-            size="sm"
-            variant={value === amount ? "secondary" : "ghost"}
-            onPress={() => onChange(amount)}
-          >
-            ${amount}
-          </Button>
-        ))}
+            onChange(depositMarkers[clampedIndex])
+          }}
+        >
+          {({ state }) => {
+            const isDragging = state.isThumbDragging(0)
+
+            return (
+              <>
+                <span
+                  data-slot="label"
+                  className="text-xs font-medium text-muted"
+                >
+                  Agent credit balance
+                </span>
+                <Slider.Output className="text-base font-medium">
+                  {money(value)}
+                </Slider.Output>
+                <Slider.Track className="mt-2">
+                  <Slider.Fill
+                    className={
+                      isDragging
+                        ? "transition-none"
+                        : "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                    }
+                  />
+                  <Slider.Thumb
+                    aria-valuetext={money(value)}
+                    className={
+                      isDragging
+                        ? "transition-none"
+                        : "transition-[left,background-color,transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                    }
+                  />
+                </Slider.Track>
+                <Slider.Marks className="relative col-span-2 mx-3 mt-2 h-5">
+                  {depositMarkers.map((amount, index) => {
+                    const markerPosition = {
+                      left: `${(index / (depositMarkers.length - 1)) * 100}%`,
+                      transform:
+                        index === 0
+                          ? undefined
+                          : index === depositMarkers.length - 1
+                            ? "translateX(-100%)"
+                            : "translateX(-50%)",
+                    }
+
+                    if (amount === 0) {
+                      return (
+                        <span
+                          key={amount}
+                          data-slider-origin
+                          aria-hidden="true"
+                          className="absolute top-0 text-[10px] whitespace-nowrap text-muted/70 sm:text-xs"
+                          style={markerPosition}
+                        >
+                          $0
+                        </span>
+                      )
+                    }
+
+                    return (
+                      <button
+                        key={amount}
+                        type="button"
+                        aria-label={`Select $${amount} deposit`}
+                        onClick={() => onChange(amount)}
+                        className={`absolute top-0 cursor-pointer text-[10px] whitespace-nowrap text-muted transition-colors hover:text-foreground sm:text-xs ${value === amount ? "font-medium text-foreground" : ""}`}
+                        style={markerPosition}
+                      >
+                        ${amount}
+                      </button>
+                    )
+                  })}
+                </Slider.Marks>
+              </>
+            )
+          }}
+        </Slider>
       </div>
     </div>
   )
@@ -85,7 +152,7 @@ function DepositReceipt({
       <div className="flex items-start justify-between gap-6">
         <div>
           <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-            Deposit receipt
+            Today’s receipt
           </p>
           <p className="mt-3 text-4xl font-medium tracking-[-0.055em]">
             {money(estimate.checkoutTotal)}
@@ -102,7 +169,7 @@ function DepositReceipt({
           <span>{integer(estimate.creditsAdded)}</span>
         </div>
         <div className="flex items-center justify-between gap-6 py-4 text-sm">
-          <span className="text-muted">Credit value</span>
+          <span className="text-muted">Spendable balance</span>
           <span>{money(estimate.creditValue)}</span>
         </div>
         <div className="flex items-center justify-between gap-6 py-4 text-sm">
@@ -119,28 +186,19 @@ function DepositReceipt({
           </p>
         </div>
         <p className="max-w-[24ch] text-right text-xs leading-5 text-muted">
-          No subscription follows this payment.
+          No subscription starts after payment.
         </p>
       </div>
     </div>
   )
 }
 
-export function PricingCalculator({ mode }: { mode: CalculatorMode }) {
-  const [value, setValue] = useState(100)
+export function PricingCalculator() {
+  const [value, setValue] = useState(10)
   const estimate = useMemo(() => calculateDeposit(value), [value])
 
-  const shellClass =
-    mode === "manifesto"
-      ? "grid overflow-hidden border-y border-border lg:grid-cols-[1fr_0.8fr]"
-      : mode === "receipt"
-        ? "grid overflow-hidden rounded-sm border border-border bg-surface lg:grid-cols-[0.8fr_1fr]"
-        : mode === "unlimited"
-          ? "grid overflow-hidden rounded-sm border border-border bg-background lg:grid-cols-[1fr_0.9fr]"
-          : "grid overflow-hidden rounded-sm border border-border bg-surface lg:grid-cols-[1.05fr_0.95fr]"
-
   return (
-    <div className={shellClass}>
+    <div className="grid overflow-hidden border-y border-border lg:grid-cols-[1fr_0.8fr]">
       <DepositForm value={value} onChange={setValue} />
       <DepositReceipt estimate={estimate} />
     </div>

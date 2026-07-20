@@ -297,6 +297,19 @@ diffs-container {
   text-underline-offset: 2px;
 }
 
+/* Marketing links use color and focus rings instead of HeroUI's link decoration. */
+.marketing-link-scope .link,
+.marketing-link-scope .link:hover,
+.marketing-link-scope .link[data-hovered="true"],
+.marketing-link-scope .link:active,
+.marketing-link-scope .link[data-pressed="true"] {
+  text-decoration: none;
+}
+
+.marketing-link-scope .marketing-menu-link {
+  width: 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hivy-shimmer {
     animation: none;

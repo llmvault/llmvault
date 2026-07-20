@@ -90,7 +90,7 @@ func (p *agentCreateProvider) GetTemplateLogs(context.Context, string) (string, 
 
 func (p *agentCreateProvider) DeleteTemplate(context.Context, string) error { return nil }
 
-func (p *agentCreateProvider) SetAutoStop(context.Context, string, int) error { return nil }
+func (p *agentCreateProvider) SetAutoStop(context.Context, string, time.Duration) error { return nil }
 
 func (p *agentCreateProvider) SetAutoArchive(context.Context, string, int) error { return nil }
 

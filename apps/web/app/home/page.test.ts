@@ -35,5 +35,7 @@ describe("HomePage", () => {
     expect(html).not.toContain("Sign up")
     expect(html).not.toContain("Request a demo")
     expect(html).toContain('href="/auth/signup"')
+    expect(html).toContain("marketing-link-scope")
+    expect(html).toContain("marketing-menu-link")
   })
 })

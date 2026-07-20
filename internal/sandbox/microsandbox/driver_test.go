@@ -103,6 +103,32 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	}
 }
 
+func TestDriverSetAutoStopPreservesSecondPrecision(t *testing.T) {
+	var policyReq map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/v1/sandboxes/sbx_test/policy" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&policyReq); err != nil {
+			t.Fatalf("decode policy request: %v", err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	driver, err := NewDriver(Config{ControlURL: server.URL, APIToken: "test-token", RuntimeImage: "runtime:latest"})
+	if err != nil {
+		t.Fatalf("NewDriver: %v", err)
+	}
+	if err := driver.SetAutoStop(t.Context(), "sbx_test", 15*time.Second); err != nil {
+		t.Fatalf("SetAutoStop: %v", err)
+	}
+	if policyReq["auto_sleep_after_seconds"] != float64(15) {
+		t.Fatalf("auto_sleep_after_seconds = %v, want 15", policyReq["auto_sleep_after_seconds"])
+	}
+}
+
 // TestDriverCreateSandboxHealthCheckOverride proves an app sandbox is created
 // with an explicit /health probe on the appd port (7080) — not the default
 // agent-runtime /healthz — while a normal agent sandbox keeps /healthz.

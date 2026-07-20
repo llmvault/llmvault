@@ -87,9 +87,10 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	}
 
 	workerDeps := &tasks.WorkerDeps{
-		DB:           deps.DB,
-		Orchestrator: deps.Orchestrator,
-		EncKey:       deps.SandboxEncKey,
+		DB:                 deps.DB,
+		Orchestrator:       deps.Orchestrator,
+		EncKey:             deps.SandboxEncKey,
+		SandboxIdleTimeout: cfg.SandboxIdleTimeout,
 		EmailSend: func(ctx context.Context, to, subject, body, idempotencyKey string) error {
 			return workerSender.Send(ctx, email.Message{
 				To:             to,

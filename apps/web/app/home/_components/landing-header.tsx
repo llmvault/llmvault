@@ -82,7 +82,7 @@ function MenuLink({ item }: { item: NavigationLink }) {
     <NavigationMenu.Link
       closeOnClick
       render={<Link href={item.href} />}
-      className="group focus-visible:ring-ring flex min-h-20 items-start gap-3 rounded-sm px-3 py-3 text-foreground transition-colors duration-150 outline-none hover:bg-surface-secondary focus-visible:bg-surface-secondary focus-visible:ring-2"
+      className="marketing-menu-link group focus-visible:ring-ring flex min-h-20 items-start gap-3 rounded-sm px-3 py-3 text-foreground transition-colors duration-150 outline-none hover:bg-surface-secondary focus-visible:bg-surface-secondary focus-visible:ring-2"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-sm border border-border bg-surface-secondary text-muted transition-colors duration-150 group-hover:text-foreground">
         <AppIcon icon={item.icon} size={17} />
@@ -190,7 +190,7 @@ export function LandingHeader() {
           </NavigationMenu.Item>
         </NavigationMenu.List>
 
-        <NavigationMenu.Portal className="light">
+        <NavigationMenu.Portal className="marketing-link-scope light">
           <NavigationMenu.Positioner
             sideOffset={8}
             align="center"

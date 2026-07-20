@@ -81,10 +81,10 @@ func (d *Driver) GetEndpoint(ctx context.Context, externalID string, port int) (
 	return out.URL, nil
 }
 
-func (d *Driver) SetAutoStop(ctx context.Context, externalID string, intervalMinutes int) error {
+func (d *Driver) SetAutoStop(ctx context.Context, externalID string, idleTimeout time.Duration) error {
 	seconds := 0
-	if intervalMinutes > 0 {
-		seconds = intervalMinutes * 60
+	if idleTimeout > 0 {
+		seconds = int((idleTimeout + time.Second - 1) / time.Second)
 	}
 	return d.patch(ctx, "/v1/sandboxes/"+externalID+"/policy", map[string]any{
 		"auto_sleep_after_seconds": seconds,

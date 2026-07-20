@@ -1,291 +1,143 @@
-import { Button, Link } from "@heroui/react"
+import { Accordion, Button, Link } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { LandingHeader } from "../../home/_components/landing-header"
 import { LandingFooter } from "../../home/_components/landing-shared"
-import { PricingCalculator, type CalculatorMode } from "./pricing-calculator"
+import { PricingCalculator } from "./pricing-calculator"
 
-type PricingVariant = CalculatorMode
-
-const variantLinks = [
-  { href: "/pricing", label: "One fee", value: "plain" },
-  {
-    href: "/pricing/variant-2",
-    label: "Unlimited",
-    value: "unlimited",
-  },
-  { href: "/pricing/variant-3", label: "Receipt", value: "receipt" },
-  {
-    href: "/pricing/variant-4",
-    label: "Manifesto",
-    value: "manifesto",
-  },
+const includedFeatures = [
+  "Unlimited users",
+  "Unlimited teams",
+  "Unlimited agents",
+  "Unlimited agent sessions",
+  "Unlimited sandboxes",
+  "Unlimited knowledge base storage",
+  "Unlimited knowledge sources",
+  "Unlimited connections",
+  "Access to every available model",
+  "Drive file storage",
+  "Sheets for agent data",
+  "Scheduled automations",
+  "Webhook and connection triggers",
+  "Role-based access control",
+  "API and MCP access",
+  "Model savings passed through",
 ] as const
 
-const unlimitedItems = [
-  ["Agents", "Build as many specialists as your team needs."],
-  ["Sessions", "Run agents as often as the work demands."],
-  ["Sandboxes", "Give every run a secure place to work."],
-  ["Knowledge base storage", "Keep the context your agents need."],
-] as const
-
-function VariantNav({ active }: { active: PricingVariant }) {
+function PricingHero() {
   return (
-    <nav
-      aria-label="Pricing explorations"
-      className="flex flex-wrap items-center gap-1"
-    >
-      {variantLinks.map((item) => (
-        <Link key={item.href} href={item.href}>
-          <Button
-            size="sm"
-            variant={active === item.value ? "secondary" : "ghost"}
-          >
-            {item.label}
-          </Button>
-        </Link>
-      ))}
-    </nav>
-  )
-}
-
-function SampleReceipt() {
-  return (
-    <div className="rounded-sm border border-border bg-surface p-6 md:p-8">
-      <div className="flex items-center justify-between gap-4 border-b border-border pb-5">
-        <span className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-          Credit deposit
-        </span>
-        <span className="text-xs text-muted">Example</span>
-      </div>
-      <div className="space-y-4 py-6 text-sm">
-        <div className="flex justify-between gap-6">
-          <span className="text-muted">Credit value</span>
-          <span>$100.00</span>
-        </div>
-        <div className="flex justify-between gap-6">
-          <span className="text-muted">Deposit fee (12%)</span>
-          <span>$12.00</span>
-        </div>
-      </div>
-      <div className="flex items-end justify-between gap-6 border-t border-border pt-5">
-        <span className="text-sm font-medium">Pay once</span>
-        <span className="text-3xl font-medium tracking-[-0.05em]">$112.00</span>
-      </div>
-      <p className="mt-6 border-t border-border pt-5 text-xs leading-5 text-muted">
-        Then use the $100 balance at model cost with 0% Hivy markup.
-      </p>
-    </div>
-  )
-}
-
-function PricingHero({ variant }: { variant: PricingVariant }) {
-  if (variant === "unlimited") {
-    return (
-      <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-20 text-center">
-        <div className="flex justify-start">
-          <VariantNav active={variant} />
-        </div>
-        <p className="mt-20 text-xs font-medium tracking-[0.1em] text-muted uppercase">
-          One transparent fee
-        </p>
-        <h1 className="mx-auto mt-5 max-w-[900px] text-[clamp(2.7rem,5vw,4.8rem)] leading-[0.96] font-medium tracking-[-0.06em] text-balance">
-          Unlimited means unlimited.
+    <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-24">
+      <div className="border-b border-border pb-12 md:pb-16">
+        <h1 className="text-[clamp(3.3rem,7.5vw,7.5rem)] leading-[0.88] font-medium tracking-[-0.075em]">
+          <span className="block">Pay for agent work.</span>
+          <span className="block text-muted">Not another subscription.</span>
         </h1>
-        <p className="mx-auto mt-7 max-w-[660px] text-base leading-7 text-muted">
-          Unlimited agents, sessions, sandboxes, and knowledge base storage. No
-          monthly subscription. Add credits and pay a 12% fee once.
-        </p>
-        <div className="mt-14 grid overflow-hidden rounded-sm border border-border bg-surface text-left sm:grid-cols-2 lg:grid-cols-4">
-          {unlimitedItems.map(([title]) => (
-            <div
-              key={title}
-              className="border-border p-6 sm:border-l sm:first:border-l-0"
-            >
-              <p className="text-5xl font-medium tracking-[-0.06em]">∞</p>
-              <p className="mt-5 text-sm font-medium">{title}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-    )
-  }
-
-  if (variant === "receipt") {
-    return (
-      <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-20">
-        <VariantNav active={variant} />
-        <div className="mt-16 grid items-center gap-12 lg:grid-cols-[1.05fr_0.72fr] lg:gap-20">
-          <div>
-            <p className="text-xs font-medium tracking-[0.1em] text-muted uppercase">
-              Pricing you can audit at a glance
-            </p>
-            <h1 className="mt-5 max-w-[780px] text-[clamp(2.7rem,5vw,4.7rem)] leading-[0.96] font-medium tracking-[-0.06em] text-balance">
-              The whole price fits on one receipt.
-            </h1>
-            <p className="mt-7 max-w-[620px] text-base leading-7 text-muted">
-              Add credits. Pay 12% at deposit. Run unlimited agents, sessions,
-              and sandboxes with unlimited knowledge base storage.
-            </p>
-          </div>
-          <SampleReceipt />
-        </div>
-      </section>
-    )
-  }
-
-  if (variant === "manifesto") {
-    return (
-      <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-20">
-        <VariantNav active={variant} />
-        <div className="mt-16 border-y border-border py-12 md:py-16">
-          <p className="text-xs font-medium tracking-[0.1em] text-muted uppercase">
-            Simple on purpose
+        <div className="mt-12 grid gap-8 border-t border-border pt-8 md:grid-cols-[1fr_300px] md:items-end">
+          <p className="max-w-[720px] text-lg leading-8">
+            Add $100 in credits and pay $112 once. Hivy never marks up the model
+            or provider costs your agents create.
           </p>
-          <h1 className="mt-8 text-[clamp(2.8rem,6.4vw,6.5rem)] leading-[0.9] font-medium tracking-[-0.07em]">
-            <span className="block">No plans.</span>
-            <span className="block text-muted">No seats.</span>
-            <span className="block">No markup.</span>
-          </h1>
-          <div className="mt-12 grid gap-8 border-t border-border pt-8 md:grid-cols-[1fr_300px] md:items-end">
-            <p className="max-w-[700px] text-lg leading-8">
-              Pay a 12% fee when you add credits. Everything around your agents
-              is unlimited. Agent costs use credits at cost.
-            </p>
-            <p className="text-right text-6xl font-medium tracking-[-0.06em] md:text-7xl">
+          <div className="md:text-right">
+            <p className="text-7xl font-medium tracking-[-0.07em] md:text-8xl">
               12%
             </p>
+            <p className="mt-2 text-xs text-muted">
+              once, when you add credits
+            </p>
           </div>
         </div>
-      </section>
-    )
-  }
-
-  return (
-    <section className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] pt-20">
-      <VariantNav active={variant} />
-      <div className="mt-16 grid items-end gap-12 lg:grid-cols-[1.12fr_0.72fr] lg:gap-20">
-        <div>
-          <p className="text-xs font-medium tracking-[0.1em] text-muted uppercase">
-            No subscriptions. No surprises.
-          </p>
-          <h1 className="mt-5 max-w-[800px] text-[clamp(2.7rem,5vw,4.8rem)] leading-[0.96] font-medium tracking-[-0.06em] text-balance">
-            One fee. Everything else stays simple.
-          </h1>
-          <p className="mt-7 max-w-[640px] text-base leading-7 text-muted">
-            Pay 12% when you add credits. Run unlimited agents, sessions, and
-            sandboxes with unlimited knowledge base storage.
-          </p>
-        </div>
-        <div className="rounded-sm border border-border bg-surface p-6 md:p-8">
-          <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-            The entire Hivy fee
-          </p>
-          <p className="mt-5 text-7xl font-medium tracking-[-0.07em]">12%</p>
-          <p className="mt-5 border-t border-border pt-5 text-sm leading-6 text-muted">
-            Charged once when credits are added. Never monthly and never on
-            agent costs.
-          </p>
-        </div>
       </div>
     </section>
   )
 }
 
-function UnlimitedSection({ variant }: { variant: PricingVariant }) {
+function CalculatorSection() {
   return (
     <section className="mx-auto mt-32 w-[calc(100%-2rem)] max-w-[1300px]">
-      <div
-        className={`grid gap-10 ${variant === "receipt" ? "lg:grid-cols-[0.72fr_1.28fr]" : "lg:grid-cols-[0.8fr_1.2fr]"}`}
-      >
-        <div>
-          <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-            Included at no extra cost
-          </p>
-          <h2 className="mt-4 max-w-[520px] text-[clamp(2rem,3.5vw,3.2rem)] leading-[1] font-medium tracking-[-0.05em]">
-            Your team can grow without creating a bigger software bill.
-          </h2>
-        </div>
-        <div className="divide-y divide-border border-y border-border">
-          {unlimitedItems.map(([title, description], index) => (
-            <div
-              key={title}
-              className={`grid gap-3 py-5 sm:grid-cols-[42px_220px_1fr] sm:items-center ${variant === "unlimited" && index === 1 ? "bg-surface-secondary px-4" : ""}`}
-            >
-              <span className="text-sm font-medium text-muted">
-                0{index + 1}
-              </span>
-              <h3 className="text-base font-medium">Unlimited {title}</h3>
-              <p className="text-sm leading-6 text-muted">{description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function CalculatorSection({ variant }: { variant: PricingVariant }) {
-  const headings: Record<PricingVariant, string> = {
-    plain: "See the only calculation we make.",
-    unlimited: "Add exactly the balance you want.",
-    receipt: "Make your own receipt.",
-    manifesto: "One input. One fee. Done.",
-  }
-
-  return (
-    <section className="mx-auto mt-32 w-[calc(100%-2rem)] max-w-[1160px]">
       <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-        Deposit calculator
+        Know the charge
       </p>
       <h2 className="mt-4 max-w-[720px] text-[clamp(2rem,3.5vw,3.2rem)] leading-[1] font-medium tracking-[-0.05em]">
-        {headings[variant]}
+        Pick a balance. See what you’ll pay.
       </h2>
       <p className="mt-5 max-w-[62ch] text-sm leading-6 text-muted">
-        Choose the credit value you want. We add 12% at checkout. There is no
-        subscription before or after it.
+        Move the slider to choose how much your agents can spend. The 12%
+        deposit fee stays separate, so you know the total before adding credits.
       </p>
       <div className="mt-10">
-        <PricingCalculator mode={variant} />
+        <PricingCalculator />
       </div>
     </section>
   )
 }
 
-function AtCostSection({ variant }: { variant: PricingVariant }) {
-  const rows = [
-    ["Model and provider costs", "Charged at cost"],
-    ["Hivy markup on agent costs", "0%"],
-    ["Prompt-cache savings", "Passed through"],
-    ["Quantized-model savings", "Passed through"],
+function IncludedSection() {
+  return (
+    <section
+      aria-label="Included features"
+      className="mx-auto mt-28 w-[calc(100%-2rem)] max-w-[1300px]"
+    >
+      <div className="grid border-y border-border sm:grid-cols-2 lg:grid-cols-4">
+        {includedFeatures.map((feature, index) => (
+          <div
+            key={feature}
+            className={`flex min-h-16 items-center gap-3 border-border py-4 sm:px-5 ${index < includedFeatures.length - 1 ? "border-b" : ""} ${index >= includedFeatures.length - 2 ? "sm:border-b-0" : ""} ${index >= includedFeatures.length - 4 ? "lg:border-b-0" : ""} ${index % 2 === 1 ? "sm:border-l" : ""} ${index % 4 !== 0 ? "lg:border-l" : ""}`}
+          >
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface-secondary text-foreground">
+              <AppIcon icon="check" className="size-3.5" />
+            </span>
+            <span className="text-sm font-medium">{feature}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AtCostSection() {
+  const passThrough = [
+    ["Model and provider bill", "Charged at cost"],
+    ["Prompt-cache savings", "Kept in your balance"],
+    ["Quantized-model savings", "Kept in your balance"],
   ] as const
 
   return (
-    <section className="mx-auto mt-32 w-[calc(100%-2rem)] max-w-[1300px]">
-      <div
-        className={`grid gap-12 ${variant === "manifesto" ? "border-y border-border py-14 lg:grid-cols-[1.2fr_0.8fr]" : "lg:grid-cols-2"}`}
-      >
+    <section className="mx-auto mt-36 w-[calc(100%-2rem)] max-w-[1300px]">
+      <div className="grid gap-16 rounded-sm bg-surface-secondary px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[0.95fr_1.05fr] lg:px-16 lg:py-20">
         <div>
           <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-            Agent costs at cost
+            Your savings stay yours
           </p>
-          <h2 className="mt-4 max-w-[580px] text-[clamp(2rem,3.5vw,3.2rem)] leading-[1] font-medium tracking-[-0.05em]">
-            We do not make models more expensive.
+          <h2 className="mt-4 max-w-[620px] text-[clamp(2.2rem,4vw,3.8rem)] leading-[0.96] font-medium tracking-[-0.055em]">
+            Cheaper models should lower your bill.
           </h2>
-          <p className="mt-5 max-w-[58ch] text-sm leading-6 text-muted">
-            Credits cover the underlying model and provider costs created by
-            your agents. If the model gets cheaper, your work gets cheaper.
+          <p className="mt-6 max-w-[58ch] text-sm leading-6 text-muted">
+            Your balance covers the model and provider costs your agents create.
+            When caching or a quantized model cuts that cost, you keep the
+            difference.
           </p>
         </div>
-        <div className="divide-y divide-border border-y border-border">
-          {rows.map(([label, value]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between gap-8 py-4 text-sm"
-            >
-              <span className="text-muted">{label}</span>
-              <span className="text-right font-medium">{value}</span>
-            </div>
-          ))}
+
+        <div className="flex flex-col justify-between gap-10 lg:pt-5">
+          <p className="max-w-[520px] text-[clamp(1.75rem,3vw,2.75rem)] leading-[1.04] font-medium tracking-[-0.045em]">
+            Hivy adds <span className="text-primary">0%</span> to agent costs.
+          </p>
+
+          <div className="space-y-7">
+            {passThrough.map(([source, result]) => (
+              <div
+                key={source}
+                className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,0.8fr)] items-center gap-4 text-sm"
+              >
+                <span className="text-muted">{source}</span>
+                <AppIcon
+                  icon="arrow-right"
+                  aria-hidden="true"
+                  className="size-4 text-muted"
+                />
+                <span className="font-medium">{result}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -295,64 +147,77 @@ function AtCostSection({ variant }: { variant: PricingVariant }) {
 function PricingFaq() {
   const questions = [
     {
-      question: "Is there a monthly subscription?",
+      question: "Will Hivy charge me every month?",
       answer:
-        "No. Hivy has no monthly subscription and no per-seat plan. Add credits only when you need them.",
+        "No. There’s no monthly subscription and no per-seat plan. Add credits when your agents need a working balance.",
     },
     {
-      question: "What is unlimited?",
+      question: "What do I get without a plan?",
       answer:
-        "Agents, sessions, sandboxes, and knowledge base storage are all unlimited at no extra charge.",
+        "Unlimited users, teams, agents, sessions, sandboxes, knowledge base storage, knowledge sources, and connections. You only fund the work your agents perform.",
     },
     {
-      question: "What uses my credits?",
+      question: "What spends my credits?",
       answer:
-        "Credits cover the underlying model and provider costs generated by agent work. Hivy adds 0% markup to those costs.",
+        "Only the underlying model and provider costs created by agent work. Hivy doesn’t take a cut when your agents spend credits.",
     },
     {
-      question: "When is the 12% fee charged?",
+      question: "Do you mark up model prices?",
       answer:
-        "Only when you add credits. If you add $100 of credit value, the fee is $12 and you pay $112 at checkout.",
+        "No. Your balance pays the model or provider price. If that price drops, your agent costs drop with it.",
+    },
+    {
+      question: "When do I pay the 12% fee?",
+      answer:
+        "Only when you add credits. A $100 balance carries a $12 fee, so you pay $112 once and receive the full $100 to spend.",
+    },
+    {
+      question: "Can I use quantized models?",
+      answer:
+        "Yes, when an available provider offers one. Quantized models use fewer resources, and the lower cost stays in your balance.",
     },
   ]
 
   return (
-    <section className="mx-auto mt-32 w-[calc(100%-2rem)] max-w-[920px]">
+    <section className="mx-auto mt-36 w-[calc(100%-2rem)] max-w-[920px]">
       <p className="text-xs font-medium tracking-[0.08em] text-muted uppercase">
-        Questions
+        Pricing questions
       </p>
       <h2 className="mt-4 text-[clamp(2rem,3.5vw,3rem)] leading-none font-medium tracking-[-0.05em]">
-        The short version.
+        Before you add credits.
       </h2>
-      <div className="mt-10 divide-y divide-border border-y border-border">
+      <Accordion className="mt-10 border-y border-border">
         {questions.map((item) => (
-          <details key={item.question} className="group py-5">
-            <summary className="focus-visible:ring-ring flex cursor-pointer list-none items-center justify-between gap-6 text-base font-medium outline-none focus-visible:ring-2">
-              {item.question}
-              <AppIcon
-                icon="plus"
-                size={17}
-                className="shrink-0 transition-transform duration-150 group-open:rotate-45"
-              />
-            </summary>
-            <p className="mt-4 max-w-[68ch] text-sm leading-6 text-muted">
-              {item.answer}
-            </p>
-          </details>
+          <Accordion.Item key={item.question} id={item.question}>
+            <Accordion.Heading>
+              <Accordion.Trigger className="focus-visible:ring-ring w-full px-0 py-5 text-base font-medium outline-none focus-visible:ring-2">
+                {item.question}
+                <Accordion.Indicator className="pricing-faq-indicator ml-auto size-[17px] shrink-0 text-foreground transition-transform! duration-250! ease-[cubic-bezier(0.22,1,0.36,1)]! data-[expanded=true]:rotate-45! motion-reduce:transition-none!">
+                  <AppIcon icon="plus" size={17} />
+                </Accordion.Indicator>
+              </Accordion.Trigger>
+            </Accordion.Heading>
+            <Accordion.Panel className="pricing-faq-panel transition-[height,opacity]! duration-300! ease-[cubic-bezier(0.22,1,0.36,1)]! [interpolate-size:allow-keywords] motion-reduce:transition-none!">
+              <Accordion.Body className="max-w-[68ch] px-0 pt-0 pb-5 text-sm leading-6 text-muted">
+                {item.answer}
+              </Accordion.Body>
+            </Accordion.Panel>
+          </Accordion.Item>
         ))}
-      </div>
+      </Accordion>
     </section>
   )
 }
 
 function PricingCta() {
   return (
-    <section className="mx-auto flex min-h-[400px] w-[calc(100%-2rem)] max-w-[1300px] flex-col items-center justify-center text-center">
-      <h2 className="max-w-[760px] text-[clamp(2.3rem,4vw,3.8rem)] leading-[0.98] font-medium tracking-[-0.055em]">
-        Start without starting a subscription.
+    <section className="mx-auto flex min-h-[440px] w-[calc(100%-2rem)] max-w-[1300px] flex-col items-center justify-center text-center">
+      <h2 className="max-w-[800px] text-[clamp(2.5rem,4.5vw,4.3rem)] leading-[0.94] font-medium tracking-[-0.06em]">
+        Start free. Add $5 when you’re ready.
       </h2>
       <p className="mt-5 max-w-[54ch] text-sm leading-6 text-muted">
-        Build for free. Add credits when your agents are ready to work.
+        Set up your workspace without a subscription. Your first deposit can be
+        as little as $5.
       </p>
       <div className="mt-7 flex items-center gap-2">
         <Link href="/auth/signup">
@@ -360,7 +225,7 @@ function PricingCta() {
         </Link>
         <Link href="mailto:sales@usehivy.com">
           <Button size="sm" variant="ghost">
-            Ask about pricing
+            Ask a pricing question
           </Button>
         </Link>
       </div>
@@ -368,17 +233,14 @@ function PricingCta() {
   )
 }
 
-export function PricingPage({ variant }: { variant: PricingVariant }) {
-  const calculatorFirst = variant === "receipt" || variant === "manifesto"
-
+export function PricingPage() {
   return (
-    <main className="light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
       <LandingHeader />
-      <PricingHero variant={variant} />
-      {calculatorFirst ? <CalculatorSection variant={variant} /> : null}
-      <UnlimitedSection variant={variant} />
-      {!calculatorFirst ? <CalculatorSection variant={variant} /> : null}
-      <AtCostSection variant={variant} />
+      <PricingHero />
+      <CalculatorSection />
+      <IncludedSection />
+      <AtCostSection />
       <PricingFaq />
       <PricingCta />
       <LandingFooter />

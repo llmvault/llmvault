@@ -1,8 +1,11 @@
 package docker
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
-func (d *Driver) SetAutoStop(context.Context, string, int) error {
+func (d *Driver) SetAutoStop(context.Context, string, time.Duration) error {
 	return nil
 }
 

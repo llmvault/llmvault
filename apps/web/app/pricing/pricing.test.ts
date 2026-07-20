@@ -2,9 +2,6 @@ import React from "react"
 import { renderToString } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import PricingPage from "./page"
-import PricingUnlimitedPage from "./variant-2/page"
-import PricingReceiptPage from "./variant-3/page"
-import PricingManifestoPage from "./variant-4/page"
 import { calculateDeposit } from "./_components/pricing-model"
 
 describe("deposit calculator", () => {
@@ -27,30 +24,57 @@ describe("deposit calculator", () => {
   })
 })
 
-describe("pricing page variants", () => {
-  it.each([
-    ["one fee", PricingPage, "One fee. Everything else stays simple."],
-    ["unlimited", PricingUnlimitedPage, "Unlimited means unlimited."],
-    ["receipt", PricingReceiptPage, "The whole price fits on one receipt."],
-    ["manifesto", PricingManifestoPage, "No plans."],
-  ])("renders the complete %s entry point", (_, Page, heading) => {
-    const html = renderToString(React.createElement(Page)).replaceAll(
+describe("pricing page", () => {
+  it("renders the manifesto and the complete included feature list", () => {
+    const html = renderToString(React.createElement(PricingPage)).replaceAll(
       "<!-- -->",
       ""
     )
 
-    expect(html).toContain(heading)
+    expect(html).toContain("Pay for agent work.")
+    expect(html).toContain("Not another subscription.")
+    expect(html).toContain("Add $100 in credits and pay $112 once")
     expect(html).toContain("Hivy deposit fee (12%)")
-    expect(html).toContain("Unlimited Agents")
-    expect(html).toContain("Unlimited Sessions")
-    expect(html).toContain("Unlimited Sandboxes")
-    expect(html).toContain("Unlimited Knowledge base storage")
-    expect(html).toContain("Hivy markup on agent costs")
+    expect(html).toContain('aria-label="Agent credit balance"')
+    expect(html).toContain("data-slider-origin")
+    expect(html).toContain("$0")
+    expect(html).not.toContain('aria-label="Select $0 deposit"')
+    expect(html).toContain('aria-label="Select $5 deposit"')
+    expect(html).toContain('aria-label="Select $500 deposit"')
+    expect(html).not.toContain('aria-label="Select $2 deposit"')
+    expect(html).toContain("transition-[width]")
+    expect(html).toContain(
+      "transition-[left,background-color,transform,box-shadow]"
+    )
+    expect(html).toContain("$11.20")
+    expect(html).not.toContain("Deposit presets")
+    expect(html).toContain("Unlimited users")
+    expect(html).toContain("Unlimited teams")
+    expect(html).toContain("Unlimited agents")
+    expect(html).toContain("Unlimited agent sessions")
+    expect(html).toContain("Unlimited sandboxes")
+    expect(html).toContain("Unlimited knowledge base storage")
+    expect(html).toContain("Unlimited knowledge sources")
+    expect(html).toContain("Unlimited connections")
+    expect(html).toContain("Access to every available model")
+    expect(html).toContain("Role-based access control")
+    expect(html).toContain("API and MCP access")
+    expect(html).not.toContain("Everything included")
+    expect(html).not.toContain("Build the whole company")
+    expect(html).not.toContain("No feature tiers")
+    expect(html).toContain("Hivy adds")
     expect(html).toContain("0%")
-    expect(html).toContain("Is there a monthly subscription?")
-    expect(html).not.toContain("Editable planning rates")
-    expect(html).not.toContain("Sandbox rate")
-    expect(html).not.toContain("Storage rate")
+    expect(html).toContain("Kept in your balance")
+    expect(html).toContain("Will Hivy charge me every month?")
+    expect(html).toContain('data-slot="accordion"')
+    expect(html).toContain('data-slot="accordion-panel"')
+    expect(html).toContain("pricing-faq-panel")
+    expect(html).toContain("pricing-faq-indicator")
+    expect(html).toContain("transition-[height,opacity]!")
+    expect(html).toContain("motion-reduce:transition-none!")
+    expect(html).toContain("Start free. Add $5 when you’re ready.")
+    expect(html).not.toContain("Pricing explorations")
     expect(html).not.toContain("10%")
+    expect(html).toContain("marketing-link-scope")
   })
 })

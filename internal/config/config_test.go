@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -34,6 +35,29 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("HIVY_FRONTEND_URL", "http://localhost:3000")
 	t.Setenv("HIVY_NANGO_WEBHOOKS_SECRET", "test-nango-webhook-secret")
 	t.Setenv("HIVY_PREVIEW_BASE_DOMAIN", "preview.usehivy.test")
+}
+
+func TestLoad_DefaultsSandboxIdleTimeoutTo15Seconds(t *testing.T) {
+	previous, existed := os.LookupEnv("HIVY_SANDBOX_IDLE_TIMEOUT")
+	if err := os.Unsetenv("HIVY_SANDBOX_IDLE_TIMEOUT"); err != nil {
+		t.Fatalf("unset HIVY_SANDBOX_IDLE_TIMEOUT: %v", err)
+	}
+	t.Cleanup(func() {
+		if existed {
+			_ = os.Setenv("HIVY_SANDBOX_IDLE_TIMEOUT", previous)
+		} else {
+			_ = os.Unsetenv("HIVY_SANDBOX_IDLE_TIMEOUT")
+		}
+	})
+	setRequiredEnv(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.SandboxIdleTimeout != 15*time.Second {
+		t.Fatalf("SandboxIdleTimeout = %s, want 15s", cfg.SandboxIdleTimeout)
+	}
 }
 
 // The Nango webhook signing secret must be required so the server fails to boot

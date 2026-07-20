@@ -120,8 +120,9 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 
 		// Auto-sleep: stops sandboxes whose sessions have been idle with no events
 		// for the idle threshold; they wake transparently on the next request.
+		autoSleepInterval := sandboxAutoSleepSweepInterval(cfg.SandboxIdleTimeout)
 		configs = append(configs, &asynq.PeriodicTaskConfig{
-			Cronspec: "@every 30s",
+			Cronspec: fmt.Sprintf("@every %s", autoSleepInterval),
 			Task:     asynq.NewTask(TypeSandboxAutoSleep, nil),
 			Opts: []asynq.Option{
 				asynq.Queue(QueuePeriodic),
@@ -182,6 +183,19 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 		configs = append(configs, ragSched.Configs()...)
 	}
 	return configs
+}
+
+func sandboxAutoSleepSweepInterval(idleTimeout time.Duration) time.Duration {
+	if idleTimeout <= 0 {
+		return 15 * time.Second
+	}
+	if idleTimeout < 5*time.Second {
+		return 5 * time.Second
+	}
+	if idleTimeout > 30*time.Second {
+		return 30 * time.Second
+	}
+	return idleTimeout
 }
 
 func sandboxPeriodicTasksConfigured(cfg *config.Config) bool {

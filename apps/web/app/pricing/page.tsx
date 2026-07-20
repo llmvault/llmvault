@@ -4,9 +4,9 @@ import { PricingPage } from "./_components/pricing-page"
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "No subscriptions or model markup. Pay one transparent 12% fee when you add credits.",
+    "Add agent credits with a one-time 12% fee. No subscription, seat charge, or markup on model and provider costs.",
 }
 
 export default function PricingPageRoute() {
-  return <PricingPage variant="plain" />
+  return <PricingPage />
 }

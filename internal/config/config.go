@@ -176,7 +176,7 @@ type Config struct {
 	S3SecretKey       string `env:"HIVY_AWS_SECRET_ACCESS_KEY"`
 
 	SandboxResourceCheckInterval time.Duration `env:"HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL" envDefault:"30m"`
-	SandboxIdleTimeout           time.Duration `env:"HIVY_SANDBOX_IDLE_TIMEOUT" envDefault:"5m"`
+	SandboxIdleTimeout           time.Duration `env:"HIVY_SANDBOX_IDLE_TIMEOUT" envDefault:"15s"`
 	AgentScheduleScanInterval    time.Duration `env:"HIVY_AGENT_SCHEDULE_SCAN_INTERVAL" envDefault:"5s"`
 	PreviewActivityToken         string        `env:"HIVY_PREVIEW_ACTIVITY_TOKEN"`
 

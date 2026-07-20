@@ -20,9 +20,9 @@ const cgroupResourceCommand = `cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memo
 // SetAutoStop disables or sets the platform's auto-stop interval. The
 // high-level pkg/daytona SDK only exposes auto-stop at create-time, so we
 // reach into api-client-go for the post-create setter.
-func (d *Driver) SetAutoStop(ctx context.Context, externalID string, intervalMinutes int) error {
+func (d *Driver) SetAutoStop(ctx context.Context, externalID string, idleTimeout time.Duration) error {
 	_, _, err := d.apiClient.SandboxAPI.
-		SetAutostopInterval(d.authCtx(ctx), externalID, float32(intervalMinutes)).
+		SetAutostopInterval(d.authCtx(ctx), externalID, float32(idleTimeout.Minutes())).
 		Execute()
 	if err != nil {
 		return fmt.Errorf("setting auto-stop on sandbox %s: %w", externalID, err)
