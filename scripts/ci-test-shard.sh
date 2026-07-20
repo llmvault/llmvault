@@ -101,7 +101,7 @@ internal_core_shard_packages() {
     5) select_internal_core_packages agentruntime agentprompts sandboxruntime runtimestream ;;
     6) select_internal_core_packages sandbox sandbox/daytona sandbox/docker ;;
     7) select_internal_core_packages connectionname mcp mcp/catalog mcpserver mcpservers skills resources providergroups ;;
-    8) select_internal_core_packages agents agentsandbox apps ;;
+    8) select_internal_core_packages agents agentsandbox apps orgtier ;;
     9) select_internal_core_packages model registry db migrations testdb counter memory ;;
     10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider firecrawl serper webcrawl enqueue email ;;
     11) select_internal_core_packages evals observability/sentry observe sheets ;;
