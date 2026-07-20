@@ -467,39 +467,3 @@ jobs:
           dashed_version="${version//./-}"
           go run ./cmd/verify-devbox -snapshot "hivy-sandboxes-runtime-daytona-${dashed_version}-small-v1"
           go run ./cmd/verify-devbox -snapshot "hivy-sandboxes-runtime-developers-daytona-${dashed_version}-small-v1"
-
-  update-railway-runtime-config:
-    name: update Railway runtime config
-    runs-on: ubuntu-latest
-    if: needs.prepare.outputs.prerelease != 'true'
-    needs:
-      - prepare
-      - release-manifest
-      - publish-daytona-snapshots
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.tag }}
-
-      - name: download manifest
-        uses: actions/download-artifact@v4
-        with:
-          name: release-manifest
-
-      - name: install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: update Railway runtime config
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_ENVIRONMENT: production
-          RAILWAY_SERVICES: "api.usehivy.com asynq.usehivy.com"
-          HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX: amd64
-          HIVY_SANDBOX_PROVIDER_ID: daytona
-          HIVY_DAYTONA_API_KEY: ${{ secrets.HIVY_DAYTONA_API_KEY }}
-          HIVY_DAYTONA_API_URL: ${{ vars.HIVY_DAYTONA_API_URL }}
-          HIVY_DAYTONA_TARGET: ${{ vars.HIVY_DAYTONA_TARGET }}
-          HIVY_DAYTONA_MAX_CPU: ${{ vars.HIVY_DAYTONA_MAX_CPU }}
-          HIVY_DAYTONA_MAX_MEMORY_GB: ${{ vars.HIVY_DAYTONA_MAX_MEMORY_GB }}
-          HIVY_DAYTONA_MAX_DISK_GB: ${{ vars.HIVY_DAYTONA_MAX_DISK_GB }}
-        run: ./scripts/release/update-railway-runtime-config.sh release-manifest.json
