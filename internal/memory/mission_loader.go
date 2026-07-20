@@ -22,7 +22,7 @@ func AgentMission(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (s
 		Model(&model.Agent{}).
 		Joins("LEFT JOIN agent_catalog ON agent_catalog.id = agents.agent_catalog_id").
 		Select("agents.memory_mission", "COALESCE(agent_catalog.category, '') AS category").
-		Where("id = ? AND org_id = ?", agentID, orgID).
+		Where("agents.id = ? AND agents.org_id = ?", agentID, orgID).
 		Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil
