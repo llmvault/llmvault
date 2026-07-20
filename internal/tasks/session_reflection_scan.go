@@ -69,6 +69,13 @@ JOIN LATERAL (
 LEFT JOIN session_reflection_states st ON st.session_id = s.id
 WHERE s.status = 'active'
 	AND s.agent_turn_status = 'idle'
+	AND (
+		SELECT count(*)
+		FROM session_events message_events
+		WHERE message_events.session_id = s.id
+			AND message_events.event_type IN ?
+			AND (message_events.durability = 'durable' OR message_events.durability = '')
+	) >= ?
 	AND latest.event_at <= ?
 	AND (st.locked_until IS NULL OR st.locked_until <= ?)
 	AND (
@@ -78,7 +85,7 @@ WHERE s.status = 'active'
 		OR (latest.event_at = st.last_reflected_event_at AND latest.id > st.last_reflected_event_id)
 	)
 ORDER BY latest.event_at ASC
-LIMIT ?`, now.Add(-sessionReflectionIdleDelay), now, limit).Scan(&rows).Error
+LIMIT ?`, sessionReflectionMessageEventTypes, sessionReflectionMinimumMessages, now.Add(-sessionReflectionIdleDelay), now, limit).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("scan reflection-eligible sessions: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,12 +20,14 @@ import (
 )
 
 type Server struct {
-	cfg      config.Config
-	backend  Backend
-	runnerID string
-	token    string
-	tokenMu  sync.RWMutex
-	http     *http.Client
+	cfg                config.Config
+	backend            Backend
+	runnerID           string
+	token              string
+	tokenMu            sync.RWMutex
+	http               *http.Client
+	pressure           *hostPressureSampler
+	startingOperations atomic.Int64
 }
 
 func NewServer(ctx context.Context, cfg config.Config) (*Server, error) {
@@ -39,7 +42,10 @@ func NewServer(ctx context.Context, cfg config.Config) (*Server, error) {
 		}
 		backend = msb
 	}
-	return &Server{cfg: cfg, backend: backend, http: &http.Client{Timeout: 2 * time.Minute}}, nil
+	return &Server{
+		cfg: cfg, backend: backend, http: &http.Client{Timeout: 2 * time.Minute},
+		pressure: newHostPressureSampler(),
+	}, nil
 }
 
 func (s *Server) Routes() http.Handler {
@@ -148,7 +154,13 @@ func (s *Server) heartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	status["pressure"] = s.pressure.Sample(int(s.startingOperations.Load()))
 	return s.postControl(ctx, "/v1/runners/"+runnerID+"/heartbeat", token, status, nil)
+}
+
+func (s *Server) trackStartingOperation() func() {
+	s.startingOperations.Add(1)
+	return func() { s.startingOperations.Add(-1) }
 }
 
 func (s *Server) postControl(ctx context.Context, path, token string, in, out any) error {

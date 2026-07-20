@@ -15,7 +15,7 @@ func TestSelectRunnerUsesLowestNormalizedActiveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
 		t.Fatal(err)
 	}
 	runners := []model.Runner{
@@ -40,12 +40,50 @@ func TestSelectRunnerUsesLowestNormalizedActiveLoad(t *testing.T) {
 	}
 }
 
+func TestSelectRunnerPrefersLowerReportedPressure(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:scheduler-pressure?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
+		t.Fatal(err)
+	}
+	runners := []model.Runner{
+		{
+			ID: "busy", Name: "busy", APIURL: "http://busy", AuthTokenHash: []byte("hash"),
+			Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200,
+			CPUUtilization: 98, Load1: 20, RunnableProcesses: 30, StartingOperations: 8,
+		},
+		{
+			ID: "quiet", Name: "quiet", APIURL: "http://quiet", AuthTokenHash: []byte("hash"),
+			Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200,
+			CPUUtilization: 20, Load1: 1, RunnableProcesses: 2,
+		},
+	}
+	if err := db.Create(&runners).Error; err != nil {
+		t.Fatal(err)
+	}
+	err = db.Transaction(func(tx *gorm.DB) error {
+		selected, err := selectRunnerForUpdate(tx, api.Size{CPU: 1, MemoryMB: 1024, DiskGB: 5})
+		if err != nil {
+			return err
+		}
+		if selected.ID != "quiet" {
+			t.Fatalf("selected runner=%q want quiet", selected.ID)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSelectRunnerSpreadsActiveReservationsAcrossHealthyRunners(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:scheduler-spread?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
 		t.Fatal(err)
 	}
 	runners := []model.Runner{
@@ -77,12 +115,48 @@ func TestSelectRunnerSpreadsActiveReservationsAcrossHealthyRunners(t *testing.T)
 	}
 }
 
+func TestSelectRunnerAccountsForInFlightCreatesImmediately(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:scheduler-inflight?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
+		t.Fatal(err)
+	}
+	runners := []model.Runner{
+		{ID: "runner-a", Name: "runner-a", APIURL: "http://runner-a", AuthTokenHash: []byte("hash"), Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200},
+		{ID: "runner-b", Name: "runner-b", APIURL: "http://runner-b", AuthTokenHash: []byte("hash"), Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200},
+	}
+	if err := db.Create(&runners).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Sandbox{
+		ID: "sbx-inflight", OrgID: "org-test", RunnerID: "runner-a", Name: "inflight",
+		ImageRef: "image:test", Status: model.SandboxStatusCreating, CPU: 1, MemoryMB: 1024, DiskGB: 5,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	err = db.Transaction(func(tx *gorm.DB) error {
+		selected, err := selectRunnerForUpdate(tx, api.Size{CPU: 1, MemoryMB: 1024, DiskGB: 5})
+		if err != nil {
+			return err
+		}
+		if selected.ID != "runner-b" {
+			t.Fatalf("selected runner=%q want runner-b", selected.ID)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSelectRunnerRejectsInsufficientCapacity(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:scheduler-insufficient?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
 		t.Fatal(err)
 	}
 	runner := model.Runner{ID: "full", Name: "full", APIURL: "http://full", AuthTokenHash: []byte("hash"), Status: model.RunnerStatusHealthy, TotalCPU: 2, TotalMemoryMB: 2048, TotalDiskGB: 20, CPUOvercommit: 1}
@@ -103,7 +177,7 @@ func TestSelectRunnerUsesMemoryAndDiskOvercommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
 		t.Fatal(err)
 	}
 	runners := []model.Runner{
@@ -157,7 +231,7 @@ func TestReleaseRunnerUsesCurrentReservedCapacity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+	if err := db.AutoMigrate(&model.Runner{}, &model.Sandbox{}); err != nil {
 		t.Fatal(err)
 	}
 	runner := model.Runner{

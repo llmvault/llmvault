@@ -78,7 +78,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSandboxReap, NewSandboxReapHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
-		mux.HandleFunc(TypeSandboxAutoSleep, NewSandboxAutoSleepHandler(deps.DB, deps.Orchestrator, deps.SandboxIdleTimeout).Handle)
+		if deps.Enqueuer != nil {
+			mux.HandleFunc(TypeSandboxAutoSleep, NewSandboxAutoSleepHandler(deps.DB, deps.Enqueuer, deps.SandboxIdleTimeout).Handle)
+			mux.HandleFunc(TypeSandboxSleep, NewSandboxSleepHandler(deps.DB, deps.Orchestrator, deps.SandboxIdleTimeout).Handle)
+		}
 		mux.HandleFunc(TypeSandboxReconcile, NewSandboxReconcileHandler(deps.DB, deps.Orchestrator).Handle)
 		// Tears down a single session's sandbox after the session is archived.
 		mux.HandleFunc(TypeSandboxDelete, NewSandboxDeleteHandler(deps.DB, deps.Orchestrator).Handle)

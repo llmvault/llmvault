@@ -12,7 +12,45 @@ import (
 
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
+	"github.com/usehivy/hivy/internal/microsandbox/security"
 )
+
+func TestRunnerHeartbeatPersistsPressure(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:runner-heartbeat-pressure?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Runner{
+		ID: "runner-pressure", Name: "runner-pressure", APIURL: "http://runner", PreviewBaseURL: "http://runner",
+		AuthTokenHash: security.HashToken("runner-token"), Status: model.RunnerStatusHealthy,
+		TotalCPU: 16, TotalMemoryMB: 32768, TotalDiskGB: 500,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{db: db, cfg: config.Config{}}
+	req := httptest.NewRequest(http.MethodPost, "/v1/runners/runner-pressure/heartbeat", strings.NewReader(`{
+		"running_sandboxes": 41,
+		"pressure": {"cpu_utilization": 92.5, "load_1": 18.75, "runnable_processes": 27, "starting_operations": 9}
+	}`))
+	req.Header.Set("Authorization", "Bearer runner-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("heartbeat status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-pressure").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.CPUUtilization != 92.5 || runner.Load1 != 18.75 || runner.RunnableProcesses != 27 ||
+		runner.StartingOperations != 9 || runner.ReportedRunningSandboxes != 41 {
+		t.Fatalf("stored pressure=%+v", runner)
+	}
+}
 
 func TestRegisterRunnerPersistsMemoryAndDiskOvercommit(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:runner-registration-overcommit?mode=memory&cache=shared"), &gorm.Config{})

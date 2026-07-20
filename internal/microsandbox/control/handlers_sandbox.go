@@ -2,6 +2,7 @@ package control
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -144,6 +145,13 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		return tx.Create(&sb).Error
 	})
 	if err != nil {
+		if errors.Is(err, errNoRunnerCapacity) {
+			w.Header().Set("Retry-After", "5")
+			httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{
+				Error: "sandbox capacity is temporarily exhausted", Code: "capacity_exhausted", RetryAfterSeconds: 5,
+			})
+			return
+		}
 		httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: err.Error()})
 		return
 	}

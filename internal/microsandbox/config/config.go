@@ -75,7 +75,7 @@ func Load() Config {
 		PreviewCacheURL:             strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_URL"), "/"),
 		PreviewCacheToken:           os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN"),
 		PreviewCacheSync:            duration("HIVY_MICROSANDBOX_PREVIEW_CACHE_SYNC_INTERVAL", time.Minute),
-		HeartbeatInterval:           duration("HIVY_MICROSANDBOX_HEARTBEAT_INTERVAL", time.Minute),
+		HeartbeatInterval:           duration("HIVY_MICROSANDBOX_HEARTBEAT_INTERVAL", 5*time.Second),
 		RunnerUnhealthyAfter:        duration("HIVY_MICROSANDBOX_RUNNER_UNHEALTHY_AFTER", 3*time.Minute),
 		RunnerCheckInterval:         duration("HIVY_MICROSANDBOX_RUNNER_CHECK_INTERVAL", 5*time.Minute),
 		ControlURL:                  strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_CONTROL_URL"), "/"),

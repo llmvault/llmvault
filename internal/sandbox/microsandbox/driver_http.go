@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -104,6 +105,10 @@ func (d *Driver) do(ctx context.Context, method, path string, in, out any) error
 	}
 	if resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		var apiErr msbapi.ErrorResponse
+		if json.Unmarshal(data, &apiErr) == nil && resp.StatusCode == http.StatusServiceUnavailable && apiErr.Code == "capacity_exhausted" {
+			return fmt.Errorf("%w: %s", sandbox.ErrCapacityExhausted, strings.TrimSpace(apiErr.Error))
+		}
 		return fmt.Errorf("microsandbox returned %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
 	}
 	if out != nil {

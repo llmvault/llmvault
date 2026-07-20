@@ -99,6 +99,8 @@ sandboxes/runtime/db-todos.txt
 
 # Local Python virtualenvs
 venv/
+__pycache__/
+*.py[cod]
 
 # pnpm store cache inside the web app
 apps/web/.pnpm-store/

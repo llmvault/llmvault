@@ -165,11 +165,31 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		ShutdownTimeout: cfg.AsynqShutdownTimeout,
 		ErrorHandler:    sentryobs.AsynqErrorHandler(),
 	})
+	lifecycleConcurrency := cfg.SandboxSleepConcurrency
+	if lifecycleConcurrency <= 0 {
+		lifecycleConcurrency = 100
+	}
+	lifecycleSrv := asynq.NewServer(redisOpt, asynq.Config{
+		Concurrency: lifecycleConcurrency,
+		Queues: map[string]int{
+			tasks.QueueSandboxLifecycle: 1,
+		},
+		Logger:          newAsynqLogger(),
+		ShutdownTimeout: cfg.AsynqShutdownTimeout,
+		ErrorHandler:    sentryobs.AsynqErrorHandler(),
+	})
 
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 2)
 	goroutine.Go(ctx, func(ctx context.Context) {
 		slog.Info("asynq worker starting", "concurrency", cfg.AsynqConcurrency)
 		if err := srv.Run(mux); err != nil {
+			sentryobs.CaptureAsynqServerError(ctx, err)
+			errCh <- err
+		}
+	})
+	goroutine.Go(ctx, func(ctx context.Context) {
+		slog.Info("sandbox lifecycle worker starting", "concurrency", lifecycleConcurrency)
+		if err := lifecycleSrv.Run(mux); err != nil {
 			sentryobs.CaptureAsynqServerError(ctx, err)
 			errCh <- err
 		}
@@ -257,10 +277,11 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		})
 	}
 
+	var runErr error
 	select {
 	case <-ctx.Done():
 	case err := <-errCh:
-		return err
+		runErr = err
 	}
 
 	slog.Info("worker shutting down")
@@ -275,6 +296,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	defer cancel()
 
 	srv.Shutdown()
+	lifecycleSrv.Shutdown()
 
 	if err := healthSrv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("health server shutdown error", "error", err)
@@ -287,5 +309,5 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	}
 
 	slog.Info("worker shutdown complete")
-	return nil
+	return runErr
 }

@@ -180,9 +180,10 @@ type Config struct {
 	AgentScheduleScanInterval    time.Duration `env:"HIVY_AGENT_SCHEDULE_SCAN_INTERVAL" envDefault:"5s"`
 	PreviewActivityToken         string        `env:"HIVY_PREVIEW_ACTIVITY_TOKEN"`
 
-	WorkerHealthPort     int           `env:"HIVY_WORKER_HEALTH_PORT" envDefault:"8090"`
-	AsynqConcurrency     int           `env:"HIVY_ASYNQ_CONCURRENCY" envDefault:"30"`
-	AsynqShutdownTimeout time.Duration `env:"HIVY_ASYNQ_SHUTDOWN_TIMEOUT" envDefault:"120s"`
+	WorkerHealthPort        int           `env:"HIVY_WORKER_HEALTH_PORT" envDefault:"8090"`
+	AsynqConcurrency        int           `env:"HIVY_ASYNQ_CONCURRENCY" envDefault:"30"`
+	SandboxSleepConcurrency int           `env:"HIVY_SANDBOX_SLEEP_CONCURRENCY" envDefault:"100"`
+	AsynqShutdownTimeout    time.Duration `env:"HIVY_ASYNQ_SHUTDOWN_TIMEOUT" envDefault:"120s"`
 
 	// Asynqmon dashboard. It exposes every queued/archived task payload (customer
 	// messages, webhooks, emails), so it is disabled by default, requires

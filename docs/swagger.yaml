@@ -11743,6 +11743,10 @@ paths:
           description: Bad Gateway
           schema:
             $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
       summary: Create a session

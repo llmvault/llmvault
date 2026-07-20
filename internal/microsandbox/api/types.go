@@ -33,5 +33,17 @@ func PreviewPortCapacity(start, end, portsPerSandbox int) int {
 }
 
 type ErrorResponse struct {
-	Error string `json:"error"`
+	Error             string `json:"error"`
+	Code              string `json:"code,omitempty"`
+	RetryAfterSeconds int    `json:"retry_after_seconds,omitempty"`
+}
+
+// RunnerPressure is advisory telemetry reported by a runner. Scheduling may
+// use it to prefer a less busy healthy runner, but capacity correctness never
+// depends on these eventually consistent values.
+type RunnerPressure struct {
+	CPUUtilization     float64 `json:"cpu_utilization"`
+	Load1              float64 `json:"load_1"`
+	RunnableProcesses  int     `json:"runnable_processes"`
+	StartingOperations int     `json:"starting_operations"`
 }

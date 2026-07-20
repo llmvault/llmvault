@@ -3,26 +3,31 @@ package model
 import "time"
 
 type Runner struct {
-	ID               string  `gorm:"primaryKey"`
-	Name             string  `gorm:"not null;uniqueIndex"`
-	APIURL           string  `gorm:"not null"`
-	PreviewBaseURL   string  `gorm:"not null;default:''"`
-	AuthTokenHash    []byte  `gorm:"not null"`
-	Status           string  `gorm:"not null;index"`
-	Drain            bool    `gorm:"not null;default:false"`
-	TotalCPU         int     `gorm:"not null"`
-	TotalMemoryMB    int     `gorm:"not null"`
-	TotalDiskGB      int     `gorm:"not null"`
-	ReservedCPU      int     `gorm:"not null;default:0"`
-	ReservedMemoryMB int     `gorm:"not null;default:0"`
-	ReservedDiskGB   int     `gorm:"not null;default:0"`
-	CPUOvercommit    float64 `gorm:"not null;default:1.5"`
-	MemoryOvercommit float64 `gorm:"not null;default:1"`
-	DiskOvercommit   float64 `gorm:"not null;default:4"`
-	MetadataJSON     string  `gorm:"type:text;not null;default:'{}'"`
-	LastHeartbeatAt  *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                       string  `gorm:"primaryKey"`
+	Name                     string  `gorm:"not null;uniqueIndex"`
+	APIURL                   string  `gorm:"not null"`
+	PreviewBaseURL           string  `gorm:"not null;default:''"`
+	AuthTokenHash            []byte  `gorm:"not null"`
+	Status                   string  `gorm:"not null;index"`
+	Drain                    bool    `gorm:"not null;default:false"`
+	TotalCPU                 int     `gorm:"not null"`
+	TotalMemoryMB            int     `gorm:"not null"`
+	TotalDiskGB              int     `gorm:"not null"`
+	ReservedCPU              int     `gorm:"not null;default:0"`
+	ReservedMemoryMB         int     `gorm:"not null;default:0"`
+	ReservedDiskGB           int     `gorm:"not null;default:0"`
+	CPUUtilization           float64 `gorm:"not null;default:0"`
+	Load1                    float64 `gorm:"not null;default:0"`
+	RunnableProcesses        int     `gorm:"not null;default:0"`
+	StartingOperations       int     `gorm:"not null;default:0"`
+	ReportedRunningSandboxes int     `gorm:"not null;default:0"`
+	CPUOvercommit            float64 `gorm:"not null;default:1.5"`
+	MemoryOvercommit         float64 `gorm:"not null;default:1"`
+	DiskOvercommit           float64 `gorm:"not null;default:4"`
+	MetadataJSON             string  `gorm:"type:text;not null;default:'{}'"`
+	LastHeartbeatAt          *time.Time
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 type OrgPreviewSecret struct {

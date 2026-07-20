@@ -11,7 +11,19 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/runtimeevents"
 )
+
+const sessionReflectionMinimumMessages = 5
+
+var sessionReflectionMessageEventTypes = []string{
+	runtimeevents.EventUserMessageReceived,
+	runtimeevents.EventMessageReceived,
+	runtimeevents.EventFinal,
+	runtimeevents.EventResponseCompleted,
+	runtimeevents.EventQuestionRequested,
+	runtimeevents.EventQuestionAnswered,
+}
 
 func (h *SessionReflectionHandler) claim(ctx context.Context, sessionID uuid.UUID, now time.Time) (sessionReflectionClaim, error) {
 	if h == nil || h.db == nil || sessionID == uuid.Nil {
@@ -26,6 +38,14 @@ func (h *SessionReflectionHandler) claim(ctx context.Context, sessionID uuid.UUI
 				return nil
 			}
 			return fmt.Errorf("load reflection session: %w", err)
+		}
+		hasEnoughMessages, err := sessionHasMinimumReflectionMessages(tx, sessionID)
+		if err != nil {
+			return err
+		}
+		if !hasEnoughMessages {
+			out.Skip = true
+			return nil
 		}
 		latest, ok, err := loadLatestReflectableEvent(tx, sessionID)
 		if err != nil || !ok {
@@ -68,6 +88,19 @@ func (h *SessionReflectionHandler) claim(ctx context.Context, sessionID uuid.UUI
 		return nil
 	})
 	return out, err
+}
+
+func sessionHasMinimumReflectionMessages(db *gorm.DB, sessionID uuid.UUID) (bool, error) {
+	var count int64
+	err := db.Model(&model.SessionEvent{}).
+		Where("session_id = ?", sessionID).
+		Where("event_type IN ?", sessionReflectionMessageEventTypes).
+		Where("durability = ? OR durability = ''", "durable").
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("count reflection messages: %w", err)
+	}
+	return count >= sessionReflectionMinimumMessages, nil
 }
 
 // skipReflectionForSessionState gates the near-real-time idle loop: active

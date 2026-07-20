@@ -8,6 +8,7 @@ import (
 
 var ErrSandboxNotFound = errors.New("sandbox not found upstream")
 var ErrSandboxDraining = errors.New("sandbox is draining")
+var ErrCapacityExhausted = errors.New("sandbox capacity exhausted")
 
 const (
 	ProviderDaytona      = "daytona"

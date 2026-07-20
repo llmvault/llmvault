@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -19,7 +20,7 @@ func (s *Server) startSandbox(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stopSandbox(w http.ResponseWriter, r *http.Request) {
-	s.lifecycle(w, r, "stop", model.SandboxStatusStopped)
+	s.stopSandboxLifecycle(w, r)
 }
 
 func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextStatus string) {
@@ -41,8 +42,8 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
 		return
 	}
-	if nextStatus == model.SandboxStatusStopped {
-		s.stopSandboxLifecycle(w, r, sb, runner)
+	if sb.Status == model.SandboxStatusStopping {
+		httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "sandbox lifecycle operation is in progress"})
 		return
 	}
 	if nextStatus == model.SandboxStatusRunning && !runtimeReservationHeld(sb.Status) {
@@ -101,18 +102,56 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
 }
 
-func (s *Server) stopSandboxLifecycle(w http.ResponseWriter, r *http.Request, sb model.Sandbox, runner model.Runner) {
+func (s *Server) stopSandboxLifecycle(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if sb.Status != model.SandboxStatusStopping {
-		if err := s.db.WithContext(ctx).Model(&sb).Updates(map[string]any{
+	sandboxID := chi.URLParam(r, "sandboxID")
+	localUnlock := s.lifecycleLocks.Lock(sandboxID)
+	defer localUnlock()
+	// Stop fan-out deliberately does not hold a PostgreSQL advisory-lock
+	// connection across the runner network call. This compare-and-set is the
+	// distributed claim: exactly one control-plane replica transitions a running
+	// sandbox to stopping, while duplicates receive an in-progress response.
+	claim := s.db.WithContext(ctx).Model(&model.Sandbox{}).
+		Where("id = ? AND status = ?", sandboxID, model.SandboxStatusRunning).
+		Updates(map[string]any{
 			"status":           model.SandboxStatusStopping,
 			"route_generation": gorm.Expr("route_generation + 1"),
-		}).Error; err != nil {
-			httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to prepare sandbox stop"})
+		})
+	if claim.Error != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to prepare sandbox stop"})
+		return
+	}
+	if claim.RowsAffected == 0 {
+		var current model.Sandbox
+		if err := s.db.WithContext(ctx).First(&current, "id = ?", sandboxID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "sandbox not found"})
+				return
+			}
+			logging.FromContext(ctx).ErrorContext(ctx, "load sandbox after duplicate stop claim failed", "sandbox_id", sandboxID, "error", err)
+			httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load sandbox state"})
 			return
 		}
-		sb.Status = model.SandboxStatusStopping
-		sb.RouteGeneration++
+		switch current.Status {
+		case model.SandboxStatusStopped:
+			httpx.JSON(w, http.StatusOK, map[string]string{"status": current.Status})
+		case model.SandboxStatusStopping:
+			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "sandbox stop is already in progress"})
+		default:
+			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "sandbox cannot be stopped from status " + current.Status})
+		}
+		return
+	}
+
+	var sb model.Sandbox
+	if err := s.db.WithContext(ctx).First(&sb, "id = ?", sandboxID).Error; err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load sandbox after stop claim"})
+		return
+	}
+	var runner model.Runner
+	if err := s.db.WithContext(ctx).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "runner not found"})
+		return
 	}
 
 	var ports []model.SandboxPort

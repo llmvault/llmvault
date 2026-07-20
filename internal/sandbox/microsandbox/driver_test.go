@@ -3,6 +3,7 @@ package microsandbox
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,26 @@ import (
 	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
+
+func TestDriverPreservesCapacityExhaustedError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(msbapi.ErrorResponse{
+			Error: "sandbox capacity is temporarily exhausted", Code: "capacity_exhausted", RetryAfterSeconds: 5,
+		})
+	}))
+	defer server.Close()
+	driver, err := NewDriver(Config{ControlURL: server.URL, APIToken: "test-token", RuntimeImage: "image:test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = driver.CreateSandbox(t.Context(), sandbox.CreateSandboxOpts{
+		Name: "capacity-test", Labels: map[string]string{"org_id": "org-test"},
+	})
+	if !errors.Is(err, sandbox.ErrCapacityExhausted) {
+		t.Fatalf("error=%v want ErrCapacityExhausted", err)
+	}
+}
 
 func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	var createReq map[string]any

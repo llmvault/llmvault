@@ -1,6 +1,7 @@
 package control
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
 	"github.com/usehivy/hivy/internal/microsandbox/security"
@@ -97,8 +99,9 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 }
 
 type heartbeatRequest struct {
-	RunningSandboxes int            `json:"running_sandboxes"`
-	Capacity         runnerCapacity `json:"capacity"`
+	RunningSandboxes int                `json:"running_sandboxes"`
+	Capacity         runnerCapacity     `json:"capacity"`
+	Pressure         api.RunnerPressure `json:"pressure"`
 }
 
 func (s *Server) runnerHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -113,9 +116,25 @@ func (s *Server) runnerHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req heartbeatRequest
-	_ = httpx.Decode(r, &req)
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid heartbeat"})
+		return
+	}
 	now := time.Now()
-	updates := map[string]any{"status": model.RunnerStatusHealthy, "last_heartbeat_at": now}
+	pressureJSON, err := json.Marshal(req.Pressure)
+	if err != nil {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid runner pressure"})
+		return
+	}
+	updates := map[string]any{
+		"status": model.RunnerStatusHealthy, "last_heartbeat_at": now,
+		"reported_running_sandboxes": req.RunningSandboxes,
+		"cpu_utilization":            req.Pressure.CPUUtilization,
+		"load1":                      req.Pressure.Load1,
+		"runnable_processes":         req.Pressure.RunnableProcesses,
+		"starting_operations":        req.Pressure.StartingOperations,
+		"metadata_json":              string(pressureJSON),
+	}
 	if req.Capacity.CPU > 0 {
 		updates["total_cpu"] = req.Capacity.CPU
 		updates["total_memory_mb"] = req.Capacity.MemoryMB
@@ -124,7 +143,10 @@ func (s *Server) runnerHeartbeat(w http.ResponseWriter, r *http.Request) {
 		updates["memory_overcommit"] = defaultOvercommit(req.Capacity.MemoryOvercommit, defaultMemoryOvercommit)
 		updates["disk_overcommit"] = defaultOvercommit(req.Capacity.DiskOvercommit, defaultDiskOvercommit)
 	}
-	s.db.Model(&runner).Updates(updates)
+	if err := s.db.WithContext(r.Context()).Model(&runner).Updates(updates).Error; err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to update runner heartbeat"})
+		return
+	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

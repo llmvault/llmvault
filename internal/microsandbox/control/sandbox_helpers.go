@@ -35,12 +35,12 @@ var (
 
 func (s *Server) loadSandboxRunner(w http.ResponseWriter, r *http.Request) (model.Sandbox, model.Runner, bool) {
 	var sb model.Sandbox
-	if err := s.db.First(&sb, "id = ?", chi.URLParam(r, "sandboxID")).Error; err != nil {
+	if err := s.db.WithContext(r.Context()).First(&sb, "id = ?", chi.URLParam(r, "sandboxID")).Error; err != nil {
 		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "sandbox not found"})
 		return sb, model.Runner{}, false
 	}
 	var runner model.Runner
-	if err := s.db.First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+	if err := s.db.WithContext(r.Context()).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
 		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "runner not found"})
 		return sb, runner, false
 	}
@@ -116,8 +116,17 @@ func runnerCandidates(tx *gorm.DB, size api.Size) *gorm.DB {
 func runnerLoadOrder(size api.Size) clause.OrderBy {
 	cpuLoad := "((reserved_cpu + ?) * 1.0 / NULLIF(total_cpu * CASE WHEN cpu_overcommit > 0 THEN cpu_overcommit ELSE ? END, 0))"
 	memoryLoad := "((reserved_memory_mb + ?) * 1.0 / NULLIF(total_memory_mb * CASE WHEN memory_overcommit > 0 THEN memory_overcommit ELSE ? END, 0))"
+	hostLoad := "(load1 / NULLIF(total_cpu, 0))"
+	runningLoad := "(reported_running_sandboxes * 1.0 / NULLIF(total_cpu, 0))"
+	creatingLoad := "((SELECT COUNT(1) FROM microsandbox_sandboxes pressure_s WHERE pressure_s.runner_id = microsandbox_runners.id AND pressure_s.status = 'creating') * 1.0 / NULLIF(total_cpu, 0))"
+	reportedStartLoad := "(starting_operations * 1.0 / NULLIF(total_cpu, 0))"
+	startPressure := fmt.Sprintf("CASE WHEN %s >= %s THEN %s ELSE %s END", creatingLoad, reportedStartLoad, creatingLoad, reportedStartLoad)
+	busyPressure := fmt.Sprintf("CASE WHEN (cpu_utilization / 100.0) >= %s AND (cpu_utilization / 100.0) >= %s THEN (cpu_utilization / 100.0) WHEN %s >= %s THEN %s ELSE %s END", hostLoad, runningLoad, hostLoad, runningLoad, hostLoad, runningLoad)
+	hostPressure := fmt.Sprintf("(%s + %s)", busyPressure, startPressure)
 	return clause.OrderBy{Expression: clause.Expr{
-		SQL: fmt.Sprintf("CASE WHEN %s >= %s THEN %s ELSE %s END ASC, id ASC", cpuLoad, memoryLoad, cpuLoad, memoryLoad),
+		// Live pressure only changes preference. runnerCandidates remains the
+		// authoritative additive-capacity gate inside the row-lock transaction.
+		SQL: fmt.Sprintf("%s ASC, runnable_processes ASC, CASE WHEN %s >= %s THEN %s ELSE %s END ASC, id ASC", hostPressure, cpuLoad, memoryLoad, cpuLoad, memoryLoad),
 		Vars: []any{
 			size.CPU, defaultCPUOvercommit,
 			size.MemoryMB, defaultMemoryOvercommit,
@@ -285,11 +294,20 @@ func reserveRunnerReservationForSandboxTx(tx *gorm.DB, sb model.Sandbox, size ap
 }
 
 func releaseRunnerReservationForSandboxTx(tx *gorm.DB, sb model.Sandbox, size api.Size) error {
-	var runner model.Runner
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
-		return err
+	result := tx.Model(&model.Runner{}).
+		Where("id = ?", sb.RunnerID).
+		Updates(map[string]any{
+			"reserved_cpu":       gorm.Expr("CASE WHEN reserved_cpu > ? THEN reserved_cpu - ? ELSE 0 END", size.CPU, size.CPU),
+			"reserved_memory_mb": gorm.Expr("CASE WHEN reserved_memory_mb > ? THEN reserved_memory_mb - ? ELSE 0 END", size.MemoryMB, size.MemoryMB),
+			"reserved_disk_gb":   gorm.Expr("CASE WHEN reserved_disk_gb > ? THEN reserved_disk_gb - ? ELSE 0 END", size.DiskGB, size.DiskGB),
+		})
+	if result.Error != nil {
+		return result.Error
 	}
-	return releaseRunner(tx, &runner, size)
+	if result.RowsAffected != 1 {
+		return fmt.Errorf("runner %s not found", sb.RunnerID)
+	}
+	return nil
 }
 
 func (s *Server) previewURLs(sandboxID string, ports []model.SandboxPort) map[string]string {

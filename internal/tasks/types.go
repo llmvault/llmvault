@@ -35,6 +35,7 @@ const (
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
 	TypeSandboxMarkRunning        = "sandbox:mark_running"
+	TypeSandboxSleep              = "sandbox:sleep"
 	TypeSandboxDelete             = "sandbox:delete"
 	TypeSheetCSVImport            = "sheet:csv_import"
 
@@ -64,4 +65,7 @@ const (
 	QueueDefault  = "default"
 	QueueBulk     = "bulk"
 	QueuePeriodic = "periodic"
+	// QueueSandboxLifecycle is consumed by a dedicated high-concurrency worker
+	// so idle sandbox teardown cannot be serialized behind unrelated work.
+	QueueSandboxLifecycle = "sandbox_lifecycle"
 )

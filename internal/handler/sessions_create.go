@@ -13,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 // Create handles POST /v1/sessions.
@@ -29,6 +30,7 @@ import (
 // @Failure 404 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Failure 502 {object} errorResponse
+// @Failure 503 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/sessions [post]
 func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -107,6 +109,11 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
 		logging.Capture(ctx, err)
+		if errors.Is(err, sandbox.ErrCapacityExhausted) {
+			w.Header().Set("Retry-After", "5")
+			writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "Sandbox capacity is currently full. Please try again shortly."})
+			return
+		}
 		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to provision session sandbox"})
 		return
 	}
