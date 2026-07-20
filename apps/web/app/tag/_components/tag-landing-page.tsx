@@ -6,13 +6,12 @@ import {
   LandingHero,
 } from "../../home/_components/landing-shared"
 import {
-  SlackMemoryPreview,
   SlackReactionMockup,
-  TeamTagUseCases,
   SlackThreadContinuityMockup,
   SlackWatchMockup,
   SlackWorkspaceMockup,
 } from "./slack-previews"
+import { SlackMemoryPreview, TeamTagUseCases } from "./slack-use-case-previews"
 
 const routingExamples = [
   { channel: "#product-support", agent: "Support agent", icon: "headset" },
