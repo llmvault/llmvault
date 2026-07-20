@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"strconv"
-	"time"
 
 	"github.com/hibiken/asynq"
 
@@ -211,62 +208,14 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		slog.Info("asynq scheduler started", "tasks", len(periodicConfigs))
 	}
 
-	healthMux := http.NewServeMux()
-	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok","service":"worker"}`))
-	})
-	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		sqlDB, err := deps.DB.DB()
-		if err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"status":"error","detail":"db connection failed"}`))
-			return
-		}
-		if err := sqlDB.Ping(); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"status":"error","detail":"db ping failed"}`))
-			return
-		}
-		if err := deps.Redis.Ping(r.Context()).Err(); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"status":"error","detail":"redis ping failed"}`))
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok","service":"worker"}`))
-	})
-
 	// The asynqmon dashboard exposes every queued/archived task payload (customer
 	// messages, webhooks, emails), so it is opt-in, basic-auth protected, and on its
 	// own port. ReadOnly only blocks mutations, not reads.
 	dashboardSrv := buildAsynqmonServer(ctx, cfg, redisOpt)
-
-	healthPort := cfg.WorkerHealthPort
-	if port := os.Getenv("PORT"); port != "" {
-		parsed, err := strconv.Atoi(port)
-		if err != nil {
-			return fmt.Errorf("parsing PORT for worker health server: %w", err)
-		}
-		healthPort = parsed
+	healthSrv, err := startWorkerHealthServer(ctx, deps)
+	if err != nil {
+		return err
 	}
-
-	healthSrv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", healthPort),
-		Handler:           healthMux,
-		ErrorLog:          sentryobs.NewStdlogBridge("worker_health_server"),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-	goroutine.Go(ctx, func(context.Context) {
-		slog.Info("worker health server starting", "port", healthPort)
-		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("worker health server error", "error", err)
-		}
-	})
 
 	if dashboardSrv != nil {
 		goroutine.Go(ctx, func(context.Context) {
